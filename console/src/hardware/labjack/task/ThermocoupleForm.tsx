@@ -78,7 +78,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceProps) => {
   );
 };
 
-interface ThermocoupleFormProps {
+export interface ThermocoupleFormProps {
   prefix: string;
   model: Device.ModelKey;
 }

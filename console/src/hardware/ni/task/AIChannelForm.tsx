@@ -7,44 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Align,
-  Divider,
-  Form,
-  Input,
-  type List,
-  Select,
-  state,
-} from "@synnaxlabs/pluto";
-import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
-import { type DialogFilter } from "@tauri-apps/plugin-dialog";
-import { type FC, type ReactElement, useRef } from "react";
-import { z } from "zod";
+import { Align, Divider, Form, type List } from "@synnaxlabs/pluto";
+import { type KeyedNamed } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
-import { FS } from "@/fs";
 import { Device } from "@/hardware/ni/device";
+import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
+import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
   type AccelSensitivityUnits,
   type AIChannelType,
   type ElectricalUnits,
   type ForceUnits,
   type PressureUnits,
-  type Scale,
-  SCALE_SCHEMAS,
-  type ScaleType,
   type ShuntResistorLoc,
   type TemperatureUnits,
   type TorqueUnits,
   type Units,
   type VelocitySensitivityUnits,
   type VelocityUnits,
-  ZERO_SCALES,
 } from "@/hardware/ni/task/types";
 
 export interface FormProps {
   prefix: string;
-  fieldKey?: string;
-  label?: string;
 }
 
 const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
@@ -166,25 +151,10 @@ const StrainConfig = Form.buildDropdownButtonSelectField({
   },
 });
 
-const MinValueField = Form.buildNumericField({
-  fieldKey: "minVal",
-  fieldProps: { label: "Minimum Value" },
-});
-const MaxValueField = Form.buildNumericField({
-  fieldKey: "maxVal",
-  fieldProps: { label: "Maximum Value" },
-});
 const SensitivityField = Form.buildNumericField({
   fieldKey: "sensitivity",
   fieldProps: { label: "Sensitivity" },
 });
-
-export const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
-  <Align.Space direction="x" grow>
-    <MinValueField path={path} grow />
-    <MaxValueField path={path} grow />
-  </Align.Space>
-);
 
 const ForceUnitsField = Form.buildDropdownButtonSelectField<
   ForceUnits,
@@ -335,173 +305,6 @@ const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   },
 });
 
-const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
-
-const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
-  linear: ({ prefix }) => (
-    <>
-      <Align.Space direction="x" grow>
-        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
-        <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
-      </Align.Space>
-      <Align.Space direction="x" grow>
-        <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
-        <Form.NumericField
-          fieldKey="yIntercept"
-          label="Y-Intercept"
-          path={prefix}
-          grow
-        />
-      </Align.Space>
-    </>
-  ),
-  map: ({ prefix }) => (
-    <>
-      <UnitsField fieldKey="preScaledUnits" path={prefix} />
-      <Align.Space direction="x" grow>
-        <Form.NumericField
-          fieldKey="preScaledMin"
-          label="Pre-Scaled Min"
-          path={prefix}
-          grow
-        />
-        <Form.NumericField
-          fieldKey="preScaledMax"
-          label="Pre-Scaled Max"
-          path={prefix}
-        />
-      </Align.Space>
-      <Align.Space direction="x" grow>
-        <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
-        <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
-      </Align.Space>
-    </>
-  ),
-  table: ({ prefix }) => {
-    const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
-    const [scaledCol, setScaledCol] = state.usePersisted<string>(
-      "Scaled",
-      `${prefix}.scaledCol`,
-    );
-    const [colOptions, setColOptions] = state.usePersisted<KeyedNamed<string>[]>(
-      [],
-      `${prefix}.colOptions`,
-    );
-    const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tableSchema = z.record(z.array(z.unknown()));
-    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
-    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
-    const currValueRef = useRef<Record<string, unknown[]>>({});
-
-    const updateValue = () => {
-      const value = currValueRef.current;
-      const preScaledValues = value[rawCol] as number[] | undefined;
-      const scaledValues = value[scaledCol] as number[] | undefined;
-      const hasScaled = scaledValues != null;
-      const hasPreScaled = preScaledValues != null;
-      if (hasScaled && hasPreScaled)
-        if (preScaledValues.length !== scaledValues.length)
-          preScaledField.setStatus({
-            variant: "error",
-            message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
-          });
-      if (hasPreScaled) preScaledField.onChange(preScaledValues);
-      if (hasScaled) scaledField.onChange(scaledValues);
-    };
-
-    const handleFileContentsChange = (
-      value: z.output<typeof tableSchema>,
-      path: string,
-    ) => {
-      setPath(path);
-      currValueRef.current = value;
-      const keys = Object.keys(value).filter(
-        (key) =>
-          Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
-      );
-      setColOptions(keys.map((key) => ({ key, name: key })));
-      if (keys.length > 0) setRawCol(keys[0]);
-      if (keys.length > 1) setScaledCol(keys[1]);
-      updateValue();
-    };
-
-    const handleRawColChange = (value: string) => {
-      setRawCol(value);
-      updateValue();
-    };
-
-    const handleScaledColChange = (value: string) => {
-      setScaledCol(value);
-      updateValue();
-    };
-
-    return (
-      <>
-        <UnitsField fieldKey="preScaledUnits" path={prefix} />
-        <Input.Item label="Table CSV" padHelpText>
-          <FS.InputFileContents<typeof tableSchema>
-            initialPath={path}
-            onChange={handleFileContentsChange}
-            filters={FILTERS}
-            decoder={binary.CSV_CODEC}
-          />
-        </Input.Item>
-        <Align.Space direction="x" grow>
-          <Input.Item label="Raw Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
-              value={rawCol}
-              onChange={handleRawColChange}
-              data={colOptions}
-            />
-          </Input.Item>
-          <Input.Item label="Scaled Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
-              value={scaledCol}
-              onChange={handleScaledColChange}
-              data={colOptions}
-            />
-          </Input.Item>
-        </Align.Space>
-      </>
-    );
-  },
-  none: () => <></>,
-};
-
-const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
-  ScaleType,
-  KeyedNamed<ScaleType>
->({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Custom Scaling",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>(path).value;
-      if (prevType === value) return;
-      const next = deep.copy(ZERO_SCALES[value]);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>(parentPath).value;
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-        type: next.type,
-      });
-    },
-  },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      { key: "linear", name: "Linear" },
-      { key: "map", name: "Map" },
-      { key: "table", name: "Table" },
-      { key: "none", name: "None" },
-    ],
-  },
-});
-
 const DevicePortCombo = ({ prefix }: FormProps): ReactElement => (
   <Align.Space direction="x" grow>
     <Device.Select path={`${prefix}.device`} />
@@ -509,23 +312,9 @@ const DevicePortCombo = ({ prefix }: FormProps): ReactElement => (
   </Align.Space>
 );
 
-export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
-  const path = `${prefix}.customScale`;
-  const type = Form.useFieldValue<ScaleType>(`${path}.type`);
-  const FormComponent = SCALE_FORMS[type];
-  return (
-    <>
-      <SelectCustomScaleTypeField path={path} />
-      <FormComponent prefix={path} />
-    </>
-  );
-};
-
 export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <TerminalConfigField path={prefix} grow />
       <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
@@ -563,8 +352,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_bridge: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <ElectricalUnitsField path={prefix} fieldKey="units" />
@@ -594,8 +381,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_current: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <TerminalConfigField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
@@ -614,8 +399,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_force_bridge_table: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -658,8 +441,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_force_bridge_two_point_lin: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <ForceUnitsField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -729,21 +510,13 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         entryRenderKey: "name",
         columns: NAMED_KEY_COLS,
         data: [
-          {
-            key: "mVoltsPerNewton",
-            name: "mV/N",
-          },
-          {
-            key: "mVoltsPerPound",
-            name: "mV/lb",
-          },
+          { key: "mVoltsPerNewton", name: "mV/N" },
+          { key: "mVoltsPerPound", name: "mV/lb" },
         ],
       },
     });
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
@@ -788,8 +561,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     });
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
@@ -826,7 +597,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   },
   ai_pressure_bridge_table: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
       <BridgeConfigField path={prefix} />
@@ -856,8 +626,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_pressure_bridge_two_point_lin: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -928,8 +696,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_resistance: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -971,8 +737,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     });
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x" grow>
@@ -1006,7 +770,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     });
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
           <StrainConfig path={prefix} grow />
@@ -1054,12 +817,7 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  ai_temp_builtin: ({ prefix }) => (
-    <>
-      <DevicePortCombo prefix={prefix} />
-      <TemperatureUnitsField path={prefix} />
-    </>
-  ),
+  ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
   ai_thermocouple: ({ prefix }) => {
     const CJCSourceField = Form.buildDropdownButtonSelectField({
       fieldKey: "cjcSource",
@@ -1077,8 +835,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
           <TemperatureUnitsField path={prefix} grow />
@@ -1098,8 +854,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   },
   ai_torque_bridge_table: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -1141,8 +895,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_torque_bridge_two_point_lin: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
@@ -1235,7 +987,6 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     });
     return (
       <>
-        <DevicePortCombo prefix={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <VelocityUnits path={prefix} />
@@ -1265,12 +1016,26 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   },
   ai_voltage: ({ prefix }) => (
     <>
-      <DevicePortCombo prefix={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
   ),
+};
+
+export interface AIChannelFormProps {
+  type: AIChannelType;
+  prefix: string;
+}
+
+export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
+  const Form = AI_CHANNEL_FORMS[type];
+  return (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Form prefix={prefix} />
+    </>
+  );
 };

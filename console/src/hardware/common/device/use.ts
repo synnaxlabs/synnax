@@ -13,9 +13,10 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-export type UseContextValue = z.ZodObject<{
-  config: z.ZodObject<{ device: z.ZodString }>;
-}>;
+export interface UseContextValue
+  extends z.ZodObject<{
+    config: z.ZodObject<{ device: z.ZodString }>;
+  }> {}
 
 export const use = <
   P extends UnknownRecord = UnknownRecord,

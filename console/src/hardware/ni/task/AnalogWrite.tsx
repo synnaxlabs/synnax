@@ -15,7 +15,7 @@ import { type FC, type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AO_CHANNEL_FORMS } from "@/hardware/ni/task/AOChannelForms";
+import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { findPort } from "@/hardware/ni/task/findPort";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
@@ -91,11 +91,10 @@ interface ChannelFormProps {
 
 const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
-  const TypeForm = AO_CHANNEL_FORMS[type];
   return (
     <>
       <SelectAOChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <TypeForm prefix={path} />
+      <AOChannelForm type={type} prefix={path} />
     </>
   );
 };

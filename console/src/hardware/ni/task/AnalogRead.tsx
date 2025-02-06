@@ -20,7 +20,7 @@ import { type FC, type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AI_CHANNEL_FORMS } from "@/hardware/ni/task/AIChannelForms";
+import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { findPort } from "@/hardware/ni/task/findPort";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
@@ -104,11 +104,10 @@ const ChannelListItem = ({
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps): ReactElement => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
-  const TypeForm = AI_CHANNEL_FORMS[type];
   return (
     <>
       <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <TypeForm prefix={path} />
+      <AIChannelForm type={type} prefix={path} />
     </>
   );
 };

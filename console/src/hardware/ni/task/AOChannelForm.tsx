@@ -12,11 +12,8 @@ import { Align, Button, Divider, Form, Select } from "@synnaxlabs/pluto";
 import { type Keyed } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import {
-  CustomScaleForm,
-  type FormProps,
-  MinMaxValueFields,
-} from "@/hardware/ni/task/AIChannelForms";
+import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
+import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import { type AOChannelType, type WaveType } from "@/hardware/ni/task/types";
 
 interface WaveTypeEntry extends Keyed<WaveType> {
@@ -67,11 +64,13 @@ const PortField = Form.buildNumericField({
   fieldProps: { label: "Port" },
 });
 
-export const AO_CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
+export interface FormProps {
+  prefix: string;
+}
+
+const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   ao_current: ({ prefix }) => (
     <>
-      <PortField path={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
@@ -79,27 +78,37 @@ export const AO_CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   ),
   ao_voltage: ({ prefix }) => (
     <>
-      <PortField path={prefix} />
-      <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
   ),
   ao_func_gen: ({ prefix }) => (
+    <Align.Space direction="y" align="center">
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${prefix}.frequency`} label="Frequency" grow />
+        <Form.NumericField path={`${prefix}.amplitude`} label="Amplitude" grow />
+        <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
+      </Align.Space>
+      <Form.Field<WaveType> path={`${prefix}.waveType`} showLabel={false}>
+        {SelectWaveType}
+      </Form.Field>
+    </Align.Space>
+  ),
+};
+
+export interface AOChannelFormProps {
+  type: AOChannelType;
+  prefix: string;
+}
+
+export const AOChannelForm = ({ type, prefix }: AOChannelFormProps) => {
+  const Form = CHANNEL_FORMS[type];
+  return (
     <>
       <PortField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
-      <Align.Space direction="y" align="center">
-        <Align.Space direction="x" grow>
-          <Form.NumericField path={`${prefix}.frequency`} label="Frequency" grow />
-          <Form.NumericField path={`${prefix}.amplitude`} label="Amplitude" grow />
-          <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
-        </Align.Space>
-        <Form.Field<WaveType> path={`${prefix}.waveType`} showLabel={false}>
-          {SelectWaveType}
-        </Form.Field>
-      </Align.Space>
+      <Form prefix={prefix} />
     </>
-  ),
+  );
 };

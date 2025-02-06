@@ -48,13 +48,13 @@ const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
   },
 });
 
-export interface FormProps {
+export interface CustomScaleFormProps {
   prefix: string;
   fieldKey?: string;
   label?: string;
 }
 
-const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
+const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   linear: ({ prefix }) => (
     <Align.Space direction="x" grow>
       <Form.NumericField path={`${prefix}.slope`} label="Slope" grow />
@@ -64,7 +64,9 @@ const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   none: () => <></>,
 };
 
-export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
+export const CustomScaleForm = ({
+  prefix,
+}: CustomScaleFormProps): ReactElement | null => {
   const path = `${prefix}.scale`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   const scaleType = Form.useFieldValue<ScaleType>(`${path}.type`, true);
