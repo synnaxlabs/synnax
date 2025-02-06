@@ -32,7 +32,7 @@ func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
 
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
-func (k Key) IsValid() bool { return k.Rack().IsZero() && k.LocalKey() != 0 }
+func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
 	// Try to unmarshal as a number first.

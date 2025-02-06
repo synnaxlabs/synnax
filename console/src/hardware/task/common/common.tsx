@@ -375,7 +375,9 @@ export const useCreate = <
     ) => {
       if (client == null) return;
       const rack = await client.hardware.racks.retrieve(rackKey);
+      console.log(rack);
       const ot = await rack.createTask<C, D, T>(pld);
+      console.log(ot.key);
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: ot.key }));
       dispatch(Layout.setArgs({ key: layoutKey, args: { create: false } }));
       return ot;
