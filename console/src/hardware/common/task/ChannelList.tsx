@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Menu } from "@/components/menu";
 
@@ -18,124 +18,136 @@ export interface Channel {
   enabled: boolean;
 }
 
-export interface ChannelListItemProps<C extends Channel>
-  extends List.ItemProps<string, C> {
-  path: string;
-  isSnapshot: boolean;
-}
-
-export type ChannelListProps<C extends Channel> = Omit<
-  Align.SpaceProps,
-  "children" | "onSelect"
-> & {
-  children: (props: ChannelListItemProps<C>) => ReactElement;
-  header: ReactElement;
-  isSnapshot: boolean;
-  emptyContent: ReactElement;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
-  channels: C[];
-  onTare?: (keys: string[], channels: C[]) => void;
+interface ContextMenuProps<C extends Channel> {
   allowTare?: (keys: string[], channels: C[]) => boolean;
+  channels: C[];
+  isSnapshot: boolean;
+  keys: string[];
+  onSelect: (keys: string[], index: number) => void;
+  onTare?: (keys: string[], channels: C[]) => void;
   path: string;
   remove: (index: number | number[]) => void;
-  isDragging?: boolean;
+}
+
+const ContextMenu = <C extends Channel>({
+  allowTare,
+  channels,
+  isSnapshot,
+  keys,
+  onSelect,
+  onTare,
+  path,
+  remove,
+}: ContextMenuProps<C>): ReactElement | null => {
+  const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
+  const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
+  const handleRemove = () => {
+    remove(indices);
+    onSelect([], -1);
+  };
+  const { set } = Form.useContext();
+  const handleDisable = () =>
+    indices.forEach((index) => set(`${path}.${index}.enabled`, false));
+  const handleEnable = () =>
+    indices.forEach((index) => set(`${path}.${index}.enabled`, true));
+  const handleTare = useCallback(
+    () => onTare?.(keys, channels),
+    [onTare, keys, channels],
+  );
+  const handleSelect: Record<string, () => void> = {
+    remove: handleRemove,
+    disable: handleDisable,
+    enable: handleEnable,
+    tare: handleTare,
+  };
+  const canRemove = indices.length > 0;
+  const canDisable = indices.some((i) => channels[i].enabled);
+  const canEnable = indices.some((i) => !channels[i].enabled);
+  const canTare = allowTare?.(keys, channels) ?? false;
+  return (
+    <PMenu.Menu onChange={handleSelect} level="small">
+      {!isSnapshot && (
+        <>
+          {canRemove && (
+            <>
+              <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </PMenu.Item>
+              <PMenu.Divider />
+            </>
+          )}
+          {canDisable && (
+            <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+              Disable
+            </PMenu.Item>
+          )}
+          {canEnable && (
+            <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+              Enable
+            </PMenu.Item>
+          )}
+          {(canDisable || canEnable) && <PMenu.Divider />}
+          {canTare && (
+            <>
+              <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                Tare
+              </PMenu.Item>
+              <PMenu.Divider />
+            </>
+          )}
+        </>
+      )}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
+  );
 };
+
+export interface ChannelListItemProps<C extends Channel>
+  extends List.ItemProps<string, C> {
+  isSnapshot: boolean;
+  path: string;
+}
+
+export interface ChannelListProps<C extends Channel>
+  extends Omit<ContextMenuProps<C>, "keys">,
+    Pick<Align.SpaceProps, "onDragOver" | "onDrop"> {
+  children: (props: ChannelListItemProps<C>) => ReactElement;
+  emptyContent: ReactElement;
+  header: ReactElement;
+  isDragging?: boolean;
+  selected: string[];
+}
 
 export const ChannelList = <C extends Channel>({
   children: ListItem,
-  header,
-  isSnapshot,
   emptyContent,
-  onSelect,
-  onTare,
-  allowTare,
-  selected,
-  channels,
+  header,
   isDragging,
-  path,
-  remove,
+  onDragOver,
+  onDrop,
+  selected,
   ...rest
 }: ChannelListProps<C>): ReactElement => {
-  const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
-    const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
-    const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
-    const handleRemove = () => {
-      remove(indices);
-      onSelect([], -1);
-    };
-    const { set } = Form.useContext();
-    const handleDisable = () =>
-      indices.forEach((index) => set(`${path}.${index}.enabled`, false));
-    const handleEnable = () =>
-      indices.forEach((index) => set(`${path}.${index}.enabled`, true));
-    const handleSelect: Record<string, () => void> = {
-      remove: handleRemove,
-      disable: handleDisable,
-      enable: handleEnable,
-      tare: () => onTare?.(keys, channels),
-    };
-    const canRemove = indices.length > 0;
-    const canDisable = indices.some((i) => channels[i].enabled);
-    const canEnable = indices.some((i) => !channels[i].enabled);
-    const canTare = allowTare?.(keys, channels);
-    return (
-      <PMenu.Menu onChange={handleSelect} level="small">
-        {!isSnapshot && (
-          <>
-            {canRemove && (
-              <>
-                <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                  Remove
-                </PMenu.Item>
-                <PMenu.Divider />
-              </>
-            )}
-            {canDisable && (
-              <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
-                Disable
-              </PMenu.Item>
-            )}
-            {canEnable && (
-              <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
-                Enable
-              </PMenu.Item>
-            )}
-            {(canEnable || canDisable) && <PMenu.Divider />}
-            {canTare === true && (
-              <>
-                <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
-                  Tare
-                </PMenu.Item>
-                <PMenu.Divider />
-              </>
-            )}
-          </>
-        )}
-        <Menu.HardReloadItem />
-      </PMenu.Menu>
-    );
-  };
+  const { channels, isSnapshot, onSelect, path } = rest;
+  const handleChange = useCallback(
+    (keys: string[], { clickedIndex }: { clickedIndex: number | null }) =>
+      clickedIndex != null && onSelect(keys, clickedIndex),
+    [onSelect],
+  );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space direction="y" {...rest} empty grow>
+    <Align.Space empty grow onDragOver={onDragOver} onDrop={onDrop}>
       {header}
-      <PMenu.ContextMenu {...menuProps} menu={ContextMenu}>
+      <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} {...rest} />}>
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>
-            value={selected}
+            onChange={handleChange}
             replaceOnSingle
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
+            value={selected}
           >
             <List.Core<string, C>>
-              {(props) => (
-                <ListItem
-                  {...props}
-                  path={`${path}.${props.index}`}
-                  isSnapshot={isSnapshot}
-                />
+              {(p) => (
+                <ListItem {...p} isSnapshot={isSnapshot} path={`${path}.${p.index}`} />
               )}
             </List.Core>
           </List.Selector>
