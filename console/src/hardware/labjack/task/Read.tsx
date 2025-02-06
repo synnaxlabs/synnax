@@ -11,7 +11,7 @@ import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -56,7 +56,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...READ_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.SampleRate />
@@ -76,7 +76,7 @@ const ChannelListItem = ({
   onTare,
   isRunning,
   ...rest
-}: ChannelListItemProps): ReactElement => {
+}: ChannelListItemProps) => {
   const {
     entry: { channel, port, enabled, type },
   } = rest;
@@ -109,7 +109,7 @@ interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
   device: Device.Device;
 }
 
-const ChannelDetails = ({ path, device }: ChannelDetailsProps): ReactElement => {
+const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
   const channel = PForm.useFieldValue<ReadChannel>(path);
   const model = device.model;
   return (
@@ -162,7 +162,7 @@ const getOpenChannel = (
   channels: ReadChannel[],
   index: number,
   device: Device.Device,
-): ReadChannel | null => {
+) => {
   if (index === -1) return { ...deep.copy(ZERO_READ_CHANNEL), key: id.id() };
   const channelToCopy = channels[index];
   const preferredType = getPortTypeFromChannelType(channelToCopy.type);
@@ -192,12 +192,7 @@ interface ChannelsFormProps {
   isSnapshot: boolean;
 }
 
-const ChannelsForm = ({
-  device,
-  task,
-  isRunning,
-  isSnapshot,
-}: ChannelsFormProps): ReactElement => {
+const ChannelsForm = ({ device, task, isRunning, isSnapshot }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<ReadChannel>({
     task,
     isRunning,
@@ -252,7 +247,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: ReadConfig): Promise<ReadConfig> => {
+const onConfigure = async (client: Synnax, config: ReadConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)

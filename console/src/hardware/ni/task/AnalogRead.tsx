@@ -16,7 +16,7 @@ import {
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -52,7 +52,7 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...ANALOG_READ_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
     <Common.Task.Fields.StreamRate />
@@ -71,7 +71,7 @@ const ChannelListItem = ({
   onTare,
   isRunning,
   ...rest
-}: ChannelListItemProps): ReactElement => {
+}: ChannelListItemProps) => {
   const {
     entry: { channel, enabled, type, port },
   } = rest;
@@ -102,7 +102,7 @@ const ChannelListItem = ({
   );
 };
 
-const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps): ReactElement => {
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
   return (
     <>
@@ -112,7 +112,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps): ReactElemen
   );
 };
 
-const getNewChannel = (channels: AIChannel[], index: number): AIChannel =>
+const getNewChannel = (channels: AIChannel[], index: number) =>
   index === -1
     ? { ...deep.copy(ZERO_AI_CHANNEL), key: id.id() }
     : { ...deep.copy(channels[index]), port: findPort(channels), key: id.id() };
@@ -152,10 +152,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: AnalogReadConfig,
-): Promise<AnalogReadConfig> => {
+const onConfigure = async (client: Synnax, config: AnalogReadConfig) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   for (const devKey of devices) {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);

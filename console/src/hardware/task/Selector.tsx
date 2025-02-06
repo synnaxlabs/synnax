@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -35,4 +33,4 @@ const SelectorComponent = Layout.createSelectorComponent(SELECTABLES);
 export const Selector = ({
   text = "Select a Task Type",
   ...rest
-}: Layout.SelectorProps): ReactElement => <SelectorComponent text={text} {...rest} />;
+}: Layout.SelectorProps) => <SelectorComponent text={text} {...rest} />;

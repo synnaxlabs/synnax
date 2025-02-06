@@ -21,7 +21,7 @@ export const useCreate = <
   T extends string = string,
 >(
   layoutKey: string,
-): ((task: task.New<C, T>) => Promise<task.Task<C, D, T>>) => {
+) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   return useCallback(

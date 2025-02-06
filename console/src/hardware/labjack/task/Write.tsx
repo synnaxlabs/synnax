@@ -11,7 +11,7 @@ import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -45,7 +45,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.StateUpdateRate />
@@ -62,7 +62,7 @@ const ChannelListItem = ({
   isSnapshot,
   device,
   ...rest
-}: ChannelListItemProps): ReactElement => {
+}: ChannelListItemProps) => {
   const {
     entry,
     entry: { cmdKey, enabled, stateKey, type, port },
@@ -151,10 +151,7 @@ const ChannelListItem = ({
   );
 };
 
-const getOpenChannel = (
-  channels: WriteChannel[],
-  device: Device.Device,
-): WriteChannel | null => {
+const getOpenChannel = (channels: WriteChannel[], device: Device.Device) => {
   if (channels.length === 0) return { ...deep.copy(ZERO_WRITE_CHANNEL), key: id.id() };
   const last = channels[channels.length - 1];
   const backupType =
@@ -179,7 +176,7 @@ interface ChannelListProps {
   isSnapshot: boolean;
 }
 
-const ChannelList = ({ device, isSnapshot }: ChannelListProps): ReactElement => {
+const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   const generateChannel = useCallback(
     (channels: WriteChannel[]) => getOpenChannel(channels, device),
     [device],
@@ -217,10 +214,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: WriteConfig,
-): Promise<WriteConfig> => {
+const onConfigure = async (client: Synnax, config: WriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   let modified = false;
   let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);

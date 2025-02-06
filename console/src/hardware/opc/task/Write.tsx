@@ -10,7 +10,6 @@
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -41,7 +40,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.DataSaving />
@@ -63,11 +62,9 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: WriteConfig,
-): Promise<WriteConfig> => {
+const onConfigure = async (client: Synnax, config: WriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  dev.properties = Device.migrateProperties(dev.properties);
   let modified = false;
   const commandsToCreate: WriteChannelConfig[] = [];
   for (const channel of config.channels) {

@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 
 const PREFIX = "new-device-";
 
-export const useListenForChanges = (): void => {
+export const useListenForChanges = () => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
@@ -43,7 +42,5 @@ export const useListenForChanges = (): void => {
 
 const PREFIX_LENGTH = PREFIX.length;
 
-export const getKeyFromStatus = ({
-  key,
-}: Status.NotificationSpec): device.Key | null =>
+export const getKeyFromStatus = ({ key }: Status.NotificationSpec) =>
   key.startsWith(PREFIX) ? key.slice(PREFIX_LENGTH) : null;

@@ -9,7 +9,7 @@
 
 import { device, type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -35,7 +35,7 @@ const handleConfigure = ({
   selection: { resources },
   placeLayout,
   handleException,
-}: Ontology.TreeContextMenuProps): void => {
+}: Ontology.TreeContextMenuProps) => {
   const resource = resources[0];
   try {
     const make = makeZ.parse(resource.data?.make);
@@ -45,7 +45,7 @@ const handleConfigure = ({
   }
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Device" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
@@ -119,8 +119,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const icon = (resource: ontology.Resource): PIcon.Element =>
-  getIcon(getMake(resource.data?.make));
+const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.BASE_SERVICE,

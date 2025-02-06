@@ -31,7 +31,7 @@ export const ContextMenuItems = ({
   deviceConfigLayout,
   selection: { resources },
   taskContextMenuItemConfigs,
-}: ContextMenuItemsProps): ReactElement | null => {
+}: ContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;
   const key = resources[0].id.key;

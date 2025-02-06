@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
-export const DataSaving = (): ReactElement => (
+export const DataSaving = () => (
   <Form.SwitchField label="Data Saving" path="config.dataSaving" />
 );

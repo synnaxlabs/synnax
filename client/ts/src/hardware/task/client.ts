@@ -385,10 +385,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
-    StateObservable<D>
-  > {
-    return new framer.ObservableStreamer<State<D>>(
+  async openStateObserver(): Promise<StateObservable> {
+    return new framer.ObservableStreamer<State>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);
@@ -398,15 +396,13 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
           console.error(parse.error);
           return [null, false];
         }
-        return [parse.data as State<D>, true];
+        return [parse.data, true];
       },
     );
   }
 
-  async openCommandObserver<A extends UnknownRecord = UnknownRecord>(): Promise<
-    CommandObservable<A>
-  > {
-    return new framer.ObservableStreamer<Command<A>>(
+  async openCommandObserver(): Promise<CommandObservable> {
+    return new framer.ObservableStreamer<Command>(
       await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(COMMAND_CHANNEL_NAME);
@@ -416,7 +412,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
           console.error(parse.error);
           return [null, false];
         }
-        return [parse.data as Command<A>, true];
+        return [parse.data, true];
       },
     );
   }

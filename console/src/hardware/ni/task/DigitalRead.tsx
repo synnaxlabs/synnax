@@ -10,7 +10,7 @@
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -42,7 +42,7 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.SampleRate />
@@ -53,7 +53,7 @@ const Properties = (): ReactElement => (
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DIChannel> {}
 
-const ChannelListItem = (props: ChannelListItemProps): ReactElement => (
+const ChannelListItem = (props: ChannelListItemProps) => (
   <DigitalListItem {...props}>
     <Common.Task.ChannelName channel={props.entry.channel} defaultName="No Channel" />
   </DigitalListItem>
@@ -87,10 +87,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: DigitalReadConfig,
-): Promise<DigitalReadConfig> => {
+const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;

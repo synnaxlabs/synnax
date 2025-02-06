@@ -9,7 +9,6 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -23,9 +22,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     { itemKey: "opc.writeTask", label: "Create Write Task", layout: Task.WRITE_LAYOUT },
   ];
 
-export const ContextMenuItems = (
-  props: Ontology.TreeContextMenuProps,
-): ReactElement | null => {
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   const {
     selection: { resources },

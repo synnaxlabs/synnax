@@ -21,8 +21,7 @@ import { type Ontology } from "@/ontology";
 export const makeZ = z.enum([NI.Device.MAKE, LabJack.Device.MAKE, OPC.Device.MAKE]);
 export type Make = z.infer<typeof makeZ>;
 
-export const getMake = (make: unknown): Make | null =>
-  makeZ.safeParse(make).data ?? null;
+export const getMake = (make: unknown) => makeZ.safeParse(make).data ?? null;
 
 const MAKE_ICONS: Record<Make, PIcon.Element> = {
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
@@ -30,7 +29,7 @@ const MAKE_ICONS: Record<Make, PIcon.Element> = {
   [OPC.Device.MAKE]: <Icon.Logo.OPC />,
 };
 
-export const getIcon = (make: Make | null): PIcon.Element =>
+export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
 export const CONFIGURE_LAYOUTS: Record<Make, Omit<Layout.BaseState, "key">> = {
@@ -48,9 +47,7 @@ const CONTEXT_MENU_ITEMS: Record<
   [OPC.Device.MAKE]: OPC.DeviceServices.ContextMenuItems,
 };
 
-export const getContextMenuItems = (
-  make: unknown,
-): ((props: Ontology.TreeContextMenuProps) => ReactElement | null) | null => {
+export const getContextMenuItems = (make: unknown) => {
   const m = getMake(make);
   return m ? CONTEXT_MENU_ITEMS[m] : null;
 };

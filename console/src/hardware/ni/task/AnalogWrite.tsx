@@ -11,7 +11,7 @@ import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -47,7 +47,7 @@ export const ANALOG_WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...ANALOG_WRITE_LAYOUT, key }),
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.StateUpdateRate />
@@ -57,11 +57,7 @@ const Properties = (): ReactElement => (
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
 
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  ...rest
-}: ChannelListItemProps): ReactElement => {
+const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
     entry: { port, enabled, type },
   } = rest;
@@ -89,7 +85,7 @@ interface ChannelFormProps {
   path: string;
 }
 
-const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
+const ChannelForm = ({ path }: ChannelFormProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
   return (
     <>
@@ -128,10 +124,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: AnalogWriteConfig,
-): Promise<AnalogWriteConfig> => {
+const onConfigure = async (client: Synnax, config: AnalogWriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );

@@ -9,7 +9,7 @@
 
 import { Align, Form } from "@synnaxlabs/pluto";
 import { deep, type KeyedNamed } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import {
   type ChannelType,
@@ -64,9 +64,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   none: () => <></>,
 };
 
-export const CustomScaleForm = ({
-  prefix,
-}: CustomScaleFormProps): ReactElement | null => {
+export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.scale`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   const scaleType = Form.useFieldValue<ScaleType>(`${path}.type`, true);

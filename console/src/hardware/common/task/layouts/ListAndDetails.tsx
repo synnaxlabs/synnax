@@ -42,7 +42,7 @@ export const ListAndDetails = <C extends Channel>({
   initalChannels,
   generateChannel,
   ...rest
-}: ListAndDetailsProps<C>): ReactElement => {
+}: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>(
     initalChannels.length ? [initalChannels[0].key] : [],
   );

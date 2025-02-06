@@ -3,9 +3,8 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-interface TareableChannel {
+export interface TareableChannel {
   key: string;
-  enabled: boolean;
   channel: channel.Key;
 }
 
@@ -16,9 +15,9 @@ export interface UseTareProps<C extends TareableChannel> {
 }
 
 export type UseTareReturn<C extends TareableChannel> = [
-  (key: channel.Key) => void,
-  (keys: string[], channels: C[]) => boolean,
-  (keys: string[], channels: C[]) => void,
+  tare: (key: channel.Key) => void,
+  allowTare: (keys: string[], channels: C[]) => boolean,
+  handleTare: (keys: string[], channels: C[]) => void,
 ];
 
 export const useTare = <C extends TareableChannel>({

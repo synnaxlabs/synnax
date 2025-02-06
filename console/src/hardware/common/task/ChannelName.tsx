@@ -9,7 +9,6 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 export interface ChannelNameProps extends Omit<Text.TextProps, "level"> {
   level?: Text.TextProps["level"];
@@ -21,7 +20,7 @@ export const ChannelName = ({
   channel,
   defaultName = "No Channel",
   ...rest
-}: ChannelNameProps): ReactElement => {
+}: ChannelNameProps) => {
   const channelName = Channel.useName(channel, defaultName);
   return (
     <Text.Text

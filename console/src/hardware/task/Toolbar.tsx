@@ -26,7 +26,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
@@ -39,7 +39,7 @@ import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-const EmptyContent = (): ReactElement => {
+const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick: React.MouseEventHandler<HTMLParagraphElement> = () => {
     placeLayout(ZERO_SELECTOR_LAYOUT);
@@ -61,7 +61,7 @@ interface MutationVars {
   key: string;
 }
 
-const Content = (): ReactElement => {
+const Content = () => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);

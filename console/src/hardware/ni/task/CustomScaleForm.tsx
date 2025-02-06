@@ -10,7 +10,7 @@
 import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
-import { type FC, type ReactElement, useRef } from "react";
+import { type FC, useRef } from "react";
 import { z } from "zod";
 
 import { FS } from "@/fs";
@@ -237,7 +237,7 @@ const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
   },
 });
 
-export const CustomScaleForm = ({ prefix }: CustomScaleFormProps): ReactElement => {
+export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.customScale`;
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];

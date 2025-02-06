@@ -17,7 +17,7 @@ import {
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -87,13 +87,13 @@ const ChannelListItem = ({
   );
 };
 
-const Header = (): ReactElement => (
+const Header = () => (
   <PHeader.Header level="h4">
     <PHeader.Title weight={500}>Channels</PHeader.Title>
   </PHeader.Header>
 );
 
-const EmptyContent = (): ReactElement => (
+const EmptyContent = () => (
   <Align.Center>
     <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
@@ -115,7 +115,7 @@ const ChannelList = <C extends ChannelConfig>({
   device,
   children,
   ...rest
-}: ChannelListProps<C>): ReactElement => {
+}: ChannelListProps<C>) => {
   const { value, push, remove } = PForm.useFieldArray<C>({
     path: PATH,
     updateOnChildren: true,
@@ -188,7 +188,7 @@ export interface FormProps {
 export const Form = <C extends ChannelConfig>({
   isSnapshot,
   children = () => null,
-}: FormProps): ReactElement => (
+}: FormProps) => (
   <Common.Device.Provider<Device.Properties, Device.Make>
     canConfigure={!isSnapshot}
     configureLayout={Device.CONFIGURE_LAYOUT}

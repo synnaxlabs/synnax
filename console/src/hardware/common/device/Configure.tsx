@@ -23,7 +23,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -53,7 +53,7 @@ const Internal = <P extends UnknownRecord>({
   device: { name },
   onClose,
   zeroProperties,
-}: InternalProps<P>): ReactElement => {
+}: InternalProps<P>) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
@@ -185,7 +185,7 @@ export interface ConfigureProps<P extends UnknownRecord>
 export const Configure = <P extends UnknownRecord>({
   layoutKey,
   ...rest
-}: ConfigureProps<P>): ReactElement => {
+}: ConfigureProps<P>) => {
   const client = Synnax.use();
   const { data, error, isError, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],

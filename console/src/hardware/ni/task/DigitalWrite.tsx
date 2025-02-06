@@ -10,7 +10,7 @@
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -49,7 +49,7 @@ const generateChannel = (channels: DOChannel[]): DOChannel => {
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DOChannel> {}
 
-const ChannelListItem = (props: ChannelListItemProps): ReactElement => {
+const ChannelListItem = (props: ChannelListItemProps) => {
   const { cmdChannel, stateChannel } = props.entry;
   return (
     <DigitalListItem {...props}>
@@ -59,7 +59,7 @@ const ChannelListItem = (props: ChannelListItemProps): ReactElement => {
   );
 };
 
-const Properties = (): ReactElement => (
+const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.StateUpdateRate />
@@ -78,7 +78,7 @@ const TaskForm: FC<
   </Common.Task.Layouts.List>
 );
 
-const getDeviceKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
+const getDeviceKey = (chan: DOChannel) => `${chan.port}l${chan.line}`;
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalWriteConfig,
@@ -92,10 +92,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: DigitalWriteConfig,
-): Promise<DigitalWriteConfig> => {
+const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );

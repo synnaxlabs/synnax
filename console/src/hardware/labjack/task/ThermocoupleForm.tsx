@@ -9,7 +9,6 @@
 
 import { Align, Form, Select } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import { Device } from "@/hardware/labjack/device";
 import { type ChannelType, type TemperatureUnits } from "@/hardware/labjack/task/types";
@@ -83,10 +82,7 @@ export interface ThermocoupleFormProps {
   model: Device.Model;
 }
 
-export const ThermocoupleForm = ({
-  prefix,
-  model,
-}: ThermocoupleFormProps): ReactElement | null => {
+export const ThermocoupleForm = ({ prefix, model }: ThermocoupleFormProps) => {
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   if (channelType !== "TC") return null;
   return (

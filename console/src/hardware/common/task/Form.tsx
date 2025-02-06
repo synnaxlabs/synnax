@@ -33,7 +33,7 @@ import {
   type WrapOptions,
 } from "@/hardware/common/task/Task";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { useDesiredState } from "@/hardware/common/task/useDesiredState";
+import { useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
 
 type BaseStateDetails = { running: boolean };
@@ -86,7 +86,7 @@ export const wrapForm = <
     const values = { name: task.name, config: task.config };
     const methods = PForm.use<Schema<C>>({ schema, values });
     const create = useCreate<C, D, T>(layoutKey);
-    const [state, setState] = useDesiredState(task?.key, task?.state ?? undefined);
+    const [state, setState] = useState(task?.key, task?.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw new Error("Client not found");

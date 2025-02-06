@@ -38,7 +38,7 @@ const ContextMenu = <C extends Channel>({
   onTare,
   path,
   remove,
-}: ContextMenuProps<C>): ReactElement | null => {
+}: ContextMenuProps<C>) => {
   const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
   const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
   const handleRemove = () => {
@@ -127,7 +127,7 @@ export const ChannelList = <C extends Channel>({
   onDrop,
   selected,
   ...rest
-}: ChannelListProps<C>): ReactElement => {
+}: ChannelListProps<C>) => {
   const { channels, isSnapshot, onSelect, path } = rest;
   const handleChange = useCallback(
     (keys: string[], { clickedIndex }: { clickedIndex: number | null }) =>

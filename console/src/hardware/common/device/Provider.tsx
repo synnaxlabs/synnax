@@ -49,7 +49,7 @@ export const Provider = <
   children,
   configureLayout,
   noneSelectedElement = DEFAULT_NONE_SELECTED_ELEMENT,
-}: ProviderProps<P, MK, MO>): ReactElement => {
+}: ProviderProps<P, MK, MO>) => {
   const device = use<P, MK, MO>();
   const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedElement;

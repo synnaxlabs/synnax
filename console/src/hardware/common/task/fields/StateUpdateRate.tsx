@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
-export const StateUpdateRate = (): ReactElement => (
+export const StateUpdateRate = () => (
   <Form.NumericField
+    grow
+    inputProps={{ endContent: "Hz" }}
     label="State Update Rate"
     path="config.stateRate"
-    inputProps={{ endContent: "Hz" }}
-    grow
   />
 );

@@ -9,7 +9,6 @@
 
 import { Select } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import {
   AES128_SHA256_RSAOAEP_SECURITY_POLICY,
@@ -38,9 +37,7 @@ export interface SelectSecurityPolicyProps
     "data" | "entryRenderKey"
   > {}
 
-export const SelectSecurityPolicy = (
-  props: SelectSecurityPolicyProps,
-): ReactElement => (
+export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
   <Select.Button<SecurityPolicy, SecurityPolicyInfo>
     {...props}
     data={SECURITY_POLICIES}

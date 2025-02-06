@@ -12,7 +12,7 @@ import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type ReturnState } from "@/hardware/common/task/useDesiredState";
+import { type ReturnState } from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
 
 export interface ControlsProps {

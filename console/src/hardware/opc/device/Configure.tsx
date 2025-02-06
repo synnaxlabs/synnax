@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -77,12 +77,7 @@ interface InternalProps extends Layout.RendererProps {
   properties?: Properties;
 }
 
-const Internal = ({
-  initialValues,
-  layoutKey,
-  onClose,
-  properties,
-}: InternalProps): ReactElement => {
+const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
   const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
   const handleException = Status.useExceptionHandler();
@@ -240,7 +235,7 @@ const Internal = ({
   );
 };
 
-export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
+export const Configure: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
   const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
     queryKey: [layoutKey, client?.key],

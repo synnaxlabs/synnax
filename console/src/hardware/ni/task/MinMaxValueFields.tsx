@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 const MinValueField = Form.buildNumericField({
   fieldKey: "minVal",
@@ -24,7 +23,7 @@ export interface MinMaxValueFielsProps {
   path: string;
 }
 
-export const MinMaxValueFields = ({ path }: MinMaxValueFielsProps): ReactElement => (
+export const MinMaxValueFields = ({ path }: MinMaxValueFielsProps) => (
   <Align.Space direction="x" grow>
     <MinValueField path={path} grow />
     <MaxValueField path={path} grow />

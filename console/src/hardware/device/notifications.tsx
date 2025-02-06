@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Device } from "@/hardware/device";
 import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
@@ -35,7 +34,7 @@ interface ConfigureButtonProps {
   layout: Layout.BaseState;
 }
 
-const ConfigureButton = ({ layout }: ConfigureButtonProps): ReactElement => {
+const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   const placeLayout = Layout.usePlacer();
   return (
     <Button.Button variant="outlined" size="small" onClick={() => placeLayout(layout)}>

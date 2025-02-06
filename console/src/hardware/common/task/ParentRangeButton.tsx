@@ -10,7 +10,7 @@
 import { ontology, ranger, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { Layout } from "@/layout";
 import { Range } from "@/range";
@@ -19,9 +19,7 @@ export interface ParentRangeButtonProps {
   key?: task.Key;
 }
 
-export const ParentRangeButton = ({
-  key,
-}: ParentRangeButtonProps): ReactElement | null => {
+export const ParentRangeButton = ({ key }: ParentRangeButtonProps) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ontology.Resource>();

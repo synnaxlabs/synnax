@@ -65,7 +65,7 @@ const handleSelect: Ontology.HandleSelect = ({
   );
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
@@ -98,7 +98,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+const useRangeSnapshot = () =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ store, client, selection: { resources, parent } }) => {
       const activeRange = Range.selectActiveKey(store.getState());

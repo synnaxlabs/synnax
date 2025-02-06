@@ -46,7 +46,7 @@ export interface BrowserProps {
   device: Device;
 }
 
-export const Browser = ({ device }: BrowserProps): ReactElement => {
+export const Browser = ({ device }: BrowserProps) => {
   const client = Synnax.use();
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
   const { data: scanTask } = useQuery({

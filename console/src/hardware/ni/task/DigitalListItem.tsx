@@ -10,7 +10,7 @@
 import "@/hardware/ni/task/DigitalListItem.css";
 
 import { Align, Form, List, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -26,7 +26,7 @@ export const DigitalListItem = ({
   children,
   isSnapshot,
   ...rest
-}: DigitalListItemProps): ReactElement => {
+}: DigitalListItemProps) => {
   const { enabled } = rest.entry;
   const { set } = Form.useContext();
   return (

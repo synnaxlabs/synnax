@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
@@ -22,7 +22,7 @@ export const List = <C extends Channel>({
   children,
   isSnapshot,
   generateChannel,
-}: ListProps<C>): ReactElement => {
+}: ListProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
   return (
     <ChannelList<C>
