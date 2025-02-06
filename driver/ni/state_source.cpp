@@ -12,7 +12,6 @@
 #include "driver/ni/writer.h"
 
 namespace ni {
-
 template<typename T>
 StateSource<T>::StateSource(
     float state_rate,
@@ -39,7 +38,7 @@ std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(breaker::Breaker
 template<typename T>
 synnax::Frame StateSource<T>::get_state() {
     // frame size = # monitored states + 1 state index channel
-    auto frame_size =this->state_map.size() + 1;
+    auto frame_size = this->state_map.size() + 1;
     auto state_frame = synnax::Frame(frame_size);
     state_frame.add(
         this->state_index_key,
@@ -51,14 +50,14 @@ synnax::Frame StateSource<T>::get_state() {
 
     for (auto &[key, value]: this->state_map)
         state_frame.add(key, synnax::Series(value));
-    
-    return state_frame; 
+
+    return state_frame;
 }
 
 template<typename T>
 void StateSource<T>::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
- std::queue<T> &modified_state_values
+    std::queue<T> &modified_state_values
 ) {
     LOG(INFO) << "StateSource::update_state: updating state"; // REMOVE DEBUG
     std::unique_lock<std::mutex> lock(this->state_mutex);
@@ -73,7 +72,6 @@ void StateSource<T>::update_state(
 }
 
 ///@brief  Template instantiations to tell the compiler which versions to generate
-template class StateSource<uint8_t>;  // For DigitalStateSource
-template class StateSource<double>;   // For AnalogStateSource
-
-} // namespace ni 
+template class StateSource<uint8_t>; // For DigitalStateSource
+template class StateSource<double>; // For AnalogStateSource
+} // namespace ni

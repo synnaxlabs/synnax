@@ -27,7 +27,6 @@ ni::ScannerTask::ScannerTask(
     ctx(ctx),
     task(task),
     breaker(breaker::default_config(task.name)) {
-
     auto parser = config::Parser(task.config);
     bool enabled = parser.optional<bool>("enabled", true);
 
@@ -288,7 +287,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-   
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
 
@@ -360,5 +358,4 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         cmd_streamer_config,
         breaker::default_config(task.name)
     );
-
 }

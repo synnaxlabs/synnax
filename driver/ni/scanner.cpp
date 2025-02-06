@@ -19,8 +19,8 @@ ni::Scanner::Scanner(
     const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) : syscfg(syscfg), 
-    task(task), 
+) : syscfg(syscfg),
+    task(task),
     ctx(ctx) {
     NISysCfgStatus status = NISysCfg_OK;
     status = syscfg->InitializeSession(
@@ -48,16 +48,16 @@ ni::Scanner::Scanner(
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
     );
-//    this->syscfg->SetFilterProperty(
-//        this->filter,
-//        NISysCfgFilterPropertyIsPresent,
-//        NISysCfgIsPresentTypePresent
-//    );
-//    this->syscfg->SetFilterProperty(
-//        this->filter,
-//        NISysCfgFilterPropertyIsChassis,
-//        NISysCfgBoolFalse
-//    );
+    //    this->syscfg->SetFilterProperty(
+    //        this->filter,
+    //        NISysCfgFilterPropertyIsPresent,
+    //        NISysCfgIsPresentTypePresent
+    //    );
+    //    this->syscfg->SetFilterProperty(
+    //        this->filter,
+    //        NISysCfgFilterPropertyIsChassis,
+    //        NISysCfgBoolFalse
+    //    );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
 
@@ -95,7 +95,11 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
-        if(device["key"] != "" && device_keys.find(device["key"]) == device_keys.end()) {
+
+        if (
+            device["key"] != ""
+            && device_keys.find(device["key"]) == device_keys.end()
+        ) {
             device["failed_to_create"] = false;
             devices["devices"].push_back(device);
             device_keys.insert(device["key"]);

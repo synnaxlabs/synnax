@@ -57,7 +57,7 @@ struct WriterChannelConfig {
     ///@brief the line of the channel on NI device (for digital channels)
     std::string line;
     ///@brief the NI channel object (for analog channels)
-    std::shared_ptr<ni::Analog> ni_channel; 
+    std::shared_ptr<ni::Analog> ni_channel;
     ///@brief the type of the channel (for analog channels)
     std::string channel_type;
 

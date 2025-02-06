@@ -21,7 +21,6 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
-    //    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
                     ni::ReaderChannelConfig config;
@@ -100,27 +99,31 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         if (this->check_ni_error(
-            this->dmx->CfgSampClkTiming(
-                this->task_handle,
-                "",
-                this->reader_config.sample_rate.value,
-                DAQmx_Val_Rising,
-                DAQmx_Val_ContSamps,
-                this->reader_config.sample_rate.value
-            ))) {
+                this->dmx->CfgSampClkTiming(
+                    this->task_handle,
+                    "",
+                    this->reader_config.sample_rate.value,
+                    DAQmx_Val_Rising,
+                    DAQmx_Val_ContSamps,
+                    this->reader_config.sample_rate.value
+                )
+            )
+        ) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
     } else if (this->check_ni_error(
-        this->dmx->CfgSampClkTiming(
-            this->task_handle,
-            this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate.value,
-            DAQmx_Val_Rising,
-            DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate.value
-        ))) {
+            this->dmx->CfgSampClkTiming(
+                this->task_handle,
+                this->reader_config.timing_source.c_str(),
+                this->reader_config.sample_rate.value,
+                DAQmx_Val_Rising,
+                DAQmx_Val_ContSamps,
+                this->reader_config.sample_rate.value
+            )
+        )
+    ) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -144,15 +147,19 @@ void ni::AnalogReadSource::acquire_data() {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = synnax::TimeStamp::now().value;
-        if (this->check_ni_error(this->dmx->ReadAnalogF64(
-            this->task_handle,
-            this->num_samples_per_channel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data_packet.analog_data.data(),
-            data_packet.analog_data.size(),
-            &data_packet.samples_read_per_channel,
-            NULL))) {
+        if (this->check_ni_error(
+                this->dmx->ReadAnalogF64(
+                    this->task_handle,
+                    this->num_samples_per_channel,
+                    -1,
+                    DAQmx_Val_GroupByChannel,
+                    data_packet.analog_data.data(),
+                    data_packet.analog_data.size(),
+                    &data_packet.samples_read_per_channel,
+                    NULL
+                )
+            )
+        ) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
@@ -175,7 +182,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     // interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
-    // Construct and populate index channel
 
     size_t s = d.samples_read_per_channel; // TODO: Remove this why is this here
     // Construct and populate synnax frame

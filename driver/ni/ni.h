@@ -48,11 +48,14 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task) override;
+        const synnax::Task &task
+    ) override;
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
-                            const synnax::Rack &rack) override;
+    configure_initial_tasks(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Rack &rack
+    ) override;
 
 private:
     bool dlls_present = false;

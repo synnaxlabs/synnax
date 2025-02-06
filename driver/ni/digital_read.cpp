@@ -73,12 +73,16 @@ int ni::DigitalReadSource::configure_timing() {
         this->num_samples_per_channel = 1;
     } else {
         if (this->check_ni_error(
-            this->dmx->CfgSampClkTiming(this->task_handle,
-                                        this->reader_config.timing_source.c_str(),
-                                        this->reader_config.sample_rate.value,
-                                        DAQmx_Val_Rising,
-                                        DAQmx_Val_ContSamps,
-                                        this->reader_config.sample_rate.value))) {
+                this->dmx->CfgSampClkTiming(
+                    this->task_handle,
+                    this->reader_config.timing_source.c_str(),
+                    this->reader_config.sample_rate.value,
+                    DAQmx_Val_Rising,
+                    DAQmx_Val_ContSamps,
+                    this->reader_config.sample_rate.value
+                )
+            )
+        ) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
@@ -105,19 +109,23 @@ void ni::DigitalReadSource::acquire_data() {
         // sleep per sample rate
         this->sample_timer.wait();
         if (this->check_ni_error(
-            this->dmx->ReadDigitalLines(
-                this->task_handle,
-                this->num_samples_per_channel,
-                -1,
-                DAQmx_Val_GroupByChannel,
-                data_packet.digital_data.data(),
-                data_packet.digital_data.size(),
-                &data_packet.samples_read_per_channel,
-                &numBytesPerSamp,
-                NULL))) {
+                this->dmx->ReadDigitalLines(
+                    this->task_handle,
+                    this->num_samples_per_channel,
+                    -1,
+                    DAQmx_Val_GroupByChannel,
+                    data_packet.digital_data.data(),
+                    data_packet.digital_data.size(),
+                    &data_packet.samples_read_per_channel,
+                    &numBytesPerSamp,
+                    NULL
+                )
+            )
+        ) {
             this->log_error(
                 "failed while reading digital data for task " + this->reader_config.
-                task_name);
+                task_name
+            );
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);

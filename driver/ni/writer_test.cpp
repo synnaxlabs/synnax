@@ -34,7 +34,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     };
     auto client = std::make_shared<synnax::Synnax>(client_config);
 
-    auto [ack_idx, tErr1] = client->channels.create( 
+    auto [ack_idx, tErr1] = client->channels.create(
         "ao_state_idx",
         synnax::TIMESTAMP,
         0,
@@ -42,7 +42,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     );
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create( 
+    auto [cmd_idx, tErr2] = client->channels.create(
         "ao_cmd_idx",
         synnax::TIMESTAMP,
         0,
@@ -50,7 +50,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     );
     ASSERT_FALSE(tErr2) << tErr2.message();
 
-    auto [ack, aErr] = client->channels.create( 
+    auto [ack, aErr] = client->channels.create(
         "ao_state",
         synnax::FLOAT64,
         ack_idx.key,
@@ -58,7 +58,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     );
     ASSERT_FALSE(aErr) << aErr.message();
 
-    auto [cmd, cErr] = client->channels.create( 
+    auto [cmd, cErr] = client->channels.create(
         "ao_cmd",
         synnax::FLOAT64,
         cmd_idx.key,
@@ -122,7 +122,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     };
     auto client = std::make_shared<synnax::Synnax>(client_config);
 
-    auto [ack_idx, tErr1] = client->channels.create( 
+    auto [ack_idx, tErr1] = client->channels.create(
         "do_state_idx",
         synnax::TIMESTAMP,
         0,
@@ -130,7 +130,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     );
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create( 
+    auto [cmd_idx, tErr2] = client->channels.create(
         "do_cmd_idx",
         synnax::TIMESTAMP,
         0,
@@ -138,7 +138,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     );
     ASSERT_FALSE(tErr2) << tErr2.message();
 
-    auto [ack, aErr] = client->channels.create( 
+    auto [ack, aErr] = client->channels.create(
         "do_state",
         synnax::SY_UINT8,
         ack_idx.key,
@@ -146,7 +146,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     );
     ASSERT_FALSE(aErr) << aErr.message();
 
-    auto [cmd, cErr] = client->channels.create( 
+    auto [cmd, cErr] = client->channels.create(
         "do_cmd",
         synnax::SY_UINT8,
         cmd_idx.key,

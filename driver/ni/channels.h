@@ -359,13 +359,12 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    ) : Analog(parser, task_handle, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     ~AIVoltageChan() override = default;
@@ -512,7 +511,7 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    ): AICurrentChan(parser, task_handle, name) {
+    ) : AICurrentChan(parser, task_handle, name) {
     }
 
     int32 create_ni_channel(
@@ -552,22 +551,21 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          rtd_type(
-              get_rtd_type(
-                  parser.required<std::string>("rtd_type")
-              )
-          ),
-          resistance_config(
-              get_resistance_config(
-                  parser.required<std::string>("resistance_config")
-              )
-          ),
-          excitation_config(parser),
-          r0(
-              parser.required<double>("r0")
-          ) {
+    ) : Analog(parser, task_handle, name),
+        rtd_type(
+            get_rtd_type(
+                parser.required<std::string>("rtd_type")
+            )
+        ),
+        resistance_config(
+            get_resistance_config(
+                parser.required<std::string>("resistance_config")
+            )
+        ),
+        excitation_config(parser),
+        r0(
+            parser.required<double>("r0")
+        ) {
     }
 
     int32 create_ni_channel(
@@ -631,21 +629,20 @@ public:
         const TaskHandle task_handle,
         const std::string &name,
         const std::map<std::int32_t, std::string> &cjc_sources
-    )
-        : Analog(parser, task_handle, name),
-          thermocouple_type(
-              get_type(
-                  parser.required<std::string>("thermocouple_type"), parser
-              )
-          ),
-          cjc_source(get_cjc_source(
-                  parser.required<std::string>("cjc_source"),
-                  parser
-              )
-          ),
-          cjc_val(
-              parser.optional<double>("cjc_val", 0)
-          ) {
+    ) : Analog(parser, task_handle, name),
+        thermocouple_type(
+            get_type(
+                parser.required<std::string>("thermocouple_type"), parser
+            )
+        ),
+        cjc_source(get_cjc_source(
+                parser.required<std::string>("cjc_source"),
+                parser
+            )
+        ),
+        cjc_val(
+            parser.optional<double>("cjc_val", 0)
+        ) {
         const auto source = parser.required<std::int32_t>("cjc_port");
         if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = "";
         else this->cjcPort = cjc_sources.at(source);
@@ -749,18 +746,17 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          resistance_config(
-              get_resistance_config(
-                  parser.required<std::string>("resistance_config")
-              )
-          ),
-          excitation_config(parser),
-          a(parser.required<double>("a")),
-          b(parser.required<double>("b")),
-          c(parser.required<double>("c")),
-          r1(parser.required<double>("r1")) {
+    ) : Analog(parser, task_handle, name),
+        resistance_config(
+            get_resistance_config(
+                parser.required<std::string>("resistance_config")
+            )
+        ),
+        excitation_config(parser),
+        a(parser.required<double>("a")),
+        b(parser.required<double>("b")),
+        c(parser.required<double>("c")),
+        r1(parser.required<double>("r1")) {
     }
 
     int32 create_ni_channel(
@@ -801,15 +797,14 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    ) : Analog(parser, task_handle, name),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
         const auto su = parser.optional<
             std::string>("sensitivity_units", "mVoltsPerG");
         this->sensitivity_units = ni::UNITS_MAP.at(su);
@@ -847,7 +842,7 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    ): AIAccelChan(parser, task_handle, name) {
+    ) : AIAccelChan(parser, task_handle, name) {
     }
 
     int32 create_ni_channel(
@@ -877,13 +872,13 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    ): Analog(parser, task_handle, name),
-       sensitivity(parser.required<double>("sensitivity")),
-       terminal_config(
-           ni::get_terminal_config(
-               parser.required<std::string>("terminal_config")
-           )
-       ) {
+    ) : Analog(parser, task_handle, name),
+        sensitivity(parser.required<double>("sensitivity")),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 create_ni_channel(
@@ -956,8 +951,8 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    ): Analog(parser, task_handle, name),
-       bridge_config(parser) {
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1095,24 +1090,23 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          rosette_type(get_rosette_type(
-              parser.required<std::string>("rosette_type"))),
-          gage_orientation(parser.required<double>("gage_orientation")),
-          rosette_meas_type(
-              get_rosette_meas_type(
-                  parser.required<std::string>("rosette_meas_type"))),
-          strain_config(
-              get_strain_config(
-                  parser.required<std::string>("strain_config"))),
-          excitation_config(parser),
-          gage_factor(parser.required<double>("gage_factor")),
-          nominal_gage_resistance(
-              parser.required<double>("nominal_gage_resistance")),
-          poisson_ratio(parser.required<double>("poisson_ratio")),
-          lead_wire_resistance(
-              parser.required<double>("lead_wire_resistance")) {
+    ) : Analog(parser, task_handle, name),
+        rosette_type(get_rosette_type(
+            parser.required<std::string>("rosette_type"))),
+        gage_orientation(parser.required<double>("gage_orientation")),
+        rosette_meas_type(
+            get_rosette_meas_type(
+                parser.required<std::string>("rosette_meas_type"))),
+        strain_config(
+            get_strain_config(
+                parser.required<std::string>("strain_config"))),
+        excitation_config(parser),
+        gage_factor(parser.required<double>("gage_factor")),
+        nominal_gage_resistance(
+            parser.required<double>("nominal_gage_resistance")),
+        poisson_ratio(parser.required<double>("poisson_ratio")),
+        lead_wire_resistance(
+            parser.required<double>("lead_wire_resistance")) {
     }
 
     int32 create_ni_channel(
@@ -1158,20 +1152,19 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          mic_sensitivity(
-              parser.required<double>("mic_sensitivity")
-          ),
-          max_snd_press_level(
-              parser.required<double>("max_snd_press_level")
-          ),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    ) : Analog(parser, task_handle, name),
+        mic_sensitivity(
+            parser.required<double>("mic_sensitivity")
+        ),
+        max_snd_press_level(
+            parser.required<double>("max_snd_press_level")
+        ),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 create_ni_channel(
@@ -1206,13 +1199,13 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    ): Analog(parser, task_handle, name),
-       threshold_level(
-           parser.required<double>("threshold_level")
-       ),
-       hysteresis(
-           parser.required<double>("hysteresis")
-       ) {
+    ) : Analog(parser, task_handle, name),
+        threshold_level(
+            parser.required<double>("threshold_level")
+        ),
+        hysteresis(
+            parser.required<double>("hysteresis")
+        ) {
         // get the device name by reading up to delimiter
         const size_t pos = name.find("/");
         this->name = name.substr(0, pos) + "/ctr" + std::to_string(
@@ -1248,10 +1241,9 @@ public:
         config::Parser &parser,
         const TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1284,11 +1276,13 @@ private:
 
 class AIPressureBridgeTableChan final : public Analog {
 public:
-    explicit AIPressureBridgeTableChan(config::Parser &parser, TaskHandle task_handle,
-                                       const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    explicit AIPressureBridgeTableChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1321,12 +1315,13 @@ private:
 
 class AIPressureBridgePolynomialChan final : public Analog {
 public:
-    explicit AIPressureBridgePolynomialChan(config::Parser &parser,
-                                            TaskHandle task_handle,
-                                            const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    explicit AIPressureBridgePolynomialChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ): Analog(parser, task_handle, name),
+       bridge_config(parser),
+       polynomial_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1362,11 +1357,13 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIForceBridgePolynomialChan final : public Analog {
 public:
-    explicit AIForceBridgePolynomialChan(config::Parser &parser, TaskHandle task_handle,
-                                         const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    explicit AIForceBridgePolynomialChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ): Analog(parser, task_handle, name),
+       bridge_config(parser),
+       polynomial_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1403,10 +1400,9 @@ public:
         config::Parser &parser,
         TaskHandle task_handle,
         const std::string &name
-    )
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1440,12 +1436,13 @@ private:
 
 class AIForceBridgeTwoPointLinChan final : public Analog {
 public:
-    explicit AIForceBridgeTwoPointLinChan(config::Parser &parser,
-                                          TaskHandle task_handle,
-                                          const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    explicit AIForceBridgeTwoPointLinChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1481,21 +1478,23 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIVelocityIEPEChan final : public Analog {
 public:
-    explicit AIVelocityIEPEChan(config::Parser &parser, TaskHandle task_handle,
-                                const std::string &name)
-        : Analog(parser, task_handle, name),
-          sensitivity_units(
-              get_units(
-                  parser.required<std::string>("sensitivity_units")
-              )
-          ),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    explicit AIVelocityIEPEChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        sensitivity_units(
+            get_units(
+                parser.required<std::string>("sensitivity_units")
+            )
+        ),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 create_ni_channel(
@@ -1528,12 +1527,13 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AITorqueBridgeTwoPointLinChan final : public Analog {
 public:
-    explicit AITorqueBridgeTwoPointLinChan(config::Parser &parser,
-                                           TaskHandle task_handle,
-                                           const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    explicit AITorqueBridgeTwoPointLinChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1566,12 +1566,13 @@ private:
 
 class AITorqueBridgePolynomialChan final : public Analog {
 public:
-    explicit AITorqueBridgePolynomialChan(config::Parser &parser,
-                                          TaskHandle task_handle,
-                                          const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    explicit AITorqueBridgePolynomialChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        polynomial_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1604,11 +1605,13 @@ private:
 
 class AITorqueBridgeTableChan final : public Analog {
 public:
-    explicit AITorqueBridgeTableChan(config::Parser &parser, TaskHandle task_handle,
-                                     const std::string &name)
-        : Analog(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    explicit AITorqueBridgeTableChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
     int32 create_ni_channel(
@@ -1641,20 +1644,22 @@ private:
 
 class AIForceIEPEChan final : public Analog {
 public:
-    explicit AIForceIEPEChan(config::Parser &parser, TaskHandle task_handle,
-                             const std::string &name)
-        : Analog(parser, task_handle, name),
-          sensitivity_units(
-              get_units(parser.required<std::string>("sensitivity_units")
-              )
-          ),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    explicit AIForceIEPEChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        sensitivity_units(
+            get_units(parser.required<std::string>("sensitivity_units")
+            )
+        ),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 create_ni_channel(
@@ -1687,14 +1692,16 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIChargeChan final : public Analog {
 public:
-    explicit AIChargeChan(config::Parser &parser, TaskHandle task_handle,
-                          const std::string &name)
-        : Analog(parser, task_handle, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config")
-              )
-          ) {
+    explicit AIChargeChan(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 create_ni_channel(

@@ -29,7 +29,6 @@
 #include "driver/loop/loop.h"
 
 namespace ni {
-
 struct ReaderChannelConfig {
     uint32_t channel_key;
     uint32_t state_channel_key;
