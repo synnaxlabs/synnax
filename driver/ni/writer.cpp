@@ -326,11 +326,12 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
                 it);
-            auto series = frame.series->at(frame_index).values<double>();
+            auto series = frame.series->at(frame_index).values<uint8_t>();
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
-            this->writer_config.digital_modified_state_values.push(series[0]);
+            this->writer_config.digital_modified_state_values.emplace(series[0]);
+            
         }
         frame_index++;
     }

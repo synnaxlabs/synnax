@@ -54,6 +54,8 @@ synnax::Frame StateSource<T>::get_state() {
         state_frame.add(key, value_series);
     }
 
+    // LOG(INFO) << "state_Frame" << state_frame;
+
     return state_frame;
 }
 
