@@ -283,10 +283,14 @@ freighter::Error ni::DigitalWriteSink::stop_ni() {
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::write(synnax::Frame &frame) {
-    int32 samplesWritten = 0;
-    format_data(std::move(frame));
+freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
+    auto err = format_data(frame);
+    if (err != freighter::NIL) {
+        this->log_error("failed to format data");
+        return err;
+    }
 
+    int32 samplesWritten = 0;
     if (this->check_err(
         this->dmx->WriteDigitalLines(
             this->task_handle,
@@ -300,7 +304,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame &frame) {
         ), "write.WriteDigitalLines")) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
-                                "Error writing digital data");
+                              "Error writing digital data");
     }
 
     this->writer_state_source->update_state(
@@ -406,10 +410,14 @@ freighter::Error ni::AnalogWriteSink::stop_ni() {
     return freighter::NIL;
 }
 
-freighter::Error ni::AnalogWriteSink::write(synnax::Frame &frame) {
-    int32 samplesWritten = 0;
-    format_data(std::move(frame));
+freighter::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
+    auto err = format_data(frame);
+    if (err != freighter::NIL) {
+        this->log_error("failed to format data");
+        return err;
+    }
 
+    int32 samplesWritten = 0;
     if (this->check_err(
         this->dmx->WriteAnalogF64(
             this->task_handle,
@@ -423,7 +431,7 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame &frame) {
         ), "write.WriteAnalogF64")) {
         this->log_error("failed while writing analog data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
-                                "Error writing analog data");
+                              "Error writing analog data");
     }
 
     this->writer_state_source->update_state(

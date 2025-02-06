@@ -33,8 +33,7 @@ void ni::Source::get_index_keys() {
         if (err)
             return this->log_error(
                 "failed to retrieve channel " + std::to_string(index_key));
-        ni::ReaderChannelConfig index_channel;
-        this->reader_config.channels.emplace_back(ni::ChannelConfig{
+        this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{
             .channel_key = channel_info.key,
             .name = channel_info.name,
             .channel_type = "index"
@@ -42,15 +41,13 @@ void ni::Source::get_index_keys() {
     }
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::Source::read(breaker::Breaker &breaker) {
-}
 
 
 ni::Source::Source(
     const std::shared_ptr<DAQmx> &dmx,
-    const TaskHandle task_handle,
+    TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    synnax::Task task
 ) : dmx(dmx),
     task_handle(task_handle),
     ctx(ctx),
@@ -231,17 +228,19 @@ bool ni::Source::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() const {
+std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel: this->reader_config.channels)
-        if (channel.enabled) keys.push_back(channel.channel_key);
+    for (const auto &channel : this->reader_config.channels) {
+        if (channel.enabled) {
+            keys.push_back(channel.channel_key);
+        }
+    }
     return keys;
 }
 
-void ni::Source::log_error(const std::string &err_msg) {
+void ni::Source::log_error(std::string err_msg) {
     LOG(ERROR) << "[ni.reader] " << err_msg;
     this->ok_state = false;
-    return;
 }
 
 void ni::Source::stopped_with_err(const freighter::Error &err) {

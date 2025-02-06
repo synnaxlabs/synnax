@@ -92,20 +92,21 @@ ni::ReaderTask::ReaderTask(
     std::shared_ptr<pipeline::Source> source,
     std::shared_ptr<ni::Source> ni_source,
     synnax::WriterConfig writer_config,
-    const breaker::Config &breaker_config
+    const breaker::Config breaker_config
 ) : dmx(dmx),
     ctx(ctx),
-    task(std::move(task)),
+    task(task),
     daq_read_pipe(
         pipeline::Acquisition(
             ctx->client,
-            std::move(writer_config),
-            std::move(source),
+            writer_config,
+            source,
             breaker_config
-        )),
-    source(ni_source) {
-    this->ok_state = ni_source->ok();
-
+        )
+    ),
+    source(ni_source),
+    ok_state(ni_source->ok()) {
+    
     // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
@@ -220,7 +221,7 @@ void ni::ReaderTask::start(const std::string &cmd_key) {
     LOG(INFO) << "[ni.task] successfully started task " << this->task.name;
 }
 
-bool ni::ReaderTask::ok() const { return this->ok_state; }
+bool ni::ReaderTask::ok() { return ok_state; }
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
@@ -229,30 +230,31 @@ ni::WriterTask::WriterTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task,
     std::shared_ptr<pipeline::Sink> sink,
-    std::shared_ptr<ni::DigitalWriteSink> ni_sink,
-    std::shared_ptr<pipeline::Source> writer_state_source,
-    synnax::WriterConfig writer_config,
-    synnax::StreamerConfig streamer_config,
-    const breaker::Config &breaker_config
+    std::shared_ptr<WriteSink> ni_sink,
+    std::shared_ptr<pipeline::Source> state_source,
+    synnax::WriterConfig state_writer_config,
+    synnax::StreamerConfig cmd_streamer_config,
+    const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
     cmd_write_pipe(
         pipeline::Control(
             ctx->client,
-            streamer_config,
-            std::move(sink),
+            cmd_streamer_config,
+            sink,
             breaker_config
         )
     ),
     state_write_pipe(
         pipeline::Acquisition(
             ctx->client,
-            writer_config,
-            writer_state_source,
+            state_writer_config,
+            state_source,
             breaker_config
         )
     ),
-    sink(ni_sink) {
+    sink(ni_sink),
+    ok_state(true) {
 }
 
 std::unique_ptr<task::Task> ni::WriterTask::configure(

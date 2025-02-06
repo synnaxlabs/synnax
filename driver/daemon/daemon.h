@@ -27,7 +27,7 @@ enum class Status {
     READY,
     RUNNING,
     STOPPING,
-    ERROR
+    ERROR_
 };
 
 // Configuration for the daemon
