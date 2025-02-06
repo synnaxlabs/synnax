@@ -19,18 +19,18 @@ export interface TaskContextMenuItemConfig {
   layout: Layout.BaseState;
 }
 
-export interface ContextMenuItemsProps {
-  selection: Ontology.TreeContextMenuProps["selection"];
+export interface ContextMenuItemsProps
+  extends Pick<Ontology.TreeContextMenuProps, "selection"> {
+  children?: ReactElement;
   deviceConfigLayout: Omit<Layout.BaseState, "key">;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
-  children?: ReactElement;
 }
 
 export const ContextMenuItems = ({
-  selection: { resources },
-  deviceConfigLayout,
-  taskContextMenuItemConfigs,
   children,
+  deviceConfigLayout,
+  selection: { resources },
+  taskContextMenuItemConfigs,
 }: ContextMenuItemsProps): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;

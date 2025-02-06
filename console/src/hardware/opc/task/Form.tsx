@@ -190,8 +190,8 @@ export const Form = <C extends ChannelConfig>({
   children = () => null,
 }: FormProps): ReactElement => (
   <Common.Device.Provider<Device.Properties, Device.Make>
+    canConfigure={!isSnapshot}
     configureLayout={Device.CONFIGURE_LAYOUT}
-    isSnapshot={isSnapshot}
   >
     {({ device }) => (
       <>

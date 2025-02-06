@@ -42,8 +42,8 @@ export const SelectSecurityPolicy = (
   props: SelectSecurityPolicyProps,
 ): ReactElement => (
   <Select.Button<SecurityPolicy, SecurityPolicyInfo>
+    {...props}
     data={SECURITY_POLICIES}
     entryRenderKey="name"
-    {...props}
   />
 );

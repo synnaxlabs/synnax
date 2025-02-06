@@ -15,9 +15,9 @@ export interface SelectProps extends Pick<Common.Device.SelectProps, "path"> {}
 
 export const Select = (props: SelectProps) => (
   <Common.Device.Select
+    {...props}
     configureLayout={CONFIGURE_LAYOUT}
     emptyContent="No NI devices connected."
     make={MAKE}
-    {...props}
   />
 );

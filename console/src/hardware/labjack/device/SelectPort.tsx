@@ -11,19 +11,24 @@ import { Select, Text } from "@synnaxlabs/pluto";
 
 import {
   DEVICES,
-  type ModelKey,
+  type Model,
   type Port,
   type PortType,
 } from "@/hardware/labjack/device/types";
 
-export interface SelectPortProps extends Select.SingleProps<string, Port> {
-  model: ModelKey;
+export interface SelectPortProps
+  extends Omit<
+    Select.SingleProps<string, Port>,
+    "columns" | "data" | "entryRenderKey"
+  > {
+  model: Model;
   portType: PortType;
 }
 
 export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
   <Select.Single<string, Port>
-    data={DEVICES[model].ports[portType]}
+    allowNone={false}
+    {...rest}
     columns={[
       { key: "key", name: "Port" },
       {
@@ -36,8 +41,7 @@ export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
         ),
       },
     ]}
-    allowNone={false}
+    data={DEVICES[model].ports[portType]}
     entryRenderKey="key"
-    {...rest}
   />
 );

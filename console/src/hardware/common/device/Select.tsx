@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Align, Device, Form, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { type JSX } from "react";
+import { type JSX, useCallback } from "react";
 
 import { Layout } from "@/layout";
 
@@ -31,16 +31,19 @@ export const Select = ({
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleException = Status.useExceptionHandler();
-  const handleDeviceChange = (key: device.Key) => {
-    if (client == null) return;
-    client.hardware.devices
-      .retrieve(key)
-      .then(({ configured }) => {
-        if (configured) return;
-        placeLayout({ ...configureLayout, key });
-      })
-      .catch((e) => handleException(e, "Failed to retrieve device"));
-  };
+  const handleDeviceChange = useCallback(
+    (key: device.Key) => {
+      if (client == null) return;
+      client.hardware.devices
+        .retrieve(key)
+        .then(({ configured }) => {
+          if (configured) return;
+          placeLayout({ ...configureLayout, key });
+        })
+        .catch((e) => handleException(e, "Failed to retrieve device"));
+    },
+    [client, placeLayout, configureLayout, handleException],
+  );
   return (
     <Form.Field<string>
       grow
@@ -57,7 +60,7 @@ export const Select = ({
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>
-                <Text.Text shade={6} level="p">
+                <Text.Text level="p" shade={6}>
                   {emptyContent}
                 </Text.Text>
               </Align.Center>

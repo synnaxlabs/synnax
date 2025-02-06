@@ -259,6 +259,7 @@ type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
 // scan task
 
 export const SCAN_NAME = "opc Scanner";
+export const SCAN_COMMAND_NAME = "scan";
 
 type ScannedNode = {
   nodeId: string;

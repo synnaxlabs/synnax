@@ -9,7 +9,7 @@
 
 import { Align, Divider, Form, type List } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
@@ -260,11 +260,6 @@ const TorqueUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const PortField = Form.buildNumericField({
-  fieldKey: "port",
-  fieldProps: { label: "Port" },
-});
-
 const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units", grow: true },
@@ -304,13 +299,6 @@ const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
     ],
   },
 });
-
-const DevicePortCombo = ({ prefix }: FormProps): ReactElement => (
-  <Align.Space direction="x" grow>
-    <Device.Select path={`${prefix}.device`} />
-    <PortField path={prefix} />
-  </Align.Space>
-);
 
 export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
@@ -1033,7 +1021,10 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const Form = AI_CHANNEL_FORMS[type];
   return (
     <>
-      <DevicePortCombo prefix={prefix} />
+      <Align.Space direction="x" grow>
+        <Device.Select path={`${prefix}.device`} />
+        <Device.PortField path={prefix} />
+      </Align.Space>
       <Divider.Divider direction="x" padded="bottom" />
       <Form prefix={prefix} />
     </>

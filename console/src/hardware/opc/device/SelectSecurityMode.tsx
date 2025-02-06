@@ -33,8 +33,8 @@ export interface SelectSecurityModeProps
 
 export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
   <Select.Button<SecurityMode, SecurityModeInfo>
+    {...props}
     data={SECURITY_MODES}
     entryRenderKey="name"
-    {...props}
   />
 );

@@ -8,55 +8,64 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Align, Form, Text } from "@synnaxlabs/pluto";
+import { Align, Text } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { use, type UseContextValue } from "@/hardware/common/device/use";
+import { use } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
+
+const DEFAULT_NONE_SELECTED_ELEMENT = (
+  <Align.Center>
+    <Text.Text level="p">No device selected.</Text.Text>
+  </Align.Center>
+);
+
+export interface ProviderChildProps<
+  P extends UnknownRecord = UnknownRecord,
+  MK extends string = string,
+  MO extends string = string,
+> {
+  device: device.Device<P, MK, MO>;
+}
 
 export interface ProviderProps<
   P extends UnknownRecord = UnknownRecord,
   MK extends string = string,
   MO extends string = string,
 > {
+  canConfigure: boolean;
+  children: (props: ProviderChildProps<P, MK, MO>) => ReactElement;
   configureLayout: Omit<Layout.BaseState, "key">;
-  isSnapshot: boolean;
   noneSelectedElement?: ReactElement;
-  children: (props: { device: device.Device<P, MK, MO> }) => ReactElement;
 }
-
-const DEFAULT_NONE_SELECTED_ELEMENT = (
-  <Align.Space grow empty align="center" justify="center">
-    <Text.Text level="p">No device selected.</Text.Text>
-  </Align.Space>
-);
 
 export const Provider = <
   P extends UnknownRecord = UnknownRecord,
   MK extends string = string,
   MO extends string = string,
 >({
-  configureLayout,
-  isSnapshot: snapshot,
+  canConfigure,
   children,
+  configureLayout,
   noneSelectedElement = DEFAULT_NONE_SELECTED_ELEMENT,
 }: ProviderProps<P, MK, MO>): ReactElement => {
-  const formCtx = Form.useContext<UseContextValue>();
-  const device = use<P, MK, MO>(formCtx);
+  const device = use<P, MK, MO>();
   const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedElement;
-  const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
-  if (!device.configured)
+  if (!device.configured) {
+    const { name } = device;
+    const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
     return (
-      <Align.Space grow align="center" justify="center" direction="y">
-        <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
-        {!snapshot && (
+      <Align.Center>
+        <Text.Text level="p">{`${name} is not configured.`}</Text.Text>
+        {canConfigure && (
           <Text.Link level="p" onClick={handleConfigure}>
-            {`Configure ${device.name}.`}
+            {`Configure ${name}.`}
           </Text.Link>
         )}
-      </Align.Space>
+      </Align.Center>
     );
+  }
   return children({ device });
 };

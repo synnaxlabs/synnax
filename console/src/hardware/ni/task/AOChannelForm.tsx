@@ -12,6 +12,7 @@ import { Align, Button, Divider, Form, Select } from "@synnaxlabs/pluto";
 import { type Keyed } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import { type AOChannelType, type WaveType } from "@/hardware/ni/task/types";
@@ -59,11 +60,6 @@ const SelectButtonOption = ({
   </Button.Button>
 );
 
-const PortField = Form.buildNumericField({
-  fieldKey: "port",
-  fieldProps: { label: "Port" },
-});
-
 export interface FormProps {
   prefix: string;
 }
@@ -106,7 +102,7 @@ export const AOChannelForm = ({ type, prefix }: AOChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
   return (
     <>
-      <PortField path={prefix} />
+      <Device.PortField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <Form prefix={prefix} />
     </>

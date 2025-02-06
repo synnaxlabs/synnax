@@ -13,18 +13,34 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-export interface UseContextValue
+interface UseContextValue
   extends z.ZodObject<{
     config: z.ZodObject<{ device: z.ZodString }>;
   }> {}
 
+/**
+ * @description A hook that retrieves and subscribes to updates for a device. Must be
+ * used within a Form context that has a schema matching the following structure:
+ *
+ * ```typescript
+ * {
+ *   config: {
+ *     device: z.string() // The device key
+ *   }
+ * }
+ * ```
+ *
+ * @returns The device if found, undefined otherwise.
+ * @template P - The type of the device properties.
+ * @template MK - The device make type.
+ * @template MO - The device model type.
+ */
 export const use = <
   P extends UnknownRecord = UnknownRecord,
   MK extends string = string,
   MO extends string = string,
->(
-  ctx: Form.ContextValue<UseContextValue>,
-): device.Device<P, MK, MO> | undefined => {
+>(): device.Device<P, MK, MO> | undefined => {
+  const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [device, setDevice] = useState<device.Device<P, MK, MO>>();

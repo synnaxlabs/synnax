@@ -12,23 +12,23 @@ import { bounds } from "@synnaxlabs/x";
 
 import { type Common } from "@/hardware/common";
 
-// Makes
+// Make
 
 export const MAKE = "LabJack";
 export type Make = typeof MAKE;
 
-// Model Keys
+// Models
 
-const T4_MODEL_KEY = "LJM_dtT4";
-type T4ModelKey = typeof T4_MODEL_KEY;
+const T4_MODEL = "LJM_dtT4";
+type T4Model = typeof T4_MODEL;
 
-const T7_MODEL_KEY = "LJM_dtT7";
-type T7ModelKey = typeof T7_MODEL_KEY;
+const T7_MODEL = "LJM_dtT7";
+type T7Model = typeof T7_MODEL;
 
-const T8_MODEL_KEY = "LJM_dtT8";
-type T8ModelKey = typeof T8_MODEL_KEY;
+const T8_MODEL = "LJM_dtT8";
+type T8Model = typeof T8_MODEL;
 
-export type ModelKey = T4ModelKey | T7ModelKey | T8ModelKey;
+export type Model = T4Model | T7Model | T8Model;
 
 interface BasePort {
   key: string;
@@ -64,7 +64,7 @@ export interface DOPort extends BasePort {
   type: DOPortType;
 }
 
-export type Port = AOPort | AIPort | DOPort | DIPort;
+export type Port = AIPort | AOPort | DIPort | DOPort;
 export type PortType = Port["type"];
 
 interface AltConfig {
@@ -90,6 +90,16 @@ const aiFactory = (
     };
   });
 
+const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DAC${port}`,
+      type: AO_PORT_TYPE,
+      aliases: mapAltConfigsToAliases(altConfigs, port),
+    };
+  });
+
 const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
@@ -110,24 +120,14 @@ const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
     };
   });
 
-const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
-    const port = i + b.lower;
-    return {
-      key: `DAC${port}`,
-      type: AO_PORT_TYPE,
-      aliases: mapAltConfigsToAliases(altConfigs, port),
-    };
-  });
-
 const AIN_HIGH_VOLTAGE = bounds.construct(-10, 10);
 const AIN_LOW_VOLTAGE = bounds.construct(0, 2.5);
 
 interface Ports {
-  AO: AOPort[];
-  DO: DOPort[];
-  AI: AIPort[];
-  DI: DIPort[];
+  [AI_PORT_TYPE]: AIPort[];
+  [AO_PORT_TYPE]: AOPort[];
+  [DI_PORT_TYPE]: DIPort[];
+  [DO_PORT_TYPE]: DOPort[];
 }
 
 // T4
@@ -145,12 +145,11 @@ const T4_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
 ];
-
 const T4_PORTS: Ports = {
-  AI: T4_AI_PORTS,
-  AO: T4_AO_PORTS,
-  DO: T4_DO_PORTS,
-  DI: T4_DI_PORTS,
+  [AI_PORT_TYPE]: T4_AI_PORTS,
+  [AO_PORT_TYPE]: T4_AO_PORTS,
+  [DI_PORT_TYPE]: T4_DI_PORTS,
+  [DO_PORT_TYPE]: T4_DO_PORTS,
 };
 
 // T7
@@ -170,10 +169,10 @@ const T7_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
 ];
 const T7_PORTS: Ports = {
-  AI: T7_AI_PORTS,
-  AO: T7_AO_PORTS,
-  DI: T7_DI_PORTS,
-  DO: T7_DO_PORTS,
+  [AI_PORT_TYPE]: T7_AI_PORTS,
+  [AO_PORT_TYPE]: T7_AO_PORTS,
+  [DI_PORT_TYPE]: T7_DI_PORTS,
+  [DO_PORT_TYPE]: T7_DO_PORTS,
 };
 
 // T8
@@ -198,21 +197,16 @@ const T8_PORTS: Ports = {
 };
 
 interface ModelInfo {
-  key: ModelKey;
   name: string;
   ports: Ports;
 }
 
-const T4: ModelInfo = { key: T4_MODEL_KEY, name: "T4", ports: T4_PORTS };
-const T7: ModelInfo = { key: T7_MODEL_KEY, name: "T7", ports: T7_PORTS };
-const T8: ModelInfo = { key: T8_MODEL_KEY, name: "T8", ports: T8_PORTS };
-
-interface Devices extends Record<ModelKey, ModelInfo> {}
+interface Devices extends Record<Model, ModelInfo> {}
 
 export const DEVICES: Devices = {
-  [T4_MODEL_KEY]: T4,
-  [T7_MODEL_KEY]: T7,
-  [T8_MODEL_KEY]: T8,
+  [T4_MODEL]: { name: "T4", ports: T4_PORTS },
+  [T7_MODEL]: { name: "T7", ports: T7_PORTS },
+  [T8_MODEL]: { name: "T8", ports: T8_PORTS },
 };
 
 export type Properties = {
@@ -221,20 +215,20 @@ export type Properties = {
   thermocoupleIndex: channel.Key;
   writeStateIndex: channel.Key;
   [AI_PORT_TYPE]: { channels: Record<string, channel.Key> };
-  [DI_PORT_TYPE]: { channels: Record<string, channel.Key> };
   [AO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
+  [DI_PORT_TYPE]: { channels: Record<string, channel.Key> };
   [DO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
 };
 
 export const ZERO_PROPERTIES: Properties = {
+  identifier: "",
   readIndex: 0,
   thermocoupleIndex: 0,
   writeStateIndex: 0,
-  identifier: "",
   [AI_PORT_TYPE]: { channels: {} },
   [AO_PORT_TYPE]: { channels: {} },
   [DI_PORT_TYPE]: { channels: {} },
   [DO_PORT_TYPE]: { channels: {} },
 };
 
-export type Device = device.Device<Properties, Make, ModelKey>;
+export interface Device extends device.Device<Properties, Make, Model> {}

@@ -57,7 +57,7 @@ interface CJCSourceType {
 }
 
 interface SelectCJCSourceProps extends Select.SingleProps<string, CJCSourceType> {
-  model: Device.ModelKey;
+  model: Device.Model;
 }
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceProps) => {
@@ -80,7 +80,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceProps) => {
 
 export interface ThermocoupleFormProps {
   prefix: string;
-  model: Device.ModelKey;
+  model: Device.Model;
 }
 
 export const ThermocoupleForm = ({

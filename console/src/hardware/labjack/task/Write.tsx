@@ -197,9 +197,9 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps): ReactElement => 
 const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
   isSnapshot,
 }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.ModelKey>
+  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+    canConfigure={!isSnapshot}
     configureLayout={Device.CONFIGURE_LAYOUT}
-    isSnapshot={isSnapshot}
   >
     {({ device }) => <ChannelList device={device} isSnapshot={isSnapshot} />}
   </Common.Device.Provider>

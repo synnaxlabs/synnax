@@ -31,51 +31,10 @@ import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
-  name: "Configure",
   icon: "Device",
   location: "modal",
+  name: "Configure",
   window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },
-};
-
-export interface ConfigureProps<P extends UnknownRecord> extends Layout.RendererProps {
-  zeroProperties: P;
-}
-
-export const Configure = <P extends UnknownRecord>({
-  layoutKey,
-  ...rest
-}: ConfigureProps<P>): ReactElement => {
-  const client = Synnax.use();
-  const {
-    isPending,
-    isError,
-    error,
-    data: device,
-  } = useQuery({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null) throw new Error("Cannot reach server");
-      return await client.hardware.devices.retrieve<P>(layoutKey);
-    },
-  });
-  if (isPending)
-    return (
-      <Status.Text.Centered variant="loading" level="h2">
-        Fetching device from server
-      </Status.Text.Centered>
-    );
-  if (isError)
-    return (
-      <Align.Space direction="y" grow align="center" justify="center">
-        <Text.Text level="h2" color={Status.variantColors.error}>
-          Failed to load data for device with key {layoutKey}
-        </Text.Text>
-        <Text.Text level="p" color={Status.variantColors.error}>
-          {error.message}
-        </Text.Text>
-      </Align.Space>
-    );
-  return <Internal device={device} {...rest} />;
 };
 
 interface InternalProps<P extends UnknownRecord>
@@ -85,6 +44,7 @@ interface InternalProps<P extends UnknownRecord>
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
+type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
@@ -94,12 +54,14 @@ const Internal = <P extends UnknownRecord>({
   onClose,
   zeroProperties,
 }: InternalProps<P>): ReactElement => {
-  const methods = Form.use<typeof configurablePropertiesZ>({
+  const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
   const client = Synnax.use();
   const [step, setStep] = useState<"name" | "identifier">("name");
+  const isNameStep = step === "name";
+  const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
   const handleException = Status.useExceptionHandler();
@@ -107,7 +69,7 @@ const Internal = <P extends UnknownRecord>({
     onError: (e) => handleException(e, `Failed to configure ${name}`),
     mutationFn: async () => {
       if (client == null) throw new Error("Cannot reach server");
-      if (step === "name") {
+      if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
           setRecommendedIds(
@@ -133,30 +95,29 @@ const Internal = <P extends UnknownRecord>({
     },
   });
   return (
-    <Align.Space className={CSS.B("configure")} align="stretch" empty>
+    <Align.Space align="stretch" className={CSS.B("configure")} empty>
       <Form.Form {...methods}>
         <Align.Space
           align="stretch"
-          style={{ padding: "5rem" }}
           justify="center"
           grow
           size="large"
+          style={{ padding: "5rem" }}
         >
-          {step === "name" && (
+          {isNameStep ? (
             <>
               <Text.Text level="h4" shade={7}>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
               <Form.TextField
-                inputProps={{ variant: "natural", level: "h2", autoFocus: true }}
-                path="name"
-                label="Name"
                 autoFocus
+                inputProps={{ autoFocus: true, level: "h2", variant: "natural" }}
+                label="Name"
+                path="name"
               />
             </>
-          )}
-          {step === "identifier" && (
+          ) : (
             <>
               <Text.Text level="h4" shade={7}>
                 Next, we'll need a short identifier for{" "}
@@ -164,26 +125,26 @@ const Internal = <P extends UnknownRecord>({
                 channels associated with this device. We've generated some suggestions
                 below.
               </Text.Text>
-              <Align.Space direction="y" size="small">
+              <Align.Space size="small">
                 <Form.TextField
-                  inputProps={{ variant: "natural", level: "h2", ref: identifierRef }}
-                  path="identifier"
-                  label="Identifier"
                   autoFocus
+                  label="Identifier"
+                  inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
+                  path="identifier"
                 />
                 <Align.Space direction="x">
-                  <Button.Icon variant="text" size="small" disabled>
+                  <Button.Icon disabled size="small" variant="text">
                     <Icon.Bolt />
                   </Button.Icon>
                   {recommendedIds.map((id) => (
                     <Button.Button
                       key={id}
-                      variant="suggestion"
-                      size="small"
                       onClick={() => {
                         methods.set("identifier", id);
                         identifierRef.current?.focus();
                       }}
+                      size="small"
+                      variant="suggestion"
                     >
                       {id}
                     </Button.Button>
@@ -195,24 +156,62 @@ const Internal = <P extends UnknownRecord>({
         </Align.Space>
       </Form.Form>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            {step === "identifier" ? "Save" : "Next"}
+        <Nav.Bar.Start size="small">
+          <Triggers.Text level="small" shade={7} trigger={SAVE_TRIGGER} />
+          <Text.Text level="small" shade={7}>
+            {triggerAction}
           </Text.Text>
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.End>
           <Button.Button
-            type="submit"
-            loading={isPending}
             disabled={isPending}
+            loading={isPending}
             onClick={() => mutate()}
             triggers={[SAVE_TRIGGER]}
+            type="submit"
           >
-            {step === "identifier" ? "Save" : "Next"}
+            {triggerAction}
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>
   );
+};
+
+export interface ConfigureProps<P extends UnknownRecord>
+  extends Layout.RendererProps,
+    Pick<InternalProps<P>, "zeroProperties"> {}
+
+export const Configure = <P extends UnknownRecord>({
+  layoutKey,
+  ...rest
+}: ConfigureProps<P>): ReactElement => {
+  const client = Synnax.use();
+  const { data, error, isError, isPending } = useQuery({
+    queryKey: [layoutKey, client?.key],
+    queryFn: async () => {
+      if (client == null) throw new Error("Cannot reach server");
+      return await client.hardware.devices.retrieve<P>(layoutKey);
+    },
+  });
+  if (isPending)
+    return (
+      <Status.Text.Centered level="h2" variant="loading">
+        Fetching device from server
+      </Status.Text.Centered>
+    );
+  if (isError) {
+    const color = Status.variantColors.error;
+    return (
+      <Align.Space align="center" grow justify="center">
+        <Text.Text color={color} level="h2">
+          Failed to load data for device with key {layoutKey}
+        </Text.Text>
+        <Text.Text color={color} level="p">
+          {error.message}
+        </Text.Text>
+      </Align.Space>
+    );
+  }
+  return <Internal device={data} {...rest} />;
 };

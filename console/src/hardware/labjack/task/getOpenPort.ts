@@ -12,7 +12,7 @@ import { type Channel } from "@/hardware/labjack/task/types";
 
 export const getOpenPort = <T extends Device.PortType>(
   channels: Channel[],
-  model: Device.ModelKey,
+  model: Device.Model,
   types: T[],
 ): T extends "AI"
   ? Device.AIPort | null

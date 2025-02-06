@@ -19,7 +19,7 @@ import { type Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
 export const makeZ = z.enum([NI.Device.MAKE, LabJack.Device.MAKE, OPC.Device.MAKE]);
-type Make = z.infer<typeof makeZ>;
+export type Make = z.infer<typeof makeZ>;
 
 export const getMake = (make: unknown): Make | null =>
   makeZ.safeParse(make).data ?? null;

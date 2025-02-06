@@ -11,7 +11,8 @@ import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/ni/device/Configure
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/device/Configure";
-export * from "@/hardware/ni/device/enrich/enrich";
+export * from "@/hardware/ni/device/enrich";
+export * from "@/hardware/ni/device/PortField";
 export * from "@/hardware/ni/device/Select";
 export * from "@/hardware/ni/device/types";
 

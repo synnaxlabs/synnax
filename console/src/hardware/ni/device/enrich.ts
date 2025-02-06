@@ -9,7 +9,7 @@
 
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 
-import data from "@/hardware/ni/device/enrich/enriched.json";
+import data from "@/hardware/ni/device/enriched.json";
 import {
   type Properties,
   type PropertiesDigest,

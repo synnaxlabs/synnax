@@ -225,9 +225,9 @@ const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = 
   isRunning,
   isSnapshot,
 }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.ModelKey>
+  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+    canConfigure={!isSnapshot}
     configureLayout={Device.CONFIGURE_LAYOUT}
-    isSnapshot={isSnapshot}
   >
     {({ device }) => (
       <ChannelsForm

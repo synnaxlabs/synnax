@@ -99,6 +99,7 @@ const onConfigure = async (
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );
+  dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitiveIsZero(dev.properties.digitalOutput.stateIndex);
   if (!shouldCreateStateIndex)
