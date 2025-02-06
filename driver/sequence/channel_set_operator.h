@@ -96,7 +96,7 @@ public:
 
 class SynnaxSink final : public Sink {
     const std::shared_ptr<synnax::Synnax> client;
-    const synnax::WriterConfig &cfg;
+    const synnax::WriterConfig cfg;
     std::unique_ptr<synnax::Writer> writer;
 
 public:
@@ -123,9 +123,11 @@ public:
         return freighter::NIL;
     }
 
-    [[nodiscard]] freighter::Error close() const {
+    [[nodiscard]] freighter::Error close() {
         if (this->writer == nullptr) return freighter::NIL;
-        return this->writer->close();
+        const auto err = this->writer->close();
+        this->writer = nullptr;
+        return err;
     }
 };
 

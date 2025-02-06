@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 /// std.
 #include <thread>
 #include <mutex>
@@ -57,7 +66,7 @@ do_start() {
     fi
 
     # Add debug logging
-    log_message "Starting daemon with command: $DAEMON internal-start-daemon"
+    log_message "Starting daemon with command: $DAEMON internal-start"
     log_message "Current working directory: $(pwd)"
     log_message "Running as user: $(whoami)"
 
@@ -66,7 +75,7 @@ do_start() {
     start-stop-daemon --start --background \
         --make-pidfile --pidfile $PIDFILE \
         --chuid $DAEMON_USER \
-        --startas /bin/bash -- -c "exec $DAEMON internal-start-daemon >> $LOGFILE 2>&1"
+        --startas /bin/bash -- -c "exec $DAEMON internal-start >> $LOGFILE 2>&1"
 
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then

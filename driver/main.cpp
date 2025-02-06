@@ -50,7 +50,7 @@
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
 #include "driver/sequence/task.h"
-#include "driver/daemon.h"
+#include "driver/daemon/daemon.h"
 
 using json = nlohmann::json;
 
@@ -412,7 +412,7 @@ int main(const int argc, char *argv[]) {
     }
     const std::string command = argv[1];
 
-    if (command == "internal-start-daemon") cmd_start_daemon(argc, argv);
+    if (command == "internal-start") cmd_start_daemon(argc, argv);
     else if (command == "start")
         exec_svg_cmd(daemond::start_service, "start", "started");
     else if (command == "stop")

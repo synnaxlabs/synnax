@@ -75,6 +75,18 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
       minimap: { enabled: false },
       bracketPairColorization: { enabled: false },
       lineNumbersMinChars: 3,
+      folding: false,
+      links: false,
+      contextmenu: false,
+      quickSuggestions: false,
+      renderControlCharacters: false,
+      renderWhitespace: "none",
+      scrollBeyondLastLine: false,
+      wordWrap: "off",
+      renderLineHighlight: "none",
+      formatOnPaste: false,
+      formatOnType: false,
+      suggestOnTriggerCharacters: false,
     });
     const dispose = monacoRef.current.onDidChangeModelContent(() => {
       if (monacoRef.current === null) return;

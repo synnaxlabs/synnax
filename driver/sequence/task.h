@@ -56,33 +56,54 @@ class Task final : public task::Task {
     /// @brief task is the task configuration.
     const synnax::Task task;
     /// @brief the list of channels that the task will write to.
-    const std::vector<synnax::Channel> write_channels;
-    /// @brief the list of channels that the task will read from.
-    const std::vector<synnax::Channel> read_channels;
-    /// @brief breaker is used to manage the lifecycle of the sequence.
     breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
+    pipeline::Control pipe;
     /// @brief ctx is the task execution context for communicating with the Synnax cluster
     /// and updating the task state.
     std::shared_ptr<task::Context> ctx;
+    std::unique_ptr<sequence::Sequence> seq;
+    std::shared_ptr<SynnaxSink> sink;
+
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         TaskConfig cfg,
-        const std::vector<synnax::Channel> &read_channels,
-        const std::vector<synnax::Channel> &write_channels
+        std::unique_ptr<sequence::Sequence> seq,
+        synnax::StreamerConfig streamer_config,
+        std::shared_ptr<ChannelSource> ch_source,
+        breaker::Config breaker_config,
+        std::shared_ptr<SynnaxSink> sink
     ): cfg(std::move(cfg)),
        ctx(ctx),
        task(std::move(task)),
+<<<<<<< HEAD
        read_channels(read_channels),
        write_channels(write_channels),
        breaker(breaker::default_config(task.name)) {
+=======
+       pipe(
+           ctx->client,
+           streamer_config,
+           ch_source,
+           breaker_config
+       ),
+       breaker(breaker::Config{
+           .name = "sequence",
+           .base_interval = 1 * SECOND,
+           .max_retries = 20,
+           .scale = 1.2,
+       }),
+       seq(std::move(seq)),
+       sink(sink) {
+>>>>>>> 1e5c605218c575e47b36c2f26d0ff047f466e4bf
     }
 
 
     void run() {
+<<<<<<< HEAD
         // Step 1 - instantiate the JSON source
         auto json_source = std::make_shared<JSONSource>(cfg.globals);
 
@@ -126,9 +147,12 @@ public:
 
         pipe.start();
 
+=======
+        this->pipe.start();
+>>>>>>> 1e5c605218c575e47b36c2f26d0ff047f466e4bf
         loop::Timer timer(this->cfg.rate);
         while (this->breaker.running()) {
-            if (auto next_err = seq->next(); next_err) {
+            if (const auto next_err = this->seq->next()) {
                 ctx->set_state({
                     .task = task.key,
                     .variant = "error",
@@ -140,8 +164,8 @@ public:
             }
             timer.wait(breaker);
         }
-        pipe.stop();
-        if (auto sink_close_err =  sink->close(); sink_close_err) {
+        this->pipe.stop();
+        if (const auto sink_close_err = this->sink->close()) {
             ctx->set_state({
                 .task = task.key,
                 .variant = "error",
@@ -224,6 +248,47 @@ public:
             return nullptr;
         }
 
+        auto json_source = std::make_shared<JSONSource>(cfg.globals);
+        auto ch_source = std::make_shared<ChannelSource>(read_channels);
+        synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
+        auto breaker_config = breaker::Config{
+            .name = "sequence",
+            .base_interval = 1 * SECOND,
+            .max_retries = 20,
+            .scale = 1.2,
+        };
+
+        synnax::ControlSubject subject{
+            .name = task.name,
+            .key = std::to_string(task.key)
+        };
+
+        synnax::WriterConfig writer_cfg{
+            .channels = cfg.write,
+            .start = synnax::TimeStamp::now(),
+            .authorities = {200},
+            .subject = subject,
+        };
+
+        auto sink = std::make_shared<SynnaxSink>(ctx->client, writer_cfg);
+        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channels);
+        auto [seq, seq_err] = sequence::Sequence::create(
+            ops,
+            ch_source,
+            cfg.script
+        );
+        if (seq_err) {
+            ctx->set_state({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"running", false},
+                    {"message", seq_err.message()}
+                }
+            });
+            return nullptr;
+        }
+
         ctx->set_state({
             .task = task.key,
             .variant = "success",
@@ -237,8 +302,11 @@ public:
             ctx,
             task,
             cfg,
-            read_channels,
-            write_channels
+            std::move(seq),
+            streamer_cfg,
+            ch_source,
+            breaker_config,
+            sink
         );
     }
 };
