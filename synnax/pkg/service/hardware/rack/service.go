@@ -85,7 +85,7 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	EmbeddedRackKey Key
+	EmbeddedRackkey Key
 	localKeyCounter *kv.AtomicInt64Counter
 	shutdownSignals io.Closer
 	group           group.Group
@@ -109,34 +109,61 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return nil, err
 	}
-
 	s = &Service{Config: cfg, localKeyCounter: c, group: g}
+	if err = s.loadEmbeddedRack(ctx); err != nil {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
 
-	embeddedRackName := fmt.Sprintf("Node %s Built-In Driver", cfg.HostProvider.HostKey())
-	var existingEmbeddedRack Rack
-	if err := s.NewRetrieve().WhereInternal(true).Entry(&existingEmbeddedRack).Exec(ctx, cfg.DB); err != nil {
-		if errors.Is(err, query.NotFound) {
-			w := s.NewWriter(nil)
-			created := &Rack{Name: embeddedRackName, Internal: true}
-			if err := w.Create(ctx, created); err != nil {
-				return nil, err
-			}
-			s.EmbeddedRackKey = created.Key
-		} else {
+	if cfg.Signals != nil {
+		cdcS, err := signals.PublishFromGorp[Key](
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T),
+		)
+		s.shutdownSignals = cdcS
+		if err != nil {
 			return nil, err
 		}
 	}
-	s.EmbeddedRackKey = existingEmbeddedRack.Key
+	return s, nil
+}
 
-	if cfg.Signals == nil {
-		return
+func (s *Service) loadEmbeddedRack(ctx context.Context) error {
+	var embeddedRack Rack
+
+	// Check if a v1 rack exists.
+	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
+	err := s.NewRetrieve().WhereNames(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
+	isNotFound := errors.Is(err, query.NotFound)
+	if err != nil && !isNotFound {
+		return err
 	}
 
-	cdcS, err := signals.PublishFromGorp[Key](ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
-	s.shutdownSignals = cdcS
+	// If a v1 rack does not exist, check if a v2 rack exists.
+	if isNotFound {
+		err = s.NewRetrieve().
+			WhereInternal(true).
+			WhereNode(s.HostProvider.HostKey()).
+			Entry(&embeddedRack).Exec(ctx, s.DB)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return err
+		}
+	}
 
-	return s, nil
+	// The key will get populated if a rack exists, in which case this will be an update.
+	embeddedRack.Name = fmt.Sprintf("Node %s Built-In Driver", s.HostProvider.HostKey())
+	embeddedRack.Embedded = true
+	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
+	s.EmbeddedRackkey = embeddedRack.Key
+	return err
+}
+
+func (s *Service) Close() error {
+	if s.shutdownSignals == nil {
+		return nil
+	}
+	return s.shutdownSignals.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

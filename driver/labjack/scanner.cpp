@@ -102,7 +102,7 @@ void labjack::ScannerTask::create_devices() {
         auto new_device = synnax::Device(
             key,
             name, // name
-            synnax::taskKeyRack(this->task.key), // rack key
+            synnax::task_key_rack(this->task.key), // rack key
             device["connection_type"].get<std::string>(), // location
             std::to_string(device["serial_number"].get<int>()),
             "LabJack",

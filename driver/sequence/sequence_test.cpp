@@ -8,7 +8,7 @@
 /// internal.
 #include "driver/sequence/sequence.h"
 #include "driver/sequence/channel_set_operator.h"
-#include "driver/sequence/json_source.h"
+#include "driver/sequence/json_operator.h"
 
 class TestSink : public Sink {
 public:

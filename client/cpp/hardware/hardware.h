@@ -85,7 +85,7 @@ inline TaskKey createTaskKey(RackKey rack, std::uint32_t task) {
     return static_cast<TaskKey>(rack) << 32 | task;
 }
 
-inline RackKey taskKeyRack(TaskKey key) { return key >> 32; }
+inline RackKey task_key_rack(TaskKey key) { return key >> 32; }
 
 inline std::uint32_t taskKeyLocal(TaskKey key) { return key & 0xFFFFFFFF; }
 

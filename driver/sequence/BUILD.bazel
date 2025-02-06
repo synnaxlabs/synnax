@@ -2,11 +2,10 @@ cc_library(
     name = "sequence",
     hdrs = [
         "channel_set_operator.h",
-        "channel_source.h",
-        "json_source.h",
+        "channel_value_operator.h",
+        "json_operator.h",
         "operator.h",
         "sequence.h",
-        "source.h",
         "task.h",
     ],
     copts = select({

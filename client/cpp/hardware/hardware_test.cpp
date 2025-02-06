@@ -56,7 +56,7 @@ TEST(HardwareTests, testCreateTask) {
     auto err2 = r.tasks.create(m);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(m.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
     ASSERT_NE(synnax::taskKeyLocal(m.key), 0);
 }
 
@@ -72,7 +72,7 @@ TEST(HardwareTests, testRetrieveTask) {
     auto [t2, m2err] = r.tasks.retrieve(t.key);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
     ASSERT_EQ(synnax::taskKeyLocal(t2.key), synnax::taskKeyLocal(t.key));
 }
 
@@ -89,7 +89,7 @@ TEST(HardwareTests, testRetrieveTaskByName) {
     auto [t2, m2err] = r.tasks.retrieve(rand_name);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
 }
 
 /// @brief it should retrieve a task by its type
@@ -105,7 +105,7 @@ TEST(HardwareTests, testRetrieveTaskByType) {
     auto [t2, m2err] = r.tasks.retrieveByType(rand_type);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -121,7 +121,7 @@ TEST(HardwareTests, testListTasks) {
     ASSERT_FALSE(err3) << err3.message();
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(tasks[0].key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(tasks[0].key), r.key);
     ASSERT_NE(synnax::taskKeyLocal(tasks[0].key), 0);
 }
 

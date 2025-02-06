@@ -18,7 +18,6 @@ extern "C" {
 
 /// internal.
 #include "driver/sequence/operator.h"
-#include "driver/sequence/source.h"
 
 
 namespace sequence {
@@ -35,12 +34,11 @@ class Sequence {
 public:
     static std::pair<std::unique_ptr<Sequence>, freighter::Error> create(
         const std::shared_ptr<Operator> &ops,
-        const std::shared_ptr<Source> &source,
         std::string script
     ) {
-        auto sequence = std::make_unique<Sequence>(ops, source, std::move(script));
+        auto sequence = std::make_unique<Sequence>(ops, std::move(script));
         if (auto err = sequence->compile(); err) return {nullptr, err};
-        sequence->bind_ops();
+        sequence->ops->before_start(sequence->L.get());
         return {std::move(sequence), freighter::NIL};
     }
 
@@ -50,34 +48,31 @@ public:
     }
 
     [[nodiscard]] freighter::Error next() const {
-        // Bind source variables to the lua state.
-        if (auto err = this->source->bind(this->L.get())) return err;
-        // Reset operations.
-        this->ops->next();
-        // Retrieve and execute the compiled LUA script.
-        lua_rawgeti(L.get(), LUA_REGISTRYINDEX, script_ref);
-        if (lua_pcall(L.get(), 0, 0, 0) != LUA_OK) {
-            const char *error_msg = lua_tostring(L.get(), -1);
-            lua_pop(L.get(), 1);
+        lua_State* raw_L = L.get();
+        if (const auto err = this->ops->before_next(raw_L)) return err;
+        lua_rawgeti(raw_L, LUA_REGISTRYINDEX, script_ref);
+        if (lua_pcall(raw_L, 0, 0, 0) != LUA_OK) {
+            const char *error_msg = lua_tostring(raw_L, -1);
+            lua_pop(raw_L, 1);
             return freighter::Error(RUNTIME_ERROR, error_msg);
         }
-        // Flush operations.
-        this->ops->flush();
+        if (const auto err = this->ops->after_next(raw_L)) return err;
         return freighter::NIL;
+    }
+
+    [[nodiscard]] freighter::Error end() const {
+        return this->ops->after_end(this->L.get());
     }
 
     Sequence(
         const std::shared_ptr<Operator> &ops,
-        const std::shared_ptr<Source> &source,
         std::string script
-    ) : source(source), ops(ops), script(std::move(script)) {
+    ) : ops(ops), script(std::move(script)) {
         L.reset(luaL_newstate());
         luaL_openlibs(L.get());
     }
 
 private:
-    /// @brief sink is used to process output operations of the sequence.
-    std::shared_ptr<Source> source;
     /// @brief source is used to bind relevant variables to the lua state.
     std::shared_ptr<Operator> ops;
     /// @brief L is the lua program state.
@@ -96,11 +91,5 @@ private:
         script_ref = luaL_ref(this->L.get(), LUA_REGISTRYINDEX);
         return freighter::NIL;
     }
-
-    void bind_ops() const {
-        this->ops->bind(this->L.get());
-    }
-
-
 };
 }
