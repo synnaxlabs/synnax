@@ -1127,7 +1127,7 @@ public:
             this->rosette_type,
             this->gage_orientation,
             &this->rosette_meas_type,
-            1, // bynRosseteMeasTypes // TODO: what is this for
+            1, // bynRosseteMeasTypes
             this->strain_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,

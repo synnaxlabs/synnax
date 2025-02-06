@@ -66,7 +66,6 @@ void ni::Source::parse_config(config::Parser &parser) {
     if (this->reader_config.device_key == "")
         this->reader_config.device_key = "cross-device";
     this->reader_config.timing_source = "none";
-    // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
     if (this->reader_config.device_key != "cross-device") {
         auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->reader_config.device_key);
