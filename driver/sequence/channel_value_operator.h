@@ -7,13 +7,11 @@
 /// external.
 extern "C" {
 #include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
 }
 
 /// internal.
 #include "driver/pipeline/control.h"
-#include "driver/sequence/source.h"
+#include "driver/sequence/operator.h"
 
 inline void apply(lua_State *L, const std::string &name, const synnax::SampleValue &value) {
     switch (value.index()) {
@@ -50,22 +48,24 @@ inline void apply(lua_State *L, const std::string &name, const synnax::SampleVal
         case 10:  // string
             lua_pushstring(L, std::get<std::string>(value).c_str());
             break;
+        default: ;
     }
     lua_setglobal(L, name.c_str());
 }
 
 
-class ChannelSource final : public sequence::Source, public pipeline::Sink {
+class ReceiveChannelValueOperator final : public sequence::Operator, public pipeline::Sink {
     std::mutex frame_mutex;
     std::unordered_map<synnax::ChannelKey, synnax::SampleValue> latest_values;
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-
 public:
-    explicit ChannelSource(const std::vector<synnax::Channel>& channel_vec) {
+    explicit ReceiveChannelValueOperator(const std::vector<synnax::Channel>& channel_vec) {
         for (const auto& channel : channel_vec)
-            channels[channel.key] = channel;
+            this->channels[channel.key] = channel;
+        this->latest_values.reserve(channel_vec.size());
     }
 
+    // Implements pipeline::Sink;
     freighter::Error write(const synnax::Frame &frame) override {
         std::lock_guard lock(this->frame_mutex);
         for (int i = 0; i < frame.size(); i++) {
@@ -75,7 +75,8 @@ public:
         return freighter::NIL;
     }
 
-    freighter::Error bind(lua_State *L) override {
+    // Implements sequence::Operator.
+    freighter::Error before_next(lua_State *L) override {
         std::lock_guard lock(this->frame_mutex);
         for (const auto &[key, value]: this->latest_values) {
             const auto ch = this->channels.at(key);

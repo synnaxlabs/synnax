@@ -59,9 +59,9 @@ type Rack struct {
 	// TaskCounter is the total number of tasks that have been created on the rack,
 	// and is used to assign keys to tasks.
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
-	// Internal sets whether the rack is built-in to the Synnax node, or it is an
+	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
-	Internal bool `json:"internal" msgpack:"internal"`
+	Embedded bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[Key] = Rack{}
@@ -75,7 +75,7 @@ func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }
 // Validate implements config.Config.
 func (r Rack) Validate() error {
 	v := validate.New("rack")
-	validate.NonZero(v, "Task", r.Key)
+	validate.NonZero(v, "Key", r.Key)
 	validate.NotEmptyString(v, "Name", r.Name)
 	return v.Error()
 }

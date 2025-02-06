@@ -179,7 +179,7 @@ void ni::Scanner::create_devices() {
     if (!this->ok_state) return;
     for (auto &device: devices["devices"]) {
         auto model = device["model"].get<std::string>();
-        
+
         // Check if model is empty or matches any ignored prefix
         bool should_ignore = model.empty() || device["failed_to_create"] == true;
         if (!should_ignore) {
@@ -192,14 +192,23 @@ void ni::Scanner::create_devices() {
         }
         if (should_ignore) continue;
 
+        const auto rackKey = synnax::task_key_rack(this->task.key);
+
         // first try to retrieve the device and if found, do not create a new device,
         // simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(
             device["key"]);
-        if (!err) {
-            VLOG(1) << "[ni.scanner] device " << device["model"] << " and key " <<
-                    device["key"] << "at location: " << device["location"] <<
-                    " found for task " << this->task.name;
+        const auto is_not_found = err.matches(synnax::NOT_FOUND);
+        if (err) {
+            if (!is_not_found) {
+                LOG(WARNING) << "[ni.scanner] failed to retrieve device " << device["model"] 
+                    << " with key " << device["key"] << " for task " << this->task.name;
+                continue;
+            }
+        } else if (retrieved_device.rack == rackKey) {
+            VLOG(1) << "[ni.scanner] device " << device["model"] << " and key " 
+                << device["key"] << " at location: " << device["location"] 
+                << " found for task " << this->task.name;
             continue;
         }
         auto new_device = synnax::Device(

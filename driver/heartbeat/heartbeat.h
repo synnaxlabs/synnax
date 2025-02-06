@@ -78,7 +78,7 @@ public:
         if (err.matches(synnax::NOT_FOUND)) return nullptr;
         auto source = std::make_shared<HeartbeatSource>(
             ch.key,
-            synnax::taskKeyRack(task.key)
+            synnax::task_key_rack(task.key)
         );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},

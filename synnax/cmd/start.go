@@ -318,7 +318,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackKey,
+				hardwareSvc.Rack.EmbeddedRackkey,
 				insecure,
 			),
 		)

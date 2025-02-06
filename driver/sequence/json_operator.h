@@ -22,17 +22,15 @@ extern "C" {
 }
 
 /// internal.
-#include "driver/sequence/source.h"
+#include "driver/sequence/operator.h"
 
 using json = nlohmann::json;
 
 namespace sequence {
-
-
 /// @brief JSON source is an implementation of sequence::Source that binds JSON data
 /// into the Lua state. This is useful for binding fixed variable context at the start
 /// of a sequence.
-class JSONSource final : public Source {
+class JSONOperator final : public sequence::Operator {
     /// @brief the data to bind to the Lua state.
     json data;
 
@@ -63,9 +61,9 @@ class JSONSource final : public Source {
         return freighter::NIL;
     }
 public:
-    explicit JSONSource(json  source_data) : data(std::move(source_data)) {}
+    explicit JSONOperator(json  source_data) : data(std::move(source_data)) {}
     
-    freighter::Error bind(lua_State *L) override {
+    freighter::Error before_start(lua_State *L) override {
         if (!data.is_object())
             return freighter::Error("Root JSON must be an object");
         for (auto it = data.begin(); it != data.end(); ++it) {
