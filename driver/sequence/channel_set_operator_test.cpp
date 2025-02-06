@@ -43,7 +43,7 @@ protected:
         ch.is_virtual = true;
         channels.push_back(ch);
 
-        op = std::make_unique<ChannelSetOperator>(sink, channels);
+        op = std::make_unique<SetChannelValueOperator>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->bind(L);
@@ -75,7 +75,7 @@ protected:
 
     std::shared_ptr<MockSink> sink;
     std::vector<synnax::Channel> channels;
-    std::unique_ptr<ChannelSetOperator> op;
+    std::unique_ptr<SetChannelValueOperator> op;
     lua_State* L;
 };
 
@@ -168,7 +168,7 @@ protected:
         value_ch.index = index_ch.key;
         channels.push_back(value_ch);
 
-        op = std::make_unique<ChannelSetOperator>(sink, channels);
+        op = std::make_unique<SetChannelValueOperator>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->bind(L);
@@ -195,7 +195,7 @@ protected:
 
     std::shared_ptr<MockSink> sink;
     std::vector<synnax::Channel> channels;
-    std::unique_ptr<ChannelSetOperator> op;
+    std::unique_ptr<SetChannelValueOperator> op;
     lua_State* L;
 };
 
@@ -236,7 +236,7 @@ protected:
         ch3.key = 3;
         channels.push_back(ch3);
 
-        op = std::make_unique<ChannelSetOperator>(sink, channels);
+        op = std::make_unique<SetChannelValueOperator>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->bind(L);
@@ -249,7 +249,7 @@ protected:
 
     std::shared_ptr<MockSink> sink;
     std::vector<synnax::Channel> channels;
-    std::unique_ptr<ChannelSetOperator> op;
+    std::unique_ptr<SetChannelValueOperator> op;
     lua_State* L;
 };
 

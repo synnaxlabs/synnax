@@ -6,9 +6,9 @@
 #include "nlohmann/json.hpp"
 
 /// internal.
-#include "json_source.h"
+#include "json_operator.h"
 #include "driver/sequence/channel_set_operator.h"
-#include "driver/sequence/channel_source.h"
+#include "driver/sequence/channel_value_operator.h"
 #include "driver/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
@@ -73,7 +73,7 @@ public:
         TaskConfig cfg,
         std::unique_ptr<sequence::Sequence> seq,
         synnax::StreamerConfig streamer_config,
-        std::shared_ptr<ChannelSource> ch_source,
+        std::shared_ptr<ReceiveChannelValueOperator> ch_source,
         breaker::Config breaker_config,
         std::shared_ptr<SynnaxSink> sink
     ): cfg(std::move(cfg)),
@@ -196,9 +196,7 @@ public:
             return nullptr;
         }
 
-        auto json_source = std::make_shared<JSONSource>(cfg.globals);
-        auto ch_source = std::make_shared<ChannelSource>(read_channels);
-        synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
+
         auto breaker_config = breaker::Config{
             .name = "sequence",
             .base_interval = 1 * SECOND,
@@ -218,11 +216,21 @@ public:
             .subject = subject,
         };
 
+
+        synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
+
         auto sink = std::make_shared<SynnaxSink>(ctx->client, writer_cfg);
-        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channels);
+
+        auto json_op = std::make_shared<JSONOperator>(cfg.globals);
+        auto receive_ch_op = std::make_shared<ReceiveChannelValueOperator>(read_channels);
+        auto set_ch_op = std::make_shared<SetChannelValueOperator>(sink, write_channels);
+        auto ops = std::make_shared<sequence::MultiOperator>(std::vector<std::shared_ptr<sequence::Operator>>{
+            json_op,
+            receive_ch_op,
+            set_ch_op,
+        });
         auto [seq, seq_err] = sequence::Sequence::create(
-            ops,
-            ch_source,
+            set_ch_op,
             cfg.script
         );
         if (seq_err) {
@@ -252,7 +260,7 @@ public:
             cfg,
             std::move(seq),
             streamer_cfg,
-            ch_source,
+            receive_ch_op,
             breaker_config,
             sink
         );

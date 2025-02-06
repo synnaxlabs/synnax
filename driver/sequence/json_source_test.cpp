@@ -1,4 +1,4 @@
-#include "driver/sequence/json_source.h"
+#include "driver/sequence/json_operator.h"
 #include "gtest/gtest.h"
 #include <nlohmann/json.hpp>
 #include <memory>
@@ -26,7 +26,7 @@ TEST(JSONSourceTest, BasicVariableApplication) {
         }}
     };
     
-    JSONSource source(test_data);
+    JSONOperator source(test_data);
     ASSERT_EQ(source.bind(L), freighter::NIL);
     
     // Test number variable
@@ -76,7 +76,7 @@ TEST(JSONSourceTest, InvalidJSON) {
     // Create an invalid JSON (array instead of object)
     json invalid_json = json::array();
     
-    JSONSource source(invalid_json);
+    JSONOperator source(invalid_json);
     ASSERT_FALSE(source.bind(L).ok());
     
     lua_close(L);
