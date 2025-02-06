@@ -45,10 +45,8 @@ const ChannelListItem = ({
   ...rest
 }: ChannelListItemProps<ChannelConfig>) => {
   const {
-    entry: { enabled, name, nodeName, nodeId },
+    entry: { name, nodeName, nodeId },
   } = rest;
-  console.log("entry", rest.entry);
-  const { set } = PForm.useContext();
   const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";
   let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
@@ -78,8 +76,7 @@ const ChannelListItem = ({
       <Align.Space direction="x" align="center">
         {children({ path, snapshot: isSnapshot })}
         <Common.Task.EnableDisableButton
-          value={enabled}
-          onChange={(v) => set(`${path}.enabled`, v)}
+          path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
       </Align.Space>

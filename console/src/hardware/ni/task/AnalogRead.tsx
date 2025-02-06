@@ -75,7 +75,6 @@ const ChannelListItem = ({
   const {
     entry: { channel, enabled, type, port },
   } = rest;
-  const { set } = PForm.useContext();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
@@ -93,8 +92,7 @@ const ChannelListItem = ({
           <Common.Task.TareButton disabled={!canTare} onClick={() => onTare(channel)} />
         )}
         <Common.Task.EnableDisableButton
-          value={enabled}
-          onChange={(v) => set(`${path}.enabled`, v)}
+          path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
       </Align.Pack>
@@ -125,9 +123,9 @@ const Form: FC<
     isRunning,
   });
   return (
-    <Common.Task.Layouts.ListAndDetails
-      listItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
-      details={ChannelDetails}
+    <Common.Task.Layouts.ListAndDetails<AIChannel>
+      ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
+      Details={ChannelDetails}
       generateChannel={getNewChannel}
       isSnapshot={isSnapshot}
       initalChannels={task.config.channels}

@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Divider, Form, Header } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ComponentType, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/ChannelList";
@@ -30,15 +30,15 @@ export interface DetailsProps {
 
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<ChannelListProps<C>, "onTare" | "allowTare" | "isSnapshot"> {
-  listItem: ChannelListProps<C>["children"];
-  details: (props: DetailsProps) => ReactElement;
+  ListItem: ChannelListProps<C>["children"];
+  Details: ComponentType<DetailsProps>;
   generateChannel: GenerateChannel<C>;
   initalChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
-  listItem,
-  details,
+  ListItem: listItem,
+  Details,
   initalChannels,
   generateChannel,
   ...rest
@@ -105,7 +105,7 @@ export const ListAndDetails = <C extends Channel>({
               empty
               style={{ padding: "1rem 5rem", overflow: "scroll" }}
             >
-              {details({ path: `config.channels.${selectedIndex}` })}
+              <Details path={`config.channels.${selectedIndex}`} />
             </Align.Space>
           )}
         </Align.Space>

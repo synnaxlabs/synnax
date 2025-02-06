@@ -65,7 +65,7 @@ const ChannelListItem = ({
 }: ChannelListItemProps) => {
   const {
     entry,
-    entry: { cmdKey, enabled, stateKey, type, port },
+    entry: { cmdKey, stateKey, type, port },
   } = rest;
   const { set } = PForm.useContext();
   return (
@@ -142,8 +142,7 @@ const ChannelListItem = ({
         <Common.Task.ChannelName channel={cmdKey} defaultName="No Command Channel" />
         <Common.Task.ChannelName channel={stateKey} defaultName="No State Channel" />
         <Common.Task.EnableDisableButton
-          value={enabled}
-          onChange={(v) => set(`${path}.enabled`, v)}
+          path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
       </Align.Space>

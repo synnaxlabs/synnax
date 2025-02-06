@@ -26,57 +26,52 @@ export const DigitalListItem = ({
   children,
   isSnapshot,
   ...rest
-}: DigitalListItemProps) => {
-  const { enabled } = rest.entry;
-  const { set } = Form.useContext();
-  return (
-    <List.ItemFrame
-      {...rest}
-      style={{ width: "100%" }}
-      justify="spaceBetween"
-      align="center"
-      direction="x"
-    >
-      <Align.Space direction="x" align="center" justify="spaceEvenly">
-        <Align.Pack
-          className="port-line-input"
-          direction="x"
-          align="center"
-          style={{ maxWidth: "50rem" }}
-        >
-          <Form.NumericField
-            path={`${path}.port`}
-            showLabel={false}
-            showHelpText={false}
-            inputProps={{ showDragHandle: false }}
-            hideIfNull
-          />
-          <Text.Text level="p">/</Text.Text>
-          <Form.NumericField
-            path={`${path}.line`}
-            showHelpText={false}
-            showLabel={false}
-            inputProps={{ showDragHandle: false }}
-            hideIfNull
-          />
-        </Align.Pack>
-        <Text.Text
-          level="small"
-          className={CSS.BE("port-line-input", "label")}
-          shade={7}
-          weight={450}
-        >
-          Port/Line
-        </Text.Text>
-      </Align.Space>
-      <Align.Space direction="x" align="center" justify="spaceEvenly">
-        {children}
-        <Common.Task.EnableDisableButton
-          value={enabled}
-          onChange={(v) => set(`${path}.enabled`, v)}
-          isSnapshot={isSnapshot}
+}: DigitalListItemProps) => (
+  <List.ItemFrame
+    {...rest}
+    style={{ width: "100%" }}
+    justify="spaceBetween"
+    align="center"
+    direction="x"
+  >
+    <Align.Space direction="x" align="center" justify="spaceEvenly">
+      <Align.Pack
+        className="port-line-input"
+        direction="x"
+        align="center"
+        style={{ maxWidth: "50rem" }}
+      >
+        <Form.NumericField
+          path={`${path}.port`}
+          showLabel={false}
+          showHelpText={false}
+          inputProps={{ showDragHandle: false }}
+          hideIfNull
         />
-      </Align.Space>
-    </List.ItemFrame>
-  );
-};
+        <Text.Text level="p">/</Text.Text>
+        <Form.NumericField
+          path={`${path}.line`}
+          showHelpText={false}
+          showLabel={false}
+          inputProps={{ showDragHandle: false }}
+          hideIfNull
+        />
+      </Align.Pack>
+      <Text.Text
+        level="small"
+        className={CSS.BE("port-line-input", "label")}
+        shade={7}
+        weight={450}
+      >
+        Port/Line
+      </Text.Text>
+    </Align.Space>
+    <Align.Space direction="x" align="center" justify="spaceEvenly">
+      {children}
+      <Common.Task.EnableDisableButton
+        path={`${path}.enabled`}
+        isSnapshot={isSnapshot}
+      />
+    </Align.Space>
+  </List.ItemFrame>
+);

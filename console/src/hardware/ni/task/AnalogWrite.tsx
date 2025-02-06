@@ -59,9 +59,8 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChanne
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
-    entry: { port, enabled, type },
+    entry: { port, type },
   } = rest;
-  const { set } = PForm.useContext();
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="x">
@@ -73,19 +72,14 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
         </Text.Text>
       </Align.Space>
       <Common.Task.EnableDisableButton
-        value={enabled}
-        onChange={(v) => set(`${path}.enabled`, v)}
+        path={`${path}.enabled`}
         isSnapshot={isSnapshot}
       />
     </List.ItemFrame>
   );
 };
 
-interface ChannelFormProps {
-  path: string;
-}
-
-const ChannelForm = ({ path }: ChannelFormProps) => {
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
   return (
     <>
@@ -104,8 +98,8 @@ const Form: FC<
   Common.Task.FormProps<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
-    listItem={ChannelListItem}
-    details={ChannelForm}
+    ListItem={ChannelListItem}
+    Details={ChannelDetails}
     generateChannel={generateChannel}
     isSnapshot={isSnapshot}
     initalChannels={task.config.channels}

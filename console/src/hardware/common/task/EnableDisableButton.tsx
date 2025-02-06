@@ -7,37 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Form as PForm, Status, Text } from "@synnaxlabs/pluto";
 
 export interface EnableDisableButtonProps {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  isDisabled?: boolean;
+  path: string;
   isSnapshot: boolean;
 }
 
-export const EnableDisableButton = ({
-  value,
-  onChange,
-  isDisabled = false,
-  isSnapshot,
-}: EnableDisableButtonProps) => (
-  <Button.ToggleIcon
-    checkedVariant={isSnapshot ? "preview" : undefined}
-    uncheckedVariant={isSnapshot ? "preview" : "outlined"}
-    disabled={isDisabled}
-    value={value}
-    size="small"
-    stopPropagation
-    onChange={onChange}
-    tooltip={
-      isSnapshot ? undefined : (
-        <Text.Text level="small" style={{ maxWidth: 300 }}>
-          {value ? "Disable" : "Enable"} data acquisition
-        </Text.Text>
-      )
-    }
-  >
-    <Status.Circle variant={value ? "success" : "disabled"} />
-  </Button.ToggleIcon>
-);
+export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonProps) => {
+  const { get, set } = PForm.useContext();
+  const { value } = get<boolean>(path);
+  return (
+    <Button.ToggleIcon
+      disabled={isSnapshot}
+      onChange={(v) => set(path, v)}
+      size="small"
+      stopPropagation
+      tooltip={
+        isSnapshot ? undefined : (
+          <Text.Text level="small">
+            {value ? "Disable" : "Enable"} data acquisition
+          </Text.Text>
+        )
+      }
+      value={value}
+    >
+      <Status.Circle />
+    </Button.ToggleIcon>
+  );
+};
