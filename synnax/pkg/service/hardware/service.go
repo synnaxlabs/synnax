@@ -90,6 +90,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 
 func (s *Service) Close() error {
 	e := errors.NewCatcher(errors.WithAggregation())
+	e.Exec(s.Rack.Close)
 	e.Exec(s.Device.Close)
 	e.Exec(s.Task.Close)
 	e.Exec(s.State.Close)

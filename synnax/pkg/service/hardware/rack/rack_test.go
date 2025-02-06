@@ -93,4 +93,45 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
 	})
+
+	Describe("Embedded Rack", func() {
+		It("Should correctly create the node embedded rack", func() {
+			Expect(svc.EmbeddedRackKey).ToNot(Equal(rack.Key(0)))
+			var embeddedRack rack.Rack
+			Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackKey).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
+			Expect(embeddedRack.Embedded).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("Migration", func() {
+	It("Should correctly migrate a v1 rack to a v2 rack", func() {
+		db := gorp.Wrap(memkv.New())
+		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+
+		v1EmbeddedRack := rack.Rack{
+			Key:  65538,
+			Name: "sy_node_1_rack",
+		}
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entry(&v1EmbeddedRack).
+			Exec(ctx, db)).To(Succeed())
+
+		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+		}))
+		Expect(svc.EmbeddedRackKey).To(Equal(rack.Key(65538)))
+		// Retrieve the embedded rack
+		var embeddedRack rack.Rack
+		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackKey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
+		Expect(embeddedRack.Embedded).To(BeTrue())
+		Expect(embeddedRack.Name).To(Equal("Node 1 Built-In Driver"))
+
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		Expect(count).To(Equal(1))
+	})
 })
