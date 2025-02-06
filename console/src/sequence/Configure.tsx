@@ -1,7 +1,17 @@
 import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Channel, Form, Rack, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  Rack,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
+import { V } from "vitest/dist/chunks/reporters.D7Jzd9GS.js";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
@@ -106,27 +116,47 @@ export const Wrapped = ({
   const onConfigure = configure.mutate;
 
   return (
-    <Align.Space style={{ padding: 0, height: "100%" }} direction="y" grow empty>
-      <Form.Form {...methods} mode={base?.snapshot ? "preview" : "normal"}>
+    <Align.Space
+      style={{ padding: 0, height: "100%", minHeight: 0 }}
+      direction="y"
+      empty
+    >
+      <Form.Form
+        {...methods}
+        mode={base?.snapshot ? "preview" : "normal"}
+        style={{
+          height: "100%",
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <Form.Field<string>
           path="config.script"
           showLabel={false}
           showHelpText={false}
           padHelpText={false}
+          style={{
+            height: "100%",
+            width: "100%",
+            minHeight: 0,
+            display: "flex",
+            flex: 1,
+            flexShrink: 1,
+            overflow: "hidden",
+          }}
         >
-          {(p) => <Editor style={{ height: "100%" }} {...p} />}
+          {(p) => <Editor style={{ height: "100%", width: "100%", flex: 1 }} {...p} />}
         </Form.Field>
         <Align.Pack
           direction="y"
+          bordered={false}
           style={{
-            position: "absolute",
-            width: "calc(100% - 6rem)",
-            bottom: 20,
-            left: "3rem",
-            border: "var(--pluto-border)",
+            width: "100%",
             background: "var(--pluto-gray-l0)",
             boxShadow: "var(--pluto-shadow-menu)",
-            "--pluto-pack-br": "1rem",
+            borderTop: "var(--pluto-border)",
+            flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
@@ -143,6 +173,7 @@ export const Wrapped = ({
                 label="Loop Rate"
                 path="config.rate"
                 padHelpText={false}
+                style={{ width: 120 }}
                 inputProps={{
                   endContent: "Hz",
                   bounds: { lower: 1, upper: 1001 },
@@ -172,13 +203,24 @@ export const Wrapped = ({
 
           <Align.Space
             direction="x"
-            bordered
             rounded
             style={{
               padding: "2rem",
+              borderTop: "var(--pluto-border)",
             }}
-            justify="end"
+            justify="spaceBetween"
           >
+            <Align.Space
+              direction="x"
+              style={{
+                borderRadius: "1rem",
+                width: "100%",
+              }}
+            >
+              <Status.Text variant={taskState?.variant as Status.Variant}>
+                {taskState?.details?.message}
+              </Status.Text>
+            </Align.Space>
             <Button.Icon
               loading={startingOrStopping}
               disabled={startingOrStopping || taskState == null || base?.snapshot}

@@ -1,21 +1,6 @@
-config_setting(
-    name = "nilinuxrt",
-    values = {
-        "define": "platform=nilinuxrt",
-    },
-)
-
 cc_library(
     name = "driver",
-    hdrs = [
-        "config.h",
-        "daemon.h",
-    ],
-    srcs = select({
-        ":nilinuxrt": ["daemon_nilinuxrt.cpp"],
-        "@platforms//os:linux": ["daemon_linux.cpp"],
-        "//conditions:default": [],
-    }),
+    hdrs = ["config.h"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "@platforms//os:linux": ["-std=c++17"],
@@ -59,9 +44,7 @@ cc_test(
 
 cc_binary(
     name = "driver_main",
-    srcs = select({
-        "//conditions:default": ["main.cpp", "daemon.h"],
-    }),
+    srcs = ["main.cpp"],
     copts = select({
         # "@platforms//os:windows": [
         #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
@@ -80,15 +63,6 @@ cc_binary(
             "/DEFAULTLIB:psapi.lib",
             "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
         ],
-        ":nilinuxrt": [
-            "-lm",
-            "-ldl",
-        ],
-        "@platforms//os:linux": [
-            "-lm",
-            "-ldl",
-            "-lsystemd"
-        ],
         "//conditions:default": [
             "-lm",
             "-ldl",
@@ -97,6 +71,7 @@ cc_binary(
     deps = [
         "//driver",
         "//driver/breaker",
+        "//driver/daemon",
         "//driver/meminfo",
         "//driver/ni",
         "//driver/opc",
