@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { READ_SELECTABLE, ReadTask } from "@/hardware/opc/task/Read";
-import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types/v0";
+import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
 import { WRITE_SELECTABLE, WriteTask } from "@/hardware/opc/task/Write";
 import { type Layout } from "@/layout";
 

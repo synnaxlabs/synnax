@@ -61,7 +61,7 @@ export const ParentRangeButton = ({
         style={{ padding: "1rem" }}
         onClick={() =>
           placeLayout({
-            ...Range.overviewLayout,
+            ...Range.OVERVIEW_LAYOUT,
             key: parent.id.key,
             name: parent.name,
           })
