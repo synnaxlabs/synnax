@@ -123,11 +123,7 @@ describe("Writer", () => {
       });
 
       await expect(
-        client.openWriter({
-          start: 0,
-          channels: ch.key,
-          errOnUnauthorized: true,
-        }),
+        client.openWriter({ start: 0, channels: ch.key, errOnUnauthorized: true }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
     });

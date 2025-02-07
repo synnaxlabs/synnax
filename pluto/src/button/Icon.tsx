@@ -9,7 +9,7 @@
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { cloneElement, type ReactElement } from "react";
+import { cloneElement, type ReactElement, useCallback } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
@@ -43,6 +43,7 @@ export const Icon = Tooltip.wrap(
   ({
     ref,
     children,
+    stopPropagation,
     className,
     variant = "text",
     size = "medium",
@@ -55,6 +56,14 @@ export const Icon = Tooltip.wrap(
   }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
+    const handleClick = useCallback(
+      (e: React.MouseEvent<HTMLButtonElement>) => {
+        if (stopPropagation) e.stopPropagation();
+        if (isDisabled) return;
+        onClick?.(e);
+      },
+      [stopPropagation, isDisabled, onClick],
+    );
     return (
       <button
         ref={ref}
@@ -67,7 +76,7 @@ export const Icon = Tooltip.wrap(
           CSS.BM("btn", variant),
           CSS.disabled(isDisabled),
         )}
-        onClick={isDisabled ? undefined : onClick}
+        onClick={handleClick}
         {...props}
       >
         {typeof children === "string"

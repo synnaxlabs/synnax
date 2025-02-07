@@ -9,8 +9,7 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Align, Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -42,7 +41,7 @@ const Base = ({
   visible: _,
   focused: __,
   text = "Select a Component Type",
-  ...props
+  ...rest
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
   const rename = useRename();
@@ -51,7 +50,7 @@ const Base = ({
       <Align.Center
         className={CSS.B("vis-layout-selector")}
         size="large"
-        {...props}
+        {...rest}
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>

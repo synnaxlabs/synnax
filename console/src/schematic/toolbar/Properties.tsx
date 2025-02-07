@@ -11,13 +11,13 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Color,
   Diagram,
   Form,
   Input,
   Schematic,
   Status,
 } from "@synnaxlabs/pluto";
-import { Color } from "@synnaxlabs/pluto/color";
 import { box, deep, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";

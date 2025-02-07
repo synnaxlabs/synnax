@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";
 import { type ranger } from "@/ranger";
-import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -32,7 +31,7 @@ describe("Ranger", () => {
       expect(range.color).toEqual("#E774D0");
     });
     it("should create multiple ranges", async () => {
-      const ranges: NewPayload[] = [
+      const ranges: ranger.New[] = [
         {
           name: "My New One Second Range",
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),

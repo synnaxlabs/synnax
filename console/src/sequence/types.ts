@@ -28,8 +28,8 @@ export const stateDetailsZ = z.object({
 
 export type StateDetails = z.infer<typeof stateDetailsZ>;
 
-export type Task = task.Task<Config, StateDetails, "sequence">;
-export type Payload = task.Payload<Config, StateDetails, "sequence">;
+export type Task = task.Task<Config, StateDetails, SequenceType>;
+export type Payload = task.Payload<Config, StateDetails, SequenceType>;
 
 export const ZERO_PAYLOAD: Payload = {
   key: "",

@@ -111,7 +111,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Log: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | null => {
+export const Log: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
   const log = useLoadRemote({
     name: "Log",
     targetVersion: ZERO_STATE.version,
@@ -124,7 +124,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | nu
     actionCreator: internalCreate,
   });
   if (log == null) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
 export const SELECTABLE: Layout.Selectable = {

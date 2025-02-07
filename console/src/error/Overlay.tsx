@@ -14,13 +14,13 @@ import {
   Align,
   Button,
   componentRenderProp,
+  CSS as PCSS,
   Nav,
   OS,
   Status,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
-import { CSS as PCSS } from "@synnaxlabs/pluto/css";
-import { Theming } from "@synnaxlabs/pluto/theming";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {

@@ -12,17 +12,17 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 
-export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
-  Task.Toolbar,
+  ...Hardware.NAV_DRAWER_ITEMS,
 ];
 
 interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
@@ -33,9 +33,9 @@ interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
 export const NavMenu = ({
   children,
   activeItem,
-  ...props
+  ...rest
 }: NavMenuProps): ReactElement => (
-  <PMenu.Menu {...props}>
+  <PMenu.Menu {...rest}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon
         className={CSS(
@@ -58,7 +58,7 @@ export interface NavDrawerProps {
 }
 
 export const NavDrawer = ({ location: l }: NavDrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
+  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWER_ITEMS);
   return (
     <Nav.Drawer
       location={l}

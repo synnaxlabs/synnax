@@ -15,66 +15,35 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { type Common } from "@/hardware/common";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
 import { type Layout } from "@/layout";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 
-const ZERO_LAYOUT_STATES: Record<
-  string,
-  (args: LayoutArgs) => Layout.State<LayoutArgs>
-> = {
-  [LabJack.Task.READ_TYPE]: (args) =>
-    LabJack.Task.createReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.READ_TYPE },
-    }),
-  [LabJack.Task.WRITE_TYPE]: (args) =>
-    LabJack.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.WRITE_TYPE },
-    }),
-  [OPC.Task.READ_TYPE]: (args) =>
-    OPC.Task.configureReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.READ_TYPE },
-    }),
-  [OPC.Task.WRITE_TYPE]: (args) =>
-    OPC.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.WRITE_TYPE },
-    }),
-  [NI.Task.ANALOG_READ_TYPE]: (args) =>
-    NI.Task.createAnalogReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.ANALOG_READ_TYPE },
-    }),
-  [NI.Task.DIGITAL_WRITE_TYPE]: (args) =>
-    NI.Task.createDigitalWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_WRITE_TYPE },
-    }),
-  [NI.Task.DIGITAL_READ_TYPE]: (args) =>
-    NI.Task.createDigitalReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_READ_TYPE },
-    }),
+const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
+  [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
+  [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
+  [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,
+  [OPC.Task.WRITE_TYPE]: OPC.Task.WRITE_LAYOUT,
+  [NI.Task.ANALOG_READ_TYPE]: NI.Task.ANALOG_READ_LAYOUT,
+  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.DIGITAL_WRITE_LAYOUT,
+  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
+  [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
 };
 
-export const createLayout = (task: task.Task): Layout.State => {
-  const configureLayout = ZERO_LAYOUT_STATES[task.type];
-  if (configureLayout == null) throw new Error(`No layout configured for ${task.type}`);
-  return configureLayout({ create: false, initialValues: task.payload });
+export const createLayout = ({ key, type }: task.Task): Layout.BaseState => {
+  const configureLayout = ZERO_LAYOUT_STATES[type];
+  if (configureLayout == null) throw new Error(`No layout configured for ${type}`);
+  return { ...configureLayout, key, args: { taskKey: key } };
 };
 
 export const retrieveAndPlaceLayout = async (
   client: Synnax,
-  key: task.TaskKey,
+  key: task.Key,
   placeLayout: Layout.Placer,
 ) => {
   const t = await client.hardware.tasks.retrieve(key);
@@ -91,17 +60,13 @@ const handleSelect: Ontology.HandleSelect = ({
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  void (async () => {
-    try {
-      await retrieveAndPlaceLayout(client, key, placeLayout);
-    } catch (e) {
-      handleException(e, `Could not open ${name}`);
-    }
-  })();
+  retrieveAndPlaceLayout(client, key, placeLayout).catch((e) =>
+    handleException(e, `Could not open ${name}`),
+  );
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Task" });
+const useDelete = () => {
+  const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
@@ -133,7 +98,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+const useRangeSnapshot = () =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ store, client, selection: { resources, parent } }) => {
       const activeRange = Range.selectActiveKey(store.getState());
@@ -237,19 +202,14 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: task.ONTOLOGY_TYPE,
-  hasChildren: false,
   icon: <Icon.Task />,
-  canDrop: () => false,
+  hasChildren: false,
   onSelect: handleSelect,
-  onMosaicDrop: handleMosaicDrop,
-  TreeContextMenu,
-  haulItems: (r) => [
-    {
-      type: Mosaic.HAUL_CREATE_TYPE,
-      key: r.id.toString(),
-    },
-  ],
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
+  onMosaicDrop: handleMosaicDrop,
+  TreeContextMenu,
 };

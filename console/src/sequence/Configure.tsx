@@ -11,32 +11,29 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { V } from "vitest/dist/chunks/reporters.D7Jzd9GS.js";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
-import {
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import { createLayoutCreator } from "@/hardware/task/common/createLayoutCreator";
+import { Common } from "@/hardware/common";
+import { useCreate } from "@/hardware/common/task/useCreate";
+// import { createLayoutCreator } from "@/hardware/task/common/createLayoutCreator";
 import { type Layout } from "@/layout";
 import {
+  type Config,
   configZ,
-  type Payload,
   SEQUENCE_TYPE,
+  type SequenceType,
   type StateDetails,
-  type Task,
   ZERO_PAYLOAD,
 } from "@/sequence/types";
 
-export const createSequenceLayout = createLayoutCreator<Payload>(
-  SEQUENCE_TYPE,
-  "Control Sequence",
-  "Control",
-);
+export const SEQUENCE_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  type: SEQUENCE_TYPE,
+  name: ZERO_PAYLOAD.name,
+  icon: "Control",
+  key: SEQUENCE_TYPE,
+};
 
 export const SEQUENCE_SELECTABLE: Layout.Selectable = {
   key: SEQUENCE_TYPE,
@@ -49,7 +46,7 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
     );
     if (result == null) return null;
     return {
-      ...createSequenceLayout({ create: true, initialValues: { name: result } }),
+      ...SEQUENCE_LAYOUT,
       name: result,
       key: layoutKey,
     };
@@ -58,18 +55,17 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
 
 export const Wrapped = ({
   task: base,
-  initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<Task, Payload>) => {
+}: Common.Task.TaskProps<Config, StateDetails, SequenceType>) => {
   const client = Synnax.use();
   const methods = Form.use({
     values: {
-      ...initialValues,
+      ...base,
       rack: task.rackKey(base?.key ?? "0"),
     },
     schema: z.object({
       name: z.string(),
-      rack: rack.rackKeyZ,
+      rack: rack.keyZ,
       config: configZ,
     }),
   });
@@ -85,7 +81,7 @@ export const Wrapped = ({
         {
           key: base?.key,
           name,
-          type: "sequence",
+          type: SEQUENCE_TYPE,
           config,
         },
         rack,
@@ -93,20 +89,14 @@ export const Wrapped = ({
     },
   });
 
-  const taskState = useObserveState<StateDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    base?.key,
-    base?.state,
-  );
-
-  const running = taskState?.details?.running;
+  const [state, _] = Common.Task.useState(base?.key, base?.state ?? undefined);
 
   const start = useMutation({
     mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
-      await base?.executeCommand(isRunning ? "stop" : "start");
+      if (!(base instanceof task.Task)) throw new Error("Task has not been configured");
+      if (state.state === "loading")
+        throw new Error("State is loading, should not be able to start or stop task");
+      await base.executeCommand(state.state === "running" ? "stop" : "start");
     },
   });
 
@@ -124,12 +114,12 @@ export const Wrapped = ({
       <Form.Form
         {...methods}
         mode={base?.snapshot ? "preview" : "normal"}
-        style={{
-          height: "100%",
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
+        // style={{
+        //   height: "100%",
+        //   minHeight: 0,
+        //   display: "flex",
+        //   flexDirection: "column",
+        // }}
       >
         <Form.Field<string>
           path="config.script"
@@ -161,7 +151,7 @@ export const Wrapped = ({
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
             <Align.Space direction="x">
-              <Form.Field<rack.RackKey>
+              <Form.Field<rack.Key>
                 path="rack"
                 label="Location"
                 padHelpText={false}
@@ -217,22 +207,22 @@ export const Wrapped = ({
                 width: "100%",
               }}
             >
-              <Status.Text variant={taskState?.variant as Status.Variant}>
-                {taskState?.details?.message}
+              <Status.Text variant={state.variant as Status.Variant}>
+                {state.message}
               </Status.Text>
             </Align.Space>
             <Button.Icon
               loading={startingOrStopping}
-              disabled={startingOrStopping || taskState == null || base?.snapshot}
-              onClick={onStartStop}
+              disabled={startingOrStopping || base?.snapshot}
+              onClick={() => onStartStop()}
               variant="outlined"
             >
-              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+              {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
             </Button.Icon>
             <Button.Button
               loading={configuring}
               disabled={configuring || base?.snapshot}
-              onClick={onConfigure}
+              onClick={() => onConfigure()}
               tooltip={
                 <Align.Space direction="x" align="center" size="small">
                   {/* <Triggers.Text shade={7} level="small" /> */}
@@ -251,4 +241,7 @@ export const Wrapped = ({
   );
 };
 
-export const Configure = wrapTaskLayout(Wrapped, ZERO_PAYLOAD);
+export const Configure = Common.Task.wrap(Wrapped, {
+  configSchema: configZ,
+  getInitialPayload: () => ZERO_PAYLOAD,
+});

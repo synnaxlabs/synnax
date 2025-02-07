@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@/ontology";
-import { ontologyID as payloadOntologyID } from "@/ontology/group/payload";
+import { ontology } from "@/ontology";
+import { type Key, type Name, ONTOLOGY_TYPE } from "@/ontology/group/payload";
 
 export class Group {
-  key: string;
-  name: string;
+  key: Key;
+  name: Name;
 
-  constructor(name: string, key: string) {
+  constructor(name: Name, key: Key) {
     this.key = key;
     this.name = name;
   }
 
   get ontologyID(): ontology.ID {
-    return payloadOntologyID(this.key);
+    return ontologyID(this.key);
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

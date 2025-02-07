@@ -44,7 +44,7 @@ import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
@@ -174,7 +174,7 @@ const useViewDetails = (): ((key: string) => void) => {
     mutationFn: async (key: string) => {
       if (client == null) return;
       const rng = await fetchIfNotInState(store, client, key);
-      place({ ...overviewLayout, name: rng.name, key: rng.key });
+      place({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
     onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;
@@ -367,7 +367,7 @@ const List = (): ReactElement => {
   };
 
   return (
-    <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
+    <PMenu.ContextMenu menu={ContextMenu} {...menuProps}>
       <Core.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
@@ -399,14 +399,15 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  const handleException = Status.useExceptionHandler();
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    void (async () => {
-      await client?.ranges.rename(entry.key, name);
-    })();
+    client?.ranges
+      .rename(entry.key, name)
+      .catch((e) => handleException(e, "Failed to rename range"));
   };
   return (
     <Core.ItemFrame
@@ -417,7 +418,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       size="small"
     >
       {!entry.persisted && (
-        <Tooltip.Dialog location={"left"}>
+        <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
           <Text.Text className="save-button" weight={700} level="small" shade={7}>
             L
