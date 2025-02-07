@@ -46,13 +46,13 @@ TEST(TimeSpanTests, testSubtraction) {
 }
 
 TEST(TimeSpanTests, testMultiplication) {
-    const const auto ts = TimeSpan(5);
-    const const auto ts2 = TimeSpan(5);
-    const const auto ts3 = ts * ts2;
+    const auto ts = TimeSpan(5);
+    const auto ts2 = TimeSpan(5);
+    const auto ts3 = ts * ts2;
     ASSERT_EQ(ts3.value, 25);
 
-    const const auto ts4 = TimeSpan(5);
-    const const auto ts5 = ts4 * 5;
+    const auto ts4 = TimeSpan(5);
+    const auto ts5 = ts4 * 5;
     ASSERT_EQ(ts5.value, 25);
 
     const auto ts6 = TimeSpan(5);
