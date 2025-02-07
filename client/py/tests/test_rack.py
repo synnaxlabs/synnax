@@ -26,7 +26,6 @@ class TestRackClient:
         assert racks[0].name == "test1"
         assert racks[1].name == "test2"
 
-
     def test_retrieve_by_name(self, client: sy.Synnax):
         name = str(uuid4())
         rack = client.hardware.racks.create(name=name)

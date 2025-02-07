@@ -65,7 +65,11 @@ class Client:
     def create(self, racks: list[Rack]) -> list[Rack]: ...
 
     def create(
-        self, racks: Rack | list[Rack] | None = None, *, key: int = 0, name: str = "",
+        self,
+        racks: Rack | list[Rack] | None = None,
+        *,
+        key: int = 0,
+        name: str = "",
     ) -> list[Rack]:
         is_single = True
         if racks is None:
@@ -121,4 +125,3 @@ class Client:
         if self._embedded_rack is None:
             self._embedded_rack = self.retrieve(embedded=True, host_is_node=True)
         return self._embedded_rack
-
