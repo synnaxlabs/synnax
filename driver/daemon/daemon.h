@@ -11,15 +11,13 @@
 
 /// std.
 #include <functional>
-#include <string>
 
 /// internal.
 #include "freighter/cpp/freighter.h"
 
 namespace daemond {
-
 // Callback type for the main application logic
-using ApplicationCallback = std::function<void(int argc, char* argv[])>;
+using ApplicationCallback = std::function<void(int argc, char *argv[])>;
 
 // Status codes that can be reported to the system service manager
 enum class Status {
@@ -40,26 +38,19 @@ struct Config {
 
 // Service management functions
 freighter::Error install_service();
+
 freighter::Error uninstall_service();
 
 // Service control functions
 freighter::Error start_service();
+
 freighter::Error stop_service();
+
 freighter::Error restart_service();
 
-// Runs the application as a daemon with the given configuration
-void run(const Config& config, int argc, char* argv[]);
-
-// Updates the daemon's status
-void update_status(Status status, const std::string& message = "");
-
-// Notifies the service manager that the watchdog is still alive
-void notify_watchdog();
-
-// Get the path to the log file for the current platform
-std::string get_log_file_path();
-
-// View the service logs
+// Service status functions.
 freighter::Error view_logs();
 
-}  // namespace daemon 
+// Runs the application as a daemon with the given configuration
+void run(const Config &config, int argc, char *argv[]);
+} // namespace daemon

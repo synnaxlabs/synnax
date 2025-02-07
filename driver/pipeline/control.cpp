@@ -17,48 +17,7 @@
 
 using namespace pipeline;
 
-class SynnaxStreamer final : public pipeline::Streamer {
-    std::unique_ptr<synnax::Streamer> internal;
 
-public:
-    explicit SynnaxStreamer(
-        std::unique_ptr<synnax::Streamer> internal
-    ) : internal(std::move(internal)) {
-    }
-
-    std::pair<synnax::Frame, freighter::Error> read() override {
-        return this->internal->read();
-    }
-
-    freighter::Error close() override {
-        return this->internal->close();
-    }
-
-    void closeSend() override {
-        this->internal->close_send();
-    }
-};
-
-class SynnaxStreamerFactory final : public StreamerFactory {
-    std::shared_ptr<synnax::Synnax> client;
-
-public:
-    explicit SynnaxStreamerFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ) : client(std::move(client)) {
-    }
-
-    std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
-        synnax::StreamerConfig config) override {
-        auto [ss, err] = client->telem.open_streamer(config);
-        if (err) return {nullptr, err};
-        return {
-            std::make_unique<SynnaxStreamer>(
-                std::make_unique<synnax::Streamer>(std::move(ss))),
-            freighter::NIL
-        };
-    }
-};
 
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
@@ -140,8 +99,7 @@ void Control::runInternal() {
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
-        const auto sink_err = this->sink->write(std::move(cmd_frame));
-        if (sink_err) {
+        if (const auto sink_err = this->sink->write(cmd_frame)) {
             if (
                 sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
                 && breaker.wait(sink_err.message())
@@ -158,4 +116,35 @@ void Control::runInternal() {
     )
         return runInternal();
     if (close_err) this->sink->stopped_with_err(close_err);
+}
+
+SynnaxStreamer::SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal)
+    : internal(std::move(internal)) {
+}
+
+std::pair<synnax::Frame, freighter::Error> SynnaxStreamer::read() {
+    return this->internal->read();
+}
+
+freighter::Error SynnaxStreamer::close() {
+    return this->internal->close();
+}
+
+void SynnaxStreamer::closeSend() {
+    this->internal->close_send();
+}
+
+SynnaxStreamerFactory::SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client)
+    : client(std::move(client)) {
+}
+
+std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error>
+SynnaxStreamerFactory::openStreamer(synnax::StreamerConfig config) {
+    auto [ss, err] = client->telem.open_streamer(config);
+    if (err) return {nullptr, err};
+    return {
+        std::make_unique<SynnaxStreamer>(
+            std::make_unique<synnax::Streamer>(std::move(ss))),
+        freighter::NIL
+    };
 }

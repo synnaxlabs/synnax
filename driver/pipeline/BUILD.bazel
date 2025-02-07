@@ -7,7 +7,7 @@ cc_library(
     hdrs = [
         "acquisition.h",
         "control.h",
-        "middleware.h"
+        "middleware.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -27,7 +27,8 @@ cc_test(
     name = "acquisition_test",
     srcs = ["acquisition_test.cpp"],
     deps = [
-        ":pipeline",
+        "//driver/pipeline",
+        "//driver/pipeline/mock",
         "//driver/testutil",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
@@ -38,7 +39,8 @@ cc_test(
     name = "control_test",
     srcs = ["control_test.cpp"],
     deps = [
-        ":pipeline",
+        "//driver/pipeline",
+        "//driver/pipeline/mock",
         "//driver/testutil",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
