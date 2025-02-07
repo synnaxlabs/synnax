@@ -59,9 +59,11 @@ export const READ_SELECTABLE: Layout.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.SampleRate />
-    <Common.Task.Fields.StreamRate />
-    <Common.Task.Fields.DataSaving />
+    <Align.Space direction="x" grow>
+      <Common.Task.Fields.SampleRate />
+      <Common.Task.Fields.StreamRate />
+      <Common.Task.Fields.DataSaving />
+    </Align.Space>
   </>
 );
 

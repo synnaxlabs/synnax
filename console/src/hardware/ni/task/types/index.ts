@@ -29,6 +29,10 @@ export type Units = v0.Units;
 
 // Scales
 
+export const LINEAR_SCALE_TYPE = v0.LINEAR_SCALE_TYPE;
+export const MAP_SCALE_TYPE = v0.MAP_SCALE_TYPE;
+export const TABLE_SCALE_TYPE = v0.TABLE_SCALE_TYPE;
+export const NO_SCALE_TYPE = v0.NO_SCALE_TYPE;
 export type Scale = v0.Scale;
 export type ScaleType = v0.ScaleType;
 export const ZERO_SCALES = v0.ZERO_SCALES;
@@ -36,6 +40,10 @@ export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
 
 // Wave Types
 
+export const SINE_WAVE_TYPE = v0.SINE_WAVE_TYPE;
+export const TRIANGLE_WAVE_TYPE = v0.TRIANGLE_WAVE_TYPE;
+export const SQUARE_WAVE_TYPE = v0.SQUARE_WAVE_TYPE;
+export const SAWTOOTH_WAVE_TYPE = v0.SAWTOOTH_WAVE_TYPE;
 export type WaveType = v0.WaveType;
 
 // Channels
@@ -47,15 +55,20 @@ export const ZERO_ANALOG_INPUT_CHANNELS = v1.ZERO_AI_CHANNELS;
 export const ZERO_ANALOG_INPUT_CHANNEL = v1.ZERO_AI_CHANNEL;
 export const ANALOG_INPUT_CHANNEL_TYPE_NAMES = v0.ANALOG_INPUT_CHANNEL_TYPE_NAMES;
 
+// Analog Output Channels
+
+export const AO_CURRENT_CHAN_TYPE = v0.AO_CURRENT_CHAN_TYPE;
+export const AO_FUNC_GEN_CHAN_TYPE = v0.AO_FUNC_GEN_CHAN_TYPE;
+export const AO_VOLTAGE_CHAN_TYPE = v0.AO_VOLTAGE_CHAN_TYPE;
 export type AnalogOutputChannel = v0.AnalogOutputChannel;
 export type AnalogOutputChannelType = v0.AnalogOutputChannelType;
-export const ANALOG_OUTPUT_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
-export const ZERO_ANALOG_OUTPUT_CHANNELS = v0.ZERO_AO_CHANNELS;
-export const ZERO_ANALOG_OUTPUT_CHANNEL = v0.ZERO_AO_CHANNEL;
-export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
+export const ANALOG_OUTPUT_CHANNEL_SCHEMAS = v0.ANALOG_OUTPUT_CHANNEL_SCHEMAS;
+export const ZERO_ANALOG_OUTPUT_CHANNELS = v0.ZERO_ANALOG_OUTPUT_CHANNELS;
+export const ZERO_ANALOG_OUTPUT_CHANNEL = v0.ZERO_ANALOG_OUTPUT_CHANNEL;
+export const AO_CHANNEL_TYPE_NAMES = v0.ANALOG_OUTPUT_CHANNEL_TYPE_NAMES;
 
-export interface DigitalOutputChannel extends v0.DOChannel {}
-export const ZERO_DIGITAL_OUTPUT_CHANNEL = v0.ZERO_DO_CHANNEL;
+export interface DigitalOutputChannel extends v0.DigitalOutputChannel {}
+export const ZERO_DIGITAL_OUTPUT_CHANNEL = v0.ZERO_DIGITAL_OUTPUT_CHANNEL;
 
 export interface DigitalInputChannel extends v0.DigitalInputChannel {}
 export const ZERO_DIGITAL_INPUT_CHANNEL = v0.ZERO_DIGITAL_INPUT_CHANNEL;
@@ -83,14 +96,14 @@ export const analogReadConfigZ = v1.analogReadConfigZ.or(
   v0.analogReadConfigZ.transform(migrateAnalogReadConfig),
 );
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
-export type AnalogReadStateDetails = v0.AnalogReadDetails;
+export interface AnalogReadStateDetails extends v0.AnalogReadStateDetails {}
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
 export type AnalogReadType = v0.AnalogReadType;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
 export interface AnalogWriteConfig extends v0.AnalogWriteConfig {}
-export interface AnalogWriteStateDetails extends v0.AnalogWriteDetails {}
+export interface AnalogWriteStateDetails extends v0.AnalogWriteStateDetails {}
 export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
 export type AnalogWriteType = v0.AnalogWriteType;
 export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;

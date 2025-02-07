@@ -55,8 +55,10 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Common.Task.Fields.StreamRate />
-    <Common.Task.Fields.DataSaving />
+    <Align.Space direction="x" grow>
+      <Common.Task.Fields.StreamRate />
+      <Common.Task.Fields.DataSaving />
+    </Align.Space>
   </>
 );
 

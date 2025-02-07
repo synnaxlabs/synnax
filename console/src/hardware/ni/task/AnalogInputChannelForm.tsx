@@ -28,7 +28,7 @@ import {
   type VelocityUnits,
 } from "@/hardware/ni/task/types";
 
-export interface FormProps {
+interface FormProps {
   prefix: string;
 }
 
@@ -300,7 +300,7 @@ const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   },
 });
 
-export const AI_CHANNEL_FORMS: Record<AnalogInputChannelType, FC<FormProps>> = {
+const ANALOG_INPUT_CHANNEL_FORMS: Record<AnalogInputChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} grow />
@@ -1021,7 +1021,7 @@ export const AnalogInputChannelForm = ({
   type,
   prefix,
 }: AnalogInputChannelFormProps) => {
-  const Form = AI_CHANNEL_FORMS[type];
+  const Form = ANALOG_INPUT_CHANNEL_FORMS[type];
   return (
     <>
       <Align.Space direction="x" grow>

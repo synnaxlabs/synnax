@@ -98,18 +98,17 @@ export const ListAndDetails = <C extends Channel>({
             </Button.Icon>
           </Header.Actions>
         </Header.Header>
-        <Align.Space className={CSS.B("details")}>
-          {selectedIndex === -1 ? null : (
-            <Align.Space
-              direction="y"
-              className={CSS.B("channel-form-content")}
-              empty
-              style={{ padding: "1rem 5rem", overflow: "scroll" }}
-            >
-              <Details path={`config.channels.${selectedIndex}`} />
-            </Align.Space>
-          )}
-        </Align.Space>
+        {selectedIndex === -1 ? null : (
+          <Align.Space
+            direction="y"
+            className={CSS.B("details")}
+            empty
+            grow
+            style={{ padding: "1rem 5rem", overflow: "scroll", height: "100%" }}
+          >
+            <Details path={`config.channels.${selectedIndex}`} />
+          </Align.Space>
+        )}
       </Align.Space>
     </>
   );

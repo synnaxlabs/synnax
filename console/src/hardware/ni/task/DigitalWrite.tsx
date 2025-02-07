@@ -9,6 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
+import { Align } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -49,8 +50,10 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.StateUpdateRate />
-    <Common.Task.Fields.DataSaving />
+    <Align.Space direction="x" grow>
+      <Common.Task.Fields.StateUpdateRate />
+      <Common.Task.Fields.DataSaving />
+    </Align.Space>
   </>
 );
 

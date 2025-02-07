@@ -48,8 +48,10 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.StateUpdateRate />
-    <Common.Task.Fields.DataSaving />
+    <Align.Space direction="x" grow>
+      <Common.Task.Fields.StateUpdateRate />
+      <Common.Task.Fields.DataSaving />
+    </Align.Space>
   </>
 );
 

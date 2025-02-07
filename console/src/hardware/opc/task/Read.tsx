@@ -14,7 +14,7 @@ import {
   type task,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -73,14 +73,16 @@ const Properties = (): ReactElement => {
   return (
     <>
       <Device.Select />
-      <Common.Task.Fields.SampleRate />
-      <PForm.SwitchField label="Array Sampling" path="config.arrayMode" />
-      {arrayMode ? (
-        <PForm.NumericField label="Array Size" path="config.arraySize" />
-      ) : (
-        <Common.Task.Fields.StreamRate />
-      )}
-      <Common.Task.Fields.DataSaving />
+      <Align.Space direction="x" grow>
+        <Common.Task.Fields.SampleRate />
+        <PForm.SwitchField label="Array Sampling" path="config.arrayMode" />
+        {arrayMode ? (
+          <PForm.NumericField label="Array Size" path="config.arraySize" />
+        ) : (
+          <Common.Task.Fields.StreamRate />
+        )}
+        <Common.Task.Fields.DataSaving />
+      </Align.Space>
     </>
   );
 };

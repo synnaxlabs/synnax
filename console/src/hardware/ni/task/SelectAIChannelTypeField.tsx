@@ -9,13 +9,12 @@
 
 import { Form, type List } from "@synnaxlabs/pluto";
 import { deep, type KeyedNamed } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import {
   ANALOG_INPUT_CHANNEL_SCHEMAS,
   ANALOG_INPUT_CHANNEL_TYPE_NAMES,
-  type AnalogInputChannelType,
   type AnalogInputChannel,
+  type AnalogInputChannelType,
   ZERO_ANALOG_INPUT_CHANNELS,
 } from "@/hardware/ni/task/types";
 
@@ -41,10 +40,7 @@ export const SelectAIChannelTypeField = Form.buildSelectSingleField<
       const next = deep.copy(ZERO_ANALOG_INPUT_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AnalogInputChannel>(parentPath).value;
-      let schema = ANALOG_INPUT_CHANNEL_SCHEMAS[value];
-      if ("sourceType" in schema)
-        // @ts-expect-error - schema source type checking
-        schema = schema.sourceType() as z.ZodObject<AnalogInputChannel>;
+      const schema = ANALOG_INPUT_CHANNEL_SCHEMAS[value];
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,

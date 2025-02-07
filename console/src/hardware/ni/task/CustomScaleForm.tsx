@@ -15,9 +15,13 @@ import { z } from "zod";
 
 import { FS } from "@/fs";
 import {
+  LINEAR_SCALE_TYPE,
+  MAP_SCALE_TYPE,
+  NO_SCALE_TYPE,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
+  TABLE_SCALE_TYPE,
   type Units,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
@@ -26,6 +30,77 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
   { key: "name", name: "Name" },
 ];
 
+const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
+  ScaleType,
+  KeyedNamed<ScaleType>
+>({
+  fieldKey: "type",
+  fieldProps: {
+    label: "Custom Scaling",
+    onChange: (value, { get, set, path }) => {
+      const prevType = get<ScaleType>(path).value;
+      if (prevType === value) return;
+      const next = deep.copy(ZERO_SCALES[value]);
+      const parentPath = path.slice(0, path.lastIndexOf("."));
+      const prevParent = get<Scale>(parentPath).value;
+      set(parentPath, {
+        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+        type: next.type,
+      });
+    },
+  },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: NAMED_KEY_COLS,
+    data: [
+      { key: LINEAR_SCALE_TYPE, name: "Linear" },
+      { key: MAP_SCALE_TYPE, name: "Map" },
+      { key: TABLE_SCALE_TYPE, name: "Table" },
+      { key: NO_SCALE_TYPE, name: "None" },
+    ],
+  },
+});
+
+interface UnitsInfo {
+  name: string;
+  symbol: string;
+}
+
+const UNITS_STUFF: Record<Units, UnitsInfo> = {
+  Volts: { name: "Volts", symbol: "V" },
+  Amps: { name: "Amps", symbol: "A" },
+  DegF: { name: "Degrees Fahrenheit", symbol: "°F" },
+  DegC: { name: "Degrees Celsius", symbol: "°C" },
+  DegR: { name: "Degrees Rankine", symbol: "R" },
+  Kelvins: { name: "Kelvin", symbol: "K" },
+  Strain: { name: "Strain", symbol: "" },
+  Ohms: { name: "Ohms", symbol: "Ω" },
+  Hz: { name: "Hertz", symbol: "Hz" },
+  Seconds: { name: "Seconds", symbol: "s" },
+  Meters: { name: "Meters", symbol: "m" },
+  Inches: { name: "Inches", symbol: "in" },
+  Degrees: { name: "Degrees", symbol: "°" },
+  Radians: { name: "Radians", symbol: "rad" },
+  g: { name: "Standard Gravity", symbol: "g" },
+  MetersPerSecondSquared: { name: "Meters per Second Squared", symbol: "m/s^2" },
+  Newtons: { name: "Newtons", symbol: "N" },
+  Pounds: { name: "Pounds", symbol: "lb" },
+  KilogramForce: { name: "Kilograms-Force", symbol: "kgf" },
+  PoundsPerSquareInch: { name: "Pounds per Square Inch", symbol: "psi" },
+  Bar: { name: "Bars", symbol: "bar" },
+  Pascals: { name: "Pascals", symbol: "Pa" },
+  VoltsPerVolt: { name: "Volts per Volt", symbol: "V/V" },
+  mVoltsPerVolt: { name: "Millivolts per Volt", symbol: "mV/V" },
+  NewtonMeters: { name: "Newton-Meters", symbol: "N·m" },
+  InchOunces: { name: "Inch-Ounces", symbol: "in·oz" },
+  InchPounds: { name: "Inch-Pounds", symbol: "in·lb" },
+  FootPounds: { name: "Foot-Pounds", symbol: "ft·lb" },
+};
+
+const unitsData = (Object.entries(UNITS_STUFF) as [Units, UnitsInfo][]).map(
+  ([key, { name }]) => ({ key, name }),
+);
+
 const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units", grow: true },
@@ -33,36 +108,7 @@ const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     allowNone: false,
-    data: [
-      { key: "Volts", name: "Volts" },
-      { key: "Amps", name: "Amps" },
-      { key: "DegF", name: "DegF" },
-      { key: "DegC", name: "Celsius" },
-      { key: "DegR", name: "Rankine" },
-      { key: "Kelvins", name: "Kelvins" },
-      { key: "Strain", name: "Strain" },
-      { key: "Ohms", name: "Ohms" },
-      { key: "Hz", name: "Hz" },
-      { key: "Seconds", name: "Seconds" },
-      { key: "Meters", name: "Meters" },
-      { key: "Inches", name: "Inches" },
-      { key: "Degrees", name: "Degrees (°)" },
-      { key: "Radians", name: "Radians" },
-      { key: "g", name: "Gs" },
-      { key: "MetersPerSecondSquared", name: "m/s^2" },
-      { key: "Newtons", name: "N" },
-      { key: "Pounds", name: "lbs" },
-      { key: "KilogramForce", name: "kgf" },
-      { key: "PoundsPerSquareInch", name: "lbs/in^2" },
-      { key: "Bar", name: "Bar" },
-      { key: "Pascals", name: "Pa" },
-      { key: "VoltsPerVolt", name: "V/V" },
-      { key: "mVoltsPerVolt", name: "mV/V" },
-      { key: "NewtonMeters", name: "N/M" },
-      { key: "InchPounds", name: "in-lbs" },
-      { key: "InchOunces", name: "in-oz" },
-      { key: "FootPounds", name: "ft-lbs" },
-    ],
+    data: unitsData,
   },
 });
 
@@ -73,13 +119,13 @@ export interface CustomScaleFormProps {
 }
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  linear: ({ prefix }) => (
+  [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <Align.Space direction="x" grow>
-        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
-        <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
+      <Align.Space direction="x">
+        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
+        <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
       </Align.Space>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
         <Form.NumericField
           fieldKey="yIntercept"
@@ -90,7 +136,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </Align.Space>
     </>
   ),
-  map: ({ prefix }) => (
+  [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
       <UnitsField fieldKey="preScaledUnits" path={prefix} />
       <Align.Space direction="x" grow>
@@ -112,7 +158,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </Align.Space>
     </>
   ),
-  table: ({ prefix }) => {
+  [TABLE_SCALE_TYPE]: ({ prefix }) => {
     const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
     const [scaledCol, setScaledCol] = state.usePersisted<string>(
       "Scaled",
@@ -203,39 +249,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </>
     );
   },
-  none: () => <></>,
+  [NO_SCALE_TYPE]: () => <></>,
 };
-
-const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
-  ScaleType,
-  KeyedNamed<ScaleType>
->({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Custom Scaling",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>(path).value;
-      if (prevType === value) return;
-      const next = deep.copy(ZERO_SCALES[value]);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>(parentPath).value;
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-        type: next.type,
-      });
-    },
-  },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      { key: "linear", name: "Linear" },
-      { key: "map", name: "Map" },
-      { key: "table", name: "Table" },
-      { key: "none", name: "None" },
-    ],
-  },
-});
 
 export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.customScale`;

@@ -24,7 +24,7 @@ export interface MinMaxValueFielsProps {
 }
 
 export const MinMaxValueFields = ({ path }: MinMaxValueFielsProps) => (
-  <Align.Space direction="x" grow>
+  <Align.Space direction="x">
     <MinValueField path={path} grow />
     <MaxValueField path={path} grow />
   </Align.Space>

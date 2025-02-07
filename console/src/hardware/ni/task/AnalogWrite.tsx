@@ -15,9 +15,9 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
+import { AnalogOutputChannelForm } from "@/hardware/ni/task/AnalogOutputChannelForm";
 import { generateAnalogOutputChannel } from "@/hardware/ni/task/generateChannel";
-import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
+import { SelectAnalogOutputChannelTypeField } from "@/hardware/ni/task/SelectAnalogOutputChannelTypeField";
 import {
   ANALOG_WRITE_TYPE,
   type AnalogOutputChannel,
@@ -49,8 +49,10 @@ export const ANALOG_WRITE_SELECTABLE: Layout.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.StateUpdateRate />
-    <Common.Task.Fields.DataSaving />
+    <Align.Space direction="x" grow>
+      <Common.Task.Fields.StateUpdateRate />
+      <Common.Task.Fields.DataSaving />
+    </Align.Space>
   </>
 );
 
@@ -83,8 +85,8 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AnalogOutputChannelType>(`${path}.type`);
   return (
     <>
-      <SelectAOChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AOChannelForm type={type} prefix={path} />
+      <SelectAnalogOutputChannelTypeField path={path} />
+      <AnalogOutputChannelForm type={type} path={path} />
     </>
   );
 };

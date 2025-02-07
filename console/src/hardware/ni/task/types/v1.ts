@@ -15,32 +15,32 @@ import * as v0 from "@/hardware/ni/task/types/v0";
 
 const VERSION = "1.0.0";
 
-const aiChanExtensionZ = z.object({ device: device.keyZ });
-interface AIChanExtension extends z.infer<typeof aiChanExtensionZ> {}
+const aiChanExtensionShape = { device: device.keyZ };
+interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
 const ZERO_AI_CHAN_EXTENSION: AIChanExtension = { device: "" };
 
-const aiAccelChanZ = v0.aiAccelChanZ.merge(aiChanExtensionZ);
+const aiAccelChanZ = v0.aiAccelChanZ.extend(aiChanExtensionShape);
 interface AIAccelChan extends z.infer<typeof aiAccelChanZ> {}
 const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
   ...v0.ZERO_AI_ACCEL_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiBridgeChanZ = v0.aiBridgeChanZ.merge(aiChanExtensionZ);
+const aiBridgeChanZ = v0.aiBridgeChanZ.extend(aiChanExtensionShape);
 interface AIBridgeChan extends z.infer<typeof aiBridgeChanZ> {}
 const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   ...v0.ZERO_AI_BRIDGE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiCurrentChanZ = v0.aiCurrentChanZ.merge(aiChanExtensionZ);
+const aiCurrentChanZ = v0.aiCurrentChanZ.extend(aiChanExtensionShape);
 interface AICurrentChan extends z.infer<typeof aiCurrentChanZ> {}
 const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
   ...v0.ZERO_AI_CURRENT_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiForceBridgeTableChanZ = v0.aiForceBridgeTableChanZ.merge(aiChanExtensionZ);
+const aiForceBridgeTableChanZ = v0.aiForceBridgeTableChanZ.extend(aiChanExtensionShape);
 interface AIForceBridgeTableChan extends z.infer<typeof aiForceBridgeTableChanZ> {}
 const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   ...v0.ZERO_AI_FORCE_BRIDGE_TABLE_CHAN,
@@ -48,7 +48,7 @@ const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
 };
 
 const aiForceBridgeTwoPointLinChan =
-  v0.aiForceBridgeTwoPointLinChan.merge(aiChanExtensionZ);
+  v0.aiForceBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
 interface AIForceBridgeTwoPointLinChan
   extends z.infer<typeof aiForceBridgeTwoPointLinChan> {}
 const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
@@ -56,14 +56,14 @@ const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiForceIEPEChanZ = v0.aiForceIEPEChanZ.merge(aiChanExtensionZ);
+const aiForceIEPEChanZ = v0.aiForceIEPEChanZ.extend(aiChanExtensionShape);
 interface AIForceIEPEChan extends z.infer<typeof aiForceIEPEChanZ> {}
 const ZERO_AI_FORCE_IEPE_CHAN: AIForceIEPEChan = {
   ...v0.ZERO_AI_FORCE_IEPE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiMicrophoneChanZ = v0.aiMicrophoneChanZ.merge(aiChanExtensionZ);
+const aiMicrophoneChanZ = v0.aiMicrophoneChanZ.extend(aiChanExtensionShape);
 interface AIMicrophoneChan extends z.infer<typeof aiMicrophoneChanZ> {}
 const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   ...v0.ZERO_AI_MICROPHONE_CHAN,
@@ -71,7 +71,7 @@ const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
 };
 
 const aiPressureBridgeTableChanZ =
-  v0.aiPressureBridgeTableChanZ.merge(aiChanExtensionZ);
+  v0.aiPressureBridgeTableChanZ.extend(aiChanExtensionShape);
 interface AIPressureBridgeTableChan
   extends z.infer<typeof aiPressureBridgeTableChanZ> {}
 const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
@@ -80,7 +80,7 @@ const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
 };
 
 const aiPressureBridgeTwoPointLinChanZ =
-  v0.aiPressureBridgeTwoPointLinChanZ.merge(aiChanExtensionZ);
+  v0.aiPressureBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
 interface AIPressureBridgeTwoPointLinChan
   extends z.infer<typeof aiPressureBridgeTwoPointLinChanZ> {}
 const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan = {
@@ -88,28 +88,28 @@ const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinCha
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiResistanceChanZ = v0.aiResistanceChanZ.merge(aiChanExtensionZ);
+const aiResistanceChanZ = v0.aiResistanceChanZ.extend(aiChanExtensionShape);
 interface AIResistanceChan extends z.infer<typeof aiResistanceChanZ> {}
 const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
   ...v0.ZERO_AI_RESISTANCE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiRTDChanZ = v0.aiRTDChanZ.merge(aiChanExtensionZ);
+const aiRTDChanZ = v0.aiRTDChanZ.extend(aiChanExtensionShape);
 interface AIRTDChan extends z.infer<typeof aiRTDChanZ> {}
 const ZERO_AI_RTD_CHAN: AIRTDChan = {
   ...v0.ZERO_AI_RTD_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiStrainGageChan = v0.aiStrainGageChanZ.merge(aiChanExtensionZ);
+const aiStrainGageChan = v0.aiStrainGageChanZ.extend(aiChanExtensionShape);
 interface AIStrainGageChan extends z.infer<typeof aiStrainGageChan> {}
 const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   ...v0.ZERO_AI_STRAIN_GAGE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiTempBuiltInChanZ = v0.aiTempBuiltInChanZ.merge(aiChanExtensionZ);
+const aiTempBuiltInChanZ = v0.aiTempBuiltInChanZ.extend(aiChanExtensionShape);
 interface AITempBuiltInChan extends z.infer<typeof aiTempBuiltInChanZ> {}
 const ZERO_AI_TEMP_BUILT_IN_CHAN: AITempBuiltInChan = {
   ...v0.ZERO_AI_TEMP_BUILT_IN_CHAN,
@@ -117,7 +117,7 @@ const ZERO_AI_TEMP_BUILT_IN_CHAN: AITempBuiltInChan = {
 };
 
 const aiThrmcplChanZ = v0.aiThrmcplChanZ
-  .merge(aiChanExtensionZ)
+  .extend(aiChanExtensionShape)
   .refine((v) => (v.cjcSource === v0.CONST_VAL ? v.cjcVal !== undefined : true), {
     path: ["cjcVal"],
     message: `CJC Value must be defined when CJC Source is ${v0.CONST_VAL}`,
@@ -132,7 +132,10 @@ const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiTorqueBridgeTableChanZ = v0.aiTorqueBridgeTableChanZ.merge(aiChanExtensionZ);
+aiThrmcplChanZ.sourceType();
+
+const aiTorqueBridgeTableChanZ =
+  v0.aiTorqueBridgeTableChanZ.extend(aiChanExtensionShape);
 interface AITorqueBridgeTableChan extends z.infer<typeof aiTorqueBridgeTableChanZ> {}
 const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   ...v0.ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN,
@@ -140,7 +143,7 @@ const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
 };
 
 const aiTorqueBridgeTwoPointLinChanZ =
-  v0.aiTorqueBridgeTwoPointLinChanZ.merge(aiChanExtensionZ);
+  v0.aiTorqueBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
 interface AITorqueBridgeTwoPointLinChan
   extends z.infer<typeof aiTorqueBridgeTwoPointLinChanZ> {}
 const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
@@ -148,14 +151,14 @@ const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = 
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiVelocityIEPEChanZ = v0.aiVelocityIEPEChanZ.merge(aiChanExtensionZ);
+const aiVelocityIEPEChanZ = v0.aiVelocityIEPEChanZ.extend(aiChanExtensionShape);
 interface AIVelocityIEPEChan extends z.infer<typeof aiVelocityIEPEChanZ> {}
 const ZERO_AI_VELOCITY_IEPE_CHAN: AIVelocityIEPEChan = {
   ...v0.ZERO_AI_VELOCITY_IEPE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiVoltageChanZ = v0.aiVoltageChanZ.merge(aiChanExtensionZ);
+const aiVoltageChanZ = v0.aiVoltageChanZ.extend(aiChanExtensionShape);
 interface AIVoltageChan extends z.infer<typeof aiVoltageChanZ> {}
 const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   ...v0.ZERO_AI_VOLTAGE_CHAN,
@@ -238,7 +241,7 @@ export type Channel =
   | AIChannel
   | v0.AnalogOutputChannel
   | v0.DigitalInputChannel
-  | v0.DOChannel;
+  | v0.DigitalOutputChannel;
 
 export const analogReadConfigZ = v0.analogReadConfigZ
   .omit({ version: true, device: true, channels: true })
@@ -290,10 +293,12 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-export interface AnalogRead
-  extends task.Task<AnalogReadConfig, v0.AnalogReadDetails, v0.AnalogReadType> {}
 export interface AnalogReadPayload
-  extends task.Payload<AnalogReadConfig, v0.AnalogReadDetails, v0.AnalogReadType> {}
+  extends task.Payload<
+    AnalogReadConfig,
+    v0.AnalogReadStateDetails,
+    v0.AnalogReadType
+  > {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   ...v0.ZERO_ANALOG_READ_PAYLOAD,
   config: ZERO_ANALOG_READ_CONFIG,
