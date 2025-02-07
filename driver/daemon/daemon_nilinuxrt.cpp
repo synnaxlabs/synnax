@@ -42,6 +42,7 @@ auto INIT_SCRIPT_TEMPLATE = R"###(#!/bin/sh
 ### END INIT INFO
 
 NAME="synnax-driver"
+PRETTY_NAME="Synnax Driver"
 DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="/var/run/$NAME.pid"
@@ -80,17 +81,16 @@ do_start() {
 
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
-        log_message "$NAME started successfully"
-        # Add 5 second wait and status check
+        log_message "$PRETTY_NAME started successfully. Waiting for 5 seconds to perform a health check."
         sleep 5
         if kill -0 $(cat $PIDFILE) 2>/dev/null; then
-            log_message "Process verified running after 5 seconds"
+            log_message "$PRETTY_NAME verified running after 5 seconds"
         else
-            log_message "Process failed to stay running"
+            log_message "$PRETTY_NAME failed to stay running"
             return 1
         fi
     else
-        log_message "Failed to start $NAME"
+        log_message "Failed to start $PRETTY_NAME"
     fi
     return $RETVAL
 }
@@ -169,6 +169,14 @@ freighter::Error install_binary() {
         return freighter::Error("Failed to create binary directory: " + ec.message());
 
     const fs::path target_path = BINARY_INSTALL_DIR + "/" + BINARY_NAME;
+    
+    // First try to remove the existing file if it exists
+    if (fs::exists(target_path)) {
+        fs::remove(target_path, ec);
+        if (ec)
+            return freighter::Error("Failed to remove existing binary: " + ec.message());
+    }
+
     fs::copy_file(
         curr_bin_path,
         target_path,
@@ -318,8 +326,11 @@ std::string get_log_file_path() {
 
 freighter::Error view_logs() {
     int result = system("tail -f /var/log/synnax-driver.log");
-    // Exit code 130 indicates Ctrl+C termination
-    if (result != 0 && WEXITSTATUS(result) != 130)
+    if (result < 0) 
+        return freighter::Error("Failed to execute tail command");
+    int exit_status = WEXITSTATUS(result);
+    bool was_interrupted = WIFSIGNALED(result) && WTERMSIG(result) == SIGINT;
+    if (!was_interrupted && exit_status != 0) 
         return freighter::Error("Failed to view logs");
     return freighter::NIL;
 }

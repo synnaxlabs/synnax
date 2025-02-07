@@ -382,7 +382,7 @@ void print_usage() {
 }
 
 // Helper function to execute service commands
-void exec_svg_cmd(
+void exec_svc_cmd(
     const std::function<freighter::Error()> &cmd,
     const std::string &action,
     const std::string &past_tense
@@ -415,19 +415,19 @@ int main(const int argc, char *argv[]) {
 
     if (command == "internal-start") cmd_start_daemon(argc, argv);
     else if (command == "start")
-        exec_svg_cmd(daemond::start_service, "start", "started");
+        exec_svc_cmd(daemond::start_service, "start", "started");
     else if (command == "stop")
-        exec_svg_cmd(daemond::stop_service, "stop", "stopped");
+        exec_svc_cmd(daemond::stop_service, "stop", "stopped");
     else if (command == "restart")
-        exec_svg_cmd(daemond::restart_service, "restart", "restarted");
+        exec_svc_cmd(daemond::restart_service, "restart", "restarted");
     else if (command == "login")
         cmd_login(argc, argv);
     else if (command == "install")
-        exec_svg_cmd(daemond::install_service, "install", "installed");
+        exec_svc_cmd(daemond::install_service, "install", "installed");
     else if (command == "uninstall")
-        exec_svg_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
+        exec_svc_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
     else if (command == "logs")
-        exec_svg_cmd(daemond::view_logs, "view logs", "viewed");
+        exec_svc_cmd(daemond::view_logs, "view logs", "viewed");
     else if (command == "version")
         cmd_version();
     else {
