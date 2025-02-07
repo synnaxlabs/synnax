@@ -53,7 +53,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: async (key) => ({ ...READ_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
 };
 
 const Properties = () => (

@@ -43,7 +43,7 @@ export const ANALOG_WRITE_SELECTABLE: Layout.Selectable = {
   key: ANALOG_WRITE_TYPE,
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  create: (key) => ({ ...ANALOG_WRITE_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...ANALOG_WRITE_LAYOUT, key: layoutKey }),
 };
 
 const Properties = () => (

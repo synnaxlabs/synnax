@@ -9,11 +9,11 @@
 
 import "@/layout/Selector.css";
 
-import { Align, Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type PlacerProps, usePlacer } from "@/layout/hooks";
+import { type PlacerArgs as PlacerProps, usePlacer } from "@/layout/hooks";
 import { type RendererProps } from "@/layout/slice";
 import { type PromptRename, useRename } from "@/modals/Rename";
 
@@ -45,6 +45,7 @@ const Base = ({
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
   const rename = useRename();
+  const handleException = Status.useExceptionHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
@@ -68,10 +69,12 @@ const Base = ({
               key={key}
               variant="outlined"
               onClick={() => {
-                create({ layoutKey, rename }).then((layout) => {
-                  if (layout == null) return;
-                  place(layout);
-                });
+                create({ layoutKey, rename })
+                  .then((layout) => {
+                    if (layout == null) return;
+                    place(layout);
+                  })
+                  .catch((e) => handleException(e, `Failed to create ${title}`));
               }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}
