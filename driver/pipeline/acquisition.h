@@ -47,7 +47,7 @@ public:
     virtual ~Source() = default;
 };
 
-//// @brief an interface that writes acquired data over the network (to Synnax during
+/// @brief an interface that writes acquired data over the network (to Synnax during
 /// production, and to mock objects during testing).
 class Writer {
 public:
@@ -83,6 +83,28 @@ public:
     virtual ~WriterFactory() = default;
 };
 
+/// @brief an implementation of the pipeline::Writer interface that is backed
+/// by a Synnax writer that writes data to a cluster.
+class SynnaxWriter final : public pipeline::Writer {
+    std::unique_ptr<synnax::Writer> internal;
+
+public:
+    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal);
+    bool write(synnax::Frame &fr) override;
+    freighter::Error close() override;
+};
+
+/// @brief an implementation of the pipeline::WriterFactory interface that is
+/// backed by an actual synnax client connected to a cluster.
+class SynnaxWriterFactory final : public WriterFactory {
+    std::shared_ptr<synnax::Synnax> client;
+
+public:
+    explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
+    std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
+        const WriterConfig &config
+    ) override;
+};
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The pipeline
 /// should be used as a utility for implementing a broader acquisition task. It implements

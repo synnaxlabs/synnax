@@ -80,47 +80,29 @@ public:
 };
 
 
-class SynnaxStreamer final : public pipeline::Streamer {
+/// @brief an implementation of the pipeline::Streamer interface that is backed
+/// by a Synnax streamer that receives data from a cluster.
+class SynnaxStreamer final : public Streamer {
     std::unique_ptr<synnax::Streamer> internal;
-
 public:
-    explicit SynnaxStreamer(
-        std::unique_ptr<synnax::Streamer> internal
-    ) : internal(std::move(internal)) {
-    }
+    explicit SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal);
 
-    std::pair<synnax::Frame, freighter::Error> read() override {
-        return this->internal->read();
-    }
+    std::pair<synnax::Frame, freighter::Error> read() override;
 
-    freighter::Error close() override {
-        return this->internal->close();
-    }
+    freighter::Error close() override;
 
-    void closeSend() override {
-        this->internal->close_send();
-    }
+    void closeSend() override;
 };
 
+/// @brief an implementation of the pipeline::StreamerFactory interface that is
+/// backed by an actual synnax client connected to a cluster.
 class SynnaxStreamerFactory final : public StreamerFactory {
     std::shared_ptr<synnax::Synnax> client;
-
 public:
-    explicit SynnaxStreamerFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ) : client(std::move(client)) {
-    }
+    explicit SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client);
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
-        synnax::StreamerConfig config) override {
-        auto [ss, err] = client->telem.open_streamer(config);
-        if (err) return {nullptr, err};
-        return {
-            std::make_unique<SynnaxStreamer>(
-                std::make_unique<synnax::Streamer>(std::move(ss))),
-            freighter::NIL
-        };
-    }
+        synnax::StreamerConfig config) override;
 };
 
 

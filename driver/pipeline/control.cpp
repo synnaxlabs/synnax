@@ -117,3 +117,34 @@ void Control::runInternal() {
         return runInternal();
     if (close_err) this->sink->stopped_with_err(close_err);
 }
+
+SynnaxStreamer::SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal)
+    : internal(std::move(internal)) {
+}
+
+std::pair<synnax::Frame, freighter::Error> SynnaxStreamer::read() {
+    return this->internal->read();
+}
+
+freighter::Error SynnaxStreamer::close() {
+    return this->internal->close();
+}
+
+void SynnaxStreamer::closeSend() {
+    this->internal->close_send();
+}
+
+SynnaxStreamerFactory::SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client)
+    : client(std::move(client)) {
+}
+
+std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error>
+SynnaxStreamerFactory::openStreamer(synnax::StreamerConfig config) {
+    auto [ss, err] = client->telem.open_streamer(config);
+    if (err) return {nullptr, err};
+    return {
+        std::make_unique<SynnaxStreamer>(
+            std::make_unique<synnax::Streamer>(std::move(ss))),
+        freighter::NIL
+    };
+}
