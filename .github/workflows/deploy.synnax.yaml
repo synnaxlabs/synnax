@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-1887-embedded-control-sequencing
   pull_request:
     branches:
       - main
@@ -140,7 +141,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: driver/vendor/open62541/open62541/out
-          key: open62541-${{ runner.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
+          key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
 
       - name: Build Open62541
         if: steps.cache-open62541.outputs.cache-hit != 'true'
