@@ -35,7 +35,7 @@ public:
     }
 
     void closeSend() override {
-        this->internal->closeSend();
+        this->internal->close_send();
     }
 };
 
@@ -50,7 +50,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
         synnax::StreamerConfig config) override {
-        auto [ss, err] = client->telem.openStreamer(config);
+        auto [ss, err] = client->telem.open_streamer(config);
         if (err) return {nullptr, err};
         return {
             std::make_unique<SynnaxStreamer>(

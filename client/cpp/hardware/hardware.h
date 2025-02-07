@@ -9,15 +9,17 @@
 
 #pragma once
 
+/// std
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "client/cpp/telem/telem.h"
-#include "freighter/cpp/freighter.h"
+/// external
 #include "google/protobuf/empty.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
 
-using namespace synnax;
+/// internal
+#include "freighter/cpp/freighter.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
 
 namespace synnax {
 /// @brief type alias for the transport used to create a rack.
@@ -83,7 +85,7 @@ inline TaskKey createTaskKey(RackKey rack, std::uint32_t task) {
     return static_cast<TaskKey>(rack) << 32 | task;
 }
 
-inline RackKey taskKeyRack(TaskKey key) { return key >> 32; }
+inline RackKey task_key_rack(TaskKey key) { return key >> 32; }
 
 inline std::uint32_t taskKeyLocal(TaskKey key) { return key & 0xFFFFFFFF; }
 
@@ -91,29 +93,41 @@ inline std::uint32_t taskKeyLocal(TaskKey key) { return key & 0xFFFFFFFF; }
 /// @brief a Task is a data structure used to configure and execute operations on a hardware device.
 class Task {
 public:
-    TaskKey key;
+    TaskKey key = 0;
     std::string name;
     std::string type;
     std::string config;
-    bool internal;
+    bool internal = false;
 
-    Task(std::string name, std::string type, std::string config,
-         bool internal = false);
+    Task(
+        std::string name,
+        std::string type,
+        std::string config,
+        bool internal = false
+    );
 
-    Task(TaskKey key, std::string name, std::string type, std::string config,
-         bool internal = false);
+    Task(
+        TaskKey key,
+        std::string name,
+        std::string type,
+        std::string config,
+        bool internal = false
+    );
 
-    Task(RackKey rack, std::string name, std::string type, std::string config,
-         bool internal = false);
+    Task(
+        RackKey rack,
+        std::string name,
+        std::string type,
+        std::string config,
+        bool internal = false
+    );
 
     explicit Task(const api::v1::Task &task);
-
 
     Task() = default;
 
 private:
     void to_proto(api::v1::Task *task) const;
-
 
     friend class TaskClient;
 };
@@ -121,7 +135,7 @@ private:
 class TaskClient {
 public:
     TaskClient(
-        RackKey rack,
+        const RackKey rack,
         std::shared_ptr<HardwareCreateTaskClient> task_create_client,
         std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
         std::shared_ptr<HardwareDeleteTaskClient> task_delete_client
@@ -170,7 +184,7 @@ private:
     std::shared_ptr<HardwareDeleteTaskClient> task_delete_client;
 };
 
-inline std::uint16_t rackKeyNode(RackKey key) { return key >> 12; }
+inline std::uint16_t rack_key_node(const RackKey key) { return key >> 12; }
 
 class Rack {
 public:
@@ -180,7 +194,7 @@ public:
 
     Rack(RackKey key, std::string name);
 
-    Rack(std::string name);
+    explicit Rack(std::string name);
 
     Rack() = default;
 
@@ -213,9 +227,14 @@ struct Device {
         std::string make,
         std::string model,
         std::string properties
-    ) : key(key), name(name), rack(rack), location(location),
-        identifier(identifier),
-        make(make), model(model), properties(properties) {
+    ) : key(std::move(key)),
+        name(std::move(name)),
+        rack(rack),
+        location(std::move(std::move(location))),
+        identifier(std::move(identifier)),
+        make(std::move(make)),
+        model(std::move(model)),
+        properties(std::move(properties)) {
     }
 
     Device() = default;
@@ -254,26 +273,25 @@ public:
 
 
     [[nodiscard]]
-    freighter::Error createRack(Rack &rack) const;
+    freighter::Error create_rack(Rack &rack) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> createRack(const std::string &name) const;
+    std::pair<Rack, freighter::Error> create_rack(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> retrieveRack(std::uint32_t key) const;
+    std::pair<Rack, freighter::Error> retrieve_rack(std::uint32_t key) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> retrieveRack(const std::string &name) const;
+    std::pair<Rack, freighter::Error> retrieve_rack(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<Device, freighter::Error>
-    retrieveDevice(const std::string &key) const;
+    std::pair<Device, freighter::Error> retrieve_device(const std::string &key) const;
 
     [[nodiscard]]
-    freighter::Error createDevice(Device &device) const;
+    freighter::Error create_device(Device &device) const;
 
     [[nodiscard]]
-    freighter::Error deleteRack(std::uint32_t key) const;
+    freighter::Error delete_rack(std::uint32_t key) const;
 
 private:
     /// @brief rack creation transport.

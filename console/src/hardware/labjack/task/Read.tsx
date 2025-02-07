@@ -91,7 +91,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createReadLayout({ create: true }),
     key: layoutKey,
   }),

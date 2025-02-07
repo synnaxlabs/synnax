@@ -22,8 +22,6 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
-
-
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
@@ -58,7 +56,7 @@ public:
 
     synnax::Frame get_state();
 
-    void update_state(synnax::Frame frame);
+    void update_state(const synnax::Frame &frame);
 
 private:
     std::mutex state_mutex;
@@ -165,11 +163,11 @@ public:
         std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
-    ~WriteSink();
+    ~WriteSink() override;
 
     void init();
 
-    freighter::Error write(synnax::Frame frame) override;
+    freighter::Error write(const synnax::Frame &frame) override;
 
     freighter::Error stop(const std::string &cmd_key);
 

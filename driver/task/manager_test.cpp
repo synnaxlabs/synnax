@@ -28,7 +28,7 @@ public:
 
 TEST(TaskManagerTests, testModuleNominalConfiguration) {
     auto client = new_test_client();
-    auto [rack, err] = client->hardware.createRack("test_rack");
+    auto [rack, err] = client->hardware.create_rack("test_rack");
     ASSERT_FALSE(err) << err.message();
 
     auto breaker = breaker::Breaker(breaker::Config{

@@ -91,6 +91,15 @@
         }
       ]
     },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "bin/lua",
+          "sidecar": true
+        }
+      ]
+    },
     "deep-link:default",
     "store:default",
     "shell:default"

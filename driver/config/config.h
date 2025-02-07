@@ -137,7 +137,7 @@ public:
     /// field. The field must be an object or an array. If the field is not of the
     /// expected type, or if the field is not found, accumulates an error in the parser.
     /// @param path The JSON path to the field.
-    Parser child(const std::string &path) const {
+    [[nodiscard]] Parser child(const std::string &path) const {
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) {
@@ -151,7 +151,7 @@ public:
         return {*iter, errors, path_prefix + path + "."};
     }
 
-    Parser optional_child(const std::string &path) const {
+    [[nodiscard]] Parser optional_child(const std::string &path) const {
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) return {};
@@ -173,7 +173,7 @@ public:
     ) const {
         if (noop) return;
         const auto iter = config.find(path);
-        if (iter == config.end())return field_err(path, "This field is required");
+        if (iter == config.end()) return field_err(path, "This field is required");
         if (!iter->is_array()) return field_err(path, "Expected an array");
         for (size_t i = 0; i < iter->size(); ++i) {
             const auto child_path =
@@ -207,14 +207,12 @@ public:
         return err;
     }
 
-    freighter::Error error() const {
+    [[nodiscard]] freighter::Error error() const {
         return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
-    [[nodiscard]] json get_json() const {
-        return config;
-    }
+    [[nodiscard]] json get_json() const { return config; }
 
 private:
     /// @brief the JSON configuration being parsed.

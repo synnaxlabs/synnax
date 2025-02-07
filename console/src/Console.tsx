@@ -25,7 +25,6 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { LabJack } from "@/hardware/labjack";
@@ -37,10 +36,12 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
+import { Sequence } from "@/sequence";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Table } from "@/table";
@@ -63,13 +64,14 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
-  ...Confirm.LAYOUTS,
+  ...Modals.LAYOUTS,
   ...Label.LAYOUTS,
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
   ...Task.LAYOUTS,
   ...Table.LAYOUTS,
+  ...Sequence.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

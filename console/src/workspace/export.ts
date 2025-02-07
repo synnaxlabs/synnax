@@ -14,9 +14,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { Confirm } from "@/confirm";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { select, selectActiveKey } from "@/workspace/selectors";
@@ -26,7 +26,7 @@ const removeDirectory = (name: string): string => name.split(sep()).join("_");
 export interface ExportContext {
   client: CSynnax | null;
   store: RootStore;
-  confirm: Confirm.CreateModal;
+  confirm: Modals.CreateConfirmModal;
   handleException: Status.ExceptionHandler;
   extractors: Record<string, Export.Extractor>;
 }
@@ -106,7 +106,7 @@ export const useExport = (
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const store = useStore<RootState, RootAction>();
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   return (key: string) =>
     export_(key, { client, store, confirm, handleException, extractors });
 };

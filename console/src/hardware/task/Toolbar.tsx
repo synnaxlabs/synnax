@@ -31,7 +31,6 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
 import { createLayout } from "@/hardware/task/ontology";
@@ -39,6 +38,7 @@ import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { Modals } from "@/modals";
 
 type DesiredTaskState = "running" | "paused" | null;
 
@@ -195,7 +195,7 @@ const Content = (): ReactElement => {
       });
     },
   });
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   const handleLink = Link.useCopyToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {

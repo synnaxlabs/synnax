@@ -46,7 +46,12 @@ export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   // Close windows whose mosaics no longer exist.
   const windows = Drift.selectWindows(s);
   windows.forEach((win) => {
-    if (!win.key.startsWith(MOSAIC_WINDOW_TYPE) || win.key in mosaics) return;
+    if (
+      win.key == null ||
+      !win.key.startsWith(MOSAIC_WINDOW_TYPE) ||
+      win.key in mosaics
+    )
+      return;
     store.dispatch(Drift.closeWindow({ key: win.key }));
   });
 };
