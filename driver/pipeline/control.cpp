@@ -140,8 +140,7 @@ void Control::runInternal() {
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
-        const auto sink_err = this->sink->write(std::move(cmd_frame));
-        if (sink_err) {
+        if (const auto sink_err = this->sink->write(cmd_frame)) {
             if (
                 sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
                 && breaker.wait(sink_err.message())

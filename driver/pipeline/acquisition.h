@@ -9,11 +9,11 @@
 
 #pragma once
 
-/// std.
+/// std
 #include <thread>
 #include <atomic>
 
-/// external.
+/// external
 #include "client/cpp/synnax.h"
 
 /// module
@@ -139,7 +139,7 @@ public:
     /// @brief adds a middleware to the acquisition pipeline that will be called on each
     /// frame read from source
     void add_middleware(
-        std::shared_ptr<pipeline::Middleware> middleware
+        const std::shared_ptr<pipeline::Middleware> &middleware
     ){
         middleware_chain.add(middleware);
     }

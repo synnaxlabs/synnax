@@ -25,6 +25,7 @@ cc_test(
     name = "plugins_test",
     size = "small",
     srcs = [
+        "channel_receive_test.cpp",
         "channel_write_test.cpp",
         "json_test.cpp",
     ],

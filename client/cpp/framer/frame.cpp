@@ -33,9 +33,11 @@ Frame::Frame(const size_t size) :
     channels->reserve(size);
 }
 
-Frame::Frame(const ChannelKey &chan, const synnax::Series &ser) :
+Frame::Frame(const ChannelKey &chan, synnax::Series &&ser) :
     channels(std::make_unique<std::vector<ChannelKey> >(1, chan)),
-    series(std::make_unique<std::vector<synnax::Series> >(1, ser)) {
+    series(std::make_unique<std::vector<synnax::Series> >()) {
+    series->reserve(1);
+    series->emplace_back(std::move(ser));
 }
 
 Frame::Frame(const api::v1::Frame &f) :
@@ -70,6 +72,14 @@ SampleValue Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
         if (channels->at(i) == key) return series->at(i).at(index);
     throw std::runtime_error("channel not found");
+}
+
+Frame Frame::deep_copy() const {
+    auto new_channels = std::make_unique<std::vector<ChannelKey>>(*channels);
+    auto new_series = std::make_unique<std::vector<synnax::Series>>();
+    new_series->reserve(series->size());
+    for (const auto &ser: *series) new_series->emplace_back(ser.deep_copy());
+    return Frame(std::move(new_channels), std::move(new_series));
 }
 
 template<typename NumericType>

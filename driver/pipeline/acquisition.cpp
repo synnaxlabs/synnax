@@ -21,7 +21,6 @@
 /// internal
 #include "driver/pipeline/acquisition.h"
 
-
 using json = nlohmann::json;
 
 using namespace pipeline;
