@@ -9,7 +9,6 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type ReturnState } from "@/hardware/common/task/useState";
@@ -31,25 +30,24 @@ export const Controls = ({
   onStartStop,
   layoutKey,
   onConfigure,
-  isConfiguring: configuring,
-  isSnapshot: snapshot = false,
+  isConfiguring,
+  isSnapshot = false,
 }: ControlsProps) => {
-  let content: ReactElement | null = null;
-  if (state?.message != null)
-    content = (
-      <Status.Text variant={state?.variant ?? "info"}>{state?.message}</Status.Text>
-    );
-  if (snapshot)
-    content = (
-      <Status.Text.Centered variant="disabled" hideIcon>
+  const content =
+    state.message != null ? (
+      <Status.Text variant={state.variant ?? "info"}>{state.message}</Status.Text>
+    ) : isSnapshot ? (
+      <Status.Text.Centered hideIcon variant="disabled">
         This task is a snapshot and cannot be modified or started.
       </Status.Text.Centered>
-    );
+    ) : null;
   const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  const isLoading = state.state === "loading";
+  const isDisabled = isLoading || isConfiguring;
   return (
     <Align.Space
-      direction="x"
       className={CSS.B("task-controls")}
+      direction="x"
       justify="spaceBetween"
     >
       <Align.Space
@@ -64,38 +62,44 @@ export const Controls = ({
       >
         {content}
       </Align.Space>
-      <Align.Space
-        direction="x"
-        bordered
-        rounded
-        style={{ padding: "2rem", borderRadius: "1rem" }}
-        justify="end"
-      >
-        <Button.Icon
-          loading={state.state === "loading"}
-          disabled={state.state === "loading" || snapshot}
-          onClick={onStartStop}
-          variant="outlined"
+      {!isSnapshot && (
+        <Align.Space
+          align="center"
+          bordered
+          direction="x"
+          justify="end"
+          rounded
+          style={{ borderRadius: "1rem", padding: "2rem" }}
         >
-          {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
-        </Button.Icon>
-        <Button.Button
-          loading={configuring}
-          disabled={configuring || snapshot}
-          onClick={onConfigure}
-          triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
-          tooltip={
-            <Align.Space direction="x" align="center" size="small">
-              <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />
-              <Text.Text shade={7} level="small">
-                To Configure
-              </Text.Text>
-            </Align.Space>
-          }
-        >
-          Configure
-        </Button.Button>
-      </Align.Space>
+          <Button.Button
+            disabled={isDisabled}
+            loading={isConfiguring}
+            onClick={onConfigure}
+            size="medium"
+            tooltip={
+              <Align.Space direction="x" align="center" size="small">
+                <Triggers.Text level="small" shade={7} trigger={CONFIGURE_TRIGGER} />
+                <Text.Text level="small" shade={7}>
+                  To Configure
+                </Text.Text>
+              </Align.Space>
+            }
+            triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
+            variant="outlined"
+          >
+            Configure
+          </Button.Button>
+          <Button.Icon
+            disabled={isDisabled}
+            loading={isLoading}
+            onClick={onStartStop}
+            size="medium"
+            variant="filled"
+          >
+            {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
+          </Button.Icon>
+        </Align.Space>
+      )}
     </Align.Space>
   );
 };

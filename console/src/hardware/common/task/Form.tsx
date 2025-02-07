@@ -131,7 +131,7 @@ export const wrapForm = <
                 taskKey={task.key}
               />
             </Align.Space>
-            <ParentRangeButton key={task.key} />
+            {task instanceof clientTask.Task && <ParentRangeButton task={task} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               {Properties}
             </Align.Space>

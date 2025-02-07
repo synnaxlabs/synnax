@@ -81,12 +81,7 @@
         font-size: var(--pluto-h2-size);
         line-height: var(--pluto-h2-line-height);
     }
-    .console-task-controls {
-        flex-direction: column !important;
-        .console-task-state {
-            min-height: 10rem;
-        }
-    }
+
     .console-content {
         padding: 3rem 2rem !important;
     }
@@ -101,6 +96,13 @@
             flex-grow: 1;
             flex-basis: 800px;
             border-top: var(--pluto-border);
+        }
+    }
+
+    .console-task-controls {
+        flex-direction: column !important;
+        .console-task-state {
+            min-height: 10rem;
         }
     }
 }

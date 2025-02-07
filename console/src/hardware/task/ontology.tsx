@@ -35,10 +35,10 @@ const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
   [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
 };
 
-export const createLayout = (task: task.Task): Layout.BaseState => {
-  const configureLayout = ZERO_LAYOUT_STATES[task.type];
-  if (configureLayout == null) throw new Error(`No layout configured for ${task.type}`);
-  return { ...configureLayout, args: { taskKey: task.key } };
+export const createLayout = ({ key, type }: task.Task): Layout.BaseState => {
+  const configureLayout = ZERO_LAYOUT_STATES[type];
+  if (configureLayout == null) throw new Error(`No layout configured for ${type}`);
+  return { ...configureLayout, key, args: { taskKey: key } };
 };
 
 export const retrieveAndPlaceLayout = async (

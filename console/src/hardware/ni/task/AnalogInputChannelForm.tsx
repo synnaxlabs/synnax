@@ -1012,12 +1012,15 @@ export const AI_CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
 };
 
-export interface AIChannelFormProps {
+export interface AnalogInputChannelFormProps {
   type: AIChannelType;
   prefix: string;
 }
 
-export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
+export const AnalogInputChannelForm = ({
+  type,
+  prefix,
+}: AnalogInputChannelFormProps) => {
   const Form = AI_CHANNEL_FORMS[type];
   return (
     <>

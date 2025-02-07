@@ -11,16 +11,16 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 
 export interface TareButtonProps {
-  onClick: () => void;
   disabled?: boolean;
+  onTare: () => void;
 }
 
-export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
+export const TareButton = ({ onTare, disabled }: TareButtonProps) => (
   <Button.Icon
     variant="outlined"
     disabled={disabled}
     stopPropagation
-    onClick={onClick}
+    onClick={onTare}
     tooltip="Tare"
   >
     <Icon.Tare />

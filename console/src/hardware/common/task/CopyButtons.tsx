@@ -24,7 +24,7 @@ interface CopyButtonProps {
 
 const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
   <Button.Icon
-    tooltip={() => <Text.Text level="small">{`Copy ${tooltip}`}</Text.Text>}
+    tooltip={<Text.Text level="small">{`Copy ${tooltip}`}</Text.Text>}
     tooltipLocation="left"
     variant="text"
     {...rest}
@@ -46,9 +46,9 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
     copy(
       `
       // Retrieve ${name}
-      const task = client.hardware.tasks.retrieve(${taskKey})
+      const task = client.hardware.tasks.retrieve("${taskKey}")
       `,
-      `TypeScript code to retrieve ${name}`,
+      `TypeScript code for retrieving ${name}`,
     );
   };
   const handleCopyJSONConfig = () =>

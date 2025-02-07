@@ -10,14 +10,15 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
-const CreateTaskIcon = () => (
-  <PIcon.Create>
-    <Icon.Task />
-  </PIcon.Create>
-);
-
 export interface CreateMenuItemProps extends Omit<Menu.ItemProps, "startIcon"> {}
 
 export const CreateMenuItem = (props: CreateMenuItemProps) => (
-  <Menu.Item {...props} startIcon={<CreateTaskIcon />} />
+  <Menu.Item
+    {...props}
+    startIcon={
+      <PIcon.Create>
+        <Icon.Task />
+      </PIcon.Create>
+    }
+  />
 );

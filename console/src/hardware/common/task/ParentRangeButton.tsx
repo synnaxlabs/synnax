@@ -16,22 +16,21 @@ import { Layout } from "@/layout";
 import { Range } from "@/range";
 
 export interface ParentRangeButtonProps {
-  key?: task.Key;
+  task: task.Task;
 }
 
-export const ParentRangeButton = ({ key }: ParentRangeButtonProps) => {
+export const ParentRangeButton = ({ task }: ParentRangeButtonProps) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ontology.Resource>();
   const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
     try {
-      if (client == null || key == null) return;
-      const tsk = await client.hardware.tasks.retrieve(key);
-      const parent = await tsk.snapshottedTo();
+      if (client == null) return;
+      const parent = await task.snapshottedTo();
       if (parent != null) setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: tsk.ontologyID,
+        target: task.ontologyID,
         dependents: parent == null ? [] : [parent],
         relationshipDirection: ontology.TO_RELATIONSHIP_DIRECTION,
       });
@@ -41,29 +40,25 @@ export const ParentRangeButton = ({ key }: ParentRangeButtonProps) => {
       });
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, "Failed to retrieve parent ranges");
+      handleException(e, `Failed to retrieve parent ranges for ${task.name}`);
       setParent(undefined);
       return undefined;
     }
-  }, [key, client?.key]);
+  }, [task, client?.key]);
   if (parent == null) return null;
+  const handleClick = () =>
+    placeLayout({ ...Range.OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });
   return (
-    <Align.Space direction="x" size="small" align="center">
+    <Align.Space align="center" direction="x" size="small">
       <Text.Text level="p">Snapshotted to</Text.Text>
       <Button.Button
-        variant="text"
-        shade={7}
-        weight={400}
-        startIcon={<Icon.Range />}
         iconSpacing="small"
+        onClick={handleClick}
+        shade={7}
+        startIcon={<Icon.Range />}
         style={{ padding: "1rem" }}
-        onClick={() =>
-          placeLayout({
-            ...Range.OVERVIEW_LAYOUT,
-            key: parent.id.key,
-            name: parent.name,
-          })
-        }
+        variant="text"
+        weight={400}
       >
         {parent.name}
       </Button.Button>

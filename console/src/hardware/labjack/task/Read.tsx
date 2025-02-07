@@ -92,7 +92,7 @@ const ChannelListItem = ({
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
         {hasTareButton && (
-          <Common.Task.TareButton disabled={!canTare} onClick={() => onTare(channel)} />
+          <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
         )}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
