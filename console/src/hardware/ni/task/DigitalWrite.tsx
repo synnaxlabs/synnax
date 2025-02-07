@@ -9,21 +9,21 @@
 
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { id, primitiveIsZero } from "@synnaxlabs/x";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
+import { generateDigitalOutputChannel } from "@/hardware/ni/task/generateChannel";
 import {
   DIGITAL_WRITE_TYPE,
+  type DigitalOutputChannel,
   type DigitalWriteConfig,
   digitalWriteConfigZ,
   type DigitalWriteDetails,
   type DigitalWriteType,
-  type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
-  ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
@@ -42,14 +42,17 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
 };
 
-const generateChannel = (channels: DOChannel[]): DOChannel => {
-  const line = Math.max(0, ...channels.map((v) => v.line)) + 1;
-  return { ...ZERO_DO_CHANNEL, key: id.id(), line };
-};
+const Properties = () => (
+  <>
+    <Device.Select />
+    <Common.Task.Fields.StateUpdateRate />
+    <Common.Task.Fields.DataSaving />
+  </>
+);
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DOChannel> {}
-
-const ChannelListItem = (props: ChannelListItemProps) => {
+const ChannelListItem = (
+  props: Common.Task.ChannelListItemProps<DigitalOutputChannel>,
+) => {
   const { cmdChannel, stateChannel } = props.entry;
   return (
     <DigitalListItem {...props}>
@@ -59,26 +62,16 @@ const ChannelListItem = (props: ChannelListItemProps) => {
   );
 };
 
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Common.Task.Fields.StateUpdateRate />
-    <Common.Task.Fields.DataSaving />
-  </>
-);
-
 const TaskForm: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
 > = ({ isSnapshot }) => (
-  <Common.Task.Layouts.List<DOChannel>
+  <Common.Task.Layouts.List<DigitalOutputChannel>
     isSnapshot={isSnapshot}
-    generateChannel={generateChannel}
+    generateChannel={generateDigitalOutputChannel}
   >
     {ChannelListItem}
   </Common.Task.Layouts.List>
 );
-
-const getDeviceKey = (chan: DOChannel) => `${chan.port}l${chan.line}`;
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalWriteConfig,
@@ -91,6 +84,8 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
   },
 });
+
+const getDeviceKey = ({ line, port }: DigitalOutputChannel) => `${port}l${line}`;
 
 const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
@@ -116,8 +111,8 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
     dev.properties.digitalOutput.stateIndex = stateIndex.key;
     dev.properties.digitalOutput.channels = {};
   }
-  const commandsToCreate: DOChannel[] = [];
-  const statesToCreate: DOChannel[] = [];
+  const commandsToCreate: DigitalOutputChannel[] = [];
+  const statesToCreate: DigitalOutputChannel[] = [];
   for (const channel of config.channels) {
     const key = getDeviceKey(channel);
     const exPair = dev.properties.digitalOutput.channels[key];
@@ -188,7 +183,7 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   return config;
 };
 
-export const DigitalWriteTask = Common.Task.wrapForm(<Properties />, TaskForm, {
+export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, TaskForm, {
   configSchema: digitalWriteConfigZ,
   type: DIGITAL_WRITE_TYPE,
   getInitialPayload,

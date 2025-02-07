@@ -14,10 +14,13 @@ import { type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
-import { type DIChannel, type DOChannel } from "@/hardware/ni/task/types";
+import {
+  type DigitalInputChannel,
+  type DigitalOutputChannel,
+} from "@/hardware/ni/task/types";
 
 export interface DigitalListItemProps
-  extends Common.Task.ChannelListItemProps<DIChannel | DOChannel> {
+  extends Common.Task.ChannelListItemProps<DigitalInputChannel | DigitalOutputChannel> {
   children: ReactNode;
 }
 

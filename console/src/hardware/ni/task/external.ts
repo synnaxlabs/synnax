@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ANALOG_READ_SELECTABLE, AnalogReadTask } from "@/hardware/ni/task/AnalogRead";
-import {
-  ANALOG_WRITE_SELECTABLE,
-  AnalogWriteTask,
-} from "@/hardware/ni/task/AnalogWrite";
-import {
-  DIGITAL_READ_SELECTABLE,
-  DigitalReadTask,
-} from "@/hardware/ni/task/DigitalRead";
+import { ANALOG_READ_SELECTABLE, AnalogRead } from "@/hardware/ni/task/AnalogRead";
+import { ANALOG_WRITE_SELECTABLE, AnalogWrite } from "@/hardware/ni/task/AnalogWrite";
+import { DIGITAL_READ_SELECTABLE, DigitalRead } from "@/hardware/ni/task/DigitalRead";
 import {
   DIGITAL_WRITE_SELECTABLE,
-  DigitalWriteTask,
+  DigitalWrite,
 } from "@/hardware/ni/task/DigitalWrite";
 import {
   ANALOG_READ_TYPE,
@@ -36,10 +30,10 @@ export * from "@/hardware/ni/task/palette";
 export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [ANALOG_READ_TYPE]: AnalogReadTask,
-  [ANALOG_WRITE_TYPE]: AnalogWriteTask,
-  [DIGITAL_READ_TYPE]: DigitalReadTask,
-  [DIGITAL_WRITE_TYPE]: DigitalWriteTask,
+  [ANALOG_READ_TYPE]: AnalogRead,
+  [ANALOG_WRITE_TYPE]: AnalogWrite,
+  [DIGITAL_READ_TYPE]: DigitalRead,
+  [DIGITAL_WRITE_TYPE]: DigitalWrite,
 };
 
 export const SELECTABLES: Layout.Selectable[] = [

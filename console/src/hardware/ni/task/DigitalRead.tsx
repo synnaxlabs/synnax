@@ -9,20 +9,20 @@
 
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { id, primitiveIsZero } from "@synnaxlabs/x";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
+import { generateDigitalInputChannel } from "@/hardware/ni/task/generateChannel";
 import {
-  type DIChannel,
   DIGITAL_READ_TYPE,
+  type DigitalInputChannel,
   type DigitalReadConfig,
   digitalReadConfigZ,
   type DigitalReadDetails,
   type DigitalReadType,
-  ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
@@ -51,7 +51,8 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DIChannel> {}
+interface ChannelListItemProps
+  extends Common.Task.ChannelListItemProps<DigitalInputChannel> {}
 
 const ChannelListItem = (props: ChannelListItemProps) => (
   <DigitalListItem {...props}>
@@ -59,17 +60,12 @@ const ChannelListItem = (props: ChannelListItemProps) => (
   </DigitalListItem>
 );
 
-const generateChannel = (channels: DIChannel[]): DIChannel => {
-  const line = Math.max(0, ...channels.map((v) => v.line)) + 1;
-  return { ...ZERO_DI_CHANNEL, key: id.id(), line };
-};
-
 const TaskForm: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
 > = ({ isSnapshot }) => (
-  <Common.Task.Layouts.List<DIChannel>
+  <Common.Task.Layouts.List<DigitalInputChannel>
     isSnapshot={isSnapshot}
-    generateChannel={generateChannel}
+    generateChannel={generateDigitalInputChannel}
   >
     {ChannelListItem}
   </Common.Task.Layouts.List>
@@ -109,7 +105,7 @@ const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
     dev.properties.digitalInput.index = aiIndex.key;
     dev.properties.digitalInput.channels = {};
   }
-  const toCreate: DIChannel[] = [];
+  const toCreate: DigitalInputChannel[] = [];
   for (const channel of config.channels) {
     const key = `${channel.port}l${channel.line}`;
     // check if the channel is in properties
@@ -145,7 +141,7 @@ const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
   return config;
 };
 
-export const DigitalReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
+export const DigitalRead = Common.Task.wrapForm(() => <Properties />, TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
   getInitialPayload,

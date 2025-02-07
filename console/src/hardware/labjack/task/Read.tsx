@@ -25,13 +25,13 @@ import {
   getPortTypeFromChannelType,
   type InputChannelType,
   inputChannelZ,
-  type Read,
   READ_TYPE,
   type ReadChannel,
   type ReadConfig,
   readConfigZ,
   type ReadPayload,
   type ReadStateDetails,
+  type ReadTask,
   type ReadType,
   TC_CHANNEL_TYPE,
   thermocoupleChannelZ,
@@ -185,7 +185,7 @@ const getOpenChannel = (
 
 interface ChannelsFormProps {
   device: Device.Device;
-  task: Read | ReadPayload;
+  task: ReadTask | ReadPayload;
   isRunning: boolean;
   isSnapshot: boolean;
 }
@@ -303,7 +303,7 @@ const onConfigure = async (client: Synnax, config: ReadConfig) => {
   return config;
 };
 
-export const ReadTask = Common.Task.wrapForm(<Properties />, Form, {
+export const Read = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

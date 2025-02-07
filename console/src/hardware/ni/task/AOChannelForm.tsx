@@ -15,7 +15,7 @@ import { type FC } from "react";
 import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
-import { type AOChannelType, type WaveType } from "@/hardware/ni/task/types";
+import { type AnalogOutputChannelType, type WaveType } from "@/hardware/ni/task/types";
 
 interface WaveTypeEntry extends Keyed<WaveType> {
   icon: React.ReactNode;
@@ -64,7 +64,7 @@ export interface FormProps {
   prefix: string;
 }
 
-const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
+const CHANNEL_FORMS: Record<AnalogOutputChannelType, FC<FormProps>> = {
   ao_current: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -94,7 +94,7 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
 };
 
 export interface AOChannelFormProps {
-  type: AOChannelType;
+  type: AnalogOutputChannelType;
   prefix: string;
 }
 

@@ -22,12 +22,12 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { Form } from "@/hardware/opc/task/Form";
 import {
-  type Read,
   READ_TYPE,
   type ReadChannelConfig,
   type ReadConfig,
   readConfigZ,
   type ReadStateDetails,
+  type ReadTask,
   type ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
@@ -132,7 +132,7 @@ const onConfigure = async (
   // getting the index channels of all opc read tasks channels
   const existingTasks = (await client.hardware.tasks.list()).filter(
     (t) => t.type === READ_TYPE,
-  ) as Read[];
+  ) as ReadTask[];
   // check if this task already exists
   const existingTask = existingTasks.find((t) => t.key === taskKey);
   // if it does exist, grab the index channel of all of the keys in the task
@@ -235,7 +235,7 @@ const onConfigure = async (
   return config;
 };
 
-export const ReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
+export const Read = Common.Task.wrapForm(() => <Properties />, TaskForm, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

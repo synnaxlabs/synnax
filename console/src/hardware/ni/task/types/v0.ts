@@ -835,7 +835,7 @@ export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   units: VOLTS,
 };
 
-const aiChannelZ = z.union([
+const analogInputChannelZ = z.union([
   aiAccelChanZ,
   aiBridgeChanZ,
   aiCurrentChanZ,
@@ -856,10 +856,10 @@ const aiChannelZ = z.union([
   aiVoltageChanZ,
 ]);
 
-type AIChannel = z.infer<typeof aiChannelZ>;
-export type AIChannelType = AIChannel["type"];
+type AnalogInputChannel = z.infer<typeof analogInputChannelZ>;
+export type AnalogInputChannelType = AnalogInputChannel["type"];
 
-export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
+export const ANALOG_INPUT_CHANNEL_TYPE_NAMES: Record<AnalogInputChannelType, string> = {
   [AI_ACCEL_CHAN_TYPE]: "Accelerometer",
   [AI_BRIDGE_CHAN_TYPE]: "Bridge",
   [AI_CURRENT_CHAN_TYPE]: "Current",
@@ -946,29 +946,48 @@ const ZERO_AO_VOLTAGE_CHAN: AOVoltageChan = {
   units: VOLTS,
 };
 
-const aoChannelZ = z.union([aoCurrentChanZ, aoFuncGenChanZ, aoVoltageChanZ]);
-export type AOChannel = z.infer<typeof aoChannelZ>;
-export type AOChannelType = AOChannel["type"];
+const analogOutputChannelZ = z.union([aoCurrentChanZ, aoFuncGenChanZ, aoVoltageChanZ]);
+export type AnalogOutputChannel = z.infer<typeof analogOutputChannelZ>;
+export type AnalogOutputChannelType = AnalogOutputChannel["type"];
 
-export const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
+export const AO_CHANNEL_SCHEMAS: Record<
+  AnalogOutputChannelType,
+  z.ZodType<AnalogOutputChannel>
+> = {
   [AO_CURRENT_CHAN_TYPE]: aoCurrentChanZ,
   [AO_FUNC_GEN_CHAN_TYPE]: aoFuncGenChanZ,
   [AO_VOLTAGE_CHAN_TYPE]: aoVoltageChanZ,
 };
 
-export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
+export const AO_CHANNEL_TYPE_NAMES: Record<AnalogOutputChannelType, string> = {
   [AO_CURRENT_CHAN_TYPE]: "Current",
   [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
+export const ZERO_AO_CHANNELS: Record<AnalogOutputChannelType, AnalogOutputChannel> = {
   [AO_CURRENT_CHAN_TYPE]: ZERO_AO_CURRENT_CHAN,
   [AO_FUNC_GEN_CHAN_TYPE]: ZERO_AO_FUNC_GEN_CHAN,
   [AO_VOLTAGE_CHAN_TYPE]: ZERO_AO_VOLTAGE_CHAN,
 };
 
 export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
+
+// Digital Input Channels
+
+const DIGITAL_INPUT_CHANNEL_TYPE = "digital_input";
+const digitalInputChannelZ = baseChannelZ.extend({
+  type: z.literal(DIGITAL_INPUT_CHANNEL_TYPE),
+  line: z.number(),
+  channel: channel.keyZ,
+});
+export interface DigitalInputChannel extends z.infer<typeof digitalInputChannelZ> {}
+export const ZERO_DIGITAL_INPUT_CHANNEL: DigitalInputChannel = {
+  ...ZERO_BASE_CHANNEL,
+  type: DIGITAL_INPUT_CHANNEL_TYPE,
+  line: 0,
+  channel: 0,
+};
 
 // Digital Output Channels
 
@@ -988,22 +1007,6 @@ export const ZERO_DO_CHANNEL: DOChannel = {
   line: 0,
 };
 
-// Digital Input Channels
-
-const DI_CHANNEL_TYPE = "digital_input";
-const diChannelZ = baseChannelZ.extend({
-  type: z.literal(DI_CHANNEL_TYPE),
-  line: z.number(),
-  channel: channel.keyZ,
-});
-export interface DIChannel extends z.infer<typeof diChannelZ> {}
-export const ZERO_DI_CHANNEL: DIChannel = {
-  ...ZERO_BASE_CHANNEL,
-  type: DI_CHANNEL_TYPE,
-  line: 0,
-  channel: 0,
-};
-
 // Tasks
 
 const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
@@ -1020,7 +1023,7 @@ export const analogReadConfigZ = baseConfigZ.extend({
   version: z.literal(VERSION).optional().default(VERSION),
   sampleRate: z.number().min(0).max(50000),
   streamRate: z.number().min(0).max(50000),
-  channels: z.array(aiChannelZ),
+  channels: z.array(analogInputChannelZ),
 });
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
@@ -1053,7 +1056,7 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 
 export const analogWriteConfigZ = baseConfigZ.extend({
   stateRate: z.number().min(0).max(50000),
-  channels: z.array(aoChannelZ),
+  channels: z.array(analogOutputChannelZ),
 });
 export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
 const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
@@ -1112,7 +1115,7 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 export const digitalReadConfigZ = baseConfigZ.extend({
   sampleRate: z.number().min(0).max(50000),
   streamRate: z.number().min(0).max(50000),
-  channels: z.array(diChannelZ),
+  channels: z.array(digitalInputChannelZ),
 });
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
@@ -1140,4 +1143,5 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 
 // Scan Task
 
+export const SCAN_TASK_NAME = "ni scanner";
 export type ScanConfig = { enabled: boolean };

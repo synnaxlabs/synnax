@@ -111,7 +111,7 @@ export const readConfigZ = z
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
-export type Read = task.Task<ReadConfig, ReadStateDetails, ReadType>;
+export type ReadTask = task.Task<ReadConfig, ReadStateDetails, ReadType>;
 export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
@@ -245,7 +245,6 @@ export const writeConfigZ = z
   });
 
 export type WriteConfig = z.infer<typeof writeConfigZ>;
-export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export type WritePayload = task.Payload<WriteConfig, WriteStateDetails, WriteType>;
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",

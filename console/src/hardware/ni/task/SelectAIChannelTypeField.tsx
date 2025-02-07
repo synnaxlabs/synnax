@@ -12,34 +12,39 @@ import { deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
-  AI_CHANNEL_SCHEMAS,
-  AI_CHANNEL_TYPE_NAMES,
-  type AIChannel,
-  type AIChannelType,
-  ZERO_AI_CHANNELS,
+  ANALOG_INPUT_CHANNEL_SCHEMAS,
+  ANALOG_INPUT_CHANNEL_TYPE_NAMES,
+  type AnalogInputChannelType,
+  type AnalogInputChannel,
+  ZERO_ANALOG_INPUT_CHANNELS,
 } from "@/hardware/ni/task/types";
 
 const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
   { key: "name", name: "Name" },
 ];
 
+export type SelectAIChannelTypeFieldProps = Form.SelectSingleFieldProps<
+  AnalogInputChannelType,
+  KeyedNamed<AnalogInputChannelType>
+>;
+
 export const SelectAIChannelTypeField = Form.buildSelectSingleField<
-  AIChannelType,
-  KeyedNamed<AIChannelType>
+  AnalogInputChannelType,
+  KeyedNamed<AnalogInputChannelType>
 >({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AIChannelType>(path).value;
+      const prevType = get<AnalogInputChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_AI_CHANNELS[value]);
+      const next = deep.copy(ZERO_ANALOG_INPUT_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AIChannel>(parentPath).value;
-      let schema = AI_CHANNEL_SCHEMAS[value];
+      const prevParent = get<AnalogInputChannel>(parentPath).value;
+      let schema = ANALOG_INPUT_CHANNEL_SCHEMAS[value];
       if ("sourceType" in schema)
         // @ts-expect-error - schema source type checking
-        schema = schema.sourceType() as z.ZodObject<AIChannel>;
+        schema = schema.sourceType() as z.ZodObject<AnalogInputChannel>;
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
@@ -50,8 +55,11 @@ export const SelectAIChannelTypeField = Form.buildSelectSingleField<
     hideColumnHeader: true,
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
-    data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChannelType, string][]).map(
-      ([key, name]) => ({ key, name }),
-    ),
+    data: (
+      Object.entries(ANALOG_INPUT_CHANNEL_TYPE_NAMES) as [
+        AnalogInputChannelType,
+        string,
+      ][]
+    ).map(([key, name]) => ({ key, name })),
   },
 });

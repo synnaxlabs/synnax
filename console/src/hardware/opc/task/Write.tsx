@@ -112,8 +112,8 @@ const onConfigure = async (client: Synnax, config: WriteConfig) => {
   return config;
 };
 
-export const WriteTask = Common.Task.wrapForm(
-  <Properties />,
+export const Write = Common.Task.wrapForm(
+  () => <Properties />,
   ({ isSnapshot }) => <Form isSnapshot={isSnapshot} />,
   { configSchema: writeConfigZ, type: WRITE_TYPE, getInitialPayload, onConfigure },
 );

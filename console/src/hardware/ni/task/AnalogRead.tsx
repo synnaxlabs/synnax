@@ -15,24 +15,24 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
-import { findPort } from "@/hardware/ni/task/findPort";
+import { AnalogInputChannelForm } from "@/hardware/ni/task/AnalogInputChannelForm";
+import { generateAnalogInputChannel } from "@/hardware/ni/task/generateChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
-  AI_CHANNEL_TYPE_NAMES,
-  type AIChannel,
-  type AIChannelType,
+  ANALOG_INPUT_CHANNEL_TYPE_NAMES,
   ANALOG_READ_TYPE,
+  type AnalogInputChannel,
+  type AnalogInputChannelType,
   type AnalogReadConfig,
   analogReadConfigZ,
   type AnalogReadDetails,
   type AnalogReadType,
-  ZERO_AI_CHANNEL,
+  ZERO_ANALOG_INPUT_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
@@ -60,7 +60,8 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
+interface ChannelListItemProps
+  extends Common.Task.ChannelListItemProps<AnalogInputChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -84,12 +85,12 @@ const ChannelListItem = ({
           {port}
         </Text.Text>
         <Text.Text level="p" shade={9}>
-          {AI_CHANNEL_TYPE_NAMES[type]}
+          {ANALOG_INPUT_CHANNEL_TYPE_NAMES[type]}
         </Text.Text>
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
         {hasTareButton && (
-          <Common.Task.TareButton disabled={!canTare} onClick={() => onTare(channel)} />
+          <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
         )}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
@@ -101,32 +102,27 @@ const ChannelListItem = ({
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AnalogInputChannelType>(`${path}.type`);
   return (
     <>
       <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AIChannelForm type={type} prefix={path} />
+      <AnalogInputChannelForm type={type} prefix={path} />
     </>
   );
 };
 
-const getNewChannel = (channels: AIChannel[], index: number) =>
-  index === -1
-    ? { ...deep.copy(ZERO_AI_CHANNEL), key: id.id() }
-    : { ...deep.copy(channels[index]), port: findPort(channels), key: id.id() };
-
 const Form: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadDetails, AnalogReadType>
 > = ({ task, isRunning, isSnapshot }) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
+  const [tare, allowTare, handleTare] = Common.Task.useTare<AnalogInputChannel>({
     task,
     isRunning,
   });
   return (
-    <Common.Task.Layouts.ListAndDetails<AIChannel>
+    <Common.Task.Layouts.ListAndDetails<AnalogInputChannel>
       ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
       Details={ChannelDetails}
-      generateChannel={getNewChannel}
+      generateChannel={generateAnalogInputChannel}
       isSnapshot={isSnapshot}
       initalChannels={task.config.channels}
       onTare={handleTare}
@@ -146,7 +142,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.id() }],
+        : [{ ...ZERO_ANALOG_INPUT_CHANNEL, device: deviceKey, key: id.id() }],
   },
 });
 
@@ -174,7 +170,7 @@ const onConfigure = async (client: Synnax, config: AnalogReadConfig) => {
       dev.properties.analogInput.index = aiIndex.key;
       dev.properties.analogInput.channels = {};
     }
-    const toCreate: AIChannel[] = [];
+    const toCreate: AnalogInputChannel[] = [];
     for (const channel of config.channels) {
       if (channel.device !== dev.key) continue;
       // check if the channel is in properties
@@ -211,7 +207,7 @@ const onConfigure = async (client: Synnax, config: AnalogReadConfig) => {
   return config;
 };
 
-export const AnalogReadTask = Common.Task.wrapForm(<Properties />, Form, {
+export const AnalogRead = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
   getInitialPayload,

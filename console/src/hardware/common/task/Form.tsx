@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC, type ReactNode } from "react";
+import { type FC } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -75,7 +75,7 @@ export const wrapForm = <
   D extends BaseStateDetails = BaseStateDetails,
   T extends string = string,
 >(
-  Properties: ReactNode,
+  Properties: FC,
   Form: FC<FormProps<C, D, T>>,
   { configSchema, type, getInitialPayload, onConfigure }: WrapFormOptions<C, D, T>,
 ): Layout.Renderer => {
@@ -133,7 +133,7 @@ export const wrapForm = <
             </Align.Space>
             {task instanceof clientTask.Task && <ParentRangeButton task={task} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
-              {Properties}
+              <Properties />
             </Align.Space>
             <Align.Space
               direction="x"

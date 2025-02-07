@@ -229,7 +229,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
   channels: [],
   dataSaving: true,
 };
-export interface Read extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
+export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
 export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
@@ -247,7 +247,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
   dataSaving: true,
   stateRate: 10,
 };
-export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
+export type WriteTask2 = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export interface WritePayload
   extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {

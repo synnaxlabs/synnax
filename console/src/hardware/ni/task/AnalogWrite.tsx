@@ -10,25 +10,24 @@
 import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
-import { findPort } from "@/hardware/ni/task/findPort";
+import { generateAnalogOutputChannel } from "@/hardware/ni/task/generateChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_TYPE,
+  type AnalogOutputChannel,
+  type AnalogOutputChannelType,
   type AnalogWriteConfig,
   analogWriteConfigZ,
   type AnalogWriteDetails,
   type AnalogWriteType,
   AO_CHANNEL_TYPE_NAMES,
-  type AOChannel,
-  type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
-  ZERO_AO_CHANNEL,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
@@ -55,7 +54,8 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
+interface ChannelListItemProps
+  extends Common.Task.ChannelListItemProps<AnalogOutputChannel> {}
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
@@ -80,7 +80,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AnalogOutputChannelType>(`${path}.type`);
   return (
     <>
       <SelectAOChannelTypeField path={path} inputProps={{ allowNone: false }} />
@@ -89,18 +89,13 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const generateChannel = (channels: AOChannel[], index: number): AOChannel =>
-  index === -1
-    ? { ...deep.copy(ZERO_AO_CHANNEL), key: id.id() }
-    : { ...deep.copy(channels[index]), port: findPort(channels), key: id.id() };
-
 const Form: FC<
   Common.Task.FormProps<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
     ListItem={ChannelListItem}
     Details={ChannelDetails}
-    generateChannel={generateChannel}
+    generateChannel={generateAnalogOutputChannel}
     isSnapshot={isSnapshot}
     initalChannels={task.config.channels}
   />
@@ -142,8 +137,8 @@ const onConfigure = async (client: Synnax, config: AnalogWriteConfig) => {
     dev.properties.analogOutput.stateIndex = stateIndex.key;
     dev.properties.analogOutput.channels = {};
   }
-  const commandsToCreate: AOChannel[] = [];
-  const statesToCreate: AOChannel[] = [];
+  const commandsToCreate: AnalogOutputChannel[] = [];
+  const statesToCreate: AnalogOutputChannel[] = [];
   for (const channel of config.channels) {
     const exPair = dev.properties.analogOutput.channels[channel.port.toString()];
     if (exPair == null) {
@@ -212,7 +207,7 @@ const onConfigure = async (client: Synnax, config: AnalogWriteConfig) => {
   return config;
 };
 
-export const AnalogWriteTask = Common.Task.wrapForm(<Properties />, Form, {
+export const AnalogWrite = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,
