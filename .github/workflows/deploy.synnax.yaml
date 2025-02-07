@@ -94,8 +94,16 @@ jobs:
         with:
           sdk-version: 22000
 
-      - name: Build MbedTLS On Windows
+      - name: Cache MbedTLS Build (Windows)
         if: matrix.os == 'windows-latest'
+        id: cache-mbedtls-windows
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/mbedtls/mbedtls-install
+          key: mbedtls-windows-${{ hashFiles('driver/vendor/mbedtls/**') }}
+
+      - name: Build MbedTLS On Windows
+        if: matrix.os == 'windows-latest' && steps.cache-mbedtls-windows.outputs.cache-hit != 'true'
         shell: bash
         run: |
           curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
@@ -116,13 +124,6 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev
 
-      - name: Install Visual Studio Community On Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install visualstudio2022community -y
-          choco install visualstudio2022-workload-vctools -y
-          choco install visualstudio2022-workload-nativedesktop -y 
-
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -133,31 +134,45 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Build Open65421 on Windows
-        if: matrix.os == 'windows-latest'
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/open62541/open62541/out
+          key: open62541-${{ runner.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
+
+      - name: Build Open62541
+        if: steps.cache-open62541.outputs.cache-hit != 'true'
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DUA_NAMESPACE_ZERO=FULL \
+                 -DCMAKE_INSTALL_PREFIX=../out \
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS \
+                 -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" \
+                 -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" \
+                 -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" \
+                 -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" \
+                 -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
+          else
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DUA_NAMESPACE_ZERO=FULL \
+                 -DCMAKE_INSTALL_PREFIX=../out \
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          fi
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
 
-      - name: Build Open62541 on Mac and Ubuntu
-        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-20.04'
+      - name: Build Driver
         shell: bash
         run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
-
-      - name: Build Driver on Windows
-        if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
-
-      - name: Build Driver on on Mac and Ubuntu
-        if: matrix.os != 'windows-latest'
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main
+          else
+            bazel build --enable_platform_specific_config //driver:driver_main
+          fi
 
       - name: Upload Release Asset for Driver Symbols
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
@@ -177,11 +192,15 @@ jobs:
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
-      - name: Move Driver
-        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/
-
-      - name: Rename Driver
-        run: mv synnax/pkg/service/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Upload and Move Driver Binary
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
         uses: actions/setup-go@v5

@@ -173,9 +173,16 @@ void configure_labjack(
 
 void cmd_start_standalone(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 2) // Changed from argc > 1 to account for the command
-        config_path = argv[2];
-
+    
+    // Look for config path in all arguments after "start"
+    for (int i = 2; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg != "--standalone" && arg != "-s") {
+            config_path = arg;
+            break;
+        }
+    }
+    
     auto cfg_json = configd::read(config_path);
     LOG(INFO) << "[driver] reading configuration from " << config_path;
     if (cfg_json.empty())
@@ -365,13 +372,16 @@ void cmd_login(int argc, char *argv[]) {
 }
 
 void cmd_version() {
-    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" << SYNNAX_DRIVER_COMMIT << ")" << std::endl; :
+    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" <<
+            SYNNAX_DRIVER_COMMIT << ")" << std::endl;
 }
 
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
             << "  start           Start the Synnax driver service\n"
+            << "    --standalone  Run in standalone mode (not as a service)\n"
+            << "    -s           Short form for --standalone\n"
             << "  stop            Stop the Synnax driver service\n"
             << "  restart         Restart the Synnax driver service\n"
             << "  login           Log in to Synnax\n"
@@ -414,9 +424,20 @@ int main(const int argc, char *argv[]) {
     const std::string command = argv[1];
 
     if (command == "internal-start") cmd_start_daemon(argc, argv);
-    else if (command == "start")
-        exec_svc_cmd(daemond::start_service, "start", "started");
-    else if (command == "stop")
+    else if (command == "start") {
+        bool standalone = false;
+        for (int i = 2; i < argc; i++) {
+            const std::string arg = argv[i];
+            if (arg == "--standalone" || arg == "-s") {
+                standalone = true;
+                break;
+            }
+        }
+        if (standalone)
+            cmd_start_standalone(argc, argv);
+        else
+            exec_svc_cmd(daemond::start_service, "start", "started");
+    } else if (command == "stop")
         exec_svc_cmd(daemond::stop_service, "stop", "stopped");
     else if (command == "restart")
         exec_svc_cmd(daemond::restart_service, "restart", "restarted");

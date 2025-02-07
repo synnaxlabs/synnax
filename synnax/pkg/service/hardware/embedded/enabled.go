@@ -31,6 +31,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	startCmdName        = "start"
+	startStandaloneFlag = "--standalone"
+)
+
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
