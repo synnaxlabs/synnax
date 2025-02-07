@@ -39,6 +39,8 @@ void sequence::Task::run() {
         return ctx->set_state(state);
     }
     this->state.variant = "success";
+    this->state.details["running"] = true;
+    this->state.details["message"] = "Sequence started";
     this->ctx->set_state(this->state);
     loop::Timer timer(this->cfg.rate);
     while (this->breaker.running()) {
@@ -54,7 +56,8 @@ void sequence::Task::run() {
         this->state.details["message"] = end_err.message();
     }
     this->state.details["running"] = false;
-    if (this->state.variant == "error") return;
+    if (this->state.variant == "error")
+        return this->ctx->set_state(this->state);
     this->state.variant = "success";
     this->state.details["message"] = "Sequence stopped";
 }
@@ -62,8 +65,8 @@ void sequence::Task::run() {
 void sequence::Task::stop() { this->stop(""); }
 
 void sequence::Task::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start(cmd.key);
-    else if (cmd.type == "stop") this->stop(cmd.key);
+    if (cmd.type == "start") return this->start(cmd.key);
+    if (cmd.type == "stop") return this->stop(cmd.key);
 }
 
 void sequence::Task::start(const std::string &key) {
@@ -116,10 +119,10 @@ std::unique_ptr<task::Task> sequence::Task::configure(
     if (w_err) {
         LOG(ERROR) << "[sequence] failed to retrieve write channels: " << w_err;
         cfg_state.variant = "error";
-        cfg_state.details = json::object({
+        cfg_state.details = {
             {"running", false},
             {"message", w_err.message()},
-        });
+        };
         return nullptr;
     }
 

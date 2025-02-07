@@ -17,10 +17,14 @@
 /// external
 #include "google/protobuf/empty.pb.h"
 
-/// internal
+/// module
 #include "freighter/cpp/freighter.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+
+/// internal
 #include "client/cpp/telem/telem.h"
+
+/// protos
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 typedef std::string Key;
 
@@ -220,7 +224,7 @@ private:
     std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
 
     /// @brief retrieves multiple ranges.
-    std::pair<std::vector<Range>, freighter::Error
-    > retrieve_many(api::v1::RangeRetrieveRequest &req) const;
+    std::pair<std::vector<Range>, freighter::Error>
+    retrieve_many(api::v1::RangeRetrieveRequest &req) const;
 };
 }

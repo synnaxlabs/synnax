@@ -34,9 +34,9 @@ TEST(BreakerTests, testBreakRetries) {
 TEST(BreakerTests, testBreakerPrematureShutdown) {
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 10, 1});
     b.start();
-    //create a new thread
+    // Create a new thread
     std::thread t(&helper, std::ref(b));
-    //sleep a couple seconds
+    // Sleep a couple seconds
     std::this_thread::sleep_for(std::chrono::seconds(4));
     b.stop();
     t.join();

@@ -20,7 +20,7 @@
 #include "glog/logging.h"
 
 /// internal
-#include "driver/daemon.h"
+#include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 

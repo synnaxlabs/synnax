@@ -17,8 +17,10 @@
 /// external
 #include "google/protobuf/empty.pb.h"
 
-/// internal
+/// module
 #include "freighter/cpp/freighter.h"
+
+/// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
 
 namespace synnax {
@@ -76,18 +78,16 @@ typedef freighter::UnaryClient<
     google::protobuf::Empty
 > HardwareDeleteDeviceClient;
 
-
 typedef std::uint32_t RackKey;
-
 typedef std::uint64_t TaskKey;
 
-inline TaskKey createTaskKey(RackKey rack, std::uint32_t task) {
+inline TaskKey createTaskKey(const RackKey rack, const TaskKey task) {
     return static_cast<TaskKey>(rack) << 32 | task;
 }
 
-inline RackKey task_key_rack(TaskKey key) { return key >> 32; }
+inline RackKey task_key_rack(const TaskKey key) { return key >> 32; }
 
-inline std::uint32_t taskKeyLocal(TaskKey key) { return key & 0xFFFFFFFF; }
+inline std::uint32_t task_key_local(const TaskKey key) { return key & 0xFFFFFFFF; }
 
 
 /// @brief a Task is a data structure used to configure and execute operations on a hardware device.

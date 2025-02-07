@@ -52,7 +52,7 @@ public:
         std::unique_ptr<AuthLoginClient> login_client,
         std::string username,
         std::string password,
-        std::uint32_t max_retries
+        const std::uint32_t max_retries
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
         password(std::move(password)),
@@ -73,6 +73,8 @@ public:
         return freighter::NIL;
     }
 
+    /// @brief implements freighter::Middleware, ensuring that all requests to the
+    /// Synnax cluster are appropriately authenticated.
     std::pair<freighter::Context, freighter::Error> operator()(
         freighter::Context context,
         freighter::Next *next

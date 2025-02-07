@@ -363,13 +363,6 @@ void cmd_login(int argc, char *argv[]) {
     LOG(INFO) << "Credentials saved successfully!";
 }
 
-void cmd_view_logs() {
-    if (auto err = daemond::view_logs()) {
-        LOG(ERROR) << "Failed to view logs: " << err;
-        exit(1);
-    }
-}
-
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
@@ -428,7 +421,7 @@ int main(const int argc, char *argv[]) {
     else if (command == "uninstall")
         exec_svg_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
     else if (command == "logs")
-        cmd_view_logs();
+        exec_svg_cmd(daemond::view_logs, "view logs", "viewed");
     else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();

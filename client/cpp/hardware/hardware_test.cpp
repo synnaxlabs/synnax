@@ -57,7 +57,7 @@ TEST(HardwareTests, testCreateTask) {
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(m.name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
-    ASSERT_NE(synnax::taskKeyLocal(m.key), 0);
+    ASSERT_NE(synnax::task_key_local(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -73,7 +73,7 @@ TEST(HardwareTests, testRetrieveTask) {
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
-    ASSERT_EQ(synnax::taskKeyLocal(t2.key), synnax::taskKeyLocal(t.key));
+    ASSERT_EQ(synnax::task_key_local(t2.key), synnax::task_key_local(t.key));
 }
 
 /// @brief it should retrieve a task by its name
@@ -122,7 +122,7 @@ TEST(HardwareTests, testListTasks) {
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(tasks[0].key), r.key);
-    ASSERT_NE(synnax::taskKeyLocal(tasks[0].key), 0);
+    ASSERT_NE(synnax::task_key_local(tasks[0].key), 0);
 }
 
 /// @brief it should correctly create a device.
