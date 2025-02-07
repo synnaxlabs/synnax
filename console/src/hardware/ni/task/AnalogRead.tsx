@@ -30,7 +30,7 @@ import {
   type AnalogInputChannelType,
   type AnalogReadConfig,
   analogReadConfigZ,
-  type AnalogReadDetails,
+  type AnalogReadStateDetails,
   type AnalogReadType,
   ZERO_ANALOG_INPUT_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
@@ -112,7 +112,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 };
 
 const Form: FC<
-  Common.Task.FormProps<AnalogReadConfig, AnalogReadDetails, AnalogReadType>
+  Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
 > = ({ task, isRunning, isSnapshot }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AnalogInputChannel>({
     task,
@@ -133,7 +133,7 @@ const Form: FC<
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogReadConfig,
-  AnalogReadDetails,
+  AnalogReadStateDetails,
   AnalogReadType
 > = (deviceKey) => ({
   ...ZERO_ANALOG_READ_PAYLOAD,

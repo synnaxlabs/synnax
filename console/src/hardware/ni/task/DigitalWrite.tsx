@@ -25,7 +25,7 @@ import {
   type DigitalOutputChannel,
   type DigitalWriteConfig,
   digitalWriteConfigZ,
-  type DigitalWriteDetails,
+  type DigitalWriteStateDetails,
   type DigitalWriteType,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -64,7 +64,7 @@ const NameComponent = ({
 );
 
 const Form: FC<
-  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
+  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
 > = (props) => (
   <DigitalChannelList
     {...props}
@@ -75,7 +75,7 @@ const Form: FC<
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalWriteConfig,
-  DigitalWriteDetails,
+  DigitalWriteStateDetails,
   DigitalWriteType
 > = (deviceKey) => ({
   ...ZERO_DIGITAL_WRITE_PAYLOAD,

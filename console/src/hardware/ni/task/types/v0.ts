@@ -1015,7 +1015,7 @@ const baseConfigZ = z.object({ device: deviceKeyZ, dataSaving: z.boolean() });
 interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 const ZERO_BASE_CONFIG: BaseConfig = { device: "", dataSaving: true };
 
-type BaseDetails = { running: boolean };
+type BaseStateDetails = { running: boolean };
 
 // Analog Read Task
 
@@ -1034,7 +1034,7 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-type BaseAnalogReadDetails = BaseDetails & { message: string };
+type BaseAnalogReadDetails = BaseStateDetails & { message: string };
 type ErrorAnalogReadDetails = BaseAnalogReadDetails & {
   errors: { message: string; path: string }[];
 };
@@ -1065,7 +1065,7 @@ const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
   channels: [],
 };
 
-export interface AnalogWriteDetails extends BaseDetails {}
+export interface AnalogWriteDetails extends BaseStateDetails {}
 
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 export type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
@@ -1079,35 +1079,6 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,
   type: ANALOG_WRITE_TYPE,
-};
-
-// Digital Write Task
-
-export const digitalWriteConfigZ = baseConfigZ.extend({
-  channels: z.array(doChannelZ),
-  stateRate: z.number().min(0).max(50000),
-});
-export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
-const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
-  ...ZERO_BASE_CONFIG,
-  stateRate: 10,
-  channels: [],
-};
-
-export interface DigitalWriteDetails extends BaseDetails {}
-
-export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
-export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
-
-export interface DigitalWrite
-  extends task.Task<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType> {}
-export interface DigitalWritePayload
-  extends task.Payload<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType> {}
-export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
-  key: "",
-  name: "NI Digital Write Task",
-  config: ZERO_DIGITAL_WRITE_CONFIG,
-  type: DIGITAL_WRITE_TYPE,
 };
 
 // Digital Read Task
@@ -1125,20 +1096,53 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   streamRate: 25,
 };
 
-export interface DigitalReadDetails extends BaseDetails {}
+export interface DigitalReadStateDetails extends BaseStateDetails {}
 
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export type DigitalReadType = typeof DIGITAL_READ_TYPE;
 
-export interface DigitalRead
-  extends task.Task<DigitalReadConfig, DigitalReadDetails, DigitalReadType> {}
+export interface DigitalReadTask
+  extends task.Task<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
 export interface DigitalReadPayload
-  extends task.Payload<DigitalReadConfig, DigitalReadDetails, DigitalReadType> {}
+  extends task.Payload<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   name: "NI Digital Read Task",
   config: ZERO_DIGITAL_READ_CONFIG,
   type: DIGITAL_READ_TYPE,
+};
+
+// Digital Write Task
+
+export const digitalWriteConfigZ = baseConfigZ.extend({
+  channels: z.array(doChannelZ),
+  stateRate: z.number().min(0).max(50000),
+});
+export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
+const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
+  ...ZERO_BASE_CONFIG,
+  stateRate: 10,
+  channels: [],
+};
+
+export interface DigitalWriteStateDetails extends BaseStateDetails {}
+
+export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
+export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
+
+export interface DigitalWrite
+  extends task.Task<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType> {}
+export interface DigitalWritePayload
+  extends task.Payload<
+    DigitalWriteConfig,
+    DigitalWriteStateDetails,
+    DigitalWriteType
+  > {}
+export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
+  key: "",
+  name: "NI Digital Write Task",
+  config: ZERO_DIGITAL_WRITE_CONFIG,
+  type: DIGITAL_WRITE_TYPE,
 };
 
 // Scan Task

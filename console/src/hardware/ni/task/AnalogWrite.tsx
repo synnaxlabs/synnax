@@ -24,7 +24,7 @@ import {
   type AnalogOutputChannelType,
   type AnalogWriteConfig,
   analogWriteConfigZ,
-  type AnalogWriteDetails,
+  type AnalogWriteStateDetails,
   type AnalogWriteType,
   AO_CHANNEL_TYPE_NAMES,
   ZERO_ANALOG_WRITE_PAYLOAD,
@@ -90,7 +90,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 };
 
 const Form: FC<
-  Common.Task.FormProps<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType>
+  Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
     ListItem={ChannelListItem}
@@ -103,7 +103,7 @@ const Form: FC<
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogWriteConfig,
-  AnalogWriteDetails,
+  AnalogWriteStateDetails,
   AnalogWriteType
 > = (deviceKey) => ({
   ...ZERO_ANALOG_WRITE_PAYLOAD,

@@ -25,7 +25,7 @@ import {
   type DigitalInputChannel,
   type DigitalReadConfig,
   digitalReadConfigZ,
-  type DigitalReadDetails,
+  type DigitalReadStateDetails,
   type DigitalReadType,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -62,7 +62,7 @@ const NameComponent = ({
 );
 
 const Form: FC<
-  Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
+  Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
 > = (props) => (
   <DigitalChannelList<DigitalInputChannel>
     {...props}
@@ -73,7 +73,7 @@ const Form: FC<
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalReadConfig,
-  DigitalReadDetails,
+  DigitalReadStateDetails,
   DigitalReadType
 > = (deviceKey) => ({
   ...ZERO_DIGITAL_READ_PAYLOAD,

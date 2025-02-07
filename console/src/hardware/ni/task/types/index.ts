@@ -62,7 +62,6 @@ export const ZERO_DIGITAL_INPUT_CHANNEL = v0.ZERO_DIGITAL_INPUT_CHANNEL;
 
 export type AnalogChannel = AnalogInputChannel | AnalogOutputChannel;
 export type DigitalChannel = DigitalInputChannel | DigitalOutputChannel;
-
 export type Channel = AnalogChannel | DigitalChannel;
 
 // Tasks
@@ -84,28 +83,28 @@ export const analogReadConfigZ = v1.analogReadConfigZ.or(
   v0.analogReadConfigZ.transform(migrateAnalogReadConfig),
 );
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
-export type AnalogReadDetails = v0.AnalogReadDetails;
+export type AnalogReadStateDetails = v0.AnalogReadDetails;
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
 export type AnalogReadType = v0.AnalogReadType;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
 export interface AnalogWriteConfig extends v0.AnalogWriteConfig {}
-export interface AnalogWriteDetails extends v0.AnalogWriteDetails {}
+export interface AnalogWriteStateDetails extends v0.AnalogWriteDetails {}
 export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
 export type AnalogWriteType = v0.AnalogWriteType;
 export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 
 export const digitalReadConfigZ = v0.digitalReadConfigZ;
 export interface DigitalReadConfig extends v0.DigitalReadConfig {}
-export interface DigitalReadDetails extends v0.DigitalReadDetails {}
+export interface DigitalReadStateDetails extends v0.DigitalReadStateDetails {}
 export const DIGITAL_READ_TYPE = v0.DIGITAL_READ_TYPE;
 export type DigitalReadType = v0.DigitalReadType;
 export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
 export interface DigitalWriteConfig extends v0.DigitalWriteConfig {}
-export interface DigitalWriteDetails extends v0.DigitalWriteDetails {}
+export interface DigitalWriteStateDetails extends v0.DigitalWriteStateDetails {}
 export const DIGITAL_WRITE_TYPE = v0.DIGITAL_WRITE_TYPE;
 export type DigitalWriteType = v0.DigitalWriteType;
 export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
