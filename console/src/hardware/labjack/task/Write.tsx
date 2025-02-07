@@ -186,9 +186,8 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     <Common.Task.Layouts.List<WriteChannel>
       isSnapshot={isSnapshot}
       generateChannel={generateChannel}
-    >
-      {(p) => <ChannelListItem {...p} device={device} />}
-    </Common.Task.Layouts.List>
+      ListItem={(p) => <ChannelListItem {...p} device={device} />}
+    />
   );
 };
 

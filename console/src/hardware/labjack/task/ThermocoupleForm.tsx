@@ -87,15 +87,15 @@ export const ThermocoupleForm = ({ prefix, model }: ThermocoupleFormProps) => {
   if (channelType !== "TC") return null;
   return (
     <Align.Space direction="y" grow>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <ThermocoupleTypeField path={prefix} grow />
         <TemperatureUnitsField path={prefix} grow />
       </Align.Space>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Form.NumericField path={`${prefix}.posChan`} label="Positive Channel" grow />
         <Form.NumericField path={`${prefix}.negChan`} label="Negative Channel" grow />
       </Align.Space>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Form.Field<string>
           path={`${prefix}.cjcSource`}
           grow

@@ -117,6 +117,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
       <Align.Space direction="x">
         <SelectInputChannelTypeField
           path={path}
+          grow
           onChange={(value, { get, path, set }) => {
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;

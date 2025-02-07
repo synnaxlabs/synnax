@@ -170,10 +170,9 @@ const ChannelList = <C extends ChannelConfig>({
       header={<Header />}
       selected={selected}
       isDragging={isDragging}
+      ListItem={(p) => <ChannelListItem {...p}>{children}</ChannelListItem>}
       {...haulProps}
-    >
-      {(p) => <ChannelListItem {...p}>{children}</ChannelListItem>}
-    </Common.Task.ChannelList>
+    />
   );
 };
 
