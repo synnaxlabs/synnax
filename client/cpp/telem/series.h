@@ -454,6 +454,16 @@ public:
         set_array(vals.data(), 0, vals.size());
     }
 
+    /// @brief deep copies the series, including all of its data. This function
+    /// should be called explicitly (as opposed to an implicit copy constructor) to
+    /// avoid accidental deep copies.
+    [[nodiscard]] Series deep_copy() const {
+        Series s(data_type, cap);
+        s.size = size;
+        s.cached_byte_size = cached_byte_size;
+        memcpy(s.data.get(), data.get(), byte_size());
+        return s;
+    }
 
     /// @brief Holds what type of data is being used.
     DataType data_type;
@@ -465,18 +475,6 @@ public:
     /// represents the timestamp of the first sample in the array (inclusive), while the end of the time
     /// range is set to the nanosecond AFTER the last sample in the array (exclusive).
     synnax::TimeRange time_range = synnax::TimeRange();
-
-    /// @brief Copy constructor that performs a deep copy of the series data
-    Series(const Series &other) : size(other.size),
-                                  cap(other.cap),
-                                  data_type(other.data_type),
-                                  time_range(other.time_range),
-                                  cached_byte_size(other.cached_byte_size) {
-        if (other.data) {
-            data = std::make_unique<std::byte[]>(other.byte_cap());
-            memcpy(data.get(), other.data.get(), other.byte_cap());
-        }
-    }
 
     /// @returns the
     [[nodiscard]] SampleValue at(const int index) const {

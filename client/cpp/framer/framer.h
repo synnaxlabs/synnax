@@ -78,7 +78,7 @@ struct Frame {
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const ChannelKey &chan, const synnax::Series &ser);
+    Frame(const ChannelKey &chan, synnax::Series &&ser);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -95,6 +95,9 @@ struct Frame {
     /// @param ser the series to add for the channel key.
     void emplace(const ChannelKey &chan, synnax::Series &&ser) const;
 
+    /// @brief returns true if the frame has no seris.
+    bool empty() const;
+
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
     /// @brief returns the sample for the given channel and index.
@@ -105,6 +108,11 @@ struct Frame {
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
+
+    /// @brief deep copies the frame, all of its series, and their data. This function
+    /// must be used explicitly (instead of through a copy constructor) to avoid
+    /// unintentional deep copies.
+    [[nodiscard]] Frame deep_copy() const;
 };
 
 /// @brief configuration for opening a new streamer.
