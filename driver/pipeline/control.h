@@ -79,6 +79,51 @@ public:
     virtual ~StreamerFactory() = default;
 };
 
+
+class SynnaxStreamer final : public pipeline::Streamer {
+    std::unique_ptr<synnax::Streamer> internal;
+
+public:
+    explicit SynnaxStreamer(
+        std::unique_ptr<synnax::Streamer> internal
+    ) : internal(std::move(internal)) {
+    }
+
+    std::pair<synnax::Frame, freighter::Error> read() override {
+        return this->internal->read();
+    }
+
+    freighter::Error close() override {
+        return this->internal->close();
+    }
+
+    void closeSend() override {
+        this->internal->close_send();
+    }
+};
+
+class SynnaxStreamerFactory final : public StreamerFactory {
+    std::shared_ptr<synnax::Synnax> client;
+
+public:
+    explicit SynnaxStreamerFactory(
+        std::shared_ptr<synnax::Synnax> client
+    ) : client(std::move(client)) {
+    }
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
+        synnax::StreamerConfig config) override {
+        auto [ss, err] = client->telem.open_streamer(config);
+        if (err) return {nullptr, err};
+        return {
+            std::make_unique<SynnaxStreamer>(
+                std::make_unique<synnax::Streamer>(std::move(ss))),
+            freighter::NIL
+        };
+    }
+};
+
+
 /// @brief A pipeline that reads incoming data over the network and writes to to a sink.
 /// The pipeline should be used as a utility for implementing a broader control task. It
 /// implements retry handling on connection loss and handles temporary hardware errors.
@@ -90,7 +135,7 @@ public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax database
     /// cluster.
     /// @param client the Synnax client to use for opening streamers.
-    /// @param streamer_config the ocnfiguration for the Synnax streamer.
+    /// @param streamer_config the configuration for the Synnax streamer.
     /// @param sink the sink to write data to. See the Sink interface for more information.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary

@@ -56,22 +56,33 @@ void apply(
 
 
 plugins::ChannelReceive::ChannelReceive(
-    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<pipeline::StreamerFactory> &factory,
     const std::vector<synnax::Channel> &read_from
 ) :
     pipe(
-        client,
-        synnax::StreamerConfig{.channels = [&read_from] {
-            std::vector<synnax::ChannelKey> keys;
-            keys.reserve(read_from.size());
-            for (const auto& ch : read_from) keys.push_back(ch.key);
-            return keys;
-        }()},
+        factory,
+        synnax::StreamerConfig{
+            .channels = [&read_from] {
+                std::vector<synnax::ChannelKey> keys;
+                keys.reserve(read_from.size());
+                for (const auto &ch: read_from) keys.push_back(ch.key);
+                return keys;
+            }()
+        },
         std::make_shared<Sink>(Sink(*this)),
         breaker::Config{}
     ),
     latest_values(read_from.size()) {
     for (const auto &channel: read_from) this->channels[channel.key] = channel;
+}
+
+plugins::ChannelReceive::ChannelReceive(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::vector<synnax::Channel> &read_from) :
+    ChannelReceive(
+        std::make_shared<pipeline::SynnaxStreamerFactory>(client),
+        read_from
+    ) {
 }
 
 freighter::Error plugins::ChannelReceive::before_all(lua_State *L) {

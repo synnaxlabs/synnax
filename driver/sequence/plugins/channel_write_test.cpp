@@ -70,7 +70,7 @@ protected:
         ASSERT_EQ(luaL_dostring(L, script.c_str()), 0) << lua_tostring(L, -1);
         op->after_next(L);
         ASSERT_EQ(sink->written_frames.size(), 1);
-        const synnax::Series ser = sink->written_frames[0].series->at(0);
+        const synnax::Series ser = std::move(sink->written_frames[0].series->at(0));
         EXPECT_EQ(ser.at<T>(0), expected_value);
     }
 
@@ -79,7 +79,7 @@ protected:
         ASSERT_EQ(luaL_dostring(L, script.c_str()), 0) << lua_tostring(L, -1);
         op->after_next(L);
         ASSERT_EQ(sink->written_frames.size(), 1);
-        const synnax::Series ser = sink->written_frames[0].series->at(0);
+        const synnax::Series ser = std::move(sink->written_frames[0].series->at(0));
         EXPECT_EQ(ser.at<std::string>(0), expected_value);
     }
 
@@ -195,8 +195,8 @@ protected:
         op->after_next(L);
         ASSERT_EQ(sink->written_frames.size(), 1);
 
-        const synnax::Series index_ser = sink->written_frames[0].series->at(1);
-        const synnax::Series value_ser = sink->written_frames[0].series->at(0);
+        const synnax::Series index_ser = std::move(sink->written_frames[0].series->at(1));
+        const synnax::Series value_ser = std::move(sink->written_frames[0].series->at(0));
 
         EXPECT_GT(index_ser.at<int64_t>(0), 0);
         EXPECT_EQ(value_ser.at<T>(0), expected_value);

@@ -186,6 +186,12 @@ public:
         const std::vector<synnax::Channel> &read_from
     );
 
+    /// @brief alternative constructor that can be used to stub Synnax for test cases.
+    explicit ChannelReceive(
+        const std::shared_ptr<pipeline::StreamerFactory> &factory,
+        const std::vector<synnax::Channel> &read_from
+    );
+
     freighter::Error before_all(lua_State *L) override;
 
     freighter::Error after_all(lua_State *L) override;

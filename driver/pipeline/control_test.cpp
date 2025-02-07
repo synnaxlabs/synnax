@@ -14,31 +14,6 @@
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-class MockSink final : public pipeline::Sink {
-public:
-    std::shared_ptr<std::vector<synnax::Frame> > writes;
-    std::shared_ptr<std::vector<freighter::Error> > write_errors;
-    freighter::Error stop_err;
-
-    MockSink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
-                 write_errors(std::make_shared<std::vector<freighter::Error> >()) {
-    }
-
-    freighter::Error write(const synnax::Frame &frame) override {
-        if (frame.size() == 0) return freighter::NIL;
-        this->writes->emplace_back(frame.deep_copy());
-        // try to grab and remove the first error. if not, freighter nil
-        if (this->write_errors->empty()) return freighter::NIL;
-        auto err = this->write_errors->front();
-        this->write_errors->erase(this->write_errors->begin());
-        return err;
-    }
-
-    void stopped_with_err(const freighter::Error &err) override {
-        this->stop_err = err;
-    }
-};
-
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = synnax::Frame(1);
     fr_1.emplace(1, synnax::Series(1.0));
