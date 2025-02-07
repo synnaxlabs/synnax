@@ -11,7 +11,6 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { V } from "vitest/dist/chunks/reporters.D7Jzd9GS.js";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
@@ -69,7 +68,7 @@ export const Wrapped = ({
     },
     schema: z.object({
       name: z.string(),
-      rack: rack.rackKeyZ,
+      rack: rack.keyZ,
       config: configZ,
     }),
   });
@@ -80,7 +79,6 @@ export const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config, rack } = methods.value();
-      console.log(rack);
       await create(
         {
           key: base?.key,
@@ -121,16 +119,7 @@ export const Wrapped = ({
       direction="y"
       empty
     >
-      <Form.Form
-        {...methods}
-        mode={base?.snapshot ? "preview" : "normal"}
-        style={{
-          height: "100%",
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <Form.Form {...methods} mode={base?.snapshot ? "preview" : "normal"}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -161,7 +150,7 @@ export const Wrapped = ({
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
             <Align.Space direction="x">
-              <Form.Field<rack.RackKey>
+              <Form.Field<rack.Key>
                 path="rack"
                 label="Location"
                 padHelpText={false}
@@ -224,7 +213,7 @@ export const Wrapped = ({
             <Button.Icon
               loading={startingOrStopping}
               disabled={startingOrStopping || taskState == null || base?.snapshot}
-              onClick={onStartStop}
+              onClick={() => onStartStop()}
               variant="outlined"
             >
               {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
@@ -232,7 +221,7 @@ export const Wrapped = ({
             <Button.Button
               loading={configuring}
               disabled={configuring || base?.snapshot}
-              onClick={onConfigure}
+              onClick={() => onConfigure()}
               tooltip={
                 <Align.Space direction="x" align="center" size="small">
                   {/* <Triggers.Text shade={7} level="small" /> */}
