@@ -30,7 +30,7 @@ import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { overviewLayout } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/external";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
 
@@ -72,7 +72,9 @@ const ParentRangeButton = ({
         startIcon={<Icon.Range />}
         iconSpacing="small"
         style={{ padding: "1rem" }}
-        onClick={() => place({ ...overviewLayout, key: parent.key, name: parent.name })}
+        onClick={() =>
+          place({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+        }
       >
         {parent.name}
       </Button.Button>

@@ -20,9 +20,8 @@ import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
-export const overviewLayout: Layout.State = {
+export const OVERVIEW_LAYOUT: Layout.BaseState = {
   key: "overview",
-  windowKey: "overview",
   type: "overview",
   name: "Overview",
   location: "mosaic",

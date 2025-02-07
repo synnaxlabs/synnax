@@ -15,14 +15,14 @@ export interface ToolbarButtonProps
   onExport: NonNullable<Button.IconProps["onClick"]>;
 }
 
-export const ToolbarButton = ({ onExport, ...props }: ToolbarButtonProps) => (
+export const ToolbarButton = ({ onExport, ...rest }: ToolbarButtonProps) => (
   <Button.Icon
-    tooltip={"Export"}
+    tooltip="Export"
     sharp
     size="medium"
     style={{ height: "100%" }}
     onClick={onExport}
-    {...props}
+    {...rest}
   >
     <Icon.Export />
   </Button.Icon>

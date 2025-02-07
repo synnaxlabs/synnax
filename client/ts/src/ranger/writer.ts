@@ -11,37 +11,19 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import {
-  keyZ,
-  type NewPayload,
-  newPayloadZ,
-  type Payload,
-  payloadZ,
-} from "@/ranger/payload";
+import { keyZ, nameZ, type New, newZ, type Payload, payloadZ } from "@/ranger/payload";
 
-const createResZ = z.object({
-  ranges: payloadZ.array(),
-});
+const createResZ = z.object({ ranges: payloadZ.array() });
 
-const createReqZ = z.object({
-  parent: ontology.idZ.optional(),
-  ranges: newPayloadZ.array(),
-});
+const createReqZ = z.object({ parent: ontology.idZ.optional(), ranges: newZ.array() });
 
-type CreateRequest = z.infer<typeof createReqZ>;
-export type CreateOptions = Pick<CreateRequest, "parent">;
+interface CreateRequest extends z.infer<typeof createReqZ> {}
+export interface CreateOptions extends Pick<CreateRequest, "parent"> {}
 
-const deleteReqZ = z.object({
-  keys: keyZ.array(),
-});
-
+const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const renameReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-});
-
+const renameReqZ = z.object({ key: keyZ, name: nameZ });
 const renameResZ = z.object({});
 
 const CREATE_ENDPOINT = "/range/create";
@@ -65,7 +47,7 @@ export class Writer {
     );
   }
 
-  async create(ranges: NewPayload[], options?: CreateOptions): Promise<Payload[]> {
+  async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,

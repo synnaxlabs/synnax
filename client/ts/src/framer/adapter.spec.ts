@@ -11,7 +11,7 @@ import { DataType, Series, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { WriteFrameAdapter } from "@/framer/adapter";
+import { WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { newClient } from "@/setupspecs";
 
@@ -20,7 +20,7 @@ const client = newClient();
 describe("WriteFrameAdapter", () => {
   let timeCh: channel.Channel;
   let dataCh: channel.Channel;
-  let adapter: WriteFrameAdapter;
+  let adapter: WriteAdapter;
 
   beforeAll(async () => {
     timeCh = await client.channels.create({
@@ -34,7 +34,7 @@ describe("WriteFrameAdapter", () => {
       index: timeCh.key,
     });
 
-    adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+    adapter = await WriteAdapter.open(client.channels.retriever, [
       timeCh.key,
       dataCh.key,
     ]);
@@ -42,10 +42,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should correctly adapt a record of keys to single values", async () => {
     const ts = TimeStamp.now().valueOf();
-    const res = await adapter.adapt({
-      [timeCh.key]: ts,
-      [dataCh.key]: 1,
-    });
+    const res = await adapter.adapt({ [timeCh.key]: ts, [dataCh.key]: 1 });
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
     expect(res.get(timeCh.key)).toHaveLength(1);
@@ -56,10 +53,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should correctly adapt a record of names to single values", async () => {
     const ts = TimeStamp.now().valueOf();
-    const res2 = await adapter.adapt({
-      [timeCh.name]: ts,
-      [dataCh.name]: 1,
-    });
+    const res2 = await adapter.adapt({ [timeCh.name]: ts, [dataCh.name]: 1 });
     expect(res2.columns).toHaveLength(2);
     expect(res2.series).toHaveLength(2);
     expect(res2.get(timeCh.key)).toHaveLength(1);
@@ -103,10 +97,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should not modify a frame keyed by key", async () => {
     const ts = TimeStamp.now().valueOf();
-    const fr = new Frame({
-      [timeCh.key]: new Series(ts),
-      [dataCh.key]: new Series(1),
-    });
+    const fr = new Frame({ [timeCh.key]: new Series(ts), [dataCh.key]: new Series(1) });
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
@@ -131,7 +122,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+    const adapter = await WriteAdapter.open(client.channels.retriever, [
       jsonChannel.key,
     ]);
     const res = await adapter.adapt(jsonChannel.name, [{ dog: "blue" }]);
@@ -147,7 +138,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+    const adapter = await WriteAdapter.open(client.channels.retriever, [
       jsonChannel.key,
     ]);
     const res = await adapter.adapt(jsonChannel.name, new Series([{ dog: "blue" }]));

@@ -17,38 +17,19 @@ import { type Key, keyZ } from "@/ranger/payload";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
-const getReqZ = z.object({
-  range: keyZ,
-  keys: z.string().array(),
-});
+const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
+export interface KVPair extends z.infer<typeof kvPairZ> {}
 
-const kvPairZ = z.object({
-  range: keyZ,
-  key: z.string(),
-  value: z.string(),
-});
+const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
+export interface GetRequest extends z.infer<typeof getReqZ> {}
 
-const getResZ = z.object({
-  pairs: nullableArrayZ(kvPairZ),
-});
+const getResZ = z.object({ pairs: nullableArrayZ(kvPairZ) });
 
-export type GetRequest = z.infer<typeof getReqZ>;
+const setReqZ = z.object({ range: keyZ, pairs: kvPairZ.array() });
+export interface SetRequest extends z.infer<typeof setReqZ> {}
 
-const setReqZ = z.object({
-  range: keyZ,
-  pairs: kvPairZ.array(),
-});
-
-export type SetRequest = z.infer<typeof setReqZ>;
-
-const deleteReqZ = z.object({
-  range: keyZ,
-  keys: z.string().array(),
-});
-
-export type DeleteRequest = z.infer<typeof deleteReqZ>;
-
-export type KVPair = z.infer<typeof kvPairZ>;
+const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
+export interface DeleteRequest extends z.infer<typeof deleteReqZ> {}
 
 export class KV {
   private static readonly GET_ENDPOINT = "/range/kv/get";
@@ -65,9 +46,7 @@ export class KV {
   }
 
   async get(key: string): Promise<string>;
-
   async get(keys: string[]): Promise<Record<string, string>>;
-
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
     const res = await sendRequired(
       this.client,
@@ -85,9 +64,7 @@ export class KV {
   }
 
   async set(key: string, value: string): Promise<void>;
-
   async set(kv: Record<string, string>): Promise<void>;
-
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
     let pairs: KVPair[];
     if (isObject(key))

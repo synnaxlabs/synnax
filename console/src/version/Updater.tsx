@@ -15,7 +15,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { type NotificationAdapter } from "@/notifications/Notifications";
+import { type Notifications } from "@/notifications";
 import { infoLayout } from "@/version/Info";
 import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
 import { silenceUpdateNotifications } from "@/version/slice";
@@ -51,7 +51,7 @@ export const useCheckForUpdates = (): boolean => {
   return available;
 };
 
-export const notificationAdapter: NotificationAdapter = (status, silence) => {
+export const notificationAdapter: Notifications.Adapter = (status, silence) => {
   if (!status.key.startsWith(STATUS_KEY_PREFIX)) return null;
   return {
     ...status,

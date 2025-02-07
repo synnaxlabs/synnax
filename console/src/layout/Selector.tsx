@@ -9,12 +9,11 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type PlacerProps, usePlacer } from "@/layout/hooks";
+import { type PlacerArgs as PlacerProps, usePlacer } from "@/layout/hooks";
 import { type RendererProps } from "@/layout/slice";
 import { type PromptRename, useRename } from "@/modals/Rename";
 
@@ -42,16 +41,17 @@ const Base = ({
   visible: _,
   focused: __,
   text = "Select a Component Type",
-  ...props
+  ...rest
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
   const rename = useRename();
+  const handleException = Status.useExceptionHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
         className={CSS.B("vis-layout-selector")}
         size="large"
-        {...props}
+        {...rest}
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>
@@ -69,10 +69,12 @@ const Base = ({
               key={key}
               variant="outlined"
               onClick={() => {
-                create({ layoutKey, rename }).then((layout) => {
-                  if (layout == null) return;
-                  place(layout);
-                });
+                create({ layoutKey, rename })
+                  .then((layout) => {
+                    if (layout == null) return;
+                    place(layout);
+                  })
+                  .catch((e) => handleException(e, `Failed to create ${title}`));
               }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}

@@ -107,9 +107,9 @@ export const SelectMultipleInputItem = ({
   value,
   onChange,
   data,
-  ...props
+  ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
-  <Input.Item direction="x" label="Ranges" {...props}>
+  <Input.Item direction="x" label="Ranges" {...rest}>
     <SelectMultipleRanges
       data={data}
       value={value}
@@ -128,9 +128,9 @@ export const SelectInputItem = ({
   value,
   onChange,
   data,
-  ...props
+  ...rest
 }: SelectInputItemProps): ReactElement => (
-  <Input.Item label="Range:" {...props}>
+  <Input.Item label="Range:" {...rest}>
     <SelectRange
       value={value}
       onChange={onChange}

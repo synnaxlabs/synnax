@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
 
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
 
@@ -33,16 +33,21 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
     onClick: (client, res, place) => {
-      void (async () => {
-        const s = await client.workspaces.schematic.retrieve(res.id.key);
-        place(create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }));
-      })();
+      client.workspaces.schematic
+        .retrieve(res.id.key)
+        .then((s) =>
+          place(create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot })),
+        )
+        .catch(console.error);
     },
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, place) =>
-      void Task.retrieveAndPlaceLayout(client, res.id.key, place),
+    onClick: (client, res, place) => {
+      Hardware.Task.retrieveAndPlaceLayout(client, res.id.key, place).catch(
+        console.error,
+      );
+    },
   },
 };
 

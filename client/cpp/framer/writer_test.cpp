@@ -41,7 +41,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto frame = synnax::Frame(2);
-    frame.add(
+    frame.emplace(
         time.key,
         synnax::Series(std::vector<std::uint64_t>{
                            (now.value + synnax::SECOND).value,
@@ -54,7 +54,7 @@ TEST(FramerTests, testWriteBasic) {
                            (now + synnax::SECOND * 8).value,
                        }, synnax::TIMESTAMP)
     );
-    frame.add(
+    frame.emplace(
         data.key,
         synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );
@@ -105,7 +105,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     });
     ASSERT_FALSE(w_err) << w_err.message();
     auto frame = synnax::Frame(1);
-    frame.add(
+    frame.emplace(
         1000,
         synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );
@@ -187,7 +187,7 @@ TEST(FramerTests, testSetAuthority) {
     ASSERT_FALSE(w_err) << w_err.message();
 
     // Test setting authority for all channels
-    ASSERT_TRUE(writer.set_authority(synnax::AUTH_NONE));
+    ASSERT_TRUE(writer.set_authority(0));
 
     // Test setting authority for a single channel
     ASSERT_TRUE(writer.set_authority(data1.key, synnax::AUTH_ABSOLUTE));

@@ -12,12 +12,11 @@ import { migrate } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
-const STATUSES = ["disconnected", "connecting", "connected", "failed"] as const;
-export const status = z.enum(STATUSES);
-export type Status = z.infer<typeof status>;
+export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
+export type Status = z.infer<typeof statusZ>;
 
-export const state = z.object({
-  status,
+export const stateZ = z.object({
+  status: statusZ,
   error: z.instanceof(Error).optional(),
   message: z.string().optional(),
   clusterKey: z.string(),
@@ -25,8 +24,7 @@ export const state = z.object({
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
 });
-
-export type State = z.infer<typeof state>;
+export interface State extends z.infer<typeof stateZ> {}
 
 const responseZ = z.object({
   clusterKey: z.string(),
@@ -64,7 +62,7 @@ export class Checker {
   private interval?: NodeJS.Timeout;
   private readonly clientVersion: string;
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
-  static readonly connectionStateZ = state;
+  static readonly connectionStateZ = stateZ;
   private versionWarned = false;
 
   /**

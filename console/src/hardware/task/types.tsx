@@ -15,10 +15,10 @@ import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 
-export const PREFIXES = [LabJack.Task.PREFIX, NI.Task.PREFIX, OPC.Task.PREFIX] as const;
-export type Prefix = (typeof PREFIXES)[number];
+const PREFIXES = [LabJack.Task.PREFIX, NI.Task.PREFIX, OPC.Task.PREFIX] as const;
+type Prefix = (typeof PREFIXES)[number];
 
-export const ICONS: Record<Prefix, PIcon.Element> = {
+const ICONS: Record<Prefix, PIcon.Element> = {
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPC.Task.PREFIX]: <Icon.Logo.OPC />,
@@ -37,14 +37,14 @@ const PREFIX_NAMES: Record<Prefix, string> = {
 
 export const parseType = (type: string): string => {
   const words = type.split("_");
-  let prefixModified = false;
+  let isFirstWordModified = false;
   for (const prefix of PREFIXES)
     if (words[0] === prefix) {
-      prefixModified = true;
+      isFirstWordModified = true;
       words[0] = PREFIX_NAMES[prefix];
       break;
     }
-  if (!prefixModified) words[0] = caseconv.capitalize(words[0]);
+  if (!isFirstWordModified) words[0] = caseconv.capitalize(words[0]);
   for (let i = 1; i < words.length; i++) words[i] = caseconv.capitalize(words[i]);
   return `${words.join(" ")} Task`;
 };

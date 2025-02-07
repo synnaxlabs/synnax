@@ -6,28 +6,33 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-import type { UnaryClient } from "@synnaxlabs/freighter";
+
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { DataType } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
+  channelZ,
   type Key,
   type KeyOrName,
   type Keys,
   type KeysOrNames,
+  keyZ,
   type Params,
   type Payload,
-  payload,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
-import { analyzeParams, type ParamAnalysisResult } from "@/util/retrieve";
+import {
+  analyzeParams as analyzeParameters,
+  type ParamAnalysisResult,
+} from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
-  keys: z.number().array().optional(),
+  keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
   rangeKey: z.string().optional(),
@@ -39,23 +44,17 @@ const reqZ = z.object({
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional(),
 });
+interface Request extends z.input<typeof reqZ> {}
 
-type Request = z.input<typeof reqZ>;
+export interface RetrieveOptions extends Omit<Request, "keys" | "names" | "search"> {}
+export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-export type RetrieveOptions = Omit<Request, "keys" | "names" | "search">;
-export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
+const resZ = z.object({ channels: nullableArrayZ(channelZ) });
 
-const resZ = z.object({
-  channels: nullableArrayZ(payload),
-});
-
-export const analyzeChannelParams = (
+export const analyzeParams = (
   channels: Params,
 ): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> =>
-  analyzeParams(channels, {
-    number: "keys",
-    string: "names",
-  });
+  analyzeParameters(channels, { number: "keys", string: "names" });
 
 export interface Retriever {
   retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
@@ -76,7 +75,7 @@ export class ClusterRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const res = analyzeChannelParams(channels);
+    const res = analyzeParams(channels);
     const { variant } = res;
     let { normalized } = res;
     if (variant === "keys" && (normalized as Key[]).indexOf(0) !== -1)
@@ -121,7 +120,7 @@ export class CacheRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const { normalized } = analyzeParams<string | number>(channels, {
+    const { normalized } = analyzeParameters<string | number>(channels, {
       string: "names",
       number: "keys",
     });
@@ -139,7 +138,7 @@ export class CacheRetriever implements Retriever {
   }
 
   delete(channels: Params): void {
-    const { variant, normalized } = analyzeChannelParams(channels);
+    const { variant, normalized } = analyzeParams(channels);
     if (variant === "names")
       (normalized as string[]).forEach((name) => {
         const keys = this.namesToKeys.get(name);
@@ -234,7 +233,7 @@ export class DebouncedBatchRetriever implements Retriever {
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {
-    const { normalized, variant } = analyzeChannelParams(channels);
+    const { normalized, variant } = analyzeParams(channels);
     // Bypass on name fetches for now.
     if (variant === "names") return await this.wrapped.retrieve(normalized);
 
@@ -269,7 +268,7 @@ export const retrieveRequired = async (
   r: Retriever,
   channels: Params,
 ): Promise<Payload[]> => {
-  const { normalized } = analyzeChannelParams(channels);
+  const { normalized } = analyzeParams(channels);
   const results = await r.retrieve(normalized);
   const notFound: KeyOrName[] = [];
   normalized.forEach((v) => {

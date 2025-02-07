@@ -127,11 +127,11 @@ export const NavControls = (): ReactElement => {
           },
         ]}
       >
-        {({ title: _, entry, ...props }) => (
+        {({ title: _, entry, ...rest }) => (
           <Button.Icon
-            {...props}
+            {...rest}
             key={entry.key}
-            variant={props.selected ? "filled" : "text"}
+            variant={rest.selected ? "filled" : "text"}
             style={{}}
             size="medium"
             tooltip={entry.tooltip}

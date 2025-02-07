@@ -17,34 +17,24 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import {
-  type Key,
-  type KeyOrName,
-  type KeysOrNames,
-  type Params,
-} from "@/channel/payload";
-import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
+import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
-import { Frame } from "@/framer/frame";
+import { Frame, ONTOLOGY_TYPE } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "framer";
-
-export const ontologyID = (key: Key): ontology.ID =>
+export const ontologyID = (key: channel.Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
 export class Client {
   private readonly streamClient: StreamClient;
-  // private readonly unaryClient: UnaryClient;
-  private readonly retriever: Retriever;
+  private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
 
-  constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever) {
+  constructor(stream: StreamClient, unary: UnaryClient, retriever: channel.Retriever) {
     this.streamClient = stream;
-    // this.unaryClient = unary;
     this.retriever = retriever;
     this.deleter = new Deleter(unary);
   }
@@ -59,7 +49,7 @@ export class Client {
    */
   async openIterator(
     tr: CrudeTimeRange,
-    channels: Params,
+    channels: channel.Params,
     opts?: IteratorConfig,
   ): Promise<Iterator> {
     return await Iterator._open(tr, channels, this.retriever, this.streamClient, opts);
@@ -72,9 +62,9 @@ export class Client {
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
    */
-  async openWriter(config: WriterConfig | Params): Promise<Writer> {
+  async openWriter(config: WriterConfig | channel.Params): Promise<Writer> {
     if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as Params };
+      config = { channels: config as channel.Params };
     return await Writer._open(this.retriever, this.streamClient, config);
   }
 
@@ -87,7 +77,7 @@ export class Client {
    * @returns a new {@link Streamer} that must be closed when done streaming, otherwise
    * a network socket will remain open.
    */
-  async openStreamer(channels: Params): Promise<Streamer>;
+  async openStreamer(channels: channel.Params): Promise<Streamer>;
 
   /**
    * Opens a new streamer with the provided configuration.
@@ -100,29 +90,29 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: StreamerConfig | Params): Promise<Streamer>;
+  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
 
-  async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
+  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
     if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as Params, downsampleFactor: 1 };
+      config = { channels: config as channel.Params, downsampleFactor: 1 };
     return await Streamer._open(this.retriever, this.streamClient, config);
   }
 
   async write(
     start: CrudeTimeStamp,
-    channel: KeyOrName,
+    channel: channel.KeyOrName,
     data: CrudeSeries,
   ): Promise<void>;
 
   async write(
     start: CrudeTimeStamp,
-    channels: KeysOrNames,
+    channels: channel.KeysOrNames,
     data: CrudeSeries[],
   ): Promise<void>;
 
   async write(
     start: CrudeTimeStamp,
-    data: Record<KeyOrName, CrudeSeries>,
+    data: Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void>;
 
   /**
@@ -136,11 +126,11 @@ export class Client {
    */
   async write(
     start: CrudeTimeStamp,
-    channels: Params | Record<KeyOrName, CrudeSeries>,
+    channels: channel.Params | Record<channel.KeyOrName, CrudeSeries>,
     data?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (data == null) {
-      const data_ = channels as Record<KeyOrName, CrudeSeries>;
+      const data_ = channels as Record<channel.KeyOrName, CrudeSeries>;
       const w = await this.openWriter({
         start,
         channels: Object.keys(data_),
@@ -156,31 +146,37 @@ export class Client {
     }
     const w = await this.openWriter({
       start,
-      channels: channels as Params,
+      channels: channels as channel.Params,
       mode: WriterMode.Persist,
       errOnUnauthorized: true,
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
     try {
-      await w.write(channels as Params, data);
+      await w.write(channels as channel.Params, data);
     } finally {
       await w.close();
     }
   }
 
-  async read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries>;
+  async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;
 
-  async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
+  async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
 
-  async read(tr: CrudeTimeRange, channels: Params): Promise<MultiSeries | Frame> {
-    const { single } = analyzeChannelParams(channels);
+  async read(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+  ): Promise<MultiSeries | Frame> {
+    const { single } = channel.analyzeParams(channels);
     const fr = await this.readFrame(tr, channels);
-    if (single) return fr.get(channels as KeyOrName);
+    if (single) return fr.get(channels as channel.KeyOrName);
     return fr;
   }
 
-  private async readFrame(tr: CrudeTimeRange, channels: Params): Promise<Frame> {
+  private async readFrame(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+  ): Promise<Frame> {
     const i = await this.openIterator(tr, channels);
     const frame = new Frame();
     try {
@@ -191,11 +187,11 @@ export class Client {
     return frame;
   }
 
-  async delete(channels: Params, timeRange: TimeRange): Promise<void> {
-    const { normalized, variant } = analyzeChannelParams(channels);
+  async delete(channels: channel.Params, timeRange: TimeRange): Promise<void> {
+    const { normalized, variant } = channel.analyzeParams(channels);
     if (variant === "keys")
       return await this.deleter.delete({
-        keys: normalized as Key[],
+        keys: normalized as channel.Key[],
         bounds: timeRange,
       });
     return await this.deleter.delete({
