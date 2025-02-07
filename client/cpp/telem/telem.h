@@ -179,6 +179,22 @@ public:
         duration.count()) {
     }
 
+    static TimeSpan days(const double &days) {
+        return TimeSpan(static_cast<std::uint64_t>(days * _priv::DAY));
+    }
+
+    static TimeSpan hours(const double &hours) {
+        return TimeSpan(static_cast<std::uint64_t>(hours * _priv::HOUR));
+    }
+
+    static TimeSpan minutes(const double &minutes) {
+        return TimeSpan(static_cast<std::uint64_t>(minutes * _priv::MINUTE));
+    }
+
+    static TimeSpan seconds(const double &seconds) {
+        return TimeSpan(static_cast<std::uint64_t>(seconds * _priv::SECOND));
+    }
+
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
     bool operator==(const TimeSpan &other) const { return value == other.value; }

@@ -131,7 +131,7 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  create: (key) => create({ key }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 export const create =

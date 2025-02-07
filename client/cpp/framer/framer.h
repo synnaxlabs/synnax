@@ -95,6 +95,9 @@ struct Frame {
     /// @param ser the series to add for the channel key.
     void emplace(const ChannelKey &chan, synnax::Series &&ser) const;
 
+    /// @brief returns true if the frame has no seris.
+    bool empty() const;
+
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
     /// @brief returns the sample for the given channel and index.

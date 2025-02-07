@@ -15,6 +15,7 @@
 
 /// external
 #include "nlohmann/json.hpp"
+#include "glog/logging.h"
 
 /// internal
 #include "driver/config.h"
@@ -22,13 +23,11 @@
 #include "driver/ni/ni.h"
 #include "client/cpp/synnax.h"
 #include "driver/breaker/breaker.h"
+#include "sequence/sequence.h"
 
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
 #endif
-
-#include "glog/logging.h"
-#include "sequence/task.h"
 
 
 using json = nlohmann::json;
@@ -62,8 +61,9 @@ inline std::string get_persisted_state_path() {
         return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
     return "C:\\ProgramData\\synnax-driver\\persisted-state.json";
 #elif defined(__APPLE__)
-    if (const char* home = std::getenv("HOME")) 
-        return std::string(home) + "/Library/Application Support/synnax-driver/persisted-state.json";
+    if (const char *home = std::getenv("HOME"))
+        return std::string(home) +
+               "/Library/Application Support/synnax-driver/persisted-state.json";
     return "/Library/Application Support/synnax-driver/persisted-state.json";
 #else
     return "/var/lib/synnax-driver/persisted-state.json";
@@ -90,7 +90,7 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
 
     std::filesystem::path dir_path = std::filesystem::path(path).parent_path();
     std::error_code ec;
-    
+
     // Check if directory exists before creating it
     if (!std::filesystem::exists(dir_path)) {
         std::filesystem::create_directories(dir_path, ec);
@@ -99,7 +99,7 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
                 PersistedState{},
                 freighter::Error("failed to create directory: " + ec.message())
             };
-        
+
         // Set directory permissions to read/write/execute for all users
         std::filesystem::permissions(
             dir_path,
@@ -160,10 +160,10 @@ inline freighter::Error save_persisted_state(const PersistedState &state) {
                 }
             }
         };
-        
+
         // Check if file exists before writing
         bool file_exists = std::filesystem::exists(path);
-        
+
         std::ofstream file(path);
         if (!file.is_open())
             return freighter::Error("failed to open file for writing");
@@ -175,15 +175,19 @@ inline freighter::Error save_persisted_state(const PersistedState &state) {
             std::error_code ec;
             std::filesystem::permissions(
                 path,
-                std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
-                std::filesystem::perms::group_read | std::filesystem::perms::group_write |
-                std::filesystem::perms::others_read | std::filesystem::perms::others_write,
+                std::filesystem::perms::owner_read | std::filesystem::perms::owner_write
+                |
+                std::filesystem::perms::group_read | std::filesystem::perms::group_write
+                |
+                std::filesystem::perms::others_read |
+                std::filesystem::perms::others_write,
                 ec
             );
             if (ec)
-                return freighter::Error("failed to set file permissions: " + ec.message());
+                return freighter::Error(
+                    "failed to set file permissions: " + ec.message());
         }
-            
+
         return freighter::NIL;
     } catch (const std::exception &e) {
         return freighter::Error(

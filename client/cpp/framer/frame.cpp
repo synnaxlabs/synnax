@@ -64,6 +64,8 @@ void Frame::emplace(const ChannelKey &chan, synnax::Series &&ser) const {
     series->push_back(std::move(ser));
 }
 
+bool Frame::empty() const { return series->empty(); }
+
 SampleValue Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
         if (channels->at(i) == key) return series->at(i).at(index);

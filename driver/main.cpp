@@ -51,7 +51,7 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
-#include "driver/sequence/task.h"
+#include "driver/sequence/sequence.h"
 #include "driver/daemon/daemon.h"
 
 using json = nlohmann::json;
