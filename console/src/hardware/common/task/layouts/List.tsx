@@ -16,22 +16,9 @@ import {
 } from "@/hardware/common/task/layouts/ChannelList";
 
 export interface ListProps<C extends Channel>
-  extends Pick<ChannelListProps<C>, "generateChannel" | "isSnapshot" | "children"> {}
+  extends Pick<ChannelListProps<C>, "generateChannel" | "isSnapshot" | "ListItem"> {}
 
-export const List = <C extends Channel>({
-  children,
-  isSnapshot,
-  generateChannel,
-}: ListProps<C>) => {
+export const List = <C extends Channel>(props: ListProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
-  return (
-    <ChannelList<C>
-      isSnapshot={isSnapshot}
-      selected={selected}
-      onSelect={setSelected}
-      generateChannel={generateChannel}
-    >
-      {children}
-    </ChannelList>
-  );
+  return <ChannelList<C> {...props} selected={selected} onSelect={setSelected} />;
 };

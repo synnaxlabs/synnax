@@ -16,6 +16,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
 import { generateDigitalOutputChannel } from "@/hardware/ni/task/generateChannel";
+import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_TYPE,
   type DigitalOutputChannel,
@@ -68,9 +69,8 @@ const TaskForm: FC<
   <Common.Task.Layouts.List<DigitalOutputChannel>
     isSnapshot={isSnapshot}
     generateChannel={generateDigitalOutputChannel}
-  >
-    {ChannelListItem}
-  </Common.Task.Layouts.List>
+    ListItem={ChannelListItem}
+  />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
@@ -84,8 +84,6 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
   },
 });
-
-const getDeviceKey = ({ line, port }: DigitalOutputChannel) => `${port}l${line}`;
 
 const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
@@ -114,7 +112,7 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   const commandsToCreate: DigitalOutputChannel[] = [];
   const statesToCreate: DigitalOutputChannel[] = [];
   for (const channel of config.channels) {
-    const key = getDeviceKey(channel);
+    const key = getDigitalChannelDeviceKey(channel);
     const exPair = dev.properties.digitalOutput.channels[key];
     if (exPair == null) {
       commandsToCreate.push(channel);
@@ -145,7 +143,7 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
       })),
     );
     states.forEach((s, i) => {
-      const key = getDeviceKey(statesToCreate[i]);
+      const key = getDigitalChannelDeviceKey(statesToCreate[i]);
       if (!(key in dev.properties.digitalOutput.channels))
         dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
       else dev.properties.digitalOutput.channels[key].state = s.key;
@@ -168,7 +166,7 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
       })),
     );
     commands.forEach((s, i) => {
-      const key = `${commandsToCreate[i].port}l${commandsToCreate[i].line}`;
+      const key = getDigitalChannelDeviceKey(commandsToCreate[i]);
       if (!(key in dev.properties.digitalOutput.channels))
         dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
       else dev.properties.digitalOutput.channels[key].command = s.key;
@@ -176,7 +174,7 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   }
   if (modified) await client.hardware.devices.create(dev);
   config.channels = config.channels.map((c) => {
-    const key = getDeviceKey(c);
+    const key = getDigitalChannelDeviceKey(c);
     const pair = dev.properties.digitalOutput.channels[key];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });

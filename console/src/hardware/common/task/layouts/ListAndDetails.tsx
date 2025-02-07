@@ -29,8 +29,10 @@ export interface DetailsProps {
 }
 
 export interface ListAndDetailsProps<C extends Channel>
-  extends Pick<ChannelListProps<C>, "onTare" | "allowTare" | "isSnapshot"> {
-  ListItem: ChannelListProps<C>["children"];
+  extends Pick<
+    ChannelListProps<C>,
+    "onTare" | "allowTare" | "isSnapshot" | "ListItem"
+  > {
   Details: ComponentType<DetailsProps>;
   generateChannel: GenerateChannel<C>;
   initalChannels: C[];
@@ -73,12 +75,11 @@ export const ListAndDetails = <C extends Channel>({
     <>
       <ChannelList<C>
         {...rest}
+        ListItem={listItem}
         selected={selected}
         onSelect={handleSelect}
         generateChannel={handleGenerateChannel}
-      >
-        {listItem}
-      </ChannelList>
+      />
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow>
         <Header.Header level="h4">

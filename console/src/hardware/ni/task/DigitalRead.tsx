@@ -16,6 +16,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
 import { generateDigitalInputChannel } from "@/hardware/ni/task/generateChannel";
+import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_READ_TYPE,
   type DigitalInputChannel,
@@ -51,24 +52,22 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps
-  extends Common.Task.ChannelListItemProps<DigitalInputChannel> {}
-
-const ChannelListItem = (props: ChannelListItemProps) => (
+const ChannelListItem = (
+  props: Common.Task.ChannelListItemProps<DigitalInputChannel>,
+) => (
   <DigitalListItem {...props}>
     <Common.Task.ChannelName channel={props.entry.channel} defaultName="No Channel" />
   </DigitalListItem>
 );
 
-const TaskForm: FC<
+const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
-> = ({ isSnapshot }) => (
+> = ({ ...props }) => (
   <Common.Task.Layouts.List<DigitalInputChannel>
-    isSnapshot={isSnapshot}
+    {...props}
     generateChannel={generateDigitalInputChannel}
-  >
-    {ChannelListItem}
-  </Common.Task.Layouts.List>
+    ListItem={ChannelListItem}
+  />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
@@ -107,7 +106,7 @@ const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
   }
   const toCreate: DigitalInputChannel[] = [];
   for (const channel of config.channels) {
-    const key = `${channel.port}l${channel.line}`;
+    const key = getDigitalChannelDeviceKey(channel);
     // check if the channel is in properties
     const exKey = dev.properties.digitalInput.channels[key];
     if (primitiveIsZero(exKey)) toCreate.push(channel);
@@ -129,19 +128,19 @@ const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
       })),
     );
     channels.forEach((c, i) => {
-      const key = `${toCreate[i].port}l${toCreate[i].line}`;
+      const key = getDigitalChannelDeviceKey(toCreate[i]);
       dev.properties.digitalInput.channels[key] = c.key;
     });
   }
   if (modified) await client.hardware.devices.create(dev);
   config.channels.forEach((c) => {
-    const key = `${c.port}l${c.line}`;
+    const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];
   });
   return config;
 };
 
-export const DigitalRead = Common.Task.wrapForm(() => <Properties />, TaskForm, {
+export const DigitalRead = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
   getInitialPayload,

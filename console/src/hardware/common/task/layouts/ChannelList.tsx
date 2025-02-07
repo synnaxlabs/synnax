@@ -64,7 +64,6 @@ export type ChannelListProps<C extends Channel> = Omit<
 
 export const ChannelList = <C extends Channel>({
   isSnapshot,
-  children,
   generateChannel,
   onSelect,
   path = "config.channels",
@@ -91,8 +90,6 @@ export const ChannelList = <C extends Channel>({
       remove={remove}
       onSelect={onSelect}
       {...rest}
-    >
-      {children}
-    </Core>
+    />
   );
 };

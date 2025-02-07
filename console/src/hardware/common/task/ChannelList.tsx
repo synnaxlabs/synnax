@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type FC, type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components/menu";
 
@@ -111,15 +111,15 @@ export interface ChannelListItemProps<C extends Channel>
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
     Pick<Align.SpaceProps, "onDragOver" | "onDrop"> {
-  children: (props: ChannelListItemProps<C>) => ReactElement;
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
+  ListItem: FC<ChannelListItemProps<C>>;
   selected: string[];
 }
 
 export const ChannelList = <C extends Channel>({
-  children: ListItem,
+  ListItem,
   emptyContent,
   header,
   isDragging,
