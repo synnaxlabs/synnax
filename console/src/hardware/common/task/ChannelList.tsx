@@ -152,8 +152,13 @@ export const ChannelList = <C extends Channel>({
             value={selected}
           >
             <List.Core<string, C>>
-              {(p) => (
-                <ListItem {...p} isSnapshot={isSnapshot} path={`${path}.${p.index}`} />
+              {({ key, ...r }) => (
+                <ListItem
+                  key={key}
+                  {...r}
+                  isSnapshot={isSnapshot}
+                  path={`${path}.${r.index}`}
+                />
               )}
             </List.Core>
           </List.Selector>

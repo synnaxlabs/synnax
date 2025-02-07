@@ -7,57 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/DigitalListItem.css";
+import "@/hardware/ni/task/DigitalChannelList.css";
 
 import { Align, Form, List, Text } from "@synnaxlabs/pluto";
-import { type ReactNode } from "react";
+import { type FC } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
-import {
-  type DigitalInputChannel,
-  type DigitalOutputChannel,
-} from "@/hardware/ni/task/types";
+import { type DigitalChannel } from "@/hardware/ni/task/types";
 
-export interface DigitalListItemProps
-  extends Common.Task.ChannelListItemProps<DigitalInputChannel | DigitalOutputChannel> {
-  children: ReactNode;
+export interface NameComponentProps<C extends DigitalChannel>
+  extends Common.Task.ChannelListItemProps<C> {}
+
+interface ListItemProps<C extends DigitalChannel>
+  extends Common.Task.ChannelListItemProps<C> {
+  NameComponent: FC<NameComponentProps<C>>;
 }
 
-export const DigitalListItem = ({
+const ListItem = <C extends DigitalChannel>({
+  NameComponent,
   path,
-  children,
   isSnapshot,
   ...rest
-}: DigitalListItemProps) => (
+}: ListItemProps<C>) => (
   <List.ItemFrame
     {...rest}
-    style={{ width: "100%" }}
-    justify="spaceBetween"
     align="center"
     direction="x"
+    justify="spaceBetween"
+    style={{ width: "100%" }}
   >
-    <Align.Space direction="x" align="center" justify="spaceEvenly">
+    <Align.Space align="center" direction="x" justify="spaceEvenly">
       <Align.Pack
+        align="center"
         className="port-line-input"
         direction="x"
-        align="center"
         style={{ maxWidth: "50rem" }}
       >
         <Form.NumericField
-          path={`${path}.port`}
-          showLabel={false}
-          showHelpText={false}
           inputProps={{ showDragHandle: false }}
           hideIfNull
+          showLabel={false}
+          showHelpText={false}
+          path={`${path}.port`}
         />
         <Text.Text level="p">/</Text.Text>
         <Form.NumericField
-          path={`${path}.line`}
-          showHelpText={false}
-          showLabel={false}
           inputProps={{ showDragHandle: false }}
           hideIfNull
+          showLabel={false}
+          showHelpText={false}
+          path={`${path}.line`}
         />
       </Align.Pack>
       <Text.Text
@@ -70,11 +70,26 @@ export const DigitalListItem = ({
       </Text.Text>
     </Align.Space>
     <Align.Space direction="x" align="center" justify="spaceEvenly">
-      {children}
+      <NameComponent path={path} isSnapshot={isSnapshot} {...rest} />
       <Common.Task.EnableDisableButton
         path={`${path}.enabled`}
         isSnapshot={isSnapshot}
       />
     </Align.Space>
   </List.ItemFrame>
+);
+
+export interface DigitalChannelListProps<C extends DigitalChannel>
+  extends Omit<Common.Task.Layouts.ListProps<C>, "ListItem"> {
+  NameComponent: FC<NameComponentProps<C>>;
+}
+
+export const DigitalChannelList = <C extends DigitalChannel>({
+  NameComponent,
+  ...props
+}: DigitalChannelListProps<C>) => (
+  <Common.Task.Layouts.List<C>
+    {...props}
+    ListItem={(p) => <ListItem {...p} NameComponent={NameComponent} />}
+  />
 );

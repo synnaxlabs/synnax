@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Form as PForm, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Form, Status, Text } from "@synnaxlabs/pluto";
 
 export interface EnableDisableButtonProps {
   path: string;
@@ -15,8 +15,10 @@ export interface EnableDisableButtonProps {
 }
 
 export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonProps) => {
-  const { get, set } = PForm.useContext();
-  const { value } = get<boolean>(path);
+  const { get, set } = Form.useContext();
+  const fs = get<boolean>(path, { optional: true });
+  if (fs == null) return null;
+  const { value } = fs;
   return (
     <Button.ToggleIcon
       disabled={isSnapshot}

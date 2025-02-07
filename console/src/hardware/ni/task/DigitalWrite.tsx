@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
+import {
+  DigitalChannelList,
+  type NameComponentProps,
+} from "@/hardware/ni/task/DigitalChannelList";
 import { generateDigitalOutputChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
@@ -30,17 +33,17 @@ import { type Layout } from "@/layout";
 
 export const DIGITAL_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
-  type: DIGITAL_WRITE_TYPE,
-  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
   icon: "Logo.NI",
   key: DIGITAL_WRITE_TYPE,
+  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
+  type: DIGITAL_WRITE_TYPE,
 };
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
+  create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
+  icon: <Icon.Logo.NI />,
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
-  icon: <Icon.Logo.NI />,
-  create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
 };
 
 const Properties = () => (
@@ -51,25 +54,22 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = (
-  props: Common.Task.ChannelListItemProps<DigitalOutputChannel>,
-) => {
-  const { cmdChannel, stateChannel } = props.entry;
-  return (
-    <DigitalListItem {...props}>
-      <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
-      <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
-    </DigitalListItem>
-  );
-};
+const NameComponent = ({
+  entry: { cmdChannel, stateChannel },
+}: NameComponentProps<DigitalOutputChannel>) => (
+  <>
+    <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
+    <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
+  </>
+);
 
-const TaskForm: FC<
+const Form: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
-> = ({ isSnapshot }) => (
-  <Common.Task.Layouts.List<DigitalOutputChannel>
-    isSnapshot={isSnapshot}
+> = (props) => (
+  <DigitalChannelList
+    {...props}
     generateChannel={generateDigitalOutputChannel}
-    ListItem={ChannelListItem}
+    NameComponent={(p) => <NameComponent {...p} />}
   />
 );
 
@@ -85,7 +85,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
+const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );
@@ -181,9 +184,9 @@ const onConfigure = async (client: Synnax, config: DigitalWriteConfig) => {
   return config;
 };
 
-export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, TaskForm, {
+export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: digitalWriteConfigZ,
-  type: DIGITAL_WRITE_TYPE,
   getInitialPayload,
   onConfigure,
+  type: DIGITAL_WRITE_TYPE,
 });

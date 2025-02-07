@@ -54,18 +54,17 @@ export interface FormProps<
   isRunning: boolean;
 }
 
+export interface OnConfigure<C extends UnknownRecord = UnknownRecord> {
+  (client: Synnax, config: C, taskKey: clientTask.Key, name: string): Promise<C>;
+}
+
 export interface WrapFormOptions<
   C extends UnknownRecord = UnknownRecord,
   D extends BaseStateDetails = BaseStateDetails,
   T extends string = string,
 > extends WrapOptions<C, D, T> {
   type: T;
-  onConfigure: (
-    client: Synnax,
-    config: C,
-    taskKey: clientTask.Key,
-    name: string,
-  ) => Promise<C>;
+  onConfigure: OnConfigure<C>;
 }
 
 const nameZ = z.string().min(1, "Name is required");

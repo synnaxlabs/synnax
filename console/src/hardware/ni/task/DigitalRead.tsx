@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
+import {
+  DigitalChannelList,
+  type NameComponentProps,
+} from "@/hardware/ni/task/DigitalChannelList";
 import { generateDigitalInputChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
@@ -30,17 +33,17 @@ import { type Layout } from "@/layout";
 
 export const DIGITAL_READ_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
-  type: DIGITAL_READ_TYPE,
-  name: ZERO_DIGITAL_READ_PAYLOAD.name,
   icon: "Logo.NI",
   key: DIGITAL_READ_TYPE,
+  name: ZERO_DIGITAL_READ_PAYLOAD.name,
+  type: DIGITAL_READ_TYPE,
 };
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
+  create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
+  icon: <Icon.Logo.NI />,
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
-  create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
 };
 
 const Properties = () => (
@@ -52,21 +55,19 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = (
-  props: Common.Task.ChannelListItemProps<DigitalInputChannel>,
-) => (
-  <DigitalListItem {...props}>
-    <Common.Task.ChannelName channel={props.entry.channel} defaultName="No Channel" />
-  </DigitalListItem>
+const NameComponent = ({
+  entry: { channel },
+}: NameComponentProps<DigitalInputChannel>) => (
+  <Common.Task.ChannelName channel={channel} />
 );
 
 const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
-> = ({ ...props }) => (
-  <Common.Task.Layouts.List<DigitalInputChannel>
+> = (props) => (
+  <DigitalChannelList<DigitalInputChannel>
     {...props}
     generateChannel={generateDigitalInputChannel}
-    ListItem={ChannelListItem}
+    NameComponent={(p) => <NameComponent {...p} />}
   />
 );
 
@@ -82,7 +83,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
+const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
@@ -142,7 +146,7 @@ const onConfigure = async (client: Synnax, config: DigitalReadConfig) => {
 
 export const DigitalRead = Common.Task.wrapForm(() => <Properties />, Form, {
   configSchema: digitalReadConfigZ,
-  type: DIGITAL_READ_TYPE,
   getInitialPayload,
   onConfigure,
+  type: DIGITAL_READ_TYPE,
 });
