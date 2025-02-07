@@ -6,7 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+from IPython import embed
 from alamos import NOOP, Instrumentation
 from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.hardware.rack.payload import Rack
@@ -29,6 +29,8 @@ class _DeleteRequest(Payload):
 class _RetrieveRequest(Payload):
     keys: list[int] | None = None
     names: list[str] | None = None
+    embedded: bool = False
+    host_is_node: bool = False
 
 
 class _RetrieveResponse(Payload):
@@ -42,6 +44,7 @@ _RETRIEVE_ENDPOINT = "/hardware/rack/retrieve"
 
 class Client:
     _client: UnaryClient
+    _embedded_rack: Rack | None = None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -62,7 +65,7 @@ class Client:
     def create(self, racks: list[Rack]) -> list[Rack]: ...
 
     def create(
-        self, racks: Rack | list[Rack] | None = None, *, key: int = 0, name: str = ""
+        self, racks: Rack | list[Rack] | None = None, *, key: int = 0, name: str = "",
     ) -> list[Rack]:
         is_single = True
         if racks is None:
@@ -71,7 +74,6 @@ class Client:
             racks = [racks]
         else:
             is_single = False
-            racks = [r.to_payload() for r in racks]
         req = _CreateRequest(racks=racks)
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         if is_single:
@@ -87,6 +89,8 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
+        embedded: bool = False,
+        host_is_node: bool = False,
     ) -> Rack: ...
 
     def retrieve(
@@ -95,12 +99,26 @@ class Client:
         name: str | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
+        *,
+        host_is_node: bool = False,
+        embedded: bool = False,
     ) -> list[Rack]:
         is_single = check_for_none(keys, names)
         res = send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(keys=override(key, keys), names=override(name, names)),
+            _RetrieveRequest(
+                keys=override(key, keys),
+                names=override(name, names),
+                host_is_node=host_is_node,
+                embedded=embedded,
+            ),
             _RetrieveResponse,
         )
         return res.racks[0] if is_single else res.racks
+
+    def retrieve_embedded_rack(self) -> Rack:
+        if self._embedded_rack is None:
+            self._embedded_rack = self.retrieve(embedded=True, host_is_node=True)
+        return self._embedded_rack
+

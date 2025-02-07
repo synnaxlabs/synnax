@@ -4,6 +4,10 @@ genrule(
     name = "version_header",
     srcs = ["VERSION"],
     outs = ["version.h"],
-    cmd = "echo '#define SYNNAX_DRIVER_VERSION \"'$$(cat $(location VERSION))'\"' > $@",
+    cmd = """
+        echo '#define SYNNAX_DRIVER_VERSION \"'$$(cat $(location VERSION))'\"' > $@ &&
+        echo '#define SYNNAX_DRIVER_COMMIT \"'$(git_commit_hash)'\"' >> $@
+    """,
+    stamp = 1,  # Required for git_commit_hash to work
     visibility = ["//visibility:public"],
 ) 

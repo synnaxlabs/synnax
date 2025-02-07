@@ -35,7 +35,7 @@
     "resources": [],
     "shortDescription": "",
     "linux": { "deb": { "depends": [] } },
-    "externalBin": ["bin/lua"]
+    "externalBin": []
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {

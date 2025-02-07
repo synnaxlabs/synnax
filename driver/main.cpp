@@ -365,7 +365,7 @@ void cmd_login(int argc, char *argv[]) {
 }
 
 void cmd_version() {
-    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << std::endl;
+    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" << SYNNAX_DRIVER_COMMIT << ")" << std::endl; :
 }
 
 void print_usage() {
