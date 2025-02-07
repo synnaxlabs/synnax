@@ -53,6 +53,7 @@
 #include "driver/ni/ni.h"
 #include "driver/sequence/sequence.h"
 #include "driver/daemon/daemon.h"
+#include "synnax/pkg/version/version.h"
 
 using json = nlohmann::json;
 
@@ -363,6 +364,10 @@ void cmd_login(int argc, char *argv[]) {
     LOG(INFO) << "Credentials saved successfully!";
 }
 
+void cmd_version() {
+    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << std::endl;
+}
+
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
@@ -372,7 +377,8 @@ void print_usage() {
             << "  login           Log in to Synnax\n"
             << "  install         Install the Synnax driver as a system service\n"
             << "  uninstall       Uninstall the Synnax driver service\n"
-            << "  logs            View the driver logs\n";
+            << "  logs            View the driver logs\n"
+            << "  version         Display the driver version\n";
 }
 
 // Helper function to execute service commands
@@ -422,6 +428,8 @@ int main(const int argc, char *argv[]) {
         exec_svg_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
     else if (command == "logs")
         exec_svg_cmd(daemond::view_logs, "view logs", "viewed");
+    else if (command == "version")
+        cmd_version();
     else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();

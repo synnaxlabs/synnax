@@ -1,0 +1,9 @@
+exports_files(["VERSION"])
+
+genrule(
+    name = "version_header",
+    srcs = ["VERSION"],
+    outs = ["version.h"],
+    cmd = "echo '#define SYNNAX_DRIVER_VERSION \"'$$(cat $(location VERSION))'\"' > $@",
+    visibility = ["//visibility:public"],
+) 
