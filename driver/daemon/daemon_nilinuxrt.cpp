@@ -18,6 +18,7 @@
 
 /// external.
 #include <sys/stat.h>
+#include <signal.h>
 #include "glog/logging.h"
 
 /// internal

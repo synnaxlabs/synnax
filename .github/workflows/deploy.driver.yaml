@@ -98,7 +98,15 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/open62541/open62541/out
+          key: open62541-${{ runner.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
+
       - name: Build Open62541 
+        if: steps.cache-open62541.outputs.cache-hit != 'true'
         shell: bash
         run: |
           mkdir build && cd build
