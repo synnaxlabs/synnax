@@ -183,8 +183,7 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }}
-        bazel-bin/driver/driver_main.pdb
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb
         
       - name: Determine OS
         id: os
