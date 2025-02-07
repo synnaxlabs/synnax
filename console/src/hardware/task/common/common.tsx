@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { type ontology, task, UnexpectedError } from "@synnaxlabs/client";
+import { type ontology, type rack, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -364,13 +364,17 @@ export const useCreate = <
   layoutKey: string,
 ): ((
   t: Optional<task.NewTask<C, T>, "key">,
+  rackKey?: rack.RackKey | string,
 ) => Promise<task.Task<C, D, T> | undefined>) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   return useCallback(
-    async (pld: task.NewTask<C, T>) => {
+    async (
+      pld: task.NewTask<C, T>,
+      rackKey: rack.RackKey | string = "sy_node_1_rack",
+    ) => {
       if (client == null) return;
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const rack = await client.hardware.racks.retrieve(rackKey);
       const ot = await rack.createTask<C, D, T>(pld);
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: ot.key }));
       dispatch(Layout.setArgs({ key: layoutKey, args: { create: false } }));

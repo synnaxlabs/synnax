@@ -44,7 +44,7 @@ export interface ButtonExtensionProps {
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
-  triggers?: Triggers.Trigger[];
+  triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
 }

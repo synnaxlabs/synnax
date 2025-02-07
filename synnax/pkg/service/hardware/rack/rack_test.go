@@ -59,7 +59,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should create a rack and assign it a key", func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key.IsValid()).To(BeTrue())
+			Expect(!r.Key.IsZero()).To(BeTrue())
 			Expect(r.Key.Node()).To(Equal(core.NodeKey(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
@@ -92,5 +92,46 @@ var _ = Describe("Rack", Ordered, func() {
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
+	})
+
+	Describe("Embedded Rack", func() {
+		It("Should correctly create the node embedded rack", func() {
+			Expect(svc.EmbeddedRackkey).ToNot(Equal(rack.Key(0)))
+			var embeddedRack rack.Rack
+			Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackkey).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
+			Expect(embeddedRack.Embedded).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("Migration", func() {
+	It("Should correctly migrate a v1 rack to a v2 rack", func() {
+		db := gorp.Wrap(memkv.New())
+		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+
+		v1EmbeddedRack := rack.Rack{
+			Key:  65538,
+			Name: "sy_node_1_rack",
+		}
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entry(&v1EmbeddedRack).
+			Exec(ctx, db)).To(Succeed())
+
+		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+		}))
+		Expect(svc.EmbeddedRackkey).To(Equal(rack.Key(65538)))
+		// Retrieve the embedded rack
+		var embeddedRack rack.Rack
+		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackkey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
+		Expect(embeddedRack.Embedded).To(BeTrue())
+		Expect(embeddedRack.Name).To(Equal("Node 1 Built-In Driver"))
+
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		Expect(count).To(Equal(1))
 	})
 })

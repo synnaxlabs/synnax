@@ -58,7 +58,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 		errors.Register(encodeMyCustomError, decodeMyCustomError)
 	})
 	Describe("Encode", func() {
-		Context("Internal is true", func() {
+		Context("Embedded is true", func() {
 			It("Should encode a custom error type into a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, true)
 				Expect(pld.Type).To(Equal(MyCustomErrorType))
@@ -69,7 +69,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(pld.Type).To(Equal(errors.TypeRoach))
 			})
 		})
-		Context("Internal is false", func() {
+		Context("Embedded is false", func() {
 			It("Should encode a custom error type into a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, false)
 				Expect(pld.Type).To(Equal(MyCustomErrorType))
@@ -84,7 +84,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 
 	})
 	Describe("Decode", func() {
-		Context("Internal is true", func() {
+		Context("Embedded is true", func() {
 			It("Should decode a custom error type from a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, true)
 				err := errors.Decode(ctx, pld)
@@ -103,7 +103,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(err).To(HaveOccurredAs(errors.New("unknown")))
 			})
 		})
-		Context("Internal is false", func() {
+		Context("Embedded is false", func() {
 			It("Should decode a custom error type from a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, false)
 				err := errors.Decode(ctx, pld)

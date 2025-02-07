@@ -80,7 +80,10 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
+  create: async ({ layoutKey }) => ({
+    ...configureReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const schema = z.object({ name: z.string(), config: readConfigZ });

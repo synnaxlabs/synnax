@@ -78,18 +78,13 @@ public:
         if (err.matches(synnax::NOT_FOUND)) return nullptr;
         auto source = std::make_shared<HeartbeatSource>(
             ch.key,
-            synnax::taskKeyRack(task.key)
+            synnax::task_key_rack(task.key)
         );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
             .start = TimeStamp::now(),
         };
-        auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 50,
-            .scale = 1.2,
-        };
+        auto breaker_config = breaker::default_config(task.name);
         return std::make_unique<Heartbeat>(ctx, source, writer_cfg, breaker_config);
     }
 };
@@ -125,9 +120,8 @@ class Factory final : public task::Factory {
             }
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
-        } else if (err) {
+        } else if (err)
             LOG(ERROR) << "failed to retrieve heartbeat task: " << err;
-        }
         return tasks;
     }
 };

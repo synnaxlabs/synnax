@@ -1,0 +1,28 @@
+config_setting(
+    name = "nilinuxrt",
+    values = {
+        "define": "platform=nilinuxrt",
+    },
+)
+
+cc_library(
+    name = "daemon",
+    srcs = [
+        "daemon.h",
+    ] + select({
+        ":nilinuxrt": ["daemon_nilinuxrt.cpp"],
+        "@platforms//os:linux": ["daemon_linux.cpp"],
+        "//conditions:default": ["daemon_noop.cpp"],
+    }),
+    linkopts = select({
+        ":nilinuxrt": [],
+        "@platforms//os:linux": [
+            "-lsystemd",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp:freighter",
+    ],
+)

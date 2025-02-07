@@ -538,5 +538,5 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
   icon: <Icon.Visualize />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

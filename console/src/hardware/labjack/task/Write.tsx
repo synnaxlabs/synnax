@@ -77,7 +77,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),

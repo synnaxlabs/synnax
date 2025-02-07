@@ -42,12 +42,7 @@ opc::WriterSink::WriterSink(
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
 
-    this->breaker = breaker::Breaker(breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 10,
-        .scale = 1.2
-    });
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
 
     this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);
@@ -106,7 +101,7 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 
 
 /// @brief sends out write request to the OPC server.
-freighter::Error opc::WriterSink::write(synnax::Frame frame) {
+freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {
@@ -141,7 +136,7 @@ freighter::Error opc::WriterSink::write(synnax::Frame frame) {
 
 void opc::WriterSink::maintain_connection() {
     while (this->breaker.running()) {
-        this->breaker.waitFor(this->ping_rate.period().chrono());
+        this->breaker.wait_for(this->ping_rate.period().chrono());
         UA_Variant value;
         UA_Variant_init(&value); {
             std::lock_guard<std::mutex> lock(this->client_mutex);

@@ -159,7 +159,7 @@ var _ = Describe("Task", Ordered, func() {
 		// 	m := &task.Task{
 		// 		Key:      task.NewKey(rack_.Key, 0),
 		// 		Name:     "Test Task",
-		// 		Internal: true,
+		// 		Embedded: true,
 		// 	}
 		// 	Expect(w.Create(ctx, m)).To(Succeed())
 		// 	Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))

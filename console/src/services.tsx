@@ -14,6 +14,7 @@ import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
 import { DeviceServices } from "@/hardware/device/services";
+import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
@@ -46,7 +47,7 @@ export const SERVICES: Ontology.Services = {
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,
-  rack: EMPTY_ONTOLOGY_SERVICE,
+  rack: Rack.ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
   device: DeviceServices.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,

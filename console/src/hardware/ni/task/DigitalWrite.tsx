@@ -65,7 +65,7 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createDigitalWriteLayout({ create: true }),
     key: layoutKey,
   }),
@@ -199,7 +199,10 @@ const Wrapped = ({
         return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
       });
       methods.set("config.channels", config.channels);
-      await createTask({ key: task?.key, name, type: DIGITAL_WRITE_TYPE, config });
+      await createTask(
+        { key: task?.key, name, type: DIGITAL_WRITE_TYPE, config },
+        dev.rack,
+      );
       setDesiredState("paused");
     },
   });

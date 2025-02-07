@@ -71,7 +71,7 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createDigitalReadLayout({ create: true }),
     key: layoutKey,
   }),
@@ -181,12 +181,15 @@ const Wrapped = ({
         const key = `${c.port}l${c.line}`;
         c.channel = dev.properties.digitalInput.channels[key];
       });
-      await createTask({
-        key: task?.key,
-        name,
-        type: DIGITAL_READ_TYPE,
-        config,
-      });
+      await createTask(
+        {
+          key: task?.key,
+          name,
+          type: DIGITAL_READ_TYPE,
+          config,
+        },
+        dev.rack,
+      );
       setDesiredState("paused");
     },
   });

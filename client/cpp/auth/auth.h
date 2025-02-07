@@ -31,13 +31,10 @@ typedef freighter::UnaryClient<
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
-private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
     std::string token;
-    /// Whether or not an authentication attempt was made with the server. If set to true
-    /// and err is not nil, authentication has failed and the middleware will not attempt
-    /// to authenticate again.
+    /// Whether the middleware has successfully authenticated with the server.
     bool authenticated = false;
     /// Transport for authentication requests.
     std::unique_ptr<AuthLoginClient> login_client;
@@ -62,28 +59,32 @@ public:
         max_retries(max_retries) {
     }
 
-    /// Implements freighter::AuthMiddleware::operator().
+    /// @brief authenticates with the credentials provided when construction the 
+    /// Synnax client.
+    freighter::Error authenticate() {
+        api::v1::LoginRequest req;
+        req.set_username(this->username);
+        req.set_password(this->password);
+        auto [res, err] = login_client->send("/auth/login", req);
+        if (err) return err;
+        this->token = res.token();
+        this->authenticated = true;
+        this->retry_count = 0;
+        return freighter::NIL;
+    }
+
     std::pair<freighter::Context, freighter::Error> operator()(
         freighter::Context context,
         freighter::Next *next
     ) override {
-        if (!authenticated) {
-            api::v1::LoginRequest req;
-            req.set_username(username);
-            req.set_password(password);
-            auto [res, err] = login_client->send("/auth/login", req);
-            if (err) {
+        if (!this->authenticated)
+            if (auto err = this->authenticate(); err)
                 return {context, err};
-            }
-            token = res.token();
-            authenticated = true;
-            retry_count = 0;
-        }
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
         auto [res_ctx, err] = next->operator()(context);
         if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
-            authenticated = false;
-            retry_count++;
+            this->authenticated = false;
+            this->retry_count++;
             return this->operator()(context, next);
         }
         return {res_ctx, err};

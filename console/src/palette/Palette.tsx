@@ -34,11 +34,11 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { EXTRACTORS } from "@/extractors";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { type Ontology } from "@/ontology";
 import {
   type Command,
@@ -179,7 +179,7 @@ const PaletteDialog = ({
 
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
     () => ({

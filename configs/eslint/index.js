@@ -134,6 +134,10 @@ export default [
       "vite.config.ts",
       "stylelint.config.js",
       "eslint.config.js",
+      "bazel-bin",
+      "bazel-out",
+      "bazel-testlogs",
+      "bazel-*",
     ],
   },
 ];

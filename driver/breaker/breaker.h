@@ -123,11 +123,11 @@ public:
         }
         LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
                 max_retries
-                << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
+                << " times. " << "Retrying in " << interval << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.chrono());
-            if (!running()) {
+            if (!this->running()) {
                 LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
                 return false;
@@ -141,12 +141,12 @@ public:
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait (supports multiple time units).
-    void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
+    void wait_for(const TimeSpan &time) { this->wait_for(time.chrono()); }
 
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait for in nanoseconds.
-    void waitFor(const std::chrono::nanoseconds &time) {
+    void wait_for(const std::chrono::nanoseconds &time) {
         if (!running()) return;
         std::unique_lock lock(shutdown_mutex);
         breaker_shutdown->wait_for(lock, time);
@@ -184,4 +184,14 @@ private:
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
 };
+
+/// @brief Creates a default breaker configuration with standard retry and backoff settings
+inline Config default_config(const std::string& name) {
+    return Config{
+        .name = name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+}
 }

@@ -26,12 +26,11 @@ TEST(BreakerTests, testBreaker) {
 TEST(BreakerTests, testBreakRetries) {
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 10, 1.1});
     b.start();
-    //create a new thread
-    while (b.wait("testBreakRetries breaker"));
+    while (b.wait("testBreakRetries breaker")) {}
     b.stop();
 }
 
-/// @brief it should correctly shutdown before expending the max number of requests
+/// @brief it should correctly shut down before expending the max number of requests
 TEST(BreakerTests, testBreakerPrematureShutdown) {
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 10, 1});
     b.start();
@@ -43,7 +42,7 @@ TEST(BreakerTests, testBreakerPrematureShutdown) {
     t.join();
 }
 
-/// @brief it should correctly shutdown before expending the max number of requests
+/// @brief it should correctly shut down before expending the max number of requests
 TEST(BreakerTests, testDestructorShuttingDown) {
     // create a unique pointer to a breaker
     auto b = std::make_unique<breaker::Breaker>(breaker::Config{

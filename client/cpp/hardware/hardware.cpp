@@ -35,7 +35,7 @@ void Rack::to_proto(api::v1::Rack *rack) const {
 const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 
-std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
+std::pair<Rack, freighter::Error> HardwareClient::retrieve_rack(
     const std::uint32_t key
 ) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
@@ -54,7 +54,7 @@ std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
     return {rack, err};
 }
 
-std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
+std::pair<Rack, freighter::Error> HardwareClient::retrieve_rack(
     const std::string &name
 ) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
@@ -79,7 +79,7 @@ std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
 }
 
 
-freighter::Error HardwareClient::createRack(Rack &rack) const {
+freighter::Error HardwareClient::create_rack(Rack &rack) const {
     auto req = api::v1::HardwareCreateRackRequest();
     rack.to_proto(req.add_racks());
     auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
@@ -94,14 +94,14 @@ freighter::Error HardwareClient::createRack(Rack &rack) const {
     return err;
 }
 
-std::pair<Rack, freighter::Error> HardwareClient::createRack(
+std::pair<Rack, freighter::Error> HardwareClient::create_rack(
     const std::string &name) const {
     auto rack = Rack(name);
-    auto err = createRack(rack);
+    auto err = create_rack(rack);
     return {rack, err};
 }
 
-freighter::Error HardwareClient::deleteRack(std::uint32_t key) const {
+freighter::Error HardwareClient::delete_rack(std::uint32_t key) const {
     auto req = api::v1::HardwareDeleteRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_delete_client->send(CREATE_RACK_ENDPOINT, req);
@@ -266,7 +266,7 @@ std::pair<std::vector<Task>, freighter::Error> TaskClient::list() const {
     return {tasks, err};
 }
 
-std::pair<Device, freighter::Error> HardwareClient::retrieveDevice(
+std::pair<Device, freighter::Error> HardwareClient::retrieve_device(
     const std::string &key) const {
     auto req = api::v1::HardwareRetrieveDeviceRequest();
     req.add_keys(key);
@@ -281,7 +281,7 @@ std::pair<Device, freighter::Error> HardwareClient::retrieveDevice(
     return {Device(res.devices(0)), err};
 }
 
-freighter::Error HardwareClient::createDevice(Device &device) const {
+freighter::Error HardwareClient::create_device(Device &device) const {
     auto req = api::v1::HardwareCreateDeviceRequest();
     device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send(CREATE_RACK_ENDPOINT, req);

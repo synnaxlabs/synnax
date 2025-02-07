@@ -47,13 +47,6 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
     const synnax::Task &task,
     std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2
-    };
-
     auto parser = config::Parser(task.config);
     WriterConfig writer_config(parser, ctx);
 
@@ -90,7 +83,7 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
         state_source,
         state_writer_config,
         cmd_streamer_config,
-        breaker_config
+        breaker::default_config(task.name)
     );
 
     if (!sink->ok())

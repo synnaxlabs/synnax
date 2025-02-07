@@ -232,7 +232,7 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"LocalIndex", c.LocalIndex == other.LocalIndex},
 		{"Virtual", c.Virtual == other.Virtual},
 		{"Concurrency", c.Concurrency == other.Concurrency},
-		{"Internal", c.Internal == other.Internal},
+		{"Embedded", c.Internal == other.Internal},
 		{"Expression", c.Expression == other.Expression},
 	}
 

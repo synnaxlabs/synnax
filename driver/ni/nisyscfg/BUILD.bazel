@@ -1,0 +1,16 @@
+cc_library(
+    name = "nisyscfg",
+    srcs = [
+        "nisyscfg_prod.cpp",
+    ],
+    hdrs = [
+        "nisyscfg.h",
+        "nisyscfg_api.h",
+        "nisyscfg_errors.h",
+        "nisyscfg_prod.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/libutil",
+    ],
+)

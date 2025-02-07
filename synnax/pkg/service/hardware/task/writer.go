@@ -26,7 +26,7 @@ type Writer struct {
 
 func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	if !t.Key.IsValid() {
-		localKey, err := w.rack.IncrementTaskCount(ctx, t.Rack(), 1)
+		localKey, err := w.rack.NextTaskKey(ctx, t.Rack(), 1)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.IncrementTaskCount(ctx, key.Rack(), 1)
+	localKey, err := w.rack.NextTaskKey(ctx, key.Rack(), 1)
 	if err != nil {
 		return Task{}, err
 	}

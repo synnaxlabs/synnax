@@ -21,7 +21,6 @@ import {
   Status,
   Synnax,
   Text,
-  Triggers,
 } from "@synnaxlabs/pluto";
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -34,6 +33,7 @@ import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
+import { Triggers } from "@/triggers";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
@@ -62,8 +62,6 @@ const schema = createFormValidator(
 type FormValues = z.infer<typeof schema>;
 
 export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
   beta: true,
@@ -304,12 +302,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Save
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action={initialValues.key !== 0 ? "Save" : "Create"} />
         <Nav.Bar.End align="center" size="large">
           {initialValues.key !== 0 && (
             <Align.Space direction="x" align="center" size="small">
@@ -324,7 +317,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               disabled={isPending}
               loading={isPending}
               onClick={() => mutate(createMore)}
-              triggers={[SAVE_TRIGGER]}
+              triggers={Triggers.SAVE}
             >
               {initialValues.key !== 0 ? "Save" : "Create"}
             </Button.Button>

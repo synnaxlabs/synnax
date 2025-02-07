@@ -224,7 +224,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Rack.IsValid() && len(req.Names) == 0 {
+	if !req.Rack.IsZero() && len(req.Names) == 0 {
 		q = q.WhereRack(req.Rack)
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)

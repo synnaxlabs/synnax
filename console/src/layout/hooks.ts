@@ -57,10 +57,10 @@ type StateWithoutWindowKey = Omit<State, "windowKey">;
 /** A function that creates a layout given a set of utilities. */
 export type Creator = (props: CreatorProps) => StateWithoutWindowKey;
 
-export type PlacerArgs = StateWithoutWindowKey | Creator;
+export type PlacerProps = StateWithoutWindowKey | Creator;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: PlacerArgs) => {
+export type Placer = (layout: PlacerProps) => {
   windowKey: string;
   key: string;
 };
