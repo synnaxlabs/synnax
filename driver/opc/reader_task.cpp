@@ -97,7 +97,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         return nullptr;
     }
     VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
-    auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
+    auto [device, dev_err] = ctx->client->hardware.retrieve_device(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
@@ -112,15 +112,13 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    auto breaker = breaker::Breaker(breaker_config);
+    auto breaker = breaker::Breaker(breaker::default_config(task.name));
     // Fetch additional index channels we also need as part of the configuration.
-    auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
+    auto [res, err] = retrieveAdditionalChannelInfo(
+        ctx, 
+        cfg, 
+        breaker
+    );
     if (err) {
         ctx->set_state({
             .task = task.key,
@@ -205,7 +203,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         ctx,
         task,
         cfg,
-        breaker_config,
+        breaker::default_config(task.name),
         std::move(source),
         writer_cfg,
         ua_client,

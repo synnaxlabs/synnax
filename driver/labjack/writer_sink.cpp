@@ -69,7 +69,6 @@ labjack::StateSource::StateSource(
     this->timer = loop::Timer(this->state_rate);
 }
 
-
 std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
     breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
@@ -80,29 +79,22 @@ std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
 
 synnax::Frame labjack::StateSource::get_state() {
     // frame size = # monitored states + # index channels for the states
-    auto state_frame = synnax::Frame(this->state_map.size() + this->state_index_keys.size());
+    auto state_frame = synnax::Frame(
+        this->state_map.size() + this->state_index_keys.size());
 
     for (auto key: this->state_index_keys) {
-        state_frame.add(
-            key,
-            synnax::Series(
-                synnax::TimeStamp::now().value,
-                synnax::TIMESTAMP
-            )
-        );
+        auto t = synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP);
+        state_frame.emplace(key, std::move(t));
     }
     for (auto &[key, value]: this->state_map) {
         auto s = val_to_series(value.state, value.data_type);
-        state_frame.add(
-            value.state_key,
-            std::move(s)
-        );
+        state_frame.emplace(value.state_key, std::move(s));
     }
 
     return state_frame;
 }
 
-void labjack::StateSource::update_state(synnax::Frame frame) {
+void labjack::StateSource::update_state(const synnax::Frame &frame) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     auto frame_index = 0;
     for (auto key: *(frame.channels)) {
@@ -132,17 +124,11 @@ labjack::WriteSink::WriteSink(
 ) : ctx(ctx),
     task(task),
     writer_config(writer_config),
-    device_manager(device_manager) {
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
+    device_manager(device_manager),
+    breaker(breaker::default_config(task.name)) {
 
-    this->breaker = breaker::Breaker(breaker_config);
-
-    auto state_index_keys = this->get_index_keys(); // retrieve state index from first state channel
+    auto state_index_keys = this->get_index_keys();
+    // retrieve state index from first state channel
 
     this->state_source = std::make_shared<labjack::StateSource>(
         this->writer_config.state_rate,
@@ -150,7 +136,8 @@ labjack::WriteSink::WriteSink(
         this->writer_config.initial_state_map
     );
 
-    this->handle = this->device_manager->get_device_handle(this->writer_config.serial_number);
+    this->handle = this->device_manager->get_device_handle(
+        this->writer_config.serial_number);
 
     if (this->writer_config.channels.empty())
         this->log_err("No channels enabled/set");
@@ -163,7 +150,7 @@ labjack::WriteSink::~WriteSink() {
 
 void labjack::WriteSink::init() {
     if (this->writer_config.device_type == "") {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->writer_config.device_key
         );
         if (err != freighter::NIL) {
@@ -186,7 +173,7 @@ void labjack::WriteSink::init() {
     }
 }
 
-freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
+freighter::Error labjack::WriteSink::write(const synnax::Frame &frame) {
     auto frame_index = 0;
     for (auto key: *(frame.channels)) {
         double value = series_to_val(frame.series->at(frame_index));
@@ -207,7 +194,8 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
     if (!this->ok())
-        return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
+        return freighter::Error(
+            "Device disconnected or is in error. Please reconfigure task and try again");
     ctx->set_state({
         .task = task.key,
         .key = cmd_key,
@@ -261,7 +249,8 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
 
     std::set<synnax::ChannelKey> unique_keys;
     for (auto &channel: this->writer_config.channels) {
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.state_key);
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(
+            channel.state_key);
         if (err) {
             this->log_err("Failed to retrieve channel for port: " + channel.location);
             return {};

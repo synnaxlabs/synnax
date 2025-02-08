@@ -359,3 +359,10 @@ TEST(testConfig, testOptionalArray) {
     ASSERT_EQ(values[3], 4);
     ASSERT_EQ(values[4], 5);
 }
+
+TEST(testConfig, testNoError) {
+    json j = {};
+    config::Parser parser(j);
+    auto err = parser.error();
+    ASSERT_FALSE(err);
+}

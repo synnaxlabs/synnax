@@ -10,16 +10,7 @@
 import "@/cluster/Connect.css";
 
 import { type connection } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Form,
-  Input,
-  Nav,
-  Status,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Form, Input, Nav, Status } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -31,8 +22,7 @@ import { clusterZ, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+import { Triggers } from "@/triggers";
 
 export const LAYOUT_TYPE = "connectCluster";
 
@@ -145,12 +135,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
                 : connState.message}
             </Status.Text>
           ) : (
-            <>
-              <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-              <Text.Text shade={7} level="small">
-                To Test Connection
-              </Text.Text>
-            </>
+            <Triggers.SaveHelpText action="Test Connection" noBar />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
@@ -159,7 +144,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             disabled={loading !== null}
             variant="text"
             onClick={handleTestConnection}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             Test Connection
           </Button.Button>

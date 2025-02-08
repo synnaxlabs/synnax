@@ -58,7 +58,7 @@ public:
         const synnax::Task &task
     ) {
         auto ch_name =
-                "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
+                "sy_rack" + std::to_string(rack_key_node(task_key_rack(task.key))) +
                 "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
         if (err.matches(synnax::NOT_FOUND)) {
@@ -73,13 +73,12 @@ public:
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key}, .start = TimeStamp::now()
         };
-        auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2
-        };
-        return std::make_unique<MemInfo>(ctx, source, writer_cfg, breaker_config);
+        return std::make_unique<MemInfo>(
+            ctx, 
+            source, 
+            writer_cfg, 
+            breaker::default_config(task.name)
+        );
     }
 
     void stop() override { pipe.stop(); }

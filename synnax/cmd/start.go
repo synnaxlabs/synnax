@@ -39,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -61,8 +62,6 @@ import (
 )
 
 const stopKeyWord = "stop"
-
-var integrations = []string{"opc", "ni", "labjack"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -319,7 +318,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackName,
+				hardwareSvc.Rack.EmbeddedKey,
 				insecure,
 			),
 		)
@@ -422,17 +421,18 @@ func buildServerConfig(
 
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
-	rackName string,
+	rackKey rack.Key,
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
 		Integrations: getIntegrations(
 			viper.GetStringSlice(enableIntegrationsFlag),
-			viper.GetStringSlice(disableIntegrationsFlag)),
+			viper.GetStringSlice(disableIntegrationsFlag),
+		),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
-		RackName:        rackName,
+		RackKey:         rackKey,
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),
@@ -459,17 +459,9 @@ func getIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
-	if len(disabled) > 0 {
-		return lo.Filter(integrations, func(integration string, _ int) bool {
-			for _, disabledIntegration := range disabled {
-				if integration == disabledIntegration {
-					return false
-				}
-			}
-			return true
-		})
-	}
-	return integrations // Ensure a return value in case both slices are empty
+	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
 }
 
 // sets the base permissions that need to exist in the server.

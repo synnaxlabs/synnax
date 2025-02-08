@@ -76,6 +76,7 @@ import {
   MdFileUpload,
   MdFilterCenterFocus,
   MdHardware,
+  MdHive,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -94,6 +95,7 @@ import {
   MdLink,
   MdNewReleases,
   MdOutlineAccessTimeFilled,
+  MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
@@ -415,6 +417,8 @@ export const Icon: IconType = {
   Index: wrapIcon(IoTime, "index"),
   Decimal: wrapIcon(TbDecimal, "decimal"),
   String: wrapIcon(VscSymbolString, "string"),
+  Control: wrapIcon(MdOutlineControlCamera, "control"),
+  Rack: wrapIcon(MdHive, "rack"),
 };
 
 export interface IconType {
@@ -569,4 +573,6 @@ export interface IconType {
   Index: IconFC;
   Decimal: IconFC;
   String: IconFC;
+  Control: IconFC;
+  Rack: IconFC;
 }

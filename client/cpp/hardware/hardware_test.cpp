@@ -17,7 +17,7 @@ std::mt19937 gen_rand = random_generator(std::move("Hardware Tests"));
 TEST(HardwareTests, testCreateRack) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(r.name, "test_rack");
 }
@@ -26,9 +26,9 @@ TEST(HardwareTests, testCreateRack) {
 TEST(HardwareTests, testRetrieveRack) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
-    auto [r2, r2err] = client.hardware.retrieveRack(r.key);
+    auto [r2, r2err] = client.hardware.retrieve_rack(r.key);
     ASSERT_FALSE(r2err) << err.message();
     ASSERT_EQ(r2.name, "test_rack");
     ASSERT_EQ(r.key, r2.key);
@@ -38,11 +38,11 @@ TEST(HardwareTests, testRetrieveRack) {
 TEST(HardwareTest, testDeleteRack) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
-    auto err2 = client.hardware.deleteRack(r.key);
+    auto err2 = client.hardware.delete_rack(r.key);
     ASSERT_FALSE(err2) << err2.message();
-    auto [r2, r2err] = client.hardware.retrieveRack(r.key);
+    auto [r2, r2err] = client.hardware.retrieve_rack(r.key);
     ASSERT_TRUE(r2err.matches(synnax::QUERY_ERROR)) << r2err;
 }
 
@@ -50,21 +50,21 @@ TEST(HardwareTest, testDeleteRack) {
 TEST(HardwareTests, testCreateTask) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto m = Task(r.key, "test_module", "mock", "config");
     auto err2 = r.tasks.create(m);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(m.key), r.key);
-    ASSERT_NE(synnax::taskKeyLocal(m.key), 0);
+    ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
+    ASSERT_NE(synnax::task_key_local(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
 TEST(HardwareTests, testRetrieveTask) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto t = Task(r.key, "test_module", "mock", "config");
     auto err2 = r.tasks.create(t);
@@ -72,15 +72,15 @@ TEST(HardwareTests, testRetrieveTask) {
     auto [t2, m2err] = r.tasks.retrieve(t.key);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
-    ASSERT_EQ(synnax::taskKeyLocal(t2.key), synnax::taskKeyLocal(t.key));
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_local(t2.key), synnax::task_key_local(t.key));
 }
 
 /// @brief it should retrieve a task by its name
 TEST(HardwareTests, testRetrieveTaskByName) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto rand_name = std::to_string(gen_rand());
     auto t = Task(r.key, rand_name, "mock", "config");
@@ -89,14 +89,14 @@ TEST(HardwareTests, testRetrieveTaskByName) {
     auto [t2, m2err] = r.tasks.retrieve(rand_name);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
 }
 
 /// @brief it should retrieve a task by its type
 TEST(HardwareTests, testRetrieveTaskByType) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto rand_type = std::to_string(gen_rand());
     auto t = Task(r.key, "test_module", rand_type, "config");
@@ -105,14 +105,14 @@ TEST(HardwareTests, testRetrieveTaskByType) {
     auto [t2, m2err] = r.tasks.retrieveByType(rand_type);
     ASSERT_FALSE(m2err) << m2err.message();
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(t.key), r.key);
+    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
 TEST(HardwareTests, testListTasks) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto m = Task(r.key, "test_module", "mock", "config");
     auto err2 = r.tasks.create(m);
@@ -121,15 +121,15 @@ TEST(HardwareTests, testListTasks) {
     ASSERT_FALSE(err3) << err3.message();
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::taskKeyRack(tasks[0].key), r.key);
-    ASSERT_NE(synnax::taskKeyLocal(tasks[0].key), 0);
+    ASSERT_EQ(synnax::task_key_rack(tasks[0].key), r.key);
+    ASSERT_NE(synnax::task_key_local(tasks[0].key), 0);
 }
 
 /// @brief it should correctly create a device.
 TEST(HardwareTests, testCreateDevice) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto d = Device(
         "asdfjahsdfkasjdfhaks",
@@ -141,7 +141,7 @@ TEST(HardwareTests, testCreateDevice) {
         "test_model",
         "test_properties"
     );
-    auto err2 = client.hardware.createDevice(d);
+    auto err2 = client.hardware.create_device(d);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(d.name, "test_device");
 }
@@ -150,7 +150,7 @@ TEST(HardwareTests, testCreateDevice) {
 TEST(HardwareTests, testRetrieveDevice) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
-    auto err = client.hardware.createRack(r);
+    auto err = client.hardware.create_rack(r);
     ASSERT_FALSE(err) << err.message();
     auto d = Device(
         "asdfjahsdfkasjdfhaks",
@@ -162,9 +162,9 @@ TEST(HardwareTests, testRetrieveDevice) {
         "test_model",
         "test_properties"
     );
-    auto err2 = client.hardware.createDevice(d);
+    auto err2 = client.hardware.create_device(d);
     ASSERT_FALSE(err2) << err2.message();
-    auto [d2, d2err] = client.hardware.retrieveDevice(d.key);
+    auto [d2, d2err] = client.hardware.retrieve_device(d.key);
     ASSERT_FALSE(d2err) << d2err.message();
     ASSERT_EQ(d2.name, "test_device");
     ASSERT_EQ(d2.key, d.key);

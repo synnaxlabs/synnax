@@ -9,19 +9,25 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type PlacerArgs, usePlacer } from "@/layout/hooks";
 import { type RendererProps } from "@/layout/slice";
+import { type PromptRename, useRename } from "@/modals/Rename";
+
+interface CreateProps {
+  layoutKey: string;
+  rename: PromptRename;
+}
 
 export interface Selectable {
   key: string;
   title: string;
   icon: Icon.Element;
-  create: (layoutKey: string) => PlacerArgs;
+  create: (props: CreateProps) => Promise<PlacerArgs | null>;
 }
 
 export interface SelectorProps extends Align.SpaceProps, RendererProps {
@@ -39,7 +45,8 @@ const Base = ({
   ...props
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
-
+  const rename = useRename();
+  const handleException = Status.useExceptionHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
@@ -62,7 +69,14 @@ const Base = ({
             <Button.Button
               key={key}
               variant="outlined"
-              onClick={() => place(create(layoutKey))}
+              onClick={() => {
+                create({ layoutKey, rename })
+                  .then((layout) => {
+                    if (layout == null) return;
+                    place(layout);
+                  })
+                  .catch(handleException);
+              }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}
             >
