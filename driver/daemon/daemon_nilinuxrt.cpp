@@ -217,6 +217,46 @@ freighter::Error install_binary() {
     return freighter::NIL;
 }
 
+freighter::Error setup_pid_file() {
+    LOG(INFO) << "Setting up dedicated PID directory and file";
+    const std::string pid_dir = "/var/run/synnax-driver";
+    const std::string pid_file = pid_dir + "/synnax-driver.pid";
+    
+    // Check if directory exists with correct permissions
+    std::error_code ec;
+    if (!fs::exists(pid_dir)) {
+        // Setup PID directory
+        fs::create_directories(pid_dir, ec);
+        if (ec)
+            return freighter::Error("failed to create pid directory. try running with sudo: " + ec.message());
+
+        if (chmod(pid_dir.c_str(), 0755) != 0)
+            return freighter::Error("failed to set PID directory permissions");
+
+        std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
+        if (system(chown_dir_cmd.c_str()) != 0)
+            return freighter::Error("failed to change owner of PID directory");
+    }
+
+    // Check if PID file exists
+    if (!fs::exists(pid_file)) {
+        // Setup PID file
+        std::ofstream pid_file_stream(pid_file);
+        if (!pid_file_stream)
+            return freighter::Error("failed to create PID file: " + pid_file);
+        pid_file_stream.close();
+
+        if (chmod(pid_file.c_str(), 0666) != 0)
+            return freighter::Error("failed to set PID file permissions");
+
+        std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
+        if (system(chown_file_cmd.c_str()) != 0)
+            return freighter::Error("failed to change owner of PID file");
+    }
+
+    return freighter::NIL;
+}
+
 freighter::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "checking for existing service";
@@ -232,39 +272,7 @@ freighter::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
 
-    // Create a dedicated PID directory for synnax-driver; this avoids modifying
-    // the permissions of /var/run directly.
-    LOG(INFO) << "Setting up dedicated PID directory for synnax-driver";
-    const std::string pid_dir = "/var/run/synnax-driver";
-    const std::string pid_file = pid_dir + "/synnax-driver.pid";
-    
-    std::error_code ec;
-    fs::create_directories(pid_dir, ec);
-    if (ec)
-        return freighter::Error("failed to create PID directory: " + ec.message());
-
-    // Set permissions on the dedicated directory (e.g. 0755 is usually safe) 
-    if (chmod(pid_dir.c_str(), 0755) != 0)
-        return freighter::Error("failed to set PID directory permissions");
-
-    // Change ownership of the PID directory to the synnax user
-    std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
-    if (system(chown_dir_cmd.c_str()) != 0)
-        return freighter::Error("failed to change owner of PID directory");
-
-    // Create the PID file if it doesn't exist
-    std::ofstream pid_file_stream(pid_file);
-    if (!pid_file_stream)
-        return freighter::Error("failed to create PID file: " + pid_file);
-    pid_file_stream.close();
-
-    // Set file permissions so both root and synnax can write to it
-    if (chmod(pid_file.c_str(), 0666) != 0)
-        return freighter::Error("failed to set PID file permissions");
-
-    std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
-    if (system(chown_file_cmd.c_str()) != 0)
-        return freighter::Error("failed to change owner of PID file");
+    if (auto err = setup_pid_file()) return err;
 
     // Create log file with proper permissions
     LOG(INFO) << "Creating log file";
@@ -283,13 +291,14 @@ freighter::Error install_service() {
     // We expect the template to contain the marker "(pid_file)" and we replace it.
     std::string init_script = INIT_SCRIPT_TEMPLATE;
     const std::string old_pid_reference = "(pid_file)"; // Marker in the template.
-    const std::string new_pid_reference = pid_file;
+    const std::string new_pid_reference = DRIVER_PID_FILE;
     auto pos = init_script.find(old_pid_reference);
     if (pos != std::string::npos) {
         init_script.replace(pos, old_pid_reference.length(), new_pid_reference);
     }
 
     LOG(INFO) << "Creating init script at " << INIT_SCRIPT_PATH;
+    std::error_code ec;
     fs::create_directories(fs::path(INIT_SCRIPT_PATH).parent_path(), ec);
     if (ec)
         return freighter::Error("failed to create init.d directory: " + ec.message());
@@ -415,6 +424,7 @@ freighter::Error check_stranded_processes() {
 freighter::Error start_service() {
     LOG(INFO) << "starting service";
     if (auto err = check_stranded_processes()) return err;
+    if (auto err = setup_pid_file()) return err;
     if (system("/etc/init.d/synnax-driver start") != 0)
         return freighter::Error("failed to start service");
     return freighter::NIL;
