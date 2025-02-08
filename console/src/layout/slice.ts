@@ -96,11 +96,6 @@ interface ResizeNavDrawerPayload {
   size: number;
 }
 
-interface SetAltKeyPayload {
-  key: string;
-  altKey: string;
-}
-
 interface SetFocusPayload {
   key: string | null;
   windowKey: string;
@@ -244,15 +239,6 @@ export const { actions, reducer } = createSlice({
         state.mosaics[layout.windowKey] = mosaic;
         purgeEmptyMosaics(state);
       });
-    },
-    setAltKey: (
-      state,
-      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
-    ) => {
-      const layout = select(state, key);
-      if (layout == null) return;
-      state.altKeyToKey[altKey] = key;
-      state.keyToAltKey[key] = altKey;
     },
     moveMosaicTab: (
       state,
@@ -471,7 +457,6 @@ export const {
   place,
   setFocus,
   remove,
-  setAltKey,
   toggleActiveTheme,
   setActiveTheme,
   moveMosaicTab,
