@@ -16,6 +16,7 @@
 #include <map>
 #include <variant>
 
+#include "driver/ni/util.h"
 #include "nidaqmx/nidaqmx.h"
 #include "driver/config/config.h"
 
@@ -154,8 +155,6 @@ struct TableScale {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ScaleConfig                                //
 //////////////////////////////////////////////////////////////////////////////////
-
-
 struct ScaleConfig {
     std::string name;
     std::string type;

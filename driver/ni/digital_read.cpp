@@ -13,12 +13,18 @@
 #include <cassert>
 
 #include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
+#include "driver/ni/reader.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
+
+static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+    const auto port = std::to_string(p.required<std::uint64_t>("port"));
+    const auto line = std::to_string(p.required<std::uint64_t>("line"));
+    return dev + "/port" + port + "/line" + line;
+}
 
 void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
     const auto dev_name = this->reader_config.device_name;
@@ -28,9 +34,8 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
         "channels",
         [&](config::Parser &channel_builder) {
             const auto channel_key = channel_builder.required<uint32_t>("channel");
-            const auto enabled = channel_builder.optional<
-                bool>("enabled", true);
-            this->reader_config.channels.emplace_back(ni::ChannelConfig{
+            const auto enabled = channel_builder.optional<bool>("enabled", true);
+            this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{
                 .channel_key = channel_key,
                 .name = parse_digital_loc(channel_builder, dev_name),
                 .enabled = enabled
@@ -68,13 +73,16 @@ int ni::DigitalReadSource::configure_timing() {
         this->num_samples_per_channel = 1;
     } else {
         if (this->check_ni_error(
-            this->dmx->CfgSampClkTiming(
-            this->task_handle,
-                                      this->reader_config.timing_source.c_str(),
-                                        this->reader_config.sample_rate.value,
-                                        DAQmx_Val_Rising,
-                                        DAQmx_Val_ContSamps,
-                                        this->reader_config.sample_rate.value))) {
+                this->dmx->CfgSampClkTiming(
+                    this->task_handle,
+                    this->reader_config.timing_source.c_str(),
+                    this->reader_config.sample_rate.value,
+                    DAQmx_Val_Rising,
+                    DAQmx_Val_ContSamps,
+                    this->reader_config.sample_rate.value
+                )
+            )
+        ) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
@@ -101,20 +109,23 @@ void ni::DigitalReadSource::acquire_data() {
         // sleep per sample rate
         this->sample_timer.wait();
         if (this->check_ni_error(
-            this->dmx->ReadDigitalLines(
-                this->task_handle,
-                this->num_samples_per_channel,
-                -1,
-                DAQmx_Val_GroupByChannel,
-                data_packet.digital_data.data(),
-                data_packet.digital_data.size(),
-                &data_packet.samples_read_per_channel,
-                &numBytesPerSamp,
-                nullptr
-            ))) {
+                this->dmx->ReadDigitalLines(
+                    this->task_handle,
+                    this->num_samples_per_channel,
+                    -1,
+                    DAQmx_Val_GroupByChannel,
+                    data_packet.digital_data.data(),
+                    data_packet.digital_data.size(),
+                    &data_packet.samples_read_per_channel,
+                    &numBytesPerSamp,
+                    NULL
+                )
+            )
+        ) {
             this->log_error(
                 "failed while reading digital data for task " + this->reader_config.
-                task_name);
+                task_name
+            );
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);

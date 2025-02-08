@@ -3,16 +3,21 @@ cc_library(
     srcs = [
         "analog_read.cpp",
         "digital_read.cpp",
-        "digital_write.cpp",
+        "writer.cpp",
         "factory.cpp",
         "ni.cpp",
         "scanner.cpp",
         "task.cpp",
+        "state_source.cpp",
     ],
     hdrs = [
-        "ai_channels.h",
+        "channels.h",
         "error.h",
+        "util.h",
         "ni.h",
+        "scanner.h",
+        "reader.h",
+        "writer.h",
         "scale.h",
         "//client/cpp:synnax",
         "//driver/pipeline",
@@ -95,6 +100,19 @@ cc_test(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    deps = [
+        "ni",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "writer_test",
+    srcs = [
+        "writer_test.cpp",
+    ],
+    copts = ["/std:c++20"],
     deps = [
         "ni",
         "//driver/testutil",

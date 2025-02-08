@@ -9,11 +9,8 @@
 
 #include <sys/stat.h>
 
-/// POSIX
-#include <unistd.h>
-
-/// Windows-specific headers
 #ifdef _WIN32
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -28,6 +25,9 @@
 
 /// LabJack only supported on Windows.
 #include "driver/labjack/labjack.h"
+
+#else
+#include <unistd.h>
 #endif
 
 /// std

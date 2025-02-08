@@ -17,10 +17,12 @@
 #include "nidaqmx/nidaqmx_api.h"
 #include "driver/config/config.h"
 #include "driver/ni/scale.h"
+#include "driver/ni/util.h"
 #include "driver/task/task.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
 
 namespace ni {
 static int32_t get_terminal_config(const std::string &terminal_config) {
@@ -62,14 +64,21 @@ struct VoltageExcitationConfig {
     explicit VoltageExcitationConfig(config::Parser &parser)
         : excit_source(
               get_excitation_src(
-                  parser.required<std::string>("voltage_excit_source"))),
-          excit_val(parser.required<double>("voltage_excit_val")),
+                  parser.required<std::string>("voltage_excit_source")
+              )
+          ),
+          excit_val(
+              parser.required<double>("voltage_excit_val")
+          ),
           min_val_for_excitation(
-              parser.optional<double>("min_val_for_excitation", 0)),
+              parser.optional<double>("min_val_for_excitation", 0)
+          ),
           max_val_for_excitation(
-              parser.optional<double>("max_val_for_excitation", 0)),
+              parser.optional<double>("max_val_for_excitation", 0)
+          ),
           use_excit_for_scaling(
-              parser.optional<bool32>("use_excit_for_scaling", 0)) {
+              parser.optional<bool32>("use_excit_for_scaling", 0)
+          ) {
     }
 };
 
@@ -83,7 +92,9 @@ struct CurrentExcitationConfig {
     explicit CurrentExcitationConfig(config::Parser &parser)
         : excit_source(
               get_excitation_src(
-                  parser.required<std::string>("current_excit_source"))),
+                  parser.required<std::string>("current_excit_source")
+              )
+          ),
           excit_val(parser.required<double>("current_excit_val")),
           min_val_for_excitation(
               parser.optional<double>("min_val_for_excitation", 0)),
@@ -105,13 +116,20 @@ struct BridgeConfig {
 
     explicit BridgeConfig(config::Parser &parser)
         : ni_bridge_config(
-              get_bridge_config(parser.required<std::string>("bridge_config"))),
+              get_bridge_config(parser.required<std::string>("bridge_config")
+              )
+          ),
           voltage_excit_source(
               get_excitation_src(parser.required<std::string>(
-                  "voltage_excit_source"))),
-          voltage_excit_val(parser.required<double>("voltage_excit_val")),
+                      "voltage_excit_source")
+              )
+          ),
+          voltage_excit_val(
+              parser.required<double>("voltage_excit_val")
+          ),
           nominal_bridge_resistance(
-              parser.required<double>("nominal_bridge_resistance")) {
+              parser.required<double>("nominal_bridge_resistance")
+          ) {
     }
 };
 
@@ -180,8 +198,11 @@ struct TableConfig {
     TableConfig() = default;
 
     explicit TableConfig(config::Parser &parser)
-        : num_eletrical_vals(parser.required<uint32_t>("num_electrical_vals")),
-          num_physical_vals(parser.required<uint32_t>("num_physical_vals")) {
+        : num_eletrical_vals(
+              parser.required<uint32_t>("num_electrical_vals")
+          ), num_physical_vals(
+              parser.required<uint32_t>("num_physical_vals")
+          ) {
         const auto eu = parser.required<std::string>("electrical_units");
         const auto pu = parser.required<std::string>("physical_units");
 
@@ -218,11 +239,18 @@ struct TwoPointLinConfig {
     TwoPointLinConfig() = default;
 
     explicit TwoPointLinConfig(config::Parser &parser)
-        : first_electrical_val(parser.required<double>("first_electrical_val")),
+        : first_electrical_val(
+              parser.required<double>("first_electrical_val")
+          ),
           second_electrical_val(
-              parser.required<double>("second_electrical_val")),
-          first_physical_val(parser.required<double>("first_physical_val")),
-          second_physical_val(parser.required<double>("second_physical_val")) {
+              parser.required<double>("second_electrical_val")
+          ),
+          first_physical_val(
+              parser.required<double>("first_physical_val")
+          ),
+          second_physical_val(
+              parser.required<double>("second_physical_val")
+          ) {
         const auto eu = parser.required<std::string>("electrical_units");
         const auto pu = parser.required<std::string>("physical_units");
         electrical_units = ni::UNITS_MAP.at(eu);
@@ -236,10 +264,11 @@ struct TwoPointLinConfig {
 /// @brief an object that represents and is responsible for the configuration of
 /// a single analog channel on National Instruments hardware.
 /// base class for all special analog channel types.
-struct AIChan {
-    AIChan() = default;
+class Analog {
+public:
+    Analog() = default;
 
-    virtual ~AIChan() = default;
+    virtual ~Analog() = default;
 
     virtual int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
@@ -249,9 +278,13 @@ struct AIChan {
     }
 
     std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
-        const std::string c = std::to_string(parser.required<uint32_t>("channel"));
-
         if (!parser.get_json().contains("custom_scale")) return nullptr;
+        const std::string c = std::to_string(
+            parser.optional<uint32_t>(
+                "channel",
+                parser.optional<uint32_t>("cmd_channel", 0)
+            )
+        );
         auto scale_parser = parser.child("custom_scale");
         if (scale_parser.required<std::string>("type") == "none") return nullptr;
         this->scale_name = c + "_scale";
@@ -271,21 +304,34 @@ struct AIChan {
         return ni::UNITS_MAP.at(s);
     }
 
-    explicit AIChan(config::Parser &parser, std::string name):
-        min_val(parser.optional<float_t>("min_val", 0)),
-        max_val(parser.optional<float_t>("max_val", 0)),
-        units(get_units(parser.optional<std::string>("units", "Volts"))),
-        sy_key(parser.required<uint32_t>("channel")),
-        name(std::move(name)),
-        type(parser.required<std::string>("type")),
-        scale_config(getScaleConfig(parser)) {
+    explicit Analog(
+        config::Parser &parser,
+        const std::string &name
+    )
+        : min_val(
+              parser.optional<float_t>("min_val", 0)
+          ),
+          max_val(
+              parser.optional<float_t>("max_val", 0)
+          ),
+          units(
+              get_units(
+                  parser.optional<std::string>("units", "Volts")
+              )
+          ),
+          name(name),
+          type(
+              parser.required<std::string>("type")
+          ),
+          scale_config(
+              getScaleConfig(parser)
+          ) {
         if (this->scale_name != "") this->units = DAQmx_Val_FromCustomScale;
     }
 
     double min_val = 0;
     double max_val = 0;
     int32_t units = DAQmx_Val_Volts;
-    uint32_t sy_key = 0;
     std::string name;
     std::string type;
     std::string scale_name;
@@ -297,16 +343,17 @@ struct AIChan {
 //                                      Voltage                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief voltage channel.
-class AIVoltageChan : public AIChan {
+class AIVoltageChan : public Analog {
 public:
     explicit AIVoltageChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    ) : Analog(parser, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     ~AIVoltageChan() override = default;
@@ -336,7 +383,7 @@ public:
     explicit AIVoltageRMSChan(
         config::Parser &parser,
         const std::string &name
-    ): AIVoltageChan(parser, name) {
+    ) : AIVoltageChan(parser, name) {
     }
 
     ~AIVoltageRMSChan() override;
@@ -363,12 +410,16 @@ struct AIVoltageWithExcitChan final : public AIVoltageChan {
     int32_t bridge_config = 0;
     VoltageExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcitChan(config::Parser &parser, const std::string &name)
-        : AIVoltageChan(parser, name),
-          bridge_config(
-              get_bridge_config(
-                  parser.required<std::string>("bridge_config"))),
-          excitation_config(parser) {
+    explicit AIVoltageWithExcitChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : AIVoltageChan(parser, name),
+        bridge_config(
+            get_bridge_config(
+                parser.required<std::string>("bridge_config")
+            )
+        ),
+        excitation_config(parser) {
     }
 
     ~AIVoltageWithExcitChan() override = default;
@@ -397,7 +448,7 @@ struct AIVoltageWithExcitChan final : public AIVoltageChan {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Current                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-class AICurrentChan : public AIChan {
+class AICurrentChan : public Analog {
 public:
     static int32_t getShuntResistorLocation(const std::string &loc) {
         if (loc == "External") return DAQmx_Val_External;
@@ -408,16 +459,20 @@ public:
     explicit AICurrentChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          shunt_resistor_loc(
-              getShuntResistorLocation(
-                  parser.required<std::string>("shunt_resistor_loc"))),
-          ext_shunt_resistor_val(
-              parser.required<double>("ext_shunt_resistor_val")),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    ) : Analog(parser, name),
+        shunt_resistor_loc(
+            getShuntResistorLocation(
+                parser.required<std::string>("shunt_resistor_loc")
+            )
+        ),
+        ext_shunt_resistor_val(
+            parser.required<double>("ext_shunt_resistor_val")
+        ),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -448,7 +503,7 @@ public:
     explicit AICurrentRMSChan(
         config::Parser &parser,
         const std::string &name
-    ): AICurrentChan(parser, name) {
+    ) : AICurrentChan(parser, name) {
     }
 
     int32 bind(
@@ -473,7 +528,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                       RTD                                     //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIRTDChan final : public AIChan {
+class AIRTDChan final : public Analog {
 public:
     static int32_t get_rtd_type(const std::string &type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
@@ -489,14 +544,21 @@ public:
     explicit AIRTDChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          rtd_type(get_rtd_type(parser.required<std::string>("rtd_type"))),
-          resistance_config(
-              get_resistance_config(
-                  parser.required<std::string>("resistance_config"))),
-          excitation_config(parser),
-          r0(parser.required<double>("r0")) {
+    ) : Analog(parser, name),
+        rtd_type(
+            get_rtd_type(
+                parser.required<std::string>("rtd_type")
+            )
+        ),
+        resistance_config(
+            get_resistance_config(
+                parser.required<std::string>("resistance_config")
+            )
+        ),
+        excitation_config(parser),
+        r0(
+            parser.required<double>("r0")
+        ) {
     }
 
     int32 bind(
@@ -528,7 +590,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Temperature                              //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIThermocoupleChan final : public AIChan {
+class AIThermocoupleChan final : public Analog {
 public:
     [[nodiscard]] int32_t get_type(
         const std::string &type,
@@ -565,14 +627,20 @@ public:
         config::Parser &parser,
         const std::string &name,
         const std::map<std::int32_t, std::string> &cjc_sources
-    )
-        : AIChan(parser, name),
-          thermocouple_type(
-              get_type(parser.required<std::string>("thermocouple_type"),
-                       parser)),
-          cjc_source(get_cjc_source(parser.required<std::string>("cjc_source"),
-                                    parser)),
-          cjc_val(parser.optional<double>("cjc_val", 0)) {
+    ) : Analog(parser, name),
+        thermocouple_type(
+            get_type(
+                parser.required<std::string>("thermocouple_type"), parser
+            )
+        ),
+        cjc_source(get_cjc_source(
+                parser.required<std::string>("cjc_source"),
+                parser
+            )
+        ),
+        cjc_val(
+            parser.optional<double>("cjc_val", 0)
+        ) {
         const auto source = parser.required<std::int32_t>("cjc_port");
         if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = "";
         else this->cjcPort = cjc_sources.at(source);
@@ -603,11 +671,12 @@ private:
     double cjc_val;
 };
 
-struct AITempBuiltInChan final : AIChan {
+class AITempBuiltInChan final : public Analog {
+public:
     explicit AITempBuiltInChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name) {
+    ): Analog(parser, name) {
         this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
         const size_t pos = name.find('/');
         this->name = name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
@@ -626,16 +695,21 @@ struct AITempBuiltInChan final : AIChan {
     }
 };
 
-struct AIThermistorIEXChan final : AIChan {
-    explicit AIThermistorIEXChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
-        resistance_config(
-            get_resistance_config(
-                parser.required<std::string>("resistance_config"))),
-        excitation_config(parser),
-        a(parser.required<double>("a")),
-        b(parser.required<double>("b")),
-        c(parser.required<double>("c")) {
+class AIThermistorIEXChan final : public Analog {
+public:
+    explicit AIThermistorIEXChan(
+        config::Parser &parser,
+        const std::string &name
+    ): Analog(parser, name),
+       resistance_config(
+           get_resistance_config(
+               parser.required<std::string>("resistance_config")
+           )
+       ),
+       excitation_config(parser),
+       a(parser.required<double>("a")),
+       b(parser.required<double>("b")),
+       c(parser.required<double>("c")) {
     }
 
     int32 bind(
@@ -666,21 +740,22 @@ private:
     double c;
 };
 
-class AIThermistorVexChan final : public AIChan {
+class AIThermistorVexChan final : public Analog {
 public:
     explicit AIThermistorVexChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          resistance_config(
-              get_resistance_config(
-                  parser.required<std::string>("resistance_config"))),
-          excitation_config(parser),
-          a(parser.required<double>("a")),
-          b(parser.required<double>("b")),
-          c(parser.required<double>("c")),
-          r1(parser.required<double>("r1")) {
+    ) : Analog(parser, name),
+        resistance_config(
+            get_resistance_config(
+                parser.required<std::string>("resistance_config")
+            )
+        ),
+        excitation_config(parser),
+        a(parser.required<double>("a")),
+        b(parser.required<double>("b")),
+        c(parser.required<double>("c")),
+        r1(parser.required<double>("r1")) {
     }
 
     int32 bind(
@@ -717,18 +792,19 @@ private:
 //                                    Acceleration                               //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief acceleration channel
-class AIAccelChan : public AIChan {
+class AIAccelChan : public Analog {
 public:
     explicit AIAccelChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    ) : Analog(parser, name),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
         const auto su = parser.optional<
             std::string>("sensitivity_units", "mVoltsPerG");
         this->sensitivity_units = ni::UNITS_MAP.at(su);
@@ -763,8 +839,10 @@ public:
 /// @brief acceleration channel with 4 wire DC voltage
 class AIAccel4WireDCVoltageChan final : public AIAccelChan {
 public:
-    explicit AIAccel4WireDCVoltageChan(config::Parser &parser, const std::string &name):
-        AIAccelChan(parser, name) {
+    explicit AIAccel4WireDCVoltageChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : AIAccelChan(parser, name) {
     }
 
     int32 bind(
@@ -790,14 +868,18 @@ public:
 };
 
 /// @brief acceleration channel with charge
-class AIAccelChargeChan final : public AIChan {
+class AIAccelChargeChan final : public Analog {
 public:
-    explicit AIAccelChargeChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
+    explicit AIAccelChargeChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
         sensitivity(parser.required<double>("sensitivity")),
         terminal_config(
             ni::get_terminal_config(
-                parser.required<std::string>("terminal_config"))) {
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -827,13 +909,17 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Resistance                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIResistanceChan final : public AIChan {
+class AIResistanceChan final : public Analog {
 public:
-    explicit AIResistanceChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
+    explicit AIResistanceChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
         resistance_config(
             get_resistance_config(
-                parser.required<std::string>("resistance_config"))),
+                parser.required<std::string>("resistance_config")
+            )
+        ),
         excitation_config(parser) {
     }
 
@@ -863,13 +949,13 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Bridge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIBridgeChan final : public AIChan {
+class AIBridgeChan final : public Analog {
 public:
     explicit AIBridgeChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser) {
     }
 
     int32 bind(
@@ -898,7 +984,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                              Strain Gage                                      //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIStrainGaugeChan final : public AIChan {
+class AIStrainGaugeChan final : public Analog {
 public:
     static int32_t get_strain_config(const std::string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
@@ -911,20 +997,31 @@ public:
         return DAQmx_Val_FullBridgeI;
     }
 
-    explicit AIStrainGaugeChan(config::Parser &parser, const std::string &name)
-        : AIChan(parser, name),
-          strain_config(
-              get_strain_config(
-                  parser.required<std::string>("strain_config"))),
-          excitation_config(parser),
-          gage_factor(parser.required<double>("gage_factor")),
-          initial_bridge_voltage(
-              parser.required<double>("initial_bridge_voltage")),
-          nominal_gage_resistance(
-              parser.required<double>("nominal_gage_resistance")),
-          poisson_ratio(parser.required<double>("poisson_ratio")),
-          lead_wire_resistance(
-              parser.required<double>("lead_wire_resistance")) {
+    explicit AIStrainGaugeChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        strain_config(
+            get_strain_config(
+                parser.required<std::string>("strain_config")
+            )
+        ),
+        excitation_config(parser),
+        gage_factor(
+            parser.required<double>("gage_factor")
+        ),
+        initial_bridge_voltage(
+            parser.required<double>("initial_bridge_voltage")
+        ),
+        nominal_gage_resistance(
+            parser.required<double>("nominal_gage_resistance")
+        ),
+        poisson_ratio(
+            parser.required<double>("poisson_ratio")
+        ),
+        lead_wire_resistance(
+            parser.required<double>("lead_wire_resistance")
+        ) {
     }
 
     int32 bind(
@@ -963,7 +1060,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Rosette Strain Gage                      //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIRosetteStrainGaugeChan final : public AIChan {
+class AIRosetteStrainGaugeChan final : public Analog {
 public:
     static int32_t get_strain_config(const std::string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
@@ -995,24 +1092,26 @@ public:
         return DAQmx_Val_PrincipalStrain1;
     }
 
-    explicit AIRosetteStrainGaugeChan(config::Parser &parser, const std::string &name)
-        : AIChan(parser, name),
-          rosette_type(get_rosette_type(
-              parser.required<std::string>("rosette_type"))),
-          gage_orientation(parser.required<double>("gage_orientation")),
-          rosette_meas_type(
-              get_rosette_meas_type(
-                  parser.required<std::string>("rosette_meas_type"))),
-          strain_config(
-              get_strain_config(
-                  parser.required<std::string>("strain_config"))),
-          excitation_config(parser),
-          gage_factor(parser.required<double>("gage_factor")),
-          nominal_gage_resistance(
-              parser.required<double>("nominal_gage_resistance")),
-          poisson_ratio(parser.required<double>("poisson_ratio")),
-          lead_wire_resistance(
-              parser.required<double>("lead_wire_resistance")) {
+    explicit AIRosetteStrainGaugeChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        rosette_type(get_rosette_type(
+            parser.required<std::string>("rosette_type"))),
+        gage_orientation(parser.required<double>("gage_orientation")),
+        rosette_meas_type(
+            get_rosette_meas_type(
+                parser.required<std::string>("rosette_meas_type"))),
+        strain_config(
+            get_strain_config(
+                parser.required<std::string>("strain_config"))),
+        excitation_config(parser),
+        gage_factor(parser.required<double>("gage_factor")),
+        nominal_gage_resistance(
+            parser.required<double>("nominal_gage_resistance")),
+        poisson_ratio(parser.required<double>("poisson_ratio")),
+        lead_wire_resistance(
+            parser.required<double>("lead_wire_resistance")) {
     }
 
     int32 bind(
@@ -1028,7 +1127,7 @@ public:
             this->rosette_type,
             this->gage_orientation,
             &this->rosette_meas_type,
-            1, // bynRosseteMeasTypes // TODO: what is this for
+            1, // bynRosseteMeasTypes
             this->strain_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
@@ -1054,16 +1153,24 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Microphone                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIMicrophoneChan final : public AIChan {
+class AIMicrophoneChan final : public Analog {
 public:
-    explicit AIMicrophoneChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
-        mic_sensitivity(parser.required<double>("mic_sensitivity")),
-        max_snd_press_level(parser.required<double>("max_snd_press_level")),
+    explicit AIMicrophoneChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        mic_sensitivity(
+            parser.required<double>("mic_sensitivity")
+        ),
+        max_snd_press_level(
+            parser.required<double>("max_snd_press_level")
+        ),
         excitation_config(parser),
         terminal_config(
             ni::get_terminal_config(
-                parser.required<std::string>("terminal_config"))) {
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -1094,12 +1201,18 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Frequency                                //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIFrequencyVoltageChan final : public AIChan {
+class AIFrequencyVoltageChan final : public Analog {
 public:
-    explicit AIFrequencyVoltageChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
-        threshold_level(parser.required<double>("threshold_level")),
-        hysteresis(parser.required<double>("hysteresis")) {
+    explicit AIFrequencyVoltageChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        threshold_level(
+            parser.required<double>("threshold_level")
+        ),
+        hysteresis(
+            parser.required<double>("hysteresis")
+        ) {
         // get the device name by reading up to delimiter
         const size_t pos = name.find('/');
         this->name = name.substr(0, pos) + "/ctr" + std::to_string(
@@ -1131,13 +1244,14 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Pressure                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIPressureBridgeTwoPointLinChan final : public AIChan {
+class AIPressureBridgeTwoPointLinChan final : public Analog {
 public:
-    explicit AIPressureBridgeTwoPointLinChan(config::Parser &parser,
-                                             const std::string &name)
-        : AIChan(parser, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    explicit AIPressureBridgeTwoPointLinChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 bind(
@@ -1170,10 +1284,12 @@ private:
     TwoPointLinConfig two_point_lin_config;
 };
 
-class AIPressureBridgeTableChan final : public AIChan {
+class AIPressureBridgeTableChan final : public Analog {
 public:
-    explicit AIPressureBridgeTableChan(config::Parser &parser, const std::string &name):
-        AIChan(parser, name),
+    explicit AIPressureBridgeTableChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
         bridge_config(parser),
         table_config(parser) {
     }
@@ -1208,12 +1324,12 @@ private:
     TableConfig table_config;
 };
 
-class AIPressureBridgePolynomialChan final : public AIChan {
+class AIPressureBridgePolynomialChan final : public Analog {
 public:
     explicit AIPressureBridgePolynomialChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
+    ): Analog(parser, name),
        bridge_config(parser),
        polynomial_config(parser) {
     }
@@ -1251,15 +1367,14 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Force                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIForceBridgePolynomialChan final : public AIChan {
+class AIForceBridgePolynomialChan final : public Analog {
 public:
     explicit AIForceBridgePolynomialChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    ): Analog(parser, name),
+       bridge_config(parser),
+       polynomial_config(parser) {
     }
 
     int32 bind(
@@ -1292,14 +1407,14 @@ private:
     PolynomialConfig polynomial_config;
 };
 
-class AIForceBridgeTableChan final : public AIChan {
+class AIForceBridgeTableChan final : public Analog {
 public:
     explicit AIForceBridgeTableChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser),
-       table_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
     int32 bind(
@@ -1332,14 +1447,14 @@ private:
     TableConfig table_config;
 };
 
-class AIForceBridgeTwoPointLinChan final : public AIChan {
+class AIForceBridgeTwoPointLinChan final : public Analog {
 public:
     explicit AIForceBridgeTwoPointLinChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser),
-       two_point_lin_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 bind(
@@ -1375,20 +1490,24 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Velocity                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIVelocityIEPEChan final : public AIChan {
+class AIVelocityIEPEChan final : public Analog {
 public:
     explicit AIVelocityIEPEChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          sensitivity_units(
-              get_units(parser.required<std::string>("sensitivity_units"))),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    ) : Analog(parser, name),
+        sensitivity_units(
+            get_units(
+                parser.required<std::string>("sensitivity_units")
+            )
+        ),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -1421,14 +1540,14 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Torque                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class AITorqueBridgeTwoPointLinChan final : public AIChan {
+class AITorqueBridgeTwoPointLinChan final : public Analog {
 public:
     explicit AITorqueBridgeTwoPointLinChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser),
-       two_point_lin_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        two_point_lin_config(parser) {
     }
 
     int32 bind(
@@ -1461,14 +1580,14 @@ private:
     TwoPointLinConfig two_point_lin_config;
 };
 
-class AITorqueBridgePolynomialChan final : public AIChan {
+class AITorqueBridgePolynomialChan final : public Analog {
 public:
     explicit AITorqueBridgePolynomialChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser),
-       polynomial_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        polynomial_config(parser) {
     }
 
     int32 bind(
@@ -1501,14 +1620,14 @@ private:
     PolynomialConfig polynomial_config;
 };
 
-class AITorqueBridgeTableChan final : public AIChan {
+class AITorqueBridgeTableChan final : public Analog {
 public:
     explicit AITorqueBridgeTableChan(
         config::Parser &parser,
         const std::string &name
-    ): AIChan(parser, name),
-       bridge_config(parser),
-       table_config(parser) {
+    ) : Analog(parser, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
     int32 bind(
@@ -1541,20 +1660,23 @@ private:
     TableConfig table_config;
 };
 
-class AIForceIEPEChan final : public AIChan {
+class AIForceIEPEChan final : public Analog {
 public:
     explicit AIForceIEPEChan(
         config::Parser &parser,
         const std::string &name
-    )
-        : AIChan(parser, name),
-          sensitivity_units(
-              get_units(parser.required<std::string>("sensitivity_units"))),
-          sensitivity(parser.required<double>("sensitivity")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    ) : Analog(parser, name),
+        sensitivity_units(
+            get_units(parser.required<std::string>("sensitivity_units")
+            )
+        ),
+        sensitivity(parser.required<double>("sensitivity")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -1587,13 +1709,17 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                      Charge                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class AIChargeChan final : public AIChan {
+class AIChargeChan final : public Analog {
 public:
-    explicit AIChargeChan(config::Parser &parser, const std::string &name)
-        : AIChan(parser, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    explicit AIChargeChan(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config")
+            )
+        ) {
     }
 
     int32 bind(
@@ -1614,5 +1740,195 @@ public:
 
 private:
     int32 terminal_config = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////
+//                                  Output Channels                                       //
+//                                                                                        //
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Voltage                                  //
+///////////////////////////////////////////////////////////////////////////////////
+
+class VoltageOut final : public Analog {
+public:
+    explicit VoltageOut(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name) {
+    }
+
+    ~VoltageOut() = default;
+
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
+        return dmx->CreateAOVoltageChan(
+            task_handle,
+            this->name.c_str(),
+            "", // name to assign to the virtual channel
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->scale_name.c_str()
+        );
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      CurrentOut                               //
+///////////////////////////////////////////////////////////////////////////////////
+class CurrentOut final : public Analog {
+public:
+    explicit CurrentOut(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name) {
+    }
+
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
+        return dmx->CreateAOCurrentChan(
+            task_handle,
+            this->name.c_str(),
+            "",
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->scale_name.c_str()
+        );
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                               FunctionGeneratorOut                            //
+///////////////////////////////////////////////////////////////////////////////////
+class FunctionGeneratorOut final : public Analog {
+public:
+    int32_t get_type(const std::string &type, config::Parser &parser) {
+        if (type == "Sine") return DAQmx_Val_Sine;
+        if (type == "Triangle") return DAQmx_Val_Triangle;
+        if (type == "Square") return DAQmx_Val_Square;
+        if (type == "Sawtooth") return DAQmx_Val_Sawtooth;
+        parser.field_err(
+            "channel" + this->name,
+            "Invalid wave type:" + type +
+            ". Defaulting to Sine.");
+        return DAQmx_Val_Sine;
+    }
+
+
+    explicit FunctionGeneratorOut(
+        config::Parser &parser,
+        const std::string &name
+    ) : Analog(parser, name),
+        frequency(parser.required<double>("frequency")),
+        amplitude(parser.required<double>("amplitude")),
+        offset(parser.required<double>("offset")),
+        wave_type(get_type(parser.required<std::string>("wave_type"), parser)) {
+    }
+
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
+        return dmx->CreateAOFuncGenChan(
+            task_handle,
+            this->name.c_str(),
+            "",
+            this->wave_type,
+            this->frequency,
+            this->amplitude,
+            this->offset
+        );
+    }
+
+private:
+    double frequency;
+    double amplitude;
+    double offset;
+    int32 wave_type;
+};
+
+class AnalogOutputChannelFactory {
+public:
+    static std::shared_ptr<Analog> create_channel(
+        const std::string &channel_type,
+        config::Parser &parser,
+        const std::string &name
+    ) {
+        if (channel_type == "ao_current")
+            return std::make_shared<CurrentOut>(parser, name);
+        else if (channel_type == "ao_voltage")
+            return std::make_shared<VoltageOut>(parser, name);
+        else if (channel_type == "ao_func_gen")
+            return std::make_shared<FunctionGeneratorOut>(parser, name);
+
+        LOG(ERROR) << "[ni.writer] Unrecognized analog output channel type: " << channel_type;
+        return nullptr;
+    }
+};
+
+class AnalogInputChannelFactory {
+public:
+    static std::shared_ptr<Analog> create_channel(
+        const std::string &channel_type,
+        config::Parser &parser,
+        const std::string &name,
+        const std::map<int32_t, std::string> &port_to_channel = {}
+    ) {
+        if (channel_type == "ai_accel")
+            return std::make_shared<AIAccelChan>(parser, name);
+        if (channel_type == "ai_accel_4_wire_dc_voltage")
+            return std::make_shared<AIAccel4WireDCVoltageChan>(parser, name);
+        if (channel_type == "ai_bridge")
+            return std::make_shared<AIBridgeChan>(parser, name);
+        if (channel_type == "ai_charge")
+            return std::make_shared<AIChargeChan>(parser, name);
+        if (channel_type == "ai_current")
+            return std::make_shared<AICurrentChan>(parser, name);
+        if (channel_type == "ai_force_bridge_polynomial")
+            return std::make_shared<AIForceBridgePolynomialChan>(parser, name);
+        if (channel_type == "ai_force_bridge_table")
+            return std::make_shared<AIForceBridgeTableChan>(parser, name);
+        if (channel_type == "ai_force_bridge_two_point_lin")
+            return std::make_shared<AIForceBridgeTwoPointLinChan>(parser, name);
+        if (channel_type == "ai_force_iepe")
+            return std::make_shared<AIForceIEPEChan>(parser, name);
+        if (channel_type == "ai_microphone")
+            return std::make_shared<AIMicrophoneChan>(parser, name);
+        if (channel_type == "ai_pressure_bridge_polynomial")
+            return std::make_shared<AIPressureBridgePolynomialChan>(parser, name);
+        if (channel_type == "ai_pressure_bridge_table")
+            return std::make_shared<AIPressureBridgeTableChan>(parser, name);
+        if (channel_type == "ai_pressure_bridge_two_point_lin")
+            return std::make_shared<AIPressureBridgeTwoPointLinChan>(parser, name);
+        if (channel_type == "ai_resistance")
+            return std::make_shared<AIResistanceChan>(parser, name);
+        if (channel_type == "ai_rtd")
+            return std::make_shared<AIRTDChan>(parser, name);
+        if (channel_type == "ai_strain_gauge")
+            return std::make_shared<AIStrainGaugeChan>(parser, name);
+        if (channel_type == "ai_temp_builtin")
+            return std::make_shared<AITempBuiltInChan>(parser, name);
+        if (channel_type == "ai_thermocouple")
+            return std::make_shared<AIThermocoupleChan>(parser, name, port_to_channel);
+        if (channel_type == "ai_torque_bridge_polynomial")
+            return std::make_shared<AITorqueBridgePolynomialChan>(parser, name);
+        if (channel_type == "ai_torque_bridge_table")
+            return std::make_shared<AITorqueBridgeTableChan>(parser, name);
+        if (channel_type == "ai_torque_bridge_two_point_lin")
+            return std::make_shared<AITorqueBridgeTwoPointLinChan>(parser, name);
+        if (channel_type == "ai_velocity_iepe")
+            return std::make_shared<AIVelocityIEPEChan>(parser, name);
+        if (channel_type == "ai_voltage")
+            return std::make_shared<AIVoltageChan>(parser, name);
+
+        LOG(ERROR) << "[ni.reader] Unrecognized analog input channel type: " << channel_type;
+        return nullptr;
+    }
 };
 } // namespace ni
