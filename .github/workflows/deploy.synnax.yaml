@@ -133,42 +133,42 @@ jobs:
         uses: actions/cache@v3
         with:
           path: driver/vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
+          key: open62541-${{ matrix.os }}
 
-      # - name: Update Submodules
-      #   if: steps.cache-open62541.outputs.cache-hit == 'false'
-      #   run: git submodule update --init --recursive
+      - name: Update Submodules
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
-      # - name: Build Open62541
-      #   if: steps.cache-open62541.outputs.cache-hit != 'true'
-      #   shell: bash
-      #   run: |
-      #     mkdir build && cd build
-      #     if [ "${{ matrix.os }}" = "windows-latest" ]; then
-      #       cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      #            -DUA_NAMESPACE_ZERO=FULL \
-      #            -DCMAKE_INSTALL_PREFIX=../out \
-      #            -DUA_ENABLE_ENCRYPTION=MBEDTLS \
-      #            -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" \
-      #            -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" \
-      #            -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" \
-      #            -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" \
-      #            -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
-      #     else
-      #       cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      #            -DUA_NAMESPACE_ZERO=FULL \
-      #            -DCMAKE_INSTALL_PREFIX=../out \
-      #            -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-      #     fi
-      #     cmake --build . --config RelWithDebInfo --target install
-      #   working-directory: driver/vendor/open62541/open62541
+      - name: Build Open62541
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        shell: bash
+        run: |
+          mkdir build && cd build
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DUA_NAMESPACE_ZERO=FULL \
+                 -DCMAKE_INSTALL_PREFIX=../out \
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS \
+                 -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" \
+                 -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" \
+                 -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" \
+                 -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" \
+                 -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
+          else
+            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DUA_NAMESPACE_ZERO=FULL \
+                 -DCMAKE_INSTALL_PREFIX=../out \
+                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          fi
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver
         if: matrix.os != 'windows-latest'
@@ -235,7 +235,7 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         shell: bash
         run: |
-          cat > install-driver.sh << 'EOF'
+          cat > install-nilinuxrt-driver.sh << 'EOF'
           #!/bin/bash
           VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
           DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"

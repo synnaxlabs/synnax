@@ -20,4 +20,5 @@ freighter::Error stop_service() { return freighter::NIL; }
 freighter::Error restart_service() { return freighter::NIL; }
 void run(const Config &config, int argc, char *argv[]) { config.callback(argc, argv); }
 freighter::Error view_logs() { return freighter::NIL; }
+freighter::Error status() { return freighter::NIL; }
 } // namespace daemond
