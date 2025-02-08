@@ -81,6 +81,8 @@ jobs:
     needs: setup
     name: Build (${{ matrix.os }})
     if: needs.setup.outputs.changed == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
@@ -126,7 +128,15 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/open62541/open62541/out
+          key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
+
       - name: Update Submodules
+        if: steps.cache-open62541.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
@@ -135,13 +145,6 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
-
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: driver/vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
 
       - name: Build Open62541
         if: steps.cache-open62541.outputs.cache-hit != 'true'
