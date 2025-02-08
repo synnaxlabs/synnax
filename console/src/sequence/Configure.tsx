@@ -76,7 +76,6 @@ export const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config, rack } = methods.value();
-      console.log(rack);
       await create(
         {
           key: base?.key,
@@ -111,16 +110,7 @@ export const Wrapped = ({
       direction="y"
       empty
     >
-      <Form.Form
-        {...methods}
-        mode={base?.snapshot ? "preview" : "normal"}
-        // style={{
-        //   height: "100%",
-        //   minHeight: 0,
-        //   display: "flex",
-        //   flexDirection: "column",
-        // }}
-      >
+      <Form.Form {...methods} mode={base?.snapshot ? "preview" : "normal"}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -213,7 +203,11 @@ export const Wrapped = ({
             </Align.Space>
             <Button.Icon
               loading={startingOrStopping}
+<<<<<<< HEAD
               disabled={startingOrStopping || base?.snapshot}
+=======
+              disabled={startingOrStopping || taskState == null || base?.snapshot}
+>>>>>>> 2b94611b2dac8bb4374b998d318cdd90e61cbf2e
               onClick={() => onStartStop()}
               variant="outlined"
             >

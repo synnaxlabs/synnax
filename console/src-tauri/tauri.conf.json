@@ -34,7 +34,8 @@
     },
     "resources": [],
     "shortDescription": "",
-    "linux": { "deb": { "depends": [] } }
+    "linux": { "deb": { "depends": [] } },
+    "externalBin": []
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {

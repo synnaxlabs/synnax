@@ -9,7 +9,8 @@
 
 import "@/layout/Selector.css";
 
-import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -74,7 +75,7 @@ const Base = ({
                     if (layout == null) return;
                     place(layout);
                   })
-                  .catch((e) => handleException(e, `Failed to create ${title}`));
+                  .catch(handleException);
               }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}

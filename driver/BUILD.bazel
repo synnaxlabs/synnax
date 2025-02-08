@@ -44,7 +44,10 @@ cc_test(
 
 cc_binary(
     name = "driver_main",
-    srcs = ["main.cpp"],
+    srcs = [
+        "main.cpp",
+        "//synnax/pkg/version:version_header",
+    ],
     copts = select({
         # "@platforms//os:windows": [
         #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging

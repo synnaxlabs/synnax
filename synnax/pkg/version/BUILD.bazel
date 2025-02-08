@@ -1,0 +1,13 @@
+exports_files(["VERSION"])
+
+genrule(
+    name = "version_header",
+    srcs = ["VERSION"],
+    outs = ["version.h"],
+    cmd = """
+        echo '#define SYNNAX_DRIVER_VERSION \"'$$(cat $(location VERSION))'\"' > $@ &&
+        echo '#define SYNNAX_DRIVER_COMMIT \"'{STABLE_GIT_COMMIT}'\"' >> $@
+    """,
+    stamp = 1,
+    visibility = ["//visibility:public"],
+) 

@@ -114,7 +114,11 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto properties = DeviceProperties(properties_parser);
     auto breaker = breaker::Breaker(breaker::default_config(task.name));
     // Fetch additional index channels we also need as part of the configuration.
-    auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
+    auto [res, err] = retrieveAdditionalChannelInfo(
+        ctx, 
+        cfg, 
+        breaker
+    );
     if (err) {
         ctx->set_state({
             .task = task.key,

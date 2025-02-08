@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,11 +15,11 @@ namespace ni {
 template<typename T>
 StateSource<T>::StateSource(
     float state_rate,
-    synnax::ChannelKey &state_index_key,
+    std::vector<synnax::ChannelKey> &state_index_keys,
     std::vector<synnax::ChannelKey> &state_channel_keys
 ) {
     this->state_rate.value = state_rate;
-    this->state_index_key = state_index_key;
+    this->state_index_keys = state_index_keys;
 
     for (auto &key: state_channel_keys)
         this->state_map[key] = 0;
@@ -29,7 +29,6 @@ StateSource<T>::StateSource(
 template<typename T>
 std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    // sleep for state period
     this->timer.wait(breaker);
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
     return std::make_pair(this->get_state(), freighter::NIL);
@@ -37,24 +36,23 @@ std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(breaker::Breaker
 
 template<typename T>
 synnax::Frame StateSource<T>::get_state() {
-    // frame size = # monitored states + 1 state index channel
-    auto frame_size = this->state_map.size() + 1;
+    auto frame_size = this->state_map.size() + this->state_index_keys.size();
     auto state_frame = synnax::Frame(frame_size);
     
-    // Create the timestamp series first and store it
-    auto timestamp_series = synnax::Series(
-        synnax::TimeStamp::now().value,
-        synnax::TIMESTAMP
-    );
-    state_frame.add(this->state_index_key, timestamp_series);
+    // Create timestamp series for each index key
+    for (auto &index_key : this->state_index_keys) {
+        auto timestamp_series = synnax::Series(
+            synnax::TimeStamp::now().value,
+            synnax::TIMESTAMP
+        );
+        state_frame.add(index_key, timestamp_series);
+    }
 
     // Add each state value
     for (auto &[key, value]: this->state_map) {
         auto value_series = synnax::Series(value);
-        state_frame.add(key, value_series);
+        state_frame.emplace(key, std::move(value_series));
     }
-
-    // LOG(INFO) << "state_Frame" << state_frame;
 
     return state_frame;
 }

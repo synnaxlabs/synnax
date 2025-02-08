@@ -25,7 +25,7 @@ enum class Status {
     READY,
     RUNNING,
     STOPPING,
-    ERROR_
+    ERROR_  // ERROR is already a reserved macro in <winerror.h>
 };
 
 // Configuration for the daemon

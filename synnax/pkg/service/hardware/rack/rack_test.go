@@ -83,6 +83,18 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
+		It("Should retrieve racks where the host is the rack's node", func() {
+			r := &rack.Rack{Name: "rack4"}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			var res rack.Rack
+			Expect(svc.NewRetrieve().WhereNodeIsHost().Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(*r))
+		})
+		It("Should only retrieve embedded racks", func() {
+			var res rack.Rack
+			Expect(svc.NewRetrieve().WhereEmbedded(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Embedded).To(BeTrue())
+		})
 	})
 	Describe("DeleteChannel", func() {
 		It("Should delete a rack by its key", func() {

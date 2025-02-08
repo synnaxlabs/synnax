@@ -24,6 +24,7 @@ export const ZERO_CONFIG: Config = {
 
 export const stateDetailsZ = z.object({
   running: z.boolean(),
+  message: z.string(),
 });
 
 export type StateDetails = z.infer<typeof stateDetailsZ>;

@@ -77,11 +77,13 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type (
 	HardwareRetrieveRackRequest struct {
-		Keys   []rack.Key `json:"keys" msgpack:"keys"`
-		Names  []string   `json:"names" msgpack:"names"`
-		Search string     `json:"search" msgpack:"search"`
-		Limit  int        `json:"limit" msgpack:"limit"`
-		Offset int        `json:"offset" msgpack:"offset"`
+		Keys       []rack.Key `json:"keys" msgpack:"keys"`
+		Names      []string   `json:"names" msgpack:"names"`
+		Search     string     `json:"search" msgpack:"search"`
+		Embedded   bool       `json:"embedded" msgpack:"embedded"`
+		HostIsNode bool       `json:"host_is_node" msgpack:"host_is_node"`
+		Limit      int        `json:"limit" msgpack:"limit"`
+		Offset     int        `json:"offset" msgpack:"offset"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -112,6 +114,12 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	}
 	if hasOffset {
 		q = q.Offset(req.Offset)
+	}
+	if req.Embedded {
+		q = q.WhereEmbedded(req.Embedded)
+	}
+	if req.HostIsNode {
+		q = q.WhereNodeIsHost()
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
