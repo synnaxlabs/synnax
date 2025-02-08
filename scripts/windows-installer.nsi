@@ -31,10 +31,17 @@ Section "MainSection" SEC01
     CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     
-    # Add to PATH (at the beginning instead of the end)
-    DetailPrint "Adding to PATH..."
+    # Add to PATH (only if not already present)
+    DetailPrint "Checking and updating PATH..."
     FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', '$INSTDIR;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
+    FileWrite $0 '$installDir = [System.IO.Path]::GetFullPath("$INSTDIR")$\r$\n'
+    FileWrite $0 '$currentPath = [Environment]::GetEnvironmentVariable("Path", "User")$\r$\n'
+    FileWrite $0 'if (-not ($currentPath -like "*$installDir*")) {$\r$\n'
+    FileWrite $0 '    [Environment]::SetEnvironmentVariable("Path", "$installDir;" + $currentPath, "User")$\r$\n'
+    FileWrite $0 '    Write-Host "Added to PATH successfully"$\r$\n'
+    FileWrite $0 '} else {$\r$\n'
+    FileWrite $0 '    Write-Host "Directory already in PATH"$\r$\n'
+    FileWrite $0 '}'
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
     Delete "$INSTDIR\add-path.ps1"
