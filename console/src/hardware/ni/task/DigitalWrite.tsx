@@ -95,6 +95,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );
+  const rackKey = dev.rack;
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitiveIsZero(dev.properties.digitalOutput.stateIndex);
@@ -184,7 +185,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
     const pair = dev.properties.digitalOutput.channels[key];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });
-  return config;
+  return [config, rackKey];
 };
 
 export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, Form, {

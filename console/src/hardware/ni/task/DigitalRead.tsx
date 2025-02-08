@@ -91,6 +91,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   config,
 ) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const rackKey = dev.rack;
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
@@ -144,7 +145,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
     const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];
   });
-  return config;
+  return [config, rackKey];
 };
 
 export const DigitalRead = Common.Task.wrapForm(() => <Properties />, Form, {
