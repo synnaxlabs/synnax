@@ -108,9 +108,9 @@ var _ = Describe("Rack", Ordered, func() {
 
 	Describe("Embedded Rack", func() {
 		It("Should correctly create the node embedded rack", func() {
-			Expect(svc.EmbeddedRackkey).ToNot(Equal(rack.Key(0)))
+			Expect(svc.EmbeddedKey).ToNot(Equal(rack.Key(0)))
 			var embeddedRack rack.Rack
-			Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackkey).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, tx)).To(Succeed())
 			Expect(embeddedRack.Embedded).To(BeTrue())
 		})
 	})
@@ -136,12 +136,12 @@ var _ = Describe("Migration", func() {
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 		}))
-		Expect(svc.EmbeddedRackkey).To(Equal(rack.Key(65538)))
+		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
 		// Retrieve the embedded rack
 		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedRackkey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
+		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Built-In Driver"))
+		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 
 		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(1))

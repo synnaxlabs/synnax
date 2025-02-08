@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"io"
+	"sync"
 )
 
 // Config is the configuration for creating a Service.
@@ -85,10 +86,11 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	EmbeddedRackkey Key
+	EmbeddedKey     Key
 	localKeyCounter *kv.AtomicInt64Counter
 	shutdownSignals io.Closer
 	group           group.Group
+	keyMu           *sync.Mutex
 }
 
 const localKeyCounterSuffix = ".rack.counter"
@@ -109,7 +111,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{Config: cfg, localKeyCounter: c, group: g}
+	s = &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
@@ -152,10 +154,10 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	}
 
 	// The key will get populated if a rack exists, in which case this will be an update.
-	embeddedRack.Name = fmt.Sprintf("Node %s Built-In Driver", s.HostProvider.HostKey())
+	embeddedRack.Name = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	embeddedRack.Embedded = true
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
-	s.EmbeddedRackkey = embeddedRack.Key
+	s.EmbeddedKey = embeddedRack.Key
 	return err
 }
 
@@ -175,6 +177,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 			return NewKey(s.HostProvider.HostKey(), uint16(n)), err
 		},
 		group: s.group,
+		keyMu: s.keyMu,
 	}
 }
 

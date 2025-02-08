@@ -1,8 +1,17 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export const SEQUENCE_TYPE = "sequence";
-export type SequenceType = typeof SEQUENCE_TYPE;
+export const TYPE = "sequence";
+export type Type = typeof TYPE;
 
 export const configZ = z.object({
   rate: z.number().min(1),
@@ -29,12 +38,12 @@ export const stateDetailsZ = z.object({
 
 export type StateDetails = z.infer<typeof stateDetailsZ>;
 
-export type Task = task.Task<Config, StateDetails, "sequence">;
-export type Payload = task.Payload<Config, StateDetails, "sequence">;
+export type Task = task.Task<Config, StateDetails, Type>;
+export type Payload = task.Payload<Config, StateDetails, Type>;
 
 export const ZERO_PAYLOAD: Payload = {
   key: "",
   name: "Sequence Task",
   config: ZERO_CONFIG,
-  type: SEQUENCE_TYPE,
+  type: TYPE,
 };

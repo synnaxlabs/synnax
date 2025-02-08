@@ -10,12 +10,12 @@
 package embedded
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"io"
 	"os/exec"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"

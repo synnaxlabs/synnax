@@ -28,9 +28,12 @@ import (
 // the number of hops and the time it takes for a task to be configured.
 //
 // The downside is that it makes it challenging to move tasks between racks.
+//
+// The first 16 bits are the node key, and the last 16 bits are a unique, sequential
+// key for the rack on the node.
 type Key uint32
 
-// NewKey instantiates a new rack key from it's not and local key components.
+// NewKey instantiates a new rack key from its node and local key components.
 func NewKey(node core.NodeKey, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
@@ -45,7 +48,7 @@ func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
 func (k Key) OntologyID() ontology.ID { return OntologyID(k) }
 
 // IsZero returns true if the key is invalid i.e. it's Node or LocalKey is zero.
-func (k Key) IsZero() bool { return k.Node() == 0 || k.LocalKey() == 0 }
+func (k Key) IsZero() bool { return k == 0 }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
@@ -61,7 +64,7 @@ type Rack struct {
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
-	Embedded bool `json:"internal" msgpack:"internal"`
+	Embedded bool `json:"embedded" msgpack:"embedded"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

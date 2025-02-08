@@ -78,18 +78,21 @@ plugins::ChannelReceive::ChannelReceive(
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
-    const std::vector<synnax::Channel> &read_from) :
+    const std::vector<synnax::Channel> &read_from
+) :
     ChannelReceive(
         std::make_shared<pipeline::SynnaxStreamerFactory>(client),
         read_from
     ) {
 }
 
+/// @brief implements plugins::Plugin to start receiving values from the read pipeline.
 freighter::Error plugins::ChannelReceive::before_all(lua_State *L) {
     this->pipe.start();
     return freighter::NIL;
 }
 
+/// @brief implements plugins::Plugin to start receiving values from the write pipeline.
 freighter::Error plugins::ChannelReceive::after_all(lua_State *L) {
     this->pipe.stop();
     return freighter::NIL;

@@ -11,9 +11,16 @@ import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
 
-export { useConfirm } from "@/modals/Confirm";
-export { type PromptConfirm as CreateConfirmModal } from "@/modals/Confirm";
-export { useRename } from "@/modals/Rename";
+export {
+  type PromptConfirm,
+  type PromptConfirmLayoutArgs,
+  useConfirm,
+} from "@/modals/Confirm";
+export {
+  type PromptRename,
+  type PromptRenameLayoutArgs,
+  useRename,
+} from "@/modals/Rename";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONFIRM_LAYOUT_TYPE]: Confirm,

@@ -132,10 +132,8 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-
 	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value(ctx)
-		if f.exec(v) {
+		if f.exec(iter.Value(ctx)) {
 			count++
 		}
 	}

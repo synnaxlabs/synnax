@@ -24,17 +24,21 @@ extern "C" {
 class MockSink final : public plugins::FrameSink {
 public:
     std::vector<synnax::Frame> written_frames;
-    std::vector<std::pair<std::vector<synnax::ChannelKey>, std::vector<
-        synnax::Authority> > > authority_calls;
+    std::vector<std::pair<
+            std::vector<synnax::ChannelKey>,
+            std::vector<synnax::Authority> >
+    > authority_calls;
 
     freighter::Error write(synnax::Frame &frame) override {
         written_frames.push_back(std::move(frame));
         return freighter::NIL;
     }
 
-    freighter::Error set_authority(const std::vector<synnax::ChannelKey> &keys,
-                                   const std::vector<synnax::Authority> &
-                                   authorities) override {
+    freighter::Error set_authority(
+        const std::vector<synnax::ChannelKey> &keys,
+        const std::vector<synnax::Authority> &
+        authorities
+    ) override {
         authority_calls.emplace_back(keys, authorities);
         return freighter::NIL;
     }
@@ -195,8 +199,10 @@ protected:
         op->after_next(L);
         ASSERT_EQ(sink->written_frames.size(), 1);
 
-        const synnax::Series index_ser = std::move(sink->written_frames[0].series->at(1));
-        const synnax::Series value_ser = std::move(sink->written_frames[0].series->at(0));
+        const synnax::Series index_ser = std::move(
+            sink->written_frames[0].series->at(1));
+        const synnax::Series value_ser = std::move(
+            sink->written_frames[0].series->at(0));
 
         EXPECT_GT(index_ser.at<int64_t>(0), 0);
         EXPECT_EQ(value_ser.at<T>(0), expected_value);

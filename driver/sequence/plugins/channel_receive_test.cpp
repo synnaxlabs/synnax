@@ -48,7 +48,6 @@ TEST(ChannelReceive, Basic) {
     luaL_openlibs(L);
     plugin.before_all(L);
     plugin.before_next(L);
-    // assert that the lua state has a variable named "my_channel" with the value 1.0
     ASSERT_EQ(lua_getglobal(L, "my_channel"), LUA_TNUMBER);
     ASSERT_EQ(lua_tonumber(L, -1), 1.0);
     lua_close(L);

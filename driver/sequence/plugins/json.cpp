@@ -13,9 +13,6 @@
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
 
-/// @brief JSON source is an implementation of sequence::Source that binds JSON data
-/// into the Lua state. This is useful for binding fixed variable context at the start
-/// of a sequence.
 freighter::Error plugins::JSON::push_value(lua_State *L, const json &value) {
     if (value.is_null()) lua_pushnil(L);
     else if (value.is_boolean()) lua_pushboolean(L, value.get<bool>());

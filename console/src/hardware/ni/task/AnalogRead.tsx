@@ -120,6 +120,7 @@ const Wrapped = ({
       const { name, config } = methods.value();
       const devices = unique.unique(config.channels.map((c) => c.device));
 
+      // TODO: @pjdotson - fix this hacky thing
       let rack: rack.RackKey = 0;
       for (const devKey of devices) {
         const dev = await client.hardware.devices.retrieve<Properties>(devKey);

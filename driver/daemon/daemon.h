@@ -44,4 +44,4 @@ freighter::Error view_logs();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);
-} // namespace daemon
+} // namespace daemond

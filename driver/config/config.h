@@ -36,12 +36,15 @@ public:
     /// to the parser.
     explicit Parser(const std::string &encoded) : errors(
         std::make_shared<std::vector<json> >()) {
-        try {
-            config = json::parse(encoded);
-        } catch (const json::parse_error &e) {
-            noop = true;
-            field_err("", e.what());
-        }
+        parse_with_err_handling([&encoded] { return json::parse(encoded); });
+    }
+
+    /// @brief constructs a parser from an input stream (e.g., file stream).
+    /// If the stream content is not valid JSON, immediately binds an error
+    /// to the parser.
+    explicit Parser(std::istream& stream) : errors(
+        std::make_shared<std::vector<json> >()) {
+        parse_with_err_handling([&stream] { return json::parse(stream); });
     }
 
     /// @brief default constructor constructs a parser that will fail fast.
@@ -240,6 +243,16 @@ private:
             field_err(path, e.what() + 32);
         }
         return T();
+    }
+
+    /// @brief Helper method to parse JSON and handle errors
+    void parse_with_err_handling(const std::function<json()>& parser) {
+        try {
+            config = parser();
+        } catch (const json::parse_error& e) {
+            noop = true;
+            field_err("", e.what());
+        }
     }
 };
 }

@@ -14,7 +14,7 @@ import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
-const rackColumns: Array<List.ColumnSpec<rack.RackKey, rack.Rack>> = [
+const COLUMNS: Array<List.ColumnSpec<rack.RackKey, rack.Rack>> = [
   { key: "name", name: "Name" },
   { key: "location", name: "Location" },
 ];
@@ -26,9 +26,9 @@ export const SelectSingle = (props: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   return (
     <Select.Single<rack.RackKey, rack.Rack>
-      columns={rackColumns}
+      columns={COLUMNS}
       searcher={client?.hardware.racks}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...props}
     />
   );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -16,7 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Ontology } from "@/ontology";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = Ontology.useConfirmDelete({ type: "User" });
+  const confirm = Ontology.useConfirmDelete({ type: "Rack" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       if (!(await confirm(resources))) throw errors.CANCELED;
@@ -34,7 +34,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete users");
+      handleException(e, "Failed to delete racks");
     },
   }).mutate;
 };
@@ -49,10 +49,10 @@ const handleRename: Ontology.HandleTreeRename = {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection } = props;
   const { nodes } = selection;
-  const delete_rack = useDelete();
+  const deleteRack = useDelete();
   const onSelect = {
     rename: () => Tree.startRenaming(nodes[0].key),
-    delete: () => delete_rack(props),
+    delete: () => deleteRack(props),
   };
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
@@ -67,7 +67,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: ontology.NODE_TYPE,
+  type: rack.ONTOLOGY_TYPE,
   icon: <Icon.Rack />,
   hasChildren: true,
   canDrop: () => false,

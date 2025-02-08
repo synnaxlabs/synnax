@@ -26,7 +26,7 @@ const removeDirectory = (name: string): string => name.split(sep()).join("_");
 export interface ExportContext {
   client: CSynnax | null;
   store: RootStore;
-  confirm: Modals.CreateConfirmModal;
+  confirm: Modals.PromptConfirm;
   handleException: Status.ExceptionHandler;
   extractors: Record<string, Export.Extractor>;
 }

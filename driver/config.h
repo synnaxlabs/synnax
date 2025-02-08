@@ -119,24 +119,15 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
     if (!file.is_open())
         return {PersistedState{.rack_key = 0}, freighter::NIL};
 
-    try {
-        json content = json::parse(file);
-        auto parser = config::Parser(content);
-        auto conn = parser.optional_child("connection");
-        return {
-            PersistedState{
-                .rack_key = parser.optional<synnax::RackKey>("rack_key", 0),
-                .connection = parse_synnax_config(conn)
-            },
-            freighter::NIL
-        };
-    } catch (const json::exception &e) {
-        return {
-            PersistedState{},
-            freighter::Error(
-                "failed to parse persisted state: " + std::string(e.what()))
-        };
-    }
+    auto parser = config::Parser(file);
+    auto conn = parser.optional_child("connection");
+    return {
+        PersistedState{
+            .rack_key = parser.optional<synnax::RackKey>("rack_key", 0),
+            .connection = parse_synnax_config(conn)
+        },
+        parser.error()
+    };
 }
 
 inline freighter::Error save_persisted_state(const PersistedState &state) {

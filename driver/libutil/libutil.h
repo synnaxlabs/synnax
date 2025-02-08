@@ -21,10 +21,9 @@ typedef HMODULE LibraryHandle;
 typedef void *LibraryHandle;
 #endif
 
-namespace libutil
-{
-    const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("shared");
-    const freighter::Error LOAD_ERROR = BASE_ERROR.sub("load");
+namespace libutil {
+const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("shared");
+const freighter::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
     /// SharedLib is a shared library loader and lifecycle manager implemented for Windows.
@@ -65,44 +64,38 @@ namespace libutil
     };
 #else
 
-    /// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
-    /// systems.
-    class SharedLib
-    {
-        const std::string name;
-        LibraryHandle handle = nullptr;
+/// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
+/// systems.
+class SharedLib {
+    const std::string name;
+    LibraryHandle handle = nullptr;
+public:
+    explicit SharedLib(std::string name) : name(std::move(name)) {
+    }
 
-    public:
-        explicit SharedLib(const std::string &name) : name(name) {}
+    ~SharedLib() {
+        this->unload();
+    }
 
-        ~SharedLib()
-        {
-            this->unload();
-        }
+    bool load() {
+        if (this->handle != nullptr || name.empty())
+            return false;
+        this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        return this->handle != nullptr;
+    }
 
-        bool load()
-        {
-            if (this->handle != nullptr || name.empty())
-                return false;
-            this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
-            return this->handle != nullptr;
-        }
+    void unload() {
+        if (this->handle == nullptr)
+            return;
+        ::dlclose(this->handle);
+        this->handle = nullptr;
+    }
 
-        void unload()
-        {
-            if (this->handle == nullptr)
-                return;
-            ::dlclose(this->handle);
-            this->handle = nullptr;
-        }
-
-        const void *get_func_ptr(const std::string &name) const
-        {
-            if (this->handle == nullptr)
-                return nullptr;
-            return ::dlsym(this->handle, name.c_str());
-        }
-    };
+    [[nodiscard]] const void *get_func_ptr(const std::string &name) const {
+        if (this->handle == nullptr)
+            return nullptr;
+        return ::dlsym(this->handle, name.c_str());
+    }
+};
 #endif
-
 }

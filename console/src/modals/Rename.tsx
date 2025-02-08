@@ -1,20 +1,29 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Align, Button, Input, Nav } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Layout } from "@/layout";
-import { type BaseArgs, createBaseModal, type PromptModal } from "@/modals/Base";
+import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { Triggers } from "@/triggers";
 
-export interface LayoutArgs extends BaseArgs<string> {
+export interface PromptRenameLayoutArgs extends BaseArgs<string> {
   result?: string;
   allowEmpty?: boolean;
 }
 
 export const RENAME_LAYOUT_TYPE = "rename";
 
-export interface PromptRename extends PromptModal<string, LayoutArgs> {}
+export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
 
-export const [useRename, Rename] = createBaseModal<string, LayoutArgs>(
+export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
   "Name",
   RENAME_LAYOUT_TYPE,
   ({ value: { result, allowEmpty = false }, onFinish }) => {

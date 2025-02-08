@@ -65,25 +65,25 @@ var _ = Describe("Device", Ordered, func() {
 	})
 	Describe("Create", func() {
 		It("Should correctly create a device", func() {
-			d := device.Device{Key: "device1", Rack: rackSvc.EmbeddedRackkey, Location: "dev1", Name: "Dog"}
+			d := device.Device{Key: "device1", Rack: rackSvc.EmbeddedKey, Location: "dev1", Name: "Dog"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
 		It("Should correctly create an ontology resource for the device", func() {
-			d := device.Device{Key: "device2", Rack: rackSvc.EmbeddedRackkey, Location: "dev2", Name: "Cat"}
+			d := device.Device{Key: "device2", Rack: rackSvc.EmbeddedKey, Location: "dev2", Name: "Cat"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
 		It("Should correctly create an ontology resource between the device and the rack", func() {
-			d := device.Device{Key: "device3", Rack: rackSvc.EmbeddedRackkey, Location: "dev3", Name: "Bird"}
+			d := device.Device{Key: "device3", Rack: rackSvc.EmbeddedKey, Location: "dev3", Name: "Bird"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(rackSvc.EmbeddedRackkey.OntologyID()).
+				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
 				TraverseTo(ontology.Children).
 				Entry(&res).
 				Exec(ctx, tx),
@@ -91,13 +91,13 @@ var _ = Describe("Device", Ordered, func() {
 			Expect(res.ID).To(Equal(d.OntologyID()))
 		})
 		It("Should not recreate the device in the ontology if it already exists", func() {
-			d := device.Device{Key: "device3", Rack: rackSvc.EmbeddedRackkey, Location: "dev3", Name: "Bird"}
+			d := device.Device{Key: "device3", Rack: rackSvc.EmbeddedKey, Location: "dev3", Name: "Bird"}
 			Expect(w.Create(ctx, d)).To(Succeed())
-			Expect(otg.NewWriter(tx).DeleteRelationship(ctx, rackSvc.EmbeddedRackkey.OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
+			Expect(otg.NewWriter(tx).DeleteRelationship(ctx, rackSvc.EmbeddedKey.OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(rackSvc.EmbeddedRackkey.OntologyID()).
+				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
 				TraverseTo(ontology.Children).
 				Entry(&res).
 				Exec(ctx, tx),
@@ -147,16 +147,16 @@ var _ = Describe("Device", Ordered, func() {
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a device", func() {
-			d := device.Device{Key: "device4", Rack: rackSvc.EmbeddedRackkey, Location: "dev4", Name: "Fish"}
+			d := device.Device{Key: "device4", Rack: rackSvc.EmbeddedKey, Location: "dev4", Name: "Fish"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
 		It("Should retrieve devices by their model", func() {
-			d1 := device.Device{Key: "device5", Rack: rackSvc.EmbeddedRackkey, Location: "dev5", Name: "Fish", Model: "A"}
-			d2 := device.Device{Key: "device6", Rack: rackSvc.EmbeddedRackkey, Location: "dev6", Name: "Fish", Model: "B"}
-			d2b := device.Device{Key: "device7", Rack: rackSvc.EmbeddedRackkey, Location: "dev7", Name: "Fish", Model: "B"}
+			d1 := device.Device{Key: "device5", Rack: rackSvc.EmbeddedKey, Location: "dev5", Name: "Fish", Model: "A"}
+			d2 := device.Device{Key: "device6", Rack: rackSvc.EmbeddedKey, Location: "dev6", Name: "Fish", Model: "B"}
+			d2b := device.Device{Key: "device7", Rack: rackSvc.EmbeddedKey, Location: "dev7", Name: "Fish", Model: "B"}
 			Expect(w.Create(ctx, d1)).To(Succeed())
 			Expect(w.Create(ctx, d2)).To(Succeed())
 			Expect(w.Create(ctx, d2b)).To(Succeed())
@@ -165,9 +165,9 @@ var _ = Describe("Device", Ordered, func() {
 			Expect(res).To(ConsistOf(d2, d2b))
 		})
 		It("Should retrieve devices by their make", func() {
-			d1 := device.Device{Key: "device8", Rack: rackSvc.EmbeddedRackkey, Location: "dev8", Name: "Fish", Make: "A"}
-			d2 := device.Device{Key: "device9", Rack: rackSvc.EmbeddedRackkey, Location: "dev9", Name: "Fish", Make: "B"}
-			d2b := device.Device{Key: "device10", Rack: rackSvc.EmbeddedRackkey, Location: "dev10", Name: "Fish", Make: "B"}
+			d1 := device.Device{Key: "device8", Rack: rackSvc.EmbeddedKey, Location: "dev8", Name: "Fish", Make: "A"}
+			d2 := device.Device{Key: "device9", Rack: rackSvc.EmbeddedKey, Location: "dev9", Name: "Fish", Make: "B"}
+			d2b := device.Device{Key: "device10", Rack: rackSvc.EmbeddedKey, Location: "dev10", Name: "Fish", Make: "B"}
 			Expect(w.Create(ctx, d1)).To(Succeed())
 			Expect(w.Create(ctx, d2)).To(Succeed())
 			Expect(w.Create(ctx, d2b)).To(Succeed())
@@ -176,9 +176,9 @@ var _ = Describe("Device", Ordered, func() {
 			Expect(res).To(ConsistOf(d2, d2b))
 		})
 		It("Should retrieve devices by their location", func() {
-			d1 := device.Device{Key: "device11", Rack: rackSvc.EmbeddedRackkey, Location: "dev11", Name: "Fish"}
-			d2 := device.Device{Key: "device12", Rack: rackSvc.EmbeddedRackkey, Location: "dev12", Name: "Fish"}
-			d2b := device.Device{Key: "device13", Rack: rackSvc.EmbeddedRackkey, Location: "dev13", Name: "Fish"}
+			d1 := device.Device{Key: "device11", Rack: rackSvc.EmbeddedKey, Location: "dev11", Name: "Fish"}
+			d2 := device.Device{Key: "device12", Rack: rackSvc.EmbeddedKey, Location: "dev12", Name: "Fish"}
+			d2b := device.Device{Key: "device13", Rack: rackSvc.EmbeddedKey, Location: "dev13", Name: "Fish"}
 			Expect(w.Create(ctx, d1)).To(Succeed())
 			Expect(w.Create(ctx, d2)).To(Succeed())
 			Expect(w.Create(ctx, d2b)).To(Succeed())
@@ -189,14 +189,14 @@ var _ = Describe("Device", Ordered, func() {
 	})
 	Describe("Delete", func() {
 		It("Should correctly delete a device", func() {
-			d := device.Device{Key: "device14", Rack: rackSvc.EmbeddedRackkey, Location: "dev14", Name: "Fish"}
+			d := device.Device{Key: "device14", Rack: rackSvc.EmbeddedKey, Location: "dev14", Name: "Fish"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
 		It("Should correctly delete an ontology resource for the device", func() {
-			d := device.Device{Key: "device15", Rack: rackSvc.EmbeddedRackkey, Location: "dev15", Name: "Fish"}
+			d := device.Device{Key: "device15", Rack: rackSvc.EmbeddedKey, Location: "dev15", Name: "Fish"}
 			Expect(w.Create(ctx, d)).To(Succeed())
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
 			var res ontology.Resource

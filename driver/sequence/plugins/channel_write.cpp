@@ -89,7 +89,7 @@ plugins::SynnaxFrameSink::SynnaxFrameSink(
     : client(client), cfg(std::move(cfg)) {
 }
 
-freighter::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame)  {
+freighter::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
     if (frame.empty()) return freighter::NIL;
     if (this->writer == nullptr) {
         auto [w, err] = this->client->telem.open_writer(this->cfg);
@@ -104,7 +104,7 @@ freighter::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame)  {
 freighter::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::ChannelKey> &keys,
     const std::vector<synnax::Authority> &authorities
-)  {
+) {
     if (const bool ok = this->writer->set_authority(keys, authorities); !ok)
         return this->writer->error();
     return freighter::NIL;
@@ -144,8 +144,7 @@ std::pair<synnax::Channel, freighter::Error> plugins::ChannelWrite::resolve(
 
 /// @brief implements sequence::Operator to bind channel set functions to the
 /// sequence on startup.
-freighter::Error plugins::ChannelWrite::before_all(lua_State *L)  {
-
+freighter::Error plugins::ChannelWrite::before_all(lua_State *L) {
     // Configuring the "set" closure used to set a channel value.
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {
@@ -248,18 +247,20 @@ freighter::Error plugins::ChannelWrite::before_all(lua_State *L)  {
     return freighter::NIL;
 }
 
+/// @brief implements plugins::Plugin to close the sink after the sequence
+/// is complete.
 freighter::Error plugins::ChannelWrite::after_all(lua_State *L) {
     return this->sink->close();
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-freighter::Error plugins::ChannelWrite::before_next(lua_State *_)  {
+freighter::Error plugins::ChannelWrite::before_next(lua_State *_) {
     this->frame = synnax::Frame(channels.size());
     return freighter::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-freighter::Error plugins::ChannelWrite::after_next(lua_State *_)  {
+freighter::Error plugins::ChannelWrite::after_next(lua_State *_) {
     if (this->frame.empty()) return freighter::NIL;
     const auto now = synnax::TimeStamp::now();
     std::vector<synnax::ChannelKey> index_keys;

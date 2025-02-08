@@ -13,7 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"os"
 	"os/signal"
 	"time"
@@ -40,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -318,7 +318,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackkey,
+				hardwareSvc.Rack.EmbeddedKey,
 				insecure,
 			),
 		)

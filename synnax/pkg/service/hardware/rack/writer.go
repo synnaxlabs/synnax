@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
+	"sync"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -28,6 +29,8 @@ type Writer struct {
 	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func() (Key, error)
+	// keyMu
+	keyMu *sync.Mutex
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -61,10 +64,12 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Exec(ctx, w.tx)
 }
 
-// NextTaskKey increments
-func (w Writer) NextTaskKey(ctx context.Context, key Key, by uint32) (next uint32, err error) {
+// NextTaskKey returns a new, unique key for the task on the provided rack.
+func (w Writer) NextTaskKey(ctx context.Context, key Key) (next uint32, err error) {
+	w.keyMu.Lock()
+	defer w.keyMu.Unlock()
 	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(key).Change(func(r Rack) Rack {
-		r.TaskCounter += by
+		r.TaskCounter += 1
 		next = r.TaskCounter
 		return r
 	}).Exec(ctx, w.tx)

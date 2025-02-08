@@ -10,6 +10,7 @@
 import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type rack } from "@/hardware/rack";
 import { ontology } from "@/ontology";
 
 export const taskKeyZ = z.union([
@@ -116,7 +117,5 @@ export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
 export const ontologyID = (key: TaskKey): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
-export const rackKey = (key: TaskKey): number => {
-  const bigInt = BigInt(key);
-  return Number(bigInt >> BigInt(32));
-};
+export const rackKey = (key: TaskKey): rack.RackKey =>
+  Number(BigInt(key) >> BigInt(32));

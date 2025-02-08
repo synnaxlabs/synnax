@@ -1,28 +1,38 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type FC } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+
+export interface BaseArgs<V> {
+  result?: V;
+}
 
 interface BaseProps<R, A extends BaseArgs<R>> {
   value: A;
   onFinish: (value: R | null) => void;
 }
 
-export interface BaseArgs<V> {
-  result?: V;
-}
+export interface LayoutOverrides
+  extends Omit<Partial<Layout.State>, "key" | "type" | "location"> {}
 
-export interface LayoutOverrides extends Omit<Partial<Layout.State>, "key" | "type"> {}
-
-export interface PromptModal<R, A extends BaseArgs<R>> {
+export interface Prompt<R, A extends BaseArgs<R>> {
   (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;
 }
 
-export const createBaseModal = <R, A extends BaseArgs<R>>(
+export const createBase = <R, A extends BaseArgs<R>>(
   name: string,
   type: string,
   Component: FC<BaseProps<R, A>>,
-): [() => PromptModal<R, A>, Layout.Renderer] => {
+): [() => Prompt<R, A>, Layout.Renderer] => {
   const configureLayout = (
     args: A,
     layoutOverrides?: LayoutOverrides,
@@ -36,7 +46,7 @@ export const createBaseModal = <R, A extends BaseArgs<R>>(
     ...layoutOverrides,
     args: { ...args, result: undefined },
   });
-  const useModal = (): PromptModal<R, A> => {
+  const useModal = (): Prompt<R, A> => {
     const placeLayout = Layout.usePlacer();
     const store = useStore<Layout.StoreState>();
     return async (
@@ -64,7 +74,6 @@ export const createBaseModal = <R, A extends BaseArgs<R>>(
     const args = Layout.useSelectArgs<A>(layoutKey);
     const dispatch = useDispatch();
     const handleResult = (value: R | null) => {
-      console.log("ON FINISH", value);
       if (value == null) return onClose();
       dispatch(
         Layout.setArgs<BaseArgs<R>>({

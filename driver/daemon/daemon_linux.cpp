@@ -285,4 +285,4 @@ freighter::Error status() {
         return freighter::Error("Service is not running");
     return freighter::NIL;
 }
-} // namespace daemon
+} // namespace daemond

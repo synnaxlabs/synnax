@@ -10,10 +10,10 @@
 import { Align, Button, Nav, type Status, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { type BaseArgs, createBaseModal, type PromptModal } from "@/modals/Base";
+import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { Triggers } from "@/triggers";
 
-export interface LayoutArgs extends BaseArgs<boolean> {
+export interface PromptConfirmLayoutArgs extends BaseArgs<boolean> {
   message: string;
   description: string;
   confirm?: { variant?: Status.Variant; label?: string };
@@ -22,9 +22,9 @@ export interface LayoutArgs extends BaseArgs<boolean> {
 
 export const CONFIRM_LAYOUT_TYPE = "confirm";
 
-export interface PromptConfirm extends PromptModal<boolean, LayoutArgs> {}
+export interface PromptConfirm extends Prompt<boolean, PromptConfirmLayoutArgs> {}
 
-export const [useConfirm, Confirm] = createBaseModal<boolean, LayoutArgs>(
+export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs>(
   "Confirm",
   CONFIRM_LAYOUT_TYPE,
   ({ value: { message, description, confirm, cancel }, onFinish }) => {

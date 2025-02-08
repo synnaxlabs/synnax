@@ -14,7 +14,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type PlacerProps, usePlacer } from "@/layout/hooks";
+import { type PlacerArgs, usePlacer } from "@/layout/hooks";
 import { type RendererProps } from "@/layout/slice";
 import { type PromptRename, useRename } from "@/modals/Rename";
 
@@ -27,7 +27,7 @@ export interface Selectable {
   key: string;
   title: string;
   icon: Icon.Element;
-  create: (props: CreateProps) => Promise<PlacerProps | null>;
+  create: (props: CreateProps) => Promise<PlacerArgs | null>;
 }
 
 export interface SelectorProps extends Align.SpaceProps, RendererProps {

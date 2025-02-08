@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -25,20 +34,20 @@ import { type Layout } from "@/layout";
 import {
   configZ,
   type Payload,
-  SEQUENCE_TYPE,
   type StateDetails,
   type Task,
+  TYPE,
   ZERO_PAYLOAD,
 } from "@/sequence/types";
 
 export const createSequenceLayout = createLayoutCreator<Payload>(
-  SEQUENCE_TYPE,
+  TYPE,
   "Control Sequence",
   "Control",
 );
 
 export const SEQUENCE_SELECTABLE: Layout.Selectable = {
-  key: SEQUENCE_TYPE,
+  key: TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
   create: async ({ layoutKey, rename }) => {
@@ -55,6 +64,12 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
   },
 };
 
+const schema = z.object({
+  name: z.string(),
+  rack: rack.rackKeyZ,
+  config: configZ,
+});
+
 export const Wrapped = ({
   task: base,
   initialValues,
@@ -66,11 +81,7 @@ export const Wrapped = ({
       ...initialValues,
       rack: task.rackKey(base?.key ?? "0"),
     },
-    schema: z.object({
-      name: z.string(),
-      rack: rack.keyZ,
-      config: configZ,
-    }),
+    schema,
   });
 
   const create = useCreate(layoutKey);
@@ -150,7 +161,7 @@ export const Wrapped = ({
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
             <Align.Space direction="x">
-              <Form.Field<rack.Key>
+              <Form.Field<rack.RackKey>
                 path="rack"
                 label="Location"
                 padHelpText={false}
@@ -222,14 +233,6 @@ export const Wrapped = ({
               loading={configuring}
               disabled={configuring || base?.snapshot}
               onClick={() => onConfigure()}
-              tooltip={
-                <Align.Space direction="x" align="center" size="small">
-                  {/* <Triggers.Text shade={7} level="small" /> */}
-                  <Text.Text shade={7} level="small">
-                    To Configure
-                  </Text.Text>
-                </Align.Space>
-              }
             >
               Configure
             </Button.Button>
