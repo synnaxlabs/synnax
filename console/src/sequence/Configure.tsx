@@ -203,11 +203,7 @@ export const Wrapped = ({
             </Align.Space>
             <Button.Icon
               loading={startingOrStopping}
-<<<<<<< HEAD
-              disabled={startingOrStopping || base?.snapshot}
-=======
               disabled={startingOrStopping || taskState == null || base?.snapshot}
->>>>>>> 2b94611b2dac8bb4374b998d318cdd90e61cbf2e
               onClick={() => onStartStop()}
               variant="outlined"
             >

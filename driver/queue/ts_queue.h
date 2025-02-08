@@ -18,31 +18,32 @@ class TSQueue {
 public:
     TSQueue() = default;
 
-    void enqueue(const T &item) {
+    void enqueue(T&& item) {
         std::unique_lock lock(m);
-
+        
         if (queue.size() == 1) {
             queue.pop();
         }
-        queue.push(item);
-
+        queue.push(std::move(item));
+        
         waiting_consumers.notify_one();
+    }
+
+    void enqueue(const T& item) {
+        enqueue(T(item));
     }
 
     std::pair<T, bool> dequeue(void) {
         std::unique_lock lock(m);
-
-        waiting_consumers.wait_for(lock, std::chrono::seconds(2));
-
-        if (queue.empty()) {
-            // FIXME change to while?
+        
+        if (!waiting_consumers.wait_for(lock, std::chrono::seconds(2), 
+            [this] { return !queue.empty(); })) {
             return std::make_pair(T(), false);
         }
 
-        T item = queue.front();
+        T item = std::move(queue.front());
         queue.pop();
-
-        return std::make_pair(item, true);
+        return std::make_pair(std::move(item), true);
     }
 
     void reset() {

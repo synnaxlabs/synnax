@@ -174,8 +174,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
-    auto [d, err] = data_queue.dequeue();
-    if (!err)
+    auto [d, success] = data_queue.dequeue();
+    if (!success)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
