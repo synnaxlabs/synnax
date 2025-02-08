@@ -9,16 +9,7 @@
 
 import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Channel,
-  Form,
-  Rack,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Channel, Form, Rack, Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -217,9 +208,11 @@ export const Wrapped = ({
                 width: "100%",
               }}
             >
-              <Status.Text variant={taskState?.variant as Status.Variant}>
-                {taskState?.details?.message}
-              </Status.Text>
+              {taskState?.details?.message != null && (
+                <Status.Text variant={taskState?.variant as Status.Variant}>
+                  {taskState?.details?.message}
+                </Status.Text>
+              )}
             </Align.Space>
             <Button.Icon
               loading={startingOrStopping}
