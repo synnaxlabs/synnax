@@ -73,6 +73,15 @@ VERSIONED_NAME=$($DAEMON version)
 do_start() {
     # Check if the driver is already running using the official PID.
     log_message "Starting $VERSIONED_NAME at $(date)" "$BLUE"
+    log_message "PID file location: $PIDFILE" "$BLUE"
+
+    # Ensure PID directory exists with correct permissions
+    PID_DIR=$(dirname "$PIDFILE")
+    if [ ! -d "$PID_DIR" ]; then
+        mkdir -p "$PID_DIR"
+        chmod 777 "$PID_DIR"
+    fi
+
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
         if kill -0 "$PID" 2>/dev/null; then
