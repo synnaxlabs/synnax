@@ -452,6 +452,8 @@ int main(const int argc, char *argv[]) {
         exec_svc_cmd(daemond::stop_service, "stop", "stopped");
     else if (command == "restart")
         exec_svc_cmd(daemond::restart_service, "restart", "restarted");
+    else if (command == "status")
+        exec_svc_cmd(daemond::status, "status");
     else if (command == "login")
         cmd_login(argc, argv);
     else if (command == "install")

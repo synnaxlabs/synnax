@@ -228,6 +228,22 @@ jobs:
             mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
+      - name: Create Driver Install Script
+        if: matrix.os == 'ubuntu-20.04'
+        shell: bash
+        run: |
+          cat > install-driver.sh << 'EOF'
+          #!/bin/bash
+          VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
+          DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
+          curl -LO "https://github.com/synnaxlabs/synnax/releases/download/synnax-v${VERSION}/${DRIVER_BINARY}"
+          chmod +x $DRIVER_BINARY
+          ./$DRIVER_BINARY stop 
+          sudo ./$DRIVER_BINARY install
+          ./$DRIVER_BINARY start
+          EOF
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
