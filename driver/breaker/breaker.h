@@ -175,6 +175,7 @@ public:
         interval = config.base_interval;
     }
 
+    [[nodiscard]] uint32_t num_retries() const { return retries; }
 private:
     Config config;
     TimeSpan interval;

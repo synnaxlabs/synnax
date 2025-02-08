@@ -87,10 +87,12 @@ std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
 ) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0) {
-        LOG(INFO) << "existing rack key found in configuration: " << config.rack_key;
+        if (breaker.num_retries() == 0)
+            LOG(INFO) << "existing rack key found in configuration: " << config.rack_key;
         res = client->hardware.retrieve_rack(config.rack_key);
     } else {
-        LOG(INFO) << "no existing rack key found in configuration. Creating a new rack";
+        if (breaker.num_retries() == 0)
+            LOG(INFO) << "no existing rack key found in configuration. Creating a new rack";
         res = client->hardware.create_rack(get_hostname());
     }
     const auto err = res.second;
@@ -373,7 +375,7 @@ void cmd_login(int argc, char *argv[]) {
 
 void cmd_version() {
     std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" <<
-            SYNNAX_DRIVER_COMMIT << ")" << std::endl;
+            SYNNAX_BUILD_TIMESTAMP << ")" << std::endl;
 }
 
 void print_usage() {
@@ -395,13 +397,13 @@ void print_usage() {
 void exec_svc_cmd(
     const std::function<freighter::Error()> &cmd,
     const std::string &action,
-    const std::string &past_tense
+    const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
         LOG(ERROR) << "Failed to " << action << " driver: " << err;
         exit(1);
     }
-    LOG(INFO) << "Driver " << past_tense << " successfully";
+    if (!past_tense.empty()) LOG(INFO) << "Driver " << past_tense << " successfully";
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
@@ -415,6 +417,7 @@ void cmd_start_daemon(int argc, char *argv[]) {
 
 int main(const int argc, char *argv[]) {
     FLAGS_logtostderr = true;
+    FLAGS_colorlogtostderr = true;
     google::InitGoogleLogging(argv[0]);
 
     if (argc < 2) {
@@ -448,7 +451,7 @@ int main(const int argc, char *argv[]) {
     else if (command == "uninstall")
         exec_svc_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
     else if (command == "logs")
-        exec_svc_cmd(daemond::view_logs, "view logs", "viewed");
+        exec_svc_cmd(daemond::view_logs, "view logs");
     else if (command == "version")
         cmd_version();
     else {

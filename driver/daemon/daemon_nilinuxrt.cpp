@@ -49,19 +49,29 @@ DAEMON_USER="synnax"
 PIDFILE="/var/run/$NAME.pid"
 LOGFILE="/var/log/$NAME.log"
 
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 # Exit if executable not installed
 [ -x "$DAEMON" ] || exit 0
 
 log_message() {
-    echo "$1" | tee -a $LOGFILE
+    # First argument is the message
+    # Second argument (optional) is the color
+    COLOR=${2:-$BLUE}
+    echo -e "${COLOR}$1${NC}" | tee -a $LOGFILE
 }
 
 do_start() {
-    log_message "Starting $NAME at $(date)"
+    log_message "Starting $NAME at $(date)" "$BLUE"
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
         if kill -0 "$PID" 2>/dev/null; then
-            log_message "$NAME is already running (PID: $PID)"
+            log_message "$NAME is already running (PID: $PID)" "$YELLOW"
             return 1
         else
             rm -f "$PIDFILE"
@@ -69,9 +79,9 @@ do_start() {
     fi
 
     # Add debug logging
-    log_message "Starting daemon with command: $DAEMON internal-start"
-    log_message "Current working directory: $(pwd)"
-    log_message "Running as user: $(whoami)"
+    log_message "Starting daemon with command: $DAEMON internal-start" "$BLUE"
+    log_message "Current working directory: $(pwd)" "$BLUE"
+    log_message "Running as user: $(whoami)" "$BLUE"
 
     # Try starting with explicit working directory
     cd /
@@ -82,29 +92,29 @@ do_start() {
 
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
-        log_message "$PRETTY_NAME started successfully. Waiting for 5 seconds to perform a health check."
-        sleep 5
+        log_message "$PRETTY_NAME started successfully. Waiting for 2 seconds to perform a health check." "$BLUE"
+        sleep 2
         if kill -0 $(cat $PIDFILE) 2>/dev/null; then
-            log_message "$PRETTY_NAME verified running after 5 seconds"
+            log_message "$PRETTY_NAME verified running after 5 seconds" "$GREEN"
         else
-            log_message "$PRETTY_NAME failed to stay running"
+            log_message "$PRETTY_NAME failed to stay running" "$RED"
             return 1
         fi
     else
-        log_message "Failed to start $PRETTY_NAME"
+        log_message "Failed to start $PRETTY_NAME" "$RED"
     fi
     return $RETVAL
 }
 
 do_stop() {
-    log_message "Stopping $NAME at $(date)"
+    log_message "Stopping $NAME at $(date)" "$BLUE"
     start-stop-daemon --stop --pidfile $PIDFILE --retry 30
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
         rm -f $PIDFILE
-        log_message "$NAME stopped successfully"
+        log_message "$NAME stopped successfully" "$GREEN"
     else
-        log_message "Failed to stop $NAME"
+        log_message "Failed to stop $NAME" "$RED"
     fi
     return $RETVAL
 }
@@ -113,14 +123,14 @@ do_status() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
         if kill -0 "$PID" 2>/dev/null; then
-            log_message "$NAME is running (PID: $PID)"
+            log_message "$NAME is running (PID: $PID)" "$GREEN"
             return 0
         else
-            log_message "$NAME is not running (stale PID file)"
+            log_message "$NAME is not running (stale PID file)" "$RED"
             return 1
         fi
     else
-        log_message "$NAME is not running"
+        log_message "$NAME is not running" "$RED"
         return 3
     fi
 }
@@ -140,7 +150,7 @@ case "$1" in
         do_status
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo -e "${RED}Usage: $0 {start|stop|restart|status}${NC}"
         exit 1
         ;;
 esac
@@ -329,8 +339,8 @@ freighter::Error view_logs() {
     int result = system("tail -f /var/log/synnax-driver.log");
     if (result < 0) 
         return freighter::Error("Failed to execute tail command");
-    int exit_status = WEXITSTATUS(result);
-    bool was_interrupted = WIFSIGNALED(result) && WTERMSIG(result) == SIGINT;
+    const int exit_status = WEXITSTATUS(result);
+    const bool was_interrupted = WIFSIGNALED(result) && WTERMSIG(result) == SIGINT;
     if (!was_interrupted && exit_status != 0) 
         return freighter::Error("Failed to view logs");
     return freighter::NIL;
@@ -338,7 +348,7 @@ freighter::Error view_logs() {
 
 freighter::Error status() {
     LOG(INFO) << "Checking service status";
-    int result = system("/etc/init.d/synnax-driver status");
+    const int result = system("/etc/init.d/synnax-driver status");
     if (result != 0)
         return freighter::Error("Service is not running");
     return freighter::NIL;

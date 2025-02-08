@@ -6,8 +6,7 @@ genrule(
     outs = ["version.h"],
     cmd = """
         echo '#define SYNNAX_DRIVER_VERSION \"'$$(cat $(location VERSION))'\"' > $@ &&
-        echo '#define SYNNAX_DRIVER_COMMIT \"'{STABLE_GIT_COMMIT}'\"' >> $@
+        echo '#define SYNNAX_BUILD_TIMESTAMP \"'$$(date "+%Y-%m-%d %H:%M:%S")'\"' >> $@
     """,
-    stamp = 1,
     visibility = ["//visibility:public"],
-) 
+)
