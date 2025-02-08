@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-1887-embedded-control-sequencing
   pull_request:
     branches:
       - main
@@ -80,6 +81,8 @@ jobs:
     needs: setup
     name: Build (${{ matrix.os }})
     if: needs.setup.outputs.changed == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
@@ -125,25 +128,26 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/open62541/open62541/out
+          key: open62541-${{ matrix.os }}
+
       - name: Update Submodules
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: driver/vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
-
       - name: Build Open62541
-        if: steps.cache-open62541.outputs.cache-hit != 'true'
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
         shell: bash
         run: |
           mkdir build && cd build
@@ -231,7 +235,7 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         shell: bash
         run: |
-          cat > install-driver.sh << 'EOF'
+          cat > install-driver-nilinuxrt.sh << 'EOF'
           #!/bin/bash
           VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
           DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
