@@ -50,10 +50,10 @@ const handleRename: Ontology.HandleTreeRename = {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection } = props;
   const { nodes } = selection;
-  const deleteRack = useDelete();
+  const handleDelete = useDelete();
   const onSelect = {
     rename: () => Tree.startRenaming(nodes[0].key),
-    delete: () => deleteRack(props),
+    delete: () => handleDelete(props),
   };
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>

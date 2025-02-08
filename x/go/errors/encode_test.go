@@ -11,6 +11,7 @@ package errors_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -58,7 +59,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 		errors.Register(encodeMyCustomError, decodeMyCustomError)
 	})
 	Describe("Encode", func() {
-		Context("Embedded is true", func() {
+		Context("Internal is true", func() {
 			It("Should encode a custom error type into a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, true)
 				Expect(pld.Type).To(Equal(MyCustomErrorType))
@@ -69,7 +70,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(pld.Type).To(Equal(errors.TypeRoach))
 			})
 		})
-		Context("Embedded is false", func() {
+		Context("Internal is false", func() {
 			It("Should encode a custom error type into a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, false)
 				Expect(pld.Type).To(Equal(MyCustomErrorType))
@@ -84,7 +85,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 
 	})
 	Describe("Decode", func() {
-		Context("Embedded is true", func() {
+		Context("Internal is true", func() {
 			It("Should decode a custom error type from a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, true)
 				err := errors.Decode(ctx, pld)
@@ -103,7 +104,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(err).To(HaveOccurredAs(errors.New("unknown")))
 			})
 		})
-		Context("Embedded is false", func() {
+		Context("Internal is false", func() {
 			It("Should decode a custom error type from a payload", func() {
 				pld := errors.Encode(ctx, MyCustomErrorOne, false)
 				err := errors.Decode(ctx, pld)

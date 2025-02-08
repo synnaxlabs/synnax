@@ -51,6 +51,8 @@ freighter::Error restart_service();
 // Service status functions.
 freighter::Error view_logs();
 
+freighter::Error status();
+
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);
 } // namespace daemond
