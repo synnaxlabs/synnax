@@ -88,9 +88,9 @@ do_start() {
     log_message "Running as user: $(whoami)" "$BLUE"
 
     # Use start-stop-daemon to properly manage the PID file
-    start-stop-daemon --start --make-pidfile --pidfile "$PIDFILE" \
-        --background --exec "$DAEMON" \
-        -- internal-start >> "$LOGFILE" 2>&1
+    start-stop-daemon --start --background \
+        --make-pidfile --pidfile $PIDFILE \
+        --startas /bin/bash -- -c "exec $DAEMON internal-start >> $LOGFILE 2>&1"
 
     # Wait for health check period
     sleep $HEALTH_CHECK_DELAY_SECONDS
