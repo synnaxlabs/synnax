@@ -138,11 +138,11 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     std::string applicationUri;
     const mbedtls_asn1_sequence *cur = &crt.subject_alt_names;
     while (cur != nullptr) {
-        // if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC |
-        //                      MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
-        //     applicationUri.assign((char *) cur->buf.p, cur->buf.len);
-        //     break;
-        // }
+        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC |
+                             MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
+            applicationUri.assign(reinterpret_cast<char *>(cur->buf.p), cur->buf.len);
+            break;
+        }
         cur = cur->next;
     }
 
