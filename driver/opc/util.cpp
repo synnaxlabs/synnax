@@ -112,7 +112,12 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
     return byteString;
 }
 
-// Function to extract URI from client certificate using mbedtls
+// Standard value for URI in X.509 Subject Alternative Name. We need to use this
+// instead of the macro MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER in mbedtls,
+// as it's not available in ubuntu 20.04. The actual value is 6, as
+// defined in RFC 5280.
+const uint8_t X509_SAN_URI = 6;
+
 std::string extractApplicationUriFromCert(const std::string &certPath) {
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
@@ -138,8 +143,7 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     std::string applicationUri;
     const mbedtls_asn1_sequence *cur = &crt.subject_alt_names;
     while (cur != nullptr) {
-        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC |
-                             MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
+        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC | X509_SAN_URI)) {
             applicationUri.assign(reinterpret_cast<char *>(cur->buf.p), cur->buf.len);
             break;
         }
