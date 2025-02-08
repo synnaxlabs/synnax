@@ -1024,7 +1024,7 @@ export const AnalogInputChannelForm = ({
   const Form = ANALOG_INPUT_CHANNEL_FORMS[type];
   return (
     <>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Device.Select path={`${prefix}.device`} />
         <Device.PortField path={prefix} />
       </Align.Space>

@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  NotFoundError,
-  QueryError,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
 import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
@@ -148,11 +143,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: AnalogReadConfig) => {
+const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
+  client,
+  config,
+) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
+  let rack: rack.Key = 0;
   for (const devKey of devices) {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
     dev.properties = Device.enrich(dev.model, dev.properties);
+    rack = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
     if (!shouldCreateIndex)
@@ -206,7 +206,7 @@ const onConfigure = async (client: Synnax, config: AnalogReadConfig) => {
       c.channel = dev.properties.analogInput.channels[c.port.toString()];
     });
   }
-  return config;
+  return [config, rack];
 };
 
 export const AnalogRead = Common.Task.wrapForm(() => <Properties />, Form, {

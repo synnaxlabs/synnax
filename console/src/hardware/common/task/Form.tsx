@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type Synnax, task as clientTask } from "@synnaxlabs/client";
+import { type rack, type Synnax, task as clientTask } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -55,7 +55,12 @@ export interface FormProps<
 }
 
 export interface OnConfigure<C extends UnknownRecord = UnknownRecord> {
-  (client: Synnax, config: C, taskKey: clientTask.Key, name: string): Promise<C>;
+  (
+    client: Synnax,
+    config: C,
+    taskKey: clientTask.Key,
+    name: string,
+  ): Promise<C> | Promise<[config: C, rack: rack.Key]>;
 }
 
 export interface WrapFormOptions<
@@ -92,11 +97,17 @@ export const wrapForm = <
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        const newConfig = await onConfigure(client, config, task.key, name);
+        const onConfigureResult = await onConfigure(client, config, task.key, name);
+        const isArray = Array.isArray(onConfigureResult);
+        const newConfig = isArray ? onConfigureResult[0] : onConfigureResult;
+        const newRack = isArray ? onConfigureResult[1] : 0;
         methods.set("config", newConfig);
         // current work around for Pluto form issues
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        await create({ key: task?.key, name, type, config: newConfig });
+        await create(
+          { key: task?.key, name, type, config: newConfig },
+          isArray ? newRack : undefined,
+        );
         setState("paused");
       },
       onError: (e) => handleException(e, `Failed to configure ${values.name}`),
