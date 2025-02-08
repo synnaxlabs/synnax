@@ -18,6 +18,7 @@ void test_downsample(
     std::vector<int> expected,
     int32_t downsample_factor
 );
+
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(FramerTests, testStreamBasic) {
     auto client = new_test_client();
@@ -44,9 +45,10 @@ TEST(FramerTests, testStreamBasic) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.add(
+    frame.emplace(
         data.key,
-        synnax::Series(std::vector<int>{1}));
+        synnax::Series(std::vector<int>{1})
+    );
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
@@ -87,9 +89,12 @@ TEST(FramerTests, testStreamSetChannels) {
     ASSERT_FALSE(setErr) << setErr.message();
 
     auto frame = synnax::Frame(1);
-    frame.add(
+    frame.emplace(
         data.key,
-        synnax::Series(std::vector<std::float_t>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}));
+        synnax::Series(std::vector<std::float_t>{
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
+        })
+    );
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
@@ -107,7 +112,7 @@ TEST(FramerTests, testStreamSetChannels) {
 TEST(FramerTests, TestStreamDownsample) {
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-    test_downsample(data,data,1);
+    test_downsample(data, data, 1);
 
     std::vector<int> expected = {1, 3, 5, 7, 9};
     test_downsample(data, expected, 2);
@@ -136,9 +141,9 @@ TEST(FramerTests, TestStreamDownsample) {
     expected = {1};
     test_downsample(data, expected, 10);
 
-    test_downsample(data, data,-1);
+    test_downsample(data, data, -1);
 
-    test_downsample(data, data,0);
+    test_downsample(data, data, 0);
 }
 
 void test_downsample(
@@ -171,9 +176,9 @@ void test_downsample(
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.add(
+    frame.emplace(
         data.key,
-    synnax::Series(raw_data)
+        synnax::Series(raw_data)
     );
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
@@ -189,8 +194,8 @@ void test_downsample(
 }
 
 void test_downsample_string(
-    const std::vector<std::string>& raw_data,
-    const std::vector<std::string>& expected,
+    const std::vector<std::string> &raw_data,
+    const std::vector<std::string> &expected,
     int32_t downsample_factor
 ) {
     auto client = new_test_client();
@@ -220,7 +225,7 @@ void test_downsample_string(
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.add(virtual_channel.key, synnax::Series(raw_data, synnax::STRING));
+    frame.emplace(virtual_channel.key, synnax::Series(raw_data, synnax::STRING));
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
@@ -243,5 +248,4 @@ TEST(FramerTests, TestStreamDownsampleString) {
 
     std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
-
 }

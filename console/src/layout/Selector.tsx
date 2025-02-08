@@ -9,7 +9,7 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
@@ -46,6 +46,7 @@ const Base = ({
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
   const rename = useRename();
+  const handleException = Status.useExceptionHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
@@ -69,10 +70,12 @@ const Base = ({
               key={key}
               variant="outlined"
               onClick={() => {
-                create({ layoutKey, rename }).then((layout) => {
-                  if (layout == null) return;
-                  place(layout);
-                });
+                create({ layoutKey, rename })
+                  .then((layout) => {
+                    if (layout == null) return;
+                    place(layout);
+                  })
+                  .catch(handleException);
               }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}

@@ -143,7 +143,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	// If a v1 rack does not exist, check if a v2 rack exists.
 	if isNotFound {
 		err = s.NewRetrieve().
-			WhereInternal(true).
+			WhereEmbedded(true).
 			WhereNode(s.HostProvider.HostKey()).
 			Entry(&embeddedRack).Exec(ctx, s.DB)
 		if err != nil && !errors.Is(err, query.NotFound) {
@@ -180,8 +180,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.Ontology,
-		baseTX: s.DB,
-		gorp:   gorp.NewRetrieve[Key, Rack](),
+		otg:          s.Ontology,
+		baseTX:       s.DB,
+		gorp:         gorp.NewRetrieve[Key, Rack](),
+		hostProvider: s.HostProvider,
 	}
 }

@@ -20,7 +20,7 @@
 #include "glog/logging.h"
 
 /// internal
-#include "driver/daemon.h"
+#include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
@@ -215,7 +215,7 @@ void notify_watchdog() {
 }
 
 void run(const Config &config, int argc, char *argv[]) {
-    update_status(Status::INITIALIZING);
+    update_status(Status::INITIALIZING, "Starting daemon");
 
     // Start watchdog thread
     std::thread watchdog([&]() {
@@ -225,7 +225,7 @@ void run(const Config &config, int argc, char *argv[]) {
         }
     });
 
-    update_status(Status::READY);
+    update_status(Status::READY, "Daemon ready");
 
     // Run the main application logic
     try {
@@ -236,7 +236,7 @@ void run(const Config &config, int argc, char *argv[]) {
     }
 
     // Cleanup
-    update_status(Status::STOPPING); {
+    update_status(Status::STOPPING, "Stopping daemon"); {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = true;
     }

@@ -12,6 +12,8 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/breaker",
+        "//driver/loop",
+        "//driver/pipeline",
         "//driver/task",
         "//freighter/cpp:freighter",
     ],
@@ -29,7 +31,7 @@ cc_test(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        ":heartbeat",
+        "//driver/heartbeat",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],

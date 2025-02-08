@@ -232,7 +232,7 @@ private:
 };
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
-/// acqusition and control tasks.
+/// acquisition and control tasks.
 class Manager {
 public:
     Manager(

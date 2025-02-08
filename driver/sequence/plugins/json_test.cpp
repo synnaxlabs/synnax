@@ -1,22 +1,34 @@
-#include "driver/sequence/json_operator.h"
-#include "gtest/gtest.h"
-#include <nlohmann/json.hpp>
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+/// std.
 #include <memory>
+
+/// external.
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 }
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+
+/// internal.
+#include "driver/sequence/plugins/plugins.h"
 
 using json = nlohmann::json;
-using namespace sequence;
 
-TEST(JSONSourceTest, BasicVariableApplication) {
+TEST(JSONPluginTest, BasicVariableApplication) {
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
     
-    // Create a JSON object using nlohmann::json
-    json test_data = {
+    const json test_data = {
         {"number", 42.5},
         {"string", "hello"},
         {"boolean", true},
@@ -26,28 +38,24 @@ TEST(JSONSourceTest, BasicVariableApplication) {
         }}
     };
     
-    JSONOperator source(test_data);
-    ASSERT_EQ(source.bind(L), freighter::NIL);
+    plugins::JSON source(test_data);
+    ASSERT_EQ(source.before_all(L), freighter::NIL);
     
-    // Test number variable
     lua_getglobal(L, "number");
     ASSERT_TRUE(lua_isnumber(L, -1));
     ASSERT_EQ(lua_tonumber(L, -1), 42.5);
     lua_pop(L, 1);
     
-    // Test string variable
     lua_getglobal(L, "string");
     ASSERT_TRUE(lua_isstring(L, -1));
     ASSERT_STREQ(lua_tostring(L, -1), "hello");
     lua_pop(L, 1);
-    
-    // Test boolean variable
+
     lua_getglobal(L, "boolean");
     ASSERT_TRUE(lua_isboolean(L, -1));
     ASSERT_TRUE(lua_toboolean(L, -1));
     lua_pop(L, 1);
     
-    // Test array
     lua_getglobal(L, "array");
     ASSERT_TRUE(lua_istable(L, -1));
     for (int i = 1; i <= 3; i++) {
@@ -58,7 +66,6 @@ TEST(JSONSourceTest, BasicVariableApplication) {
     }
     lua_pop(L, 1);
     
-    // Test nested object
     lua_getglobal(L, "nested");
     ASSERT_TRUE(lua_istable(L, -1));
     lua_getfield(L, -1, "value");
@@ -69,15 +76,11 @@ TEST(JSONSourceTest, BasicVariableApplication) {
     lua_close(L);
 }
 
-TEST(JSONSourceTest, InvalidJSON) {
+TEST(JSONPluginTest, InvalidJSON) {
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
-    
-    // Create an invalid JSON (array instead of object)
-    json invalid_json = json::array();
-    
-    JSONOperator source(invalid_json);
-    ASSERT_FALSE(source.bind(L).ok());
-    
+    const json invalid_json = json::array();
+    plugins::JSON plugin(invalid_json);
+    ASSERT_FALSE(plugin.before_all(L).ok());
     lua_close(L);
 }

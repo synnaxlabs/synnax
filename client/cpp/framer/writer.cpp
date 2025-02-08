@@ -88,21 +88,21 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
 }
 
 bool Writer::set_authority(const synnax::Authority &auth) const {
-    const std::vector<synnax::Authority> auths = {auth};
-    return this->set_authority({}, auths);
+    return this->set_authority({}, std::vector{auth});
 }
 
-bool Writer::set_authority(const ChannelKey &key, const synnax::Authority &auth) const {
-    const std::vector<ChannelKey> keys = {key};
-    const std::vector<synnax::Authority> auths = {auth};
-    return this->set_authority(keys, auths);
+bool Writer::set_authority(
+    const ChannelKey &key,
+    const synnax::Authority &authority
+) const {
+    return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
-bool Writer::set_authority(const std::vector<ChannelKey> &keys, const std::vector<synnax::Authority> &auths) const {
-    const WriterConfig config{
-        .channels = keys,
-        .authorities = auths,
-    };
+bool Writer::set_authority(
+    const std::vector<ChannelKey> &keys,
+    const std::vector<synnax::Authority> &authorities
+) const {
+    const WriterConfig config{.channels = keys, .authorities = authorities,};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
@@ -113,7 +113,6 @@ bool Writer::set_authority(const std::vector<ChannelKey> &keys, const std::vecto
         if (res.command() == SET_AUTHORITY) return res.ack();
     }
 }
-
 
 
 freighter::Error Writer::error() const {
@@ -130,12 +129,11 @@ freighter::Error Writer::error() const {
 
 freighter::Error Writer::close() const {
     stream->close_send();
-    while (true) {
+    while (true)
         if (const auto rec_exc = stream->receive().second; rec_exc) {
             if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;
             return rec_exc;
         }
-    }
 }
 
 
