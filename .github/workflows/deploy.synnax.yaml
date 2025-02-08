@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-1887-embedded-control-sequencing
   pull_request:
     branches:
       - main
@@ -134,12 +135,12 @@ jobs:
           path: driver/vendor/open62541/open62541/out
           key: open62541-${{ matrix.os }}-${{ hashFiles('driver/vendor/open62541/open62541/**') }}
 
-      - name: Debug Cache Hit
-        run: echo "Cache hit status - ${{ steps.cache-open62541.outputs.cache-hit }}"
+      # - name: Debug Cache Hit
+      #   run: echo "Cache hit status - ${{ steps.cache-open62541.outputs.cache-hit }}"
 
-      - name: Update Submodules
-        if: steps.cache-open62541.outputs.cache-hit == 'false'
-        run: git submodule update --init --recursive
+      # - name: Update Submodules
+      #   if: steps.cache-open62541.outputs.cache-hit == 'false'
+      #   run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
