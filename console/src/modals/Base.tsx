@@ -63,8 +63,8 @@ export const createBase = <R, A extends BaseArgs<R>>(
           const l = Layout.select(state, key);
           if (l == null) resolve(null);
           const args = Layout.selectArgs<A>(state, key);
-          if (args == null) resolve(null);
-          else resolve(args.result as R);
+          if (args?.result == null) resolve(null);
+          else resolve(args.result);
           unsubscribe?.();
         });
       });
