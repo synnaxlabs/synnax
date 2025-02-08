@@ -235,7 +235,7 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         shell: bash
         run: |
-          cat > install-nilinuxrt-driver.sh << 'EOF'
+          cat > install-driver-nilinuxrt.sh << 'EOF'
           #!/bin/bash
           VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
           DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
