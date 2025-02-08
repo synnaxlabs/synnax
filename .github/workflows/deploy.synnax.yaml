@@ -282,13 +282,13 @@ jobs:
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Upload Release Asset
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'

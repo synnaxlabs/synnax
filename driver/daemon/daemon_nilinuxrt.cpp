@@ -48,6 +48,7 @@ DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="/var/run/$NAME.pid"
 LOGFILE="/var/log/$NAME.log"
+HEALTH_CHECK_DELAY_SECONDS=2
 
 # Color codes
 RED='\033[0;31m'
@@ -92,10 +93,10 @@ do_start() {
 
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
-        log_message "$PRETTY_NAME started successfully. Waiting for 2 seconds to perform a health check." "$BLUE"
-        sleep 2
+        log_message "$PRETTY_NAME started successfully. Waiting for $HEALTH_CHECK_DELAY_SECONDS seconds to perform a health check." "$BLUE"
+        sleep $HEALTH_CHECK_DELAY_SECONDS
         if kill -0 $(cat $PIDFILE) 2>/dev/null; then
-            log_message "$PRETTY_NAME verified running after 5 seconds" "$GREEN"
+            log_message "$PRETTY_NAME verified running after $HEALTH_CHECK_DELAY_SECONDS seconds" "$GREEN"
         else
             log_message "$PRETTY_NAME failed to stay running" "$RED"
             return 1
@@ -108,6 +109,18 @@ do_start() {
 
 do_stop() {
     log_message "Stopping $NAME at $(date)" "$BLUE"
+    if [ ! -f "$PIDFILE" ]; then
+        log_message "$NAME is not currently running" "$YELLOW"
+        return 0
+    fi
+    
+    PID=$(cat "$PIDFILE")
+    if ! kill -0 "$PID" 2>/dev/null; then
+        log_message "Removing stale PID file" "$YELLOW"
+        rm -f "$PIDFILE"
+        return 0
+    fi
+    
     start-stop-daemon --stop --pidfile $PIDFILE --retry 30
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
@@ -319,8 +332,15 @@ freighter::Error start_service() {
 
 freighter::Error stop_service() {
     LOG(INFO) << "Stopping service";
-    if (system("/etc/init.d/synnax-driver stop") != 0)
+    // Check if service is running first
+    if (!fs::exists("/var/run/synnax-driver.pid")) {
+        LOG(INFO) << "Service is not currently running";
+        return freighter::NIL;
+    }
+
+    if (system("/etc/init.d/synnax-driver stop") != 0) {
         return freighter::Error("Failed to stop service");
+    }
     return freighter::NIL;
 }
 

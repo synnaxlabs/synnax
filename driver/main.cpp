@@ -63,6 +63,10 @@ bool should_stop = false;
 
 namespace fs = std::filesystem;
 
+const std::string ANSI_RED = "\033[1;31m";
+const std::string ANSI_GREEN = "\033[1;32m";
+const std::string ANSI_RESET = "\033[0m";
+
 std::string get_hostname() {
     std::array<char, 256> hostname{};
 #ifdef _WIN32
@@ -393,17 +397,21 @@ void print_usage() {
             << "  version         Display the driver version\n";
 }
 
-// Helper function to execute service commands
+// Updated helper function with C++ strings
 void exec_svc_cmd(
     const std::function<freighter::Error()> &cmd,
     const std::string &action,
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "Failed to " << action << " driver: " << err;
+        LOG(ERROR) << "[driver] " << ANSI_RED << "Failed to " << action << " driver: " 
+                  << err << ANSI_RESET;
         exit(1);
     }
-    if (!past_tense.empty()) LOG(INFO) << "Driver " << past_tense << " successfully";
+    if (!past_tense.empty()) {
+        LOG(INFO) << "[driver] " << ANSI_GREEN << "Driver " << past_tense 
+                 << " successfully" << ANSI_RESET;
+    }
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
