@@ -128,8 +128,8 @@ struct WriterConfig {
     std::vector<synnax::ChannelKey> state_channel_keys;
     ///@brief the keys of the drive command channels
     std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
-    ///@brief the key of the state index channel
-    synnax::ChannelKey state_index_key;
+    ///@brief the keys of the state index channels
+    std::vector<synnax::ChannelKey> state_index_keys;
 
     ///@brief queues to maintain changes to state channels
     std::queue<synnax::ChannelKey> modified_state_keys;
@@ -203,7 +203,7 @@ public:
 
     explicit StateSource(
         float state_rate,
-        synnax::ChannelKey &state_index_key,
+        std::vector<synnax::ChannelKey> &state_index_keys,
         std::vector<synnax::ChannelKey> &state_channel_keys
     );
 
@@ -221,7 +221,7 @@ private:
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
     std::map<synnax::ChannelKey, T> state_map;
-    synnax::ChannelKey state_index_key;
+    std::vector<synnax::ChannelKey> state_index_keys;
     loop::Timer timer;
 };
 

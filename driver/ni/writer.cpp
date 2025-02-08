@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <cassert>
 #include <regex>
+#include <set>
 
 #include "client/cpp/telem/telem.h"
 #include "driver/ni/writer.h"
@@ -23,10 +24,18 @@
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::WriteSink::get_index_keys() {
     if (this->writer_config.state_channel_keys.empty()) return;
-    auto state_channel = this->writer_config.state_channel_keys[0];
-    auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
-    if (err) return this->log_error("failed to retrieve channel " + state_channel);
-    this->writer_config.state_index_key = state_channel_info.index;
+    
+    std::set<synnax::ChannelKey> unique_keys;
+    for (const auto& state_channel : this->writer_config.state_channel_keys) {
+        auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
+        if (err) {
+            this->log_error("failed to retrieve channel " + std::to_string(state_channel));
+            continue;
+        }
+        unique_keys.insert(state_channel_info.index);
+    }
+
+    this->writer_config.state_index_keys = {unique_keys.begin(), unique_keys.end()};
 }
 
 freighter::Error ni::WriteSink::cycle() {
@@ -84,7 +93,9 @@ std::vector<synnax::ChannelKey> ni::WriteSink::get_state_channel_keys() {
     for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index" && channel.enabled)
             keys.push_back(channel.state_channel_key);
-    keys.push_back(this->writer_config.state_index_key);
+    for (auto &index_key : this->writer_config.state_index_keys) {
+        keys.push_back(index_key);
+    }
     return keys;
 }
 
@@ -227,7 +238,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->get_index_keys();
     this->writer_state_source = std::make_shared<ni::DigitalStateSource>(
         writer_config.state_rate,
-        writer_config.state_index_key,
+        writer_config.state_index_keys,
         writer_config.state_channel_keys
     );
 }
@@ -364,7 +375,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
     this->get_index_keys();
     this->writer_state_source = std::make_shared<ni::AnalogStateSource>(
         writer_config.state_rate,
-        writer_config.state_index_key,
+        writer_config.state_index_keys,
         writer_config.state_channel_keys
     );
 }

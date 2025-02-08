@@ -186,7 +186,7 @@ private:
 };
 
 /// @brief Creates a default breaker configuration with standard retry and backoff settings
-inline Config default_config(const std::string& name) {
+inline Config default_config(const std::string &name) {
     return Config{
         .name = name,
         .base_interval = 1 * SECOND,

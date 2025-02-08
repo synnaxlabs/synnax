@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -24,6 +25,7 @@
 
 /// LabJack only supported on Windows.
 #include "driver/labjack/labjack.h"
+
 #else
 #include <unistd.h>
 #endif
@@ -412,7 +414,7 @@ int main(const int argc, char *argv[]) {
     }
     const std::string command = argv[1];
 
-    if (command == "internal-start-daemon") cmd_start_daemon(argc, argv);
+    if (command == "internal-start") cmd_start_daemon(argc, argv);
     else if (command == "start")
         exec_svg_cmd(daemond::start_service, "start", "started");
     else if (command == "stop")

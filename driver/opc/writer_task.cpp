@@ -106,8 +106,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
 
-    auto breaker = breaker::Breaker(breaker::default_config(task.name));
-
     auto [ua_client, conn_err] = opc::connect(properties.connection,
                                               "[opc.writer.cmd] ");
     if (conn_err) {

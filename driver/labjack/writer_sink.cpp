@@ -127,8 +127,6 @@ labjack::WriteSink::WriteSink(
     device_manager(device_manager),
     breaker(breaker::default_config(task.name)) {
 
-    this->breaker = breaker::Breaker(breaker::default_config(task.name));
-
     auto state_index_keys = this->get_index_keys();
     // retrieve state index from first state channel
 
