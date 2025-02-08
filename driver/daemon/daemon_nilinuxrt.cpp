@@ -231,13 +231,18 @@ freighter::Error setup_pid_file() {
         fs::create_directories(pid_dir, ec);
         if (ec)
             return freighter::Error("failed to create pid directory. try running with sudo: " + ec.message());
+        LOG(INFO) << "PID directory created";
 
         if (chmod(pid_dir.c_str(), 0755) != 0)
             return freighter::Error("failed to set PID directory permissions");
+        LOG(INFO) << "PID directory permissions set";
 
         std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
         if (system(chown_dir_cmd.c_str()) != 0)
             return freighter::Error("failed to change owner of PID directory");
+        LOG(INFO) << "PID directory ownership changed";
+    } else {
+        LOG(INFO) << "PID directory already exists";
     }
 
     // Check if PID file exists
@@ -247,13 +252,18 @@ freighter::Error setup_pid_file() {
         if (!pid_file_stream)
             return freighter::Error("failed to create PID file: " + pid_file);
         pid_file_stream.close();
+        LOG(INFO) << "PID file created";
 
         if (chmod(pid_file.c_str(), 0666) != 0)
             return freighter::Error("failed to set PID file permissions");
+        LOG(INFO) << "PID file permissions set";
 
         std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
         if (system(chown_file_cmd.c_str()) != 0)
             return freighter::Error("failed to change owner of PID file");
+        LOG(INFO) << "PID file ownership changed";
+    } else {
+        LOG(INFO) << "PID file already exists";
     }
 
     return freighter::NIL;
@@ -274,7 +284,10 @@ freighter::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
 
-    if (auto err = setup_pid_file()) return err;
+    if (auto err = setup_pid_file()) {
+        LOG(ERROR) << "failed to setup PID file: " << err.message();
+        return err;
+    }
 
     // Create log file with proper permissions
     LOG(INFO) << "Creating log file";
