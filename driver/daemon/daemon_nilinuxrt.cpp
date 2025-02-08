@@ -87,25 +87,20 @@ do_start() {
     log_message "Starting daemon with command: $DAEMON internal-start" "$BLUE"
     log_message "Running as user: $(whoami)" "$BLUE"
 
-    # Capture detailed startup information
-    STARTUP_LOG=$(mktemp)
-    $DAEMON internal-start > $STARTUP_LOG 2>&1 &
-    PID=$!
-    
+    # Use start-stop-daemon to properly manage the PID file
+    start-stop-daemon --start --make-pidfile --pidfile "$PIDFILE" \
+        --background --exec "$DAEMON" \
+        -- internal-start >> "$LOGFILE" 2>&1
+
     # Wait for health check period
     sleep $HEALTH_CHECK_DELAY_SECONDS
     
-    if kill -0 $PID 2>/dev/null; then
-        log_message "Process $PID still running after health check" "$GREEN"
-        mv $STARTUP_LOG $LOGFILE
+    # Check if process is running
+    if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE") 2>/dev/null; then
+        log_message "Process started successfully" "$GREEN"
         return 0
     else
-        # Process died - let's see why
-        wait $PID
-        EXIT_CODE=$?
-        log_message "Process exited with code $EXIT_CODE. Startup log:" "$RED"
-        cat $STARTUP_LOG >> $LOGFILE
-        rm $STARTUP_LOG
+        log_message "Process failed to start" "$RED"
         return 1
     fi
 }
