@@ -268,7 +268,7 @@ void update_status(Status status, const std::string &message) {
             break;
         case Status::STOPPING: status_str = "Stopping";
             break;
-        case Status::ERROR: status_str = "Error";
+        case Status::ERROR_: status_str = "Error";
             break;
     }
 
@@ -293,7 +293,7 @@ void run(const Config &config, int argc, char *argv[]) {
     try {
         config.callback(argc, argv);
     } catch (const std::exception &e) {
-        update_status(Status::ERROR, e.what());
+        update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();
     }
 
