@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
@@ -248,7 +248,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: ReadConfig) => {
+const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)
@@ -303,7 +303,7 @@ const onConfigure = async (client: Synnax, config: ReadConfig) => {
     (c) =>
       (c.channel = dev.properties[getPortTypeFromChannelType(c.type)].channels[c.port]),
   );
-  return config;
+  return [config, dev.rack];
 };
 
 export const Read = Common.Task.wrapForm(() => <Properties />, Form, {

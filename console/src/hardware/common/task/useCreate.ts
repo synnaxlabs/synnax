@@ -25,12 +25,14 @@ export const useCreate = <
   const client = Synnax.use();
   const dispatch = useDispatch();
   return useCallback(
-    async (task: task.New<C, T>) => {
+    async (task: task.New<C, T>, rackKey: rack.Key) => {
       if (client == null) throw new Error("Client not found");
-      const rck = await client.hardware.racks.retrieve(rack.DEFAULT_CHANNEL_NAME);
-      const ot = await rck.createTask<C, D, T>(task);
-      dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: ot.key } }));
-      return ot;
+      const rck = await client.hardware.racks.retrieve(
+        rackKey ?? rack.DEFAULT_CHANNEL_NAME,
+      );
+      const createdTask = await rck.createTask<C, D, T>(task);
+      dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
+      return createdTask;
     },
     [client, dispatch, layoutKey],
   );

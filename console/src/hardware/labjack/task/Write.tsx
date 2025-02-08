@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
@@ -214,7 +214,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: WriteConfig) => {
+const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   let modified = false;
   let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
@@ -312,7 +312,7 @@ const onConfigure = async (client: Synnax, config: WriteConfig) => {
     const pair = dev.properties[c.type].channels[c.port];
     return { ...c, cmdKey: pair.command, stateKey: pair.state };
   });
-  return config;
+  return [config, dev.rack];
 };
 
 export const Write = Common.Task.wrapForm(() => <Properties />, Form, {

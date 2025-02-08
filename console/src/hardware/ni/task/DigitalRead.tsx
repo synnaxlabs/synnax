@@ -144,7 +144,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
     const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];
   });
-  return config;
+  return [config, dev.rack];
 };
 
 export const DigitalRead = Common.Task.wrapForm(() => <Properties />, Form, {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 
@@ -62,7 +62,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (client: Synnax, config: WriteConfig) => {
+const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.migrateProperties(dev.properties);
   let modified = false;
@@ -109,7 +109,7 @@ const onConfigure = async (client: Synnax, config: WriteConfig) => {
     channel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
   if (modified) await client.hardware.devices.create(dev);
-  return config;
+  return [config, dev.rack];
 };
 
 export const Write = Common.Task.wrapForm(

@@ -184,7 +184,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
     const pair = dev.properties.digitalOutput.channels[key];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });
-  return config;
+  return [config, dev.rack];
 };
 
 export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, Form, {

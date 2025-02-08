@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  NotFoundError,
-  type Synnax,
-  type task,
-} from "@synnaxlabs/client";
+import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
@@ -106,12 +101,12 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure = async (
-  client: Synnax,
-  config: ReadConfig,
-  taskKey: task.Key,
-  name: string,
-): Promise<ReadConfig> => {
+const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
+  client,
+  config,
+  taskKey,
+  name,
+) => {
   // Retrieving the device and updating its properties if needed
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.migrateProperties(dev.properties);
@@ -234,7 +229,7 @@ const onConfigure = async (
     channel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
   if (modified) await client.hardware.devices.create(dev);
-  return config;
+  return [config, dev.rack];
 };
 
 export const Read = Common.Task.wrapForm(() => <Properties />, TaskForm, {

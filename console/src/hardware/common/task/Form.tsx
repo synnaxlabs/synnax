@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type Synnax, task as clientTask } from "@synnaxlabs/client";
+import { type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -49,13 +49,13 @@ export interface FormProps<
   T extends string = string,
 > {
   methods: PForm.ContextValue<Schema<C>>;
-  task: clientTask.Task<C, D, T> | clientTask.Payload<C, D, T>;
+  task: task.Task<C, D, T> | task.Payload<C, D, T>;
   isSnapshot: boolean;
   isRunning: boolean;
 }
 
 export interface OnConfigure<C extends UnknownRecord = UnknownRecord> {
-  (client: Synnax, config: C, taskKey: clientTask.Key, name: string): Promise<C>;
+  (client: Synnax, config: C, taskKey: task.Key, name: string): Promise<[C, rack.Key]>;
 }
 
 export interface WrapFormOptions<
@@ -78,36 +78,37 @@ export const wrapForm = <
   Form: FC<FormProps<C, D, T>>,
   { configSchema, type, getInitialPayload, onConfigure }: WrapFormOptions<C, D, T>,
 ): Layout.Renderer => {
-  const Wrapper = ({ layoutKey, task }: TaskProps<C, D, T>) => {
+  const Wrapper = ({ layoutKey, task: tsk }: TaskProps<C, D, T>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
     const schema = z.object({ name: nameZ, config: configSchema });
-    const values = { name: task.name, config: task.config };
+    const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<C>>({ schema, values });
     const create = useCreate<C, D, T>(layoutKey);
-    const [state, setState] = useState(task?.key, task?.state ?? undefined);
+    const [state, setState] = useState(tsk.key, tsk.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw new Error("Client not found");
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        const newConfig = await onConfigure(client, config, task.key, name);
+        const [newConfig, rackKey] = await onConfigure(client, config, tsk.key, name);
         methods.set("config", newConfig);
         // current work around for Pluto form issues
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        await create({ key: task?.key, name, type, config: newConfig });
+
+        await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
         setState("paused");
       },
       onError: (e) => handleException(e, `Failed to configure ${values.name}`),
     });
     const startOrStopMutation = useMutation({
       mutationFn: async () => {
-        if (!(task instanceof clientTask.Task))
+        if (!(tsk instanceof task.Task))
           throw new Error("Task has not been configured");
         if (state.state === "loading")
           throw new Error("State is loading, should not be able to start or stop task");
-        await task.executeCommand(state.state === "running" ? "stop" : "start");
+        await tsk.executeCommand(state.state === "running" ? "stop" : "start");
       },
       onError: (e) =>
         handleException(
@@ -115,7 +116,7 @@ export const wrapForm = <
           `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
         ),
     });
-    const isSnapshot = task.snapshot ?? false;
+    const isSnapshot = tsk.snapshot ?? false;
     return (
       <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
         <Align.Space grow>
@@ -127,10 +128,10 @@ export const wrapForm = <
               <CopyButtons
                 getConfig={() => methods.get("config").value}
                 getName={() => methods.get<string>("name").value}
-                taskKey={task.key}
+                taskKey={tsk.key}
               />
             </Align.Space>
-            {task instanceof clientTask.Task && <ParentRangeButton task={task} />}
+            {tsk instanceof task.Task && <ParentRangeButton task={tsk} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
@@ -144,7 +145,7 @@ export const wrapForm = <
             >
               <Form
                 methods={methods}
-                task={task}
+                task={tsk}
                 isRunning={state.state === "running"}
                 isSnapshot={isSnapshot}
               />
