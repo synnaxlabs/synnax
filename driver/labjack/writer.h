@@ -22,8 +22,6 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
-
-
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"

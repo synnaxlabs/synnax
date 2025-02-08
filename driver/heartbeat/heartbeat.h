@@ -84,12 +84,7 @@ public:
             .channels = {ch.key},
             .start = TimeStamp::now(),
         };
-        auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 50,
-            .scale = 1.2,
-        };
+        auto breaker_config = breaker::default_config(task.name);
         return std::make_unique<Heartbeat>(ctx, source, writer_cfg, breaker_config);
     }
 };

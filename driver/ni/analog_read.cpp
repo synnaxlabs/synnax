@@ -13,146 +13,118 @@
 #include <cstdio>
 #include <utility>
 
-/// external
+#include "client/cpp/telem/telem.h"
+#include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
-/// internal
-#include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
 
 using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
     parser.iter("channels",
-                [&](config::Parser &ch_parser) {
+                [&](config::Parser &channel_builder) {
+                    ni::ReaderChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
-                    const auto port = ch_parser.required<std::uint64_t>("port");
+                    std::string port = std::to_string(
+                        channel_builder.required<std::uint64_t>("port"));
+
                     std::string name;
-                    if (this->reader_config.device_key != "cross-device")
+                    if (this->reader_config.device_key != "cross-device") {
                         name = this->reader_config.device_name;
-                    else {
-                        const auto dev_key = ch_parser.required<std::string>("device");
-                        auto [dev, err] = this->ctx->client->hardware.
-                                retrieve_device(dev_key);
+                    } else {
+                        auto device_key = channel_builder.required<std::string>(
+                            "device");
+                        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
+                            device_key
+                        );
                         if (err) {
                             this->log_error(
-                                "failed to retrieve device with key " + dev_key);
+                                "failed to retrieve device with key " + device_key);
                             return;
                         }
                         name = dev.location;
                     }
-                    name = name + "/ai" + std::to_string(port);
+                    config.name = name + "/ai" + port;
 
-                    const auto type = ch_parser.required<std::string>("type");
-                    this->channel_map[name] = "channels." + std::to_string(c_count);
-                    this->port_to_channel[port] = name;
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
+                    config.channel_type = channel_builder.required<std::string>("type");
 
-                    this->reader_config.channels.emplace_back(ChannelConfig{
-                        .channel_key = ch_parser.required<uint32_t>("channel"),
-                        .name = name,
-                        .channel_type = type,
-                        .ni_channel = this->parse_channel(ch_parser, type, name),
-                        .enabled = ch_parser.optional<bool>("enabled", true)
-                    });
+                    config.ni_channel = this->parse_channel(
+                        channel_builder, config.channel_type, config.name
+                    );
+
+                    this->channel_map[config.name] = "channels." + std::to_string(c_count);
+
+                    this->port_to_channel[channel_builder.required<std::uint64_t>(
+                        "port")] = config.name;
+
+                    config.enabled = channel_builder.optional<bool>("enabled", true);
+
+                    this->reader_config.channels.push_back(config);
 
                     c_count++;
-                });
+                }
+    );
 }
 
-std::unique_ptr<ni::AIChan> ni::AnalogReadSource::parse_channel(
+std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser,
-    const std::string &type,
-    const std::string &name
+    const std::string &channel_type,
+    const std::string &channel_name
 ) {
-    if (type == "ai_accel")
-        return std::make_unique<AIAccelChan>(parser, name);
-    if (type == "ai_accel_4_wire_dc_voltage")
-        return std::make_unique<AIAccel4WireDCVoltageChan>(parser, name);
-    if (type == "ai_bridge")
-        return std::make_unique<AIBridgeChan>(parser, name);
-    if (type == "ai_charge")
-        return std::make_unique<AIChargeChan>(parser, name);
-    if (type == "ai_current")
-        return std::make_unique<AICurrentChan>(parser, name);
-    if (type == "ai_force_bridge_polynomial")
-        return std::make_unique<AIForceBridgePolynomialChan>(parser, name);
-    if (type == "ai_force_bridge_table")
-        return std::make_unique<AIForceBridgeTableChan>(parser, name);
-    if (type == "ai_force_bridge_two_point_lin")
-        return std::make_unique<AIForceBridgeTwoPointLinChan>(parser, name);
-    if (type == "ai_force_iepe")
-        return std::make_unique<AIForceIEPEChan>(parser, name);
-    if (type == "ai_microphone")
-        return std::make_unique<AIMicrophoneChan>(parser, name);
-    if (type == "ai_pressure_bridge_polynomial")
-        return std::make_unique<AIPressureBridgePolynomialChan>(parser, name);
-    if (type == "ai_pressure_bridge_table")
-        return std::make_unique<AIPressureBridgeTableChan>(parser, name);
-    if (type == "ai_pressure_bridge_two_point_lin")
-        return std::make_unique<AIPressureBridgeTwoPointLinChan>(parser, name);
-    if (type == "ai_resistance")
-        return std::make_unique<AIResistanceChan>(parser, name);
-    if (type == "ai_rtd")
-        return std::make_unique<AIRTDChan>(parser, name);
-    if (type == "ai_strain_gauge")
-        return std::make_unique<AIStrainGaugeChan>(parser, name);
-    if (type == "ai_temp_builtin")
-        return std::make_unique<AITempBuiltInChan>(parser, name);
-    if (type == "ai_thermocouple")
-        return std::make_unique<AIThermocoupleChan>(parser, name,
-                                                    this->port_to_channel);
-    if (type == "ai_torque_bridge_polynomial")
-        return std::make_unique<AITorqueBridgePolynomialChan>(parser, name);
-    if (type == "ai_torque_bridge_table")
-        return std::make_unique<AITorqueBridgeTableChan>(parser, name);
-    if (type == "ai_torque_bridge_two_point_lin")
-        return std::make_unique<AITorqueBridgeTwoPointLinChan>(parser, name);
-    if (type == "ai_velocity_iepe")
-        return std::make_unique<AIVelocityIEPEChan>(parser, name);
-    if (type == "ai_voltage")
-        return std::make_unique<AIVoltageChan>(parser, name);
+    auto channel = AnalogInputChannelFactory::create_channel(
+        channel_type,
+        parser,
+        channel_name,
+        this->port_to_channel
+    );
+    if (channel == nullptr) {
+        std::string msg = "Channel " + channel_name + " has an unrecognized type: " + channel_type;
+        this->ctx->set_state({
+            .task = task.key,
+            .variant = "error",
+            .details = {
+                {"running", false},
+                {"message", msg}
+            }
+        });
+        this->log_error(msg);
+    }
 
-    // If channel type not recognized update task state
-    std::string msg = "unknown channel type " + type;
-    this->ctx->set_state({
-        .task = task.key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", msg}
-        }
-    });
-    this->log_error(msg);
-    return nullptr;
+    return channel;
 }
 
 
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         if (this->check_ni_error(
-            this->dmx->CfgSampClkTiming(
-                this->task_handle,
-                "",
-                this->reader_config.sample_rate.value,
-                DAQmx_Val_Rising,
-                DAQmx_Val_ContSamps,
-                this->reader_config.sample_rate.value
-            ))) {
+                this->dmx->CfgSampClkTiming(
+                    this->task_handle,
+                    "",
+                    this->reader_config.sample_rate.value,
+                    DAQmx_Val_Rising,
+                    DAQmx_Val_ContSamps,
+                    this->reader_config.sample_rate.value
+                )
+            )
+        ) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
     } else if (this->check_ni_error(
-        this->dmx->CfgSampClkTiming(
-            this->task_handle,
-            this->reader_config.timing_source.c_str(),
-            this->reader_config.sample_rate.value,
-            DAQmx_Val_Rising,
-            DAQmx_Val_ContSamps,
-            this->reader_config.sample_rate.value
-        ))) {
+            this->dmx->CfgSampClkTiming(
+                this->task_handle,
+                this->reader_config.timing_source.c_str(),
+                this->reader_config.sample_rate.value,
+                DAQmx_Val_Rising,
+                DAQmx_Val_ContSamps,
+                this->reader_config.sample_rate.value
+            )
+        )
+    ) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -176,15 +148,19 @@ void ni::AnalogReadSource::acquire_data() {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = synnax::TimeStamp::now().value;
-        if (this->check_ni_error(this->dmx->ReadAnalogF64(
-            this->task_handle,
-            this->num_samples_per_channel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data_packet.analog_data.data(),
-            data_packet.analog_data.size(),
-            &data_packet.samples_read_per_channel,
-            nullptr))) {
+        if (this->check_ni_error(
+                this->dmx->ReadAnalogF64(
+                    this->task_handle,
+                    this->num_samples_per_channel,
+                    -1,
+                    DAQmx_Val_GroupByChannel,
+                    data_packet.analog_data.data(),
+                    data_packet.analog_data.size(),
+                    &data_packet.samples_read_per_channel,
+                    NULL
+                )
+            )
+        ) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
