@@ -257,47 +257,6 @@ jobs:
         working-directory: synnax
         run: go mod download
 
-      - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        shell: powershell
-        run: |
-          # Navigate to the synnax binary directory
-          Push-Location .\synnax
-          # Read version from VERSION file
-          $version = "${{ needs.setup.outputs.VERSION }}"
-          if (-not $version) {
-              Write-Error "Failed to read version file"
-              exit 1
-          }
-          $version = $version.Trim()
-          Write-Host "Building version: $version"
-          # Build the synnax binary
-          Write-Host "Building synnax binary..."
-          & go build -tags driver -o synnax-server.exe
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build synnax binary"
-              exit 1
-          }
-          # Navigate back to scripts directory
-          Pop-Location
-          # Move the built binary to scripts directory
-          Write-Host "Moving synnax binary to scripts directory..."
-          Move-Item -Force .\synnax\synnax-server.exe .\scripts\
-          # Build the NSIS installer
-          Write-Host "Building Windows installer..."
-          & makensis /DVERSION=$version .\scripts\windows-installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
-          Write-Host "Build process completed successfully!"
-
-      - name: Upload Windows Installer
-        if: (github.event_name == 'push' || github.event_name == 'pull_request') && matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
-
       - name: Build
         working-directory: synnax
         run: |
@@ -308,6 +267,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+
+      - name: Build Windows Installer
+        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        shell: powershell
+        run: |
+          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to build Windows installer"
+              exit 1
+          }
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
