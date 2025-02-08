@@ -121,12 +121,13 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
 
     auto parser = config::Parser(file);
     auto conn = parser.optional_child("connection");
+    if (!parser.ok()) return {PersistedState{.rack_key = 0}, parser.error()};
     return {
         PersistedState{
             .rack_key = parser.optional<synnax::RackKey>("rack_key", 0),
             .connection = parse_synnax_config(conn)
         },
-        parser.error()
+        freighter::NIL
     };
 }
 
