@@ -87,25 +87,27 @@ do_start() {
     log_message "Starting daemon with command: $DAEMON internal-start" "$BLUE"
     log_message "Running as user: $(whoami)" "$BLUE"
 
-    start-stop-daemon --start --background \
-        --make-pidfile --pidfile $PIDFILE \
-        --chuid $DAEMON_USER \
-        --startas /bin/bash -- -c "exec $DAEMON internal-start >> $LOGFILE 2>&1"
-
-    RETVAL=$?
-    if [ $RETVAL -eq 0 ]; then
-        log_message "$PRETTY_NAME started successfully. Waiting for $HEALTH_CHECK_DELAY_SECONDS seconds to perform a health check." "$BLUE"
-        sleep $HEALTH_CHECK_DELAY_SECONDS
-        if kill -0 $(cat $PIDFILE) 2>/dev/null; then
-            log_message "$PRETTY_NAME verified running after $HEALTH_CHECK_DELAY_SECONDS seconds" "$GREEN"
-        else
-            log_message "$PRETTY_NAME failed to stay running" "$RED"
-            return 1
-        fi
+    # Capture detailed startup information
+    STARTUP_LOG=$(mktemp)
+    $DAEMON internal-start > $STARTUP_LOG 2>&1 &
+    PID=$!
+    
+    # Wait for health check period
+    sleep $HEALTH_CHECK_DELAY_SECONDS
+    
+    if kill -0 $PID 2>/dev/null; then
+        log_message "Process $PID still running after health check" "$GREEN"
+        mv $STARTUP_LOG $LOGFILE
+        return 0
     else
-        log_message "Failed to start $PRETTY_NAME" "$RED"
+        # Process died - let's see why
+        wait $PID
+        EXIT_CODE=$?
+        log_message "Process exited with code $EXIT_CODE. Startup log:" "$RED"
+        cat $STARTUP_LOG >> $LOGFILE
+        rm $STARTUP_LOG
+        return 1
     fi
-    return $RETVAL
 }
 
 do_stop() {
