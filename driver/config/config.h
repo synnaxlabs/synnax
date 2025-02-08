@@ -211,6 +211,7 @@ public:
     }
 
     [[nodiscard]] freighter::Error error() const {
+        if (error_json().empty()) return freighter::NIL;
         return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
