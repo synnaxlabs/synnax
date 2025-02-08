@@ -41,7 +41,7 @@ export const DIGITAL_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
 };
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
-  create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...DIGITAL_WRITE_LAYOUT, key: layoutKey }),
   icon: <Icon.Logo.NI />,
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",

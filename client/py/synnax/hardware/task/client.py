@@ -292,7 +292,7 @@ class Client:
         if self._default_rack is None:
             # Hardcoded as this value for now. Will be changed once we have multi-rack
             # systems
-            self._default_rack = self._racks.retrieve(name="sy_node_1_rack")
+            self._default_rack = self._racks.retrieve_embedded_rack()
         if pld is not None and pld.key == 0:
             if rack == 0:
                 rack = self._default_rack.key

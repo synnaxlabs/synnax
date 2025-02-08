@@ -14,7 +14,7 @@
 /// @brief tests the nominal heartbeat case.
 TEST(HeartbeatTests, testNominal) {
     auto client = new_test_client();
-    auto [rack, rack_err] = client->hardware.createRack("test_rack");
+    auto [rack, rack_err] = client.hardware.create_rack("test_rack");
     ASSERT_FALSE(rack_err) << rack_err.message();
     auto beater = heartbeat::Heartbeat(
         rack.key,
@@ -24,9 +24,9 @@ TEST(HeartbeatTests, testNominal) {
     std::atomic done = false;
     beater.start(done);
     ASSERT_FALSE(done);
-    auto [ch, ch_err] = client->channels.retrieve("sy_rack_heartbeat");
+    auto [ch, ch_err] = client.channels.retrieve("sy_rack_heartbeat");
     ASSERT_FALSE(ch_err) << ch_err.message();
-    auto [streamer, strm_err] = client->telem.openStreamer(synnax::StreamerConfig{
+    auto [streamer, strm_err] = client.telem.open_streamer(synnax::StreamerConfig{
         .channels = {ch.key},
     });
     ASSERT_FALSE(strm_err) << strm_err.message();

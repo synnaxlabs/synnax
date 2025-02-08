@@ -45,7 +45,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (key) => ({ ...READ_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
 };
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>

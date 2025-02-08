@@ -11,16 +11,7 @@ import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Form,
-  Nav,
-  Status,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -29,6 +20,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
+import { Triggers } from "@/triggers";
 
 export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
   icon: "Device",
@@ -45,8 +37,6 @@ interface InternalProps<P extends UnknownRecord>
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 const Internal = <P extends UnknownRecord>({
   device,
@@ -156,18 +146,13 @@ const Internal = <P extends UnknownRecord>({
         </Align.Space>
       </Form.Form>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text level="small" shade={7} trigger={SAVE_TRIGGER} />
-          <Text.Text level="small" shade={7}>
-            {triggerAction}
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate()}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
             type="submit"
           >
             {triggerAction}

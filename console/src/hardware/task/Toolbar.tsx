@@ -31,13 +31,13 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { createLayout } from "@/hardware/task/ontology";
 import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { Modals } from "@/modals";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
@@ -191,7 +191,7 @@ const Content = () => {
       });
     },
   });
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   const handleLink = Link.useCopyToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {

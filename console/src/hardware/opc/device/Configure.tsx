@@ -20,7 +20,6 @@ import {
   Status,
   Synnax,
   Text,
-  Triggers,
 } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -52,6 +51,7 @@ import {
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
 import { Layout } from "@/layout";
+import { Triggers } from "@/triggers";
 
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 
@@ -69,8 +69,6 @@ const formSchema = z.object({
   connection: connectionConfigZ,
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 interface InternalProps extends Layout.RendererProps {
   initialValues: FormSchema;
@@ -200,12 +198,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       <Layout.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connectionState == null ? (
-            <>
-              <Triggers.Text level="small" shade={7} trigger={SAVE_TRIGGER} />
-              <Text.Text level="small" shade={7}>
-                To Test Connection
-              </Text.Text>
-            </>
+            <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
             <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
               {connectionState.details?.message}
@@ -215,7 +208,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
             loading={testConnectionMutation.isPending}
             disabled={isPending}
             onClick={() => testConnectionMutation.mutate()}

@@ -41,7 +41,7 @@ export const DIGITAL_READ_LAYOUT: Common.Task.LayoutBaseState = {
 };
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
-  create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...DIGITAL_READ_LAYOUT, key: layoutKey }),
   icon: <Icon.Logo.NI />,
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",

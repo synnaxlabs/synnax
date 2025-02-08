@@ -45,7 +45,7 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
-  triggers?: Triggers.Trigger[];
+  triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
   stopPropagation?: boolean;

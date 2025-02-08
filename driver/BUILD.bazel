@@ -1,18 +1,9 @@
-config_setting(
-    name = "use_ni",
-    values = {
-        "define": "use_ni=true",
-    },
-)
-
 cc_library(
     name = "driver",
-    hdrs = [
-        "config.h",
-    ],
+    hdrs = ["config.h"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "@platforms//os:linux": ["-std=c++20"],
+        "@platforms//os:linux": ["-std=c++17"],
         "//conditions:default": [],
     }),
     deps = [
@@ -20,8 +11,9 @@ cc_library(
         "//driver/breaker",
         "//driver/config",
         "//driver/heartbeat",
-        "//driver/opc",
         "//driver/ni",
+        "//driver/opc",
+        "//driver/sequence",
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
@@ -52,20 +44,20 @@ cc_test(
 
 cc_binary(
     name = "driver_main",
-    srcs = select({
-        "//conditions:default": ["main.cpp"],
-    }),
+    srcs = [
+        "main.cpp",
+        "//synnax/pkg/version",
+    ],
     copts = select({
-        ":use_ni": ["-DUSE_NI"],
-                # "@platforms//os:windows": [
-                #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-                #     "/ZI",                # Debug info
-                #     "/DEBUG",             # Enable debug info
-                #     "/MDd",               # Debug runtime
-                #     "-std:c++20",
-                #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",
-                # ],
-        "//conditions:default": ["-std=c++20"],
+        # "@platforms//os:windows": [
+        #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+        #     "/ZI",                # Debug info
+        #     "/DEBUG",             # Enable debug info
+        #     "/MDd",               # Debug runtime
+        #     "-std:c++20",
+        # ],
+        "//conditions:default": [
+        ],
     }),
     linkopts = select({
         "@platforms//os:windows": [
@@ -73,47 +65,32 @@ cc_binary(
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
             "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
-            # "/DEBUG",
-            # "/INCREMENTAL:NO",    # Required for AddressSanitizer
-            # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-            "/DELAYLOAD:LabJackM.dll",
-            "/DELAYLOAD:LabJackWUSB.dll", # so that link to dll is only attempted once a function is called
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "-lm",
+            "-ldl",
+        ],
     }),
-    deps = select({
+    deps = [
+        "//driver",
+        "//driver/breaker",
+        "//driver/daemon",
+        "//driver/meminfo",
+        "//driver/ni",
+        "//driver/opc",
+        "//driver/sequence",
+        "//driver/task",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
+    ] + select({
         "@platforms//os:windows": [
-            "//driver",
-            "//driver/breaker",
             "//driver/labjack",
-            "//driver/meminfo",
-            "//driver/ni",
-            "//driver/opc",
-            "//driver/task",
-            "@com_github_gflags_gflags//:gflags",
-            "@com_github_google_glog//:glog",
             "@mbedtls_win",
         ],
         "@platforms//os:linux": [
-            "//driver",
-            "//driver/breaker",
-            "//driver/meminfo",
-            "//driver/ni",
-            "//driver/opc",
-            "//driver/task",
-            "@com_github_gflags_gflags//:gflags",
-            "@com_github_google_glog//:glog",
             "@mbedtls_linux",
         ],
-        "//conditions:default": [
-            "//driver",
-            "//driver/breaker",
-            "//driver/meminfo",
-            "//driver/ni",
-            "//driver/opc",
-            "//driver/task",
-            "@com_github_gflags_gflags//:gflags",
-            "@com_github_google_glog//:glog",
+        "@platforms//os:macos": [
             "@mbedtls_macos",
         ],
     }),

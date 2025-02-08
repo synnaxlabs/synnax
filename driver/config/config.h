@@ -36,12 +36,15 @@ public:
     /// to the parser.
     explicit Parser(const std::string &encoded) : errors(
         std::make_shared<std::vector<json> >()) {
-        try {
-            config = json::parse(encoded);
-        } catch (const json::parse_error &e) {
-            noop = true;
-            field_err("", e.what());
-        }
+        parse_with_err_handling([&encoded] { return json::parse(encoded); });
+    }
+
+    /// @brief constructs a parser from an input stream (e.g., file stream).
+    /// If the stream content is not valid JSON, immediately binds an error
+    /// to the parser.
+    explicit Parser(std::istream& stream) : errors(
+        std::make_shared<std::vector<json> >()) {
+        parse_with_err_handling([&stream] { return json::parse(stream); });
     }
 
     /// @brief default constructor constructs a parser that will fail fast.
@@ -137,7 +140,7 @@ public:
     /// field. The field must be an object or an array. If the field is not of the
     /// expected type, or if the field is not found, accumulates an error in the parser.
     /// @param path The JSON path to the field.
-    Parser child(const std::string &path) const {
+    [[nodiscard]] Parser child(const std::string &path) const {
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) {
@@ -151,7 +154,7 @@ public:
         return {*iter, errors, path_prefix + path + "."};
     }
 
-    Parser optional_child(const std::string &path) const {
+    [[nodiscard]] Parser optional_child(const std::string &path) const {
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) return {};
@@ -173,7 +176,7 @@ public:
     ) const {
         if (noop) return;
         const auto iter = config.find(path);
-        if (iter == config.end())return field_err(path, "This field is required");
+        if (iter == config.end()) return field_err(path, "This field is required");
         if (!iter->is_array()) return field_err(path, "Expected an array");
         for (size_t i = 0; i < iter->size(); ++i) {
             const auto child_path =
@@ -207,14 +210,13 @@ public:
         return err;
     }
 
-    freighter::Error error() const {
+    [[nodiscard]] freighter::Error error() const {
+        if (error_json().empty()) return freighter::NIL;
         return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
-    [[nodiscard]] json get_json() const {
-        return config;
-    }
+    [[nodiscard]] json get_json() const { return config; }
 
 private:
     /// @brief the JSON configuration being parsed.
@@ -242,6 +244,16 @@ private:
             field_err(path, e.what() + 32);
         }
         return T();
+    }
+
+    /// @brief Helper method to parse JSON and handle errors
+    void parse_with_err_handling(const std::function<json()>& parser) {
+        try {
+            config = parser();
+        } catch (const json::parse_error& e) {
+            noop = true;
+            field_err("", e.what());
+        }
     }
 };
 }

@@ -443,7 +443,7 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 export interface CreateArg

@@ -42,7 +42,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  create: (key) => ({ ...WRITE_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
 };
 
 const Properties = () => (

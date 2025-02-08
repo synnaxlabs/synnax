@@ -7,23 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Align,
-  Button,
-  Form,
-  Input,
-  Nav,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
-import { type SliceState } from "@/layout/slice";
+import { Triggers } from "@/triggers";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
@@ -43,8 +34,6 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "Workspace must have a name" }),
 });
 
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const methods = Form.use({ values: { name: "" }, schema: formSchema });
 
@@ -62,7 +51,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       });
       dispatch(add(ws));
       if (active != null)
-        dispatch(Layout.setWorkspace({ slice: ws.layout as SliceState }));
+        dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
       onClose();
     },
   });
@@ -90,12 +79,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Create
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
             type="submit"
@@ -104,7 +88,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             disabled={isPending || client == null}
             tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
             onClick={() => mutate()}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             Create
           </Button.Button>

@@ -31,7 +31,7 @@ TEST(TestSeries, testStringVectorConstruction) {
     const Series s{vals};
     ASSERT_EQ(s.data_type, synnax::STRING);
     ASSERT_EQ(s.size, 2);
-    ASSERT_EQ(s.byteSize(), 12);
+    ASSERT_EQ(s.byte_size(), 12);
     const auto v = s.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -42,7 +42,7 @@ TEST(TestSeries, testStringConstruction) {
     const Series s{val};
     ASSERT_EQ(s.data_type, synnax::STRING);
     ASSERT_EQ(s.size, 1);
-    ASSERT_EQ(s.byteSize(), 6);
+    ASSERT_EQ(s.byte_size(), 6);
     const auto v = s.strings();
     ASSERT_EQ(v[0], val);
 }
@@ -52,7 +52,7 @@ TEST(TestSeries, testJSONConstruction) {
     const Series s(raw, JSON);
     ASSERT_EQ(s.data_type, synnax::JSON);
     ASSERT_EQ(s.size, 1);
-    ASSERT_EQ(s.byteSize(), 17);
+    ASSERT_EQ(s.byte_size(), 17);
     const auto v = s.strings();
     ASSERT_EQ(v[0], raw);
 }
@@ -110,8 +110,8 @@ TEST(TestSeries, testAllocation) {
     ASSERT_EQ(s.data_type, synnax::UINT32);
     ASSERT_EQ(s.size, 0);
     ASSERT_EQ(s.cap, 5);
-    ASSERT_EQ(s.byteSize(), 0);
-    ASSERT_EQ(s.byteCap(), 20);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_EQ(s.byte_cap(), 20);
 }
 
 TEST(TestSeries, testWrite) {

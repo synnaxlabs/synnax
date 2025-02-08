@@ -18,7 +18,6 @@ import {
   Select,
   Synnax,
   Text,
-  Triggers,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
@@ -26,10 +25,9 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const CREATE_LAYOUT: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
@@ -183,12 +181,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Save
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
@@ -200,7 +193,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate(createMore)}
-            triggers={[SAVE_TRIGGER]}
+            triggers={[Triggers.SAVE]}
           >
             Create
           </Button.Button>

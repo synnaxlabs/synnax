@@ -1,0 +1,41 @@
+cc_library(
+    name = "plugins",
+    srcs = [
+        "channel_receive.cpp",
+        "channel_write.cpp",
+        "json.cpp",
+        "time.cpp",
+    ],
+    hdrs = ["plugins.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/pipeline",
+        "@com_github_google_glog//:glog",
+        "@lua",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "plugins_test",
+    size = "small",
+    srcs = [
+        "channel_receive_test.cpp",
+        "channel_write_test.cpp",
+        "json_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/pipeline/mock",
+        "//driver/sequence/plugins",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

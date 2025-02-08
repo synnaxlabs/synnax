@@ -21,45 +21,36 @@
 /// internal
 #include "driver/pipeline/acquisition.h"
 
-
 using json = nlohmann::json;
 
 using namespace pipeline;
 
-class SynnaxWriter final : public pipeline::Writer {
-    std::unique_ptr<synnax::Writer> internal;
+SynnaxWriter::SynnaxWriter(std::unique_ptr<synnax::Writer> internal) 
+    : internal(std::move(internal)) {
+}
 
-public:
-    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal) : internal(
-        std::move(internal)) {
-    }
+bool SynnaxWriter::write(synnax::Frame &fr) { 
+    return this->internal->write(fr); 
+}
 
-    bool write(synnax::Frame &fr) override { return this->internal->write(fr); }
+freighter::Error SynnaxWriter::close() { 
+    return this->internal->close(); 
+}
 
-    freighter::Error close() override { return this->internal->close(); }
-};
+SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
+    : client(std::move(client)) {
+}
 
-class SynnaxWriterFactory final : public WriterFactory {
-    std::shared_ptr<synnax::Synnax> client;
-
-public:
-    explicit SynnaxWriterFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ) : client(std::move(client)) {
-    }
-
-    std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
-        const WriterConfig &config
-    ) override {
-        auto [sw, err] = client->telem.openWriter(config);
-        if (err) return {nullptr, err};
-        return {
-            std::make_unique<SynnaxWriter>(
-                std::make_unique<synnax::Writer>(std::move(sw))),
-            freighter::NIL
-        };
-    }
-};
+std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> 
+SynnaxWriterFactory::openWriter(const WriterConfig &config) {
+    auto [sw, err] = client->telem.open_writer(config);
+    if (err) return {nullptr, err};
+    return {
+        std::make_unique<SynnaxWriter>(
+            std::make_unique<synnax::Writer>(std::move(sw))),
+        freighter::NIL
+    };
+}
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,

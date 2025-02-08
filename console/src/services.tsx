@@ -57,7 +57,7 @@ export const SERVICES: Ontology.Services = {
   [linePlot.ONTOLOGY_TYPE]: LinePlotServices.ONTOLOGY_SERVICE,
   [ranger.ALIAS_ONTOLOGY_TYPE]: generateEmpty(ranger.ALIAS_ONTOLOGY_TYPE),
   [label.ONTOLOGY_TYPE]: generateEmpty(label.ONTOLOGY_TYPE),
-  [rack.ONTOLOGY_TYPE]: generateEmpty(rack.ONTOLOGY_TYPE),
+  [rack.ONTOLOGY_TYPE]: Hardware.Rack.ONTOLOGY_SERVICE,
   [task.ONTOLOGY_TYPE]: Hardware.Task.ONTOLOGY_SERVICE,
   [device.ONTOLOGY_TYPE]: Hardware.Device.ONTOLOGY_SERVICE,
   [channel.ONTOLOGY_TYPE]: ChannelServices.ONTOLOGY_SERVICE,

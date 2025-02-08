@@ -37,7 +37,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (key) => ({ ...WRITE_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
 };
 
 const Properties = () => (

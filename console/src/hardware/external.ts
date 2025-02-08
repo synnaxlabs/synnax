@@ -17,6 +17,7 @@ import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
 
 export * from "@/hardware/device";
+export * from "@/hardware/rack";
 export * from "@/hardware/task";
 
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];

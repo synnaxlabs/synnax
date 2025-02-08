@@ -1,0 +1,9 @@
+cc_library(
+    name = "mock",
+    hdrs = ["pipeline.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//freighter/cpp:freighter",
+    ],
+)

@@ -11,10 +11,10 @@ import { type Synnax } from "@synnaxlabs/client";
 import { Align, type Icon, List, type Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Confirm } from "@/confirm";
 import { type Export } from "@/export";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type RootState, type RootStore } from "@/store";
 
 export const CommandListItem = (
@@ -43,7 +43,7 @@ export interface CommandSelectionContext {
   store: RootStore;
   client: Synnax | null;
   placeLayout: Layout.Placer;
-  confirm: Confirm.CreateModal;
+  confirm: Modals.PromptConfirm;
   addStatus: Status.AddStatusFn;
   handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;

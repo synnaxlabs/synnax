@@ -49,7 +49,7 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (key) => ({ ...ANALOG_READ_LAYOUT, key }),
+  create: async ({ layoutKey }) => ({ ...ANALOG_READ_LAYOUT, key: layoutKey }),
 };
 
 const Properties = () => (

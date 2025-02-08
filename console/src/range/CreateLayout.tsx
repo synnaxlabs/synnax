@@ -22,7 +22,6 @@ import {
   Status,
   Synnax,
   Text,
-  Triggers,
 } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -35,6 +34,7 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { add } from "@/range/slice";
+import { Triggers } from "@/triggers";
 
 const formSchema = z.object({
   key: z.string().optional(),
@@ -49,8 +49,6 @@ type FormProps = z.infer<typeof formSchema>;
 type Args = Partial<FormProps>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 interface CreateLayoutProps extends Partial<Layout.State> {
   initial?: Partial<Args>;
@@ -227,12 +225,7 @@ const CreateLayoutForm = ({
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Save to Synnax
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
@@ -247,7 +240,7 @@ const CreateLayoutForm = ({
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
             loading={isPending}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             Save to Synnax
           </Button.Button>

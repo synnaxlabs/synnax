@@ -53,7 +53,7 @@ export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => 
         },
       ],
       colors: {
-        "editor.background": theme.colors.gray.l2.hex,
+        "editor.background": theme.colors.gray.l1.hex,
         "editor.foreground": theme.colors.gray.l9.hex,
         "editor.selectionBackground": theme.colors.gray.l4.hex,
         "editor.lineHighlightBackground": theme.colors.gray.l3.hex,
@@ -75,6 +75,18 @@ export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => 
       minimap: { enabled: false },
       bracketPairColorization: { enabled: false },
       lineNumbersMinChars: 3,
+      folding: false,
+      links: false,
+      contextmenu: false,
+      quickSuggestions: false,
+      renderControlCharacters: false,
+      renderWhitespace: "none",
+      scrollBeyondLastLine: false,
+      wordWrap: "off",
+      renderLineHighlight: "none",
+      formatOnPaste: false,
+      formatOnType: false,
+      suggestOnTriggerCharacters: false,
     });
     const dispose = monacoRef.current.onDidChangeModelContent(() => {
       if (monacoRef.current === null) return;

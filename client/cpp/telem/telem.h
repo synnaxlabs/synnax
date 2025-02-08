@@ -15,24 +15,25 @@
 #include <iostream>
 #include <typeindex>
 #include <unordered_map>
+#include <vector>
 
 namespace synnax {
 // private namespace for internal constants
 namespace _priv {
-const uint64_t NANOSECOND = 1;
-const uint64_t MICROSECOND = NANOSECOND * 1e3;
-const uint64_t MILLISECOND = MICROSECOND * 1e3;
-const uint64_t SECOND = MILLISECOND * 1e3;
-const uint64_t MINUTE = SECOND * 60;
-const uint64_t HOUR = MINUTE * 60;
-const uint64_t DAY = HOUR * 24;
+constexpr uint64_t NANOSECOND = 1;
+constexpr uint64_t MICROSECOND = NANOSECOND * 1e3;
+constexpr uint64_t MILLISECOND = MICROSECOND * 1e3;
+constexpr uint64_t SECOND = MILLISECOND * 1e3;
+constexpr uint64_t MINUTE = SECOND * 60;
+constexpr uint64_t HOUR = MINUTE * 60;
+constexpr uint64_t DAY = HOUR * 24;
 } // namespace _priv
 
 
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType() : value("") {
+    DataType() {
     }
 
     /// @brief Holds the id of the data type
@@ -51,8 +52,7 @@ public:
     /// @returns the data type corresponding to the given type.
     template<typename T>
     DataType static infer() {
-        if (!TYPE_INDEXES.count(std::type_index(typeid(T))))
-            return DataType("");
+        if (!TYPE_INDEXES.count(std::type_index(typeid(T)))) return DataType("");
         return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
     }
 
@@ -64,6 +64,31 @@ public:
 
     [[nodiscard]] bool is_variable() const {
         return value == "string" || value == "json";
+    }
+
+    /// @brief Checks if this data type matches another data type.
+    /// @param other The data type to compare against
+    /// @returns true if the data types match, false otherwise
+    [[nodiscard]] bool matches(const DataType &other) const {
+        if (value.empty() || other.value.empty()) return true;
+        return *this == other;
+    }
+
+    /// @brief Checks if this data type matches a string data type identifier.
+    /// @param other The data type string to compare against
+    /// @returns true if the data types match, false otherwise
+    [[nodiscard]] bool matches(const std::string &other) const {
+        if (value.empty() || other.empty()) return true;
+        return value == other;
+    }
+
+    /// @brief Checks if this data type matches any of the provided data types.
+    /// @param others Vector of data types to compare against
+    /// @returns true if this data type matches any in the vector, false otherwise
+    [[nodiscard]] bool matches(const std::vector<DataType> &others) const {
+        if (value.empty()) return true;
+        for (const auto &other: others) if (matches(other)) return true;
+        return false;
     }
 
     /////////////////////////////////// COMPARISON ///////////////////////////////////
@@ -178,6 +203,22 @@ public:
     explicit TimeSpan(
         const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
         duration.count()) {
+    }
+
+    static TimeSpan days(const double &days) {
+        return TimeSpan(static_cast<std::uint64_t>(days * _priv::DAY));
+    }
+
+    static TimeSpan hours(const double &hours) {
+        return TimeSpan(static_cast<std::uint64_t>(hours * _priv::HOUR));
+    }
+
+    static TimeSpan minutes(const double &minutes) {
+        return TimeSpan(static_cast<std::uint64_t>(minutes * _priv::MINUTE));
+    }
+
+    static TimeSpan seconds(const double &seconds) {
+        return TimeSpan(static_cast<std::uint64_t>(seconds * _priv::SECOND));
     }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
@@ -297,7 +338,7 @@ public:
     }
 
     [[nodiscard]] TimeSpan truncate(const TimeSpan &other) const {
-        return TimeSpan((value / other.value) * other.value);
+        return TimeSpan(value / other.value * other.value);
     }
 
     [[nodiscard]] TimeSpan delta(const TimeSpan &other) const {
@@ -359,7 +400,7 @@ public:
     }
 
 
-    std::chrono::nanoseconds chrono() const {
+    [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
 };
@@ -480,7 +521,7 @@ public:
     }
 
     TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
-                                                                    end(end) {
+        end(end) {
     }
 
     /// @brief returns true if the given timestamp is within the range, start inclusive,

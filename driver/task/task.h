@@ -154,7 +154,7 @@ public:
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.openWriter(WriterConfig{
+            auto [su, su_err] = client->telem.open_writer(WriterConfig{
                 .channels = {ch.key}
             });
             if (err) {
@@ -232,7 +232,7 @@ private:
 };
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
-/// acqusition and control tasks.
+/// acquisition and control tasks.
 class Manager {
 public:
     Manager(

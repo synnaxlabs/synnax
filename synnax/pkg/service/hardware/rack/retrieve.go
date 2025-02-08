@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -19,22 +20,27 @@ import (
 )
 
 type Retrieve struct {
-	baseTX     gorp.Tx
-	otg        *ontology.Ontology
-	gorp       gorp.Retrieve[Key, Rack]
-	searchTerm string
+	baseTX       gorp.Tx
+	otg          *ontology.Ontology
+	gorp         gorp.Retrieve[Key, Rack]
+	hostProvider core.HostProvider
+	searchTerm   string
 }
 
+// Search applies a fuzzy search filter to the query. This will be executed before
+// all other filters are applied.
 func (r Retrieve) Search(term string) Retrieve {
 	r.searchTerm = term
 	return r
 }
 
+// WhereKeys filters racks by their keys.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
 }
 
+// WhereNames filters racks by their names.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(rack *Rack) bool {
 		return lo.Contains(names, rack.Name)
@@ -42,33 +48,58 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	return r
 }
 
+// WhereEmbedded filters for racks that are embedded within the Synnax server.
+func (r Retrieve) WhereEmbedded(embedded bool, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(rack *Rack) bool {
+		return rack.Embedded == embedded
+	}, opts...)
+	return r
+}
+
+// WhereNodeIsHost filters for racks that are bound to the provided node and are
+// a gateway.
+func (r Retrieve) WhereNodeIsHost(opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(rack *Rack) bool {
+		return rack.Key.Node() == r.hostProvider.HostKey()
+	}, opts...)
+	return r
+}
+
+// Entry binds the provided entry as the result container for the query. If multiple
+// entries are found, the first one will be used.
 func (r Retrieve) Entry(rack *Rack) Retrieve {
 	r.gorp = r.gorp.Entry(rack)
 	return r
 }
 
+// Entries binds the provided slice as the result container for the query. If multiple
+// entries are found, they will be appended to the slice.
 func (r Retrieve) Entries(racks *[]Rack) Retrieve {
 	r.gorp = r.gorp.Entries(racks)
 	return r
 }
 
+// Limit sets the maximum number of entries to return.
 func (r Retrieve) Limit(limit int) Retrieve {
 	r.gorp = r.gorp.Limit(limit)
 	return r
 }
 
+// Offset sets the starting index of the entries to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
 }
 
-func (r Retrieve) WhereNode(node core.NodeKey) Retrieve {
+// WhereNode filters for racks that are embedded within the provided node.
+func (r Retrieve) WhereNode(node core.NodeKey, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(rack *Rack) bool {
 		return rack.Key.Node() == node
-	})
+	}, opts...)
 	return r
 }
 
+// Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
