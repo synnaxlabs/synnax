@@ -13,6 +13,7 @@ import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
+import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -56,12 +57,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-        Rename
-      </PMenu.Item>
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
-        Delete
-      </PMenu.Item>
+      <Menu.RenameItem />
+      <Menu.DeleteItem />
     </PMenu.Menu>
   );
 };
