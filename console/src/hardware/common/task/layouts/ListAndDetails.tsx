@@ -39,7 +39,6 @@ export interface ListAndDetailsProps<C extends Channel>
 }
 
 export const ListAndDetails = <C extends Channel>({
-  ListItem: listItem,
   Details,
   initialChannels,
   generateChannel,
@@ -75,7 +74,6 @@ export const ListAndDetails = <C extends Channel>({
     <>
       <ChannelList<C>
         {...rest}
-        ListItem={listItem}
         selected={selected}
         onSelect={handleSelect}
         generateChannel={handleGenerateChannel}
