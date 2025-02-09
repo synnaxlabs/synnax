@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export const NULL_CLIENT_ERROR = new Error(
-  "The Synnax Console is not connected to the Synnax Server.",
+  "Operation failed because the Console is not connected to a Cluster.",
 );
