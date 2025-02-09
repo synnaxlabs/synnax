@@ -21,5 +21,5 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "key"> = {
 };
 
 export const Configure: Layout.Renderer = (props) => (
-  <Common.Device.Configure {...props} zeroProperties={ZERO_PROPERTIES} />
+  <Common.Device.Configure {...props} initialProperties={ZERO_PROPERTIES} />
 );

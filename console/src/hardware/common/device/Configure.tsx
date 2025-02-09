@@ -36,7 +36,7 @@ interface InternalProps<
   Model extends string,
 > extends Pick<Layout.RendererProps, "onClose"> {
   device: device.Device<Properties, Make, Model>;
-  zeroProperties: Properties;
+  initialProperties: Properties;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
@@ -50,7 +50,7 @@ const Internal = <
   device,
   device: { name },
   onClose,
-  zeroProperties,
+  initialProperties,
 }: InternalProps<Properties, Make, Model>) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
@@ -83,9 +83,8 @@ const Internal = <
         configured: true,
         name: methods.get<string>("name").value,
         properties: {
-          ...deep.copy(zeroProperties),
+          ...deep.copy(initialProperties),
           ...device.properties,
-          enriched: true,
           identifier: methods.get<string>("identifier").value,
         },
       });
@@ -176,7 +175,7 @@ export interface ConfigureProps<
   Make extends string,
   Model extends string,
 > extends Layout.RendererProps,
-    Pick<InternalProps<Properties, Make, Model>, "zeroProperties"> {}
+    Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
   Properties extends UnknownRecord,
