@@ -27,6 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
@@ -45,7 +46,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
   schematic: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
-      if (client == null) throw new Error("No client provided");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const s = await client.workspaces.schematic.retrieve(key);
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),

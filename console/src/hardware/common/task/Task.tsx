@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { type z } from "zod";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
 interface LayoutArgs {
@@ -74,7 +75,7 @@ export const wrap = <
       queryFn: async () => {
         const { configSchema, getInitialPayload } = options;
         if (taskKey == null) return getInitialPayload(deviceKey);
-        if (client == null) throw new Error("Synnax server not connected");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const task = await client.hardware.tasks.retrieve<Config, Details, Type>(
           taskKey,
           { includeState: true },

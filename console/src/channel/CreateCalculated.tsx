@@ -31,6 +31,7 @@ import { z } from "zod";
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
 import { Triggers } from "@/triggers";
@@ -136,7 +137,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
     staleTime: 0,
     queryFn: async () => {
       if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const ch = await client.channels.retrieve(args.channelKey);
       return { ...ch, dataType: ch.dataType.toString() };
     },
@@ -171,7 +172,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) return;
       const d = methods.value();
       await client.channels.create(d);

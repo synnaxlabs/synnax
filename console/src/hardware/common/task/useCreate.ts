@@ -13,6 +13,7 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
 export const useCreate = <
@@ -26,7 +27,7 @@ export const useCreate = <
   const dispatch = useDispatch();
   return useCallback(
     async (task: task.New<Config, Type>, rackKey: rack.Key) => {
-      if (client == null) throw new Error("Client not found");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rck = await client.hardware.racks.retrieve(
         rackKey ?? rack.DEFAULT_CHANNEL_NAME,
       );

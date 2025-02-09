@@ -22,6 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { createLayout, OVERVIEW_LAYOUT } from "@/range/external";
 
@@ -66,7 +67,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
 
   useAsyncEffect(async () => {
     try {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await client.ranges.retrieve(rangeKey);
       const childRanges = await rng.retrieveChildren();
       childRanges.sort(ranger.sort);

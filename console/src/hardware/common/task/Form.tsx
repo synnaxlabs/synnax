@@ -23,6 +23,7 @@ import { type FC } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
@@ -98,7 +99,7 @@ export const wrapForm = <
     const [state, setState] = useState(tsk.key, tsk.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
-        if (client == null) throw new Error("Client not found");
+        if (client == null) throw NULL_CLIENT_ERROR;
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");

@@ -22,6 +22,7 @@ import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
@@ -83,7 +84,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
     if (activeWS === key) return;
     let ws = select(store.getState(), key);
     if (ws == null) {
-      if (client == null) throw new Error("Cannot reach cluster");
+      if (client == null) throw NULL_CLIENT_ERROR;
       ws = await client.workspaces.retrieve(key);
     }
     dispatch(add(ws));

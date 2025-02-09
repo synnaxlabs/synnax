@@ -28,6 +28,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { FS } from "@/fs";
 import { Common } from "@/hardware/common";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
@@ -83,7 +84,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const testConnectionMutation = useMutation({
     onError: (e) => handleException(e, "Failed to test connection"),
     mutationFn: async () => {
-      if (client == null) throw new Error("Cannot reach Synnax server");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
       const rack = await client.hardware.racks.retrieve(
         clientRack.DEFAULT_CHANNEL_NAME,
@@ -100,7 +101,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const configureMutation = useMutation({
     onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
-      if (client == null) throw new Error("Cannot reach Synnax server");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) throw new Error("Invalid configuration");
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")

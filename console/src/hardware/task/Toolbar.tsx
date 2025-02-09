@@ -32,6 +32,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { createLayout } from "@/hardware/task/layoutUtil";
 import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
@@ -91,7 +92,7 @@ const Content = () => {
         }))
       )
         return;
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const t = await client.hardware.tasks.retrieve(key);
       if (t == null) return;
       await client.hardware.tasks.create({ ...t, name });
@@ -196,7 +197,7 @@ const Content = () => {
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const deletedNames = tasks
         .filter((task) => keys.includes(task.key))
         .map((task) => task.name);

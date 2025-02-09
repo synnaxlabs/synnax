@@ -35,6 +35,7 @@ import { useDispatch, useStore } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
@@ -172,7 +173,7 @@ const useViewDetails = (): ((key: string) => void) => {
   const place = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await fetchIfNotInState(store, client, key);
       place({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
@@ -187,7 +188,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const res = await fetchIfNotInState(store, client, key);
       place(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),

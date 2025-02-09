@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
 import {
   type Config,
@@ -63,7 +64,7 @@ const Internal = ({
 
   const configureMutation = useMutation({
     mutationFn: async () => {
-      if (client == null) throw new Error("Client not found");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!(await methods.validateAsync())) return;
       const { config, rack } = methods.value();
       await create({ key: base.key, name: base.name, type: TYPE, config }, rack);

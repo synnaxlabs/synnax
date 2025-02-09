@@ -18,6 +18,7 @@ import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 import { Triggers } from "@/triggers";
@@ -65,7 +66,7 @@ const Internal = <
   const { isPending, mutate } = useMutation<void, Error, void>({
     onError: (e) => handleException(e, `Failed to configure ${name}`),
     mutationFn: async () => {
-      if (client == null) throw new Error("Cannot reach server");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -189,7 +190,7 @@ export const Configure = <
   const { data, error, isError, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null) throw new Error("Cannot reach server");
+      if (client == null) throw NULL_CLIENT_ERROR;
       return await client.hardware.devices.retrieve<Properties, Make, Model>(layoutKey);
     },
   });

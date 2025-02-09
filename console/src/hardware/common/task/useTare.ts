@@ -3,6 +3,8 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
+
 export interface TareableChannel {
   key: string;
   channel: channel.Key;
@@ -30,7 +32,7 @@ export const useTare = <C extends TareableChannel>({
   const tare = useMutation({
     onError: (e) => handleException(e, "Failed to tare channels"),
     mutationFn: async (key: channel.Key[]) => {
-      if (client == null) throw new Error("Client not connected");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!(task instanceof clientTask.Task))
         throw new Error("Task has not been configured");
       await task.executeCommand("tare", { keys: [key] });

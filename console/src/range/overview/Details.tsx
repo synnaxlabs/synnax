@@ -27,6 +27,7 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -48,7 +49,7 @@ const ParentRangeButton = ({
 
   useAsyncEffect(async () => {
     try {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await client.ranges.retrieve(rangeKey);
       const childRanges = await rng.retrieveParent();
       setParent(childRanges);
