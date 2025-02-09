@@ -117,7 +117,7 @@ export interface Service {
   PaletteListItem?: PaletteListItem;
 }
 
-export const BASE_SERVICE: Omit<Service, "type"> = {
+export const NOOP_SERVICE: Omit<Service, "type"> = {
   icon: <></>,
   hasChildren: true,
   onSelect: () => {},

@@ -288,7 +288,7 @@ export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElemen
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: channel.ONTOLOGY_TYPE,
   icon: <Icon.Channel />,
   hasChildren: false,

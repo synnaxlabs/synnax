@@ -122,7 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: device.ONTOLOGY_TYPE,
   icon,
   hasChildren: false,

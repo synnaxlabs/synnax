@@ -145,7 +145,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: table.ONTOLOGY_TYPE,
   icon: <Icon.Table />,
   hasChildren: false,

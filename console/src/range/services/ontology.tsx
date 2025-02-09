@@ -316,7 +316,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: ranger.ONTOLOGY_TYPE,
   icon: <Icon.Range />,
   onSelect: handleSelect,

@@ -107,7 +107,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: user.ONTOLOGY_TYPE,
   icon: <Icon.User />,
   allowRename: () => true,

@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Ontology } from "@/ontology";
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: ontology.CLUSTER_TYPE,
   icon: <Icon.Cluster />,
 };

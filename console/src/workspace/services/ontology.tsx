@@ -361,7 +361,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: clientWorkspace.ONTOLOGY_TYPE,
   icon: <Icon.Workspace />,
   onSelect: handleSelect,

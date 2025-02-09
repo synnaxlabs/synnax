@@ -171,7 +171,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: task.ONTOLOGY_TYPE,
   icon: <Icon.Task />,
   hasChildren: false,

@@ -282,7 +282,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type: group.ONTOLOGY_TYPE,
   icon: <Icon.Group />,
   canDrop: () => true,

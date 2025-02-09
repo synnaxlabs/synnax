@@ -41,7 +41,7 @@ import { UserServices } from "@/user/services";
 import { WorkspaceServices } from "@/workspace/services";
 
 const generateEmpty = (type: ontology.ResourceType): Ontology.Service => ({
-  ...Ontology.BASE_SERVICE,
+  ...Ontology.NOOP_SERVICE,
   type,
 });
 
