@@ -58,10 +58,12 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 // Delete deletes the rack with the provided key. Delete is idempotent, and deleting
 // a non-existent rack will not return an error.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-		return err
-	}
-	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Exec(ctx, w.tx)
+	return w.DeleteGuard(ctx, key, nil)
+}
+
+// DeleteGuard deletes the rack with the given key if the provided guard function returns nil.
+func (w Writer) DeleteGuard(ctx context.Context, key Key, filter func(Rack) error) error {
+	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(filter).Exec(ctx, w.tx)
 }
 
 // NextTaskKey returns a new, unique key for the task on the provided rack.

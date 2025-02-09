@@ -99,21 +99,31 @@ func (r Retrieve) WhereNode(node core.NodeKey, opts ...gorp.FilterOption) Retrie
 	return r
 }
 
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.otg.SearchIDs(ctx, search.Request{
+		Type: OntologyType,
+		Term: r.searchTerm,
+	})
+	if err != nil {
+		return r, err
+	}
+	keys, err := KeysFromOntologyIds(ids)
+	if err != nil {
+		return r, err
+	}
+	r = r.WhereKeys(keys...)
+	return r, err
+}
+
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: OntologyType,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys, err := KeysFromOntologyIds(ids)
-		if err != nil {
-			return err
-		}
-		r = r.WhereKeys(keys...)
+	var err error
+	r, err = r.execSearch(ctx)
+	if err != nil {
+		return err
 	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

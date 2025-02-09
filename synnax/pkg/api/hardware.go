@@ -141,7 +141,17 @@ type HardwareDeleteRackRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRackRequest) (res types.Nil, _ error) {
+func embeddedGuard(r Rack) error {
+	if !r.Embedded {
+		return nil
+	}
+	return errors.Wrapf(validate.Error, "cannot delete embedded rack")
+}
+
+func (svc *HardwareService) DeleteRack(
+	ctx context.Context,
+	req HardwareDeleteRackRequest,
+) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
@@ -166,7 +176,7 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 		}
 		w := svc.internal.Rack.NewWriter(tx)
 		for _, k := range req.Keys {
-			if err = w.Delete(ctx, k); err != nil {
+			if err = w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
 				return err
 			}
 		}
@@ -220,7 +230,10 @@ type (
 	}
 )
 
-func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrieveTaskRequest) (res HardwareRetrieveTaskResponse, _ error) {
+func (svc *HardwareService) RetrieveTask(
+	ctx context.Context,
+	req HardwareRetrieveTaskRequest,
+) (res HardwareRetrieveTaskResponse, _ error) {
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
@@ -277,7 +290,10 @@ type HardwareDeleteTaskRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
+func (svc *HardwareService) DeleteTask(
+	ctx context.Context,
+	req HardwareDeleteTaskRequest,
+) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
