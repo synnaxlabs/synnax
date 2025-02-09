@@ -46,9 +46,8 @@ export const useState = <D extends Details>(
   Observe.useListener({
     key: [client?.key, key, setState],
     open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: (command) => {
-      if (command.task !== key) return;
-      const type = command.type;
+    onChange: ({ task, type }) => {
+      if (task !== key) return;
       if (type === (isRunning ? "stop" : "start"))
         setState((s) => ({ ...s, state: "loading" }));
     },
