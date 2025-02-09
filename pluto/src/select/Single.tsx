@@ -87,9 +87,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   entryRenderKey = "key",
-  columns,
   data,
-  emptyContent,
   inputProps,
   allowNone = true,
   searcher,
@@ -97,7 +95,6 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   variant = "button",
   hideColumnHeader = false,
   disabled,
-  omit,
   children,
   dropdownVariant = "connected",
   placeholder = DEFAULT_PLACEHOLDER,
@@ -186,15 +183,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       zIndex={dropdownZIndex}
       open={open}
       data={data}
-      omit={omit}
-      emptyContent={emptyContent}
       allowMultiple={false}
       visible={visible}
       value={value}
       hideColumnHeader={hideColumnHeader}
       onChange={handleChange}
       allowNone={allowNone}
-      columns={columns}
       listItem={children}
       variant={dropdownVariant}
       trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}

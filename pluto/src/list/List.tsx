@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Text } from "@synnaxlabs/pluto";
 import { compare, type Key, type Keyed } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
@@ -50,9 +51,15 @@ export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     },
     [omit, data] as [K[] | undefined, E[] | undefined],
   );
+  const newEmptyContent =
+    typeof emptyContent === "string" ? (
+      <Text.Text level="p">{emptyContent}</Text.Text>
+    ) : (
+      emptyContent
+    );
   return (
     <InfiniteProvider>
-      <DataProvider<K, E> data={omittedData} emptyContent={emptyContent}>
+      <DataProvider<K, E> data={omittedData} emptyContent={newEmptyContent}>
         {children}
       </DataProvider>
     </InfiniteProvider>
