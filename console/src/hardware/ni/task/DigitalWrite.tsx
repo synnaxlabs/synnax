@@ -19,15 +19,15 @@ import {
   DigitalChannelList,
   type NameComponentProps,
 } from "@/hardware/ni/task/DigitalChannelList";
-import { generateDigitalOutputChannel } from "@/hardware/ni/task/generateChannel";
+import { generateDOChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_TYPE,
-  type DigitalOutputChannel,
   type DigitalWriteConfig,
   digitalWriteConfigZ,
   type DigitalWriteStateDetails,
   type DigitalWriteType,
+  type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
@@ -59,7 +59,7 @@ const Properties = () => (
 
 const NameComponent = ({
   entry: { cmdChannel, stateChannel },
-}: NameComponentProps<DigitalOutputChannel>) => (
+}: NameComponentProps<DOChannel>) => (
   <>
     <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
     <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
@@ -71,7 +71,7 @@ const Form: FC<
 > = (props) => (
   <DigitalChannelList
     {...props}
-    generateChannel={generateDigitalOutputChannel}
+    generateChannel={generateDOChannel}
     NameComponent={(p) => <NameComponent {...p} />}
   />
 );
@@ -115,8 +115,8 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
     dev.properties.digitalOutput.stateIndex = stateIndex.key;
     dev.properties.digitalOutput.channels = {};
   }
-  const commandsToCreate: DigitalOutputChannel[] = [];
-  const statesToCreate: DigitalOutputChannel[] = [];
+  const commandsToCreate: DOChannel[] = [];
+  const statesToCreate: DOChannel[] = [];
   for (const channel of config.channels) {
     const key = getDigitalChannelDeviceKey(channel);
     const exPair = dev.properties.digitalOutput.channels[key];

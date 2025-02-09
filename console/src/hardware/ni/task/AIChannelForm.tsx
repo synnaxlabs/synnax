@@ -16,7 +16,7 @@ import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
   type AccelSensitivityUnits,
-  type AnalogInputChannelType,
+  type AIChannelType,
   type ElectricalUnits,
   type ForceUnits,
   type PressureUnits,
@@ -300,7 +300,7 @@ const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   },
 });
 
-const ANALOG_INPUT_CHANNEL_FORMS: Record<AnalogInputChannelType, FC<FormProps>> = {
+const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} grow />
@@ -1012,16 +1012,13 @@ const ANALOG_INPUT_CHANNEL_FORMS: Record<AnalogInputChannelType, FC<FormProps>> 
   ),
 };
 
-export interface AnalogInputChannelFormProps {
-  type: AnalogInputChannelType;
+export interface AIChannelFormProps {
+  type: AIChannelType;
   prefix: string;
 }
 
-export const AnalogInputChannelForm = ({
-  type,
-  prefix,
-}: AnalogInputChannelFormProps) => {
-  const Form = ANALOG_INPUT_CHANNEL_FORMS[type];
+export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
+  const Form = CHANNEL_FORMS[type];
   return (
     <>
       <Align.Space direction="x" grow>

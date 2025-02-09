@@ -15,18 +15,18 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AnalogOutputChannelForm } from "@/hardware/ni/task/AnalogOutputChannelForm";
-import { generateAnalogOutputChannel } from "@/hardware/ni/task/generateChannel";
-import { SelectAnalogOutputChannelTypeField } from "@/hardware/ni/task/SelectAnalogOutputChannelTypeField";
+import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
+import { generateAOChannel } from "@/hardware/ni/task/generateChannel";
+import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_TYPE,
-  type AnalogOutputChannel,
-  type AnalogOutputChannelType,
   type AnalogWriteConfig,
   analogWriteConfigZ,
   type AnalogWriteStateDetails,
   type AnalogWriteType,
   AO_CHANNEL_TYPE_NAMES,
+  type AOChannel,
+  type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
@@ -56,8 +56,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps
-  extends Common.Task.ChannelListItemProps<AnalogOutputChannel> {}
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
@@ -82,11 +81,11 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AnalogOutputChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
   return (
     <>
-      <SelectAnalogOutputChannelTypeField path={path} />
-      <AnalogOutputChannelForm type={type} path={path} />
+      <SelectAOChannelTypeField path={path} />
+      <AOChannelForm type={type} path={path} />
     </>
   );
 };
@@ -97,7 +96,7 @@ const Form: FC<
   <Common.Task.Layouts.ListAndDetails
     ListItem={ChannelListItem}
     Details={ChannelDetails}
-    generateChannel={generateAnalogOutputChannel}
+    generateChannel={generateAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
   />
@@ -142,8 +141,8 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
     dev.properties.analogOutput.stateIndex = stateIndex.key;
     dev.properties.analogOutput.channels = {};
   }
-  const commandsToCreate: AnalogOutputChannel[] = [];
-  const statesToCreate: AnalogOutputChannel[] = [];
+  const commandsToCreate: AOChannel[] = [];
+  const statesToCreate: AOChannel[] = [];
   for (const channel of config.channels) {
     const exPair = dev.properties.analogOutput.channels[channel.port.toString()];
     if (exPair == null) {

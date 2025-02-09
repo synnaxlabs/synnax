@@ -132,8 +132,6 @@ const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-aiThrmcplChanZ.sourceType();
-
 const aiTorqueBridgeTableChanZ =
   v0.aiTorqueBridgeTableChanZ.extend(aiChanExtensionShape);
 interface AITorqueBridgeTableChan extends z.infer<typeof aiTorqueBridgeTableChanZ> {}
@@ -188,10 +186,7 @@ const aiChannelZ = z.union([
 
 export type AIChannel = z.infer<typeof aiChannelZ>;
 
-export const AI_CHANNEL_SCHEMAS: Record<
-  v0.AnalogInputChannelType,
-  z.ZodType<AIChannel>
-> = {
+export const AI_CHANNEL_SCHEMAS: Record<v0.AIChannelType, z.ZodType<AIChannel>> = {
   [v0.AI_ACCEL_CHAN_TYPE]: aiAccelChanZ,
   [v0.AI_BRIDGE_CHAN_TYPE]: aiBridgeChanZ,
   [v0.AI_CURRENT_CHAN_TYPE]: aiCurrentChanZ,
@@ -212,7 +207,7 @@ export const AI_CHANNEL_SCHEMAS: Record<
   [v0.AI_VOLTAGE_CHAN_TYPE]: aiVoltageChanZ,
 };
 
-export const ZERO_AI_CHANNELS: Record<v0.AnalogInputChannelType, AIChannel> = {
+export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
   [v0.AI_ACCEL_CHAN_TYPE]: ZERO_AI_ACCEL_CHAN,
   [v0.AI_BRIDGE_CHAN_TYPE]: ZERO_AI_BRIDGE_CHAN,
   [v0.AI_CURRENT_CHAN_TYPE]: ZERO_AI_CURRENT_CHAN,
@@ -237,11 +232,7 @@ export const ZERO_AI_CHANNELS: Record<v0.AnalogInputChannelType, AIChannel> = {
 
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
-export type Channel =
-  | AIChannel
-  | v0.AnalogOutputChannel
-  | v0.DigitalInputChannel
-  | v0.DigitalOutputChannel;
+export type Channel = AIChannel | v0.AOChannel | v0.DIChannel | v0.DOChannel;
 
 export const analogReadConfigZ = v0.analogReadConfigZ
   .omit({ version: true, device: true, channels: true })

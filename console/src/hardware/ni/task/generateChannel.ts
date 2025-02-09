@@ -10,16 +10,16 @@
 import { deep, id } from "@synnaxlabs/x";
 
 import {
+  type AIChannel,
   type AnalogChannel,
-  type AnalogInputChannel,
-  type AnalogOutputChannel,
+  type AOChannel,
+  type DIChannel,
   type DigitalChannel,
-  type DigitalInputChannel,
-  type DigitalOutputChannel,
-  ZERO_ANALOG_INPUT_CHANNEL,
-  ZERO_ANALOG_OUTPUT_CHANNEL,
-  ZERO_DIGITAL_INPUT_CHANNEL,
-  ZERO_DIGITAL_OUTPUT_CHANNEL,
+  type DOChannel,
+  ZERO_AI_CHANNEL,
+  ZERO_AO_CHANNEL,
+  ZERO_DI_CHANNEL,
+  ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
 
 const generateDigitalChannel = <C extends DigitalChannel>(
@@ -30,14 +30,11 @@ const generateDigitalChannel = <C extends DigitalChannel>(
   return { ...zeroChannel, key: id.id(), line };
 };
 
-export const generateDigitalInputChannel = (
-  channels: DigitalInputChannel[],
-): DigitalInputChannel => generateDigitalChannel(channels, ZERO_DIGITAL_INPUT_CHANNEL);
+export const generateDIChannel = (channels: DIChannel[]): DIChannel =>
+  generateDigitalChannel(channels, ZERO_DI_CHANNEL);
 
-export const generateDigitalOutputChannel = (
-  channels: DigitalOutputChannel[],
-): DigitalOutputChannel =>
-  generateDigitalChannel(channels, ZERO_DIGITAL_OUTPUT_CHANNEL);
+export const generateDOChannel = (channels: DOChannel[]): DOChannel =>
+  generateDigitalChannel(channels, ZERO_DO_CHANNEL);
 
 const generateAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
@@ -52,14 +49,8 @@ const generateAnalogChannel = <C extends AnalogChannel>(
   return { ...deep.copy(channels[index]), key, port };
 };
 
-export const generateAnalogInputChannel = (
-  channels: AnalogInputChannel[],
-  index: number,
-): AnalogInputChannel =>
-  generateAnalogChannel(channels, index, ZERO_ANALOG_INPUT_CHANNEL);
+export const generateAIChannel = (channels: AIChannel[], index: number): AIChannel =>
+  generateAnalogChannel(channels, index, ZERO_AI_CHANNEL);
 
-export const generateAnalogOutputChannel = (
-  channels: AnalogOutputChannel[],
-  index: number,
-): AnalogOutputChannel =>
-  generateAnalogChannel(channels, index, ZERO_ANALOG_OUTPUT_CHANNEL);
+export const generateAOChannel = (channels: AOChannel[], index: number): AOChannel =>
+  generateAnalogChannel(channels, index, ZERO_AO_CHANNEL);

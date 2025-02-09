@@ -48,33 +48,33 @@ export type WaveType = v0.WaveType;
 
 // Channels
 
-export type AnalogInputChannel = v1.AIChannel;
-export type AnalogInputChannelType = v0.AnalogInputChannelType;
-export const ANALOG_INPUT_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
-export const ZERO_ANALOG_INPUT_CHANNELS = v1.ZERO_AI_CHANNELS;
-export const ZERO_ANALOG_INPUT_CHANNEL = v1.ZERO_AI_CHANNEL;
-export const ANALOG_INPUT_CHANNEL_TYPE_NAMES = v0.ANALOG_INPUT_CHANNEL_TYPE_NAMES;
+export type AIChannel = v1.AIChannel;
+export type AIChannelType = v0.AIChannelType;
+export const AI_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
+export const ZERO_AI_CHANNELS = v1.ZERO_AI_CHANNELS;
+export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
+export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
 
 // Analog Output Channels
 
 export const AO_CURRENT_CHAN_TYPE = v0.AO_CURRENT_CHAN_TYPE;
 export const AO_FUNC_GEN_CHAN_TYPE = v0.AO_FUNC_GEN_CHAN_TYPE;
 export const AO_VOLTAGE_CHAN_TYPE = v0.AO_VOLTAGE_CHAN_TYPE;
-export type AnalogOutputChannel = v0.AnalogOutputChannel;
-export type AnalogOutputChannelType = v0.AnalogOutputChannelType;
-export const ANALOG_OUTPUT_CHANNEL_SCHEMAS = v0.ANALOG_OUTPUT_CHANNEL_SCHEMAS;
-export const ZERO_ANALOG_OUTPUT_CHANNELS = v0.ZERO_ANALOG_OUTPUT_CHANNELS;
-export const ZERO_ANALOG_OUTPUT_CHANNEL = v0.ZERO_ANALOG_OUTPUT_CHANNEL;
-export const AO_CHANNEL_TYPE_NAMES = v0.ANALOG_OUTPUT_CHANNEL_TYPE_NAMES;
+export type AOChannel = v0.AOChannel;
+export type AOChannelType = v0.AOChannelType;
+export const AO_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
+export const ZERO_AO_CHANNELS = v0.ZERO_AO_CHANNELS;
+export const ZERO_AO_CHANNEL = v0.ZERO_AO_CHANNEL;
+export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
 
-export interface DigitalOutputChannel extends v0.DigitalOutputChannel {}
-export const ZERO_DIGITAL_OUTPUT_CHANNEL = v0.ZERO_DIGITAL_OUTPUT_CHANNEL;
+export interface DOChannel extends v0.DOChannel {}
+export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
 
-export interface DigitalInputChannel extends v0.DigitalInputChannel {}
-export const ZERO_DIGITAL_INPUT_CHANNEL = v0.ZERO_DIGITAL_INPUT_CHANNEL;
+export interface DIChannel extends v0.DIChannel {}
+export const ZERO_DI_CHANNEL = v0.ZERO_DI_CHANNEL;
 
-export type AnalogChannel = AnalogInputChannel | AnalogOutputChannel;
-export type DigitalChannel = DigitalInputChannel | DigitalOutputChannel;
+export type AnalogChannel = AIChannel | AOChannel;
+export type DigitalChannel = DIChannel | DOChannel;
 export type Channel = AnalogChannel | DigitalChannel;
 
 // Tasks

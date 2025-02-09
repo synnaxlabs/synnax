@@ -120,8 +120,8 @@ const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
     };
   });
 
-const AIN_HIGH_VOLTAGE = bounds.construct(-10, 10);
-const AIN_LOW_VOLTAGE = bounds.construct(0, 2.5);
+const AI_HIGH_VOLTAGE = bounds.construct(-10, 10);
+const AI_LOW_VOLTAGE = bounds.construct(0, 2.5);
 
 interface Ports {
   [AI_PORT_TYPE]: AIPort[];
@@ -133,8 +133,8 @@ interface Ports {
 // T4
 
 const T4_AI_PORTS: AIPort[] = [
-  ...aiFactory({ lower: 0, upper: 4 }, AIN_HIGH_VOLTAGE),
-  ...aiFactory({ lower: 5, upper: 11 }, AIN_LOW_VOLTAGE),
+  ...aiFactory({ lower: 0, upper: 4 }, AI_HIGH_VOLTAGE),
+  ...aiFactory({ lower: 5, upper: 11 }, AI_LOW_VOLTAGE),
 ];
 const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T4_DI_PORTS: DIPort[] = [
@@ -154,7 +154,7 @@ const T4_PORTS: Ports = {
 
 // T7
 
-const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AIN_HIGH_VOLTAGE);
+const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AI_HIGH_VOLTAGE);
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
@@ -177,7 +177,7 @@ const T7_PORTS: Ports = {
 
 // T8
 
-const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AIN_HIGH_VOLTAGE);
+const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AI_HIGH_VOLTAGE);
 const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T8_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),

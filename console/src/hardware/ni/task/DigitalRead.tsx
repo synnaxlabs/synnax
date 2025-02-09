@@ -19,11 +19,11 @@ import {
   DigitalChannelList,
   type NameComponentProps,
 } from "@/hardware/ni/task/DigitalChannelList";
-import { generateDigitalInputChannel } from "@/hardware/ni/task/generateChannel";
+import { generateDIChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
+  type DIChannel,
   DIGITAL_READ_TYPE,
-  type DigitalInputChannel,
   type DigitalReadConfig,
   digitalReadConfigZ,
   type DigitalReadStateDetails,
@@ -58,18 +58,16 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({
-  entry: { channel },
-}: NameComponentProps<DigitalInputChannel>) => (
+const NameComponent = ({ entry: { channel } }: NameComponentProps<DIChannel>) => (
   <Common.Task.ChannelName channel={channel} />
 );
 
 const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
 > = (props) => (
-  <DigitalChannelList<DigitalInputChannel>
+  <DigitalChannelList<DIChannel>
     {...props}
-    generateChannel={generateDigitalInputChannel}
+    generateChannel={generateDIChannel}
     NameComponent={(p) => <NameComponent {...p} />}
   />
 );
@@ -111,7 +109,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
     dev.properties.digitalInput.index = aiIndex.key;
     dev.properties.digitalInput.channels = {};
   }
-  const toCreate: DigitalInputChannel[] = [];
+  const toCreate: DIChannel[] = [];
   for (const channel of config.channels) {
     const key = getDigitalChannelDeviceKey(channel);
     // check if the channel is in properties

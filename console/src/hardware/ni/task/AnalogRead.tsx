@@ -15,19 +15,19 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { AnalogInputChannelForm } from "@/hardware/ni/task/AnalogInputChannelForm";
-import { generateAnalogInputChannel } from "@/hardware/ni/task/generateChannel";
+import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
+import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
-  ANALOG_INPUT_CHANNEL_TYPE_NAMES,
+  AI_CHANNEL_TYPE_NAMES,
+  type AIChannel,
+  type AIChannelType,
   ANALOG_READ_TYPE,
-  type AnalogInputChannel,
-  type AnalogInputChannelType,
   type AnalogReadConfig,
   analogReadConfigZ,
   type AnalogReadStateDetails,
   type AnalogReadType,
-  ZERO_ANALOG_INPUT_CHANNEL,
+  ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
@@ -57,8 +57,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps
-  extends Common.Task.ChannelListItemProps<AnalogInputChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -82,7 +81,7 @@ const ChannelListItem = ({
           {port}
         </Text.Text>
         <Text.Text level="p" shade={9}>
-          {ANALOG_INPUT_CHANNEL_TYPE_NAMES[type]}
+          {AI_CHANNEL_TYPE_NAMES[type]}
         </Text.Text>
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
@@ -99,11 +98,11 @@ const ChannelListItem = ({
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AnalogInputChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
   return (
     <>
       <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AnalogInputChannelForm type={type} prefix={path} />
+      <AIChannelForm type={type} prefix={path} />
     </>
   );
 };
@@ -111,15 +110,15 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 const Form: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
 > = ({ task, isRunning, isSnapshot }) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<AnalogInputChannel>({
+  const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
     isRunning,
   });
   return (
-    <Common.Task.Layouts.ListAndDetails<AnalogInputChannel>
+    <Common.Task.Layouts.ListAndDetails<AIChannel>
       ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
       Details={ChannelDetails}
-      generateChannel={generateAnalogInputChannel}
+      generateChannel={generateAIChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}
@@ -139,7 +138,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_ANALOG_INPUT_CHANNEL, device: deviceKey, key: id.id() }],
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.id() }],
   },
 });
 
@@ -175,7 +174,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
       dev.properties.analogInput.index = aiIndex.key;
       dev.properties.analogInput.channels = {};
     }
-    const toCreate: AnalogInputChannel[] = [];
+    const toCreate: AIChannel[] = [];
     for (const channel of config.channels) {
       if (channel.device !== dev.key) continue;
       // check if the channel is in properties

@@ -11,11 +11,11 @@ import { Form, type List } from "@synnaxlabs/pluto";
 import { deep, type KeyedNamed } from "@synnaxlabs/x";
 
 import {
-  ANALOG_OUTPUT_CHANNEL_SCHEMAS,
-  type AnalogOutputChannel,
-  type AnalogOutputChannelType,
+  AO_CHANNEL_SCHEMAS,
   AO_CHANNEL_TYPE_NAMES,
-  ZERO_ANALOG_OUTPUT_CHANNELS,
+  type AOChannel,
+  type AOChannelType,
+  ZERO_AO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
 const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
@@ -23,28 +23,28 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
 ];
 
 const COLUMN_DATA = (
-  Object.entries(AO_CHANNEL_TYPE_NAMES) as [AnalogOutputChannelType, string][]
+  Object.entries(AO_CHANNEL_TYPE_NAMES) as [AOChannelType, string][]
 ).map(([key, name]) => ({ key, name }));
 
-export type SelectAnalogOutputChannelTypeFieldProps = Form.SelectSingleFieldProps<
-  AnalogOutputChannelType,
-  KeyedNamed<AnalogOutputChannelType>
+export type SelectAOChannelTypeFieldProps = Form.SelectSingleFieldProps<
+  AOChannelType,
+  KeyedNamed<AOChannelType>
 >;
 
-export const SelectAnalogOutputChannelTypeField = Form.buildSelectSingleField<
-  AnalogOutputChannelType,
-  KeyedNamed<AnalogOutputChannelType>
+export const SelectAOChannelTypeField = Form.buildSelectSingleField<
+  AOChannelType,
+  KeyedNamed<AOChannelType>
 >({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AnalogOutputChannelType>(path).value;
+      const prevType = get<AOChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_ANALOG_OUTPUT_CHANNELS[value]);
+      const next = deep.copy(ZERO_AO_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AnalogOutputChannel>(parentPath).value;
-      const schema = ANALOG_OUTPUT_CHANNEL_SCHEMAS[value];
+      const prevParent = get<AOChannel>(parentPath).value;
+      const schema = AO_CHANNEL_SCHEMAS[value];
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,

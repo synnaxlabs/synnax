@@ -23,10 +23,10 @@ import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
-  type AnalogOutputChannelType,
   AO_CURRENT_CHAN_TYPE,
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
+  type AOChannelType,
   SAWTOOTH_WAVE_TYPE,
   SINE_WAVE_TYPE,
   SQUARE_WAVE_TYPE,
@@ -82,7 +82,7 @@ interface FormProps {
   path: string;
 }
 
-const CHANNEL_FORMS: Record<AnalogOutputChannelType, FC<FormProps>> = {
+const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   [AO_CURRENT_CHAN_TYPE]: ({ path }) => (
     <>
       <MinMaxValueFields path={path} />
@@ -111,15 +111,12 @@ const CHANNEL_FORMS: Record<AnalogOutputChannelType, FC<FormProps>> = {
   ),
 };
 
-export interface AnalogOutputChannelFormProps {
-  type: AnalogOutputChannelType;
+export interface AOChannelFormProps {
+  type: AOChannelType;
   path: string;
 }
 
-export const AnalogOutputChannelForm = ({
-  type,
-  path,
-}: AnalogOutputChannelFormProps) => {
+export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
   return (
     <>

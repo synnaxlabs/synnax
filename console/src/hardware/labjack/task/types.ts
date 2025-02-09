@@ -10,7 +10,7 @@
 import { channel, device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { type Device } from "@/hardware/labjack/device";
+import { Device } from "@/hardware/labjack/device";
 
 export const PREFIX = "labjack";
 
@@ -49,11 +49,16 @@ export const getPortTypeFromChannelType = <
 >(
   type: T,
 ): ConvertChannelTypeToPortType[T] => {
-  if (type === DI_CHANNEL_TYPE) return "DI" as ConvertChannelTypeToPortType[T];
-  if (type === AI_CHANNEL_TYPE) return "AI" as ConvertChannelTypeToPortType[T];
-  if (type === TC_CHANNEL_TYPE) return "AI" as ConvertChannelTypeToPortType[T];
-  if (type === AO_CHANNEL_TYPE) return "AO" as ConvertChannelTypeToPortType[T];
-  if (type === DO_CHANNEL_TYPE) return "DO" as ConvertChannelTypeToPortType[T];
+  if (type === DI_CHANNEL_TYPE)
+    return Device.DI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === AI_CHANNEL_TYPE)
+    return Device.AI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === TC_CHANNEL_TYPE)
+    return Device.AI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === AO_CHANNEL_TYPE)
+    return Device.AO_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === DO_CHANNEL_TYPE)
+    return Device.DO_PORT_TYPE as ConvertChannelTypeToPortType[T];
   throw new Error(`Unknown channel type: ${type}`);
 };
 
@@ -247,7 +252,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
   dataSaving: true,
   stateRate: 10,
 };
-export type WriteTask2 = task.Task<WriteConfig, WriteStateDetails, WriteType>;
+export type WriteTask = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export interface WritePayload
   extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {

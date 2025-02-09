@@ -11,11 +11,11 @@ import { Form, type List } from "@synnaxlabs/pluto";
 import { deep, type KeyedNamed } from "@synnaxlabs/x";
 
 import {
-  ANALOG_INPUT_CHANNEL_SCHEMAS,
-  ANALOG_INPUT_CHANNEL_TYPE_NAMES,
-  type AnalogInputChannel,
-  type AnalogInputChannelType,
-  ZERO_ANALOG_INPUT_CHANNELS,
+  AI_CHANNEL_SCHEMAS,
+  AI_CHANNEL_TYPE_NAMES,
+  type AIChannel,
+  type AIChannelType,
+  ZERO_AI_CHANNELS,
 } from "@/hardware/ni/task/types";
 
 const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
@@ -23,24 +23,24 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
 ];
 
 export type SelectAIChannelTypeFieldProps = Form.SelectSingleFieldProps<
-  AnalogInputChannelType,
-  KeyedNamed<AnalogInputChannelType>
+  AIChannelType,
+  KeyedNamed<AIChannelType>
 >;
 
 export const SelectAIChannelTypeField = Form.buildSelectSingleField<
-  AnalogInputChannelType,
-  KeyedNamed<AnalogInputChannelType>
+  AIChannelType,
+  KeyedNamed<AIChannelType>
 >({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AnalogInputChannelType>(path).value;
+      const prevType = get<AIChannelType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_ANALOG_INPUT_CHANNELS[value]);
+      const next = deep.copy(ZERO_AI_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AnalogInputChannel>(parentPath).value;
-      const schema = ANALOG_INPUT_CHANNEL_SCHEMAS[value];
+      const prevParent = get<AIChannel>(parentPath).value;
+      const schema = AI_CHANNEL_SCHEMAS[value];
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
@@ -51,11 +51,8 @@ export const SelectAIChannelTypeField = Form.buildSelectSingleField<
     hideColumnHeader: true,
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
-    data: (
-      Object.entries(ANALOG_INPUT_CHANNEL_TYPE_NAMES) as [
-        AnalogInputChannelType,
-        string,
-      ][]
-    ).map(([key, name]) => ({ key, name })),
+    data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChannelType, string][]).map(
+      ([key, name]) => ({ key, name }),
+    ),
   },
 });
