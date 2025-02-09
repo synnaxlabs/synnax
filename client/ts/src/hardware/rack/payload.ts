@@ -19,3 +19,4 @@ export const newZ = rackZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "rack";
+export type OntologyType = typeof ONTOLOGY_TYPE;

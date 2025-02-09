@@ -29,3 +29,4 @@ export const newZ = linePlotZ
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "lineplot";
+export type OntologyType = typeof ONTOLOGY_TYPE;

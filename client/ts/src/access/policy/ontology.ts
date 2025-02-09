@@ -11,4 +11,7 @@
 // module, but the policy module need to import the ID schema from the ontology module.
 
 export const ONTOLOGY_TYPE = "policy";
+export type OntologyType = typeof ONTOLOGY_TYPE;
+
 export const ALLOW_ALL_ONTOLOGY_TYPE = "allow_all";
+export type AllowAllOntologyType = typeof ALLOW_ALL_ONTOLOGY_TYPE;

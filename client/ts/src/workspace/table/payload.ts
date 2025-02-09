@@ -33,3 +33,4 @@ export const remoteZ = tableZ.extend({
 });
 
 export const ONTOLOGY_TYPE = "table";
+export type OntologyType = typeof ONTOLOGY_TYPE;

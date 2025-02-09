@@ -31,3 +31,4 @@ export const newZ = userZ
 export interface New extends z.infer<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "user";
+export type OntologyType = typeof ONTOLOGY_TYPE;

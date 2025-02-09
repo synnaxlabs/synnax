@@ -52,3 +52,4 @@ export const newZ = channelZ.extend({
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "channel";
+export type OntologyType = typeof ONTOLOGY_TYPE;

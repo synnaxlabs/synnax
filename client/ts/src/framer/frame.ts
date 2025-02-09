@@ -24,6 +24,7 @@ import { type channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
 
 export const ONTOLOGY_TYPE = "framer";
+export type OntologyType = typeof ONTOLOGY_TYPE;
 
 type ColumnType = "key" | "name" | null;
 

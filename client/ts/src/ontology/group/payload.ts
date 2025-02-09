@@ -40,3 +40,4 @@ export const analyzeParams = (groups: Params): ParamAnalysisResult => {
 };
 
 export const ONTOLOGY_TYPE = "group";
+export type OntologyType = typeof ONTOLOGY_TYPE;

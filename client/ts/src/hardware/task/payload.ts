@@ -90,5 +90,6 @@ export interface StateObservable extends observe.ObservableAsyncCloseable<State>
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const ONTOLOGY_TYPE = "task";
+export type OntologyType = typeof ONTOLOGY_TYPE;
 
 export const getRackKey = (key: Key): rack.Key => Number(BigInt(key) >> BigInt(32));

@@ -29,3 +29,4 @@ export const newZ = logZ
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "log";
+export type OntologyType = typeof ONTOLOGY_TYPE;

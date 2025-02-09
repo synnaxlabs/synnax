@@ -34,3 +34,4 @@ export const remoteZ = schematicZ.extend({
 });
 
 export const ONTOLOGY_TYPE = "schematic";
+export type OntologyType = typeof ONTOLOGY_TYPE;

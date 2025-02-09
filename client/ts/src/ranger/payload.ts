@@ -57,4 +57,7 @@ export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
 };
 
 export const ONTOLOGY_TYPE = "range";
+export type OntologyType = typeof ONTOLOGY_TYPE;
+
 export const ALIAS_ONTOLOGY_TYPE = "range-alias";
+export type AliasOntologyType = typeof ALIAS_ONTOLOGY_TYPE;
