@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Select, Text } from "@synnaxlabs/pluto";
+import { type List, Select, Text } from "@synnaxlabs/pluto";
 
 import {
   DEVICES,
@@ -25,22 +25,24 @@ export interface SelectPortProps
   portType: PortType;
 }
 
+const COLUMNS: List.ColumnSpec<string, Port>[] = [
+  { key: "key", name: "Port" },
+  {
+    key: "aliases",
+    name: "Aliases",
+    render: ({ entry: { aliases } }) => (
+      <Text.Text level="small" shade={8}>
+        {aliases.join(", ")}
+      </Text.Text>
+    ),
+  },
+];
+
 export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
   <Select.Single<string, Port>
     allowNone={false}
     {...rest}
-    columns={[
-      { key: "key", name: "Port" },
-      {
-        key: "aliases",
-        name: "Aliases",
-        render: ({ entry: { aliases } }) => (
-          <Text.Text level="small" shade={8}>
-            {aliases.join(", ")}
-          </Text.Text>
-        ),
-      },
-    ]}
+    columns={COLUMNS}
     data={DEVICES[model].ports[portType]}
     entryRenderKey="key"
   />
