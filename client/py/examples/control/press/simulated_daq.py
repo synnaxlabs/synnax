@@ -34,11 +34,18 @@ press_pt = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+press_vlv_cmd_time = client.channels.create(
+    name="press_vlv_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
 press_vlv_cmd = client.channels.create(
     name="press_vlv_cmd",
     data_type=sy.DataType.UINT8,
-    virtual=True,
     retrieve_if_name_exists=True,
+    index=press_vlv_cmd_time.key,
 )
 
 press_vlv_state = client.channels.create(
@@ -48,11 +55,18 @@ press_vlv_state = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+vent_vlv_cmd_time = client.channels.create(
+    name="vent_vlv_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
 vent_vlv_cmd = client.channels.create(
     name="vent_vlv_cmd",
     data_type=sy.DataType.UINT8,
-    virtual=True,
     retrieve_if_name_exists=True,
+    index=vent_vlv_cmd_time.key,
 )
 
 vent_vlv_state = client.channels.create(

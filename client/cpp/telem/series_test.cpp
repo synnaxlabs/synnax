@@ -57,6 +57,25 @@ TEST(TestSeries, testJSONConstruction) {
     ASSERT_EQ(v[0], raw);
 }
 
+TEST(TestSeries, testTimestampConstruction) {
+    const Series s(synnax::TimeStamp(100));
+    ASSERT_EQ(s.data_type, synnax::TIMESTAMP);
+    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.byte_size(), 8);
+    const auto v = s.values<std::uint64_t>();
+    ASSERT_EQ(v[0], 100);
+}
+
+TEST(TestSeries, testTimestampNowConstruction) {
+    const auto now = synnax::TimeStamp::now();
+    const Series s(now);
+    ASSERT_EQ(s.data_type, synnax::TIMESTAMP);
+    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.byte_size(), 8);
+    const auto v = s.values<std::uint64_t>();
+    ASSERT_EQ(v[0], now.value);
+}
+
 //// @brief it should correctly serialize and deserialize the series from protoubuf.
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
@@ -235,4 +254,63 @@ TEST(TestSeries, test_transform_inplace) {
     ASSERT_EQ(v2.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v2[i], 3*vals[i] + 1);
+}
+
+class SeriesAtTest : public ::testing::Test {
+protected:
+    template<typename T>
+    void validateAt(const Series& s, const std::vector<T>& vals, const synnax::DataType expected_type) {
+        ASSERT_EQ(s.data_type, expected_type) 
+            << "Expected data type " << expected_type << " but got " << s.data_type;
+            
+        for (size_t i = 0; i < vals.size(); i++) {
+            if constexpr (std::is_floating_point_v<T>) {
+                ASSERT_DOUBLE_EQ(s.at<T>(i), vals[i]);
+            } else {
+                ASSERT_EQ(s.at<T>(i), vals[i]);
+            }
+        }
+    }
+};
+
+TEST_F(SeriesAtTest, testAtUInt8) {
+    const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
+    const Series s{vals};
+    validateAt(s, vals, synnax::SY_UINT8);
+}
+
+TEST_F(SeriesAtTest, testAtUInt32) {
+    const std::vector<uint32_t> vals = {100000, 200000, 300000};
+    const Series s{vals};
+    validateAt(s, vals, synnax::UINT32);
+}
+
+TEST_F(SeriesAtTest, testAtUInt64) {
+    const std::vector<uint64_t> vals = {1000000000ULL, 2000000000ULL, 3000000000ULL};
+    const Series s{vals};
+    validateAt(s, vals, synnax::UINT64);
+}
+
+TEST_F(SeriesAtTest, testAtInt32) {
+    const std::vector<int32_t> vals = {-100000, 0, 100000};
+    const Series s{vals};
+    validateAt(s, vals, synnax::INT32);
+}
+
+TEST_F(SeriesAtTest, testAtInt64) {
+    const std::vector<int64_t> vals = {-1000000000LL, 0, 1000000000LL};
+    const Series s{vals};
+    validateAt(s, vals, synnax::INT64);
+}
+
+TEST_F(SeriesAtTest, testAtFloat32) {
+    const std::vector<float> vals = {-1.5f, 0.0f, 1.5f};
+    const Series s{vals};
+    validateAt(s, vals, synnax::FLOAT32);
+}
+
+TEST_F(SeriesAtTest, testAtFloat64) {
+    const std::vector<double> vals = {-1.5, 0.0, 1.5};
+    const Series s{vals};
+    validateAt(s, vals, synnax::FLOAT64);
 }
