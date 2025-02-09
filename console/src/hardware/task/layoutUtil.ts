@@ -35,10 +35,11 @@ export const createLayout = ({ key, type }: task.Task): Layout.BaseState => {
 };
 
 export const retrieveAndPlaceLayout = async (
-  client: Synnax,
+  client: Synnax | null,
   key: task.Key,
   placeLayout: Layout.Placer,
 ) => {
+  if (client == null) throw new Error("No client provided");
   const t = await client.hardware.tasks.retrieve(key);
   const layout = createLayout(t);
   placeLayout(layout);

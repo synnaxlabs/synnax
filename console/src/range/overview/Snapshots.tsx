@@ -7,13 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type ontology,
+  ranger,
+  type schematic,
+  type Synnax as Client,
+  type task,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
   type Icon as PIcon,
   List,
+  Status,
   Synnax,
   Text,
   useAsyncEffect,
@@ -24,30 +31,31 @@ import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
 
-interface SnapshotService {
-  icon: PIcon.Element;
-  onClick: (client: Client, res: ontology.Resource, place: Layout.Placer) => void;
+interface SnapshotCtx {
+  client: Client | null;
+  placeLayout: Layout.Placer;
 }
 
-const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
+interface SnapshotService {
+  icon: PIcon.Element;
+  onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
+}
+
+const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
-    onClick: (client, res, place) => {
-      client.workspaces.schematic
-        .retrieve(res.id.key)
-        .then((s) =>
-          place(create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot })),
-        )
-        .catch(console.error);
+    onClick: async ({ id: { key } }, { client, placeLayout }) => {
+      if (client == null) throw new Error("No client provided");
+      const s = await client.workspaces.schematic.retrieve(key);
+      placeLayout(
+        create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
+      );
     },
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, place) => {
-      Hardware.Task.retrieveAndPlaceLayout(client, res.id.key, place).catch(
-        console.error,
-      );
-    },
+    onClick: async ({ id: { key } }, { client, placeLayout }) =>
+      Hardware.Task.retrieveAndPlaceLayout(client, key, placeLayout),
   },
 };
 
@@ -57,9 +65,11 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
   const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
+  const handleException = Status.useExceptionHandler();
   const handleSelect = () => {
-    if (client == null) return;
-    svc.onClick(client, entry, placeLayout);
+    svc
+      .onClick(entry, { client, placeLayout })
+      .catch((e) => handleException(e, `Failed to open ${entry.name}`));
   };
   return (
     <List.ItemFrame
