@@ -34,6 +34,6 @@ export const useCreate = <
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
       return createdTask;
     },
-    [client, dispatch, layoutKey],
+    [client?.key, dispatch, layoutKey],
   );
 };
