@@ -367,7 +367,7 @@ const List = (): ReactElement => {
   };
 
   return (
-    <PMenu.ContextMenu menu={ContextMenu} {...menuProps}>
+    <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
       <Core.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
