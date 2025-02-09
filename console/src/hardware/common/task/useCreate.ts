@@ -16,21 +16,21 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 
 export const useCreate = <
-  C extends UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 >(
   layoutKey: string,
 ) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   return useCallback(
-    async (task: task.New<C, T>, rackKey: rack.Key) => {
+    async (task: task.New<Config, Type>, rackKey: rack.Key) => {
       if (client == null) throw new Error("Client not found");
       const rck = await client.hardware.racks.retrieve(
         rackKey ?? rack.DEFAULT_CHANNEL_NAME,
       );
-      const createdTask = await rck.createTask<C, D, T>(task);
+      const createdTask = await rck.createTask<Config, Details, Type>(task);
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
       return createdTask;
     },

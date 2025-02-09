@@ -31,41 +31,41 @@ export const LAYOUT: Omit<LayoutBaseState, "type" | "key"> = {
 };
 
 export interface TaskProps<
-  C extends UnknownRecord = UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 > {
   layoutKey: string;
-  task: task.Payload<C, D, T> | task.Task<C, D, T>;
+  task: task.Payload<Config, Details, Type> | task.Task<Config, Details, Type>;
 }
 
-export interface ConfigSchema<C extends UnknownRecord = UnknownRecord>
-  extends z.ZodType<C, z.ZodTypeDef, unknown> {}
+export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
+  extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
 
 export interface GetInitialPayload<
-  C extends UnknownRecord = UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 > {
-  (deviceKey?: device.Key): task.Payload<C, D, T>;
+  (deviceKey?: device.Key): task.Payload<Config, Details, Type>;
 }
 
 export interface WrapOptions<
-  C extends UnknownRecord = UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 > {
-  configSchema: ConfigSchema<C>;
-  getInitialPayload: GetInitialPayload<C, D, T>;
+  configSchema: ConfigSchema<Config>;
+  getInitialPayload: GetInitialPayload<Config, Details, Type>;
 }
 
 export const wrap = <
-  C extends UnknownRecord = UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 >(
-  Task: FC<TaskProps<C, D, T>>,
-  options: WrapOptions<C, D, T>,
+  Task: FC<TaskProps<Config, Details, Type>>,
+  options: WrapOptions<Config, Details, Type>,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { deviceKey, taskKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
@@ -75,9 +75,10 @@ export const wrap = <
         const { configSchema, getInitialPayload } = options;
         if (taskKey == null) return getInitialPayload(deviceKey);
         if (client == null) throw new Error("Synnax server not connected");
-        const task = await client.hardware.tasks.retrieve<C, D, T>(taskKey, {
-          includeState: true,
-        });
+        const task = await client.hardware.tasks.retrieve<Config, Details, Type>(
+          taskKey,
+          { includeState: true },
+        );
         task.config = configSchema.parse(task.config);
         return task;
       },

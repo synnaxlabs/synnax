@@ -38,53 +38,63 @@ import { type Layout } from "@/layout";
 
 type BaseStateDetails = { running: boolean };
 
-type Schema<C extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
-  config: ConfigSchema<C>;
+  config: ConfigSchema<Config>;
 }>;
 
 export interface FormProps<
-  C extends UnknownRecord = UnknownRecord,
-  D extends BaseStateDetails = BaseStateDetails,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends BaseStateDetails = BaseStateDetails,
+  Type extends string = string,
 > {
-  methods: PForm.ContextValue<Schema<C>>;
-  task: task.Task<C, D, T> | task.Payload<C, D, T>;
+  methods: PForm.ContextValue<Schema<Config>>;
+  task: task.Task<Config, Details, Type> | task.Payload<Config, Details, Type>;
   isSnapshot: boolean;
   isRunning: boolean;
 }
 
-export interface OnConfigure<C extends UnknownRecord = UnknownRecord> {
-  (client: Synnax, config: C, taskKey: task.Key, name: string): Promise<[C, rack.Key]>;
+export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
+  (
+    client: Synnax,
+    config: Config,
+    taskKey: task.Key,
+    name: string,
+  ): Promise<[Config, rack.Key]>;
 }
 
 export interface WrapFormOptions<
-  C extends UnknownRecord = UnknownRecord,
-  D extends BaseStateDetails = BaseStateDetails,
-  T extends string = string,
-> extends WrapOptions<C, D, T> {
-  type: T;
-  onConfigure: OnConfigure<C>;
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends BaseStateDetails = BaseStateDetails,
+  Type extends string = string,
+> extends WrapOptions<Config, Details, Type> {
+  type: Type;
+  onConfigure: OnConfigure<Config>;
 }
 
 const nameZ = z.string().min(1, "Name is required");
 
 export const wrapForm = <
-  C extends UnknownRecord = UnknownRecord,
-  D extends BaseStateDetails = BaseStateDetails,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends BaseStateDetails = BaseStateDetails,
+  Type extends string = string,
 >(
   Properties: FC,
-  Form: FC<FormProps<C, D, T>>,
-  { configSchema, type, getInitialPayload, onConfigure }: WrapFormOptions<C, D, T>,
+  Form: FC<FormProps<Config, Details, Type>>,
+  {
+    configSchema,
+    type,
+    getInitialPayload,
+    onConfigure,
+  }: WrapFormOptions<Config, Details, Type>,
 ): Layout.Renderer => {
-  const Wrapper = ({ layoutKey, task: tsk }: TaskProps<C, D, T>) => {
+  const Wrapper = ({ layoutKey, task: tsk }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
     const schema = z.object({ name: nameZ, config: configSchema });
     const values = { name: tsk.name, config: tsk.config };
-    const methods = PForm.use<Schema<C>>({ schema, values });
-    const create = useCreate<C, D, T>(layoutKey);
+    const methods = PForm.use<Schema<Config>>({ schema, values });
+    const create = useCreate<Config, Details, Type>(layoutKey);
     const [state, setState] = useState(tsk.key, tsk.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {

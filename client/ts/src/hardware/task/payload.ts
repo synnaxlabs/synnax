@@ -29,9 +29,9 @@ export const stateZ = z.object({
     .or(z.array(z.unknown()))
     .or(z.null()),
 });
-export interface State<D extends {} = UnknownRecord>
+export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
-  details?: D;
+  details?: Details;
 }
 
 export const taskZ = z.object({
@@ -48,23 +48,25 @@ export const taskZ = z.object({
   snapshot: z.boolean().optional(),
 });
 export interface Payload<
-  C extends UnknownRecord = UnknownRecord,
-  D extends {} = UnknownRecord,
-  T extends string = string,
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
 > extends Omit<z.output<typeof taskZ>, "config" | "type" | "state"> {
-  type: T;
-  config: C;
-  state?: State<D> | null;
+  type: Type;
+  config: Config;
+  state?: State<Details> | null;
 }
 
 export const newZ = taskZ.omit({ key: true }).extend({
   key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
-export interface New<C extends UnknownRecord = UnknownRecord, T extends string = string>
-  extends Omit<z.input<typeof newZ>, "config" | "state"> {
-  type: T;
-  config: C;
+export interface New<
+  Config extends UnknownRecord = UnknownRecord,
+  Type extends string = string,
+> extends Omit<z.input<typeof newZ>, "config" | "state"> {
+  type: Type;
+  config: Config;
 }
 
 export const commandZ = z.object({
@@ -78,16 +80,14 @@ export const commandZ = z.object({
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
-export interface Command<A extends {} = UnknownRecord>
+export interface Command<Args extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {
-  args?: A;
+  args?: Args;
 }
 
-export interface StateObservable<D extends UnknownRecord = UnknownRecord>
-  extends observe.ObservableAsyncCloseable<State<D>> {}
+export interface StateObservable extends observe.ObservableAsyncCloseable<State> {}
 
-export interface CommandObservable<A extends UnknownRecord = UnknownRecord>
-  extends observe.ObservableAsyncCloseable<Command<A>> {}
+export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const ONTOLOGY_TYPE = "task";
 
