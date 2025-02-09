@@ -14,23 +14,22 @@ export const getOpenPort = <T extends Device.PortType>(
   channels: Channel[],
   model: Device.Model,
   types: T[],
-): T extends "AI"
+): T extends Device.AIPortType
   ? Device.AIPort | null
-  : T extends "DI"
+  : T extends Device.DIPortType
     ? Device.DIPort | null
-    : T extends "DO"
+    : T extends Device.DOPortType
       ? Device.DOPort | null
-      : T extends "AO"
+      : T extends Device.AOPortType
         ? Device.AOPort | null
         : null => {
-  const portsInUse = new Set(channels.map((c) => c.port));
-  for (const type of types) {
-    const port = Device.DEVICES[model].ports[type].find(
-      (port) => !portsInUse.has(port.key),
-    );
-    // This is safe because we narrow the type explicitly.
-    if (port != null) return port as any;
-  }
+  const portsInUse = new Set(channels.map(({ port }) => port));
   // @ts-expect-error TypeScript cannot properly infer the type of the return value.
-  return null;
+  return (
+    types.find(
+      (type) =>
+        Device.DEVICES[model].ports[type].find(({ key }) => !portsInUse.has(key)) !=
+        null,
+    ) ?? null
+  );
 };
