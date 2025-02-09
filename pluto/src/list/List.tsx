@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text } from "@synnaxlabs/pluto";
 import { compare, type Key, type Keyed } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
 import { useMemoCompare } from "@/memo";
+import { Text } from "@/text";
 
 export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends PropsWithChildren<unknown> {
