@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	access "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -148,9 +150,23 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 		return res, err
 	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+		exists, err := svc.internal.Device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.Wrapf(validate.Error, "cannot delete rack when devices are still attached")
+		}
+		exists, err = svc.internal.Task.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.Wrapf(validate.Error, "cannot delete rack when tasks are still attached")
+		}
 		w := svc.internal.Rack.NewWriter(tx)
 		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k); err != nil {
+			if err = w.Delete(ctx, k); err != nil {
 				return err
 			}
 		}
@@ -233,7 +249,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 		q = q.Offset(req.Offset)
 	}
 	if !req.Rack.IsZero() && len(req.Names) == 0 {
-		q = q.WhereRack(req.Rack)
+		q = q.WhereRacks(req.Rack)
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
 	if err != nil {

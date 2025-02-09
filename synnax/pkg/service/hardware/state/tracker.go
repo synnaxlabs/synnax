@@ -102,7 +102,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	for _, r := range racks {
 		var tasks []task.Task
 		if err = cfg.Task.NewRetrieve().
-			WhereRack(r.Key).
+			WhereRacks(r.Key).
 			Entries(&tasks).
 			Exec(ctx, nil); err != nil {
 			return

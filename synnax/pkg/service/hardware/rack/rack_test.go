@@ -142,7 +142,6 @@ var _ = Describe("Migration", func() {
 		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-
 		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})

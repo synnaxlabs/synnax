@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,6 +32,11 @@ func (r Retrieve) Search(term string) Retrieve {
 
 func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
+	return r
+}
+
+func (r Retrieve) WhereRacks(racks ...rack.Key) Retrieve {
+	r.gorp = r.gorp.Where(func(d *Device) bool { return lo.Contains(racks, d.Rack) }, gorp.Required())
 	return r
 }
 
@@ -74,17 +80,40 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: OntologyType,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys := KeysFromOntologyIDs(ids)
-		r = r.WhereKeys(keys...)
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.otg.SearchIDs(ctx, search.Request{
+		Type: OntologyType,
+		Term: r.searchTerm,
+	})
+	if err != nil {
+		return r, err
+	}
+	keys := KeysFromOntologyIDs(ids)
+	return r.WhereKeys(keys...), nil
+}
+
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
+	if r, err = r.execSearch(ctx); err != nil {
+		return
 	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return 0, err
+	}
+	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return false, err
+	}
+	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
