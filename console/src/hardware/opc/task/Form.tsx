@@ -100,7 +100,7 @@ const EmptyContent = () => (
   </Align.Center>
 );
 
-const PATH = "config.channels";
+const CHANNELS_PATH = "config.channels";
 
 interface ChannelListProps<C extends ChannelConfig>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot"> {
@@ -114,13 +114,13 @@ const ChannelList = <C extends ChannelConfig>({
   ...rest
 }: ChannelListProps<C>) => {
   const { value, push, remove } = PForm.useFieldArray<C>({
-    path: PATH,
+    path: CHANNELS_PATH,
     updateOnChildren: true,
   });
   const valueRef = useSyncedRef(value);
   const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
     const dropped = items.filter(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+      (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
     );
     const toAdd = dropped
       .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
@@ -146,17 +146,19 @@ const ChannelList = <C extends ChannelConfig>({
 
   const canDrop = useCallback(
     (state: Haul.DraggingState): boolean =>
-      state.items.some((i) => i.type === "opc" && i.data?.nodeClass === "Variable"),
+      state.items.some(
+        (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
+      ),
     [],
   );
 
   const haulProps = Haul.useDrop({
-    type: "opc", //fix type
+    type: Device.HAUL_TYPE,
     canDrop,
     onDrop: handleDrop,
   });
 
-  const isDragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
+  const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
 
   const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
   return (
@@ -164,7 +166,7 @@ const ChannelList = <C extends ChannelConfig>({
       {...rest}
       channels={value}
       onSelect={setSelected}
-      path={PATH}
+      path={CHANNELS_PATH}
       remove={remove}
       emptyContent={<EmptyContent />}
       header={<Header />}
