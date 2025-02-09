@@ -97,6 +97,13 @@ public:
 
     bool operator!=(const DataType &other) const { return value != other.value; }
 
+    ////////////////////////////////// OSTREAM /////////////////////////////////
+
+    friend std::ostream& operator<<(std::ostream& os, const DataType& dt) {
+        os << dt.value;
+        return os;
+    }
+
 private:
     /// @brief Maps the data type to the 'density' of
     /// the object.

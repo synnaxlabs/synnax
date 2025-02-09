@@ -259,7 +259,10 @@ TEST(TestSeries, test_transform_inplace) {
 class SeriesAtTest : public ::testing::Test {
 protected:
     template<typename T>
-    void validateAt(const std::vector<T>& vals, const Series& s) {
+    void validateAt(const Series& s, const std::vector<T>& vals, const synnax::DataType expected_type) {
+        ASSERT_EQ(s.data_type, expected_type) 
+            << "Expected data type " << expected_type << " but got " << s.data_type;
+            
         for (size_t i = 0; i < vals.size(); i++) {
             if constexpr (std::is_floating_point_v<T>) {
                 ASSERT_DOUBLE_EQ(s.at<T>(i), vals[i]);
@@ -273,48 +276,41 @@ protected:
 TEST_F(SeriesAtTest, testAtUInt8) {
     const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::SY_UINT8);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::SY_UINT8);
 }
 
 TEST_F(SeriesAtTest, testAtUInt32) {
     const std::vector<uint32_t> vals = {100000, 200000, 300000};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::UINT32);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::UINT32);
 }
 
 TEST_F(SeriesAtTest, testAtUInt64) {
     const std::vector<uint64_t> vals = {1000000000ULL, 2000000000ULL, 3000000000ULL};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::UINT64);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::UINT64);
 }
 
 TEST_F(SeriesAtTest, testAtInt32) {
     const std::vector<int32_t> vals = {-100000, 0, 100000};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::INT32);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::INT32);
 }
 
 TEST_F(SeriesAtTest, testAtInt64) {
     const std::vector<int64_t> vals = {-1000000000LL, 0, 1000000000LL};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::INT64);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::INT64);
 }
 
 TEST_F(SeriesAtTest, testAtFloat32) {
     const std::vector<float> vals = {-1.5f, 0.0f, 1.5f};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::FLOAT32);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::FLOAT32);
 }
 
 TEST_F(SeriesAtTest, testAtFloat64) {
     const std::vector<double> vals = {-1.5, 0.0, 1.5};
     const Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::FLOAT64);
-    validateAt(vals, s);
+    validateAt(s, vals, synnax::FLOAT64);
 }
