@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, type Synnax, task } from "@synnaxlabs/client";
+import { ontology, ranger, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -15,41 +15,10 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
-import { type Common } from "@/hardware/common";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { type Layout } from "@/layout";
+import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layoutUtil";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
-
-const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
-  [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
-  [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
-  [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,
-  [OPC.Task.WRITE_TYPE]: OPC.Task.WRITE_LAYOUT,
-  [NI.Task.ANALOG_READ_TYPE]: NI.Task.ANALOG_READ_LAYOUT,
-  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.DIGITAL_WRITE_LAYOUT,
-  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
-  [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
-};
-
-export const createLayout = ({ key, type }: task.Task): Layout.BaseState => {
-  const configureLayout = ZERO_LAYOUT_STATES[type];
-  if (configureLayout == null) throw new Error(`No layout configured for ${type}`);
-  return { ...configureLayout, key, args: { taskKey: key } };
-};
-
-export const retrieveAndPlaceLayout = async (
-  client: Synnax,
-  key: task.Key,
-  placeLayout: Layout.Placer,
-) => {
-  const t = await client.hardware.tasks.retrieve(key);
-  const layout = createLayout(t);
-  placeLayout(layout);
-};
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,

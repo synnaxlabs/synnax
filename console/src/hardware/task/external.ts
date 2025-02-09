@@ -11,14 +11,15 @@ import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
+import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
+export * from "@/hardware/task/layoutUtil";
 export * from "@/hardware/task/link";
 export * from "@/hardware/task/ontology";
 export * from "@/hardware/task/Selector";
 export * from "@/hardware/task/Toolbar";
-export * from "@/hardware/task/types";
 
 export const COMMANDS: Palette.Command[] = [
   ...LabJack.Task.COMMANDS,
@@ -31,4 +32,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
   [SELECTOR_LAYOUT_TYPE]: Selector,
+  ...Sequence.LAYOUTS,
 };

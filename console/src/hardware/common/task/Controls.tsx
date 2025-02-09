@@ -43,7 +43,7 @@ export const Controls = ({
     ) : null;
   const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   const isLoading = state.state === "loading";
-  const isDisabled = isLoading || isConfiguring;
+  const isDisabled = isLoading || isConfiguring || isSnapshot;
   return (
     <Align.Space
       className={CSS.B("task-controls")}

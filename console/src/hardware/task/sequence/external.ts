@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { SELECTABLE, Sequence } from "@/hardware/task/sequence/Configure";
+import { TYPE } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
-import { Configure, SEQUENCE_SELECTABLE } from "@/sequence/Configure";
-import { TYPE } from "@/sequence/types";
 
-export * from "@/sequence/types";
+export { LAYOUT } from "@/hardware/task/sequence/Configure";
+export * from "@/hardware/task/sequence/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [TYPE]: Configure,
+  [TYPE]: Sequence,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SEQUENCE_SELECTABLE];
+export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];

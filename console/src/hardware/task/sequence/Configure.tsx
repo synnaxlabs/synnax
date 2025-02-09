@@ -14,30 +14,26 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
+import { Common } from "@/hardware/common";
 import {
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import { createLayoutCreator } from "@/hardware/task/common/createLayoutCreator";
-import { type Layout } from "@/layout";
-import {
+  type Config,
   configZ,
-  type Payload,
   type StateDetails,
-  type Task,
   TYPE,
+  type Type,
   ZERO_PAYLOAD,
-} from "@/sequence/types";
+} from "@/hardware/task/sequence/types";
+import { type Layout } from "@/layout";
 
-export const createSequenceLayout = createLayoutCreator<Payload>(
-  TYPE,
-  "Control Sequence",
-  "Control",
-);
+export const LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  icon: "Control",
+  key: TYPE,
+  name: ZERO_PAYLOAD.name,
+  type: TYPE,
+};
 
-export const SEQUENCE_SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Layout.Selectable = {
   key: TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
@@ -46,74 +42,63 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
       {},
       { icon: "Control", name: "Control.Sequence.Create" },
     );
-    if (result == null) return null;
-    return {
-      ...createSequenceLayout({ create: true, initialValues: { name: result } }),
-      name: result,
-      key: layoutKey,
-    };
+    return result == null ? null : { ...LAYOUT, name: result, key: layoutKey };
   },
 };
 
-const schema = z.object({
-  name: z.string(),
-  rack: rack.rackKeyZ,
-  config: configZ,
-});
+const schema = z.object({ rack: rack.keyZ, config: configZ });
 
-export const Wrapped = ({
+const Internal = ({
   task: base,
-  initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<Task, Payload>) => {
+}: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use({
-    values: {
-      ...initialValues,
-      rack: task.rackKey(base?.key ?? "0"),
-    },
+    values: { rack: task.getRackKey(base?.key ?? "0"), config: base.config },
     schema,
   });
+  const create = Common.Task.useCreate(layoutKey);
+  const [state, setState] = Common.Task.useState(base?.key, base?.state ?? undefined);
 
-  const create = useCreate(layoutKey);
-
-  const configure = useMutation({
+  const configureMutation = useMutation({
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
-      const { name, config, rack } = methods.value();
-      await create(
-        {
-          key: base?.key,
-          name,
-          type: "sequence",
-          config,
-        },
-        rack,
-      );
+      if (client == null) throw new Error("Client not found");
+      if (!(await methods.validateAsync())) return;
+      const { config, rack } = methods.value();
+      await create({ key: base.key, name: base.name, type: TYPE, config }, rack);
+      setState("paused");
     },
+    onError: (e) => handleException(e, `Failed to configure ${base.name}`),
   });
-
-  const taskState = useObserveState<StateDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    base?.key,
-    base?.state,
-  );
-
-  const running = taskState?.details?.running;
-
-  const start = useMutation({
+  const startOrStopMutation = useMutation({
     mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
-      await base?.executeCommand(isRunning ? "stop" : "start");
+      if (!(base instanceof task.Task))
+        throw new Error("Sequence has not been configured");
+      if (state.state === "loading")
+        throw new Error(
+          "State is loading, should not be able to start or stop sequence",
+        );
+      await base.executeCommand(state.state === "running" ? "stop" : "start");
     },
+    onError: (e) =>
+      handleException(
+        e,
+        `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
+      ),
   });
+  const isSnapshot = base?.snapshot ?? false;
 
-  const startingOrStopping = start.isPending;
-  const configuring = configure.isPending;
-  const onStartStop = start.mutate;
-  const onConfigure = configure.mutate;
+  // const running = taskState?.details?.running;
+
+  // const startingOrStopping = start.isPending;
+  // const configuring = configureMutation.isPending;
+  // const onStartStop = start.mutate;
+  // const onConfigure = configureMutation.mutate;
+
+  const isLoading = state.state === "loading";
+  const isConfiguring = configureMutation.isPending;
+  const isDisabled = isLoading || isConfiguring || isSnapshot;
 
   return (
     <Align.Space
@@ -152,7 +137,7 @@ export const Wrapped = ({
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
             <Align.Space direction="x">
-              <Form.Field<rack.RackKey>
+              <Form.Field<rack.Key>
                 path="rack"
                 label="Location"
                 padHelpText={false}
@@ -191,44 +176,34 @@ export const Wrapped = ({
               )}
             </Form.Field>
           </Align.Space>
-
           <Align.Space
             direction="x"
             rounded
-            style={{
-              padding: "2rem",
-              borderTop: "var(--pluto-border)",
-            }}
+            style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
             justify="spaceBetween"
           >
-            <Align.Space
-              direction="x"
-              style={{
-                borderRadius: "1rem",
-                width: "100%",
-              }}
-            >
-              {taskState?.details?.message != null && (
-                <Status.Text variant={taskState?.variant as Status.Variant}>
-                  {taskState?.details?.message}
+            <Align.Space direction="x" style={{ borderRadius: "1rem", width: "100%" }}>
+              {state.message != null && (
+                <Status.Text variant={state.variant ?? "info"}>
+                  {state.message}
                 </Status.Text>
               )}
             </Align.Space>
-            <Button.Icon
-              loading={startingOrStopping}
-              disabled={startingOrStopping || taskState == null || base?.snapshot}
-              onClick={() => onStartStop()}
-              variant="outlined"
-            >
-              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
-            </Button.Icon>
             <Button.Button
-              loading={configuring}
-              disabled={configuring || base?.snapshot}
-              onClick={() => onConfigure()}
+              loading={isConfiguring}
+              disabled={isDisabled}
+              onClick={() => configureMutation.mutate()}
             >
               Configure
             </Button.Button>
+            <Button.Icon
+              loading={isLoading}
+              disabled={isDisabled}
+              onClick={() => startOrStopMutation.mutate()}
+              variant="outlined"
+            >
+              {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
+            </Button.Icon>
           </Align.Space>
         </Align.Pack>
       </Form.Form>
@@ -236,4 +211,7 @@ export const Wrapped = ({
   );
 };
 
-export const Configure = wrapTaskLayout(Wrapped, ZERO_PAYLOAD);
+export const Sequence = Common.Task.wrap(Internal, {
+  getInitialPayload: () => ZERO_PAYLOAD,
+  configSchema: configZ,
+});

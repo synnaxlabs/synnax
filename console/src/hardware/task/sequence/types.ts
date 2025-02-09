@@ -18,11 +18,9 @@ export const configZ = z.object({
   read: z.array(channel.keyZ),
   write: z.array(channel.keyZ),
   script: z.string(),
-  globals: z.record(z.string(), z.any()),
+  globals: z.record(z.string(), z.unknown()),
 });
-
 export type Config = z.infer<typeof configZ>;
-
 export const ZERO_CONFIG: Config = {
   rate: 10,
   read: [],
@@ -31,11 +29,7 @@ export const ZERO_CONFIG: Config = {
   globals: {},
 };
 
-export const stateDetailsZ = z.object({
-  running: z.boolean(),
-  message: z.string(),
-});
-
+export const stateDetailsZ = z.object({ running: z.boolean(), message: z.string() });
 export type StateDetails = z.infer<typeof stateDetailsZ>;
 
 export type Task = task.Task<Config, StateDetails, Type>;
@@ -43,7 +37,7 @@ export type Payload = task.Payload<Config, StateDetails, Type>;
 
 export const ZERO_PAYLOAD: Payload = {
   key: "",
-  name: "Sequence Task",
+  name: "Control Sequence",
   config: ZERO_CONFIG,
   type: TYPE,
 };

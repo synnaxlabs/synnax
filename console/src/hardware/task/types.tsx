@@ -14,14 +14,21 @@ import { caseconv } from "@synnaxlabs/x";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { Sequence } from "@/hardware/task/sequence";
 
-const PREFIXES = [LabJack.Task.PREFIX, NI.Task.PREFIX, OPC.Task.PREFIX] as const;
+const PREFIXES = [
+  LabJack.Task.PREFIX,
+  NI.Task.PREFIX,
+  OPC.Task.PREFIX,
+  Sequence.TYPE,
+] as const;
 type Prefix = (typeof PREFIXES)[number];
 
 const ICONS: Record<Prefix, PIcon.Element> = {
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPC.Task.PREFIX]: <Icon.Logo.OPC />,
+  [Sequence.TYPE]: <Icon.Control />,
 };
 
 export const getIcon = (type: string): PIcon.Element => {
@@ -33,9 +40,11 @@ const PREFIX_NAMES: Record<Prefix, string> = {
   [LabJack.Task.PREFIX]: "LabJack",
   [NI.Task.PREFIX]: "NI",
   [OPC.Task.PREFIX]: "OPC UA",
+  [Sequence.TYPE]: "Sequence",
 };
 
 export const parseType = (type: string): string => {
+  if (type === Sequence.TYPE) return "Control Sequence";
   const words = type.split("_");
   let isFirstWordModified = false;
   for (const prefix of PREFIXES)

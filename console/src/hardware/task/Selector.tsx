@@ -10,12 +10,14 @@
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { Sequence } from "@/hardware/task/sequence";
 import { Layout } from "@/layout";
 
 export const SELECTABLES: Layout.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
+  ...Sequence.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

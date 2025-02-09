@@ -38,7 +38,6 @@ import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { Sequence } from "@/sequence";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Table } from "@/table";
@@ -65,7 +64,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
   ...Table.LAYOUTS,
-  ...Sequence.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

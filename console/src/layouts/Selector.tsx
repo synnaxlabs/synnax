@@ -15,7 +15,6 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Sequence } from "@/sequence";
 import { Table } from "@/table";
 
 const SELECTABLES: Layout.Selectable[] = [
@@ -24,7 +23,6 @@ const SELECTABLES: Layout.Selectable[] = [
   Table.SELECTABLE,
   ...Log.SELECTABLES,
   ...Hardware.SELECTABLES,
-  ...Sequence.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";
