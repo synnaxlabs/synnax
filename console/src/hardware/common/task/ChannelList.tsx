@@ -12,6 +12,7 @@ import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components/menu";
+import { CSS } from "@/css";
 
 export interface Channel {
   key: string;
@@ -136,14 +137,14 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space empty grow>
+    <Align.Space className={CSS.B("channel-list")} empty>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        style={{ height: "100%" }}
+        style={{ height: "calc(100% - 6rem)" }}
       >
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>

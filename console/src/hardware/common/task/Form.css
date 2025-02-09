@@ -20,82 +20,31 @@
         max-width: 1000px;
         overflow-y: auto;
         width: 100%;
-        flex-grow: 1;
 
         .console-task-channel-form-container {
-            background: var(--pluto-gray-l1);
-            display: flex;
-            min-height: 225px;
-            /* height of 0 means list items will produce overflow scroll correctly */
-            height: 0px;
-            border-radius: 1rem;
             overflow: hidden;
-
-            .console-channels {
-                border-right: var(--pluto-border);
-                overflow: hidden;
-                max-width: 300px;
-                height: 100%;
-                flex-shrink: 1;
-                flex-grow: 1;
-
-                .pluto-menu-context__container {
-                    overflow: hidden;
-                }
-
-                .console-hover-actions {
-                    display: none;
-                }
-
-                .pluto-list__item:hover {
-                    .console-hover-actions {
-                        display: flex;
-                    }
-                }
-            }
-
-            .console-channel-form {
-                overflow: hidden;
-                .console-details {
-                    height: 100%;
-                    overflow: auto;
-                    padding: 3rem 5rem;
-                }
-            }
         }
-    }
-}
 
-@container (max-height: 600px) {
-    .pluto-input input.pluto-text--h1 {
-        font-size: var(--pluto-h2-size);
-        line-height: var(--pluto-h2-line-height);
+        .console-channel-list {
+            max-width: 300px;
+            flex-basis: 250px;
+        }
+
+        .console-details {
+            padding: 1rem 3rem;
+            overflow: scroll;
+            height: 100%;
+        }
     }
 }
 
 @container (max-width: 600px) {
-    .console-task-properties {
-        flex-direction: column !important;
-    }
-    .pluto-input input.pluto-text--h1 {
-        font-size: var(--pluto-h2-size);
-        line-height: var(--pluto-h2-line-height);
-    }
-
-    .console-content {
-        padding: 3rem 2rem !important;
-    }
-    .console-channel-form-container {
-        flex-direction: column !important;
-
-        .console-channels {
-            max-width: 100% !important;
-            border-right: none !important;
+    .console-task-configure {
+        > div {
+            padding: 3rem 2rem;
         }
-        .console-channel-form {
-            flex-grow: 1;
-            flex-basis: 800px;
-            border-top: var(--pluto-border);
+        .console-details {
+            padding: 1rem 2rem;
         }
     }
 

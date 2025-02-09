@@ -9,11 +9,12 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
+import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/labjack/device";
 import { CustomScaleForm } from "@/hardware/labjack/task/CustomScaleForm";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
@@ -85,23 +86,17 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="x" size="small">
-        <Text.Text level="p" shade={6}>
-          {port}
-        </Text.Text>
-        <Common.Task.ChannelName channel={channel} />
-      </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
-        {hasTareButton && (
-          <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
-        )}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Pack>
-    </List.ItemFrame>
+    <Layouts.ListAndDetailsChannelItem
+      {...rest}
+      port={port}
+      canTare={canTare}
+      onTare={onTare}
+      isSnapshot={isSnapshot}
+      path={path}
+      hasTareButton={hasTareButton}
+      channel={channel}
+      portMaxChars={5}
+    />
   );
 };
 
@@ -306,7 +301,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(() => <Properties />, Form, {
+export const Read = Common.Task.wrapForm(Properties, Form, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

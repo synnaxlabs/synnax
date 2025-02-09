@@ -67,7 +67,7 @@ export const ListAndDetails = <C extends Channel>({
     if (selectedIndex === -1) return;
     copy(
       binary.JSON_CODEC.encodeString(get(`config.channels.${selectedIndex}`).value),
-      "Channel details",
+      "channel details",
     );
   }, [selectedIndex, copy, get]);
   return (
@@ -97,13 +97,7 @@ export const ListAndDetails = <C extends Channel>({
           </Header.Actions>
         </Header.Header>
         {selectedIndex === -1 ? null : (
-          <Align.Space
-            direction="y"
-            className={CSS.B("details")}
-            empty
-            grow
-            style={{ padding: "1rem 5rem", overflow: "scroll", height: "100%" }}
-          >
+          <Align.Space direction="y" className={CSS.B("details")} empty grow>
             <Details path={`config.channels.${selectedIndex}`} />
           </Align.Space>
         )}

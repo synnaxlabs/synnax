@@ -9,11 +9,12 @@
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
+import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
+import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
@@ -75,25 +76,18 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="x">
-        <Text.Text level="p" shade={6}>
-          {port}
-        </Text.Text>
-        <Text.Text level="p" shade={9}>
-          {AI_CHANNEL_TYPE_NAMES[type]}
-        </Text.Text>
-      </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
-        {hasTareButton && (
-          <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
-        )}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Pack>
-    </List.ItemFrame>
+    <Layouts.ListAndDetailsChannelItem
+      {...rest}
+      port={port}
+      canTare={canTare}
+      onTare={onTare}
+      isSnapshot={isSnapshot}
+      path={path}
+      hasTareButton={hasTareButton}
+      channel={channel}
+      name={AI_CHANNEL_TYPE_NAMES[type]}
+      portMaxChars={2}
+    />
   );
 };
 
@@ -212,13 +206,9 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   return [config, rackKey];
 };
 
-export const AnalogRead = Common.Task.wrapForm(
-  () => <Properties />,
-  (p) => <Form {...p} />,
-  {
-    configSchema: analogReadConfigZ,
-    type: ANALOG_READ_TYPE,
-    getInitialPayload,
-    onConfigure,
-  },
-);
+export const AnalogRead = Common.Task.wrapForm(Properties, Form, {
+  configSchema: analogReadConfigZ,
+  type: ANALOG_READ_TYPE,
+  getInitialPayload,
+  onConfigure,
+});

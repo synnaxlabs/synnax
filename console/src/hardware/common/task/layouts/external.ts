@@ -9,3 +9,4 @@
 
 export * from "@/hardware/common/task/layouts/List";
 export * from "@/hardware/common/task/layouts/ListAndDetails";
+export * from "@/hardware/common/task/layouts/ListAndDetailsChannelItem";
