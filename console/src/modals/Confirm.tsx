@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Nav, type Status, Text } from "@synnaxlabs/pluto";
+import { Button, Nav, type Status, Text } from "@synnaxlabs/pluto";
 
-import { Layout } from "@/layout";
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
+import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";
 
 export interface PromptConfirmLayoutArgs extends BaseArgs<boolean> {
@@ -31,42 +31,38 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
     const { variant: confirmVariant = "error", label: confirmLabel = "Confirm" } =
       confirm ?? {};
     const { variant: cancelVariant, label: cancelLabel = "Cancel" } = cancel ?? {};
+
+    const footer = (
+      <>
+        <Triggers.SaveHelpText action={confirmLabel} />
+        <Nav.Bar.End direction="x" align="center">
+          <Button.Button
+            variant="outlined"
+            status={cancelVariant}
+            onClick={() => onFinish(false)}
+          >
+            {cancelLabel}
+          </Button.Button>
+          <Button.Button
+            status={confirmVariant}
+            onClick={() => onFinish(true)}
+            triggers={Triggers.SAVE}
+          >
+            {confirmLabel}
+          </Button.Button>
+        </Nav.Bar.End>
+      </>
+    );
+
     return (
-      <Align.Space direction="y" grow justify="center">
-        <Align.Space
-          direction="y"
-          grow
-          align="start"
-          justify="center"
-          style={{ padding: "5rem" }}
-        >
-          <Text.Text level="h3" shade={9} weight={450}>
-            {message}
-          </Text.Text>
-          <Text.Text level="p" shade={7} weight={450}>
-            {description}
-          </Text.Text>
-        </Align.Space>
-        <Layout.BottomNavBar>
-          <Triggers.SaveHelpText action={confirmLabel} />
-          <Nav.Bar.End direction="x" align="center">
-            <Button.Button
-              variant="outlined"
-              status={cancelVariant}
-              onClick={() => onFinish(false)}
-            >
-              {cancelLabel}
-            </Button.Button>
-            <Button.Button
-              status={confirmVariant}
-              onClick={() => onFinish(true)}
-              triggers={Triggers.SAVE}
-            >
-              {confirmLabel}
-            </Button.Button>
-          </Nav.Bar.End>
-        </Layout.BottomNavBar>
-      </Align.Space>
+      <ModalContentLayout footer={footer}>
+        <Text.Text level="h3" shade={9} weight={450}>
+          {message}
+        </Text.Text>
+        <Text.Text level="p" shade={7} weight={450}>
+          {description}
+        </Text.Text>
+      </ModalContentLayout>
     );
   },
 );

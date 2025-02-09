@@ -154,7 +154,7 @@ public:
     /// @param value the value to set. The provided value should be compatible with
     /// the series' data type. It is up to you to ensure that this is the case.
     template<typename NumericType>
-    void set(const int index, const NumericType value) {
+    void set(const int &index, const NumericType value) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -175,7 +175,7 @@ public:
     /// @throws std::runtime_error if the index is out of bounds or the write would
     /// exceed the capacity of the series.
     template<typename NumericType>
-    void set_array(const NumericType *d, const int index, const size_t size_) {
+    void set_array(const NumericType *d, const int &index, const size_t size_) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -194,7 +194,7 @@ public:
     /// as an offset from the end of the series.
     /// @throws std::runtime_error if the index is out of bounds or the write would
     template<typename NumericType>
-    void set(const std::vector<NumericType> &d, const int index) {
+    void set(const std::vector<NumericType> &d, const int &index) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -307,7 +307,8 @@ public:
     explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
         if (this->data_type.is_variable()) {
             this->size = 0;
-            for (const char &v: s.data()) if (v == NEWLINE_TERMINATOR_CHAR) this->size++;
+            for (const char &v: s.data()) if (v == NEWLINE_TERMINATOR_CHAR) this->size
+                    ++;
             this->cached_byte_size = s.data().size();
         } else this->size = s.data().size() / this->data_type.density();
         this->cap = this->size;
@@ -358,7 +359,7 @@ public:
     /// @param index the index to get the number at. If negative, the index is treated
     /// as an offset from the end of the series.
     template<typename NumericType>
-    NumericType operator[](const int index) const {
+    NumericType operator[](const int &index) const {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "template argument to operator[] must be a numeric type"
@@ -371,7 +372,7 @@ public:
     /// @param index the index to get the number at. If negative, the index is treated
     /// as an offset from the end of the series.
     template<typename NumericType>
-    [[nodiscard]] NumericType at(const int index) const {
+    [[nodiscard]] NumericType at(const int &index) const {
         const auto adjusted = this->validate_bounds(index);
         NumericType value;
         memcpy(
@@ -382,12 +383,37 @@ public:
         return value;
     }
 
+    /// @returns the value at the given index.
+    [[nodiscard]] SampleValue at(const int &index) const {
+        const auto adjusted = validate_bounds(index);
+        const auto dt = this->data_type;
+        if (dt == FLOAT64) return this->at<double>(adjusted);
+        if (dt == FLOAT32) return this->at<float>(adjusted);
+        if (dt == INT64) return this->at<int64_t>(adjusted);
+        if (dt == INT32) return this->at<int32_t>(adjusted);
+        if (dt == INT16) return this->at<int16_t>(adjusted);
+        if (dt == INT8) return this->at<int8_t>(adjusted);
+        if (dt == UINT64) return this->at<uint64_t>(adjusted);
+        if (dt == UINT32) return this->at<uint32_t>(adjusted);
+        if (dt == SY_UINT16) return this->at<uint16_t>(adjusted);
+        if (dt == SY_UINT8) return this->at<uint8_t>(adjusted);
+        if (dt == STRING || dt == JSON) {
+            std::string value;
+            this->at(adjusted, value);
+            return value;
+        }
+        throw std::runtime_error(
+            "unsupported data type for value_at: " + data_type.name()
+        );
+    }
+
+
     /// @brief binds the string value at the given index to the provided string. The
     /// series' data type must be STRING or JSON.
     /// @param index the index to get the string at. If negative, the index is treated
     /// as an offset from the end of the series.
     /// @param value the string to bind the value to.
-    void at(const int index, std::string &value) const {
+    void at(const int &index, std::string &value) const {
         if (!data_type.matches({STRING, JSON}))
             throw std::runtime_error(
                 "cannot bind a string value on a non-string or JSON series"
@@ -499,30 +525,6 @@ public:
     /// range is set to the nanosecond AFTER the last sample in the array (exclusive).
     synnax::TimeRange time_range = synnax::TimeRange();
 
-    /// @returns the
-    [[nodiscard]] SampleValue at(const int index) const {
-        const auto adjusted = validate_bounds(index);
-        const auto dt = this->data_type;
-        if (dt == FLOAT64) return this->at<double>(adjusted);
-        if (dt == FLOAT32) return this->at<float>(adjusted);
-        if (dt == INT64) return this->at<int64_t>(adjusted);
-        if (dt == INT32) return this->at<int32_t>(adjusted);
-        if (dt == INT16) return this->at<int16_t>(adjusted);
-        if (dt == INT8) return this->at<int8_t>(adjusted);
-        if (dt == UINT64) return this->at<uint64_t>(adjusted);
-        if (dt == UINT32) return this->at<uint32_t>(adjusted);
-        if (dt == SY_UINT16) return this->at<uint16_t>(adjusted);
-        if (dt == SY_UINT8) return this->at<uint8_t>(adjusted);
-        if (dt == STRING || dt == JSON) {
-            std::string value;
-            this->at(adjusted, value);
-            return value;
-        }
-        throw std::runtime_error(
-            "unsupported data type for value_at: " + data_type.name()
-        );
-    }
-
 private:
     /// @brief cached_byte_size is an optimization for variable rate channels that
     /// caches the byte size of the series so it doesn't need to be re-calculated.
@@ -532,7 +534,7 @@ private:
     /// write size is provided, it will also validate that the write does not exceed
     /// the capacity of the series.
     [[nodiscard]] int validate_bounds(
-        const int index,
+        const int &index,
         const size_t write_size = 0
     ) const {
         auto adjusted = index;

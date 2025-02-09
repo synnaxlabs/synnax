@@ -1,5 +1,6 @@
 cc_library(
     name = "driver",
+    srcs = ["config.cpp"],
     hdrs = ["config.h"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

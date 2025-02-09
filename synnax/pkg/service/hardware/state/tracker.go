@@ -159,7 +159,9 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		defer t.mu.Unlock()
 		for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
 			if c.Variant == change.Delete {
-				delete(t.mu.Racks[c.Key.Rack()].Tasks, c.Key)
+				if _, rackOk := t.mu.Racks[c.Key.Rack()]; rackOk {
+					delete(t.mu.Racks[c.Key.Rack()].Tasks, c.Key)
+				}
 			} else {
 				rackKey := c.Key.Rack()
 				rck, rckOk := t.mu.Racks[rackKey]

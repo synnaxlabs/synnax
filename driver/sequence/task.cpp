@@ -104,26 +104,59 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         return nullptr;
     }
 
-    auto [read_channels, r_err] = ctx->client->channels.retrieve(cfg.read);
-    if (r_err) {
-        LOG(ERROR) << "[sequence] failed to retrieve read channels: " << r_err;
-        cfg_state.variant = "error";
-        cfg_state.details = {
-            {"running", false},
-            {"message", r_err.message()},
-        };
-        return nullptr;
+    auto json_plugin = std::make_shared<plugins::JSON>(cfg.globals);
+    auto time_plugin = std::make_shared<plugins::Time>();
+    std::vector<std::shared_ptr<plugins::Plugin> > plugins_list{
+        json_plugin,
+        time_plugin
+    };
+
+    if (!cfg.read.empty()) {
+        auto [read_channels, r_err] = ctx->client->channels.retrieve(cfg.read);
+        if (r_err) {
+            LOG(ERROR) << "[sequence] failed to retrieve read channels: " << r_err;
+            cfg_state.variant = "error";
+            cfg_state.details = {
+                {"running", false},
+                {"message", r_err.message()},
+            };
+            return nullptr;
+        }
+        auto ch_receive_plugin = std::make_shared<plugins::ChannelReceive>(
+            ctx->client,
+            read_channels
+        );
+        plugins_list.push_back(ch_receive_plugin);
     }
 
-    auto [write_channels, w_err] = ctx->client->channels.retrieve(cfg.write);
-    if (w_err) {
-        LOG(ERROR) << "[sequence] failed to retrieve write channels: " << w_err;
-        cfg_state.variant = "error";
-        cfg_state.details = {
-            {"running", false},
-            {"message", w_err.message()},
+    if (!cfg.write.empty()) {
+        auto [write_channels, w_err] = ctx->client->channels.retrieve(cfg.write);
+        if (w_err) {
+            LOG(ERROR) << "[sequence] failed to retrieve write channels: " << w_err;
+            cfg_state.variant = "error";
+            cfg_state.details = {
+                {"running", false},
+                {"message", w_err.message()},
+            };
+            return nullptr;
+        }
+        for (const auto &ch: write_channels) 
+            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(), ch.index) == cfg.write.end())
+                cfg.write.push_back(ch.index);
+
+        const synnax::WriterConfig writer_cfg{
+            .channels = cfg.write,
+            .start = synnax::TimeStamp::now(),
+            .authorities = {200},
+            .subject = synnax::ControlSubject{
+                .name = task.name,
+                .key = std::to_string(task.key),
+            }
         };
-        return nullptr;
+        auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
+        auto ch_write_plugin = std::make_shared<
+            plugins::ChannelWrite>(sink, write_channels);
+        plugins_list.push_back(ch_write_plugin);
     }
 
     auto breaker_config = breaker::Config{
@@ -133,31 +166,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         .scale = 1.2,
     };
 
-    const synnax::WriterConfig writer_cfg{
-        .channels = cfg.write,
-        .start = synnax::TimeStamp::now(),
-        .authorities = {200},
-        .subject = synnax::ControlSubject{
-            .name = task.name,
-            .key = std::to_string(task.key),
-        }
-    };
 
-    auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
-    auto json_plugin = std::make_shared<plugins::JSON>(cfg.globals);
-    auto ch_receive_plugin = std::make_shared<plugins::ChannelReceive>(
-        ctx->client,
-        read_channels
-    );
-    auto ch_write_plugin = std::make_shared<
-        plugins::ChannelWrite>(sink, write_channels);
-    auto time_plugin = std::make_shared<plugins::Time>();
-    const std::vector<std::shared_ptr<plugins::Plugin> > plugins_list{
-        json_plugin,
-        ch_receive_plugin,
-        ch_write_plugin,
-        time_plugin
-    };
     auto seq = std::make_unique<sequence::Sequence>(
         std::make_shared<plugins::MultiPlugin>(plugins_list),
         cfg.script

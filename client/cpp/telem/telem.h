@@ -122,31 +122,31 @@ private:
     /// @brief stores a map of C++ type indexes to their correspondign synnax data
     /// type identifiers.
     inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
-        {std::type_index(typeid(int)), "int32"},
-        {std::type_index(typeid(double)), "float64"},
         {std::type_index(typeid(float)), "float32"},
-        {std::type_index(typeid(long long)), "int64"},
-        {std::type_index(typeid(short)), "int16"},
+        {std::type_index(typeid(double)), "float64"},
         {std::type_index(typeid(char)), "int8"},
-        {std::type_index(typeid(unsigned int)), "int32"},
-        {std::type_index(typeid(unsigned long long)), "uint64"},
-        {std::type_index(typeid(unsigned short)), "uint16"},
+        {std::type_index(typeid(short)), "int16"},
+        {std::type_index(typeid(int)), "int32"},
+        {std::type_index(typeid(long long)), "int64"},
         {std::type_index(typeid(unsigned char)), "uint8"},
+        {std::type_index(typeid(unsigned short)), "uint16"},
+        {std::type_index(typeid(unsigned int)), "uint32"},
+        {std::type_index(typeid(unsigned long long)), "uint64"},
         {std::type_index(typeid(std::string)), "string"},
     };
 
     /// @brief Maps the data type id to name
     inline static std::unordered_map<std::string, std::string> NAMES = {
-        {typeid(int).name(), "int32"},
         {typeid(double).name(), "float64"},
         {typeid(float).name(), "float32"},
-        {typeid(long long).name(), "int64"},
-        {typeid(short).name(), "int16"},
         {typeid(char).name(), "int8"},
+        {typeid(short).name(), "int16"},
+        {typeid(int).name(), "int32"},
+        {typeid(long long).name(), "int64"},
+        {typeid(unsigned char).name(), "uint8"},
+        {typeid(unsigned short).name(), "uint16"},
         {typeid(unsigned int).name(), "uint32"},
         {typeid(unsigned long long).name(), "uint64"},
-        {typeid(unsigned short).name(), "uint16"},
-        {typeid(unsigned char).name(), "uint8"},
         {typeid(std::string).name(), "string"},
     };
 };

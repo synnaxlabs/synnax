@@ -377,19 +377,15 @@ void notify_watchdog() {
 }
 
 void run(const Config &config, int argc, char *argv[]) {
-    // Initialize logging
     google::SetLogDestination(google::INFO, "/var/log/synnax-driver");
-
     update_status(Status::INITIALIZING, "Starting daemon");
     update_status(Status::READY, "Daemon ready");
-
     try {
         config.callback(argc, argv);
     } catch (const std::exception &e) {
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();
     }
-
     update_status(Status::STOPPING, "Stopping daemon");
 }
 
