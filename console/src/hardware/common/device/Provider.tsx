@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { use } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
 
-const DEFAULT_NONE_SELECTED_ELEMENT = (
+const DEFAULT_NONE_SELECTED_CONTENT = (
   <Align.Center>
     <Text.Text level="p">No device selected.</Text.Text>
   </Align.Center>
@@ -37,7 +37,7 @@ export interface ProviderProps<
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
   configureLayout: Omit<Layout.BaseState, "key">;
-  noneSelectedElement?: ReactElement;
+  noneSelectedContent?: ReactElement;
 }
 
 export const Provider = <
@@ -48,11 +48,11 @@ export const Provider = <
   canConfigure,
   children,
   configureLayout,
-  noneSelectedElement = DEFAULT_NONE_SELECTED_ELEMENT,
+  noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
 }: ProviderProps<Properties, Make, Model>) => {
   const device = use<Properties, Make, Model>();
   const placeLayout = Layout.usePlacer();
-  if (device == null) return noneSelectedElement;
+  if (device == null) return noneSelectedContent;
   if (!device.configured) {
     const { name } = device;
     const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
