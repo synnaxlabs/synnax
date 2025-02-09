@@ -307,8 +307,9 @@ public:
     explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
         if (this->data_type.is_variable()) {
             this->size = 0;
-            for (const char &v: s.data()) if (v == NEWLINE_TERMINATOR_CHAR) this->size
-                    ++;
+            for (const char &v: s.data())
+                if (v == NEWLINE_TERMINATOR_CHAR)
+                    this->size++;
             this->cached_byte_size = s.data().size();
         } else this->size = s.data().size() / this->data_type.density();
         this->cap = this->size;
