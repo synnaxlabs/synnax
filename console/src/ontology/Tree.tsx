@@ -92,7 +92,7 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.RootID, {
+  const fetched = await client.ontology.retrieveChildren(ontology.ROOT_ID, {
     includeSchema: true,
   });
   setNodes(toTreeNodes(services, fetched));

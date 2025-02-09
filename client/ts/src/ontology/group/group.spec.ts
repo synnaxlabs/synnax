@@ -19,14 +19,14 @@ describe("Group", () => {
   describe("create", () => {
     it("should correctly create a group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create(ontology.RootID, name);
+      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
       expect(g.name).toEqual(name);
     });
   });
   describe("rename", () => {
     it("should correctly rename a group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create(ontology.RootID, name);
+      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
       const newName = `group-${Math.random()}`;
       await client.ontology.groups.rename(g.key, newName);
       const g2 = await client.ontology.retrieve(g.ontologyID);
@@ -36,7 +36,7 @@ describe("Group", () => {
   describe("delete", () => {
     it("should correctly delete the group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create(ontology.RootID, name);
+      const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
       await client.ontology.groups.delete(g.key);
       await expect(
         async () => await client.ontology.retrieve(g.ontologyID),
