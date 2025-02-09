@@ -105,7 +105,7 @@ export const wrapForm = <
         if (config == null) throw new Error("Config is required");
         const [newConfig, rackKey] = await onConfigure(client, config, tsk.key, name);
         methods.set("config", newConfig);
-        // current work around for Pluto form issues
+        // current work around for Pluto form issues (Issue: SY-1465)
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
 
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
