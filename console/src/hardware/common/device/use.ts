@@ -36,14 +36,14 @@ interface UseContextValue
  * @template MO - The device model type.
  */
 export const use = <
-  P extends UnknownRecord = UnknownRecord,
-  MK extends string = string,
-  MO extends string = string,
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
 >() => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [device, setDevice] = useState<device.Device<P, MK, MO>>();
+  const [device, setDevice] = useState<device.Device<Properties, Make, Model>>();
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
@@ -62,7 +62,9 @@ export const use = <
       return;
     }
     try {
-      const device = await client.hardware.devices.retrieve<P, MK, MO>(deviceKey);
+      const device = await client.hardware.devices.retrieve<Properties, Make, Model>(
+        deviceKey,
+      );
       setDevice(device);
     } catch (e) {
       handleExc(e);
@@ -75,7 +77,7 @@ export const use = <
       (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
-          .retrieve<P, MK, MO>(fs.value)
+          .retrieve<Properties, Make, Model>(fs.value)
           .then(setDevice)
           .catch(handleExc);
       },
@@ -89,7 +91,7 @@ export const use = <
       for (const change of changes) {
         if (change.key !== device?.key) continue;
         if (change.variant === "set")
-          setDevice(change.value as device.Device<P, MK, MO>);
+          setDevice(change.value as device.Device<Properties, Make, Model>);
         else setDevice(undefined);
       }
     },

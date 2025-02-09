@@ -29,21 +29,28 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
   window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },
 };
 
-interface InternalProps<P extends UnknownRecord>
-  extends Pick<Layout.RendererProps, "onClose"> {
-  device: device.Device<P>;
-  zeroProperties: P;
+interface InternalProps<
+  Properties extends UnknownRecord,
+  Make extends string,
+  Model extends string,
+> extends Pick<Layout.RendererProps, "onClose"> {
+  device: device.Device<Properties, Make, Model>;
+  zeroProperties: Properties;
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
-const Internal = <P extends UnknownRecord>({
+const Internal = <
+  Properties extends UnknownRecord,
+  Make extends string,
+  Model extends string,
+>({
   device,
   device: { name },
   onClose,
   zeroProperties,
-}: InternalProps<P>) => {
+}: InternalProps<Properties, Make, Model>) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
     values: { name, identifier: "" },
     schema: configurablePropertiesZ,
@@ -163,20 +170,27 @@ const Internal = <P extends UnknownRecord>({
   );
 };
 
-export interface ConfigureProps<P extends UnknownRecord>
-  extends Layout.RendererProps,
-    Pick<InternalProps<P>, "zeroProperties"> {}
+export interface ConfigureProps<
+  Properties extends UnknownRecord,
+  Make extends string,
+  Model extends string,
+> extends Layout.RendererProps,
+    Pick<InternalProps<Properties, Make, Model>, "zeroProperties"> {}
 
-export const Configure = <P extends UnknownRecord>({
+export const Configure = <
+  Properties extends UnknownRecord,
+  Make extends string,
+  Model extends string,
+>({
   layoutKey,
   ...rest
-}: ConfigureProps<P>) => {
+}: ConfigureProps<Properties, Make, Model>) => {
   const client = Synnax.use();
   const { data, error, isError, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
       if (client == null) throw new Error("Cannot reach server");
-      return await client.hardware.devices.retrieve<P>(layoutKey);
+      return await client.hardware.devices.retrieve<Properties, Make, Model>(layoutKey);
     },
   });
   if (isPending)

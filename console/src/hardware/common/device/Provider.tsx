@@ -22,35 +22,35 @@ const DEFAULT_NONE_SELECTED_ELEMENT = (
 );
 
 export interface ProviderChildProps<
-  P extends UnknownRecord = UnknownRecord,
-  MK extends string = string,
-  MO extends string = string,
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
 > {
-  device: device.Device<P, MK, MO>;
+  device: device.Device<Properties, Make, Model>;
 }
 
 export interface ProviderProps<
-  P extends UnknownRecord = UnknownRecord,
-  MK extends string = string,
-  MO extends string = string,
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
 > {
   canConfigure: boolean;
-  children: (props: ProviderChildProps<P, MK, MO>) => ReactElement;
+  children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
   configureLayout: Omit<Layout.BaseState, "key">;
   noneSelectedElement?: ReactElement;
 }
 
 export const Provider = <
-  P extends UnknownRecord = UnknownRecord,
-  MK extends string = string,
-  MO extends string = string,
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
 >({
   canConfigure,
   children,
   configureLayout,
   noneSelectedElement = DEFAULT_NONE_SELECTED_ELEMENT,
-}: ProviderProps<P, MK, MO>) => {
-  const device = use<P, MK, MO>();
+}: ProviderProps<Properties, Make, Model>) => {
+  const device = use<Properties, Make, Model>();
   const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedElement;
   if (!device.configured) {

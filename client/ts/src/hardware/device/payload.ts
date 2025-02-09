@@ -30,22 +30,26 @@ export const deviceZ = z.object({
     ) as z.ZodType<UnknownRecord>,
 });
 export interface Device<
-  P extends UnknownRecord = UnknownRecord,
-  MK extends string = string,
-  MO extends string = string,
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
 > extends Omit<z.output<typeof deviceZ>, "properties"> {
-  properties: P;
-  make: MK;
-  model: MO;
+  properties: Properties;
+  make: Make;
+  model: Model;
 }
 
 export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
-export interface New<P extends UnknownRecord = UnknownRecord, M extends string = string>
-  extends Omit<z.input<typeof newZ>, "properties"> {
-  properties: P;
-  make: M;
+export interface New<
+  Properties extends UnknownRecord = UnknownRecord,
+  Make extends string = string,
+  Model extends string = string,
+> extends Omit<z.input<typeof newZ>, "properties"> {
+  properties: Properties;
+  make: Make;
+  model: Model;
 }
 
 export const ONTOLOGY_TYPE = "device";
