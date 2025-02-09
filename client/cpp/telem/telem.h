@@ -52,8 +52,10 @@ public:
     /// @returns the data type corresponding to the given type.
     template<typename T>
     DataType static infer() {
-        if (!TYPE_INDEXES.count(std::type_index(typeid(T)))) return DataType("");
-        return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
+        const auto type_index = std::type_index(typeid(T));
+        if (!TYPE_INDEXES.count(type_index))
+            throw std::runtime_error("failed to infer data type for " + std::string(typeid(T).name()));
+        return DataType(TYPE_INDEXES[type_index]);
     }
 
     /// @property Gets type name.
@@ -132,13 +134,23 @@ private:
         {std::type_index(typeid(float)), "float32"},
         {std::type_index(typeid(double)), "float64"},
         {std::type_index(typeid(char)), "int8"},
+        {std::type_index(typeid(std::int8_t)), "int8"},
         {std::type_index(typeid(short)), "int16"},
+        {std::type_index(typeid(std::int16_t)), "int16"},
         {std::type_index(typeid(int)), "int32"},
+        {std::type_index(typeid(std::int32_t)), "int32"},
+        {std::type_index(typeid(long)), sizeof(long) == 8 ? "int64" : "int32"},
         {std::type_index(typeid(long long)), "int64"},
+        {std::type_index(typeid(std::int64_t)), "int64"},
         {std::type_index(typeid(unsigned char)), "uint8"},
+        {std::type_index(typeid(std::uint8_t)), "uint8"},
         {std::type_index(typeid(unsigned short)), "uint16"},
+        {std::type_index(typeid(std::uint16_t)), "uint16"},
         {std::type_index(typeid(unsigned int)), "uint32"},
+        {std::type_index(typeid(std::uint32_t)), "uint32"},
+        {std::type_index(typeid(unsigned long)), sizeof(unsigned long) == 8 ? "uint64" : "uint32"},
         {std::type_index(typeid(unsigned long long)), "uint64"},
+        {std::type_index(typeid(std::uint64_t)), "uint64"},
         {std::type_index(typeid(std::string)), "string"},
     };
 
@@ -147,11 +159,17 @@ private:
         {typeid(double).name(), "float64"},
         {typeid(float).name(), "float32"},
         {typeid(char).name(), "int8"},
+        {typeid(std::int8_t).name(), "int8"},
         {typeid(short).name(), "int16"},
+        {typeid(std::int16_t).name(), "int16"},
         {typeid(int).name(), "int32"},
+        {typeid(std::int32_t).name(), "int32"},
         {typeid(long long).name(), "int64"},
+        {typeid(std::int64_t).name(), "int64"},
         {typeid(unsigned char).name(), "uint8"},
+        {typeid(std::uint8_t).name(), "uint8"},
         {typeid(unsigned short).name(), "uint16"},
+        {typeid(std::uint16_t).name(), "uint16"},
         {typeid(unsigned int).name(), "uint32"},
         {typeid(unsigned long long).name(), "uint64"},
         {typeid(std::string).name(), "string"},
