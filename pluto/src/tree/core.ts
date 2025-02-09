@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, toArray, unique } from "@synnaxlabs/x";
+import { compare, toArray, unique, type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Haul } from "@/haul";
 import { type Icon } from "@/icon";
@@ -24,6 +24,7 @@ export interface Node {
   haulItems?: Haul.Item[];
   canDrop?: (items: Haul.Item[]) => boolean;
   href?: string;
+  extraData?: UnknownRecord;
 }
 
 export interface NodeWithPosition extends Node {

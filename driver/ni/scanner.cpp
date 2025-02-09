@@ -213,7 +213,7 @@ void ni::Scanner::create_devices() {
         }
         auto new_device = synnax::Device(
             device["key"].get<std::string>(), // key
-            device["model"].get<std::string>() + " / " + device["location"].get<std::string>(), // name
+            device["model"].get<std::string>(), // name
             synnax::task_key_rack(this->task.key), // rack key
             device["location"].get<std::string>(), // location
             device["serial_number"].get<std::string>(), // serial number

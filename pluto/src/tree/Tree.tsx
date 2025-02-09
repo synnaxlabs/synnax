@@ -155,6 +155,7 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
   loading: boolean;
   useMargin?: boolean;
+  children?: RenderProp<ItemProps>;
 }
 
 type TreePropsInheritedFromItem = Pick<
@@ -195,6 +196,10 @@ export const DefaultItem = memo(
     loading = false,
     useMargin = true,
     translate,
+    children: childrenProp,
+    index,
+    sourceIndex,
+    hovered,
   }: ItemProps): ReactElement => {
     const {
       key,
@@ -275,7 +280,7 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
-    let offset = depth * 2 + 1;
+    let offset = depth * 2.5 + 1;
     if (actuallyHasChildren && useMargin) offset -= 1;
 
     const baseProps: Button.LinkProps | Button.ButtonProps = {
@@ -300,7 +305,7 @@ export const DefaultItem = memo(
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${offset}rem`,
         // @ts-expect-error - CSS variable
-        "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
+        "--pluto-tree-indicator-offset": `${offset - 1.5}rem`,
       },
       startIcon: startIcons,
       iconSpacing: "small",
@@ -314,15 +319,33 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps}>
-        <Text.MaybeEditable
-          id={`text-${key}`}
-          level="p"
-          allowDoubleClick={false}
-          value={name}
-          disabled={!allowRename}
-          onChange={(name) => onRename?.(key, name)}
-        />
+      <Base className={CSS.BE("list", "item")} {...baseProps} align="center">
+        {childrenProp != null ? (
+          childrenProp({
+            key,
+            loading,
+            useMargin,
+            onDrop,
+            onRename,
+            onSuccessfulDrop,
+            onDoubleClick,
+            entry,
+            selected,
+            onSelect,
+            index,
+            sourceIndex,
+            hovered,
+          })
+        ) : (
+          <Text.MaybeEditable
+            id={`text-${key}`}
+            level="p"
+            allowDoubleClick={false}
+            value={name}
+            disabled={!allowRename}
+            onChange={(name) => onRename?.(key, name)}
+          />
+        )}
       </Base>
     );
   },

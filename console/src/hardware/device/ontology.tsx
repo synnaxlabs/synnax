@@ -9,7 +9,7 @@
 
 import { device, type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Align, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -121,6 +121,30 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
+const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => (
+  <Tree.DefaultItem {...rest} entry={entry}>
+    {({ entry, onRename, key }) => (
+      <>
+        <Text.MaybeEditable
+          id={`text-${key}`}
+          level="p"
+          allowDoubleClick={false}
+          value={entry.name}
+          disabled={!entry.allowRename}
+          onChange={(name) => onRename?.(entry.key, name)}
+        />
+        <Text.Text
+          level="small"
+          shade={6}
+          style={{ lineHeight: "100%", marginTop: "0.25rem" }}
+        >
+          {entry.extraData?.location as string}
+        </Text.Text>
+      </>
+    )}
+  </Tree.DefaultItem>
+);
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: device.ONTOLOGY_TYPE,
@@ -129,4 +153,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename: () => true,
   onRename: handleRename,
   TreeContextMenu,
+  Item,
 };

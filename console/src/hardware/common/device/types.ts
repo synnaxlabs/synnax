@@ -17,7 +17,11 @@ export const nameZ = z.string().min(1, "Name must be at least 1 character long")
 export const identifierZ = z
   .string()
   .min(2, IDENTIFIER_MESSAGE)
-  .max(12, IDENTIFIER_MESSAGE);
+  .max(12, IDENTIFIER_MESSAGE)
+  .regex(
+    /^[a-zA-Z][a-zA-Z0-9_]*$/,
+    "Identifier must start with a letter and can only contain letters, numbers, and underscores (no spaces or dashes)",
+  );
 
 export type Identifier = z.infer<typeof identifierZ>;
 
