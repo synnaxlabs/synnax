@@ -14,18 +14,18 @@ import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
-const COLUMNS: Array<List.ColumnSpec<rack.RackKey, rack.Rack>> = [
+const COLUMNS: Array<List.ColumnSpec<rack.Key, rack.Rack>> = [
   { key: "name", name: "Name" },
   { key: "location", name: "Location" },
 ];
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<rack.RackKey, rack.Rack>, "columns"> {}
+  extends Omit<Select.SingleProps<rack.Key, rack.Rack>, "columns"> {}
 
 export const SelectSingle = (props: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   return (
-    <Select.Single<rack.RackKey, rack.Rack>
+    <Select.Single<rack.Key, rack.Rack>
       columns={COLUMNS}
       searcher={client?.hardware.racks}
       entryRenderKey="name"

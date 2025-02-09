@@ -27,10 +27,7 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -41,7 +38,6 @@ import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { Sequence } from "@/sequence";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Table } from "@/table";
@@ -57,11 +53,9 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Workspace.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...LinePlot.LAYOUTS,
-  ...LabJack.LAYOUTS,
-  ...OPC.LAYOUTS,
+  ...Hardware.LAYOUTS,
   ...Range.LAYOUTS,
   ...Cluster.LAYOUTS,
-  ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
   ...Modals.LAYOUTS,
@@ -69,9 +63,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
-  ...Task.LAYOUTS,
   ...Table.LAYOUTS,
-  ...Sequence.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

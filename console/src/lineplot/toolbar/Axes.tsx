@@ -72,9 +72,9 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
   enabled: boolean;
 }
 
-const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
+const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
   <Button.Icon
-    {...props}
+    {...rest}
     variant="outlined"
     disabled={enabled}
     tooltip={

@@ -22,7 +22,7 @@ export interface TextDigest {
 
 export interface TextProps
   extends Omit<BaseText.WithIconProps, "level" | "wrap">,
-    Omit<TextDigest, "children"> {
+    TextDigest {
   level?: BaseText.Level;
   hideIcon?: boolean;
   noColor?: boolean;

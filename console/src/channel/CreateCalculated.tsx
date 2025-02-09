@@ -31,6 +31,7 @@ import { z } from "zod";
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
 import { Triggers } from "@/triggers";
@@ -98,8 +99,9 @@ const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   Observe.useListener({
-    key: [CALCULATION_STATE_CHANNEL, client?.key],
+    key: [client?.key, addStatus, handleException],
     open: async () => {
       if (client == null) return;
       const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
@@ -108,17 +110,20 @@ export const useListenForCalculationState = (): void => {
     onChange: (frame) => {
       const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
       state.forEach(({ key, variant, message }) => {
-        void client?.channels.retrieve(key).then((ch) => {
-          if (variant !== "error") {
-            addStatus({ variant, message });
-            return;
-          }
-          addStatus({
-            variant,
-            message: `Calculation for ${ch.name} failed`,
-            description: message,
-          });
-        });
+        client?.channels
+          .retrieve(key)
+          .then((ch) => {
+            if (variant !== "error") {
+              addStatus({ variant, message });
+              return;
+            }
+            addStatus({
+              variant,
+              message: `Calculation for ${ch.name} failed`,
+              description: message,
+            });
+          })
+          .catch((e) => handleException(e, "Calculated channel failed"));
       });
     },
   });
@@ -132,7 +137,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
     staleTime: 0,
     queryFn: async () => {
       if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const ch = await client.channels.retrieve(args.channelKey);
       return { ...ch, dataType: ch.dataType.toString() };
     },
@@ -167,7 +172,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) return;
       const d = methods.value();
       await client.channels.create(d);

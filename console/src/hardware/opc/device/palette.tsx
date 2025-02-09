@@ -8,20 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { type Palette } from "@/palette";
 
 const CONNECT_SERVER_COMMAND: Palette.Command = {
-  key: "opc-connect-server",
+  key: "opc-ua-connect-server",
   name: "Connect an OPC UA Server",
-  icon: (
-    <PIcon.Create>
-      <Icon.Logo.OPC />
-    </PIcon.Create>
-  ),
-  onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
+  icon: <Icon.Logo.OPC />,
+  onSelect: ({ placeLayout }) => placeLayout(CONFIGURE_LAYOUT),
 };
 
 export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

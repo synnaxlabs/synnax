@@ -15,24 +15,14 @@ export type SingleParamAnalysisResult<
   T extends Primitive,
   K extends PartialTypeNameRecord<T>,
 > = T extends any
-  ? {
-      single: true;
-      variant: K[keyof K];
-      normalized: T[];
-      actual: T;
-    }
+  ? { single: true; variant: K[keyof K]; normalized: T[]; actual: T }
   : never;
 
 export type MultiParamAnalysisResult<
   T extends Primitive,
   K extends PartialTypeNameRecord<T>,
 > = T extends any
-  ? {
-      single: false;
-      variant: K[keyof K];
-      normalized: T[];
-      actual: T[];
-    }
+  ? { single: false; variant: K[keyof K]; normalized: T[]; actual: T[] }
   : never;
 
 type TypeName<T> = T extends string

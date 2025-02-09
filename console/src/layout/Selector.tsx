@@ -9,25 +9,24 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type PlacerArgs, usePlacer } from "@/layout/hooks";
 import { type RendererProps } from "@/layout/slice";
-import { type PromptRename, useRename } from "@/modals/Rename";
+import { Modals } from "@/modals";
 
-interface CreateProps {
+interface CreateArgs {
   layoutKey: string;
-  rename: PromptRename;
+  rename: Modals.PromptRename;
 }
 
 export interface Selectable {
   key: string;
   title: string;
   icon: Icon.Element;
-  create: (props: CreateProps) => Promise<PlacerArgs | null>;
+  create: (props: CreateArgs) => Promise<PlacerArgs | null>;
 }
 
 export interface SelectorProps extends Align.SpaceProps, RendererProps {
@@ -42,17 +41,17 @@ const Base = ({
   visible: _,
   focused: __,
   text = "Select a Component Type",
-  ...props
+  ...rest
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
-  const rename = useRename();
+  const rename = Modals.useRename();
   const handleException = Status.useExceptionHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
         className={CSS.B("vis-layout-selector")}
         size="large"
-        {...props}
+        {...rest}
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>
@@ -72,10 +71,9 @@ const Base = ({
               onClick={() => {
                 create({ layoutKey, rename })
                   .then((layout) => {
-                    if (layout == null) return;
-                    place(layout);
+                    if (layout != null) place(layout);
                   })
-                  .catch(handleException);
+                  .catch((e) => handleException(e, "Failed to select layout"));
               }}
               startIcon={icon}
               style={{ flexBasis: "185px" }}

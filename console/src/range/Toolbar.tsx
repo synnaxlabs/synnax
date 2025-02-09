@@ -35,6 +35,7 @@ import { useDispatch, useStore } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
@@ -44,7 +45,7 @@ import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
@@ -172,9 +173,9 @@ const useViewDetails = (): ((key: string) => void) => {
   const place = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await fetchIfNotInState(store, client, key);
-      place({ ...overviewLayout, name: rng.name, key: rng.key });
+      place({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
     onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;
@@ -187,7 +188,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const res = await fetchIfNotInState(store, client, key);
       place(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
@@ -399,14 +400,15 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  const handleException = Status.useExceptionHandler();
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    void (async () => {
-      await client?.ranges.rename(entry.key, name);
-    })();
+    client?.ranges
+      .rename(entry.key, name)
+      .catch((e) => handleException(e, "Failed to rename range"));
   };
   return (
     <Core.ItemFrame
@@ -417,7 +419,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       size="small"
     >
       {!entry.persisted && (
-        <Tooltip.Dialog location={"left"}>
+        <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
           <Text.Text className="save-button" weight={700} level="small" shade={7}>
             L

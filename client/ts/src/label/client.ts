@@ -12,14 +12,14 @@ import { observe } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
-import { type Key, type Label, labelZ, ontologyID } from "@/label/payload";
+import { type Key, type Label, labelZ, ONTOLOGY_TYPE } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
-import { type NewLabelPayload, type SetOptions, Writer } from "@/label/writer";
+import { type New, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 
-const LABEL_SET_NAME = "sy_label_set";
-const LABEL_DELETE_NAME = "sy_label_delete";
+const SET_CHANNEL_NAME = "sy_label_set";
+const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
   readonly type: string = "label";
@@ -44,9 +44,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   }
 
   async retrieve(key: Key): Promise<Label>;
-
   async retrieve(keys: Key[]): Promise<Label[]>;
-
   async retrieve(keys: Key | Key[]): Promise<Label | Label[]> {
     const isMany = Array.isArray(keys);
     const res = await this.retriever.retrieve(keys);
@@ -73,20 +71,16 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
     return await this.retriever.page(offset, limit);
   }
 
-  async create(label: NewLabelPayload): Promise<Label>;
-
-  async create(labels: NewLabelPayload[]): Promise<Label[]>;
-
-  async create(labels: NewLabelPayload | NewLabelPayload[]): Promise<Label | Label[]> {
+  async create(label: New): Promise<Label>;
+  async create(labels: New[]): Promise<Label[]>;
+  async create(labels: New | New[]): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
     const res = await this.writer.create(labels);
     return isMany ? res : res[0];
   }
 
   async delete(key: Key): Promise<void>;
-
   async delete(keys: Key[]): Promise<void>;
-
   async delete(keys: Key | Key[]): Promise<void> {
     await this.writer.delete(keys);
   }
@@ -94,8 +88,8 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   async openChangeTracker(): Promise<signals.Observable<string, Label>> {
     return await signals.openObservable<string, Label>(
       this.frameClient,
-      LABEL_SET_NAME,
-      LABEL_DELETE_NAME,
+      SET_CHANNEL_NAME,
+      DELETE_CHANNEL_NAME,
       decodeChanges,
     );
   }
@@ -132,3 +126,6 @@ const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
   if (variant === "delete") return data.toUUIDs().map((v) => ({ variant, key: v }));
   return data.parseJSON(labelZ).map((l) => ({ variant, key: l.key, value: l }));
 };
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

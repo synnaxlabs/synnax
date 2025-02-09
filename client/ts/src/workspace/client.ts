@@ -9,41 +9,27 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
-import { unknownRecordZ } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
 import { linePlot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
+import {
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  ONTOLOGY_TYPE,
+  type Params,
+  remoteZ,
+  type Workspace,
+  workspaceZ,
+} from "@/workspace/payload";
 import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
-
-export const keyZ = z.string().uuid();
-export type Key = z.infer<typeof keyZ>;
-export type Params = Key | Key[];
-
-// --- VERY IMPORTANT ---
-// Synnax's encoders (in the binary package inside x) automatically convert the case
-// of keys in objects to snake_case and back to camelCase when encoding and decoding
-// respectively. This is done to ensure that the keys are consistent across all
-// languages and platforms. Sometimes workspaces have keys that are uuids, which have
-// dashes, and those get messed up. So we just use regular JSON for workspaces.
-const parse = (s: string): UnknownRecord => JSON.parse(s) as UnknownRecord;
-
-export const workspaceZ = z.object({
-  key: z.string(),
-  name: z.string(),
-  layout: unknownRecordZ.or(z.string().transform((s) => parse(s))),
-});
-
-export type Workspace = z.infer<typeof workspaceZ>;
-
-export const ONTOLOGY_TYPE: ontology.ResourceType = "workspace";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
 
 const RETRIEVE_ENDPOINT = "/workspace/retrieve";
 const CREATE_ENDPOINT = "/workspace/create";
@@ -51,35 +37,24 @@ const RENAME_ENDPOINT = "/workspace/rename";
 const SET_LAYOUT_ENDPOINT = "/workspace/set-layout";
 const DELETE_ENDPOINT = "/workspace/delete";
 
-export const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((p) => ({
-  ...p,
-  layout: JSON.stringify(p.layout),
-}));
-
-export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
-  layout: z.string().transform((s) => parse(s)),
-});
-
-export type NewWorkspace = z.input<typeof newWorkspaceZ>;
-
 const retrieveReqZ = z.object({
-  keys: z.string().array().optional(),
+  keys: keyZ.array().optional(),
   search: z.string().optional(),
-  author: z.string().uuid().optional(),
+  author: userKeyZ.optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
-const createReqZ = z.object({ workspaces: newWorkspaceZ.array() });
-const renameReqZ = z.object({ key: z.string(), name: z.string() });
-const setLayoutReqZ = z.object({ key: z.string(), layout: z.string() });
-const deleteReqZ = z.object({ keys: z.string().array() });
+const createReqZ = z.object({ workspaces: newZ.array() });
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
+const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
+const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
-const createResZ = z.object({ workspaces: workspaceRemoteZ.array() });
+const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
-  readonly type = "workspace";
+  readonly type = ONTOLOGY_TYPE;
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
   readonly log: log.Client;
@@ -94,17 +69,14 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     this.table = new table.Client(client);
   }
 
-  async create(workspace: NewWorkspace): Promise<Workspace>;
-  async create(workspaces: NewWorkspace[]): Promise<Workspace[]>;
-  async create(
-    workspaces: NewWorkspace | NewWorkspace[],
-  ): Promise<Workspace | Workspace[]> {
+  async create(workspace: New): Promise<Workspace>;
+  async create(workspaces: New[]): Promise<Workspace[]>;
+  async create(workspaces: New | New[]): Promise<Workspace | Workspace[]> {
     const isMany = Array.isArray(workspaces);
-    const normalized = toArray(workspaces);
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { workspaces: normalized },
+      { workspaces: toArray(workspaces) },
       createReqZ,
       createResZ,
     );
@@ -135,18 +107,17 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   async retrieve(keys: Key[]): Promise<Workspace[]>;
   async retrieve(keys: Params): Promise<Workspace | Workspace[]> {
     const isMany = Array.isArray(keys);
-    const normalized = toArray(keys);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: normalized },
+      { keys: toArray(keys) },
       retrieveReqZ,
       retrieveResZ,
     );
     return isMany ? res.workspaces : res.workspaces[0];
   }
 
-  async retrieveByAuthor(author: string): Promise<Workspace[]> {
+  async retrieveByAuthor(author: UserKey): Promise<Workspace[]> {
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -182,13 +153,15 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
-    const normalized = toArray(keys);
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
-      { keys: normalized },
+      { keys: toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

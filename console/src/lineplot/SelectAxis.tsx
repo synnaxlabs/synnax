@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import { Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
@@ -32,9 +31,9 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   value,
   select,
-  ...props
+  ...rest
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
       searchOptions={SEARCH_OPTIONS}
@@ -56,9 +55,9 @@ export const SelectAxisInputItem = ({
   onChange,
   value,
   select,
-  ...props
+  ...rest
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}

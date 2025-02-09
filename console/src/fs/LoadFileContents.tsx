@@ -29,7 +29,7 @@ export const InputFilePath = ({
   value,
   onChange,
   filters,
-  ...props
+  ...rest
 }: InputFilePathProps): ReactElement => {
   const path = value;
   const handleClick = () => {
@@ -40,7 +40,7 @@ export const InputFilePath = ({
     })();
   };
   return (
-    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...props}>
+    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...rest}>
       <Button.Button
         level="p"
         className={CSS.B("path")}
@@ -81,7 +81,7 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
   decoder = binary.TEXT_CODEC,
   initialPath,
   schema,
-  ...props
+  ...rest
 }: InputFileContentsProps<P>): ReactElement => {
   const [path, setPath] = useState<string>("");
   useEffect(() => {
@@ -96,5 +96,5 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
       setPath(path);
     })();
   };
-  return <InputFilePath value={path} onChange={handleChange} {...props} />;
+  return <InputFilePath value={path} onChange={handleChange} {...rest} />;
 };

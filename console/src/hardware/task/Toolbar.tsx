@@ -26,27 +26,24 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
-import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
-import { createLayout } from "@/hardware/task/ontology";
-import { createSelector } from "@/hardware/task/Selector";
+import { NULL_CLIENT_ERROR } from "@/errors";
+import { createLayout } from "@/hardware/task/layoutUtil";
+import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 
-type DesiredTaskState = "running" | "paused" | null;
-
-const EmptyContent = (): ReactElement => {
-  const place = Layout.usePlacer();
-  const handleClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
-    e.stopPropagation();
-    place(createSelector({}));
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  const handleClick: React.MouseEventHandler<HTMLParagraphElement> = () => {
+    placeLayout(ZERO_SELECTOR_LAYOUT);
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
@@ -65,7 +62,7 @@ interface MutationVars {
   key: string;
 }
 
-const Content = (): ReactElement => {
+const Content = () => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -95,7 +92,7 @@ const Content = (): ReactElement => {
         }))
       )
         return;
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const t = await client.hardware.tasks.retrieve(key);
       if (t == null) return;
       await client.hardware.tasks.create({ ...t, name });
@@ -111,9 +108,9 @@ const Content = (): ReactElement => {
       handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
-  const [desiredStates, setDesiredStates] = useState<
-    Record<task.TaskKey, DesiredTaskState>
-  >({});
+  const [desiredStates, setDesiredStates] = useState<Record<task.Key, DesiredState>>(
+    {},
+  );
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
@@ -200,7 +197,7 @@ const Content = (): ReactElement => {
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
-      if (client == null) throw new Error("Client not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const deletedNames = tasks
         .filter((task) => keys.includes(task.key))
         .map((task) => task.name);
@@ -265,25 +262,30 @@ const Content = (): ReactElement => {
               start: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  void t.executeCommand("start");
-                  if (desiredStates[t.key] === "running") return;
-                  setDesiredStates((prev) => {
-                    void t.executeCommand("start");
-                    const next = { ...prev };
-                    next[t.key] = "running";
-                    return next;
-                  });
+                  t.executeCommand("start")
+                    .then(() => {
+                      if (desiredStates[t.key] === "running") return;
+                      setDesiredStates((prev) => {
+                        const next = { ...prev };
+                        next[t.key] = "running";
+                        return next;
+                      });
+                    })
+                    .catch((e) => handleException(e, "Failed to start task"));
                 }),
               stop: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  void t.executeCommand("stop");
-                  if (desiredStates[t.key] === "paused") return;
-                  setDesiredStates((prev) => {
-                    const next = { ...prev };
-                    next[t.key] = "paused";
-                    return next;
-                  });
+                  t.executeCommand("stop")
+                    .then(() => {
+                      if (desiredStates[t.key] === "paused") return;
+                      setDesiredStates((prev) => {
+                        const next = { ...prev };
+                        next[t.key] = "paused";
+                        return next;
+                      });
+                    })
+                    .catch((e) => handleException(e, "Failed to stop task"));
                 }),
               edit: () => handleEdit(keys[0]),
             }}
@@ -328,27 +330,26 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[{ children: <Icon.Add />, onClick: () => place(createSelector({})) }]}
+            {[{ children: <Icon.Add />, onClick: () => place(ZERO_SELECTOR_LAYOUT) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
-              {({ key, ...props }) => (
+              {(p) => (
                 <TaskListItem
-                  key={key}
-                  {...props}
-                  desiredState={desiredStates[props.entry.key]}
+                  {...p}
+                  desiredState={desiredStates[p.entry.key]}
                   onStopStart={(state) => {
                     if (state == null) return;
-                    if (desiredStates[props.entry.key] === state) return;
+                    if (desiredStates[p.entry.key] === state) return;
                     setDesiredStates((prev) => {
                       const next = { ...prev };
-                      next[props.entry.key] = state;
+                      next[p.entry.key] = state;
                       return next;
                     });
                   }}
-                  onRename={(name) => handleRename({ name, key })}
+                  onRename={(name) => handleRename({ name, key: p.key })}
                 />
               )}
             </List.Core>
@@ -369,9 +370,11 @@ export const Toolbar: Layout.NavDrawerItem = {
   maxSize: 400,
 };
 
+type DesiredState = "running" | "paused" | null;
+
 interface TaskListItemProps extends List.ItemProps<string, task.Task> {
-  desiredState: DesiredTaskState;
-  onStopStart: (state: DesiredTaskState) => void;
+  desiredState: DesiredState;
+  onStopStart: (state: DesiredState) => void;
   onRename: (name: string) => void;
 }
 
@@ -379,25 +382,27 @@ const TaskListItem = ({
   desiredState,
   onStopStart,
   onRename,
-  ...props
+  ...rest
 }: TaskListItemProps) => {
   const {
     entry,
     entry: { type, state },
-  } = props;
+  } = rest;
   const logo = getIcon(type);
   const isRunning = entry.state?.details?.running === true;
   const isLoading =
-    desiredState != null &&
-    !checkDesiredStateMatch(desiredState, isRunning) &&
-    state?.variant === "success";
+    state?.variant === "success" && desiredState === (isRunning ? "running" : "paused");
   const loading = useDelayedState<boolean>(false, isLoading);
+  const handleException = Status.useExceptionHandler();
   const handleClick = () => {
     onStopStart(isRunning ? "paused" : "running");
-    void entry.executeCommand(isRunning ? "stop" : "start");
+    const action = isRunning ? "stop" : "start";
+    entry
+      .executeCommand(action)
+      .catch((e) => handleException(e, `Failed to ${action} task`));
   };
   return (
-    <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
       <Align.Space
         direction="y"
         size="small"

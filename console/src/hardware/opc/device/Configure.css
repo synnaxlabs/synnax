@@ -14,6 +14,12 @@
     height: 100%;
     width: 100%;
 
+    .console-content {
+        width: 100%;
+        flex-grow: 1;
+        padding: 3rem 4rem;
+    }
+
     & .console-description {
         width: 100%;
         max-width: 450px;
@@ -24,25 +30,12 @@
         }
     }
 
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        padding: 3rem;
-    }
-
-    .console-form {
-        border: var(--pluto-border);
-        border-radius: 1.5rem;
-        height: calc(100% - 10rem);
-        overflow-y: auto;
-    }
-
     .pluto-navbar {
-        .pluto--end {
-            padding-right: 2rem;
-        }
         .pluto--start {
             padding-left: 2rem;
+        }
+        .pluto--end {
+            padding-right: 2rem;
         }
     }
 }

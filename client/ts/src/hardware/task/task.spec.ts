@@ -48,11 +48,7 @@ describe("Hardware", () => {
         it("should retrieve a task by its name", async () => {
           const name = `test-${Date.now()}-${Math.random()}`;
           const r = await client.hardware.racks.create({ name });
-          const m = await r.createTask({
-            name,
-            config: { a: "dog" },
-            type: "ni",
-          });
+          const m = await r.createTask({ name, config: { a: "dog" }, type: "ni" });
           const retrieved = await client.hardware.tasks.retrieveByName(name);
           expect(retrieved.key).toBe(m.key);
         });
@@ -102,11 +98,7 @@ describe("Hardware", () => {
     describe("list", () => {
       it("should list all tasks", async () => {
         const t = await client.hardware.racks.create({ name: "test" });
-        await t.createTask({
-          name: "test",
-          config: { a: "dog" },
-          type: "ni",
-        });
+        await t.createTask({ name: "test", config: { a: "dog" }, type: "ni" });
         const tasks = await client.hardware.tasks.list();
         expect(tasks.length).toBeGreaterThan(0);
       });

@@ -8,22 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type KeyedNamed } from "@synnaxlabs/x";
 
-import { type SecurityPolicy } from "@/hardware/opc/device/types";
+import {
+  AES128_SHA256_RSAOAEP_SECURITY_POLICY,
+  AES256_SHA256_RSAPSS_SECURITY_POLICY,
+  BASIC128_RSA15_SECURITY_POLICY,
+  BASIC256_SECURITY_POLICY,
+  BASIC256_SHA256_SECURITY_POLICY,
+  NO_SECURITY_POLICY,
+  type SecurityPolicy,
+} from "@/hardware/opc/device/types";
 
-interface SecurityPolicyInfo {
-  key: SecurityPolicy;
-  name: string;
-}
+interface SecurityPolicyInfo extends KeyedNamed<SecurityPolicy> {}
 
 const SECURITY_POLICIES: SecurityPolicyInfo[] = [
-  { key: "None", name: "None" },
-  { key: "Basic128Rsa15", name: "Basic128Rsa15" },
-  { key: "Basic256", name: "Basic256" },
-  { key: "Basic256Sha256", name: "Basic256Sha256" },
-  { key: "Aes128_Sha256_RsaOaep", name: "Aes128_Sha256_RsaOaep" },
-  { key: "Aes256_Sha256_RsaPss", name: "Aes256_Sha256_RsaPss" },
+  { key: NO_SECURITY_POLICY, name: "None" },
+  { key: BASIC128_RSA15_SECURITY_POLICY, name: "Basic 128-bit RSA" },
+  { key: BASIC256_SECURITY_POLICY, name: "Basic 256-bit" },
+  { key: BASIC256_SHA256_SECURITY_POLICY, name: "Basic 256-bit with SHA-256" },
+  { key: AES128_SHA256_RSAOAEP_SECURITY_POLICY, name: "AES 128-bit with SHA-256" },
+  { key: AES256_SHA256_RSAPSS_SECURITY_POLICY, name: "AES 256-bit with SHA-256" },
 ];
 
 export interface SelectSecurityPolicyProps
@@ -32,12 +37,10 @@ export interface SelectSecurityPolicyProps
     "data" | "entryRenderKey"
   > {}
 
-export const SelectSecurityPolicy = (
-  props: SelectSecurityPolicyProps,
-): ReactElement => (
+export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
   <Select.Button<SecurityPolicy, SecurityPolicyInfo>
+    {...props}
     data={SECURITY_POLICIES}
     entryRenderKey="name"
-    {...props}
   />
 );

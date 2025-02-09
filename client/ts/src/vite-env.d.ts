@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 /// <reference types="vite/client" />
+
 declare const __VERSION__: string;

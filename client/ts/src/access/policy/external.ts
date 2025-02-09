@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/access/policy/client";
+export * from "@/access/policy/ontology";
 export * from "@/access/policy/payload";

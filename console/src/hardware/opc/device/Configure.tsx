@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Configure.css";
 
-import { TimeSpan } from "@synnaxlabs/client";
+import { rack as clientRack, TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -19,139 +19,102 @@ import {
   Nav,
   Status,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { FS } from "@/fs";
+import { Common } from "@/hardware/common";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   type ConnectionConfig,
   connectionConfigZ,
+  MAKE,
   migrateProperties,
+  NO_SECURITY_MODE,
   type Properties,
   type SecurityMode,
   type SecurityPolicy,
-  type TestConnCommandResponse,
-  type TestConnCommandState,
   ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
+import {
+  SCAN_NAME,
+  TEST_CONNECTION_COMMAND,
+  type TestConnectionCommandResponse,
+  type TestConnectionCommandState,
+} from "@/hardware/opc/task/types";
 import { Layout } from "@/layout";
 import { Triggers } from "@/triggers";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  connection: connectionConfigZ,
-});
-
-type FormSchema = z.infer<typeof formSchema>;
-
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 
-export const createConfigureLayout =
-  (device?: string, initial: Omit<Partial<Layout.State>, "type" | "icon"> = {}) =>
-  (): Layout.State => {
-    const { name = "OPC UA.Connect", location = "modal", ...rest } = initial;
-    const key = device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE;
-    return {
-      key,
-      type: CONFIGURE_LAYOUT_TYPE,
-      windowKey: key,
-      name,
-      icon: "Logo.OPC",
-      window: { navTop: true, resizable: true, size: { height: 710, width: 800 } },
-      location,
-      ...rest,
-    };
-  };
-
-export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement => {
-  const client = Synnax.use();
-  const initial = useQuery<[FormSchema, Properties | undefined], Error>({
-    queryKey: ["device", layoutKey, client?.key],
-    queryFn: async () => {
-      if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
-        return [
-          { name: "New OPC Server", connection: { ...ZERO_CONNECTION_CONFIG } },
-          undefined,
-        ];
-      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
-      dev.properties = migrateProperties(dev.properties);
-      await client.hardware.devices.create(dev);
-      return [
-        { name: dev.name, connection: dev.properties.connection },
-        dev.properties,
-      ];
-    },
-  });
-  if (initial.isPending)
-    return <Status.Text.Centered variant="info">Loading...</Status.Text.Centered>;
-  if (initial.isError)
-    return (
-      <Status.Text.Centered variant="error">Error loading device</Status.Text.Centered>
-    );
-  const [initialData, initialProperties] = initial.data;
-  return (
-    <ConfigureInternal
-      onClose={onClose}
-      layoutKey={layoutKey}
-      properties={initialProperties}
-      initialValues={initialData}
-      visible
-      focused
-    />
-  );
+export const CONFIGURE_LAYOUT: Layout.BaseState = {
+  key: CONFIGURE_LAYOUT_TYPE,
+  type: CONFIGURE_LAYOUT_TYPE,
+  name: "Server.Connect",
+  icon: "Logo.OPC",
+  location: "modal",
+  window: { resizable: false, size: { height: 710, width: 800 }, navTop: true },
 };
 
-interface ConfigureInternalProps extends Layout.RendererProps {
-  properties?: Properties;
+const formSchema = z.object({
+  name: Common.Device.nameZ,
+  connection: connectionConfigZ,
+});
+interface FormSchema extends z.infer<typeof formSchema> {}
+
+interface InternalProps extends Layout.RendererProps {
   initialValues: FormSchema;
+  properties?: Properties;
 }
 
-const ConfigureInternal = ({
-  layoutKey,
-  onClose,
-  initialValues,
-  properties,
-}: ConfigureInternalProps): ReactElement => {
+const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connState, setConnState] = useState<TestConnCommandState | null>(null);
+  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
-  const testConnection = useMutation<void, Error, void>({
+  const testConnectionMutation = useMutation({
     onError: (e) => handleException(e, "Failed to test connection"),
     mutationFn: async () => {
-      if (client == null) throw new Error("Client is not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const task = await rack.retrieveTaskByName("opc Scanner");
-      const t = await task.executeCommandSync<TestConnCommandResponse>(
-        "test_connection",
+      const rack = await client.hardware.racks.retrieve(
+        clientRack.DEFAULT_CHANNEL_NAME,
+      );
+      const task = await rack.retrieveTaskByName(SCAN_NAME);
+      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
+        TEST_CONNECTION_COMMAND,
         { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
       );
-      setConnState(t);
+      setConnectionState(state);
     },
   });
-  const confirm = useMutation<void, Error, void>({
+  const configureMutation = useMutation({
     onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
-      if (client == null) throw new Error("Client is not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) throw new Error("Invalid configuration");
-      await testConnection.mutateAsync();
-      if (connState?.variant !== "success") throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      await testConnectionMutation.mutateAsync();
+      if (connectionState?.variant !== "success")
+        throw new Error("Connection test failed");
+      const rack = await client.hardware.racks.retrieve(
+        clientRack.DEFAULT_CHANNEL_NAME,
+      );
       const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
-        model: "opc",
-        make: "opc",
+        model: MAKE,
+        make: MAKE,
         rack: rack.key,
         location: methods.get<string>("connection.endpoint").value,
         properties: {
@@ -164,75 +127,70 @@ const ConfigureInternal = ({
       onClose();
     },
   });
-  const hasSecPolicy =
-    Form.useFieldValue<SecurityPolicy>("connection.securityMode", undefined, methods) !=
-    "None";
+  const hasSecurity =
+    Form.useFieldValue<SecurityMode>("connection.securityMode", undefined, methods) !=
+    NO_SECURITY_MODE;
+  const isPending = testConnectionMutation.isPending || configureMutation.isPending;
   return (
-    <Align.Space
-      direction="y"
-      justify="center"
-      className={CSS.B("connect")}
-      align="start"
-      grow
-    >
-      <Align.Space direction="y" style={{ padding: "3rem 4rem" }} grow size="small">
+    <Align.Space align="start" className={CSS.B("opc-configure")} justify="center">
+      <Align.Space className={CSS.B("content")} grow size="small">
         <Form.Form {...methods}>
           <Form.TextField
-            path="name"
             inputProps={{
               level: "h2",
+              placeholder: "OPC UA Server",
               variant: "natural",
-              placeholder: "OPC Server",
             }}
+            path="name"
           />
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
-              <Input.Text placeholder="opc.tcp://localhost:4840" autoFocus {...p} />
+              <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
             )}
           </Form.Field>
           <Divider.Divider direction="x" padded="bottom" />
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="connection.username" grow>
+            <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
-            <Form.Field<string> path="connection.password" grow>
+            <Form.Field<string> grow path="connection.password">
               {(p) => <Input.Text placeholder="password" type="password" {...p} />}
             </Form.Field>
             <Form.Field<SecurityMode>
-              path="connection.securityMode"
               label="Security Mode"
+              path="connection.securityMode"
             >
-              {(p) => <SelectSecurityMode {...p} />}
+              {SelectSecurityMode}
             </Form.Field>
           </Align.Space>
           <Divider.Divider direction="x" padded="bottom" />
           <Form.Field<SecurityPolicy>
+            grow={!hasSecurity}
             path="connection.securityPolicy"
             label="Security Policy"
-            grow={!hasSecPolicy}
           >
             {(p) => <SelectSecurityPolicy size="medium" {...p} />}
           </Form.Field>
-          {hasSecPolicy && (
+          {hasSecurity && (
             <>
               <Form.Field<string>
-                path="connection.clientCertificate"
                 label="Client Certificate"
+                path="connection.clientCertificate"
               >
-                {(p) => <FS.InputFilePath grow {...p} />}
+                {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
-                path="connection.clientPrivateKey"
                 label="Client Private Key"
+                path="connection.clientPrivateKey"
               >
-                {(p) => <FS.InputFilePath grow {...p} />}
+                {FS.InputFilePath}
               </Form.Field>
               <Form.Field<string>
-                path="connection.serverCertificate"
-                label="Server Certificate"
                 grow
+                label="Server Certificate"
+                path="connection.serverCertificate"
               >
-                {(p) => <FS.InputFilePath grow {...p} />}
+                {FS.InputFilePath}
               </Form.Field>
             </>
           )}
@@ -240,11 +198,11 @@ const ConfigureInternal = ({
       </Align.Space>
       <Layout.BottomNavBar>
         <Nav.Bar.Start size="small">
-          {connState == null ? (
+          {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text variant={connState.variant as Status.Variant} level="p">
-              {connState.details?.message}
+            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
+              {connectionState.details?.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>
@@ -252,17 +210,71 @@ const ConfigureInternal = ({
           <Button.Button
             variant="outlined"
             triggers={Triggers.SAVE}
-            loading={testConnection.isPending}
-            disabled={testConnection.isPending}
-            onClick={() => {
-              testConnection.mutate();
-            }}
+            loading={testConnectionMutation.isPending}
+            disabled={isPending}
+            onClick={() => testConnectionMutation.mutate()}
           >
             Test Connection
           </Button.Button>
-          <Button.Button onClick={() => confirm.mutate()}>Save</Button.Button>
+          <Button.Button
+            disabled={isPending}
+            loading={configureMutation.isPending}
+            onClick={() => configureMutation.mutate()}
+          >
+            Save
+          </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
+  );
+};
+
+export const Configure: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const client = Synnax.use();
+  const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
+    queryKey: [layoutKey, client?.key],
+    queryFn: async () => {
+      if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
+        return [
+          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG } },
+          deep.copy(ZERO_PROPERTIES),
+        ];
+      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      dev.properties = migrateProperties(dev.properties);
+      return [
+        { name: dev.name, connection: dev.properties.connection },
+        dev.properties,
+      ];
+    },
+  });
+  if (isPending)
+    return (
+      <Status.Text.Centered level="h4" variant="loading">
+        Loading Configuration from Synnax Server
+      </Status.Text.Centered>
+    );
+  if (isError) {
+    const color = Status.variantColors.error;
+    return (
+      <Align.Center style={{ padding: "3rem" }}>
+        <Text.Text level="h2" color={color}>
+          Failed to load configuration for server with key {layoutKey}
+        </Text.Text>
+        <Text.Text level="p" color={color}>
+          {error.message}
+        </Text.Text>
+      </Align.Center>
+    );
+  }
+  const [initialValues, properties] = data;
+  return (
+    <Internal
+      focused
+      initialValues={initialValues}
+      layoutKey={layoutKey}
+      onClose={onClose}
+      properties={properties}
+      visible
+    />
   );
 };

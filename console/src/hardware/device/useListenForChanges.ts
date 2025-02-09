@@ -9,27 +9,41 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
-export const useListenForChanges = (): void => {
+const PREFIX = "new-device-";
+
+export const useListenForChanges = () => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   useAsyncEffect(async () => {
     if (client == null) return;
     const tracker = await client.hardware.devices.openDeviceTracker();
     tracker.onChange((changes) => {
-      const sets = changes.filter(({ variant }) => variant === "set") as Array<
-        change.Set<string, device.Device>
-      >;
-      sets.forEach(({ value: dev }) => {
-        if (dev.configured === true) return;
-        addStatus({
-          variant: "info",
-          message: `New ${dev.model} connected`,
-          data: dev,
+      changes
+        .filter((c) => c.variant === "set")
+        .forEach(({ value: device }) => {
+          if (device.configured) return;
+          addStatus({
+            variant: "info",
+            key: `${PREFIX}${device.key}`,
+            message: `New ${device.model} connected`,
+            data: device as unknown as UnknownRecord,
+          });
         });
-      });
     });
-    return () => void tracker.close();
-  }, [client, addStatus]);
+    return () => {
+      tracker
+        .close()
+        .catch((e) => handleException(e, "Failed to close device tracker"));
+    };
+  }, [addStatus, client, handleException]);
 };
+
+const PREFIX_LENGTH = PREFIX.length;
+
+export const getKeyFromStatus = ({
+  key,
+}: Status.NotificationSpec): device.Key | null =>
+  key.startsWith(PREFIX) ? key.slice(PREFIX_LENGTH) : null;

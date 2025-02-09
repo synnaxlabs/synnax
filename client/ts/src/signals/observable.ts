@@ -14,10 +14,9 @@ import { type Series } from "@synnaxlabs/x/telem";
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
 
-export type Decoder<K, V> = (
-  variant: change.Variant,
-  data: Series,
-) => Array<change.Change<K, V>>;
+export interface Decoder<K, V> {
+  (variant: change.Variant, data: Series): Array<change.Change<K, V>>;
+}
 
 export interface Observable<K, V>
   extends observe.ObservableAsyncCloseable<Array<change.Change<K, V>>> {}

@@ -10,16 +10,57 @@
 import { channel, device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import {
-  AI_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  outputChannelTypeZ,
-  TC_CHANNEL_TYPE,
-} from "@/hardware/labjack/device/types";
-import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
+import { Device } from "@/hardware/labjack/device";
 
 export const PREFIX = "labjack";
+
+// Channel Types
+
+export const DI_CHANNEL_TYPE = "DI";
+type DIChannelType = typeof DI_CHANNEL_TYPE;
+
+export const TC_CHANNEL_TYPE = "TC";
+export type TCChannelType = typeof TC_CHANNEL_TYPE;
+
+export const AO_CHANNEL_TYPE = "AO";
+export type AOChannelType = typeof AO_CHANNEL_TYPE;
+
+export const AI_CHANNEL_TYPE = "AI";
+export type AIChannelType = typeof AI_CHANNEL_TYPE;
+
+export const DO_CHANNEL_TYPE = "DO";
+export type DOChannelType = typeof DO_CHANNEL_TYPE;
+
+export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;
+export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
+export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
+export type ChannelType = InputChannelType | OutputChannelType;
+
+interface ConvertChannelTypeToPortType {
+  [DI_CHANNEL_TYPE]: Device.DIPortType;
+  [AI_CHANNEL_TYPE]: Device.AIPortType;
+  [TC_CHANNEL_TYPE]: Device.AIPortType;
+  [AO_CHANNEL_TYPE]: Device.AOPortType;
+  [DO_CHANNEL_TYPE]: Device.DOPortType;
+}
+
+export const getPortTypeFromChannelType = <
+  T extends keyof ConvertChannelTypeToPortType,
+>(
+  type: T,
+): ConvertChannelTypeToPortType[T] => {
+  if (type === DI_CHANNEL_TYPE)
+    return Device.DI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === AI_CHANNEL_TYPE)
+    return Device.AI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === TC_CHANNEL_TYPE)
+    return Device.AI_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === AO_CHANNEL_TYPE)
+    return Device.AO_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  if (type === DO_CHANNEL_TYPE)
+    return Device.DO_PORT_TYPE as ConvertChannelTypeToPortType[T];
+  throw new Error(`Unknown channel type: ${type}`);
+};
 
 const LINEAR_SCALE_TYPE = "linear";
 
@@ -55,14 +96,17 @@ export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
 
-export const inputChannelZ = z.object({
+const baseInputChannelZ = z.object({
   port: z.string(),
   enabled: z.boolean(),
   key: z.string(),
   range: z.number().optional(),
   channel: channel.keyZ,
-  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
   scale: scaleZ,
+});
+
+export const inputChannelZ = baseInputChannelZ.extend({
+  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
 });
 
 const CELSIUS_UNIT = "C";
@@ -71,21 +115,18 @@ const KELVIN_UNIT = "K";
 const temperatureUnitsZ = z.enum([CELSIUS_UNIT, FAHRENHEIT_UNIT, KELVIN_UNIT]);
 export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
 
-export const thermocoupleChannelZ = z.object({
-  key: z.string(),
-  port: z.string(),
-  enabled: z.boolean(),
-  channel: channel.keyZ,
+const thermocoupleTypeZ = z.enum(["J", "K", "N", "R", "S", "T", "B", "E", "C"]);
+
+export const thermocoupleChannelZ = baseInputChannelZ.extend({
   range: z.number(),
   type: z.literal(TC_CHANNEL_TYPE),
-  thermocoupleType: thermocoupleTypeZ.or(z.literal("C")),
+  thermocoupleType: thermocoupleTypeZ,
   posChan: z.number(),
   negChan: z.number(),
   cjcSource: z.string(),
   cjcSlope: z.number(),
   cjcOffset: z.number(),
   units: temperatureUnitsZ,
-  scale: scaleZ,
 });
 interface ThermocoupleChannel extends z.infer<typeof thermocoupleChannelZ> {}
 export const ZERO_THERMOCOUPLE_CHANNEL: ThermocoupleChannel = {
@@ -137,7 +178,7 @@ export const ZERO_WRITE_CHANNEL: WriteChannel = {
   type: DO_CHANNEL_TYPE,
 };
 
-const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
+const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
 export const readConfigZ = z
   .object({
@@ -175,6 +216,8 @@ type ErrorReadStateDetails = BaseReadStateDetails & {
   errors: { message: string; path: string }[];
 };
 
+export type Channel = ReadChannel | WriteChannel;
+
 export type ReadStateDetails = BaseReadStateDetails | ErrorReadStateDetails;
 
 export type WriteStateDetails = {
@@ -191,7 +234,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
   channels: [],
   dataSaving: true,
 };
-export interface Read extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
+export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
 export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
@@ -209,7 +252,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
   dataSaving: true,
   stateRate: 10,
 };
-export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
+export type WriteTask = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export interface WritePayload
   extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {

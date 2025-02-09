@@ -16,12 +16,13 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
@@ -83,7 +84,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
     if (activeWS === key) return;
     let ws = select(store.getState(), key);
     if (ws == null) {
-      if (client == null) throw new Error("Cannot reach cluster");
+      if (client == null) throw NULL_CLIENT_ERROR;
       ws = await client.workspaces.retrieve(key);
     }
     dispatch(add(ws));
@@ -327,15 +328,30 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
-const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
-  const workspace = await client.workspaces.retrieve(selection[0].id.key);
-  store.dispatch(add(workspace));
-  store.dispatch(
-    Layout.setWorkspace({
-      slice: workspace.layout as Layout.SliceState,
-      keepNav: false,
-    }),
-  );
+const handleSelect: Ontology.HandleSelect = ({
+  selection,
+  client,
+  store,
+  handleException,
+}) => {
+  client.workspaces
+    .retrieve(selection[0].id.key)
+    .then((workspace) => {
+      store.dispatch(add(workspace));
+      store.dispatch(
+        Layout.setWorkspace({
+          slice: workspace.layout as Layout.SliceState,
+          keepNav: false,
+        }),
+      );
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "workspace",
+      );
+      handleException(e, `Failed to select ${names}`);
+    });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -346,13 +362,11 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: clientWorkspace.ONTOLOGY_TYPE,
   icon: <Icon.Workspace />,
-  hasChildren: true,
-  canDrop: () => false,
-  TreeContextMenu,
   onSelect: handleSelect,
-  haulItems: () => [],
   allowRename: () => true,
   onRename: handleRename,
+  TreeContextMenu,
 };

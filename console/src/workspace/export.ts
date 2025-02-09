@@ -14,6 +14,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -50,7 +51,7 @@ export const export_ = async (
         toExport = existingWorkspace.layout as Layout.SliceState;
         name = existingWorkspace.name;
       } else {
-        if (client == null) throw new Error("Cannot reach cluster");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const ws = await client.workspaces.retrieve(key);
         toExport = ws.layout as Layout.SliceState;
         name = ws.name;

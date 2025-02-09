@@ -426,7 +426,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name, handleException });
                     break;
                   case "metadata":
-                    place({ ...Range.overviewLayout, name, key });
+                    place({ ...Range.OVERVIEW_LAYOUT, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
@@ -517,7 +517,7 @@ export const create =
 
 export const LinePlot: Layout.Renderer = ({
   layoutKey,
-  ...props
+  ...rest
 }): ReactElement | null => {
   const linePlot = useLoadRemote({
     name: "Line Plot",
@@ -531,7 +531,7 @@ export const LinePlot: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (linePlot == null) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
 export const SELECTABLE: Layout.Selectable = {

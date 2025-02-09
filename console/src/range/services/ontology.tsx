@@ -20,10 +20,10 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/overview/Overview";
+import { OVERVIEW_LAYOUT } from "@/range/overview/Overview";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {
@@ -37,16 +37,27 @@ import {
   viewDetailsMenuItem,
 } from "@/range/Toolbar";
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   selection,
   client,
   store,
   placeLayout,
-}): Promise<void> => {
-  const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
-  store.dispatch(add({ ranges: fromClientRange(ranges) }));
-  const first = ranges[0];
-  placeLayout({ ...overviewLayout, name: first.name, key: first.key });
+  handleException,
+}) => {
+  client.ranges
+    .retrieve(selection.map((s) => s.id.key))
+    .then((ranges) => {
+      store.dispatch(add({ ranges: fromClientRange(ranges) }));
+      const first = ranges[0];
+      placeLayout({ ...OVERVIEW_LAYOUT, name: first.name, key: first.key });
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "range",
+      );
+      handleException(e, `Failed to select ${names}`);
+    });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -137,7 +148,7 @@ const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const place = Layout.usePlacer();
   return ({ selection: { resources } }) =>
     place({
-      ...overviewLayout,
+      ...OVERVIEW_LAYOUT,
       name: resources[0].name,
       key: resources[0].id.key,
     });
@@ -305,14 +316,14 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: ranger.ONTOLOGY_TYPE,
-  hasChildren: true,
   icon: <Icon.Range />,
-  canDrop: () => true,
   onSelect: handleSelect,
-  TreeContextMenu,
+  canDrop: () => true,
   haulItems,
   allowRename: () => true,
   onRename: handleRename,
+  TreeContextMenu,
   PaletteListItem,
 };

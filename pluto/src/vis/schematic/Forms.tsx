@@ -120,7 +120,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       label="Label Size"
       padHelpText={false}
     >
-      {(p) => <Text.SelectLevel {...p} />}
+      {Text.SelectLevel}
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
@@ -129,7 +129,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.TextAlignment {...p} />}
+      {Select.TextAlignment}
     </Form.Field>
     <Form.Field<direction.Direction>
       visible={!omit.includes("direction")}
@@ -196,7 +196,7 @@ export const CommonStyleForm = ({
           hideIfNull
           optional
         >
-          {(p) => <Input.Switch {...p} />}
+          {Input.Switch}
         </Form.Field>
         <ScaleControl path="scale" />
       </Align.Space>
@@ -438,7 +438,7 @@ export const ValueForm = (): ReactElement => {
                   align="start"
                   padHelpText={false}
                 >
-                  {(p) => <Input.Text {...p} />}
+                  {Input.Text}
                 </Form.Field>
                 <Form.NumericField
                   path="inlineSize"
@@ -456,7 +456,7 @@ export const ValueForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Text.SelectLevel {...p} />}
+                  {Text.SelectLevel}
                 </Form.Field>
               </Align.Space>
             </Align.Space>
@@ -713,7 +713,7 @@ export const SetpointForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Select.ComponentSize {...p} />}
+                  {Select.ComponentSize}
                 </Form.Field>
                 <ColorControl path="color" />
               </Align.Space>
@@ -739,18 +739,18 @@ export const TextBoxForm = (): ReactElement => {
       <Align.Space direction="y" grow>
         <Align.Space direction="x" align="stretch">
           <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
-            {(p) => <Input.Text selectOnFocus {...p} />}
+            {Input.Text}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-            {(p) => <Text.SelectLevel {...p} />}
+            {Text.SelectLevel}
           </Form.Field>
           <Form.Field<Align.Alignment>
-            path={"align"}
+            path="align"
             label="Alignment"
             padHelpText={false}
             hideIfNull
           >
-            {(p) => <Select.TextAlignment {...p} />}
+            {Select.TextAlignment}
           </Form.Field>
         </Align.Space>
         <Align.Space direction="x">

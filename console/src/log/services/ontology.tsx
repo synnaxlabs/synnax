@@ -10,7 +10,7 @@
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -20,7 +20,7 @@ import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Log } from "@/log";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -101,11 +101,20 @@ const loadLog = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Plac
   placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-}) => await loadLog(client, selection[0].id, placeLayout);
+  handleException,
+}) => {
+  loadLog(client, selection[0].id, placeLayout).catch((e) => {
+    const names = strings.naturalLanguageJoin(
+      selection.map(({ name }) => name),
+      "log",
+    );
+    handleException(e, `Failed to select ${names}`);
+  });
+};
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
@@ -115,9 +124,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   handleException,
 }) => {
-  void (async () => {
-    try {
-      const log = await client.workspaces.log.retrieve(id.key);
+  client.workspaces.log
+    .retrieve(id.key)
+    .then((log) => {
       placeLayout(
         Log.create({
           name: log.name,
@@ -127,21 +136,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load log");
-    }
-  })();
+    })
+    .catch((e) => handleException(e, "Failed to load log"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: log.ONTOLOGY_TYPE,
   icon: <Icon.Log />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

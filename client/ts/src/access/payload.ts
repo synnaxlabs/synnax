@@ -9,17 +9,17 @@
 
 import { z } from "zod";
 
-export const actionZ = z.union([
-  z.literal("all"),
-  z.literal("create"),
-  z.literal("delete"),
-  z.literal("retrieve"),
-  z.literal("update"),
+export const ALL_ACTION = "all";
+export const CREATE_ACTION = "create";
+export const DELETE_ACTION = "delete";
+export const RETRIEVE_ACTION = "retrieve";
+export const UPDATE_ACTION = "update";
+
+export const actionZ = z.enum([
+  ALL_ACTION,
+  CREATE_ACTION,
+  DELETE_ACTION,
+  RETRIEVE_ACTION,
+  UPDATE_ACTION,
 ]);
 export type Action = z.infer<typeof actionZ>;
-
-export const ALL_ACTION: Action = "all";
-export const CREATE_ACTION: Action = "create";
-export const DELETE_ACTION: Action = "delete";
-export const RETRIEVE_ACTION: Action = "retrieve";
-export const UPDATE_ACTION: Action = "update";

@@ -10,17 +10,10 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: ontology.CLUSTER_TYPE,
   icon: <Icon.Cluster />,
-  hasChildren: true,
-  canDrop: () => false,
-  onMosaicDrop: () => {},
-  TreeContextMenu: () => <></>,
-  onSelect: () => {},
-  haulItems: () => [],
-  allowRename: () => false,
-  onRename: undefined,
 };

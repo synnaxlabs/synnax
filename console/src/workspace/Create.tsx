@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import { Align, Button, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
-import { type SliceState } from "@/layout/slice";
 import { Triggers } from "@/triggers";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
@@ -53,7 +51,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       });
       dispatch(add(ws));
       if (active != null)
-        dispatch(Layout.setWorkspace({ slice: ws.layout as SliceState }));
+        dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
       onClose();
     },
   });
