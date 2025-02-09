@@ -40,7 +40,7 @@ import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 import { WorkspaceServices } from "@/workspace/services";
 
-const generateEmpty = (type: ontology.ResourceType): Ontology.Service => ({
+const createEmptyService = (type: ontology.ResourceType): Ontology.Service => ({
   ...Ontology.NOOP_SERVICE,
   type,
 });
@@ -49,21 +49,21 @@ export const SERVICES: Ontology.Services = {
   [schematic.ONTOLOGY_TYPE]: SchematicServices.ONTOLOGY_SERVICE,
   [ontology.CLUSTER_TYPE]: ClusterServices.ONTOLOGY_SERVICE,
   [user.ONTOLOGY_TYPE]: UserServices.ONTOLOGY_SERVICE,
-  [ontology.BUILTIN_TYPE]: generateEmpty(ontology.BUILTIN_TYPE),
+  [ontology.BUILTIN_TYPE]: createEmptyService(ontology.BUILTIN_TYPE),
   [ontology.NODE_TYPE]: Node.ONTOLOGY_SERVICE,
   [group.ONTOLOGY_TYPE]: Group.ONTOLOGY_SERVICE,
   [ranger.ONTOLOGY_TYPE]: RangeServices.ONTOLOGY_SERVICE,
   [workspace.ONTOLOGY_TYPE]: WorkspaceServices.ONTOLOGY_SERVICE,
   [linePlot.ONTOLOGY_TYPE]: LinePlotServices.ONTOLOGY_SERVICE,
-  [ranger.ALIAS_ONTOLOGY_TYPE]: generateEmpty(ranger.ALIAS_ONTOLOGY_TYPE),
-  [label.ONTOLOGY_TYPE]: generateEmpty(label.ONTOLOGY_TYPE),
+  [ranger.ALIAS_ONTOLOGY_TYPE]: createEmptyService(ranger.ALIAS_ONTOLOGY_TYPE),
+  [label.ONTOLOGY_TYPE]: createEmptyService(label.ONTOLOGY_TYPE),
   [rack.ONTOLOGY_TYPE]: Hardware.Rack.ONTOLOGY_SERVICE,
   [task.ONTOLOGY_TYPE]: Hardware.Task.ONTOLOGY_SERVICE,
   [device.ONTOLOGY_TYPE]: Hardware.Device.ONTOLOGY_SERVICE,
   [channel.ONTOLOGY_TYPE]: ChannelServices.ONTOLOGY_SERVICE,
-  [framer.ONTOLOGY_TYPE]: generateEmpty(framer.ONTOLOGY_TYPE),
-  [policy.ONTOLOGY_TYPE]: generateEmpty(policy.ONTOLOGY_TYPE),
-  [policy.ALLOW_ALL_ONTOLOGY_TYPE]: generateEmpty(policy.ALLOW_ALL_ONTOLOGY_TYPE),
+  [framer.ONTOLOGY_TYPE]: createEmptyService(framer.ONTOLOGY_TYPE),
+  [policy.ONTOLOGY_TYPE]: createEmptyService(policy.ONTOLOGY_TYPE),
+  [policy.ALLOW_ALL_ONTOLOGY_TYPE]: createEmptyService(policy.ALLOW_ALL_ONTOLOGY_TYPE),
   [log.ONTOLOGY_TYPE]: LogServices.ONTOLOGY_SERVICE,
   [table.ONTOLOGY_TYPE]: TableServices.ONTOLOGY_SERVICE,
 };
