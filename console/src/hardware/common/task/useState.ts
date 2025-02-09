@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Observe, type Status, Synnax } from "@synnaxlabs/pluto";
+import { type Form, Observe, type Status, Synnax } from "@synnaxlabs/pluto";
 import {
   type Dispatch,
   type SetStateAction,
@@ -16,9 +16,10 @@ import {
   useState as useReactState,
 } from "react";
 
-export interface Details {
+export interface BaseStateDetails {
   running: boolean;
   message?: string;
+  errors?: FieldError[];
 }
 
 export type State = "loading" | "running" | "paused";
@@ -29,9 +30,15 @@ export interface ReturnState {
   variant?: Status.Variant;
 }
 
-export const useState = <D extends Details>(
+interface FieldError {
+  path: string;
+  message: string;
+}
+
+export const useState = <D extends BaseStateDetails>(
   key: task.Key,
   initialState?: task.State<D>,
+  formMethods?: Form.ContextValue<any>,
 ): [ReturnState, Dispatch<SetStateAction<State>>] => {
   // isRunning tracks if the task is actually running, based off of the state observer
   // on the driver.
@@ -55,12 +62,20 @@ export const useState = <D extends Details>(
   });
   Observe.useListener({
     key: [client?.key, setIsRunning, setState, key],
-    open: async () => client?.hardware.tasks.openStateObserver(),
+    open: async () => client?.hardware.tasks.openStateObserver<D>(),
     onChange: (state) => {
       if (state.task !== key) return;
       const { details, variant } = state as task.State<D>;
       const nowRunning = details?.running ?? false;
       setIsRunning(nowRunning);
+      if (details?.errors != null && formMethods != null)
+        details.errors.forEach((e) =>
+          formMethods.setStatus(e.path, {
+            variant: "error",
+            message: e.message,
+          }),
+        );
+
       setState({
         state: nowRunning ? "running" : "paused",
         message: details?.message,

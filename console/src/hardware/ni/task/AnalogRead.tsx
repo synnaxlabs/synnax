@@ -15,6 +15,7 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Layouts } from "@/hardware/common/task/layouts";
+import { type UseTareProps } from "@/hardware/common/task/useTare";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
@@ -103,11 +104,12 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 
 const Form: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
-> = ({ task, isRunning, isSnapshot }) => {
+> = ({ task, isRunning, isSnapshot, configured }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
     isRunning,
-  });
+    configured,
+  } as UseTareProps<AIChannel>);
   return (
     <Common.Task.Layouts.ListAndDetails<AIChannel>
       ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
@@ -140,7 +142,6 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   client,
   config,
 ) => {
-  console.log(config);
   const devices = unique.unique(config.channels.map((c) => c.device));
   // TODO: check that multiple devices are not being configured at once.
   let rackKey: rack.Key | undefined;
@@ -183,7 +184,6 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
           else throw e;
         }
     }
-    console.log(toCreate);
     if (toCreate.length > 0) {
       modified = true;
       const channels = await client.channels.create(

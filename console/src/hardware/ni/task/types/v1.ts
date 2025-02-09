@@ -247,6 +247,17 @@ export const analogReadConfigZ = v0.analogReadConfigZ
     },
   )
   .superRefine((cfg, ctx) => {
+    // check if any devices are empty strings
+    cfg.channels.forEach((c, i) => {
+      if (c.device === "")
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["channels", i, "device"],
+          message: "Device is required",
+        });
+    });
+  })
+  .superRefine((cfg, ctx) => {
     const ports = new Map<string, number>();
     cfg.channels.forEach(({ port, device }) =>
       ports.set(`${device}/${port}`, (ports.get(`${device}/${port}`) ?? 0) + 1),

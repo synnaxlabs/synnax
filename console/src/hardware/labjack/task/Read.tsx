@@ -169,7 +169,7 @@ const getOpenChannel = (
   const base = {
     key: id.id(),
     port: port.key,
-    channel: device.properties[port.type].channels[port.key] ?? 0,
+    channel: device.properties[port.type]?.channels[port.key] ?? 0,
   };
   if (port.type === preferredType || channelToCopy.type !== TC_CHANNEL_TYPE)
     return { ...deep.copy(channelToCopy), ...base };
@@ -181,19 +181,27 @@ const getOpenChannel = (
   };
 };
 
-interface ChannelsFormProps {
+type ChannelsFormProps = {
   device: Device.Device;
-  task: ReadTask | ReadPayload;
   isRunning: boolean;
   isSnapshot: boolean;
-}
+  configured: boolean;
+  task: ReadPayload | ReadTask;
+};
 
-const ChannelsForm = ({ device, task, isRunning, isSnapshot }: ChannelsFormProps) => {
+const ChannelsForm = ({
+  device,
+  isSnapshot,
+  isRunning,
+  configured,
+  task,
+}: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<ReadChannel>({
-    task,
-    isRunning,
     isChannelTareable: ({ type }) => type === AI_CHANNEL_TYPE,
-  });
+    isRunning,
+    configured,
+    task,
+  } as Common.Task.UseTareProps<ReadChannel>);
   const generateChannel = useCallback(
     (channels: ReadChannel[], index: number) => getOpenChannel(channels, index, device),
     [device],
@@ -211,25 +219,19 @@ const ChannelsForm = ({ device, task, isRunning, isSnapshot }: ChannelsFormProps
   );
 };
 
-const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
-  task,
-  isRunning,
-  isSnapshot,
-}) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-  >
-    {({ device }) => (
-      <ChannelsForm
-        device={device}
-        task={task}
-        isRunning={isRunning}
-        isSnapshot={isSnapshot}
-      />
-    )}
-  </Common.Device.Provider>
-);
+const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = (
+  props,
+) => {
+  const { isSnapshot } = props;
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    >
+      {({ device }) => <ChannelsForm device={device} {...props} />}
+    </Common.Device.Provider>
+  );
+};
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,

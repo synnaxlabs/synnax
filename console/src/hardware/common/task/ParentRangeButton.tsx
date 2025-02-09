@@ -10,16 +10,27 @@
 import { ontology, ranger, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type UnknownRecord } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Layout } from "@/layout";
 import { Range } from "@/range";
 
-export interface ParentRangeButtonProps {
-  task: task.Task;
+export interface ParentRangeButtonProps<
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
+> {
+  task: task.Task<Config, Details, Type>;
 }
 
-export const ParentRangeButton = ({ task }: ParentRangeButtonProps) => {
+export const ParentRangeButton = <
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends {} = UnknownRecord,
+  Type extends string = string,
+>({
+  task,
+}: ParentRangeButtonProps<Config, Details, Type>) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ontology.Resource>();

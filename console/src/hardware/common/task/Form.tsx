@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -34,26 +34,33 @@ import {
   type WrapOptions,
 } from "@/hardware/common/task/Task";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { useState } from "@/hardware/common/task/useState";
+import { type BaseStateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
-
-type BaseStateDetails = { running: boolean };
 
 type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
 
-export interface FormProps<
+export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends BaseStateDetails = BaseStateDetails,
   Type extends string = string,
-> {
-  methods: PForm.ContextValue<Schema<Config>>;
-  task: task.Task<Config, Details, Type> | task.Payload<Config, Details, Type>;
-  isSnapshot: boolean;
-  isRunning: boolean;
-}
+> =
+  | {
+      methods: PForm.ContextValue<Schema<Config>>;
+      task: task.Payload<Config, Details, Type>;
+      isSnapshot: boolean;
+      isRunning: boolean;
+      configured: false;
+    }
+  | {
+      methods: PForm.ContextValue<Schema<Config>>;
+      task: task.Task<Config, Details, Type>;
+      isSnapshot: boolean;
+      isRunning: boolean;
+      configured: true;
+    };
 
 export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
   (
@@ -145,7 +152,7 @@ export const wrapForm = <
                 taskKey={tsk.key}
               />
             </Align.Space>
-            {tsk instanceof task.Task && <ParentRangeButton task={tsk} />}
+            {configured && <ParentRangeButton<Config, Details, Type> task={tsk} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
@@ -159,9 +166,10 @@ export const wrapForm = <
             >
               <Form
                 methods={methods}
-                task={tsk}
+                task={tsk as task.Task<Config, Details, Type>}
                 isRunning={state.state === "running"}
                 isSnapshot={isSnapshot}
+                configured={configured as true}
               />
             </Align.Space>
           </PForm.Form>
