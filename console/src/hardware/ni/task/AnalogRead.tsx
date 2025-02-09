@@ -121,7 +121,7 @@ const Form: FC<
       Details={ChannelDetails}
       generateChannel={generateAnalogInputChannel}
       isSnapshot={isSnapshot}
-      initalChannels={task.config.channels}
+      initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
     />

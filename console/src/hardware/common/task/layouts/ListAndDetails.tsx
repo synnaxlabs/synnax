@@ -35,21 +35,21 @@ export interface ListAndDetailsProps<C extends Channel>
   > {
   Details: ComponentType<DetailsProps>;
   generateChannel: GenerateChannel<C>;
-  initalChannels: C[];
+  initialChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
   ListItem: listItem,
   Details,
-  initalChannels,
+  initialChannels,
   generateChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>(
-    initalChannels.length ? [initalChannels[0].key] : [],
+    initialChannels.length ? [initialChannels[0].key] : [],
   );
   const [selectedIndex, setSelectedIndex] = useState<number>(
-    initalChannels.length ? 0 : -1,
+    initialChannels.length ? 0 : -1,
   );
   const { get } = Form.useContext();
   const handleSelect = useCallback(

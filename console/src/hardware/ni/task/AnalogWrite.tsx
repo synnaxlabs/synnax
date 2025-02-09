@@ -99,7 +99,7 @@ const Form: FC<
     Details={ChannelDetails}
     generateChannel={generateAnalogOutputChannel}
     isSnapshot={isSnapshot}
-    initalChannels={task.config.channels}
+    initialChannels={task.config.channels}
   />
 );
 
