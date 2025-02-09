@@ -9,11 +9,12 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
+import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/labjack/device";
 import { CustomScaleForm } from "@/hardware/labjack/task/CustomScaleForm";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
@@ -85,23 +86,17 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="x" size="small">
-        <Text.Text level="p" shade={6}>
-          {port}
-        </Text.Text>
-        <Common.Task.ChannelName channel={channel} />
-      </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
-        {hasTareButton && (
-          <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
-        )}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Pack>
-    </List.ItemFrame>
+    <Layouts.ListAndDetailsChannelItem
+      {...rest}
+      port={port}
+      canTare={canTare}
+      onTare={onTare}
+      isSnapshot={isSnapshot}
+      path={path}
+      hasTareButton={hasTareButton}
+      channel={channel}
+      portMaxChars={5}
+    />
   );
 };
 
@@ -174,7 +169,7 @@ const getOpenChannel = (
   const base = {
     key: id.id(),
     port: port.key,
-    channel: device.properties[port.type].channels[port.key] ?? 0,
+    channel: device.properties[port.type]?.channels[port.key] ?? 0,
   };
   if (port.type === preferredType || channelToCopy.type !== TC_CHANNEL_TYPE)
     return { ...deep.copy(channelToCopy), ...base };
@@ -186,19 +181,27 @@ const getOpenChannel = (
   };
 };
 
-interface ChannelsFormProps {
+type ChannelsFormProps = {
   device: Device.Device;
-  task: ReadTask | ReadPayload;
   isRunning: boolean;
   isSnapshot: boolean;
-}
+  configured: boolean;
+  task: ReadPayload | ReadTask;
+};
 
-const ChannelsForm = ({ device, task, isRunning, isSnapshot }: ChannelsFormProps) => {
+const ChannelsForm = ({
+  device,
+  isSnapshot,
+  isRunning,
+  configured,
+  task,
+}: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<ReadChannel>({
-    task,
-    isRunning,
     isChannelTareable: ({ type }) => type === AI_CHANNEL_TYPE,
-  });
+    isRunning,
+    configured,
+    task,
+  } as Common.Task.UseTareProps<ReadChannel>);
   const generateChannel = useCallback(
     (channels: ReadChannel[], index: number) => getOpenChannel(channels, index, device),
     [device],
@@ -216,25 +219,19 @@ const ChannelsForm = ({ device, task, isRunning, isSnapshot }: ChannelsFormProps
   );
 };
 
-const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
-  task,
-  isRunning,
-  isSnapshot,
-}) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-  >
-    {({ device }) => (
-      <ChannelsForm
-        device={device}
-        task={task}
-        isRunning={isRunning}
-        isSnapshot={isSnapshot}
-      />
-    )}
-  </Common.Device.Provider>
-);
+const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = (
+  props,
+) => {
+  const { isSnapshot } = props;
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    >
+      {({ device }) => <ChannelsForm device={device} {...props} />}
+    </Common.Device.Provider>
+  );
+};
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
@@ -306,7 +303,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(() => <Properties />, Form, {
+export const Read = Common.Task.wrapForm(Properties, Form, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

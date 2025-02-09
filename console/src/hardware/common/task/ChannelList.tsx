@@ -12,6 +12,7 @@ import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components/menu";
+import { CSS } from "@/css";
 
 export interface Channel {
   key: string;
@@ -42,8 +43,12 @@ const ContextMenu = <C extends Channel>({
   const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
   const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
   const handleRemove = () => {
+    if (indices.length === 0) return onSelect([], -1);
     remove(indices);
-    onSelect([], -1);
+    const sorted = indices.sort((a, b) => a - b);
+    const idxToSelect = sorted[0] - 1;
+    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key], idxToSelect);
+    else onSelect([], -1);
   };
   const { set } = Form.useContext();
   const handleDisable = () =>
@@ -136,14 +141,14 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space empty grow>
+    <Align.Space className={CSS.B("channel-list")} empty>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        style={{ height: "100%" }}
+        style={{ height: "calc(100% - 6rem)" }}
       >
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>

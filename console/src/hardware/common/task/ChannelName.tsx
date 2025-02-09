@@ -26,7 +26,6 @@ export const ChannelName = ({
     <Text.Text
       color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
       level="p"
-      shade={9}
       {...rest}
     >
       {name}

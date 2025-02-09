@@ -98,7 +98,7 @@ export class Task<
     return ontologyID(this.key);
   }
 
-  async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
+  async executeCommand<Args>(type: string, args?: Args): Promise<string> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
     const key = id.id();
@@ -383,8 +383,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver(): Promise<StateObservable> {
-    return new framer.ObservableStreamer<State>(
+  async openStateObserver<D extends {} = UnknownRecord>(): Promise<StateObservable<D>> {
+    return new framer.ObservableStreamer<State<D>>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);

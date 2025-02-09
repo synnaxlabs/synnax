@@ -42,11 +42,14 @@ const generateAnalogChannel = <C extends AnalogChannel>(
   zeroChannel: C,
 ): C => {
   const key = id.id();
-  if (index === -1) return { ...deep.copy(zeroChannel), key };
+  let template: C;
+  if (channels.length === 0) template = deep.copy(zeroChannel);
+  else if (index === -1) template = deep.copy(channels[0]);
+  else template = deep.copy(channels[index]);
   const existingPorts = new Set(channels.map(({ port }) => port));
   let port = 0;
   while (existingPorts.has(port)) port++;
-  return { ...deep.copy(channels[index]), key, port };
+  return { ...template, channel: 0, key, port };
 };
 
 export const generateAIChannel = (channels: AIChannel[], index: number): AIChannel =>

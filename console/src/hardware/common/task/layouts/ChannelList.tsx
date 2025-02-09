@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header level="h4" style={{ width: "100%" }}>
+  <PHeader.Header level="h4">
     <PHeader.Title weight={500}>Channels</PHeader.Title>
     {!isSnapshot && (
       <PHeader.Actions>

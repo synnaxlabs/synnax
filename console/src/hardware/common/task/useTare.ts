@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, task as clientTask } from "@synnaxlabs/client";
+import { type channel, type task as clientTask } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -19,11 +19,23 @@ export interface TareableChannel {
   channel: channel.Key;
 }
 
-export interface UseTareProps<C extends TareableChannel> {
-  task: clientTask.Task | clientTask.Payload;
-  isChannelTareable?: (channel: C) => boolean;
-  isRunning: boolean;
+interface TareArgs {
+  keys: channel.Key[];
 }
+
+export type UseTareProps<C extends TareableChannel> =
+  | {
+      task: clientTask.Payload;
+      isChannelTareable?: (channel: C) => boolean;
+      isRunning: boolean;
+      configured: false;
+    }
+  | {
+      task: clientTask.Task;
+      isChannelTareable?: (channel: C) => boolean;
+      isRunning: boolean;
+      configured: true;
+    };
 
 export type UseTareReturn<C extends TareableChannel> = [
   tare: (key: channel.Key) => void,
@@ -35,16 +47,16 @@ export const useTare = <C extends TareableChannel>({
   task,
   isChannelTareable,
   isRunning,
+  configured,
 }: UseTareProps<C>): UseTareReturn<C> => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const tare = useMutation({
     onError: (e) => handleException(e, "Failed to tare channels"),
-    mutationFn: async (key: channel.Key[]) => {
+    mutationFn: async (keys: channel.Key[]) => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!(task instanceof clientTask.Task))
-        throw new Error("Task has not been configured");
-      await task.executeCommand("tare", { keys: [key] });
+      if (!configured) throw new Error("Task has not been configured");
+      await task.executeCommand<TareArgs>("tare", { keys });
     },
   }).mutate;
   const getTareableChannels = useCallback(

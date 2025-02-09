@@ -21,6 +21,7 @@ export interface ControlsProps {
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
+  configured: boolean;
 }
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
@@ -30,20 +31,30 @@ export const Controls = ({
   onStartStop,
   layoutKey,
   onConfigure,
+  configured,
   isConfiguring,
   isSnapshot = false,
 }: ControlsProps) => {
-  const content =
-    state.message != null ? (
+  let stateContent = (
+    <Status.Text.Centered variant="disabled" hideIcon>
+      Task must be configured to start.
+    </Status.Text.Centered>
+  );
+  if (state.message != null)
+    stateContent = (
       <Status.Text variant={state.variant ?? "info"}>{state.message}</Status.Text>
-    ) : isSnapshot ? (
+    );
+  else if (isSnapshot)
+    stateContent = (
       <Status.Text.Centered hideIcon variant="disabled">
         This task is a snapshot and cannot be modified or started.
       </Status.Text.Centered>
-    ) : null;
+    );
+
   const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   const isLoading = state.state === "loading";
-  const isDisabled = isLoading || isConfiguring || isSnapshot;
+  const configureDisabled = isLoading || isConfiguring || isSnapshot;
+  const startStopDisabled = isLoading || isConfiguring || isSnapshot || !configured;
   return (
     <Align.Space
       className={CSS.B("task-controls")}
@@ -60,7 +71,7 @@ export const Controls = ({
           width: "100%",
         }}
       >
-        {content}
+        {stateContent}
       </Align.Space>
       {!isSnapshot && (
         <Align.Space
@@ -72,7 +83,7 @@ export const Controls = ({
           style={{ borderRadius: "1rem", padding: "2rem" }}
         >
           <Button.Button
-            disabled={isDisabled}
+            disabled={configureDisabled}
             loading={isConfiguring}
             onClick={onConfigure}
             size="medium"
@@ -90,7 +101,7 @@ export const Controls = ({
             Configure
           </Button.Button>
           <Button.Icon
-            disabled={isDisabled}
+            disabled={startStopDisabled}
             loading={isLoading}
             onClick={onStartStop}
             size="medium"

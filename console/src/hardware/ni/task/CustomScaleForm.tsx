@@ -103,7 +103,7 @@ const unitsData = (Object.entries(UNITS_STUFF) as [Units, UnitsInfo][]).map(
 
 const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   fieldKey: "units",
-  fieldProps: { label: "Units", grow: true },
+  fieldProps: { label: "Units" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
@@ -122,8 +122,18 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
       <Align.Space direction="x">
-        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
-        <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
+        <UnitsField
+          fieldKey="preScaledUnits"
+          label="Prescaled Units"
+          path={prefix}
+          grow
+        />
+        <Form.TextField
+          fieldKey="scaledUnits"
+          label="Scaled Units"
+          path={prefix}
+          grow
+        />
       </Align.Space>
       <Align.Space direction="x">
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
@@ -139,7 +149,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
       <UnitsField fieldKey="preScaledUnits" path={prefix} />
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Form.NumericField
           fieldKey="preScaledMin"
           label="Pre-Scaled Min"
@@ -152,7 +162,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           path={prefix}
         />
       </Align.Space>
-      <Align.Space direction="x" grow>
+      <Align.Space direction="x">
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
       </Align.Space>
@@ -228,7 +238,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
-        <Align.Space direction="x" grow>
+        <Align.Space direction="x">
           <Input.Item label="Raw Column" padHelpText grow>
             <Select.Single
               columns={NAMED_KEY_COLS}
