@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -89,7 +89,11 @@ export const wrapForm = <
     onConfigure,
   }: WrapFormOptions<Config, Details, Type>,
 ): Layout.Renderer => {
-  const Wrapper = ({ layoutKey, task: tsk }: TaskProps<Config, Details, Type>) => {
+  const Wrapper = ({
+    layoutKey,
+    task: tsk,
+    configured,
+  }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
     const schema = z.object({ name: nameZ, config: configSchema });
@@ -115,8 +119,7 @@ export const wrapForm = <
     });
     const startOrStopMutation = useMutation({
       mutationFn: async () => {
-        if (!(tsk instanceof task.Task))
-          throw new Error("Task has not been configured");
+        if (!configured) throw new UnexpectedError("Task has not been configured");
         if (state.state === "loading")
           throw new Error("State is loading, should not be able to start or stop task");
         await tsk.executeCommand(state.state === "running" ? "stop" : "start");
@@ -169,6 +172,7 @@ export const wrapForm = <
             onStartStop={startOrStopMutation.mutate}
             onConfigure={configureMutation.mutate}
             isSnapshot={isSnapshot}
+            configured={configured}
           />
         </Align.Space>
       </Align.Space>

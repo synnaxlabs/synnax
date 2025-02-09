@@ -9,12 +9,26 @@ export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K
   portMaxChars: number;
   canTare: boolean;
   channel: number;
-  onTare: (channel: number) => void;
+  onTare?: (channel: number) => void;
   isSnapshot: boolean;
   path: string;
   hasTareButton: boolean;
   name?: string;
 }
+
+const NAME_PROPS: Text.TextProps = {
+  level: "p",
+  shade: 7,
+  weight: 450,
+  style: {
+    maxWidth: 150,
+    flexGrow: 1,
+    textOverflow: "ellipsis",
+    overflow: "hidden",
+  },
+  noWrap: true,
+};
+
 export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   port,
   portMaxChars,
@@ -43,27 +57,14 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
         {port}
       </Text.Text>
       {name != null ? (
-        <Text.Text
-          level="p"
-          shade={7}
-          weight={450}
-          style={{
-            maxWidth: 150,
-            flexGrow: 1,
-            textOverflow: "ellipsis",
-            overflow: "hidden",
-          }}
-          noWrap
-        >
-          {name}
-        </Text.Text>
+        <Text.Text {...NAME_PROPS}>{name}</Text.Text>
       ) : (
-        <Common.Task.ChannelName channel={channel} />
+        <Common.Task.ChannelName {...NAME_PROPS} channel={channel} />
       )}
     </Align.Space>
     <Align.Pack direction="x" align="center" size="small">
       {hasTareButton && (
-        <Common.Task.TareButton disabled={!canTare} onTare={() => onTare(channel)} />
+        <Common.Task.TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
       )}
       <Common.Task.EnableDisableButton
         path={`${path}.enabled`}

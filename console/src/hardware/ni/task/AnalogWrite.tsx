@@ -9,11 +9,12 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
+import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
+import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { generateAOChannel } from "@/hardware/ni/task/generateChannel";
@@ -36,7 +37,7 @@ export const ANALOG_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
   key: ANALOG_WRITE_TYPE,
   type: ANALOG_WRITE_TYPE,
   name: ZERO_ANALOG_WRITE_PAYLOAD.name,
-  icon: "Logo.LabJack",
+  icon: "Logo.NI",
 };
 
 export const ANALOG_WRITE_SELECTABLE: Layout.Selectable = {
@@ -60,23 +61,21 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChanne
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
-    entry: { port, type },
+    entry: { port, type, cmdChannel },
   } = rest;
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="x">
-        <Text.Text level="p" shade={6}>
-          {port}
-        </Text.Text>
-        <Text.Text level="p" shade={9}>
-          {AO_CHANNEL_TYPE_NAMES[type]}
-        </Text.Text>
-      </Align.Space>
-      <Common.Task.EnableDisableButton
-        path={`${path}.enabled`}
-        isSnapshot={isSnapshot}
-      />
-    </List.ItemFrame>
+    <Layouts.ListAndDetailsChannelItem
+      {...rest}
+      port={port}
+      hasTareButton={false}
+      channel={cmdChannel}
+      portMaxChars={2}
+      canTare={false}
+      onTare={() => {}}
+      isSnapshot={isSnapshot}
+      path={path}
+      name={AO_CHANNEL_TYPE_NAMES[type]}
+    />
   );
 };
 
@@ -211,7 +210,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
   return [config, dev.rack];
 };
 
-export const AnalogWrite = Common.Task.wrapForm(() => <Properties />, Form, {
+export const AnalogWrite = Common.Task.wrapForm(Properties, Form, {
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,

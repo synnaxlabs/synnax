@@ -43,8 +43,12 @@ const ContextMenu = <C extends Channel>({
   const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
   const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
   const handleRemove = () => {
+    if (indices.length === 0) return onSelect([], -1);
     remove(indices);
-    onSelect([], -1);
+    const sorted = indices.sort((a, b) => a - b);
+    const idxToSelect = sorted[0] - 1;
+    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key], idxToSelect);
+    else onSelect([], -1);
   };
   const { set } = Form.useContext();
   const handleDisable = () =>

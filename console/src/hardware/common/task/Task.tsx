@@ -31,14 +31,21 @@ export const LAYOUT: Omit<LayoutBaseState, "type" | "key"> = {
   args: {},
 };
 
-export interface TaskProps<
+export type TaskProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
   Type extends string = string,
-> {
-  layoutKey: string;
-  task: task.Payload<Config, Details, Type> | task.Task<Config, Details, Type>;
-}
+> =
+  | {
+      layoutKey: string;
+      configured: false;
+      task: task.Payload<Config, Details, Type>;
+    }
+  | {
+      layoutKey: string;
+      configured: true;
+      task: task.Task<Config, Details, Type>;
+    };
 
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
   extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
@@ -65,23 +72,26 @@ export const wrap = <
   Details extends {} = UnknownRecord,
   Type extends string = string,
 >(
-  Task: FC<TaskProps<Config, Details, Type>>,
+  Wrapped: FC<TaskProps<Config, Details, Type>>,
   options: WrapOptions<Config, Details, Type>,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { deviceKey, taskKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
     const client = Synnax.use();
-    const { data, error, isError, isPending } = useQuery({
+    const { data, error, isError, isPending } = useQuery<
+      TaskProps<Config, Details, Type>
+    >({
       queryFn: async () => {
         const { configSchema, getInitialPayload } = options;
-        if (taskKey == null) return getInitialPayload(deviceKey);
+        if (taskKey == null)
+          return { configured: false, task: getInitialPayload(deviceKey), layoutKey };
         if (client == null) throw NULL_CLIENT_ERROR;
         const task = await client.hardware.tasks.retrieve<Config, Details, Type>(
           taskKey,
           { includeState: true },
         );
         task.config = configSchema.parse(task.config);
-        return task;
+        return { configured: true, task, layoutKey };
       },
       queryKey: [taskKey, deviceKey, client?.key, layoutKey],
     });
@@ -99,10 +109,10 @@ export const wrap = <
         </Text.Text>
       </Align.Space>
     ) : (
-      <Task layoutKey={layoutKey} task={data} />
+      <Wrapped {...data} />
     );
     return <Eraser.Eraser>{content}</Eraser.Eraser>;
   };
-  Wrapper.displayName = `TaskWrapper(${Task.displayName ?? Task.name})`;
+  Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;
 };

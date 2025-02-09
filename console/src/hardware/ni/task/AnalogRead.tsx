@@ -140,6 +140,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   client,
   config,
 ) => {
+  console.log(config);
   const devices = unique.unique(config.channels.map((c) => c.device));
   // TODO: check that multiple devices are not being configured at once.
   let rackKey: rack.Key | undefined;
@@ -182,6 +183,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
           else throw e;
         }
     }
+    console.log(toCreate);
     if (toCreate.length > 0) {
       modified = true;
       const channels = await client.channels.create(

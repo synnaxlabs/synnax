@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  componentRenderProp,
   Divider,
   Form,
   type Icon as PIcon,
@@ -70,7 +71,6 @@ const SelectButtonOption = ({
 const SelectWaveType = (props: Select.ButtonProps<WaveType, WaveTypeEntry>) => (
   <Select.Button<WaveType, WaveTypeEntry>
     {...props}
-    size="large"
     data={WAVE_TYPE_DATA}
     entryRenderKey="icon"
   >
@@ -93,12 +93,27 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
     <Align.Space direction="y" align="center">
       <Align.Space direction="x" grow>
-        <Form.NumericField path={`${path}.frequency`} label="Frequency" grow />
-        <Form.NumericField path={`${path}.amplitude`} label="Amplitude" grow />
-        <Form.NumericField path={`${path}.offset`} label="Offset" grow />
+        <Form.NumericField
+          path={`${path}.frequency`}
+          label="Frequency"
+          inputProps={{ endContent: "Hz" }}
+          grow
+        />
+        <Form.NumericField
+          path={`${path}.amplitude`}
+          label="Amplitude"
+          inputProps={{ endContent: "V" }}
+          grow
+        />
+        <Form.NumericField
+          path={`${path}.offset`}
+          label="Offset"
+          inputProps={{ endContent: "V" }}
+          grow
+        />
       </Align.Space>
       <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
-        {SelectWaveType}
+        {componentRenderProp(SelectWaveType)}
       </Form.Field>
     </Align.Space>
   ),

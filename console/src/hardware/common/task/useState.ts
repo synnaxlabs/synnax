@@ -41,6 +41,7 @@ export const useState = <D extends Details>(
   const [state, setState] = useReactState<ReturnState>({
     state: isRunning ? "running" : "paused",
     message: initialState?.details?.message,
+    variant: (initialState?.variant as Status.Variant) ?? undefined,
   });
   const client = Synnax.use();
   Observe.useListener({
