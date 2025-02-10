@@ -26,8 +26,16 @@
         }
 
         .console-channel-list {
+            overflow: hidden;
+        }
+
+        .console-channel-list:not(:only-child) {
             max-width: 300px;
             flex-basis: 250px;
+        }
+
+        .console-channel-list:only-child {
+            flex-grow: 1;
         }
 
         .console-details {
@@ -35,6 +43,16 @@
             overflow: scroll;
             height: 100%;
         }
+    }
+
+    .console-task__channel-name {
+        max-width: 150px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        font-weight: 500;
+        color: var(--pluto-gray-l7);
+        flex-shrink: 1;
     }
 }
 
@@ -45,6 +63,9 @@
         }
         .console-details {
             padding: 1rem 2rem;
+        }
+        .console-task__channel-name:last-of-type {
+            display: none;
         }
     }
 

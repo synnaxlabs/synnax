@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/common/task/ChannelName.css";
+
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
+
+import { CSS } from "@/css";
 
 export interface ChannelNameProps extends Omit<Text.TextProps, "level"> {
   channel: channel.Key;
@@ -24,8 +28,9 @@ export const ChannelName = ({
   const name = Channel.useName(channel, defaultName);
   return (
     <Text.Text
+      className={CSS.BE("task", "channel-name")}
       color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
-      level="p"
+      level="small"
       {...rest}
     >
       {name}
