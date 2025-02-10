@@ -50,10 +50,12 @@ int ni::DigitalReadSource::create_channels() {
     int err = 0;
     for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type != "index" && channel.enabled) {
-            err = this->check_ni_error(
+            err = this->check_error(
                 this->dmx->CreateDIChan(task_handle,
-                                        channel.name.c_str(),
-                                        "", DAQmx_Val_ChanPerLine));
+                                      channel.name.c_str(),
+                                      "", DAQmx_Val_ChanPerLine),
+                "create_channels.CreateDIChan"
+            );
             VLOG(1) << "Channel name: " << channel.name;
         }
         this->num_channels++;
@@ -72,7 +74,7 @@ int ni::DigitalReadSource::configure_timing() {
         // if timing is not enabled, implement timing in software, reading one sample at a time
         this->num_samples_per_channel = 1;
     } else {
-        if (this->check_ni_error(
+        if (this->check_error(
                 this->dmx->CfgSampClkTiming(
                     this->task_handle,
                     this->reader_config.timing_source.c_str(),
@@ -80,9 +82,8 @@ int ni::DigitalReadSource::configure_timing() {
                     DAQmx_Val_Rising,
                     DAQmx_Val_ContSamps,
                     this->reader_config.sample_rate.value
-                )
-            )
-        ) {
+                ), "configure_timing.CfgSampClkTiming"
+            )) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;
@@ -108,7 +109,7 @@ void ni::DigitalReadSource::acquire_data() {
 
         // sleep per sample rate
         this->sample_timer.wait();
-        if (this->check_ni_error(
+        if (this->check_error(
                 this->dmx->ReadDigitalLines(
                     this->task_handle,
                     this->num_samples_per_channel,
@@ -119,9 +120,8 @@ void ni::DigitalReadSource::acquire_data() {
                     &data_packet.samples_read_per_channel,
                     &numBytesPerSamp,
                     NULL
-                )
-            )
-        ) {
+                ), "acquire_data.ReadDigitalLines"
+            )) {
             this->log_error(
                 "failed while reading digital data for task " + this->reader_config.
                 task_name

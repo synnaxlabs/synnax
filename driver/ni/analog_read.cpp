@@ -96,10 +96,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     return channel;
 }
 
-
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
-        if (this->check_ni_error(
+        if (this->check_error(
                 this->dmx->CfgSampClkTiming(
                     this->task_handle,
                     "",
@@ -107,14 +106,13 @@ int ni::AnalogReadSource::configure_timing() {
                     DAQmx_Val_Rising,
                     DAQmx_Val_ContSamps,
                     this->reader_config.sample_rate.value
-                )
-            )
-        ) {
+                ), "configure_timing.CfgSampClkTiming"
+            )) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
-    } else if (this->check_ni_error(
+    } else if (this->check_error(
             this->dmx->CfgSampClkTiming(
                 this->task_handle,
                 this->reader_config.timing_source.c_str(),
@@ -122,9 +120,8 @@ int ni::AnalogReadSource::configure_timing() {
                 DAQmx_Val_Rising,
                 DAQmx_Val_ContSamps,
                 this->reader_config.sample_rate.value
-            )
-        )
-    ) {
+            ), "configure_timing.CfgSampClkTiming"
+        )) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -148,7 +145,7 @@ void ni::AnalogReadSource::acquire_data() {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = synnax::TimeStamp::now().value;
-        if (this->check_ni_error(
+        if (this->check_error(
                 this->dmx->ReadAnalogF64(
                     this->task_handle,
                     this->num_samples_per_channel,
@@ -158,9 +155,8 @@ void ni::AnalogReadSource::acquire_data() {
                     data_packet.analog_data.size(),
                     &data_packet.samples_read_per_channel,
                     NULL
-                )
-            )
-        ) {
+                ), "acquire_data.ReadAnalogF64"
+            )) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
@@ -213,8 +209,8 @@ int ni::AnalogReadSource::create_channels() {
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
-        this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
-        this->check_ni_error(channel.ni_channel->bind(this->dmx, this->task_handle));
+        this->check_error(channel.ni_channel->create_ni_scale(this->dmx), "create_channels.create_ni_scale");
+        this->check_error(channel.ni_channel->bind(this->dmx, this->task_handle), "create_channels.bind");
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;

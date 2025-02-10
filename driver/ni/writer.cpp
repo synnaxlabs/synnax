@@ -99,13 +99,15 @@ std::vector<synnax::ChannelKey> ni::WriteSink::get_state_channel_keys() {
     return keys;
 }
 
-int ni::WriteSink::check_err(int32 error, std::string caller) {
+int ni::WriteSink::check_err(int32 error, std::string caller, std::string channel_name) {
     if (error == 0) return 0;
     char errBuff[2048] = {'\0'};
     this->dmx->GetExtendedErrorInfo(errBuff, 2048);
 
     std::string s(errBuff);
-    jsonify_error(s);
+    
+    // Pass the channel name to jsonify_error
+    jsonify_error(s, channel_name);
 
     this->ctx->set_state({
         .task = this->task.key,
@@ -141,75 +143,121 @@ void ni::WriteSink::stopped_with_err(const freighter::Error &err) {
 }
 
 void ni::WriteSink::clear_task() {
-    if (this->check_err(this->dmx->ClearTask(task_handle), "clear_task.ClearTask"))
+    if (this->check_err(this->dmx->ClearTask(task_handle), "clear_task.ClearTask", ""))
         this->log_error("failed to clear writer for task " + this->writer_config.task_name);
 }
 
-void ni::WriteSink::jsonify_error(std::string s) {
+void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
+    LOG(INFO) << "jsonify_error: " << s;
     this->err_info["running"] = false;
 
+    // Define regex patterns
     std::regex status_code_regex(R"(Status Code:\s*(-?\d+))");
     std::regex channel_regex(R"(Channel Name:\s*(\S+))");
     std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
     std::regex device_regex(R"(Device:\s*(\S+))");
+    std::regex possible_values_regex(R"(Possible Values:\s*([\w\s,.-]+))");
+    std::regex max_value_regex(R"(Maximum Value:\s*([\d.\s,eE-]+))");
+    std::regex min_value_regex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
+    std::regex property_regex(R"(Property:\s*(\S+))");
+    std::regex task_name_regex(R"(Task Name:\s*(\S+))");
 
-    std::string message = s;
-    std::vector<std::string> fields = {
-        "Status Code:", "Channel Name:", "Physical Channel Name:",
-        "Device:", "Task Name:"
-    };
+    // Remove the Task Name line if it exists
+    std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
+    s = std::regex_replace(s, task_name_line_regex, "");
 
-    size_t first_field_pos = std::string::npos;
-    for (const auto &field: fields) {
-        size_t pos = s.find("\n" + field);
-        if (pos != std::string::npos && (
-                first_field_pos == std::string::npos || pos < first_field_pos))
-            first_field_pos = pos;
-    }
-
-    if (first_field_pos != std::string::npos)
-        message = s.substr(0, first_field_pos);
-
-    message = std::regex_replace(message, std::regex("\\s+$"), "");
-
+    // Extract status code
+    std::string sc = "";
     std::smatch status_code_match;
-    std::regex_search(s, status_code_match, status_code_regex);
-    std::string sc = (!status_code_match.empty()) ? status_code_match[1].str() : "";
+    if (std::regex_search(s, status_code_match, status_code_regex))
+        sc = status_code_match[1].str();
 
-    bool is_port_error = (sc == "-200170");
+    // Remove the redundant Status Code line at the end
+    std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
+    s = std::regex_replace(s, status_code_line_regex, "");
 
+    // Extract device name
     std::string device = "";
     std::smatch device_match;
     if (std::regex_search(s, device_match, device_regex))
         device = device_match[1].str();
 
+    // Extract physical channel name or channel name
     std::string cn = "";
     std::smatch physical_channel_match;
-    std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
-        if (!device.empty()) cn = device + "/" + cn;
-    } else if (std::regex_search(s, channel_match, channel_regex))
-        cn = channel_match[1].str();
+        if (!device.empty()) cn = device + "/ao" + cn;
+    } else {
+        std::smatch channel_match;
+        if (std::regex_search(s, channel_match, channel_regex))
+            cn = channel_match[1].str();
+    }
 
-    this->err_info["path"] = channel_map.count(cn) != 0
-                                 ? channel_map[cn]
-                                 : !cn.empty()
-                                       ? cn
-                                       : "";
-    if (is_port_error)
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
+    // If we have a channel name passed in, use it instead of trying to extract from error
+    if (!channel_name.empty()) {
+        cn = channel_name;
+    }
 
-    std::string error_message = "NI Error " + sc + ": " + message + " Path: " +
-                                this->err_info["path"].get<std::string>();
+    // Add debug print
+    LOG(INFO) << "Trying to find channel '" << cn << "' in channel map";
+    LOG(INFO) << "Channel map contents:";
+    for (const auto& [name, path] : writer_config.channel_map) {
+        LOG(INFO) << "  " << name << " -> " << path;
+    }
 
+    // Extract the first property
+    std::string p = "";
+    std::smatch property_match;
+    if (std::regex_search(s, property_match, property_regex))
+        p = property_match[1].str();
+    if (sc == "-200170") p = "port";
+
+    // Extract possible values
+    std::string possible_values = "";
+    std::smatch possible_values_match;
+    if (std::regex_search(s, possible_values_match, possible_values_regex)) {
+        possible_values = possible_values_match[1].str();
+        size_t pos = possible_values.find("Channel Name");
+        if (pos != std::string::npos)
+            possible_values.erase(pos, std::string("Channel Name").length());
+    }
+
+    // Extract maximum value
+    std::string max_value = "";
+    std::smatch max_value_match;
+    if (std::regex_search(s, max_value_match, max_value_regex))
+        max_value = max_value_match[1].str();
+
+    // Extract minimum value
+    std::string min_value = "";
+    std::smatch min_value_match;
+    if (std::regex_search(s, min_value_match, min_value_regex))
+        min_value = min_value_match[1].str();
+
+    // Set the path
+    if (writer_config.channel_map.count(cn) != 0) this->err_info["path"] = writer_config.channel_map[cn] + ".";
+    else if (!cn.empty()) this->err_info["path"] = cn + ".";
+    else this->err_info["path"] = "";
+
+    // Check if the property is in the field map
+    if (FIELD_MAP.count(p) == 0)
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
+    else
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
+
+    // Construct the error message
+    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " + this->err_info["path"].get<std::string>();
     if (!cn.empty()) error_message += " Channel: " + cn;
-
+    if (!possible_values.empty()) error_message += " Possible Values: " + possible_values;
+    if (!max_value.empty()) error_message += " Maximum Value: " + max_value;
+    if (!min_value.empty()) error_message += " Minimum Value: " + min_value;
     this->err_info["message"] = error_message;
 
     json j = json::array();
     j.push_back(this->err_info);
-    this->err_info["errors"] = j;
+
+    LOG(INFO) << this->err_info.dump(4);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -253,20 +301,17 @@ int ni::DigitalWriteSink::init() {
 
     for (auto &channel: channels) {
         if (channel.channel_type != "index" && channel.enabled) {
-            err = this->check_err(
+            if (this->check_err(
                 this->dmx->CreateDOChan(
                     this->task_handle,
                     channel.name.c_str(),
                     "",
                     DAQmx_Val_ChanPerLine
-                ), "init.CreateDOChan"
-            );
+                ), "init.CreateDOChan", channel.name)) {
+                return -1;
+            }
         }
         this->num_channels++;
-        if (err < 0) {
-            this->log_error("failed to create channel " + channel.name);
-            return -1;
-        }
     }
 
     this->buffer_size = this->num_channels;
@@ -312,7 +357,7 @@ freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
             write_buffer,
             &samplesWritten,
             NULL
-        ), "write.WriteDigitalLines")) {
+        ), "write.WriteDigitalLines", "")) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                               "Error writing digital data");
@@ -389,8 +434,12 @@ int ni::AnalogWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        this->check_err(channel.ni_channel->create_ni_scale(this->dmx), "init.create_ni_scale");
-        this->check_err(channel.ni_channel->bind(this->dmx, this->task_handle), "init.bind");
+        if (this->check_err(channel.ni_channel->create_ni_scale(this->dmx), "init.create_ni_scale", channel.name)) {
+            return -1;
+        }
+        if (this->check_err(channel.ni_channel->bind(this->dmx, this->task_handle), "init.bind", channel.name)) {
+            return -1;
+        }
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;
@@ -440,7 +489,7 @@ freighter::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
             write_buffer,
             &samplesWritten,
             NULL
-        ), "write.WriteAnalogF64")) {
+        ), "write.WriteAnalogF64", "")) {
         this->log_error("failed while writing analog data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                               "Error writing analog data");
