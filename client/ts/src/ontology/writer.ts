@@ -12,22 +12,15 @@ import { z } from "zod";
 
 import { type CrudeID, ID, idZ } from "@/ontology/payload";
 
-const ENDPOINTS = {
-  ADD_CHILDREN: "/ontology/add-children",
-  REMOVE_CHILDREN: "/ontology/remove-children",
-  MOVE_CHILDREN: "/ontology/move-children",
-};
+const ADD_CHILDREN_ENDPOINT = "/ontology/add-children";
+const REMOVE_CHILDREN_ENDPOINT = "/ontology/remove-children";
+const MOVE_CHILDREN_ENDPOINT = "/ontology/move-children";
 
-const addRemoveChildrenReqZ = z.object({
-  id: idZ,
-  children: idZ.array(),
-});
+const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
 
-const moveChildrenReqZ = z.object({
-  from: idZ,
-  to: idZ,
-  children: idZ.array(),
-});
+const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
+
+const emptyResZ = z.object({});
 
 export class Writer {
   client: UnaryClient;
@@ -37,22 +30,22 @@ export class Writer {
   }
 
   async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
-    await sendRequired<typeof addRemoveChildrenReqZ, z.ZodTypeAny>(
+    await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      ENDPOINTS.ADD_CHILDREN,
+      ADD_CHILDREN_ENDPOINT,
       { id: new ID(id).payload, children: children.map((c) => new ID(c).payload) },
       addRemoveChildrenReqZ,
-      z.object({}),
+      emptyResZ,
     );
   }
 
   async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
-    await sendRequired<typeof addRemoveChildrenReqZ, z.ZodTypeAny>(
+    await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      ENDPOINTS.REMOVE_CHILDREN,
+      REMOVE_CHILDREN_ENDPOINT,
       { id: new ID(id).payload, children: children.map((c) => new ID(c).payload) },
       addRemoveChildrenReqZ,
-      z.object({}),
+      emptyResZ,
     );
   }
 
@@ -66,12 +59,12 @@ export class Writer {
       to: new ID(to).payload,
       children: children.map((c) => new ID(c).payload),
     };
-    await sendRequired(
+    await sendRequired<typeof moveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      ENDPOINTS.MOVE_CHILDREN,
+      MOVE_CHILDREN_ENDPOINT,
       req,
       moveChildrenReqZ,
-      z.object({}),
+      emptyResZ,
     );
   }
 }

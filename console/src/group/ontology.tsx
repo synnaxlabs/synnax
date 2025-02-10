@@ -9,8 +9,7 @@
 
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -283,15 +282,13 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: group.ONTOLOGY_TYPE,
   icon: <Icon.Group />,
-  hasChildren: true,
-  onRename: handleRename,
   canDrop: () => true,
-  onSelect: () => {},
   // This haul item allows the group to be dragged between nodes in the tree.
-  haulItems: ({ key }) => [group.ontologyID(key)],
+  haulItems: ({ id }) => [id],
   allowRename: () => true,
-  onMosaicDrop: () => {},
+  onRename: handleRename,
   TreeContextMenu,
 };

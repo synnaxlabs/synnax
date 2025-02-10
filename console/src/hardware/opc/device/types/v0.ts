@@ -7,27 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type task } from "@synnaxlabs/client";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type channel } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export const securityModeZ = z.union([
-  z.literal("None"),
-  z.literal("Sign"),
-  z.literal("SignAndEncrypt"),
-]);
+export const VERSION = "0.0.0";
+type Version = typeof VERSION;
 
+export const MAKE = "opc";
+export type Make = typeof MAKE;
+
+export const NO_SECURITY_MODE = "None";
+export const SIGN_SECURITY_MODE = "Sign";
+export const SIGN_AND_ENCRYPT_SECURITY_MODE = "SignAndEncrypt";
+const securityModeZ = z.enum([
+  NO_SECURITY_MODE,
+  SIGN_SECURITY_MODE,
+  SIGN_AND_ENCRYPT_SECURITY_MODE,
+]);
 export type SecurityMode = z.infer<typeof securityModeZ>;
 
-export const securityPolicyZ = z.union([
-  z.literal("None"),
-  z.literal("Basic128Rsa15"),
-  z.literal("Basic256"),
-  z.literal("Basic256Sha256"),
-  z.literal("Aes128_Sha256_RsaOaep"),
-  z.literal("Aes256_Sha256_RsaPss"),
+export const NO_SECURITY_POLICY = "None";
+export const BASIC128_RSA15_SECURITY_POLICY = "Basic128Rsa15";
+export const BASIC256_SECURITY_POLICY = "Basic256";
+export const BASIC256_SHA256_SECURITY_POLICY = "Basic256Sha256";
+export const AES128_SHA256_RSAOAEP_SECURITY_POLICY = "Aes128_Sha256_RsaOaep";
+export const AES256_SHA256_RSAPSS_SECURITY_POLICY = "Aes256_Sha256_RsaPss";
+const securityPolicyZ = z.enum([
+  NO_SECURITY_POLICY,
+  BASIC128_RSA15_SECURITY_POLICY,
+  BASIC256_SECURITY_POLICY,
+  BASIC256_SHA256_SECURITY_POLICY,
+  AES128_SHA256_RSAOAEP_SECURITY_POLICY,
+  AES256_SHA256_RSAPSS_SECURITY_POLICY,
 ]);
-
 export type SecurityPolicy = z.infer<typeof securityPolicyZ>;
 
 export const connectionConfigZ = z.object({
@@ -40,12 +52,11 @@ export const connectionConfigZ = z.object({
   clientPrivateKey: z.string().optional(),
   serverCertificate: z.string().optional(),
 });
-
-export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
+export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
 export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   endpoint: "opc.tcp://localhost:4840",
-  securityMode: "None",
-  securityPolicy: "None",
+  securityMode: NO_SECURITY_MODE,
+  securityPolicy: NO_SECURITY_POLICY,
   username: "",
   password: "",
   clientCertificate: "",
@@ -53,33 +64,15 @@ export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   serverCertificate: "",
 };
 
-export const scannedNodeZ = z.object({
-  nodeId: z.string(),
-  dataType: z.string(),
-  name: z.string(),
-  nodeClass: z.string(),
-  isArray: z.boolean(),
-});
-
-export type ScannedNode = z.infer<typeof scannedNodeZ>;
-
-export const propertiesZ = z.object({
-  version: z.literal("0.0.0").optional().default("0.0.0"),
-  connection: connectionConfigZ,
-  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
-  write: z.object({ channels: z.record(z.string(), z.number()) }),
-});
-
-export type Properties = z.infer<typeof propertiesZ>;
-
-export type Device = device.Device<Properties>;
-
-export interface TestConnCommandResponse extends UnknownRecord {
-  message: string;
-}
-
-export type TestConnCommandState = task.State<TestConnCommandResponse>;
-
-export const scannerScanCommandResult = z.object({ channels: scannedNodeZ.array() });
-
-export type ScannerScanCommandResult = z.infer<typeof scannerScanCommandResult>;
+export type Properties = {
+  version: Version;
+  connection: ConnectionConfig;
+  read: { index: channel.Key; channels: Record<string, channel.Key> };
+  write: { channels: Record<string, channel.Key> };
+};
+export const ZERO_PROPERTIES: Properties = {
+  version: VERSION,
+  connection: ZERO_CONNECTION_CONFIG,
+  read: { index: 0, channels: {} },
+  write: { channels: {} },
+};

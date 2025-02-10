@@ -23,7 +23,7 @@ from synnax.hardware import opcua
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax.
-dev = client.hardware.devices.retrieve(name="New OPC Server")
+dev = client.hardware.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_time = client.channels.create(

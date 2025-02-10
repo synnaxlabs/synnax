@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect,it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { type Primitive } from "zod";
 
 import {
@@ -28,22 +28,12 @@ describe("retrieve utils", () => {
       {
         args: "abc",
         variantMap: { string: "name" },
-        expected: {
-          single: true,
-          variant: "name",
-          normalized: ["abc"],
-          actual: "abc",
-        },
+        expected: { single: true, variant: "name", normalized: ["abc"], actual: "abc" },
       },
       {
         args: 123,
         variantMap: { number: "id" },
-        expected: {
-          single: true,
-          variant: "id",
-          normalized: [123],
-          actual: 123,
-        },
+        expected: { single: true, variant: "id", normalized: [123], actual: 123 },
       },
     ];
 

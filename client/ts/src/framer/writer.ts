@@ -23,10 +23,9 @@ import {
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
-import { type Retriever } from "@/channel/retriever";
-import { WriteFrameAdapter } from "@/framer/adapter";
-import { type CrudeFrame, frameZ } from "@/framer/frame";
+import { channel } from "@/channel";
+import { WriteAdapter } from "@/framer/adapter";
+import { type Crude, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -64,7 +63,7 @@ export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: control.subjectZ.optional(),
-  keys: z.number().array().optional(),
+  keys: channel.keyZ.array().optional(),
   authorities: control.Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
   errOnUnauthorized: z.boolean().optional(),
@@ -72,7 +71,7 @@ const netConfigZ = z.object({
   autoIndexPersistInterval: TimeSpan.z.optional(),
 });
 
-type Config = z.infer<typeof netConfigZ>;
+interface Config extends z.infer<typeof netConfigZ> {}
 
 const reqZ = z.object({
   command: z.nativeEnum(Command),
@@ -80,7 +79,7 @@ const reqZ = z.object({
   frame: frameZ.optional(),
 });
 
-type Request = z.infer<typeof reqZ>;
+interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
   ack: z.boolean(),
@@ -88,11 +87,11 @@ const resZ = z.object({
   error: errorZ.optional().nullable(),
 });
 
-type Response = z.infer<typeof resZ>;
+interface Response extends z.infer<typeof resZ> {}
 
 export interface WriterConfig {
   // channels denote the channels to write to.
-  channels: Params;
+  channels: channel.Params;
   // start sets the starting timestamp for the first sample in the writer.
   start?: CrudeTimeStamp;
   // controlSubject sets the control subject of the writer.
@@ -158,18 +157,15 @@ export interface WriterConfig {
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: WriteFrameAdapter;
+  private readonly adapter: WriteAdapter;
 
-  private constructor(
-    stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: WriteFrameAdapter,
-  ) {
+  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
   }
 
   static async _open(
-    retriever: Retriever,
+    retriever: channel.Retriever,
     client: StreamClient,
     {
       channels,
@@ -182,7 +178,7 @@ export class Writer {
       autoIndexPersistInterval = TimeSpan.SECOND,
     }: WriterConfig,
   ): Promise<Writer> {
-    const adapter = await WriteFrameAdapter.open(retriever, channels);
+    const adapter = await WriteAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
@@ -201,14 +197,11 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: KeyOrName, data: CrudeSeries): Promise<boolean>;
-
-  async write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
-
-  async write(frame: CrudeFrame | Record<KeyOrName, CrudeSeries>): Promise<boolean>;
-
+  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<boolean>;
+  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
+  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<boolean>;
   async write(
-    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean>;
 
@@ -227,7 +220,7 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
     const frame = await this.adapter.adapt(channelsOrData, series);
@@ -237,21 +230,26 @@ export class Writer {
 
   async setAuthority(value: number): Promise<boolean>;
 
-  async setAuthority(key: KeyOrName, authority: control.Authority): Promise<boolean>;
-
-  async setAuthority(value: Record<KeyOrName, control.Authority>): Promise<boolean>;
+  async setAuthority(
+    key: channel.KeyOrName,
+    authority: control.Authority,
+  ): Promise<boolean>;
 
   async setAuthority(
-    value: Record<KeyOrName, control.Authority> | KeyOrName | number,
+    value: Record<channel.KeyOrName, control.Authority>,
+  ): Promise<boolean>;
+
+  async setAuthority(
+    value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
   ): Promise<boolean> {
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
     else {
-      let oValue: Record<KeyOrName, control.Authority>;
+      let oValue: Record<channel.KeyOrName, control.Authority>;
       if (typeof value === "string" || typeof value === "number")
-        oValue = { [value]: authority } as Record<KeyOrName, control.Authority>;
+        oValue = { [value]: authority } as Record<channel.KeyOrName, control.Authority>;
       else oValue = value;
       oValue = await this.adapter.adaptObjectKeys(oValue);
       config = {

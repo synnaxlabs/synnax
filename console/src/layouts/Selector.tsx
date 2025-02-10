@@ -10,12 +10,11 @@
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Sequence } from "@/sequence";
 import { Table } from "@/table";
 
 const SELECTABLES: Layout.Selectable[] = [
@@ -23,31 +22,22 @@ const SELECTABLES: Layout.Selectable[] = [
   Schematic.SELECTABLE,
   Table.SELECTABLE,
   ...Log.SELECTABLES,
-  ...Task.SELECTABLES,
-  ...Sequence.SELECTABLES,
+  ...Hardware.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";
 
 export const createSelector = (
   props: Omit<Partial<Layout.State>, "type">,
-): Omit<Layout.State, "windowKey"> => {
+): Layout.BaseState => {
   const { location = "mosaic", name = "New Layout", key = uuid(), window, tab } = props;
-  return {
-    type: SELECTOR_TYPE,
-    location,
-    name,
-    key,
-    window,
-    tab,
-  };
+  return { type: SELECTOR_TYPE, location, name, key, window, tab };
 };
 
 export const Selector = (props: Layout.SelectorProps): ReactElement => {
   const canCreateSchematic = Schematic.useSelectHasPermission();
-  const selectables = SELECTABLES.filter((s) => {
-    if (s.key === Schematic.SELECTABLE.key) return canCreateSchematic;
-    return true;
-  });
+  const selectables = SELECTABLES.filter((s) =>
+    s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
+  );
   return Layout.createSelectorComponent(selectables)(props);
 };

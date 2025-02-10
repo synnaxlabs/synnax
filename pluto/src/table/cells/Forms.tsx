@@ -69,7 +69,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 hideIfNull
                 padHelpText={false}
               >
-                {(p) => <Text.SelectLevel {...p} />}
+                {Text.SelectLevel}
               </Form.Field>
             </Align.Space>
           </Align.Space>
@@ -157,13 +157,13 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {(p) => <Text.SelectLevel {...p} />}
+      {Text.SelectLevel}
     </Form.Field>
     <Form.Field<Text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {(p) => <Text.SelectWeight {...p} />}
+      {Text.SelectWeight}
     </Form.Field>
     <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
-      {(p) => <Select.TextAlignment {...p} />}
+      {Select.TextAlignment}
     </Form.Field>
     <Form.Field<Color.Crude>
       path="backgroundColor"

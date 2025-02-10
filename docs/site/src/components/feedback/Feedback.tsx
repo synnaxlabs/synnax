@@ -171,7 +171,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Text.Text>
           </Align.Space>
         </Align.Space>
-        <Nav.Bar location="bottom" size={"7rem"}>
+        <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
               size="medium"

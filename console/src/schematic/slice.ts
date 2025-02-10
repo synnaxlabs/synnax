@@ -8,9 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { Color } from "@synnaxlabs/pluto/color";
-import { type Theming } from "@synnaxlabs/pluto/theming";
+import {
+  Color,
+  type Control,
+  type Diagram,
+  type Theming,
+  type Viewport,
+} from "@synnaxlabs/pluto";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";

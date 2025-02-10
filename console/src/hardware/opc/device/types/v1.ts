@@ -7,39 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { type channel, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
 
-const { keyZ } = channel;
+const VERSION = "1.0.0";
+type Version = typeof VERSION;
 
-export const propertiesZ = v0.propertiesZ.omit({ read: true }).extend({
-  read: z.object({ indexes: keyZ.array(), channels: z.record(z.string(), keyZ) }),
-  version: z.literal("1.0.0"),
-});
-export type Properties = z.infer<typeof propertiesZ>;
+export type Properties = Omit<v0.Properties, "read" | "version"> & {
+  read: { indexes: channel.Key[]; channels: Record<string, channel.Key> };
+  version: Version;
+};
 export const ZERO_PROPERTIES: Properties = {
-  connection: v0.ZERO_CONNECTION_CONFIG,
+  ...v0.ZERO_PROPERTIES,
   read: { indexes: [], channels: {} },
-  write: { channels: {} },
-  version: "1.0.0",
+  version: VERSION,
 };
 
-export type Device = device.Device<Properties>;
+export const PROPERTIES_MIGRATION_NAME = "hardware.opc.device.properties";
 
 export const propertiesMigration = migrate.createMigration<v0.Properties, Properties>({
-  name: "hardware.opc.device.properties",
+  name: PROPERTIES_MIGRATION_NAME,
   migrate: (p) => {
     const read = p.read;
     return {
       ...p,
-      version: "1.0.0",
-      read: {
-        indexes: read.index === 0 ? [] : [read.index],
-        channels: read.channels,
-      },
+      version: VERSION,
+      read: { indexes: read.index === 0 ? [] : [read.index], channels: read.channels },
     };
   },
 });
+
+export interface Device extends device.Device<Properties> {}

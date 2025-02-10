@@ -13,6 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
 import { Triggers } from "@/triggers";
 
@@ -61,7 +62,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
     mutationFn: async () => {
       if (!methods.validate()) return;
       const values = methods.value();
-      if (client == null) throw new Error("No Cluster Connected");
+      if (client == null) throw NULL_CLIENT_ERROR;
       await client.user.create({ ...values });
       onClose();
     },

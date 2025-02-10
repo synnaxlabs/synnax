@@ -15,13 +15,7 @@ import type {
 } from "@reduxjs/toolkit";
 
 export interface MiddlewareEffectArgs<S, LP, DP> {
-  store: MiddlewareAPI<
-    Dispatch<{
-      payload: LP | DP;
-      type: string;
-    }>,
-    S
-  >;
+  store: MiddlewareAPI<Dispatch<{ payload: LP | DP; type: string }>, S>;
   action: PayloadAction<LP>;
 }
 

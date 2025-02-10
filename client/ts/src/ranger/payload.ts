@@ -11,48 +11,29 @@ import { TimeRange } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
-export type Name = string;
+export const nameZ = z.string().min(1);
+export type Name = z.infer<typeof nameZ>;
 export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
 export const payloadZ = z.object({
   key: keyZ,
-  name: z.string().min(1),
+  name: nameZ,
   timeRange: TimeRange.z,
   color: z.string().optional(),
 });
-export type Payload = z.infer<typeof payloadZ>;
+export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newPayloadZ = payloadZ.extend({ key: z.string().uuid().optional() });
-export type NewPayload = z.input<typeof newPayloadZ>;
+export const newZ = payloadZ.partial({ key: true });
+export interface New extends z.input<typeof newZ> {}
 
 export type ParamAnalysisResult =
-  | {
-      single: true;
-      variant: "keys";
-      normalized: Keys;
-      actual: Key;
-      empty: never;
-    }
-  | {
-      single: true;
-      variant: "names";
-      normalized: Names;
-      actual: Name;
-      empty: never;
-    }
-  | {
-      single: false;
-      variant: "keys";
-      normalized: Keys;
-      actual: Keys;
-      empty: boolean;
-    }
+  | { single: true; variant: "keys"; normalized: Keys; actual: Key; empty: never }
+  | { single: true; variant: "names"; normalized: Names; actual: Name; empty: never }
+  | { single: false; variant: "keys"; normalized: Keys; actual: Keys; empty: boolean }
   | {
       single: false;
       variant: "names";
@@ -72,14 +53,11 @@ export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
     normalized: normal,
     actual: ranges,
     empty,
-  } as const as ParamAnalysisResult;
+  } as ParamAnalysisResult;
 };
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "range";
-export const ALIAS_ONTOLOGY_TYPE: ontology.ResourceType = "range-alias";
+export const ONTOLOGY_TYPE = "range";
+export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
-
-export const aliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+export const ALIAS_ONTOLOGY_TYPE = "range-alias";
+export type AliasOntologyType = typeof ALIAS_ONTOLOGY_TYPE;

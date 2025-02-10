@@ -64,14 +64,14 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   return (
     <Align.Space style={{ padding: "2rem", width: "100%" }}>
       <SelectMultipleAxesInputItem
-        axis={"y1"}
+        axis="y1"
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
         align="center"
         grow
       />
       <SelectMultipleAxesInputItem
-        axis={"y2"}
+        axis="y2"
         onChange={handleYChannelSelect}
         value={vis.channels.y2}
         grow
@@ -84,7 +84,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
           grow
         />
         <SelectAxisInputItem
-          axis={"x1"}
+          axis="x1"
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
           grow

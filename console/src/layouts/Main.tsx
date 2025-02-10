@@ -16,7 +16,6 @@ import {
   ranger,
   schematic,
   table,
-  task,
   workspace,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
@@ -28,9 +27,7 @@ import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
-import { Device } from "@/hardware/device";
-import { DeviceServices } from "@/hardware/device/services";
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
@@ -47,7 +44,7 @@ import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const NOTIFICATION_ADAPTERS = [
-  ...DeviceServices.NOTIFICATION_ADAPTERS,
+  ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
@@ -59,7 +56,7 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
   [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
   [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
-  [task.ONTOLOGY_TYPE]: Task.linkHandler,
+  ...Hardware.LINK_HANDLERS,
   [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
 };
 
@@ -70,7 +67,7 @@ const SideEffect = (): null => {
   }, []);
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
-  Device.useListenForChanges();
+  Hardware.Device.useListenForChanges();
   Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
   Link.useDeep(LINK_HANDLERS);

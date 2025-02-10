@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { select } from "@/log/selectors";
@@ -17,7 +18,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let state = select(storeState, key);
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
-    if (client == null) throw new Error("Cannot reach cluster");
+    if (client == null) throw NULL_CLIENT_ERROR;
     const log = await client.workspaces.log.retrieve(key);
     state ??= { ...(log.data as State), key: log.key };
     name ??= log.name;

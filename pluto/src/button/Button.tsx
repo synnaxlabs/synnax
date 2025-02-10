@@ -39,7 +39,8 @@ export type Variant =
   | "preview"
   | "shadow";
 
-export interface ButtonExtensionProps {
+/** The base props accepted by all button types in this directory. */
+export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"> {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
@@ -47,19 +48,14 @@ export interface ButtonExtensionProps {
   triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
+  stopPropagation?: boolean;
 }
-
-/** The base props accepted by all button types in this directory. */
-export interface BaseProps
-  extends Omit<ComponentPropsWithRef<"button">, "color">,
-    ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
 export type ButtonProps = Omit<
   Text.WithIconProps<"button">,
   "size" | "startIcon" | "endIcon" | "level"
 > &
-  ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
     startIcon?: PIcon.Element | PIcon.Element[];
@@ -105,7 +101,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as PIcon.Element[],
+    startIcon = [],
     onClickDelay = 0,
     onClick,
     color,
@@ -113,6 +109,7 @@ export const Button = Tooltip.wrap(
     style,
     endContent,
     onMouseDown,
+    stopPropagation,
     ...props
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -124,6 +121,7 @@ export const Button = Tooltip.wrap(
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
+      if (stopPropagation) e.stopPropagation();
       if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };

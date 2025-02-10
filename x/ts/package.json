@@ -152,7 +152,7 @@
       "require": "./dist/search.cjs"
     },
     "./unique": {
-      "types": "./dist/src/unique.d.ts",
+      "types": "./dist/src//unique/index.d.ts",
       "import": "./dist/unique.js",
       "require": "./dist/unique.cjs"
     },

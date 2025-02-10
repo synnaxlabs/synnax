@@ -18,10 +18,11 @@ import {
   componentRenderProp,
   Dropdown,
   Input,
+  List,
+  Status,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -38,6 +39,7 @@ export const Selector = (): ReactElement => {
   const place = Layout.usePlacer();
   const active = useSelectActive();
   const dProps = Dropdown.use();
+  const handleException = Status.useExceptionHandler();
   const handleChange = useCallback(
     (v: string | null) => {
       dProps.close();
@@ -46,23 +48,21 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
-      if (v == null) {
-        dispatch(setActive(null));
-        return;
-      }
       if (client == null) return;
-      void (async () => {
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add(ws));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-      })();
+      client.workspaces
+        .retrieve(v)
+        .then((ws) => {
+          dispatch(add(ws));
+          dispatch(
+            Layout.setWorkspace({
+              slice: ws.layout as Layout.SliceState,
+              keepNav: false,
+            }),
+          );
+        })
+        .catch((e) => handleException(e, "Failed to switch workspace"));
     },
-    [active, client, dispatch, dProps.close],
+    [active, client, dispatch, dProps.close, handleException],
   );
 
   return (
@@ -146,15 +146,15 @@ export const Selector = (): ReactElement => {
 
 export const SelectorListItem = ({
   onSelect,
-  ...props
+  ...rest
 }: List.ItemProps<string, workspace.Workspace>): ReactElement => {
-  const { entry } = props;
+  const { entry } = rest;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
     onSelect?.(entry.key);
   };
   return (
-    <List.ItemFrame {...props} onClick={handleSelect}>
+    <List.ItemFrame {...rest} onClick={handleSelect}>
       <Text.Text level="p">{entry.name}</Text.Text>
     </List.ItemFrame>
   );
