@@ -60,3 +60,7 @@ int cmd::sub::service_uninstall(int argc, char** argv) {
 int cmd::sub::service_view_logs(int argc, char** argv) {
     return exec_svc_cmd(daemond::view_logs, "view logs");
 }
+
+int cmd::sub::service_status(int argc, char** argv) {
+    return exec_svc_cmd(daemond::status, "status");
+}

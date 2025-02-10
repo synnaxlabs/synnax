@@ -39,6 +39,9 @@ int service_install(int argc, char **argv);
 /// @brief uninstalls the driver background daemon.
 int service_uninstall(int argc, char **argv);
 
+/// @brief views the status of the driver background daemon.
+int service_status(int argc, char **argv);
+
 /// @brief views the logs of the driver background daemon.
 int service_view_logs(int argc, char **argv);
 

@@ -34,6 +34,15 @@ void print_usage() {
             << "  clear           Clear the persisted state\n";
 }
 
+// void cmd_start_daemon(int argc, char *argv[]) {
+//     daemond::Config config;
+//     config.watchdog_interval = 10;
+//     config.callback = [](const int argc_, char *argv_[]) {
+//         cmd_start_standalone(argc_, argv_);
+//     };
+//     daemond::run(config, argc, argv);
+// }
+
 int cmd::exec(int argc, char *argv[]) {
     FLAGS_logtostderr = 1;
     FLAGS_colorlogtostderr = 1;
@@ -62,6 +71,7 @@ int cmd::exec(int argc, char *argv[]) {
     if (command == "install") return cmd::sub::service_install(argc, argv);
     if (command == "uninstall") return cmd::sub::service_uninstall(argc, argv);
     if (command == "logs") return cmd::sub::service_view_logs(argc, argv);
+    if (command == "status") return cmd::sub::service_status(argc, argv);
     if (command == "version") return cmd::sub::version(argc, argv);
     if (command == "clear") return cmd::sub::clear(argc, argv);
     print_usage();

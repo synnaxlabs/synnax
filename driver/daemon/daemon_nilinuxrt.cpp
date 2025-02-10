@@ -49,6 +49,7 @@ DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="(pid_file)"
 LOGFILE="/var/log/$NAME.log"
+START_CMD="start -s"
 HEALTH_CHECK_DELAY_SECONDS=2
 
 # Color codes
@@ -93,13 +94,13 @@ do_start() {
     fi
 
     # Add debug logging
-    log_message "Starting daemon with command: $DAEMON internal-start" "$BLUE"
+    log_message "Starting daemon with command: $DAEMON $START_CMD" "$BLUE"
     log_message "Running as user: $(whoami)" "$BLUE"
 
     # Use start-stop-daemon to properly manage the PID file
     start-stop-daemon --start --background \
         --make-pidfile --pidfile $PIDFILE \
-        --startas /bin/bash -- -c "exec $DAEMON internal-start >> $LOGFILE 2>&1"
+        --startas /bin/bash -- -c "exec $DAEMON $START_CMD >> $LOGFILE 2>&1"
 
     # Wait for health check period
     sleep $HEALTH_CHECK_DELAY_SECONDS
