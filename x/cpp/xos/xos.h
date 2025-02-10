@@ -11,8 +11,13 @@
 
 /// std.
 #include <string>
-#include <unistd.h>
 #include <array>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace xos {
 /// @brief resolves hostname of the machine. If the hostname could not be resolved,
