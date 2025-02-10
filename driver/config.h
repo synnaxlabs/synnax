@@ -199,7 +199,7 @@ inline std::pair<configd::Config, freighter::Error> parse(
         .name = "driver",
         .base_interval = synnax::SECOND * retry.optional<int>("base_interval", 1),
         .max_retries = retry.optional<uint32_t>("max_retries", 50),
-        .scale = retry.optional<float>("scale", 1.2),
+        .scale = retry.optional<float>("scale", 1),
     };
 
     auto rack = p.optional_child("rack");

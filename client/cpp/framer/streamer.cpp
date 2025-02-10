@@ -28,7 +28,11 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     if (exc) return {Streamer(), exc};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);
-    if (auto exc2 = s->send(req)) return {Streamer(std::move(s)), exc2};
+    if (auto exc2 = s->send(req)) {
+        s->close_send();
+        auto [_, err] = s->receive();
+        return {Streamer(std::move(s)), err};
+    }
     auto [_, resExc] = s->receive();
     return {Streamer(std::move(s)), resExc};
 }

@@ -38,7 +38,6 @@
 #include <mutex>
 #include <array>
 #include <filesystem>
-#include <system_error>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -250,11 +249,11 @@ rack_key;
         LOG(WARNING) << "[driver] failed to save persisted state: " << err;
 
     auto hb_factory = std::make_shared<heartbeat::Factory>();
-    std::vector<std::shared_ptr<task::Factory> > factories{hb_factory};
-    configure_opc(cfg, factories);
-    configure_ni(cfg, factories);
-    configure_sequences(cfg, factories);
-    configure_labjack(cfg, factories);
+    std::vector<std::shared_ptr<task::Factory> > factories{};
+    // configure_opc(cfg, factories);
+    // configure_ni(cfg, factories);
+    // configure_sequences(cfg, factories);
+    // configure_labjack(cfg, factories);
 
     LOG(INFO) << "[driver] starting task manager";
 

@@ -19,7 +19,7 @@ TEST(HeartbeatTests, testNominal) {
     auto beater = heartbeat::Heartbeat(
         rack.key,
         client,
-        breaker::Config{"test", TimeSpan(1 * SECOND), 10, 1.1}
+        breaker::Config{"test", TimeSpan(1 * SECOND), 10, 1}
     );
     std::atomic done = false;
     beater.start(done);

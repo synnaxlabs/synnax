@@ -9,21 +9,22 @@
 
 #pragma once
 
-#include <mutex>
-#include "freighter/cpp/freighter.h"
+/// external.
 #include "grpc/grpc.h"
-#include "grpcpp/grpcpp.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
-#include "grpcpp/create_channel.h"
 #include "grpcpp/security/credentials.h"
+#include "glog/logging.h"
+
+/// internal.
+#include "freighter/cpp/freighter.h"
 
 
 namespace priv {
 const std::string PROTOCOL = "grpc";
 
 /// @brief converts a grpc::Status to a freighter::Error.
-inline freighter::Error errFromStatus(const grpc::Status &status) {
+inline freighter::Error err_from_status(const grpc::Status &status) {
     if (status.ok()) return freighter::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::UNREACHABLE.type, status.error_message()};
@@ -53,9 +54,9 @@ inline std::string readFile(const std::string &path) {
 
 namespace fgrpc {
 class Pool {
+    std::mutex mu;
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<grpc::Channel> > channels{};
-
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<grpc::ChannelCredentials> credentials =
             grpc::InsecureChannelCredentials();
@@ -95,10 +96,29 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> getChannel(const std::string &target) {
-        if (channels.find(target) == channels.end())
-            channels[target] = grpc::CreateChannel(target, credentials);
-        return channels[target];
+    std::shared_ptr<grpc::Channel> get_channel(const std::string &target) {
+        std::lock_guard lock(mu);
+        const auto it = channels.find(target);
+        if (it != channels.end()) {
+            auto channel = it->second;
+            if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+                LOG(WARNING) << "[freighter.fgrpc.stream] closing channel due to transient failure";
+                channels.erase(target);
+            } else return channel;
+        }
+        grpc::ChannelArguments args;
+        args.SetInt(GRPC_ARG_MIN_RECONNECT_BACKOFF_MS, 100);
+        // Minimize reconnection delay
+        args.SetInt(GRPC_ARG_MAX_RECONNECT_BACKOFF_MS, 100); // No exponential backoff
+        args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, 30000); // Send keepalive pings every 5s
+        args.SetInt(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 2000);
+        // Timeout if no response in 2s
+        args.SetInt(GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1);
+        // Keepalive even with no active calls
+        args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0); // Allow unlimited pings
+        auto channel = grpc::CreateCustomChannel(target, credentials, args);
+        channels[target] = channel;
+        return channel;
     }
 };
 
@@ -153,7 +173,7 @@ public:
             grpc_ctx.AddMetadata(k, v);
 
         // Execute request.
-        auto channel = pool->getChannel(req_ctx.target);
+        auto channel = pool->get_channel(req_ctx.target);
         auto stub = RPC::NewStub(channel);
         auto res = RS();
 
@@ -163,7 +183,7 @@ public:
             req_ctx.target,
             freighter::UNARY
         );
-        if (!stat.ok()) return {res_ctx, priv::errFromStatus(stat), res};
+        if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
         // Set inbound metadata.
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
@@ -233,7 +253,7 @@ public:
         if (closed) return {outbound, close_err};
         const grpc::Status status = stream->Finish();
         closed = true;
-        close_err = status.ok() ? freighter::EOF_ : priv::errFromStatus(status);
+        close_err = status.ok() ? freighter::EOF_ : priv::err_from_status(status);
         return {outbound, close_err, nullptr};
     }
 
@@ -299,7 +319,7 @@ public:
         freighter::Context req_ctx,
         std::nullptr_t &_
     ) override {
-        auto channel = pool->getChannel(req_ctx.target);
+        auto channel = pool->get_channel(req_ctx.target);
         grpc::ClientContext grpcContext;
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
@@ -325,8 +345,10 @@ private:
     /// GRPCPool to pool connections across clients.
     std::shared_ptr<Pool> pool;
     /// Middleware collector.
-    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
-        RS> > > mw;
+    freighter::MiddlewareCollector<
+        std::nullptr_t,
+        std::unique_ptr<freighter::Stream<RQ, RS> >
+    > mw;
     /// Base target for all requests.
     freighter::URL base_target;
 };
