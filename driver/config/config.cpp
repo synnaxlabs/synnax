@@ -11,6 +11,14 @@
 #include <fstream>
 #include <filesystem>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <windows.h>
+#endif
+
 /// external
 #include "glog/logging.h"
 
@@ -135,7 +143,6 @@ xerrors::Error maybe_create_persisted_state_file(const std::string &path) {
     return xerrors::NIL;
 }
 
-
 xerrors::Error apply_persisted_state(driver::Config &cfg) {
     const auto path = get_persisted_state_path();
     if (const auto err = maybe_create_persisted_state_file(path)) return err;
@@ -162,7 +169,7 @@ std::pair<driver::PersistedState, xerrors::Error> load_persisted_state() {
     return {state, xerrors::NIL};
 }
 
-const std::vector<std::string> default_integrations() {
+std::vector<std::string> default_integrations() {
 #ifdef _WIN32
     return {
         opc::INTEGRATION_NAME,
