@@ -15,8 +15,8 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "driver/config/config.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/config/config.h"
+#include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/errors/errors.h"
 
@@ -51,36 +51,36 @@ opc::WriterSink::WriterSink(
 inline void opc::WriterSink::set_variant(
     UA_Variant *val, const synnax::Frame &frame,
     const uint32_t &series_index,
-    const synnax::DataType &type) {
+    const telem::DataType &type) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
-    if (type == synnax::FLOAT64) {
+    if (type == telem::FLOAT64) {
         double data = frame.series->at(series_index).values<double>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
-    } else if (type == synnax::FLOAT32) {
+    } else if (type == telem::FLOAT32) {
         float data = frame.series->at(series_index).values<float>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
-    } else if (type == synnax::INT32) {
+    } else if (type == telem::INT32) {
         int32_t data = frame.series->at(series_index).values<int32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT32]);
-    } else if (type == synnax::INT16) {
+    } else if (type == telem::INT16) {
         int16_t data = frame.series->at(series_index).values<int16_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT16]);
-    } else if (type == synnax::INT8) {
+    } else if (type == telem::INT8) {
         int8_t data = frame.series->at(series_index).values<int8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
-    } else if (type == synnax::UINT64) {
+    } else if (type == telem::UINT64) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
-    } else if (type == synnax::UINT32) {
+    } else if (type == telem::UINT32) {
         uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
-    } else if (type == synnax::SY_UINT16) {
+    } else if (type == telem::SY_UINT16) {
         uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
-    } else if (type == synnax::SY_UINT8) {
+    } else if (type == telem::SY_UINT8) {
         uint8_t data = frame.series->at(series_index).values<uint8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_BYTE]);
-    } else if (type == synnax::TIMESTAMP) {
+    } else if (type == telem::TIMESTAMP) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DATETIME]);
     }
@@ -89,7 +89,7 @@ inline void opc::WriterSink::set_variant(
     }
 };
 
-void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
+void opc::WriterSink::stopped_with_err(const xerrors::Error &err) {
     LOG(ERROR) << "[opc.sink] Stopped with error: " << err.message();
     curr_state.variant = "error";
     curr_state.details = json{
@@ -101,7 +101,7 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 
 
 /// @brief sends out write request to the OPC server.
-freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
+xerrors::Error opc::WriterSink::write(const synnax::Frame &frame) {
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {
@@ -131,7 +131,7 @@ freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
         UA_Variant_delete(val);
         frame_index++;
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 };
 
 void opc::WriterSink::maintain_connection() {

@@ -13,12 +13,12 @@
 #include "driver/daemon/daemon.h"
 
 namespace daemond {
-freighter::Error install_service() { return freighter::NIL; }
-freighter::Error uninstall_service() { return freighter::NIL; }
-freighter::Error start_service() { return freighter::NIL; }
-freighter::Error stop_service() { return freighter::NIL; }
-freighter::Error restart_service() { return freighter::NIL; }
+xerrors::Error install_service() { return xerrors::NIL; }
+xerrors::Error uninstall_service() { return xerrors::NIL; }
+xerrors::Error start_service() { return xerrors::NIL; }
+xerrors::Error stop_service() { return xerrors::NIL; }
+xerrors::Error restart_service() { return xerrors::NIL; }
 void run(const Config &config, int argc, char *argv[]) { config.callback(argc, argv); }
-freighter::Error view_logs() { return freighter::NIL; }
-freighter::Error status() { return freighter::NIL; }
+xerrors::Error view_logs() { return xerrors::NIL; }
+xerrors::Error status() { return xerrors::NIL; }
 } // namespace daemond

@@ -50,7 +50,7 @@ class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<freighter::Context, freighter::Error>
+    std::pair<freighter::Context, xerrors::Error>
     operator()(freighter::Context context, freighter::Next *next) override {
         context.set("test", "5");
         auto [outContext, exc] = next->operator()(context);
@@ -227,7 +227,7 @@ TEST(testGRPC, testStreamError) {
 
     auto [streamer, exc] = client.stream(target);
     ASSERT_FALSE(exc);
-    freighter::Error err = streamer->send(mes);
+    xerrors::Error err = streamer->send(mes);
     ASSERT_FALSE(err.ok());
 
     auto [res, err2] = streamer->receive();

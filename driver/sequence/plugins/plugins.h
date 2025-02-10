@@ -36,21 +36,21 @@ public:
 
     /// @brief called before the sequence starts. The caller can optionally override
     /// this method to perform any setup that is required before the sequence starts.
-    virtual freighter::Error before_all(lua_State *L) { return freighter::NIL; }
+    virtual xerrors::Error before_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after the sequence ends. The caller can optionally override
     /// this method to perform any cleanup that is required after the sequence ends.
-    virtual freighter::Error after_all(lua_State *L) { return freighter::NIL; }
+    virtual xerrors::Error after_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called before each iteration of the sequence. The caller can optionally
     /// override this method to bind any variables or functions that must be updated on
     /// every loop iteration.
-    virtual freighter::Error before_next(lua_State *L) { return freighter::NIL; }
+    virtual xerrors::Error before_next(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after each iteration of the sequence. The caller can optionally
     /// override this method to perform any cleanup that is required after each loop
     /// iteration.
-    virtual freighter::Error after_next(lua_State *L) { return freighter::NIL; }
+    virtual xerrors::Error after_next(lua_State *L) { return xerrors::NIL; }
 };
 
 /// @brief a Plugin implementation that wraps several plugins into a unified interface.
@@ -62,28 +62,28 @@ public:
     MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops): plugins(std::move(ops)) {
     }
 
-    freighter::Error before_all(lua_State *L) override {
+    xerrors::Error before_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_all(L)) return err;
-        return freighter::NIL;
+        return xerrors::NIL;
     }
 
-    freighter::Error after_all(lua_State *L) override {
+    xerrors::Error after_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_all(L)) return err;
-        return freighter::NIL;
+        return xerrors::NIL;
     }
 
-    freighter::Error before_next(lua_State *L) override {
+    xerrors::Error before_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_next(L)) return err;
-        return freighter::NIL;
+        return xerrors::NIL;
     }
 
-    freighter::Error after_next(lua_State *L) override {
+    xerrors::Error after_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_next(L)) return err;
-        return freighter::NIL;
+        return xerrors::NIL;
     }
 };
 
@@ -94,15 +94,15 @@ public:
     virtual ~FrameSink() = default;
 
     /// @brief writes the frame to the sink.
-    virtual freighter::Error write(synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(synnax::Frame &frame) = 0;
 
     /// @brief sets the authority of the channels being written to.
-    virtual freighter::Error set_authority(
+    virtual xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
         const std::vector<synnax::Authority> &authorities
     ) = 0;
 
-    [[nodiscard]] virtual freighter::Error close() { return freighter::NIL; }
+    [[nodiscard]] virtual xerrors::Error close() { return xerrors::NIL; }
 };
 
 /// @brief a FrameSink implementation that writes frames to Synnax.
@@ -120,14 +120,14 @@ public:
         synnax::WriterConfig cfg
     );
 
-    freighter::Error write(synnax::Frame &frame) override;
+    xerrors::Error write(synnax::Frame &frame) override;
 
-    freighter::Error set_authority(
+    xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
         const std::vector<synnax::Authority> &authorities
     ) override;
 
-    [[nodiscard]] freighter::Error close() override;
+    [[nodiscard]] xerrors::Error close() override;
 };
 
 /// @brief a plugin implementation that lets the sequence write to Synnax channels.
@@ -145,15 +145,15 @@ class ChannelWrite final : public Plugin {
 public:
     ChannelWrite(std::shared_ptr<FrameSink> sink, const std::vector<Channel> &channels);
 
-    std::pair<synnax::Channel, freighter::Error> resolve(const std::string &name);
+    std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
 
-    freighter::Error before_all(lua_State *L) override;
+    xerrors::Error before_all(lua_State *L) override;
 
-    freighter::Error after_all(lua_State *L) override;
+    xerrors::Error after_all(lua_State *L) override;
 
-    freighter::Error before_next(lua_State *L) override;
+    xerrors::Error before_next(lua_State *L) override;
 
-    freighter::Error after_next(lua_State *L) override;
+    xerrors::Error after_next(lua_State *L) override;
 };
 
 /// @brief a plugin implementation that binds global variables containing channel
@@ -165,7 +165,7 @@ class ChannelReceive final : public Plugin {
     /// @brief the pipeline used to manage the lifecycle of the receiver.
     pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
-    std::unordered_map<synnax::ChannelKey, synnax::SampleValue> latest_values;
+    std::unordered_map<synnax::ChannelKey, telem::SampleValue> latest_values;
     /// @brief maps channel keys to channels in order to bind variable names appropriately.
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
 
@@ -177,7 +177,7 @@ class ChannelReceive final : public Plugin {
         explicit Sink(ChannelReceive &receiver) : receiver(receiver) {
         }
 
-        freighter::Error write(const synnax::Frame &frame) override;
+        xerrors::Error write(const synnax::Frame &frame) override;
     };
 
 public:
@@ -192,11 +192,11 @@ public:
         const std::vector<synnax::Channel> &read_from
     );
 
-    freighter::Error before_all(lua_State *L) override;
+    xerrors::Error before_all(lua_State *L) override;
 
-    freighter::Error after_all(lua_State *L) override;
+    xerrors::Error after_all(lua_State *L) override;
 
-    freighter::Error before_next(lua_State *L) override;
+    xerrors::Error before_next(lua_State *L) override;
 };
 
 /// @brief a plugin that binds JSON data as global variables to the sequence.
@@ -206,9 +206,9 @@ class JSON final : public Plugin {
 public:
     explicit JSON(json source_data);
 
-    freighter::Error before_all(lua_State *L) override;
+    xerrors::Error before_all(lua_State *L) override;
 
-    static freighter::Error push_value(lua_State *L, const json &value);
+    static xerrors::Error push_value(lua_State *L, const json &value);
 };
 
 /// @brief a plugin that adds timing utilities to the sequence.
@@ -216,9 +216,9 @@ class Time final : public Plugin {
     /// @brief a function that returns the current time.
     const std::function<std::uint64_t()> now;
     /// @brief the start time for the sequence.
-    synnax::TimeStamp start_time;
+    telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
-    synnax::TimeSpan elapsed;
+    telem::TimeSpan elapsed;
     /// @brief the current iteration of the sequence.
     uint64_t iteration;
 
@@ -231,8 +231,8 @@ public:
         }): now(std::move(now)), start_time(0), elapsed(0), iteration(0) {
     }
 
-    freighter::Error before_all(lua_State *L) override;
+    xerrors::Error before_all(lua_State *L) override;
 
-    freighter::Error before_next(lua_State *L) override;
+    xerrors::Error before_next(lua_State *L) override;
 };
 }

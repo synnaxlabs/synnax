@@ -38,14 +38,14 @@ void digital_channel_helper(json config, json channel_config) {
 
     auto [time, tErr] = client->channels.create(
         "idx",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true);
     ASSERT_FALSE(tErr) << tErr.message();
 
     auto [data, dErr] = client->channels.create(
         "di_channel",
-        synnax::FLOAT32,
+        telem::FLOAT32,
         time.key,
         false);
     ASSERT_FALSE(dErr) << dErr.message();
@@ -83,9 +83,9 @@ void digital_channel_helper(json config, json channel_config) {
     reader.start("");
 
     for (int i = 0; i < 15; i++) {
-        std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
         auto [frame, err] = reader.read(b);
-        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
         VLOG(1) << frame << "\n";
     }
 
@@ -117,19 +117,19 @@ TEST(read_tests, one_digital_channel) {
 TEST(read_tests, multiple_digital_channels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("di", synnax::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("di", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create("di2", synnax::FLOAT32, time.key, false);
+    auto [data1, dErr2] = client->channels.create("di2", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create("di3", synnax::FLOAT32, time.key, false);
+    auto [data2, dErr3] = client->channels.create("di3", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create("di4", synnax::FLOAT32, time.key, false);
+    auto [data3, dErr4] = client->channels.create("di4", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
     auto config = json{
@@ -198,9 +198,9 @@ TEST(read_tests, multiple_digital_channels) {
     reader.start("");
 
     for (int i = 0; i < 15; i++) {
-        std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
         auto [frame, err] = reader.read(b);
-        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
         VLOG(1) << frame << "\n";
     }
 

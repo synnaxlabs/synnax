@@ -26,18 +26,18 @@ static const std::string LIB_NAME = "nisyscfg.dll";
 static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
-const auto LOAD_ERROR = freighter::Error(
-    libutil::LOAD_ERROR,
+const auto LOAD_ERROR = xerrors::Error(
+    xlib::LOAD_ERROR,
     "failed to load NI System Configuration library. Is it installed?"
 );
 
-std::pair<std::shared_ptr<SysCfg>, freighter::Error> SysCfgProd::load() {
-    auto lib = std::make_unique<libutil::SharedLib>(LIB_NAME);
+std::pair<std::shared_ptr<SysCfg>, xerrors::Error> SysCfgProd::load() {
+    auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
-    return {std::make_shared<SysCfgProd>(lib), freighter::NIL};
+    return {std::make_shared<SysCfgProd>(lib), xerrors::NIL};
 }
 
-SysCfgProd::SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_) : lib(std::move(lib_)) {
+SysCfgProd::SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_) : lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgInitializeSession")));

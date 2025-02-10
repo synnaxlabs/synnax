@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <cassert>
 
-#include "client/cpp/telem/telem.h"
+#include "x/cpp/telem/telem.h"
 #include "driver/ni/reader.h"
 
 #include "glog/logging.h"
@@ -104,7 +104,7 @@ void ni::DigitalReadSource::acquire_data() {
         int32 numBytesPerSamp;
         DataPacket data_packet;
         data_packet.digital_data.resize(this->buffer_size);
-        data_packet.t0 = synnax::TimeStamp::now().value;
+        data_packet.t0 = telem::TimeStamp::now().value;
 
         // sleep per sample rate
         this->sample_timer.wait();
@@ -127,12 +127,12 @@ void ni::DigitalReadSource::acquire_data() {
                 task_name
             );
         }
-        data_packet.tf = synnax::TimeStamp::now().value;
+        data_packet.tf = telem::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
+std::pair<synnax::Frame, xerrors::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
@@ -140,7 +140,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     timer.wait(breaker);
     auto [d, err] = data_queue.dequeue();
     if (!err)
-        return std::make_pair(std::move(f), freighter::Error(
+        return std::make_pair(std::move(f), xerrors::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
     // interpolate  timestamps between the initial and final timestamp to ensure
@@ -152,13 +152,13 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     for (int i = 0; i < num_channels; i++) {
         if (!this->reader_config.channels[i].enabled) continue;
         if (this->reader_config.channels[i].channel_type == "index") {
-            auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
+            auto t = telem::Series(telem::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
             f.emplace(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
-        auto series = synnax::Series(synnax::SY_UINT8, d.samples_read_per_channel);
+        auto series = telem::Series(telem::SY_UINT8, d.samples_read_per_channel);
 
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write(d.digital_data[data_index + j]);
@@ -166,7 +166,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         f.emplace(this->reader_config.channels[i].channel_key, std::move(series));
         data_index++;
     }
-    return std::make_pair(std::move(f), freighter::NIL);
+    return std::make_pair(std::move(f), xerrors::NIL);
 }
 
 int ni::DigitalReadSource::validate_channels() {
@@ -180,7 +180,7 @@ int ni::DigitalReadSource::validate_channels() {
         }
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != synnax::SY_UINT8) {
+        if (channel_info.data_type != telem::SY_UINT8) {
             this->log_error("Channel " + channel.name + " is not of type SY_UINT8");
             this->ctx->set_state({
                 .task = task.key,

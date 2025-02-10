@@ -13,10 +13,10 @@
 
 #include "freighter/cpp/freighter.h"
 #include "client/cpp/synnax.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 
 namespace heartbeat {
 const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
@@ -34,14 +34,14 @@ public:
     ) : key(key),
         rack_key(rack_key),
         version(0),
-        timer(loop::Timer(synnax::Rate(1))) {
+        timer(loop::Timer(telem::Rate(1))) {
     }
 
-    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         timer.wait(breaker);
         const auto heartbeat = static_cast<std::uint64_t>(rack_key) << 32 | version;
         version++;
-        return {Frame(key, Series(heartbeat)), freighter::NIL};
+        return {Frame(key, telem::Series(heartbeat)), xerrors::NIL};
     }
 };
 
@@ -65,7 +65,7 @@ public:
 
     /// @brief starts the heartbeat process
     /// @param done a flag that is set to true when the heartbeat process exits.
-    freighter::Error start(std::atomic<bool> &done);
+    xerrors::Error start(std::atomic<bool> &done);
 
     /// @brief stop the heartbeat process
     void stop() override { pipe.stop(); }
@@ -75,14 +75,14 @@ public:
         const synnax::Task &task
     ) {
         auto [ch, err] = ctx->client->channels.retrieve(RACK_HEARTBEAT_CHANNEL);
-        if (err.matches(synnax::NOT_FOUND)) return nullptr;
+        if (err.matches(xerrors::NOT_FOUND)) return nullptr;
         auto source = std::make_shared<HeartbeatSource>(
             ch.key,
             synnax::task_key_rack(task.key)
         );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
-            .start = TimeStamp::now(),
+            .start =  telem::TimeStamp::now(),
         };
         auto breaker_config = breaker::default_config(task.name);
         return std::make_unique<Heartbeat>(ctx, source, writer_cfg, breaker_config);
@@ -106,7 +106,7 @@ class Factory final : public task::Factory {
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
         auto [existing, err] = rack.tasks.retrieveByType("heartbeat");
-        if (err.matches(synnax::NOT_FOUND)) {
+        if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,
                 "heartbeat",

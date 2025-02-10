@@ -30,16 +30,16 @@ namespace sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
 /// @brief base error for all sequencing problems.
-const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("sequence");
+const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("sequence");
 /// @brief returned when a sequence fails to compile.
-const freighter::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
+const xerrors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
 /// @brief returned when the sequence encounters a runtime error.
-const freighter::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
+const xerrors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
 
 /// @brief TaskConfig is the configuration for creating a sequence task.
 struct TaskConfig {
     /// @brief rate is the rate at which the script loop will execute.
-    synnax::Rate rate;
+    telem::Rate rate;
     /// @brief script is the lua scrip that will be executed ihn the fixed rate loop.
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
@@ -54,7 +54,7 @@ struct TaskConfig {
 
     explicit TaskConfig(config::Parser &parser):
         // this comment keeps the formatter happy
-        rate(synnax::Rate(parser.required<float>("rate"))),
+        rate(telem::Rate(parser.required<float>("rate"))),
         script(parser.required<std::string>("script")),
         read(parser.required_vector<synnax::ChannelKey>("read")),
         write(parser.required_vector<synnax::ChannelKey>("write")),
@@ -79,17 +79,17 @@ public:
     /// @brief compiles the script in the sequence. It is not strictly necessary to run
     /// this before calling start(), although it can be used to check for compilation
     /// errors early.
-    [[nodiscard]] freighter::Error compile();
+    [[nodiscard]] xerrors::Error compile();
 
     /// @brief starts the sequence, initializing all plugins. Note that this function
     /// does not actually run the sequence, but prepares it for execution.
-    [[nodiscard]] freighter::Error start();
+    [[nodiscard]] xerrors::Error start();
 
     /// @brief executes the next iteration in the sequence.
-    [[nodiscard]] freighter::Error next() const;
+    [[nodiscard]] xerrors::Error next() const;
 
     /// @brief ends the sequence, cleaning up any resources that were allocated.
-    [[nodiscard]] freighter::Error end() const;
+    [[nodiscard]] xerrors::Error end() const;
 private:
     /// @brief source is used to bind relevant variables to the lua state.
     std::shared_ptr<plugins::Plugin> plugins;

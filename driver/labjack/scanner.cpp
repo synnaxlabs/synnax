@@ -13,7 +13,7 @@
 
 #include "scanner.h"
 #include "glog/logging.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/labjack/util.h"
 
 
@@ -110,7 +110,7 @@ void labjack::ScannerTask::create_devices() {
             device.dump()
         );
 
-        if (this->ctx->client->hardware.create_device(new_device) != freighter::NIL) {
+        if (this->ctx->client->hardware.create_device(new_device) != xerrors::NIL) {
             LOG(ERROR) << "[labjack.scanner] failed to create device with key: " << device["key"];
             device["failed_to_create"] = true;
         } else {

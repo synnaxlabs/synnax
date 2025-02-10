@@ -27,9 +27,9 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
-#include "driver/breaker/breaker.h"
-#include "driver/loop/loop.h"
-#include "driver/config/config.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/config/config.h"
 #include "driver/ni/ni.h"
 
 namespace ni {
@@ -47,7 +47,7 @@ struct WriterChannelConfig {
     ///@brief whether the channel is enabled
     bool enabled = true;
     ///@brief the data type of the channel
-    synnax::DataType data_type;
+    telem::DataType data_type;
     ///@brief the key of the channel
     uint32_t channel_key;
     ///@brief the key of the state channel
@@ -150,7 +150,7 @@ struct WriterConfig {
         task_name = parser.optional<std::string>("task_name", "");
 
         auto [dev, err] = ctx->client->hardware.retrieve_device(device_key);
-        if (err != freighter::NIL) {
+        if (err != xerrors::NIL) {
             LOG(ERROR) << "Failed to retrieve device with key " << device_key;
             return;
         }
@@ -207,7 +207,7 @@ public:
         std::vector<synnax::ChannelKey> &state_channel_keys
     );
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
@@ -219,7 +219,7 @@ public:
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
-    synnax::Rate state_rate = synnax::Rate(1);
+    telem::Rate state_rate = telem::Rate(1);
     std::map<synnax::ChannelKey, T> state_map;
     std::vector<synnax::ChannelKey> state_index_keys;
     loop::Timer timer;
@@ -252,11 +252,11 @@ public:
         clear_task();
     }
 
-    freighter::Error cycle();
+    xerrors::Error cycle();
 
-    freighter::Error start(const std::string &cmd_key);
+    xerrors::Error start(const std::string &cmd_key);
 
-    freighter::Error stop(const std::string &cmd_key);
+    xerrors::Error stop(const std::string &cmd_key);
 
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
@@ -270,7 +270,7 @@ protected:
 
     void jsonify_error(std::string);
 
-    void stopped_with_err(const freighter::Error &err) override;
+    void stopped_with_err(const xerrors::Error &err) override;
 
     void log_error(std::string err_msg);
 
@@ -279,13 +279,13 @@ protected:
     int check_err(int32 error, std::string caller);
 
     // Pure virtual methods that derived classes must implement
-    virtual freighter::Error start_ni() = 0;
+    virtual xerrors::Error start_ni() = 0;
 
-    virtual freighter::Error stop_ni() = 0;
+    virtual xerrors::Error stop_ni() = 0;
 
     virtual int init() = 0;
 
-    virtual freighter::Error format_data(const synnax::Frame &frame) = 0;
+    virtual xerrors::Error format_data(const synnax::Frame &frame) = 0;
 
     // Protected members accessible to derived classes
     const std::shared_ptr<DAQmx> dmx;
@@ -316,18 +316,18 @@ public:
 
     ~DigitalWriteSink();
 
-    freighter::Error write(const synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
     std::shared_ptr<ni::DigitalStateSource> writer_state_source;
 
 private:
-    freighter::Error start_ni() override;
+    xerrors::Error start_ni() override;
 
-    freighter::Error stop_ni() override;
+    xerrors::Error stop_ni() override;
 
     int init() override;
 
-    freighter::Error format_data(const synnax::Frame &frame) override;
+    xerrors::Error format_data(const synnax::Frame &frame) override;
 
     uint8_t *write_buffer = nullptr;
 };
@@ -346,18 +346,18 @@ public:
 
     ~AnalogWriteSink();
 
-    freighter::Error write(const synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
     std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 
 private:
-    freighter::Error start_ni() override;
+    xerrors::Error start_ni() override;
 
-    freighter::Error stop_ni() override;
+    xerrors::Error stop_ni() override;
 
     int init() override;
 
-    freighter::Error format_data(const synnax::Frame &frame) override;
+    xerrors::Error format_data(const synnax::Frame &frame) override;
 
     double *write_buffer = nullptr;
 };

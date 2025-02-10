@@ -89,27 +89,27 @@ RestartSec=5s
 WantedBy=multi-user.target
 )";
 
-freighter::Error create_system_user() {
+xerrors::Error create_system_user() {
     LOG(INFO) << "Creating system user";
     int result = system(
         "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
     if (result != 0) {
-        return freighter::Error("Failed to create system user");
+        return xerrors::Error("Failed to create system user");
     }
     return {};
 }
 
-freighter::Error install_binary() {
+xerrors::Error install_binary() {
     LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return freighter::Error(
+        return xerrors::Error(
             "Failed to get current executable path: " + ec.message());
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
     if (ec)
-        return freighter::Error("Failed to create binary directory: " + ec.message());
+        return xerrors::Error("Failed to create binary directory: " + ec.message());
 
     // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";
@@ -120,16 +120,16 @@ freighter::Error install_binary() {
         ec
     );
     if (ec)
-        return freighter::Error("Failed to copy binary: " + ec.message());
+        return xerrors::Error("Failed to copy binary: " + ec.message());
 
     if (chmod(target_path.c_str(),
               S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
-        return freighter::Error("Failed to set binary permissions");
+        return xerrors::Error("Failed to set binary permissions");
 
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error install_service() {
+xerrors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "Checking for existing service";
     if (fs::exists(SYSTEMD_SERVICE_PATH)) {
@@ -148,26 +148,26 @@ freighter::Error install_service() {
     std::error_code ec;
     fs::create_directories(fs::path(SYSTEMD_SERVICE_PATH).parent_path(), ec);
     if (ec)
-        return freighter::Error("Failed to create service directory: " + ec.message());
+        return xerrors::Error("Failed to create service directory: " + ec.message());
 
     std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
     if (!service_file)
-        return freighter::Error("Failed to create service file");
+        return xerrors::Error("Failed to create service file");
 
     service_file << SYSTEMD_SERVICE_TEMPLATE;
     service_file.close();
 
     if (chmod(SYSTEMD_SERVICE_PATH.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
-        return freighter::Error("Failed to set service file permissions");
+        return xerrors::Error("Failed to set service file permissions");
 
     LOG(INFO) << "Enabling and starting service";
     if (system("systemctl daemon-reload") != 0)
-        return freighter::Error("Failed to reload systemd");
+        return xerrors::Error("Failed to reload systemd");
 
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error uninstall_service() {
+xerrors::Error uninstall_service() {
     LOG(INFO) << "Stopping and disabling service";
     system("systemctl stop synnax-driver");
     system("systemctl disable synnax-driver");
@@ -175,11 +175,11 @@ freighter::Error uninstall_service() {
     fs::remove(SYSTEMD_SERVICE_PATH);
 
     if (system("systemctl daemon-reload") != 0)
-        return freighter::Error("Failed to reload systemd");
+        return xerrors::Error("Failed to reload systemd");
 
     // Note: We intentionally don't remove the binary or user
     // in case there are existing configurations or data we want to preserve
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 void update_status(Status status, const std::string &message) {
@@ -243,25 +243,25 @@ void run(const Config &config, int argc, char *argv[]) {
     watchdog.join();
 }
 
-freighter::Error start_service() {
+xerrors::Error start_service() {
     LOG(INFO) << "Starting service";
     if (system("systemctl start synnax-driver") != 0)
-        return freighter::Error("Failed to start service");
-    return freighter::NIL;
+        return xerrors::Error("Failed to start service");
+    return xerrors::NIL;
 }
 
-freighter::Error stop_service() {
+xerrors::Error stop_service() {
     LOG(INFO) << "Stopping service";
     if (system("systemctl stop synnax-driver") != 0)
-        return freighter::Error("Failed to stop service");
-    return freighter::NIL;
+        return xerrors::Error("Failed to stop service");
+    return xerrors::NIL;
 }
 
-freighter::Error restart_service() {
+xerrors::Error restart_service() {
     LOG(INFO) << "Restarting service";
     if (system("systemctl restart synnax-driver") != 0)
-        return freighter::Error("Failed to restart service");
-    return freighter::NIL;
+        return xerrors::Error("Failed to restart service");
+    return xerrors::NIL;
 }
 
 std::string get_log_file_path() {
@@ -269,20 +269,20 @@ std::string get_log_file_path() {
     return "";
 }
 
-freighter::Error view_logs() {
+xerrors::Error view_logs() {
     // For systemd, we use journalctl
     int result = system("journalctl -fu synnax-driver");
     // Exit code 130 indicates Ctrl+C termination
     if (result != 0 && WEXITSTATUS(result) != 130)
-        return freighter::Error("Failed to view logs");
-    return freighter::NIL;
+        return xerrors::Error("Failed to view logs");
+    return xerrors::NIL;
 }
 
-freighter::Error status() {
+xerrors::Error status() {
     LOG(INFO) << "Checking service status";
     int result = system("systemctl status synnax-driver");
     if (result != 0)
-        return freighter::Error("Service is not running");
-    return freighter::NIL;
+        return xerrors::Error("Service is not running");
+    return xerrors::NIL;
 }
 } // namespace daemond

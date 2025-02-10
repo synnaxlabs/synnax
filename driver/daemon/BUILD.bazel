@@ -23,7 +23,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//freighter/cpp:freighter",
+        "//x/cpp/xerrors",
         "@com_github_google_glog//:glog",
     ],
 )

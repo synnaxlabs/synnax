@@ -24,9 +24,9 @@
 #include "driver/queue/ts_queue.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
-#include "driver/breaker/breaker.h"
-#include "driver/config/config.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/config/config.h"
+#include "x/cpp/loop/loop.h"
 
 namespace ni {
 struct ReaderChannelConfig {
@@ -36,14 +36,14 @@ struct ReaderChannelConfig {
     std::string channel_type;
     std::shared_ptr<ni::Analog> ni_channel; // TODO: change to AIChan
     bool enabled = true;
-    synnax::DataType data_type;
+    telem::DataType data_type;
 };
 
 struct ReaderConfig {
     std::string device_key;
     std::vector<ReaderChannelConfig> channels;
-    synnax::Rate sample_rate = synnax::Rate(1);
-    synnax::Rate stream_rate = synnax::Rate(1);
+    telem::Rate sample_rate = telem::Rate(1);
+    telem::Rate stream_rate = telem::Rate(1);
     std::string device_name;
     std::string task_name;
     std::string timing_source; // for sample clock
@@ -74,7 +74,7 @@ public:
     virtual int validate_channels() = 0;
 
     /// @brief quickly starts and stops task to check for immediate errors
-    freighter::Error cycle();
+    xerrors::Error cycle();
 
     /// @brief wrapper which goes around any NI function calls and checks for errors
     /// @param error the error code returned by the NI function
@@ -89,23 +89,23 @@ public:
 
     virtual void parse_config(config::Parser &parser);
 
-    virtual freighter::Error start(const std::string &cmd_key);
+    virtual xerrors::Error start(const std::string &cmd_key);
 
-    virtual freighter::Error stop(const std::string &cmd_key);
+    virtual xerrors::Error stop(const std::string &cmd_key);
 
-    virtual freighter::Error start_ni();
+    virtual xerrors::Error start_ni();
 
-    virtual freighter::Error stop_ni();
+    virtual xerrors::Error stop_ni();
 
     void clear_task();
 
-    virtual void stopped_with_err(const freighter::Error &err) override;
+    virtual void stopped_with_err(const xerrors::Error &err) override;
 
     virtual bool ok();
 
     virtual void get_index_keys();
 
-    virtual std::pair<synnax::Frame, freighter::Error>
+    virtual std::pair<synnax::Frame, xerrors::Error>
     read(breaker::Breaker &breaker) = 0;
 
     virtual void parse_channels(config::Parser &parser) = 0;
@@ -163,7 +163,7 @@ public:
     ) : Source(dmx, task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error>
+    std::pair<synnax::Frame, xerrors::Error>
     read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;
@@ -182,8 +182,8 @@ public:
 
     int validate_channels() override;
 
-    void write_to_series(synnax::Series &series, double &data,
-                         synnax::DataType data_type);
+    void write_to_series(telem::Series &series, double &data,
+                         telem::DataType data_type);
 
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
@@ -203,7 +203,7 @@ public:
     ) : Source(dmx, task_handle, ctx, task) {
     }
 
-    std::pair<synnax::Frame, freighter::Error>
+    std::pair<synnax::Frame, xerrors::Error>
     read(breaker::Breaker &breaker) override;
 
     void acquire_data() override;

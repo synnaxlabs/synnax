@@ -29,7 +29,7 @@ labjack::ReaderSource::ReaderSource(
         this->log_err("No channels enabled/set.");
 }
 
-void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
+void labjack::ReaderSource::stopped_with_err(const xerrors::Error &err) {
     this->log_err(err.message());
 }
 
@@ -39,7 +39,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
         keys.push_back(channel.key);
         // get index key
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
-        if (err != freighter::NIL) {
+        if (err != xerrors::NIL) {
             this->log_err("Error retrieving channel for port: " + channel.location);
             continue;
         }
@@ -50,7 +50,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     for (auto &channel: this->reader_config.tc_channels) {
         keys.push_back(channel.key);
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
-        if (err != freighter::NIL) {
+        if (err != xerrors::NIL) {
             this->log_err("Error retrieving channel for port: " + channel.location);
             continue;
         }
@@ -75,7 +75,7 @@ void labjack::ReaderSource::init() {
         this->reader_config.device_key
     );
 
-    if (err != freighter::NIL)
+    if (err != xerrors::NIL)
         return this->log_err("Error retrieving device: " + err.message());
 
     if (dev.model == "LJM_dtT4")
@@ -197,19 +197,19 @@ void labjack::ReaderSource::init_stream() {
     );
 };
 
-freighter::Error labjack::ReaderSource::start(const std::string &cmd_key) {
+xerrors::Error labjack::ReaderSource::start(const std::string &cmd_key) {
     if (!this->ok())
-        return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
+        return xerrors::Error("Device disconnected or is in error. Please reconfigure task and try again");
 
     if (this->breaker.running()) {
         LOG(INFO) << "[labjack.reader] breaker already running";
-        return freighter::NIL;
+        return xerrors::NIL;
     }
     this->breaker.start();
     this->init();
     if (!this->ok()) {
         LOG(ERROR) << "Device not initialized properly. Requires reconfigure.";
-        return freighter::Error("Device not initialized properly. Requires reconfigure.");
+        return xerrors::Error("Device not initialized properly. Requires reconfigure.");
     }
     this->sample_thread = std::thread(&labjack::ReaderSource::acquire_data, this);
     ctx->set_state({
@@ -221,11 +221,11 @@ freighter::Error labjack::ReaderSource::start(const std::string &cmd_key) {
             {"message", "Task started successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 };
 
-freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
-    if (!this->breaker.running()) return freighter::NIL;
+xerrors::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
+    if (!this->breaker.running()) return xerrors::NIL;
     this->breaker.stop();
 
     if (this->sample_thread.joinable()) this->sample_thread.join();
@@ -239,10 +239,10 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
             {"message", "Task stopped successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(breaker::Breaker &breaker) {
+std::pair<Frame, xerrors::Error> labjack::ReaderSource::read_cmd_response(breaker::Breaker &breaker) {
     /// Thermocouples
     // TODO: change when we provide diff index channels for tcs
     int err_addr;
@@ -271,7 +271,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
         for (const auto &channel: this->reader_config.tc_channels) {
             if (channel.location == loc) {
                 auto key = this->reader_config.channel_map[channel.location];
-                auto s = synnax::Series(channel.data_type, 1);
+                auto s = telem::Series(channel.data_type, 1);
                 write_to_series(s, values[index], channel.data_type);
                 f.emplace(key, std::move(s));
             }
@@ -279,7 +279,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
         for (const auto &channel: this->reader_config.channels) {
             if (channel.location == loc) {
                 auto key = this->reader_config.channel_map[channel.location];
-                auto s = synnax::Series(channel.data_type, 1);
+                auto s = telem::Series(channel.data_type, 1);
                 write_to_series(s, values[index], channel.data_type);
                 f.emplace(key, std::move(s));
             }
@@ -288,15 +288,15 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
     }
 
     for (auto index_key: this->reader_config.index_keys) {
-        auto t = synnax::Series(synnax::TIMESTAMP, 1);
-        t.write(synnax::TimeStamp::now().value);
+        auto t = telem::Series(telem::TIMESTAMP, 1);
+        t.write(telem::TimeStamp::now().value);
         f.emplace(index_key, std::move(t));
     }
 
-    return std::make_pair(std::move(f), freighter::NIL);
+    return std::make_pair(std::move(f), xerrors::NIL);
 }
 
-std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::Breaker &breaker) {
+std::pair<Frame, xerrors::Error> labjack::ReaderSource::read_stream(breaker::Breaker &breaker) {
     int SCANS_PER_READ = this->num_samples_per_chan;
     auto [d, ok] = data_queue.dequeue();
     if (!ok) {
@@ -310,7 +310,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
             }
         });
         return std::make_pair(
-            Frame(0), freighter::Error(
+            Frame(0), xerrors::Error(
                 "Failed to read data off device. Either disconnected or acquisition was disrupted."));
     }
 
@@ -322,7 +322,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
         for (const auto &channel: this->reader_config.channels) {
             if (channel.location == location) {
                 auto key = this->reader_config.channel_map[channel.location];
-                auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
+                auto s = telem::Series(channel.data_type, SCANS_PER_READ);
                 for (int sample = 0; sample < SCANS_PER_READ; sample++) {
                     write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + channel_count],
                                     channel.data_type);
@@ -334,20 +334,20 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
     }
 
     for (auto index_key: this->reader_config.index_keys) {
-        auto t = synnax::Series(synnax::TIMESTAMP, SCANS_PER_READ);
+        auto t = telem::Series(telem::TIMESTAMP, SCANS_PER_READ);
         for (uint64_t i = 0; i < SCANS_PER_READ; i++) {
             t.write(d.t0 + incr * i);
         }
         f.emplace(index_key, std::move(t));
     }
 
-    return std::make_pair(std::move(f), freighter::NIL);
+    return std::make_pair(std::move(f), xerrors::NIL);
 }
 
-std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
+std::pair<Frame, xerrors::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
     if (this->ok() == false) {
         return std::make_pair(
-            Frame(0), freighter::Error("Device disconnected or is in error. Please reconfigure task and try again"));
+            Frame(0), xerrors::Error("Device disconnected or is in error. Please reconfigure task and try again"));
     }
     if (this->reader_config.tc_channels.empty())
         return this->read_stream(breaker);
@@ -360,18 +360,18 @@ labjack::ReaderSource::~ReaderSource() {
 }
 
 void labjack::ReaderSource::write_to_series(
-    synnax::Series &series,
+    telem::Series &series,
     double &data,
-    synnax::DataType data_type) {
-    if (data_type == synnax::FLOAT32) series.write(static_cast<float>(data));
-    else if (data_type == synnax::FLOAT64) series.write(static_cast<double>(data));
-    else if (data_type == synnax::SY_UINT8) series.write(static_cast<uint8_t>(data));
-    else if (data_type == synnax::SY_UINT16) series.write(static_cast<uint16_t>(data));
-    else if (data_type == synnax::INT16) series.write(static_cast<int16_t>(data));
-    else if (data_type == synnax::UINT32) series.write(static_cast<uint32_t>(data));
-    else if (data_type == synnax::INT32) series.write(static_cast<int32_t>(data));
-    else if (data_type == synnax::UINT64) series.write(static_cast<uint64_t>(data));
-    else if (data_type == synnax::INT64) series.write(static_cast<int64_t>(data));
+    telem::DataType data_type) {
+    if (data_type == telem::FLOAT32) series.write(static_cast<float>(data));
+    else if (data_type == telem::FLOAT64) series.write(static_cast<double>(data));
+    else if (data_type == telem::SY_UINT8) series.write(static_cast<uint8_t>(data));
+    else if (data_type == telem::SY_UINT16) series.write(static_cast<uint16_t>(data));
+    else if (data_type == telem::INT16) series.write(static_cast<int16_t>(data));
+    else if (data_type == telem::UINT32) series.write(static_cast<uint32_t>(data));
+    else if (data_type == telem::INT32) series.write(static_cast<int32_t>(data));
+    else if (data_type == telem::UINT64) series.write(static_cast<uint64_t>(data));
+    else if (data_type == telem::INT64) series.write(static_cast<int64_t>(data));
     else {
         LOG(ERROR) << "Unsupported data type: " << data_type.value;
     }
@@ -387,7 +387,7 @@ void labjack::ReaderSource::acquire_data() {
     while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
         data_packet.data.resize(this->buffer_size);
-        data_packet.t0 = synnax::TimeStamp::now().value;
+        data_packet.t0 = telem::TimeStamp::now().value;
         if (check_err(
             LJM_eStreamRead(
                 this->handle,
@@ -395,7 +395,7 @@ void labjack::ReaderSource::acquire_data() {
                 &numSkippedScans,
                 &deviceScanBacklog
             ), "acquire_data.LJM_eStreamRead")) break;
-        data_packet.tf = synnax::TimeStamp::now().value;
+        data_packet.tf = telem::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
     check_err(LJM_eStreamStop(handle), "acquire_data.LJM_eStreamStop");

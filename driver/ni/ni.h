@@ -25,10 +25,10 @@
 #include "client/cpp/synnax.h"
 
 #include "driver/task/task.h"
-#include "driver/breaker/breaker.h"
-#include "driver/config/config.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/config/config.h"
 #include "driver/errors/errors.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 
 namespace ni {
 class Factory final : public task::Factory {

@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include "client/cpp/errors/errors.h"
+#include "x/cpp/xerrors/errors.h"
 #include "freighter/cpp/freighter.h"
 
 using namespace synnax;
@@ -24,10 +24,10 @@ Channel::Channel(
     const api::v1::Channel &ch
 ) : name(ch.name()),
     data_type(
-        synnax::DataType(ch.data_type())),
+        telem::DataType(ch.data_type())),
     key(ch.key()),
     index(ch.index()),
-    rate(synnax::Rate(ch.rate())),
+    rate(telem::Rate(ch.rate())),
     is_index(ch.is_index()),
     leaseholder(ch.leaseholder()),
     is_virtual(ch.is_virtual()),
@@ -37,15 +37,15 @@ Channel::Channel(
 /// @brief rate based ctor.
 Channel::Channel(
     const std::string &name,
-    const synnax::DataType &data_type,
-    const synnax::Rate rate
+    const telem::DataType &data_type,
+    const telem::Rate rate
 ) : name(name), data_type(data_type), rate(rate) {
 }
 
 /// @brief index based ctor.
 Channel::Channel(
     const std::string &name,
-    const synnax::DataType &data_type,
+    const telem::DataType &data_type,
     const ChannelKey index,
     const bool is_index
 ) : name(name), data_type(data_type), index(index), is_index(is_index) {
@@ -53,7 +53,7 @@ Channel::Channel(
 
 Channel::Channel(
     const std::string &name,
-    const synnax::DataType &data_type,
+    const telem::DataType &data_type,
     const bool is_virtual
 ) : name(name), data_type(data_type), is_virtual(is_virtual) {
 }
@@ -72,19 +72,19 @@ void Channel::to_proto(api::v1::Channel *a) const {
 }
 
 /// @brief create from channel.
-freighter::Error ChannelClient::create(synnax::Channel &channel) const {
+xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     auto req = api::v1::ChannelCreateRequest();
     channel.to_proto(req.add_channels());
     auto [res, exc] = create_client->send(CREATE_ENDPOINT, req);
     if (!exc) {
         if (res.channels_size() == 0)
-            return freighter::Error(synnax::UNEXPECTED_ERROR,
+            return xerrors::Error(xerrors::UNEXPECTED_ERROR,
                                     "no channels returned from server on create. please report this issue to the synnax team");
         const auto first = res.channels(0);
         channel.key = first.key();
         channel.name = first.name();
-        channel.data_type = synnax::DataType(first.data_type());
-        channel.rate = synnax::Rate(first.rate());
+        channel.data_type = telem::DataType(first.data_type());
+        channel.rate = telem::Rate(first.rate());
         channel.is_index = first.is_index();
         channel.leaseholder = first.leaseholder();
         channel.index = first.index();
@@ -94,9 +94,9 @@ freighter::Error ChannelClient::create(synnax::Channel &channel) const {
 }
 
 /// @brief index based create.
-std::pair<Channel, freighter::Error> ChannelClient::create(
+std::pair<Channel, xerrors::Error> ChannelClient::create(
     const std::string &name,
-    const synnax::DataType &data_type,
+    const telem::DataType &data_type,
     const ChannelKey index,
     const bool is_index
 ) const {
@@ -106,10 +106,10 @@ std::pair<Channel, freighter::Error> ChannelClient::create(
 }
 
 /// @brief rate based create.
-std::pair<Channel, freighter::Error> ChannelClient::create(
+std::pair<Channel, xerrors::Error> ChannelClient::create(
     const std::string &name,
-    const synnax::DataType &data_type,
-    const synnax::Rate rate
+    const telem::DataType &data_type,
+    const telem::Rate rate
 ) const {
     auto ch = Channel(name, data_type, rate);
     auto err = create(ch);
@@ -117,7 +117,7 @@ std::pair<Channel, freighter::Error> ChannelClient::create(
 }
 
 /// @brief multiple channel create.
-freighter::Error ChannelClient::create(std::vector<Channel> &channels) const {
+xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     auto req = api::v1::ChannelCreateRequest();
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
     for (const auto &ch: channels)
@@ -129,7 +129,7 @@ freighter::Error ChannelClient::create(std::vector<Channel> &channels) const {
 }
 
 /// @brief key based retrieve.
-std::pair<Channel, freighter::Error> ChannelClient::retrieve(const ChannelKey key) const {
+std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -137,14 +137,14 @@ std::pair<Channel, freighter::Error> ChannelClient::retrieve(const ChannelKey ke
     if (res.channels_size() == 0)
         return {
             Channel(),
-            freighter::Error(synnax::NOT_FOUND,
+            xerrors::Error(xerrors::NOT_FOUND,
                              "no channels found matching key " + std::to_string(key))
         };
     return {Channel(res.channels(0)), err};
 }
 
 /// @brief name based retrieve.
-std::pair<Channel, freighter::Error> ChannelClient::retrieve(
+std::pair<Channel, xerrors::Error> ChannelClient::retrieve(
     const std::string &name) const {
     auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
@@ -154,20 +154,20 @@ std::pair<Channel, freighter::Error> ChannelClient::retrieve(
     if (res.channels_size() == 0)
         return {
             Channel(),
-            freighter::Error(synnax::NOT_FOUND,
+            xerrors::Error(xerrors::NOT_FOUND,
                              "no channels found matching name " + name)
         };
     if (res.channels_size() > 1)
         return {
             Channel(),
-            freighter::Error(synnax::QUERY_ERROR,
+            xerrors::Error(xerrors::QUERY_ERROR,
                              "multiple channels found matching name " + name)
         };
     return {Channel(res.channels(0)), err};
 }
 
 /// @brief multiple key based retrieve.
-std::pair<std::vector<Channel>, freighter::Error>
+std::pair<std::vector<Channel>, xerrors::Error>
 ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
@@ -177,7 +177,7 @@ ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
 }
 
 /// @brief multiple name based retrieve.
-std::pair<std::vector<Channel>, freighter::Error>
+std::pair<std::vector<Channel>, xerrors::Error>
 ChannelClient::retrieve(const std::vector<std::string> &names) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());

@@ -7,362 +7,87 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external.
+
+#include <filesystem>
+
 #include "gtest/gtest.h"
+#include "driver.h"
+#include "driver/driver.h"
+#include "nlohmann/json.hpp"
 
-/// local.
-#include "driver/config/config.h"
+using json = nlohmann::json;
 
-TEST(testConfig, testParserHappyPath) {
-    struct MyConfig {
-        std::string name;
-        std::float_t dog;
-    };
-    MyConfig v;
-
-    const json j = {
-        {"name", "test"},
-        {"dog", 1.0}
-    };
-    config::Parser parser(j);
-    v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
-    EXPECT_TRUE(parser.ok());
-    ASSERT_EQ(v.name, "test");
-    ASSERT_EQ(v.dog, 1.0);
+/// @brief it should correctly apply defaults for an empty configuration.
+TEST(TestDriverConfig, parseEmptyConfig) {
+    auto [cfg, err] = driver::parse_config(json::object());
+    ASSERT_FALSE(err) << err;
+    ASSERT_EQ(cfg.client_config.host, "localhost");
+    ASSERT_NEAR(cfg.breaker_config.scale, 1.2, 0.0001);
 }
 
-TEST(testConfig, testParserFieldDoesnNotExist) {
-    struct MyConfig {
-        std::string name;
-        std::float_t dog{};
-    };
-    MyConfig v;
-    json j = {};
-    config::Parser parser(j);
-    v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "name");
-    EXPECT_EQ(err["message"], "This field is required");
-}
-
-TEST(testConfig, testParserFieldHasInvalidType) {
-    struct MyConfig {
-        std::string name;
-        std::float_t dog{};
-    };
-    MyConfig v;
-    json j = {
-        {"name", "test"},
-        {"dog", "1.0"}
-    };
-    config::Parser parser(j);
-    v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
-}
-
-TEST(testConfig, testParserFieldChildHappyPath) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        MyChildConfig child;
-    };
-
-    json j = {
+/// @brief it shopuld correctly parse the values from a valid configuration.
+TEST(TestDriverConfig, testValidConfig) {
+    json config = {
         {
-            "child", {
-                {"name", "test"},
-                {"dog", 1.0}
+            "connection", {
+                {"host", "demo.synnaxlabs.com"},
+                {"port", 80},
+                {"username", "admin"},
+                {"password", "admin"},
+                {"ca_cert_file", "ca.pem"},
+                {"client_cert_file", "client.pem"},
+                {"client_key_file", "client.key"}
             }
-        }
-    };
-    MyConfig v;
-    config::Parser parser(j);
-    auto child_parser = parser.child("child");
-    v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
-    EXPECT_TRUE(parser.ok());
-    ASSERT_EQ(v.child.name, "test");
-    ASSERT_EQ(v.child.dog, 1.0);
-}
-
-TEST(testConfig, testParserFieldChildDoesNotExist) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        MyChildConfig child;
-    };
-
-    json j = {};
-    MyConfig v;
-    config::Parser parser(j);
-    auto child_parser = parser.child("child");
-    v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "child");
-    EXPECT_EQ(err["message"], "This field is required");
-}
-
-TEST(testConfig, testParserChildFieldInvalidType) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        MyChildConfig child;
-    };
-
-    json j = {
+        },
         {
-            "child", {
-                {"name", "test"},
-                {"dog", "1.0"}
+            "retry", {
+                {"base_interval", 2},
+                {"max_retries", 100},
+                {"scale", 1.5}
             }
-        }
-    };
-    MyConfig v;
-    config::Parser parser(j);
-    auto child_parser = parser.child("child");
-    v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "child.dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
-}
-
-TEST(testConfig, testIterHappyPath) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        std::vector<MyChildConfig> children;
-    };
-
-    const json j = {
+        },
         {
-            "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", 1.0}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", 2.0}
-                }
+            "rack", {
+                {"key", 1},
+                {"name", "rack_1"}
             }
-        }
+        },
+        {"integrations", {"opc"}}
     };
-
-    MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
-        MyChildConfig child;
-        child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
-        v.children.push_back(child);
-    });
-    EXPECT_TRUE(parser.ok());
-    ASSERT_EQ(v.children.size(), 2);
-    ASSERT_EQ(v.children[0].name, "test1");
-    ASSERT_EQ(v.children[0].dog, 1.0);
+    auto [cfg, err] = driver::parse_config(config);
+    ASSERT_FALSE(err) << err;
+    ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
+    ASSERT_EQ(cfg.client_config.port, 80);
+    ASSERT_EQ(cfg.client_config.username, "admin");
+    ASSERT_EQ(cfg.client_config.password, "admin");
+    ASSERT_EQ(cfg.client_config.ca_cert_file, "ca.pem");
+    ASSERT_EQ(cfg.client_config.client_cert_file, "client.pem");
+    ASSERT_EQ(cfg.client_config.client_key_file, "client.key");
+    ASSERT_EQ(cfg.breaker_config.base_interval, telem::SECOND * 2);
+    ASSERT_EQ(cfg.breaker_config.max_retries, 100);
+    ASSERT_NEAR(cfg.breaker_config.scale, 1.5, 0.0001);
+    ASSERT_EQ(cfg.rack_key, 1);
+    ASSERT_EQ(cfg.rack_name, "rack_1");
+    ASSERT_EQ(cfg.integrations.size(), 1);
+    ASSERT_EQ(cfg.integrations[0], "opc");
 }
 
-TEST(testConfig, testIterFieldDoesNotExist) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        std::vector<MyChildConfig> children;
-    };
-
-    const json j = {};
-    MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
-        MyChildConfig child;
-        child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
-        v.children.push_back(child);
-    });
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "children");
-    EXPECT_EQ(err["message"], "This field is required");
+/// @brief it should read a configuration file from disk.
+TEST(TestDriverConfig, testReadConfig) {
+    auto path = std::filesystem::current_path();
+    path += "/driver/driver/testdata/example_config.json";
+    auto cfg_contents = driver::readConfig(path);
+    auto [cfg, err] = driver::parse_config(cfg_contents);
+    ASSERT_FALSE(err) << err;
+    ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
+    ASSERT_EQ(cfg.client_config.port, 9090);
+    ASSERT_EQ(cfg.breaker_config.base_interval, telem::SECOND * 2);
 }
 
-TEST(testConfig, testIterFieldIsNotArray) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        std::vector<MyChildConfig> children;
-    };
-
-    const json j = {
-        {
-            "children", {
-                {"name", "test1"},
-                {"dog", 1.0}
-            }
-        }
-    };
-    MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
-        MyChildConfig child;
-        child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
-        v.children.push_back(child);
-    });
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "children");
-    EXPECT_EQ(err["message"], "Expected an array");
-}
-
-TEST(testConfig, testIterFieldChildFieldInvalidType) {
-    struct MyChildConfig {
-        std::string name;
-        std::float_t dog;
-    };
-
-    struct MyConfig {
-        std::vector<MyChildConfig> children;
-    };
-
-    const json j = {
-        {
-            "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", "1.0"}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", 2.0}
-                }
-            }
-        }
-    };
-
-    MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
-        MyChildConfig child;
-        child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
-        v.children.push_back(child);
-    });
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "children.0.dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
-}
-
-TEST(testConfig, testInterpretStringAsNumber) {
-    struct MyConfig {
-        std::float_t dog;
-    };
-    // const json j = {
-    //     {"dog", "1.232"}
-    // };
-
-    json j;
-    j["dog"] = 1.232;
-    MyConfig v;
-    config::Parser parser(j);
-    v.dog = parser.required<std::float_t>("dog");
-    EXPECT_TRUE(parser.ok());
-    // assert that the value is close to the expected value.
-    ASSERT_NEAR(v.dog, 1.232, 0.0001);
-}
-
-TEST(testConfig, testArray) {
-    json j = {
-        {"array", {1, 2, 3, 4, 5}}
-    };
-    config::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
-    EXPECT_TRUE(parser.ok());
-    ASSERT_EQ(values.size(), 5);
-    ASSERT_EQ(values[0], 1);
-    ASSERT_EQ(values[1], 2);
-    ASSERT_EQ(values[2], 3);
-    ASSERT_EQ(values[3], 4);
-    ASSERT_EQ(values[4], 5);
-}
-
-TEST(testConfig, testArrayDoesNotExist) {
-    json j = {};
-    config::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "array");
-    EXPECT_EQ(err["message"], "This field is required");
-}
-
-TEST(testConfig, testArrayIsNotArray) {
-    json j = {
-        {"array", 1}
-    };
-    config::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
-    EXPECT_FALSE(parser.ok());
-    EXPECT_EQ(parser.errors->size(), 1);
-    auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "array");
-    EXPECT_EQ(err["message"], "Expected an array");
-}
-
-TEST(testConfig, testOptionalArray) {
-    json j = {
-        {"array", {1, 2, 3, 4, 5}}
-    };
-    config::Parser parser(j);
-    auto values = parser.optional_array<int>("array", {6, 7, 8});
-    EXPECT_TRUE(parser.ok());
-    ASSERT_EQ(values.size(), 5);
-    ASSERT_EQ(values[0], 1);
-    ASSERT_EQ(values[1], 2);
-    ASSERT_EQ(values[2], 3);
-    ASSERT_EQ(values[3], 4);
-    ASSERT_EQ(values[4], 5);
-}
-
-TEST(testConfig, testNoError) {
-    json j = {};
-    config::Parser parser(j);
-    auto err = parser.error();
-    ASSERT_FALSE(err);
+/// @brief it should return an empty JSON object.
+TEST(TestDriverConfig, testReadConfigNoFileFound) {
+    auto path = std::filesystem::current_path();
+    path += "/driver/driver/testdata/does_not_exist.json";
+    auto cfg_contents = driver::readConfig(path);
+    ASSERT_TRUE(cfg_contents.empty());
 }

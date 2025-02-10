@@ -36,10 +36,10 @@
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/middleware.h"
 #include "driver/task/task.h"
-#include "driver/breaker/breaker.h"
-#include "driver/config/config.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/config/config.h"
 #include "driver/errors/errors.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 
 namespace ni {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +125,6 @@ private:
     synnax::Task task;
     std::shared_ptr<std::thread> thread;
     bool ok_state = true;
-    synnax::Rate scan_rate = synnax::Rate(1);
+    telem::Rate scan_rate = telem::Rate(1);
 }; // class ScannerTask
 } // namespace ni

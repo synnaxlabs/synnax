@@ -8,7 +8,6 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp/errors",
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",

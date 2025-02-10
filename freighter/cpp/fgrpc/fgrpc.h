@@ -23,12 +23,12 @@
 namespace priv {
 const std::string PROTOCOL = "grpc";
 
-/// @brief converts a grpc::Status to a freighter::Error.
-inline freighter::Error err_from_status(const grpc::Status &status) {
-    if (status.ok()) return freighter::NIL;
+/// @brief converts a grpc::Status to a xerrors::Error.
+inline xerrors::Error err_from_status(const grpc::Status &status) {
+    if (status.ok()) return xerrors::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::UNREACHABLE.type, status.error_message()};
-    return freighter::Error(status.error_message());
+    return xerrors::Error(status.error_message());
 }
 
 /// @brief an internal method for reading the entire contents of certificate files
@@ -107,15 +107,6 @@ public:
             } else return channel;
         }
         grpc::ChannelArguments args;
-        args.SetInt(GRPC_ARG_MIN_RECONNECT_BACKOFF_MS, 100);
-        // Minimize reconnection delay
-        args.SetInt(GRPC_ARG_MAX_RECONNECT_BACKOFF_MS, 100); // No exponential backoff
-        args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, 30000); // Send keepalive pings every 5s
-        args.SetInt(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 2000);
-        // Timeout if no response in 2s
-        args.SetInt(GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1);
-        // Keepalive even with no active calls
-        args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0); // Allow unlimited pings
         auto channel = grpc::CreateCustomChannel(target, credentials, args);
         channels[target] = channel;
         return channel;
@@ -150,7 +141,7 @@ public:
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<RS, freighter::Error> send(
+    std::pair<RS, xerrors::Error> send(
         const std::string &target,
         RQ &request
     ) override {
@@ -188,7 +179,7 @@ public:
         // Set inbound metadata.
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
             res_ctx.set(k.data(), v.data());
-        return {res_ctx, freighter::NIL, res};
+        return {res_ctx, xerrors::NIL, res};
     }
 
 private:
@@ -224,15 +215,15 @@ public:
     }
 
     /// @brief Streamer send.
-    freighter::Error send(RQ &request) const override {
-        if (stream->Write(request)) return freighter::NIL;
+    xerrors::Error send(RQ &request) const override {
+        if (stream->Write(request)) return xerrors::NIL;
         return freighter::STREAM_CLOSED;
     }
 
     /// @brief Streamer read.
-    std::pair<RS, freighter::Error> receive() override {
+    std::pair<RS, xerrors::Error> receive() override {
         RS res;
-        if (stream->Read(&res)) return {res, freighter::NIL};
+        if (stream->Read(&res)) return {res, xerrors::NIL};
         const auto ctx = freighter::Context("grpc", "", freighter::STREAM);
         auto v = nullptr;
         const auto err = mw.exec(ctx, this, v).second;
@@ -268,7 +259,7 @@ private:
     std::unique_ptr<typename RPC::Stub> stub;
 
     bool closed = false;
-    freighter::Error close_err = freighter::NIL;
+    xerrors::Error close_err = xerrors::NIL;
     bool writes_done_called = false;
 };
 
@@ -302,7 +293,7 @@ public:
     /// @returns A stream object, which can be used to listen to the server.
     /// NOTE: Sharing stream invocations is not thread safe.
     /// It is suggested to create one StreamClient and create a stream per thread.
-    std::pair<std::unique_ptr<freighter::Stream<RQ, RS> >, freighter::Error>
+    std::pair<std::unique_ptr<freighter::Stream<RQ, RS> >, xerrors::Error>
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
             "grpc",
@@ -333,10 +324,10 @@ public:
             res_ctx
         );
         if (res_ctx.has("error"))
-            return {res_ctx, freighter::Error(res_ctx.get("error"))};
+            return {res_ctx, xerrors::Error(res_ctx.get("error"))};
         return {
             res_ctx,
-            freighter::NIL,
+            xerrors::NIL,
             std::move(latest_stream)
         };
     }

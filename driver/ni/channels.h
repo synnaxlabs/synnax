@@ -15,7 +15,7 @@
 
 #include "nidaqmx/nidaqmx.h"
 #include "nidaqmx/nidaqmx_api.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/ni/scale.h"
 #include "driver/ni/util.h"
 #include "driver/task/task.h"

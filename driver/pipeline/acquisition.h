@@ -17,7 +17,7 @@
 #include "client/cpp/synnax.h"
 
 /// module
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "driver/pipeline/middleware.h"
 
 namespace pipeline {
@@ -32,7 +32,7 @@ public:
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will
     /// exit.
-    virtual std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) = 0;
+    virtual std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
     /// it to shut down or occurred during commanded shutdown.
@@ -41,7 +41,7 @@ public:
     /// source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stopped_with_err(const freighter::Error &err) {
+    virtual void stopped_with_err(const xerrors::Error &err) {
     }
 
     virtual ~Source() = default;
@@ -62,7 +62,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error will
     /// be considered permanent and the pipeline will exit.
-    virtual freighter::Error close() = 0;
+    virtual xerrors::Error close() = 0;
 
     virtual ~Writer() = default;
 };
@@ -76,7 +76,7 @@ public:
     /// a breaker will be triggered (temporary backoff), and the acquisition pipeline will
     /// retry the operation until the configured number of maximum retries is exceeded. Any
     /// other error will be considered permanent and the pipeline will exit.
-    virtual std::pair<std::unique_ptr<Writer>, freighter::Error> openWriter(
+    virtual std::pair<std::unique_ptr<Writer>, xerrors::Error> open_writer(
         const WriterConfig &config
     ) = 0;
 
@@ -91,7 +91,7 @@ class SynnaxWriter final : public pipeline::Writer {
 public:
     explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal);
     bool write(synnax::Frame &fr) override;
-    freighter::Error close() override;
+    xerrors::Error close() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is
@@ -101,7 +101,7 @@ class SynnaxWriterFactory final : public WriterFactory {
 
 public:
     explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
-    std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
+    std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
         const WriterConfig &config
     ) override;
 };
@@ -176,9 +176,9 @@ private:
     std::shared_ptr<Source> source;
     pipeline::MiddlewareChain middleware_chain;
 
-    void runInternal();
+    void run_internal();
 
-    void ensureThreadJoined() const;
+    void ensure_thread_joined() const;
 
     void run();
 };

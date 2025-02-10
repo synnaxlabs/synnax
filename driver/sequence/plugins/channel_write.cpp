@@ -9,75 +9,75 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-synnax::Series lua_to_series(
+telem::Series lua_to_series(
     lua_State *L,
     const int index,
     const synnax::Channel &ch
 ) {
-    if (ch.data_type == synnax::FLOAT32)
-        return synnax::Series(
+    if (ch.data_type == telem::FLOAT32)
+        return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::FLOAT64)
-        return synnax::Series(
+    if (ch.data_type == telem::FLOAT64)
+        return telem::Series(
             lua_tonumber(L, index),
             ch.data_type
         );
-    if (ch.data_type == synnax::INT8)
-        return synnax::Series(
+    if (ch.data_type == telem::INT8)
+        return telem::Series(
             static_cast<int8_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::INT16)
-        return synnax::Series(
+    if (ch.data_type == telem::INT16)
+        return telem::Series(
             static_cast<int16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::INT32)
-        return synnax::Series(
+    if (ch.data_type == telem::INT32)
+        return telem::Series(
             static_cast<int32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::INT64)
-        return synnax::Series(
+    if (ch.data_type == telem::INT64)
+        return telem::Series(
             lua_tointeger(L, index),
             ch.data_type
         );
-    if (ch.data_type == synnax::SY_UINT8)
-        return synnax::Series(
+    if (ch.data_type == telem::SY_UINT8)
+        return telem::Series(
             static_cast<uint8_t>(lua_isnumber(L, index)
                                      ? lua_tonumber(L, index)
                                      : lua_toboolean(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::SY_UINT16)
-        return synnax::Series(
+    if (ch.data_type == telem::SY_UINT16)
+        return telem::Series(
             static_cast<uint16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::UINT32)
-        return synnax::Series(
+    if (ch.data_type == telem::UINT32)
+        return telem::Series(
             static_cast<uint32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::UINT64)
-        return synnax::Series(
+    if (ch.data_type == telem::UINT64)
+        return telem::Series(
             static_cast<uint64_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == synnax::STRING)
-        return synnax::Series(
+    if (ch.data_type == telem::STRING)
+        return telem::Series(
             std::string(lua_tostring(L, index)),
-            synnax::STRING
+            telem::STRING
         );
-    if (ch.data_type == synnax::FLOAT32)
-        return synnax::Series(
+    if (ch.data_type == telem::FLOAT32)
+        return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type
         );
     luaL_error(L, "Unsupported data type for channel %u", ch.key);
-    return synnax::Series(synnax::DATA_TYPE_UNKNOWN, 0);
+    return telem::Series(telem::DATA_TYPE_UNKNOWN, 0);
 }
 
 
@@ -89,8 +89,8 @@ plugins::SynnaxFrameSink::SynnaxFrameSink(
     : client(client), cfg(std::move(cfg)) {
 }
 
-freighter::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
-    if (frame.empty()) return freighter::NIL;
+xerrors::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
+    if (frame.empty()) return xerrors::NIL;
     if (this->writer == nullptr) {
         auto [w, err] = this->client->telem.open_writer(this->cfg);
         if (err) return err;
@@ -98,20 +98,20 @@ freighter::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
     }
     if (const bool ok = this->writer->write(frame); !ok)
         return this->writer->error();
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error plugins::SynnaxFrameSink::set_authority(
+xerrors::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::ChannelKey> &keys,
     const std::vector<synnax::Authority> &authorities
 ) {
     if (const bool ok = this->writer->set_authority(keys, authorities); !ok)
         return this->writer->error();
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error plugins::SynnaxFrameSink::close() {
-    if (this->writer == nullptr) return freighter::NIL;
+xerrors::Error plugins::SynnaxFrameSink::close() {
+    if (this->writer == nullptr) return xerrors::NIL;
     const auto err = this->writer->close();
     this->writer = nullptr;
     return err;
@@ -131,20 +131,20 @@ plugins::ChannelWrite::ChannelWrite(
 }
 
 /// @brief resolves a channel key by its name.
-std::pair<synnax::Channel, freighter::Error> plugins::ChannelWrite::resolve(
+std::pair<synnax::Channel, xerrors::Error> plugins::ChannelWrite::resolve(
     const std::string &name) {
     const auto it = this->names_to_keys.find(name);
     if (it == this->names_to_keys.end())
         return {
             synnax::Channel(),
-            freighter::Error(synnax::NOT_FOUND, "Channel" + name + " not found")
+            xerrors::Error(xerrors::NOT_FOUND, "Channel" + name + " not found")
         };
-    return {this->channels[it->second], freighter::NIL};
+    return {this->channels[it->second], xerrors::NIL};
 }
 
 /// @brief implements sequence::Operator to bind channel set functions to the
 /// sequence on startup.
-freighter::Error plugins::ChannelWrite::before_all(lua_State *L) {
+xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
     // Configuring the "set" closure used to set a channel value.
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {
@@ -244,34 +244,34 @@ freighter::Error plugins::ChannelWrite::before_all(lua_State *L) {
         return 0;
     }, 1);
     lua_setglobal(L, "set_authority");
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 /// @brief implements plugins::Plugin to close the sink after the sequence
 /// is complete.
-freighter::Error plugins::ChannelWrite::after_all(lua_State *L) {
+xerrors::Error plugins::ChannelWrite::after_all(lua_State *L) {
     return this->sink->close();
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-freighter::Error plugins::ChannelWrite::before_next(lua_State *_) {
+xerrors::Error plugins::ChannelWrite::before_next(lua_State *_) {
     this->frame = synnax::Frame(channels.size());
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-freighter::Error plugins::ChannelWrite::after_next(lua_State *_) {
-    if (this->frame.empty()) return freighter::NIL;
-    const auto now = synnax::TimeStamp::now();
+xerrors::Error plugins::ChannelWrite::after_next(lua_State *_) {
+    if (this->frame.empty()) return xerrors::NIL;
+    const auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> index_keys;
     for (const auto key: *this->frame.channels) {
         auto it = this->channels.find(key);
         if (it == this->channels.end())
-            return freighter::Error(synnax::NOT_FOUND, "Channel not found");
+            return xerrors::Error(xerrors::NOT_FOUND, "Channel not found");
         synnax::Channel ch = it->second;
         if (!ch.is_virtual) index_keys.push_back(ch.index);
     }
     for (const auto index: index_keys)
-        frame.emplace(index, synnax::Series(now));
+        frame.emplace(index, telem::Series(now));
     return this->sink->write(this->frame);
 }

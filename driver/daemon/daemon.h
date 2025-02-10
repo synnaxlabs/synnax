@@ -13,7 +13,7 @@
 #include <functional>
 
 /// internal.
-#include "freighter/cpp/freighter.h"
+#include "x/cpp/xerrors/errors.h"
 
 namespace daemond {
 // Callback type for the main application logic
@@ -37,21 +37,21 @@ struct Config {
 };
 
 // Service management functions
-freighter::Error install_service();
+xerrors::Error install_service();
 
-freighter::Error uninstall_service();
+xerrors::Error uninstall_service();
 
 // Service control functions
-freighter::Error start_service();
+xerrors::Error start_service();
 
-freighter::Error stop_service();
+xerrors::Error stop_service();
 
-freighter::Error restart_service();
+xerrors::Error restart_service();
 
 // Service status functions.
-freighter::Error view_logs();
+xerrors::Error view_logs();
 
-freighter::Error status();
+xerrors::Error status();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);

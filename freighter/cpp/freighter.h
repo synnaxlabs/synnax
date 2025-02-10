@@ -12,128 +12,20 @@
 #include <memory>
 #include <string>
 #include <iostream>
-#include "x/go/errors/x/go/errors/errors.pb.h"
+
+#include "x/cpp/xerrors/errors.h"
 
 namespace freighter {
-const std::string TYPE_NIL = "nil";
-const std::string TYPE_UNKNOWN = "unknown";
+
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 
-/// @brief a network transportable error with a type and string encoded data.
-class Error {
-public:
-    /// @brief defines the general class that this particular error belongs to. Typically
-    /// used to identify handling logic for errrors (especially ones transported over
-    /// the network).
-    std::string type;
-    /// @brief data related to the error. This is typically a message, but can sometimes
-    /// be a serialized object.
-    std::string data;
 
-    /// @brief constructs the default version fo the error with TYPE_NIL.
-    Error() : type(TYPE_NIL) {
-    }
+const std::string TYPE_NIL = "nil";
+const std::string TYPE_UNKNOWN = "unknown";
 
-    /// @brief constructs the error from a particular string data and data.
-    Error(std::string type, std::string data) : type(std::move(type)),
-                                                data(std::move(data)) {
-    }
-
-    /// @brief constructs the error from a particular string freighter:Error and data.
-    Error(const freighter::Error& err, std::string data) : type(err.type),
-                                                          data(std::move(data)) {
-    }
-
-    /// @brief constructs the provided error from a string. If the string is of the form
-    /// "type---data", the type and data will be extracted from the string. Otherwise,
-    /// the string is assumed to be the type.
-    explicit Error(const std::string &err_or_type) : type(err_or_type) {
-        const size_t pos = err_or_type.find("---");
-        if (pos == std::string::npos) return;
-        type = err_or_type.substr(0, pos);
-        data = err_or_type.substr(pos + 3);
-    }
-
-    /// @brief constructs the error from its protobuf representation.
-    explicit Error(const errors::PBPayload &err) : type(err.type()),
-                                                   data(err.data()) {
-    }
-
-    [[nodiscard]] freighter::Error sub(const std::string &type_extension) const {
-        return freighter::Error(type + "." + type_extension);
-    }
-
-    /// @brief copy constructor.
-    Error(const Error &other) = default;
-
-    /// @returns true if the error if of TYPE_NIL, and false otherwise.
-    [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
-
-    /// @returns a string formatted error message.
-    [[nodiscard]] std::string message() const { return "[" + type+ "] " + data; }
-
-    explicit operator bool() const { return !ok(); }
-
-    friend std::ostream &operator<<(std::ostream &os, const Error &err) {
-        os << err.message();
-        return os;
-    }
-
-    /// @brief checks if the error matches the provided error. The error matches if the
-    /// provided type is equal to or is a prefix of this errors type.
-    [[nodiscard]] bool matches(const Error &other) const { return matches(other.type); }
-
-    /// @brief checks if the error matches the provided type. The error matches if the
-    /// provided type is equal to or is a prefix of this errors type.
-    [[nodiscard]] bool matches(const std::string &other) const {
-        const auto loc = std::mismatch(other.begin(), other.end(), type.begin()).first;
-        return loc == other.end();
-    }
-
-    //// @brief checks if any of the provided types match the error. An error matches if
-    /// the provided type is equal to or is a prefix of this errors type.
-    [[nodiscard]] bool matches(const std::vector<std::string> &types) const {
-        return std::any_of(types.begin(), types.end(), [this](const std::string &t) {
-            return matches(t);
-        });
-    }
-
-    /// @brief checks if any of the provided errors match the error. An error matches if
-    /// the provided type is equal to or is a prefix of this errors type.
-    [[nodiscard]] bool matches(const std::vector<Error> &errors) const {
-        return std::any_of(errors.begin(), errors.end(), [this](const Error &e) {
-            return matches(e);
-        });
-    }
-
-    /// @brief if the error matches the provided error, 'skips' the error by returning
-    /// nil, otherwise returns the error.
-    [[nodiscard]] Error skip(const Error &other) const {
-        if (matches(other)) return {TYPE_NIL, ""};
-        return *this;
-    }
-
-    /// @brief if the error matches the provided type, 'skips' the error by returning
-    /// nil, otherwise returns the error.
-    [[nodiscard]] Error skip(const std::string &other) const {
-        if (matches(other)) return {TYPE_NIL, ""};
-        return *this;
-    }
-
-    bool operator==(const Error &other) const { return type == other.type; };
-
-    bool operator!=(const Error &other) const { return type != other.type; };
-
-    bool operator==(const std::string &other) const { return type == other; };
-
-    bool operator!=(const std::string &other) const { return type != other; };
-};
-
-const Error UNKNOWN = {TYPE_UNKNOWN, ""};
-const Error NIL = {TYPE_NIL, ""};
-const Error STREAM_CLOSED = {TYPE_UNREACHABLE + ".stream_closed", "Stream closed"};
-const Error EOF_ = {"freighter.eof", "EOF"};
-const Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
+const xerrors::Error STREAM_CLOSED = {TYPE_UNREACHABLE + ".stream_closed", "Stream closed"};
+const xerrors::Error EOF_ = {"freighter.eof", "EOF"};
+const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
 
 /// @brief A simple URL builder.
@@ -228,7 +120,7 @@ public:
 
 class Next {
 public:
-    virtual std::pair<Context, freighter::Error> operator()(Context context) = 0;
+    virtual std::pair<Context, xerrors::Error> operator()(Context context) = 0;
 
     virtual ~Next() = default;
 };
@@ -243,7 +135,7 @@ public:
     /// @param next a lambda that can be called to execute the next middleware in the
     /// chain.
     /// @returns a pair containing the context for the inbound response and an error.
-    virtual std::pair<Context, freighter::Error> operator()(Context context, Next *next)
+    virtual std::pair<Context, xerrors::Error> operator()(Context context, Next *next)
     = 0;
 
     virtual ~Middleware() = default;
@@ -259,7 +151,7 @@ public:
     PassthroughMiddleware() = default;
 
     /// @implements Middleware::operator()
-    std::pair<Context, freighter::Error> operator()(
+    std::pair<Context, xerrors::Error> operator()(
         Context context,
         Next *next
     ) override {
@@ -270,7 +162,7 @@ public:
 template<typename RS>
 struct FinalizerReturn {
     Context context;
-    freighter::Error error;
+    xerrors::Error error;
     RS response;
 };
 
@@ -280,7 +172,7 @@ template<typename RQ, typename RS>
 class Finalizer {
 public:
     virtual FinalizerReturn<RS> operator()(Context context, RQ &req) {
-        return {context, freighter::NIL};
+        return {context, xerrors::NIL};
     }
 
     virtual ~Finalizer() = default;
@@ -316,7 +208,7 @@ public:
     /// @param finalizer - A finalizer that represents the last middleware in the chain,
     /// and is responsible for executing the request.
     /// @param req - the request to execute.
-    std::pair<RS, freighter::Error> exec(
+    std::pair<RS, xerrors::Error> exec(
         const freighter::Context &context,
         freighter::Finalizer<RQ, RS> *finalizer,
         RQ &req
@@ -337,7 +229,7 @@ public:
             ) : index(0), collector(collector), finalizer(finalizer), req(req) {
             }
 
-            std::pair<Context, freighter::Error> operator()(
+            std::pair<Context, xerrors::Error> operator()(
                 freighter::Context context
             ) override {
                 if (index >= collector.middlewares.size()) {
@@ -377,7 +269,7 @@ public:
     /// @param target the target to send the request to.
     /// @param request the request to send.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<RS, Error> send(const std::string &target, RQ &request) = 0;
+    virtual std::pair<RS, xerrors::Error> send(const std::string &target, RQ &request) = 0;
 
     virtual ~UnaryClient() = default;
 };
@@ -391,12 +283,12 @@ public:
     /// @brief Receives a response from the stream. It's not safe to call receive
     /// concurrently with itself.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<RS, Error> receive() = 0;
+    virtual std::pair<RS, xerrors::Error> receive() = 0;
 
     /// @brief Sends a request to the stream. It is not safe to call send concurrently
     /// with itself or closeSend.
     /// @param request - the request to send.
-    virtual Error send(RQ &request) const = 0;
+    virtual xerrors::Error send(RQ &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no
     /// more requests will be send, and (if desired) allowing the server to close the
@@ -419,7 +311,7 @@ public:
     /// @see Stream.
     /// @param target the target to open the stream to.
     /// @returns a pointer to an object implementing the Stream interface.
-    virtual std::pair<std::unique_ptr<Stream<RQ, RS> >, freighter::Error>
+    virtual std::pair<std::unique_ptr<Stream<RQ, RS> >, xerrors::Error>
     stream(const std::string &target) = 0;
 
     virtual ~StreamClient() = default;

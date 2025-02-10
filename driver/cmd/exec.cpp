@@ -1,0 +1,63 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+/// std
+#include <string>
+#include <iostream>
+
+/// internal
+#include "driver/cmd/cmd.h"
+
+void print_usage() {
+    std::cout << "Usage: synnax-driver <command> [options]\n"
+            << "Commands:\n"
+            << "  start           Start the Synnax driver service\n"
+            << "    --standalone  Run in standalone mode (not as a service)\n"
+            << "    -s           Short form for --standalone\n"
+            << "  stop            Stop the Synnax driver service\n"
+            << "  restart         Restart the Synnax driver service\n"
+            << "  login           Log in to Synnax\n"
+            << "  install         Install the Synnax driver as a system service\n"
+            << "  uninstall       Uninstall the Synnax driver service\n"
+            << "  logs            View the driver logs\n"
+            << "  version         Display the driver version\n";
+}
+
+
+int cmd::exec(int argc, char *argv[]) {
+    // FLAGS_logtostderr = true;
+    // FLAGS_colorlogtostderr = true;
+    // google::InitGoogleLogging(argv[0]);
+    if (argc < 2) {
+        print_usage();
+        return 1;
+    }
+    const std::string command = argv[1];
+    if (command == "start") {
+        bool standalone = false;
+        for (int i = 2; i < argc; i++) {
+            const std::string arg = argv[i];
+            if (arg == "--standalone" || arg == "-s") {
+                standalone = true;
+                break;
+            }
+        }
+        if (standalone) return cmd::priv::start(argc, argv);
+        return cmd::priv::service_start(argc, argv);
+    }
+    if (command == "stop") return cmd::priv::service_stop(argc, argv);
+    if (command == "restart") return cmd::priv::service_restart(argc, argv);
+    if (command == "login") return cmd::priv::login(argc, argv);
+    if (command == "install") return cmd::priv::service_install(argc, argv);
+    if (command == "uninstall") return cmd::priv::service_uninstall(argc, argv);
+    if (command == "logs") return cmd::priv::service_view_logs(argc, argv);
+    if (command == "version") return cmd::priv::version(argc, argv);
+    print_usage();
+    return 1;
+}

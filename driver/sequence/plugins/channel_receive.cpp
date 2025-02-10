@@ -13,7 +13,7 @@
 void apply(
     lua_State *L,
     const std::string &name,
-    const synnax::SampleValue &value
+    const telem::SampleValue &value
 ) {
     switch (value.index()) {
         case 0: // float64
@@ -87,35 +87,35 @@ plugins::ChannelReceive::ChannelReceive(
 }
 
 /// @brief implements plugins::Plugin to start receiving values from the read pipeline.
-freighter::Error plugins::ChannelReceive::before_all(lua_State *L) {
+xerrors::Error plugins::ChannelReceive::before_all(lua_State *L) {
     this->pipe.start();
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 /// @brief implements plugins::Plugin to start receiving values from the write pipeline.
-freighter::Error plugins::ChannelReceive::after_all(lua_State *L) {
+xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
     this->pipe.stop();
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 /// @brief implements pipeline::Sink to receive values from a streamer and bind them
 /// into the latest values state.
-freighter::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) {
+xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
     for (int i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
         this->receiver.latest_values[key] = frame.series->at(i).at(-1);
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 /// @brief implements plugins::Plugin to bind the latest values to the lua state
 /// on every sequence iteration.
-freighter::Error plugins::ChannelReceive::before_next(lua_State *L) {
+xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
     std::lock_guard lock(this->mu);
     for (const auto &[key, value]: this->latest_values) {
         const auto ch = this->channels.at(key);
         apply(L, ch.name, value);
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }

@@ -16,9 +16,9 @@
 
 /// internal
 #include "client/cpp/channel/channel.h"
-#include "client/cpp/telem/control.h"
-#include "client/cpp/telem/series.h"
-#include "client/cpp/telem/telem.h"
+#include "x/cpp/telem/control.h"
+#include "x/cpp/telem/series.h"
+#include "x/cpp/telem/telem.h"
 
 /// module
 #include "freighter/cpp/freighter.h"
@@ -59,7 +59,7 @@ struct Frame {
     /// @brief the channels in the frame.
     std::unique_ptr<std::vector<ChannelKey> > channels;
     /// @brief the series in the frame.
-    std::unique_ptr<std::vector<synnax::Series> > series;
+    std::unique_ptr<std::vector<telem::Series> > series;
 
     Frame() = default;
 
@@ -70,7 +70,7 @@ struct Frame {
     /// must be the same size as the channels vector. The frame takes ownership of the vector.
     Frame(
         std::unique_ptr<std::vector<ChannelKey> > channels,
-        std::unique_ptr<std::vector<synnax::Series> > series
+        std::unique_ptr<std::vector<telem::Series> > series
     );
 
     /// @brief allocates a frame that can hold the given number of series.
@@ -84,7 +84,7 @@ struct Frame {
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const ChannelKey &chan, synnax::Series &&ser);
+    Frame(const ChannelKey &chan, telem::Series &&ser);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -93,13 +93,13 @@ struct Frame {
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const ChannelKey &chan, synnax::Series &ser) const;
+    void add(const ChannelKey &chan, telem::Series &ser) const;
 
     /// @brief adds the given series to the frame for the given channel key. Unlike add,
     ///  this method moves the series into the frame, rather than copying it.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void emplace(const ChannelKey &chan, synnax::Series &&ser) const;
+    void emplace(const ChannelKey &chan, telem::Series &&ser) const;
 
     /// @brief returns true if the frame has no series.
     bool empty() const;
@@ -110,7 +110,7 @@ struct Frame {
     template<typename NumericType>
     NumericType at(const ChannelKey &key, const int &index) const;
 
-    [[nodiscard]] SampleValue at(const ChannelKey &key, const int &index) const;
+    [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
@@ -155,7 +155,7 @@ public:
     /// If error.ok() is false, then the streamer has failed and must be closed.
     /// @note read is not safe to call concurrently with itself or with close(), but it
     /// is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<Frame, freighter::Error> read() const;
+    [[nodiscard]] std::pair<Frame, xerrors::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -164,7 +164,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
-    [[nodiscard]] freighter::Error
+    [[nodiscard]] xerrors::Error
     set_channels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
@@ -175,7 +175,7 @@ public:
     /// during operation.
     /// @note close() is not safe to call concurrently with itself or any other streamer
     /// methods.
-    [[nodiscard]] freighter::Error close() const;
+    [[nodiscard]] xerrors::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to receive()
     /// will exhaust the stream and eventually return an EOF.
@@ -221,7 +221,7 @@ struct WriterConfig {
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
     /// the writer will fail to open.
-    synnax::TimeStamp start;
+    telem::TimeStamp start;
 
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
@@ -253,7 +253,7 @@ struct WriterConfig {
     /// when auto commit is enabled. Setting this value to zero will make all writes
     /// durable immediately. Lower values will decrease write throughput. Defaults to
     /// 1s when auto commit is enabled.
-    synnax::TimeSpan auto_index_persist_interval = 1 * synnax::SECOND;
+    telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
@@ -323,16 +323,16 @@ public:
     ///
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
-    std::pair<synnax::TimeStamp, bool> commit();
+    std::pair<telem::TimeStamp, bool> commit();
 
     /// @brief returns any error accumulated during the write process. If no err has
     /// occurred, err.ok() will be true.
-    [[nodiscard]] freighter::Error error() const;
+    [[nodiscard]] xerrors::Error error() const;
 
     /// @brief closes the writer and releases any resources associated with it. A writer
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
     /// method on a closed writer will throw a runtime_error.
-    [[nodiscard]] freighter::Error close() const;
+    [[nodiscard]] xerrors::Error close() const;
 
 private:
     /// @brief whether an error has occurred in the write pipeline.
@@ -368,7 +368,7 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the writer
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, freighter::Error>
+    [[nodiscard]] std::pair<Writer, xerrors::Error>
     open_writer(const WriterConfig &config) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
@@ -377,7 +377,7 @@ public:
     /// if the streamer could not be opened. In the case where ok() is false, the
     /// streamer will be in an invalid state and does not need to be closed. If ok()
     /// is true, the streamer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Streamer, freighter::Error>
+    [[nodiscard]] std::pair<Streamer, xerrors::Error>
     open_streamer(const StreamerConfig &config) const;
 
 private:

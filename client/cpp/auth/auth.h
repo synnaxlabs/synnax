@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include "client/cpp/errors/errors.h"
+#include "x/cpp/xerrors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
@@ -27,6 +27,9 @@ typedef freighter::UnaryClient<
     api::v1::LoginResponse
 > AuthLoginClient;
 
+const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
+const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
+const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
@@ -61,7 +64,7 @@ public:
 
     /// @brief authenticates with the credentials provided when construction the 
     /// Synnax client.
-    freighter::Error authenticate() {
+    xerrors::Error authenticate() {
         api::v1::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
@@ -70,12 +73,12 @@ public:
         this->token = res.token();
         this->authenticated = true;
         this->retry_count = 0;
-        return freighter::NIL;
+        return xerrors::NIL;
     }
 
     /// @brief implements freighter::Middleware, ensuring that all requests to the
     /// Synnax cluster are appropriately authenticated.
-    std::pair<freighter::Context, freighter::Error> operator()(
+    std::pair<freighter::Context, xerrors::Error> operator()(
         freighter::Context context,
         freighter::Next *next
     ) override {
@@ -84,7 +87,7 @@ public:
                 return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
         auto [res_ctx, err] = next->operator()(context);
-        if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
+        if (err.matches(INVALID_TOKEN) && retry_count < max_retries) {
             this->authenticated = false;
             this->retry_count++;
             return this->operator()(context, next);

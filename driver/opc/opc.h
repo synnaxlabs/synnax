@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/task/task.h"
 #include "include/open62541/types.h"
 

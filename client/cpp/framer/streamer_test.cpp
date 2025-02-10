@@ -24,10 +24,10 @@ TEST(FramerTests, testStreamBasic) {
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        synnax::INT32,
-        1 * synnax::HZ);
+        telem::INT32,
+        1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
-    auto now = synnax::TimeStamp::now();
+    auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
@@ -47,7 +47,7 @@ TEST(FramerTests, testStreamBasic) {
     auto frame = synnax::Frame(1);
     frame.emplace(
         data.key,
-        synnax::Series(std::vector<int>{1})
+        telem::Series(std::vector<int>{1})
     );
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
@@ -67,10 +67,10 @@ TEST(FramerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        synnax::FLOAT32,
-        1 * synnax::HZ);
+        telem::FLOAT32,
+        1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
-    auto now = synnax::TimeStamp::now();
+    auto now = telem::TimeStamp::now();
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         {data.key},
         now,
@@ -91,7 +91,7 @@ TEST(FramerTests, testStreamSetChannels) {
     auto frame = synnax::Frame(1);
     frame.emplace(
         data.key,
-        synnax::Series(std::vector<std::float_t>{
+        telem::Series(std::vector<std::float_t>{
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
         })
     );
@@ -154,10 +154,10 @@ void test_downsample(
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        synnax::INT32,
-        1 * synnax::HZ);
+        telem::INT32,
+        1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
-    auto now = synnax::TimeStamp::now();
+    auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
@@ -178,7 +178,7 @@ void test_downsample(
     auto frame = synnax::Frame(1);
     frame.emplace(
         data.key,
-        synnax::Series(raw_data)
+        telem::Series(raw_data)
     );
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
@@ -201,11 +201,11 @@ void test_downsample_string(
     auto client = new_test_client();
 
     // Create a virtual channel
-    synnax::Channel virtual_channel("virtual_string_channel", synnax::STRING, true);
+    synnax::Channel virtual_channel("virtual_string_channel", telem::STRING, true);
     auto err = client.channels.create(virtual_channel);
     ASSERT_FALSE(err) << err.message();
 
-    auto now = synnax::TimeStamp::now();
+    auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {virtual_channel.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
@@ -225,7 +225,7 @@ void test_downsample_string(
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.emplace(virtual_channel.key, synnax::Series(raw_data, synnax::STRING));
+    frame.emplace(virtual_channel.key, telem::Series(raw_data, telem::STRING));
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();

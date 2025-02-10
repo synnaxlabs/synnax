@@ -26,16 +26,16 @@
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
-#include "driver/breaker/breaker.h"
-#include "driver/loop/loop.h"
-#include "driver/config/config.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/config/config.h"
 #include "driver/labjack/util.h"
 
 namespace labjack {
 struct out_state {
     std::string location = "";
     double state = 0.0;
-    synnax::DataType data_type = synnax::FLOAT64;
+    telem::DataType data_type = telem::FLOAT64;
     synnax::ChannelKey state_key = 0;
 };
 
@@ -47,12 +47,12 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(
-        const synnax::Rate state_rate,
+        const telem::Rate state_rate,
         std::vector<synnax::ChannelKey> state_index_keys,
         const std::map<synnax::ChannelKey, labjack::out_state> state_map
     );
 
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
@@ -61,7 +61,7 @@ public:
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
-    synnax::Rate state_rate = synnax::Rate(1);
+    telem::Rate state_rate = telem::Rate(1);
     std::map<synnax::ChannelKey, labjack::out_state> state_map;
     std::vector<synnax::ChannelKey> state_index_keys;
     loop::Timer timer;
@@ -73,7 +73,7 @@ private:
 struct WriterChannelConfig {
     std::string location;
     bool enabled = true;
-    synnax::DataType data_type;
+    telem::DataType data_type;
     uint32_t cmd_key;
     uint32_t state_key;
     std::string channel_type = "";
@@ -99,7 +99,7 @@ struct WriterConfig {
     std::string device_type;
     std::string device_key;
     std::vector<WriterChannelConfig> channels;
-    synnax::Rate state_rate = synnax::Rate(1);
+    telem::Rate state_rate = telem::Rate(1);
     std::string serial_number; // used to open devices
     std::string connection_type;
     bool data_saving;
@@ -116,7 +116,7 @@ struct WriterConfig {
     )
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
-          state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
+          state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
           serial_number(parser.required<std::string>("device")),
           connection_type(parser.optional<std::string>("connection_type", "")),
           data_saving(parser.optional<bool>("data_saving", false)
@@ -167,11 +167,11 @@ public:
 
     void init();
 
-    freighter::Error write(const synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
-    freighter::Error stop(const std::string &cmd_key);
+    xerrors::Error stop(const std::string &cmd_key);
 
-    freighter::Error start(const std::string &cmd_key);
+    xerrors::Error start(const std::string &cmd_key);
 
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 

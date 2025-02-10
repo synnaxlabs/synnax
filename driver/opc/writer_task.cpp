@@ -9,8 +9,8 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "driver/config/config.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/config/config.h"
+#include "x/cpp/loop/loop.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                     WriterConfig                              //
@@ -33,7 +33,7 @@ void opc::WriterTask::exec(task::Command &cmd) {
 }
 
 void opc::WriterTask::start() {
-    freighter::Error conn_err = refresh_connection(
+    xerrors::Error conn_err = refresh_connection(
         this->ua_client,
         device_props.connection.endpoint
     );

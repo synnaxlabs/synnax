@@ -22,7 +22,7 @@
 #include "client/cpp/synnax.h"
 
 #include "driver/errors/errors.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "driver/task/task.h"
 #include "driver/labjack/util.h"
 
@@ -80,7 +80,7 @@ private:
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> thread = nullptr;
     breaker::Breaker breaker;
-    synnax::Rate scan_rate = synnax::Rate(0.5);
+    telem::Rate scan_rate = telem::Rate(0.5);
     int tcp_scan_multiplier = 10;
     bool ok_state = true;
     std::shared_ptr<labjack::DeviceManager> device_manager;
