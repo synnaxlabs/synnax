@@ -106,7 +106,7 @@ void configure_labjack(const driver::Config &config, FactoryList &factories) {
         LOG(INFO) << "[driver] LabJack integration disabled";
         return;
     }
-    factories.push_back(std::make_unique<labjack::Factory>);
+    factories.push_back(std::make_unique<labjack::Factory>());
     return;
 #endif
     LOG(INFO) << "[driver] LabJack integration not available on this platform";

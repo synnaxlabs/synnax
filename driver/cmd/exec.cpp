@@ -11,8 +11,12 @@
 #include <string>
 #include <iostream>
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "driver/cmd/cmd.h"
+
 
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
@@ -30,6 +34,9 @@ void print_usage() {
 }
 
 int cmd::exec(int argc, char *argv[]) {
+    FLAGS_logtostderr = 1;
+    FLAGS_colorlogtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
     if (argc < 2) {
         print_usage();
         return 1;

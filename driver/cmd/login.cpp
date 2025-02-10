@@ -16,6 +16,7 @@
 
 /// module
 #include "client/cpp/synnax.h"
+#include "x/cpp/xlog/xlog.h"
 
 /// internal
 #include "driver/cmd/cmd.h"
@@ -94,14 +95,14 @@ int cmd::sub::login(int argc, char **argv) {
             port;
     synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << "Failed to authenticate: " << err;
+        LOG(ERROR) << xlog::RED << "Failed to authenticate: " << err << xlog::RESET;
         return 1;
     }
-    LOG(INFO) << "Successfully logged in!";
+    LOG(INFO) << xlog::GREEN << "Successfully logged in!" << xlog::RESET;
     if (auto err = driver::save_conn_params(config)) {
-        LOG(ERROR) << "Failed to save credentials: " << err;
+        LOG(ERROR) << xlog::RED << "Failed to save credentials: " << err << xlog::RESET;
         return 1;
     }
-    LOG(INFO) << "Credentials saved successfully!";
+    LOG(INFO) << xlog::GREEN << "Credentials saved successfully!" << xlog::RESET;
     return 0;
 }
