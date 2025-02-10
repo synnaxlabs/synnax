@@ -36,4 +36,6 @@ struct PersistedState {
 xerrors::Error save_remote_info(const synnax::RackKey& rack_key, const std::string& cluster_key);
 
 xerrors::Error save_conn_params(const synnax::Config& cfg);
+
+xerrors::Error clear_persisted_state();
 }

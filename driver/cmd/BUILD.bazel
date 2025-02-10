@@ -1,6 +1,7 @@
 cc_library(
     name = "cmd",
     srcs = [
+        "clear.cpp",
         "exec.cpp",
         "login.cpp",
         "service.cpp",

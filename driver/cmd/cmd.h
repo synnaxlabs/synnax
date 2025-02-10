@@ -41,4 +41,7 @@ int service_uninstall(int argc, char **argv);
 
 /// @brief views the logs of the driver background daemon.
 int service_view_logs(int argc, char **argv);
+
+/// @brief clears the driver persisted state.
+int clear(int argc, char **argv);
 }}

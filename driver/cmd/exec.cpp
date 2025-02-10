@@ -30,7 +30,8 @@ void print_usage() {
             << "  install         Install the Synnax driver as a system service\n"
             << "  uninstall       Uninstall the Synnax driver service\n"
             << "  logs            View the driver logs\n"
-            << "  version         Display the driver version\n";
+            << "  version         Display the driver version\n"
+            << "  clear           Clear the persisted state\n";
 }
 
 int cmd::exec(int argc, char *argv[]) {
@@ -62,6 +63,7 @@ int cmd::exec(int argc, char *argv[]) {
     if (command == "uninstall") return cmd::sub::service_uninstall(argc, argv);
     if (command == "logs") return cmd::sub::service_view_logs(argc, argv);
     if (command == "version") return cmd::sub::version(argc, argv);
+    if (command == "clear") return cmd::sub::clear(argc, argv);
     print_usage();
     return 1;
 }

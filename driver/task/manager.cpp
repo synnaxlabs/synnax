@@ -94,7 +94,7 @@ xerrors::Error task::Manager::start_guarded() {
 xerrors::Error task::Manager::resolve_remote_info() {
     std::pair<synnax::Rack, xerrors::Error> res;
     if (const auto err = this->ctx->client->auth->authenticate()) return err;
-    if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key) {
+    if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key && this->rack_key != 0) {
         LOG(WARNING) << "[driver] detected a change in cluster key. Resetting rack key";
         this->rack_key = 0;
         this->cluster_key = this->ctx->client->auth->cluster_info.cluster_key;

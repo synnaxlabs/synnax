@@ -268,3 +268,18 @@ xerrors::Error driver::save_conn_params(const synnax::Config &cfg) {
     state.connection = cfg;
     return save_persisted_state(state);
 }
+
+xerrors::Error driver::clear_persisted_state() {
+    auto path = get_persisted_state_path();
+    try {
+        std::ofstream file(path);
+        if (!file.is_open())
+            return xerrors::Error("failed to open file for writing");
+        file << "{}";
+        file.close();
+        return xerrors::NIL;
+    } catch (const std::exception &e) {
+        return xerrors::Error(
+            "failed to clear persisted state: " + std::string(e.what()));
+    }
+}
