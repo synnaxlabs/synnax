@@ -89,32 +89,42 @@ xerrors::Error task::Manager::start_guarded() {
 xerrors::Error task::Manager::instantiate_rack() {
     std::pair<synnax::Rack, xerrors::Error> res;
     if (this->rack_key != 0) {
+        // if the rack key is non-zero, it means that persisted state or
+        // configuration believes there's an existing rack in the cluster, and
+        // we should use it as our task manager's rack.
         if (breaker.num_retries() == 0)
-            LOG(INFO) << "[driver] existing rack key found in configuration: " << this->rack_key;
+            LOG(INFO) << "[driver] existing rack key found in configuration: " << this->
+                    rack_key;
         res = this->ctx->client->hardware.retrieve_rack(this->rack_key);
+        // If we tried to retrieve the rack and it doesn't exist, then we assume
+        // that:
+        //     1. Someone deleted the rack.
+        //     2. The cluster identity has changed.
+        //
+        // In either case, set the rack key to zero and call the instantiate_rack
+        // recursively to create a enw rack.
+        if (res.second.matches(xerrors::NOT_FOUND)) {
+            this->rack_key = 0;
+            return this->instantiate_rack();
+        }
     } else {
+        /// If the rack key is zero, we should create a new rack to use.
         if (breaker.num_retries() == 0)
             LOG(INFO) <<
                     "[driver] no existing rack key found in configuration. Creating a new rack";
         const auto [host_name, ok] = xos::get_hostname();
         res = this->ctx->client->hardware.create_rack(host_name);
-        this->rack = res.first;
-        this->rack_key = res.first.key;
     }
-    const auto err = res.second;
+    const xerrors::Error err = res.second;
+    // If we can't reach the cluster, keep trying according to the breaker retry logic.
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return this->instantiate_rack();
-    if (err.matches(xerrors::NOT_FOUND)) {
-        this->rack_key = 0;
-        return this->instantiate_rack();
-    }
-    LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.
-            name;
+
+    LOG(INFO) << "[driver] using rack " << res.first.key << " - " << res.first.name;
     this->rack = res.first;
     this->rack_key = res.first.key;
-    return res.second;
+    return err;
 }
-
 
 void task::Manager::run() {
     const auto err = run_guarded();
