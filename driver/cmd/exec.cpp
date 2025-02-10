@@ -31,13 +31,13 @@ void print_usage() {
 
 
 int cmd::exec(int argc, char *argv[]) {
-    // FLAGS_logtostderr = true;
-    // FLAGS_colorlogtostderr = true;
-    // google::InitGoogleLogging(argv[0]);
-    if (argc < 2) {
-        print_usage();
-        return 1;
-    }
+    // if (argc < 2) {
+    //     print_usage();
+    //     return 1;
+    // }
+
+    return cmd::sub::start(argc, argv);
+
     const std::string command = argv[1];
     if (command == "start") {
         bool standalone = false;
@@ -48,16 +48,16 @@ int cmd::exec(int argc, char *argv[]) {
                 break;
             }
         }
-        if (standalone) return cmd::priv::start(argc, argv);
-        return cmd::priv::service_start(argc, argv);
+        if (standalone) return cmd::sub::start(argc, argv);
+        return cmd::sub::service_start(argc, argv);
     }
-    if (command == "stop") return cmd::priv::service_stop(argc, argv);
-    if (command == "restart") return cmd::priv::service_restart(argc, argv);
-    if (command == "login") return cmd::priv::login(argc, argv);
-    if (command == "install") return cmd::priv::service_install(argc, argv);
-    if (command == "uninstall") return cmd::priv::service_uninstall(argc, argv);
-    if (command == "logs") return cmd::priv::service_view_logs(argc, argv);
-    if (command == "version") return cmd::priv::version(argc, argv);
+    if (command == "stop") return cmd::sub::service_stop(argc, argv);
+    if (command == "restart") return cmd::sub::service_restart(argc, argv);
+    if (command == "login") return cmd::sub::login(argc, argv);
+    if (command == "install") return cmd::sub::service_install(argc, argv);
+    if (command == "uninstall") return cmd::sub::service_uninstall(argc, argv);
+    if (command == "logs") return cmd::sub::service_view_logs(argc, argv);
+    if (command == "version") return cmd::sub::version(argc, argv);
     print_usage();
     return 1;
 }

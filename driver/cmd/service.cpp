@@ -37,26 +37,26 @@ int exec_svc_cmd(
 }
 
 
-int cmd::priv::service_start(int argc, char** argv) {
+int cmd::sub::service_start(int argc, char** argv) {
     return exec_svc_cmd(daemond::start_service, "start", "started");
 }
 
-int cmd::priv::service_stop(int argc, char** argv) {
+int cmd::sub::service_stop(int argc, char** argv) {
     return exec_svc_cmd(daemond::stop_service, "stop", "stopped");
 }
 
-int cmd::priv::service_restart(int argc, char** argv) {
+int cmd::sub::service_restart(int argc, char** argv) {
     return exec_svc_cmd(daemond::restart_service, "restart", "restarted");
 }
 
-int cmd::priv::service_install(int argc, char** argv) {
+int cmd::sub::service_install(int argc, char** argv) {
     return exec_svc_cmd(daemond::install_service, "install", "installed");
 }
 
-int cmd::priv::service_uninstall(int argc, char** argv) {
+int cmd::sub::service_uninstall(int argc, char** argv) {
     return exec_svc_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
 }
 
-int cmd::priv::service_view_logs(int argc, char** argv) {
+int cmd::sub::service_view_logs(int argc, char** argv) {
     return exec_svc_cmd(daemond::view_logs, "view logs");
 }

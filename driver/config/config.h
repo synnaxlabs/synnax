@@ -32,5 +32,7 @@ struct PersistedState {
     std::string cluster_key;
 };
 
-xerrors::Error save_persisted_state(const driver::PersistedState &state);
+xerrors::Error save_rack_key(const synnax::RackKey& rack_key);
+
+xerrors::Error save_conn_params(const synnax::Config& cfg);
 }

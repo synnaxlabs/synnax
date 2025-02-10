@@ -44,7 +44,7 @@ public:
     ) const;
 
 
-    static std::shared_ptr<ni::Factory> create();
+    static std::unique_ptr<ni::Factory> create();
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

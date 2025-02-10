@@ -46,7 +46,7 @@ std::string get_secure_input(const std::string &prompt, bool hide_input = false)
     return input;
 }
 
-int cmd::priv::login(int argc, char **argv) {
+int cmd::sub::login(int argc, char **argv) {
     // synnax::Config config;
     // bool valid_input = false;
     //

@@ -44,14 +44,14 @@ bool ni::Factory::check_health(
     return false;
 }
 
-std::shared_ptr<ni::Factory> ni::Factory::create() {
+std::unique_ptr<ni::Factory> ni::Factory::create() {
     auto [syscfg, syscfg_err] = SysCfgProd::load();
     auto [dmx, dmx_err] = DAQmxProd::load();
     if (syscfg_err || dmx_err) {
         LOG(ERROR) << syscfg_err;
         LOG(ERROR) << dmx_err;
     }
-    return std::make_shared<ni::Factory>(dmx, syscfg);
+    return std::make_unique<ni::Factory>(dmx, syscfg);
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(

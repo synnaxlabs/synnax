@@ -14,7 +14,7 @@ namespace cmd {
 /// @brief exec runs the CLI command.
 int exec(int argc, char **argv);
 
-namespace priv {
+namespace sub {
 int login(int argc, char **argv);
 
 int start(int argc, char **argv);

@@ -102,7 +102,6 @@ public:
         if (it != channels.end()) {
             auto channel = it->second;
             if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE) {
-                LOG(WARNING) << "[freighter.fgrpc.stream] closing channel due to transient failure";
                 channels.erase(target);
             } else return channel;
         }

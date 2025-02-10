@@ -204,7 +204,7 @@ public:
 
 class MultiFactory final : public Factory {
 public:
-    explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
+    explicit MultiFactory(std::vector<std::unique_ptr<Factory> > &&factories)
         : factories(std::move(factories)) {
     }
 
@@ -234,7 +234,7 @@ public:
     }
 
 private:
-    std::vector<std::shared_ptr<Factory> > factories;
+    std::vector<std::unique_ptr<Factory> > factories;
 };
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data

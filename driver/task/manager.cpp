@@ -39,7 +39,6 @@ const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 xerrors::Error task::Manager::start() {
     if (this->breaker.running()) return xerrors::NIL;
     VLOG(1) << "[driver] starting up";
-    const auto err = start_guarded();
     this->breaker.start();
     this->run_thread = std::thread(&Manager::run, this);
     return xerrors::NIL;
@@ -48,9 +47,8 @@ xerrors::Error task::Manager::start() {
 xerrors::Error task::Manager::start_guarded() {
     // Fetch info about the rack.
     if (const auto rack_err = this->instantiate_rack()) return rack_err;
-    if (auto err = this->persist_rack_info(this->rack)) {
-
-    }
+    if (auto err = this->persist_rack_info(this->rack))
+        LOG(WARNING) << "[driver] failed to persist rack info: " << err;
 
     // Fetch task set channel.
     auto [task_set, task_set_err] = this->ctx->client->channels.retrieve(
@@ -92,14 +90,16 @@ xerrors::Error task::Manager::instantiate_rack() {
     std::pair<synnax::Rack, xerrors::Error> res;
     if (this->rack_key != 0) {
         if (breaker.num_retries() == 0)
-            LOG(INFO) << "existing rack key found in configuration: " << this->rack_key;
+            LOG(INFO) << "[driver] existing rack key found in configuration: " << this->rack_key;
         res = this->ctx->client->hardware.retrieve_rack(this->rack_key);
     } else {
         if (breaker.num_retries() == 0)
             LOG(INFO) <<
-                    "no existing rack key found in configuration. Creating a new rack";
+                    "[driver] no existing rack key found in configuration. Creating a new rack";
         const auto [host_name, ok] = xos::get_hostname();
         res = this->ctx->client->hardware.create_rack(host_name);
+        this->rack = res.first;
+        this->rack_key = res.first.key;
     }
     const auto err = res.second;
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
@@ -110,6 +110,8 @@ xerrors::Error task::Manager::instantiate_rack() {
     }
     LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.
             name;
+    this->rack = res.first;
+    this->rack_key = res.first.key;
     return res.second;
 }
 

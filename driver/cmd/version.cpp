@@ -15,7 +15,7 @@
 /// internal
 #include "driver/cmd/cmd.h"
 
-int cmd::priv::version(int argc, char **argv) {
+int cmd::sub::version(int argc, char **argv) {
     std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" <<
             SYNNAX_BUILD_TIMESTAMP << ")" << std::endl;
     return 0;

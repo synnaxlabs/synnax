@@ -47,35 +47,14 @@ constexpr auto PERSISTED_STATE_DIR_PERMISSIONS = std::filesystem::perms::owner_a
                                                  std::filesystem::perms::group_all |
                                                  std::filesystem::perms::others_all;
 
-void parse_synnax_config(config::Parser &p, driver::Config &cfg) {
-    cfg.connection.host = p.optional(
-        "host",
-        cfg.connection.host
-    );
-    cfg.connection.port = p.optional(
-        "port",
-        cfg.connection.port
-    );
-    cfg.connection.username = p.optional(
-        "username",
-        cfg.connection.username
-    );
-    cfg.connection.password = p.optional(
-        "password",
-        cfg.connection.password
-    );
-    cfg.connection.ca_cert_file = p.optional(
-        "ca_cert_file",
-        cfg.connection.ca_cert_file
-    );
-    cfg.connection.client_cert_file = p.optional(
-        "client_cert_file",
-        cfg.connection.client_cert_file
-    );
-    cfg.connection.client_key_file = p.optional(
-        "client_key_file",
-        cfg.connection.client_key_file
-    );
+void parse_synnax_config(config::Parser &p, synnax::Config &cfg) {
+    cfg.host = p.optional("host", cfg.host);
+    cfg.port = p.optional("port", cfg.port);
+    cfg.username = p.optional("username", cfg.username);
+    cfg.password = p.optional("password", cfg.password);
+    cfg.ca_cert_file = p.optional("ca_cert_file", cfg.ca_cert_file);
+    cfg.client_cert_file = p.optional("client_cert_file", cfg.client_cert_file);
+    cfg.client_key_file = p.optional("client_key_file", cfg.client_key_file);
 }
 
 void parse_retry_config(config::Parser &p, driver::Config &cfg) {
@@ -114,7 +93,7 @@ xerrors::Error apply_config_arg(driver::Config &cfg, int argc, char **argv) {
     }
     auto p = config::Parser::from_file_path(config_path);
     auto conn = p.optional_child("connection");
-    parse_synnax_config(conn, cfg);
+    parse_synnax_config(conn, cfg.connection);
     auto retry = p.optional_child("retry");
     parse_retry_config(retry, cfg);
     return xerrors::NIL;
@@ -150,6 +129,11 @@ xerrors::Error maybe_create_persisted_state_file(const std::string &path) {
                 "failed to set directory permissions: " + ec.message()
             );
     }
+    std::ofstream file(path);
+    if (!file.is_open())
+        return xerrors::Error("failed to create persisted state file");
+    file << "{}";
+    file.close();
     std::filesystem::permissions(path, PERSISTED_STATE_FILE_PERMISSIONS, ec);
     if (ec)
         return xerrors::Error(
@@ -164,8 +148,23 @@ xerrors::Error apply_persisted_state(driver::Config &cfg) {
     if (const auto err = maybe_create_persisted_state_file(path)) return err;
     auto parser = config::Parser::from_file_path(path);
     auto conn = parser.optional_child("connection");
-    parse_synnax_config(conn, cfg);
+    parse_synnax_config(conn, cfg.connection);
+    auto retry = parser.optional_child("retry");
+    parse_retry_config(retry, cfg);
+    cfg.rack_key = parser.optional("rack_key", cfg.rack_key);
     return parser.error();
+}
+
+std::pair<driver::PersistedState, xerrors::Error> load_persisted_state() {
+    const auto path = get_persisted_state_path();
+    driver::PersistedState state;
+    if (const auto err = maybe_create_persisted_state_file(path))
+        return {state, xerrors::NIL};
+    auto parser = config::Parser::from_file_path(path);
+    auto conn = parser.optional_child("connection");
+    parse_synnax_config(conn, state.connection);
+    state.rack_key = parser.optional("rack_key", 0);
+    return {state, xerrors::NIL};
 }
 
 const std::vector<std::string> default_integrations() {
@@ -187,7 +186,7 @@ const std::vector<std::string> default_integrations() {
 
 std::pair<driver::Config, xerrors::Error> driver::Config::load(
     const int argc,
-    char ** argv
+    char **argv
 ) {
     Config cfg{
         .connection = {
@@ -209,7 +208,6 @@ std::pair<driver::Config, xerrors::Error> driver::Config::load(
 }
 
 
-
 bool driver::Config::integration_enabled(const std::string &integration) const {
     return std::find(
                integrations.begin(),
@@ -218,7 +216,8 @@ bool driver::Config::integration_enabled(const std::string &integration) const {
            ) != integrations.end();
 }
 
-xerrors::Error driver::save_persisted_state(const driver::PersistedState &state) {
+
+xerrors::Error save_persisted_state(const driver::PersistedState &state) {
     auto path = get_persisted_state_path();
     if (const auto err = maybe_create_persisted_state_file(path)) return err;
     try {
@@ -246,4 +245,18 @@ xerrors::Error driver::save_persisted_state(const driver::PersistedState &state)
         return xerrors::Error(
             "failed to save persisted state: " + std::string(e.what()));
     }
+}
+
+xerrors::Error driver::save_rack_key(const synnax::RackKey &rack_key) {
+    auto [state, err] = load_persisted_state();
+    if (err) return err;
+    state.rack_key = rack_key;
+    return save_persisted_state(state);
+}
+
+xerrors::Error driver::save_conn_params(const synnax::Config &cfg) {
+    auto [state, err] = load_persisted_state();
+    if (err) return err;
+    state.connection = cfg;
+    return save_persisted_state(state);
 }
