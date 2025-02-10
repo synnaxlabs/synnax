@@ -292,12 +292,9 @@ TEST(testConfig, testInterpretStringAsNumber) {
     struct MyConfig {
         float dog;
     };
-    // const json j = {
-    //     {"dog", "1.232"}
-    // };
-
-    json j;
-    j["dog"] = 1.232;
+    const json j = {
+        {"dog", "1.232"}
+    };
     MyConfig v;
     config::Parser parser(j);
     v.dog = parser.required<float>("dog");

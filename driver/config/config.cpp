@@ -10,6 +10,7 @@
 /// std
 #include <fstream>
 #include <filesystem>
+#include <optional>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -43,6 +44,21 @@ constexpr auto PERSISTED_STATE_DIR_PERMISSIONS = std::filesystem::perms::owner_a
                                                  std::filesystem::perms::group_all |
                                                  std::filesystem::perms::others_all;
 
+std::string get_persisted_state_path() {
+#ifdef _WIN32
+    if (const char* appdata = std::getenv("LOCALAPPDATA"))
+        return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
+    return "C:\\ProgramData\\synnax-driver\\persisted-state.json";
+#elif defined(__APPLE__)
+    if (const char *home = std::getenv("HOME"))
+        return std::string(home) +
+               "/Library/Application Support/synnax-driver/persisted-state.json";
+    return "/Library/Application Support/synnax-driver/persisted-state.json";
+#else
+    return "/var/lib/synnax-driver/persisted-state.json";
+#endif
+}
+
 void parse_synnax_config(config::Parser &p, synnax::Config &cfg) {
     cfg.host = p.optional("host", cfg.host);
     cfg.port = p.optional("port", cfg.port);
@@ -54,27 +70,28 @@ void parse_synnax_config(config::Parser &p, synnax::Config &cfg) {
 }
 
 void parse_retry_config(config::Parser &p, driver::Config &cfg) {
-    cfg.breaker_config.name = p.optional(
+    cfg.retry_config.name = p.optional(
         "name",
-        cfg.breaker_config.name
+        cfg.retry_config.name
     );
     // cfg.breaker_config.base_interval = telem::SECOND * p.optional(
     //                                        "base_interval",
     //                                        cfg.breaker_config.base_interval /
     //                                        telem::SECOND
     //                                    );
-    cfg.breaker_config.max_retries = p.optional(
+    cfg.retry_config.max_retries = p.optional(
         "max_retries",
-        cfg.breaker_config.max_retries
+        cfg.retry_config.max_retries
     );
-    cfg.breaker_config.scale = p.optional(
+    cfg.retry_config.scale = p.optional(
         "scale",
-        cfg.breaker_config.scale
+        cfg.retry_config.scale
     );
 }
 
 xerrors::Error apply_config_arg(driver::Config &cfg, int argc, char **argv) {
     std::string config_path;
+    // We now only check for the configuration file flag here.
     for (int i = 2; i < argc; i++) {
         const std::string arg = argv[i];
         if (arg == "--config") {
@@ -100,21 +117,14 @@ xerrors::Error apply_config_arg(driver::Config &cfg, int argc, char **argv) {
     return xerrors::NIL;
 }
 
+struct PersistedState {
+    synnax::RackKey rack_key;
+    synnax::Config connection;
+    std::string cluster_key;
+};
 
-std::string get_persisted_state_path() {
-#ifdef _WIN32
-    if (const char* appdata = std::getenv("LOCALAPPDATA"))
-        return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
-    return "C:\\ProgramData\\synnax-driver\\persisted-state.json";
-#elif defined(__APPLE__)
-    if (const char *home = std::getenv("HOME"))
-        return std::string(home) +
-               "/Library/Application Support/synnax-driver/persisted-state.json";
-    return "/Library/Application Support/synnax-driver/persisted-state.json";
-#else
-    return "/var/lib/synnax-driver/persisted-state.json";
-#endif
-}
+
+std::string get_persisted_state_path(); // forward declaration if needed.
 
 xerrors::Error maybe_create_persisted_state_file(const std::string &path) {
     if (std::filesystem::exists(path)) return xerrors::NIL;
@@ -186,6 +196,8 @@ std::vector<std::string> default_integrations() {
 #endif
 }
 
+//-------------------------------------------------------------------------
+// Updated load method: Process the new --persisted-state flag before applying persisted state.
 std::pair<driver::Config, xerrors::Error> driver::Config::load(
     const int argc,
     char **argv
@@ -197,7 +209,7 @@ std::pair<driver::Config, xerrors::Error> driver::Config::load(
             .username = "synnax",
             .password = "seldon",
         },
-        .breaker_config = breaker::Config{
+        .retry_config = breaker::Config{
             .name = "drier",
             .base_interval = telem::TimeSpan::seconds(1),
             .max_retries = 50,
@@ -205,6 +217,7 @@ std::pair<driver::Config, xerrors::Error> driver::Config::load(
         },
         .integrations = default_integrations(),
     };
+
     apply_persisted_state(cfg);
     apply_config_arg(cfg, argc, argv);
     return {cfg, xerrors::NIL};

@@ -138,7 +138,7 @@ int cmd::sub::start(int argc, char *argv[]) {
         },
         client,
         std::move(factory),
-        cfg.breaker_config
+        cfg.retry_config
     );
     std::thread listener(input_listener);
     if (auto err = task_manager.start()) {
