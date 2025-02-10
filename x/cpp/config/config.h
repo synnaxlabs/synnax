@@ -197,8 +197,8 @@ public:
     /// @param path The JSON path to the field.
     /// @param message The error message to bind.
     void field_err(const std::string &path, const std::string &message) const {
-        if (noop) return;
-        errors->push_back({
+        if (this->noop) return;
+        this->errors->push_back({
             {"path", path_prefix + path},
             {"message", message}
         });
@@ -206,8 +206,8 @@ public:
 
     /// @returns true if the parser has accumulated no errors, false otherwise.
     [[nodiscard]] bool ok() const {
-        if (noop) return false;
-        return errors->empty();
+        if (this->noop) return false;
+        return this->errors->empty();
     }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
@@ -218,7 +218,7 @@ public:
     }
 
     [[nodiscard]] xerrors::Error error() const {
-        if (error_json().empty()) return xerrors::NIL;
+        if (this->errors->empty()) return xerrors::Error{};
         return xerrors::Error{xerrors::VALIDATION_ERROR, error_json().dump()};
     }
 

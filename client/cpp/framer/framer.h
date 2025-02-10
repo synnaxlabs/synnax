@@ -179,7 +179,7 @@ public:
 
     /// @brief closes the sending end of the streamer. Subsequence calls to receive()
     /// will exhaust the stream and eventually return an EOF.
-    /// @note closeSend() is safe to call concurrently with read(), but not with any
+    /// @note close_send() is safe to call concurrently with read(), but not with any
     /// other DB methods.
     void close_send() const;
 

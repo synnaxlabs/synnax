@@ -284,7 +284,7 @@ public:
     virtual std::pair<RS, xerrors::Error> receive() = 0;
 
     /// @brief Sends a request to the stream. It is not safe to call send concurrently
-    /// with itself or closeSend.
+    /// with itself or close_send.
     /// @param request - the request to send.
     virtual xerrors::Error send(RQ &request) const = 0;
 

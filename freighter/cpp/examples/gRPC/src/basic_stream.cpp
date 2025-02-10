@@ -77,8 +77,8 @@ int main() {
 
     std::cout << "Received message: " << response.name() << std::endl;
 
-    // If we don't want to send any more messages, we can call closeSend()
-    streamer.closeSend();
+    // If we don't want to send any more messages, we can call close_send()
+    streamer.close_send();
 
     return 0;
 }
