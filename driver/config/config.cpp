@@ -97,6 +97,10 @@ xerrors::Error apply_config_arg(driver::Config &cfg, int argc, char **argv) {
     parse_retry_config(retry, cfg);
     cfg.rack_key = p.optional("rack_key", cfg.rack_key);
     cfg.cluster_key = p.optional<std::string>("cluster_key", cfg.cluster_key);
+    cfg.integrations = p.optional<std::vector<std::string>>(
+        "integrations",
+        cfg.integrations
+    );
     return xerrors::NIL;
 }
 
@@ -203,7 +207,8 @@ std::pair<driver::Config, xerrors::Error> driver::Config::load(
             .base_interval = telem::TimeSpan::seconds(1),
             .max_retries = 50,
             .scale = 1.1,
-        }
+        },
+        .integrations = default_integrations(),
     };
     apply_persisted_state(cfg);
     apply_config_arg(cfg, argc, argv);

@@ -167,7 +167,7 @@ func (svc *HardwareService) DeleteRack(
 		if exists {
 			return errors.Wrapf(validate.Error, "cannot delete rack when devices are still attached")
 		}
-		exists, err = svc.internal.Task.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+		exists, err = svc.internal.Task.NewRetrieve().WhereInternal(false).WhereRacks(req.Keys...).Exists(ctx, tx)
 		if err != nil {
 			return err
 		}

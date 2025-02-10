@@ -93,6 +93,7 @@ xerrors::Error task::Manager::start_guarded() {
 
 xerrors::Error task::Manager::resolve_remote_info() {
     std::pair<synnax::Rack, xerrors::Error> res;
+    if (const auto err = this->ctx->client->auth->authenticate()) return err;
     if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key) {
         LOG(WARNING) << "[driver] detected a change in cluster key. Resetting rack key";
         this->rack_key = 0;
@@ -159,6 +160,7 @@ xerrors::Error task::Manager::stop() {
 }
 
 xerrors::Error task::Manager::run_guarded() {
+    if (const auto err = this->start_guarded()) return err;
     const std::vector stream_channels = {
         this->task_set_channel.key,
         this->task_delete_channel.key,
@@ -167,10 +169,10 @@ xerrors::Error task::Manager::run_guarded() {
     auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
         .channels = stream_channels
     });
+
     if (open_err) return open_err;
     this->streamer = std::make_unique<Streamer>(std::move(s));
 
-    if (const auto err = this->start_guarded()) return err;
 
     LOG(INFO) << "[driver] operational";
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
