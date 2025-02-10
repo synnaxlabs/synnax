@@ -245,6 +245,7 @@ class Manager {
 public:
     Manager(
         const RackKey &rack_key,
+        std::string cluster_key,
         PersistRemoteInfo persist_rack_info,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
@@ -259,6 +260,7 @@ public:
 
 private:
     RackKey rack_key;
+    std::string cluster_key;
     Rack rack;
     std::shared_ptr<task::Context> ctx;
     std::unique_ptr<Streamer> streamer;

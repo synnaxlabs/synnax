@@ -31,12 +31,10 @@ void print_usage() {
 
 
 int cmd::exec(int argc, char *argv[]) {
-    // if (argc < 2) {
-    //     print_usage();
-    //     return 1;
-    // }
-
-    return cmd::sub::start(argc, argv);
+    if (argc < 2) {
+        print_usage();
+        return 1;
+    }
 
     const std::string command = argv[1];
     if (command == "start") {

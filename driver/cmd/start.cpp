@@ -132,8 +132,9 @@ int cmd::sub::start(int argc, char *argv[]) {
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
     task::Manager task_manager(
         cfg.rack_key,
-        [](const synnax::Rack &rack) {
-            return driver::save_remote_info(rack.key);
+        cfg.cluster_key,
+        [](const synnax::RackKey &rack, const std::string &cluster_key) {
+            return driver::save_remote_info(rack, cluster_key);
         },
         client,
         std::move(factory),

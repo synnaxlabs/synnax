@@ -17,11 +17,13 @@
 
 task::Manager::Manager(
     const RackKey &rack_key,
+    std::string cluster_key,
     task::PersistRemoteInfo persist_rack_info,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
     const breaker::Config &breaker
 ) : rack_key(rack_key),
+    cluster_key(std::move(cluster_key)),
     ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
     persist_remote_info(std::move(persist_rack_info)),
@@ -47,7 +49,10 @@ xerrors::Error task::Manager::start() {
 xerrors::Error task::Manager::start_guarded() {
     // Fetch info about the rack.
     if (const auto rack_err = this->resolve_remote_info()) return rack_err;
-    if (auto err = this->persist_remote_info(this->rack.key, ""))
+    if (auto err = this->persist_remote_info(
+        this->rack.key,
+        this->ctx->client->auth->cluster_info.cluster_key
+    ))
         LOG(WARNING) << "[driver] failed to persist rack info: " << err;
 
     // Fetch task set channel.
@@ -88,6 +93,11 @@ xerrors::Error task::Manager::start_guarded() {
 
 xerrors::Error task::Manager::resolve_remote_info() {
     std::pair<synnax::Rack, xerrors::Error> res;
+    if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key) {
+        LOG(WARNING) << "[driver] detected a change in cluster key. Resetting rack key";
+        this->rack_key = 0;
+        this->cluster_key = this->ctx->client->auth->cluster_info.cluster_key;
+    }
     if (this->rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
         // configuration believes there's an existing rack in the cluster, and

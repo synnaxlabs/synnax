@@ -16,6 +16,7 @@
 namespace driver {
 struct Config {
     synnax::RackKey rack_key;
+    std::string cluster_key;
     synnax::Config connection;
     breaker::Config breaker_config;
     std::vector<std::string> integrations;
@@ -32,7 +33,7 @@ struct PersistedState {
     std::string cluster_key;
 };
 
-xerrors::Error save_remote_info(const synnax::RackKey& rack_key);
+xerrors::Error save_remote_info(const synnax::RackKey& rack_key, const std::string& cluster_key);
 
 xerrors::Error save_conn_params(const synnax::Config& cfg);
 }

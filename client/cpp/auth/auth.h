@@ -31,6 +31,18 @@ const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
 
+struct ClusterInfo {
+    std::string cluster_key;
+    std::string node_version;
+
+    ClusterInfo() = default;
+
+    explicit ClusterInfo(const api::v1::ClusterInfo &info):
+        cluster_key(info.cluster_key()),
+        node_version(info.node_version()) {
+    }
+};
+
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
@@ -49,8 +61,10 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::uint32_t max_retries;
     /// Number of times authentication has been retried.
     std::uint32_t retry_count = 0;
-
 public:
+    /// Cluster information.
+    ClusterInfo cluster_info;
+
     AuthMiddleware(
         std::unique_ptr<AuthLoginClient> login_client,
         std::string username,
@@ -59,7 +73,7 @@ public:
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
         password(std::move(password)),
-        max_retries(max_retries) {
+        max_retries(max_retries), cluster_info() {
     }
 
     /// @brief authenticates with the credentials provided when construction the 
@@ -71,6 +85,7 @@ public:
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
+        this->cluster_info = ClusterInfo(res.cluster_info());
         this->authenticated = true;
         this->retry_count = 0;
         return xerrors::NIL;

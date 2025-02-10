@@ -73,6 +73,10 @@ func (l loginResponseTranslator) Forward(
 			Key:      r.User.Key.String(),
 			Username: r.User.Username,
 		},
+		ClusterInfo: &gapi.ClusterInfo{
+			ClusterKey:  r.ClusterInfo.ClusterKey,
+			NodeVersion: r.ClusterInfo.NodeVersion,
+		},
 	}, nil
 }
 
@@ -86,6 +90,10 @@ func (l loginResponseTranslator) Backward(
 		User: user.User{
 			Key:      key,
 			Username: r.User.Username,
+		},
+		ClusterInfo: api.ClusterInfo{
+			ClusterKey:  r.ClusterInfo.ClusterKey,
+			NodeVersion: r.ClusterInfo.NodeVersion,
 		},
 	}, err
 }

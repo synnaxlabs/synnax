@@ -15,6 +15,8 @@
 #include <array>
 
 namespace xos {
+/// @brief resolves hostname of the machine. If the hostname could not be resolved,
+/// returns an empty string and false.
 inline std::pair<std::string, bool> get_hostname() {
     std::array<char, 256> hostname{};
     bool ok;
@@ -26,4 +28,19 @@ inline std::pair<std::string, bool> get_hostname() {
 #endif
     return {hostname.data(), ok};
 }
+
+/// @brief returns the name of the operating system, if the operating system could not
+/// be determined, returns "unknown".
+inline std::string get_os() {
+#if defined(_WIN32) || defined(_WIN64)
+    return "windows";
+#elif defined(__APPLE__)
+    return "macos";
+#elif defined(__linux__)
+    return "linux";
+#else
+    return "unknown";
+#endif
 }
+}
+
