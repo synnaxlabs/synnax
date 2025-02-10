@@ -149,7 +149,8 @@ void configure_ni(
 
 void configure_sequences(
     const configd::Config &config,
-    std::vector<std::shared_ptr<task::Factory> > &factories) {
+    std::vector<std::shared_ptr<task::Factory> > &factories
+) {
     if (!config.integration_enabled(sequence::INTEGRATION_NAME)) {
         LOG(INFO) << "[driver] Sequence integration disabled";
         return;
@@ -178,7 +179,7 @@ void configure_labjack(
 
 void cmd_start_standalone(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
-    
+
     // Look for config path in all arguments after "start"
     for (int i = 2; i < argc; i++) {
         std::string arg = argv[i];
@@ -187,7 +188,7 @@ void cmd_start_standalone(int argc, char *argv[]) {
             break;
         }
     }
-    
+
     auto cfg_json = configd::read(config_path);
     LOG(INFO) << "[driver] reading configuration from " << config_path;
     if (cfg_json.empty())
@@ -403,13 +404,13 @@ void exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "[driver] " << ANSI_RED << "Failed to " << action << " driver: " 
-                  << err << ANSI_RESET;
+        LOG(ERROR) << "[driver] " << ANSI_RED << "Failed to " << action << " driver: "
+                << err << ANSI_RESET;
         exit(1);
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "[driver] " << ANSI_GREEN << "Driver " << past_tense 
-                 << " successfully" << ANSI_RESET;
+        LOG(INFO) << "[driver] " << ANSI_GREEN << "Driver " << past_tense
+                << " successfully" << ANSI_RESET;
     }
 }
 
@@ -426,7 +427,6 @@ int main(const int argc, char *argv[]) {
     FLAGS_logtostderr = true;
     FLAGS_colorlogtostderr = true;
     google::InitGoogleLogging(argv[0]);
-
     if (argc < 2) {
         print_usage();
         return 1;
