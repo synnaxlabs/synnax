@@ -15,21 +15,30 @@ namespace cmd {
 int exec(int argc, char **argv);
 
 namespace sub {
+/// @brief logs the user into a Synnax cluster.
 int login(int argc, char **argv);
 
+/// @brief starts the driver process.
 int start(int argc, char **argv);
 
+/// @brief returns driver version info.
 int version(int argc, char **argv);
 
+/// @brief starts the driver as a background daemon.
 int service_start(int argc, char **argv);
 
+/// @brief stops the driver background daemon.
 int service_stop(int argc, char **argv);
 
+/// @brief restarts the driver background daemon.
 int service_restart(int argc, char **argv);
 
+/// @brief installs the driver as a background daemon.
 int service_install(int argc, char **argv);
 
+/// @brief uninstalls the driver background daemon.
 int service_uninstall(int argc, char **argv);
 
+/// @brief views the logs of the driver background daemon.
 int service_view_logs(int argc, char **argv);
 }}

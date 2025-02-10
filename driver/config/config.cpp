@@ -7,17 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0, 
 // included in the file licenses/APL.txt.
 
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-#include "driver/config/config.h"
-
 /// std
 #include <fstream>
 #include <filesystem>
@@ -26,11 +15,10 @@
 #include "glog/logging.h"
 
 /// internal
-#include <unistd.h>
-
 #include "driver/opc/opc.h"
 #include "driver/ni/ni.h"
 #include "driver/sequence/sequence.h"
+#include "driver/config/config.h"
 
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
@@ -97,7 +85,7 @@ xerrors::Error apply_config_arg(driver::Config &cfg, int argc, char **argv) {
     parse_retry_config(retry, cfg);
     cfg.rack_key = p.optional("rack_key", cfg.rack_key);
     cfg.cluster_key = p.optional<std::string>("cluster_key", cfg.cluster_key);
-    cfg.integrations = p.optional<std::vector<std::string>>(
+    cfg.integrations = p.optional<std::vector<std::string> >(
         "integrations",
         cfg.integrations
     );

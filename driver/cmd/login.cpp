@@ -95,7 +95,7 @@ int cmd::sub::login(int argc, char **argv) {
     synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << "Failed to authenticate: " << err;
-        return;
+        return 1;
     }
     LOG(INFO) << "Successfully logged in!";
     if (auto err = driver::save_conn_params(config)) {

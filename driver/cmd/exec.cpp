@@ -29,7 +29,6 @@ void print_usage() {
             << "  version         Display the driver version\n";
 }
 
-
 int cmd::exec(int argc, char *argv[]) {
     if (argc < 2) {
         print_usage();
