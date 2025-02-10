@@ -130,12 +130,10 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     std::shared_ptr<pipeline::Source> source;
     std::shared_ptr<ni::Source> ni_source;
 
-    if (task.type != "ni_analog_read") {
-        ni_source = std::make_shared<
-            ni::DigitalReadSource>(dmx, task_handle, ctx, task);
-    } else {
+    if (task.type == "ni_analog_read") 
         ni_source = std::make_shared<ni::AnalogReadSource>(dmx, task_handle, ctx, task);
-    }
+    else if (task.type == "ni_digital_read") 
+        ni_source = std::make_shared<ni::DigitalReadSource>(dmx, task_handle, ctx, task);
 
     source = ni_source;
     ni_source->init();
@@ -163,11 +161,9 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         breaker::default_config(task.name)
     );
 
-    if (!ni_source->ok()) {
-        LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
-        return p;
-    }
-
+    if (!ni_source->ok()) 
+        return nullptr;
+    
     ctx->set_state({
         .task = task.key,
         .variant = "success",

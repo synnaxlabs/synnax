@@ -136,6 +136,9 @@ struct WriterConfig {
     std::queue<std::uint8_t> digital_modified_state_values;
     std::queue<double> analog_modified_state_values;
 
+    ///@brief maps NI channel names to configuration paths for error reporting
+    std::map<std::string, std::string> channel_map;
+
     WriterConfig() = default;
 
     explicit WriterConfig(
@@ -156,6 +159,7 @@ struct WriterConfig {
         }
         device_name = dev.location;
 
+        int channel_index = 0;
         parser.iter("channels", [&](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(
                 channel_parser,
@@ -171,11 +175,21 @@ struct WriterConfig {
                 LOG(ERROR) << "Failed to parse channel config: " << channel_parser.error_json().dump(4);
                 return;
             }
+            // Build the channel map for error reporting - using dot notation
+            std::string path = "channels." + std::to_string(channel_index);
+            channel_map[channel.name] = path;
+            channel_index++;
 
             channels.push_back(channel);
             drive_cmd_channel_keys.push_back(channel.channel_key);
             state_channel_keys.push_back(channel.state_channel_key);
         });
+
+        // Add debug print here
+        LOG(INFO) << "Writer channel map contents:";
+        for (const auto& [channel_name, path] : channel_map) {
+            LOG(INFO) << "Channel: " << channel_name << " -> Path: " << path;
+        }
 
         if (!parser.ok()) {
             ctx->set_state({
@@ -268,15 +282,15 @@ protected:
     // Keep implementation-specific methods protected
     void get_index_keys();
 
-    void jsonify_error(std::string);
+    int check_err(int32 error, std::string caller, std::string channel_name = "");
+
+    void jsonify_error(std::string s, std::string channel_name = "");
 
     void stopped_with_err(const xerrors::Error &err) override;
 
     void log_error(std::string err_msg);
 
     void clear_task();
-
-    int check_err(int32 error, std::string caller);
 
     // Pure virtual methods that derived classes must implement
     virtual xerrors::Error start_ni() = 0;
@@ -299,7 +313,6 @@ protected:
     WriterConfig writer_config;
     breaker::Breaker breaker;
     synnax::Task task;
-    std::map<std::string, std::string> channel_map;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

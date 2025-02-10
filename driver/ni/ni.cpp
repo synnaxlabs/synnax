@@ -80,8 +80,6 @@ int ni::Source::init() {
     this->reader_config.task_key = this->task.key;
     this->parse_config(config_parser);
     if (!config_parser.ok()) {
-        json error_json = config_parser.error_json();
-        error_json["running"] = false;
         this->log_error(
             "failed to parse configuration for " + this->reader_config.task_name +
             " Parser Error: " +
@@ -89,7 +87,10 @@ int ni::Source::init() {
         this->ctx->set_state({
             .task = task.key,
             .variant = "error",
-            .details = config_parser.error_json()
+            .details = {
+                {"running", false},
+                {"message", "Failed to parse configuration for " + this->reader_config.task_name}
+            }
         });
         return -1;
     }
@@ -127,36 +128,36 @@ int ni::Source::init() {
     return 0;
 }
 
-xerrors::Error ni::Source::cycle() {
+freighter::Error ni::Source::cycle() {
     auto err = this->start_ni();
     if (err) return err;
     err = this->stop_ni();
     if (err) return err;
-    return xerrors::NIL;
+    return freighter::NIL;
 }
 
-xerrors::Error ni::Source::start_ni() {
-    if (this->check_ni_error(this->dmx->StartTask(this->task_handle))) {
+freighter::Error ni::Source::start_ni() {
+    if (this->check_error(this->dmx->StartTask(this->task_handle), "StartTask")) {
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
             " requires reconfigure");
         this->clear_task();
         return driver::CRITICAL_HARDWARE_ERROR;
     }
-    return xerrors::NIL;
+    return freighter::NIL;
 }
 
-xerrors::Error ni::Source::stop_ni() {
-    if (this->check_ni_error(this->dmx->StopTask(this->task_handle))) {
+freighter::Error ni::Source::stop_ni() {
+    if (this->check_error(this->dmx->StopTask(this->task_handle), "StopTask")) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
         return driver::CRITICAL_HARDWARE_ERROR;
     }
-    return xerrors::NIL;
+    return freighter::NIL;
 }
 
-xerrors::Error ni::Source::start(const std::string &cmd_key) {
-    if (this->breaker.running() || !this->ok()) return xerrors::NIL;
+freighter::Error ni::Source::start(const std::string &cmd_key) {
+    if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     this->start_ni();
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
@@ -169,11 +170,11 @@ xerrors::Error ni::Source::start(const std::string &cmd_key) {
             {"message", "Task started successfully"}
         }
     });
-    return xerrors::NIL;
+    return freighter::NIL;
 }
 
-xerrors::Error ni::Source::stop(const std::string &cmd_key) {
-    if (!this->breaker.running() || !this->ok()) return xerrors::NIL;
+freighter::Error ni::Source::stop(const std::string &cmd_key) {
+    if (!this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
     this->stop_ni();
@@ -187,15 +188,13 @@ xerrors::Error ni::Source::stop(const std::string &cmd_key) {
             {"message", "Task stopped successfully"}
         }
     });
-    return xerrors::NIL;
+    return freighter::NIL;
 }
 
 void ni::Source::clear_task() {
-    if (this->check_ni_error(this->dmx->ClearTask(this->task_handle))) {
-        this->log_error(
-            "failed while clearing reader for task " + this->reader_config.task_name);
-    }
+    this->check_error(this->dmx->ClearTask(this->task_handle), "ClearTask");
 }
+
 
 ni::Source::~Source() {
     this->clear_task();
@@ -203,15 +202,15 @@ ni::Source::~Source() {
     VLOG(1) << "[ni.reader] joined sample thread";
 }
 
-int ni::Source::check_ni_error(int32 error) {
+int ni::Source::check_error(int32 error, std::string caller) {
+    if(!this->ok()) return 0;
     if (error == 0) return 0;
 
     char errBuff[4096] = {'\0'};
-
     this->dmx->GetExtendedErrorInfo(errBuff, 4096);
 
     std::string s(errBuff);
-    jsonify_error(errBuff);
+    jsonify_error(s);
 
     this->ctx->set_state({
         .task = this->task.key,
@@ -219,7 +218,7 @@ int ni::Source::check_ni_error(int32 error) {
         .details = err_info
     });
 
-    LOG(ERROR) << "[ni.reader] Vendor error: " << s;
+    LOG(ERROR) << "[ni.reader] Vendor error (" << caller << "): " << s;
     this->ok_state = false;
     return -1;
 }
@@ -243,7 +242,8 @@ void ni::Source::log_error(std::string err_msg) {
     this->ok_state = false;
 }
 
-void ni::Source::stopped_with_err(const xerrors::Error &err) {
+void ni::Source::stopped_with_err(const freighter::Error &err) {
+    if(this->ok()) return;
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->set_state({

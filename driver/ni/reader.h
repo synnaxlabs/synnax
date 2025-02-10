@@ -78,7 +78,8 @@ public:
 
     /// @brief wrapper which goes around any NI function calls and checks for errors
     /// @param error the error code returned by the NI function
-    int check_ni_error(int32 error);
+    /// @param caller the name of the calling function/operation for better error tracking
+    int check_error(int32 error, std::string caller);
 
     /// @brief formats NI error into parseable format for console display
     void jsonify_error(std::string);

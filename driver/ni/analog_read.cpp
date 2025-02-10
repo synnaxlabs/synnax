@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <utility>
 
-#include "x/cpp/telem/telem.h"
+#include "client/cpp/telem/telem.h"
 #include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
@@ -96,10 +96,9 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     return channel;
 }
 
-
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
-        if (this->check_ni_error(
+        if (this->check_error(
                 this->dmx->CfgSampClkTiming(
                     this->task_handle,
                     "",
@@ -107,14 +106,13 @@ int ni::AnalogReadSource::configure_timing() {
                     DAQmx_Val_Rising,
                     DAQmx_Val_ContSamps,
                     this->reader_config.sample_rate.value
-                )
-            )
-        ) {
+                ), "configure_timing.CfgSampClkTiming"
+            )) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
-    } else if (this->check_ni_error(
+    } else if (this->check_error(
             this->dmx->CfgSampClkTiming(
                 this->task_handle,
                 this->reader_config.timing_source.c_str(),
@@ -122,9 +120,8 @@ int ni::AnalogReadSource::configure_timing() {
                 DAQmx_Val_Rising,
                 DAQmx_Val_ContSamps,
                 this->reader_config.sample_rate.value
-            )
-        )
-    ) {
+            ), "configure_timing.CfgSampClkTiming"
+        )) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -147,8 +144,8 @@ void ni::AnalogReadSource::acquire_data() {
     while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
-        data_packet.t0 = telem::TimeStamp::now().value;
-        if (this->check_ni_error(
+        data_packet.t0 = synnax::TimeStamp::now().value;
+        if (this->check_error(
                 this->dmx->ReadAnalogF64(
                     this->task_handle,
                     this->num_samples_per_channel,
@@ -158,25 +155,24 @@ void ni::AnalogReadSource::acquire_data() {
                     data_packet.analog_data.size(),
                     &data_packet.samples_read_per_channel,
                     NULL
-                )
-            )
-        ) {
+                ), "acquire_data.ReadAnalogF64"
+            )) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
         }
-        data_packet.tf = telem::TimeStamp::now().value;
+        data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
 }
 
-std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
+std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
     auto [d, err] = data_queue.dequeue();
     if (!err)
-        return std::make_pair(std::move(f), xerrors::Error(
+        return std::make_pair(std::move(f), freighter::Error(
                                   driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
@@ -188,22 +184,22 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
     for (const auto &ch: this->reader_config.channels) {
         if (!ch.enabled) continue;
         if (ch.channel_type == "index") {
-            auto t = telem::Series(telem::TIMESTAMP, count);
+            auto t = synnax::Series(synnax::TIMESTAMP, count);
             for (uint64_t i = 0; i < count; ++i) t.write(d.t0 + i * incr);
             f.emplace(ch.channel_key, std::move(t));
             continue;
         }
-        auto series = telem::Series(ch.data_type, count);
+        auto series = synnax::Series(ch.data_type, count);
         const auto buf = d.analog_data.data();
         const int start = data_index * count;
-        if (series.data_type == telem::FLOAT64) series.write(buf + start, count);
+        if (series.data_type == synnax::FLOAT64) series.write(buf + start, count);
         else
             for (int i = 0; i < count; ++i)
                 series.write(static_cast<float>(buf[start + i]));
         f.emplace(ch.channel_key, std::move(series));
         data_index++;
     }
-    return std::make_pair(std::move(f), xerrors::NIL);
+    return std::make_pair(std::move(f), freighter::NIL);
 }
 
 int ni::AnalogReadSource::create_channels() {
@@ -213,8 +209,8 @@ int ni::AnalogReadSource::create_channels() {
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
-        this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
-        this->check_ni_error(channel.ni_channel->bind(this->dmx, this->task_handle));
+        this->check_error(channel.ni_channel->create_ni_scale(this->dmx), "create_channels.create_ni_scale");
+        this->check_error(channel.ni_channel->bind(this->dmx, this->task_handle), "create_channels.bind");
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;
@@ -235,8 +231,8 @@ int ni::AnalogReadSource::validate_channels() {
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != telem::FLOAT32 && channel_info.data_type !=
-            telem::FLOAT64) {
+        if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type !=
+            synnax::FLOAT64) {
             this->log_error(
                 "Channel " + channel.name + " is not of type float32 or float64");
             this->ctx->set_state({
