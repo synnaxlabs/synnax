@@ -290,10 +290,13 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS, STREAM_RPC> >(
-        pool, base_target);
+    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS,
+        STREAM_RPC> >(
+        pool,
+        base_target
+    );
 
-    auto mw = std::make_shared<myMiddleware>();
+    const auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
