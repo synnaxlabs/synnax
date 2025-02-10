@@ -39,6 +39,8 @@ type AuthLoginResponse struct {
 	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
 	Token string `json:"token" msgpack:"token"`
+	// ClusterInfo is the information about the cluster.
+	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
 type AuthLoginRequest struct {

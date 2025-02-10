@@ -133,7 +133,7 @@ int cmd::sub::start(int argc, char *argv[]) {
     task::Manager task_manager(
         cfg.rack_key,
         [](const synnax::Rack &rack) {
-            return driver::save_rack_key(rack.key);
+            return driver::save_remote_info(rack.key);
         },
         client,
         std::move(factory),

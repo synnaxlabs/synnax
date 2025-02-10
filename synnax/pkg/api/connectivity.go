@@ -26,11 +26,13 @@ func NewConnectivityService(p Provider) *ConnectivityService {
 	return &ConnectivityService{clusterProvider: p.cluster}
 }
 
-// ConnectivityCheckResponse is returned by the ConnectivityService.Check method.
-type ConnectivityCheckResponse struct {
+// ClusterInfo is returned by the ConnectivityService.Check method.
+type ClusterInfo struct {
 	ClusterKey  string `json:"cluster_key" msgpack:"cluster_key"`
 	NodeVersion string `json:"node_version" msgpack:"node_version"`
 }
+
+type ConnectivityCheckResponse = ClusterInfo
 
 // Check does nothing except return a success response.
 func (c *ConnectivityService) Check(ctx context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {

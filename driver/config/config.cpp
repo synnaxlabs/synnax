@@ -164,6 +164,7 @@ std::pair<driver::PersistedState, xerrors::Error> load_persisted_state() {
     auto conn = parser.optional_child("connection");
     parse_synnax_config(conn, state.connection);
     state.rack_key = parser.optional("rack_key", 0);
+    state.cluster_key = parser.optional("cluster_key", "");
     return {state, xerrors::NIL};
 }
 
@@ -247,10 +248,14 @@ xerrors::Error save_persisted_state(const driver::PersistedState &state) {
     }
 }
 
-xerrors::Error driver::save_rack_key(const synnax::RackKey &rack_key) {
+xerrors::Error driver::save_remote_info(
+    const synnax::RackKey &rack_key,
+    const std::string &cluster_key
+) {
     auto [state, err] = load_persisted_state();
     if (err) return err;
     state.rack_key = rack_key;
+    state.cluster_key = cluster_key;
     return save_persisted_state(state);
 }
 

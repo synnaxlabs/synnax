@@ -237,13 +237,15 @@ private:
     std::vector<std::unique_ptr<Factory> > factories;
 };
 
+typedef std::function<xerrors::Error(synnax::RackKey, std::string)> PersistRemoteInfo;
+
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
 /// acquisition and control tasks.
 class Manager {
 public:
     Manager(
         const RackKey &rack_key,
-        std::function<xerrors::Error(synnax::Rack)> persist_rack_info,
+        PersistRemoteInfo persist_rack_info,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
         const breaker::Config &breaker
@@ -263,7 +265,7 @@ private:
     std::unique_ptr<task::Factory> factory;
     std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
 
-    std::function<xerrors::Error(synnax::Rack)> persist_rack_info;
+    PersistRemoteInfo persist_remote_info;
 
     Channel task_set_channel;
     Channel task_delete_channel;
@@ -281,7 +283,7 @@ private:
 
     xerrors::Error start_guarded();
 
-    xerrors::Error instantiate_rack();
+    xerrors::Error resolve_remote_info();
 
     void process_task_set(const telem::Series &series);
 

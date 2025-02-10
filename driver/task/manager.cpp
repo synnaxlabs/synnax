@@ -17,14 +17,14 @@
 
 task::Manager::Manager(
     const RackKey &rack_key,
-    std::function<xerrors::Error(synnax::Rack)> persist_rack_info,
+    task::PersistRemoteInfo persist_rack_info,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
     const breaker::Config &breaker
 ) : rack_key(rack_key),
     ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
-    persist_rack_info(std::move(persist_rack_info)),
+    persist_remote_info(std::move(persist_rack_info)),
     breaker(breaker) {
 }
 
@@ -46,8 +46,8 @@ xerrors::Error task::Manager::start() {
 
 xerrors::Error task::Manager::start_guarded() {
     // Fetch info about the rack.
-    if (const auto rack_err = this->instantiate_rack()) return rack_err;
-    if (auto err = this->persist_rack_info(this->rack))
+    if (const auto rack_err = this->resolve_remote_info()) return rack_err;
+    if (auto err = this->persist_remote_info(this->rack.key, ""))
         LOG(WARNING) << "[driver] failed to persist rack info: " << err;
 
     // Fetch task set channel.
@@ -86,7 +86,7 @@ xerrors::Error task::Manager::start_guarded() {
     return task_cmd_err;
 }
 
-xerrors::Error task::Manager::instantiate_rack() {
+xerrors::Error task::Manager::resolve_remote_info() {
     std::pair<synnax::Rack, xerrors::Error> res;
     if (this->rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
@@ -105,7 +105,7 @@ xerrors::Error task::Manager::instantiate_rack() {
         // recursively to create a enw rack.
         if (res.second.matches(xerrors::NOT_FOUND)) {
             this->rack_key = 0;
-            return this->instantiate_rack();
+            return this->resolve_remote_info();
         }
     } else {
         /// If the rack key is zero, we should create a new rack to use.
@@ -118,7 +118,7 @@ xerrors::Error task::Manager::instantiate_rack() {
     const xerrors::Error err = res.second;
     // If we can't reach the cluster, keep trying according to the breaker retry logic.
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return this->instantiate_rack();
+        return this->resolve_remote_info();
 
     LOG(INFO) << "[driver] using rack " << res.first.key << " - " << res.first.name;
     this->rack = res.first;

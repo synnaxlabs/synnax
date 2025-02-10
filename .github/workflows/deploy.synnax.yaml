@@ -173,20 +173,20 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
-            bazel build --enable_platform_specific_config --define=platform=nilinuxrt //driver:driver_main
+            bazel build --enable_platform_specific_config --define=platform=nilinuxrt //driver
           else
-            bazel build --enable_platform_specific_config //driver:driver_main
+            bazel build --enable_platform_specific_config //driver
           fi
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver
 
       - name: Upload Release Asset for Driver Symbols
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver.pdb
 
       - name: Determine OS
         id: os
@@ -218,7 +218,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Move Driver to Assets
@@ -227,7 +227,7 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then
             mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           else
-            mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
       - name: Create Driver Install Script
