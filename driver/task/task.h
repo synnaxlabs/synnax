@@ -9,14 +9,19 @@
 
 #pragma once
 
+/// std
 #include <memory>
 #include <thread>
 #include <utility>
+
+/// external
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
+/// module
 #include "client/cpp/synnax.h"
-#include "driver/config/config.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/config/config.h"
+#include "x/cpp/breaker/breaker.h"
 
 using json = nlohmann::json;
 
@@ -26,10 +31,10 @@ struct Command {
     /// @brief the key of the task to be commanded.
     TaskKey task = 0;
     /// @brief the type of the command to execute.
-    std::string type = "";
+    std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
     /// state updates related to the command.
-    std::string key = "";
+    std::string key;
     /// @brief json arguments to the command.
     json args = {};
 
@@ -80,19 +85,19 @@ struct State {
     TaskKey task = 0;
     /// @brief an optional key to assign to the state update. This is particularly
     /// useful for identifying responses to commands.
-    std::string key = "";
+    std::string key;
     /// @brief the type of the task.
-    std::string variant = "";
+    std::string variant;
     /// @brief relevant details about the current state of the task.
     json details = {};
 
-    [[nodiscard]] json toJSON() const {
+    [[nodiscard]] json to_json() const {
         json j;
         j["task"] = task;
         j["key"] = key;
         j["variant"] = variant;
         j["details"] = details;
-        return j;
+        return std::move(j);
     }
 };
 
@@ -167,7 +172,7 @@ public:
             }
             state_updater = std::make_unique<Writer>(std::move(su));
         }
-        auto s = Series(to_string(state.toJSON()), JSON);
+        auto s = telem::Series(to_string(state.to_json()), telem::JSON);
         auto fr = Frame(chan.key, std::move(s));
         if (state_updater->write(fr)) return;
         auto err = state_updater->close();
@@ -199,11 +204,12 @@ public:
 
 class MultiFactory final : public Factory {
 public:
-    explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
+    explicit MultiFactory(std::vector<std::unique_ptr<Factory> > &&factories)
         : factories(std::move(factories)) {
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configure_initial_tasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
+    configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
@@ -228,15 +234,19 @@ public:
     }
 
 private:
-    std::vector<std::shared_ptr<Factory> > factories;
+    std::vector<std::unique_ptr<Factory> > factories;
 };
+
+typedef std::function<xerrors::Error(synnax::RackKey, std::string)> PersistRemoteInfo;
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
 /// acquisition and control tasks.
 class Manager {
 public:
     Manager(
-        const Rack &rack,
+        const RackKey &rack_key,
+        std::string cluster_key,
+        PersistRemoteInfo persist_rack_info,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
         const breaker::Config &breaker
@@ -244,17 +254,20 @@ public:
 
     ~Manager();
 
-    freighter::Error start();
+    xerrors::Error start();
 
-    freighter::Error stop();
+    xerrors::Error stop();
 
 private:
     RackKey rack_key;
-    Rack internal;
+    std::string cluster_key;
+    Rack rack;
     std::shared_ptr<task::Context> ctx;
     std::unique_ptr<Streamer> streamer;
     std::unique_ptr<task::Factory> factory;
     std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
+
+    PersistRemoteInfo persist_remote_info;
 
     Channel task_set_channel;
     Channel task_delete_channel;
@@ -264,18 +277,20 @@ private:
     breaker::Breaker breaker;
 
     std::thread run_thread;
-    freighter::Error run_err;
+    xerrors::Error run_err;
 
     void run();
 
-    freighter::Error runGuarded();
+    xerrors::Error run_guarded();
 
-    freighter::Error startGuarded();
+    xerrors::Error start_guarded();
 
-    void processTaskSet(const Series &series);
+    xerrors::Error resolve_remote_info();
 
-    void processTaskDelete(const Series &series);
+    void process_task_set(const telem::Series &series);
 
-    void processTaskCmd(const Series &series);
+    void process_task_delete(const telem::Series &series);
+
+    void process_task_cmd(const telem::Series &series);
 };
 }

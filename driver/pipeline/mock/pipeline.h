@@ -16,8 +16,8 @@
 
 struct MockStreamerConfig {
     std::shared_ptr<std::vector<synnax::Frame> > reads;
-    std::shared_ptr<std::vector<freighter::Error> > read_errors;
-    freighter::Error close_err;
+    std::shared_ptr<std::vector<xerrors::Error> > read_errors;
+    xerrors::Error close_err;
 };
 
 class MockStreamer final : public pipeline::Streamer {
@@ -30,37 +30,37 @@ public:
     ) : config(std::move(config)) {
     }
 
-    std::pair<synnax::Frame, freighter::Error> read() override {
+    std::pair<synnax::Frame, xerrors::Error> read() override {
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return {synnax::Frame(0), freighter::NIL};
+            return {synnax::Frame(0), xerrors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
         auto err = config.read_errors->at(current_read);
         current_read++;
-        return {std::move(fr), freighter::NIL};
+        return {std::move(fr), xerrors::NIL};
     }
 
-    freighter::Error close() override { return config.close_err; }
+    xerrors::Error close() override { return config.close_err; }
 
-    void closeSend() override {};
+    void close_send() override {};
 };
 
 class MockStreamerFactory final : public pipeline::StreamerFactory {
 public:
-    std::vector<freighter::Error> open_errors;
+    std::vector<xerrors::Error> open_errors;
     std::shared_ptr<std::vector<MockStreamerConfig> > configs;
     StreamerConfig config;
     size_t streamer_opens = 0;
 
     MockStreamerFactory(
-        std::vector<freighter::Error> open_errors,
+        std::vector<xerrors::Error> open_errors,
         std::shared_ptr<std::vector<MockStreamerConfig> > configs
     ) : open_errors(std::move(open_errors)), configs(std::move(configs)) {
     }
 
-    std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
+    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error> open_streamer(
         const synnax::StreamerConfig config
     ) override {
         this->streamer_opens++;
@@ -71,12 +71,12 @@ public:
             idx = this->configs->size() - 1;
         // try to grab the first error. if not, freighter nil
         auto err = this->streamer_opens > this->open_errors.size()
-                       ? freighter::NIL
+                       ? xerrors::NIL
                        : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
         return {
             std::make_unique<MockStreamer>((*this->configs)[idx]),
-            freighter::NIL
+            xerrors::NIL
         };
     }
 };
@@ -85,12 +85,12 @@ public:
 class MockWriter final : public pipeline::Writer {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
-    freighter::Error close_err;
+    xerrors::Error close_err;
     int return_false_ok_on;
 
     explicit MockWriter(
         std::shared_ptr<std::vector<synnax::Frame> > writes,
-        const freighter::Error &close_err = freighter::NIL,
+        const xerrors::Error &close_err = xerrors::NIL,
         const int return_false_ok_on = -1
     ) : writes(std::move(writes)),
         close_err(close_err),
@@ -103,7 +103,7 @@ public:
         return true;
     }
 
-    freighter::Error close() override {
+    xerrors::Error close() override {
         return this->close_err;
     }
 };
@@ -111,16 +111,16 @@ public:
 class MockWriterFactory final : public pipeline::WriterFactory {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
-    std::vector<freighter::Error> open_errors;
-    std::vector<freighter::Error> close_errors;
+    std::vector<xerrors::Error> open_errors;
+    std::vector<xerrors::Error> close_errors;
     std::vector<int> return_false_ok_on;
     WriterConfig config;
     size_t writer_opens;
 
     explicit MockWriterFactory(
         std::shared_ptr<std::vector<synnax::Frame> > writes,
-        std::vector<freighter::Error> open_errors = {},
-        std::vector<freighter::Error> close_errors = {},
+        std::vector<xerrors::Error> open_errors = {},
+        std::vector<xerrors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
     ) : writes(
             std::move(writes)), open_errors(std::move(open_errors)),
@@ -130,18 +130,18 @@ public:
         writer_opens(0) {
     }
 
-    std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
+    std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
         const WriterConfig &config) override {
             this->writer_opens++;
             this->config = config;
             auto err = this->open_errors.empty()
-                           ? freighter::NIL
+                           ? xerrors::NIL
                            : this->open_errors.front();
             if (!this->open_errors.empty())
                 this->open_errors.erase(
                     this->open_errors.begin());
             auto close_err = this->close_errors.empty()
-                                 ? freighter::NIL
+                                 ? xerrors::NIL
                                  : this->close_errors.front();
             if (!this->close_errors.empty())
                 this->close_errors.erase(
@@ -161,24 +161,24 @@ public:
 class MockSink final : public pipeline::Sink {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
-    std::shared_ptr<std::vector<freighter::Error> > write_errors;
-    freighter::Error stop_err;
+    std::shared_ptr<std::vector<xerrors::Error> > write_errors;
+    xerrors::Error stop_err;
 
     MockSink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
-                 write_errors(std::make_shared<std::vector<freighter::Error> >()) {
+                 write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
     }
 
-    freighter::Error write(const synnax::Frame &frame) override {
-        if (frame.size() == 0) return freighter::NIL;
+    xerrors::Error write(const synnax::Frame &frame) override {
+        if (frame.size() == 0) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
-        if (this->write_errors->empty()) return freighter::NIL;
+        if (this->write_errors->empty()) return xerrors::NIL;
         auto err = this->write_errors->front();
         this->write_errors->erase(this->write_errors->begin());
         return err;
     }
 
-    void stopped_with_err(const freighter::Error &err) override {
+    void stopped_with_err(const xerrors::Error &err) override {
         this->stop_err = err;
     }
 };

@@ -9,14 +9,14 @@
 
 #include "client/cpp/ranger/ranger.h"
 
-#include "client/cpp/errors/errors.h"
-#include "client/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/telem/telem.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
 using namespace synnax;
 
-Range::Range(const std::string &name, synnax::TimeRange time_range)
+Range::Range(const std::string &name, telem::TimeRange time_range)
     : name(name),
       time_range(time_range) {
 }
@@ -25,7 +25,7 @@ Range::Range(
     const api::v1::Range &rng
 ) : key(rng.key()),
     name(rng.name()),
-    time_range(synnax::TimeRange(rng.time_range().start(), rng.time_range().end())) {
+    time_range(telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {
 }
 
 void Range::to_proto(api::v1::Range *rng) const {
@@ -39,7 +39,7 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, freighter::Error> RangeClient::retrieve_by_key(
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_key(
     const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
@@ -48,14 +48,14 @@ std::pair<Range, freighter::Error> RangeClient::retrieve_by_key(
     if (res.ranges_size() == 0)
         return {
             Range(),
-            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + key)
+            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + key)
         };
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
 }
 
-std::pair<Range, freighter::Error> RangeClient::retrieve_by_name(
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_name(
     const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
@@ -64,12 +64,12 @@ std::pair<Range, freighter::Error> RangeClient::retrieve_by_name(
     if (res.ranges_size() == 0)
         return {
             Range(),
-            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + name)
+            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + name)
         };
     if (res.ranges_size() > 1)
         return {
             Range(),
-            freighter::Error(synnax::MULTIPLE_RESULTS,
+            xerrors::Error(xerrors::MULTIPLE_RESULTS,
                              "multiple ranges found matching " + name)
         };
     auto rng = Range(res.ranges(0));
@@ -77,7 +77,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieve_by_name(
     return {rng, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_many(
+std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_many(
     api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
@@ -88,21 +88,21 @@ std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_many(
     return {ranges, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_by_name(
+std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_by_name(
     std::vector<std::string> names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names) req.add_names(name);
     return retrieve_many(req);
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_by_key(
+std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_by_key(
     std::vector<std::string> keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys) req.add_keys(key);
     return retrieve_many(req);
 }
 
-freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
+xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges) range.to_proto(req.add_ranges());
@@ -116,7 +116,7 @@ freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
     return err;
 }
 
-freighter::Error RangeClient::create(Range &range) const {
+xerrors::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
@@ -128,8 +128,8 @@ freighter::Error RangeClient::create(Range &range) const {
     return err;
 }
 
-std::pair<Range, freighter::Error> RangeClient::create(
-    std::string name, synnax::TimeRange time_range) const {
+std::pair<Range, xerrors::Error> RangeClient::create(
+    std::string name, telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};
@@ -140,18 +140,18 @@ const std::string KV_GET_ENDPOINT = "/range/kv/get";
 const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
 
 
-std::pair<std::string, freighter::Error> RangeKV::get(const std::string &key) const {
+std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", freighter::Error(synnax::NOT_FOUND, "key not found")};
+        return {"", xerrors::Error(xerrors::NOT_FOUND, "key not found")};
     return {res.pairs().at(0).value(), err};
 }
 
-freighter::Error RangeKV::set(const std::string &key, const std::string &value) const {
+xerrors::Error RangeKV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     const auto pair = req.add_pairs();
@@ -161,7 +161,7 @@ freighter::Error RangeKV::set(const std::string &key, const std::string &value) 
     return err;
 }
 
-freighter::Error RangeKV::del(const std::string &key) const {
+xerrors::Error RangeKV::del(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);

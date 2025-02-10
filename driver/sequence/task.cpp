@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/loop/loop.h";
+#include "x/cpp/loop/loop.h";
 #include "driver/sequence/sequence.h"
 
 sequence::Task::Task(
@@ -146,7 +146,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
-            .start = synnax::TimeStamp::now(),
+            .start = telem::TimeStamp::now(),
             .authorities = {200},
             .subject = synnax::ControlSubject{
                 .name = task.name,
@@ -161,7 +161,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 
     auto breaker_config = breaker::Config{
         .name = task.name,
-        .base_interval = 1 * SECOND,
+        .base_interval = 1 * telem::SECOND,
         .max_retries = 20,
         .scale = 1.2,
     };

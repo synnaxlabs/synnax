@@ -146,32 +146,32 @@ public:
     }
 
     [[nodiscard]]
-    freighter::Error create(Task &task) const;
+    xerrors::Error create(Task &task) const;
 
     [[nodiscard]]
-    std::pair<Task, freighter::Error> retrieve(std::uint64_t key) const;
+    std::pair<Task, xerrors::Error> retrieve(std::uint64_t key) const;
 
     [[nodiscard]]
-    std::pair<Task, freighter::Error> retrieveByType(const std::string &type) const;
+    std::pair<Task, xerrors::Error> retrieveByType(const std::string &type) const;
 
     [[nodiscard]]
-    std::pair<Task, freighter::Error> retrieve(const std::string &name) const;
+    std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<std::vector<Task>, freighter::Error> retrieve(
+    std::pair<std::vector<Task>, xerrors::Error> retrieve(
         const std::vector<std::string> &names
     ) const;
 
     [[nodiscard]]
-    std::pair<std::vector<Task>, freighter::Error> retrieveByType(
+    std::pair<std::vector<Task>, xerrors::Error> retrieveByType(
         const std::vector<std::string> &types
     ) const;
 
     [[nodiscard]]
-    freighter::Error del(std::uint64_t key) const;
+    xerrors::Error del(std::uint64_t key) const;
 
     [[nodiscard]]
-    std::pair<std::vector<Task>, freighter::Error> list() const;
+    std::pair<std::vector<Task>, xerrors::Error> list() const;
 
 private:
     /// @brief key of rack that this client belongs to.
@@ -273,25 +273,25 @@ public:
 
 
     [[nodiscard]]
-    freighter::Error create_rack(Rack &rack) const;
+    xerrors::Error create_rack(Rack &rack) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> create_rack(const std::string &name) const;
+    std::pair<Rack, xerrors::Error> create_rack(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> retrieve_rack(std::uint32_t key) const;
+    std::pair<Rack, xerrors::Error> retrieve_rack(std::uint32_t key) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> retrieve_rack(const std::string &name) const;
+    std::pair<Rack, xerrors::Error> retrieve_rack(const std::string &name) const;
 
     [[nodiscard]]
-    std::pair<Device, freighter::Error> retrieve_device(const std::string &key) const;
+    std::pair<Device, xerrors::Error> retrieve_device(const std::string &key) const;
 
     [[nodiscard]]
-    freighter::Error create_device(Device &device) const;
+    xerrors::Error create_device(Device &device) const;
 
     [[nodiscard]]
-    freighter::Error delete_rack(std::uint32_t key) const;
+    xerrors::Error delete_rack(std::uint32_t key) const;
 
 private:
     /// @brief rack creation transport.

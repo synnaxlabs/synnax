@@ -23,23 +23,23 @@ TEST(ChannelReceive, Basic) {
     ch.key = 1;
     ch.name = "my_channel";
     auto fr_1 = synnax::Frame(1);
-    fr_1.emplace(1, synnax::Series(1.0));
+    fr_1.emplace(1, telem::Series(1.0));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
-    const auto read_errors = std::make_shared<std::vector<freighter::Error> >(
+    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
         std::vector{
-            freighter::NIL,
-            freighter::NIL,
+            xerrors::NIL,
+            xerrors::NIL,
         });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<MockStreamerFactory>(
-        std::vector<freighter::Error>{},
+        std::vector<xerrors::Error>{},
         std::make_shared<std::vector<MockStreamerConfig> >(
             std::vector{
                 MockStreamerConfig{
                     reads,
                     read_errors,
-                    freighter::NIL
+                    xerrors::NIL
                 }
             })
     );

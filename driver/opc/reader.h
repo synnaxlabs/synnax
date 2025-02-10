@@ -11,10 +11,10 @@
 
 #include "opc.h"
 #include "util.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 
 namespace opc {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -49,9 +49,9 @@ struct ReaderConfig {
     /// @brief the device representing the OPC UA server to read from.
     std::string device;
     /// @brief sets the acquisition rate.
-    Rate sample_rate;
+    telem::Rate sample_rate;
     /// @brief sets the stream rate.
-    Rate stream_rate;
+    telem::Rate stream_rate;
     /// @brief array_size;
     size_t array_size;
     /// @brief whether to enable data saving for this task.
@@ -100,9 +100,9 @@ public:
 
     void initialize_read_request();
 
-    void stopped_with_err(const freighter::Error &err) override;
+    void stopped_with_err(const xerrors::Error &err) override;
 
-    [[nodiscard]] freighter::Error communicate_value_error(
+    [[nodiscard]] xerrors::Error communicate_value_error(
         const std::string &channel,
         const UA_StatusCode &status
     ) const;
@@ -115,10 +115,10 @@ public:
     size_t write_to_series(
         const UA_Variant *val,
         const size_t i,
-        synnax::Series &s
+        telem::Series &s
     );
 
-    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////

@@ -19,10 +19,8 @@
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
 /// internal
-#include "client/cpp/telem/telem.h"
+#include "x/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
-
-using namespace synnax;
 
 namespace synnax {
 /// @brief an alias for the type of a channel's key.
@@ -51,7 +49,7 @@ public:
     /// @brief A human-readable name for the channel.
     std::string name;
     /// @brief the data type of the channel.
-    synnax::DataType data_type;
+    telem::DataType data_type;
     /// @brief the key of the channel. This is auto-assigned by the cluster on calls to
     /// create and retrieve.
     ChannelKey key = 0;
@@ -62,7 +60,7 @@ public:
     ChannelKey index = 0;
     /// @brief The sampling rate of the channel. If this parameter is non-zero, is_index
     /// must be false and index must be zero.
-    synnax::Rate rate = synnax::Rate(0);
+    telem::Rate rate = telem::Rate(0);
     /// @brief Sets whether the channel itself is an index channel. Index channels must
     /// cannot have a rate, and must have a data type of TIMESTAMP.
     bool is_index = false;
@@ -86,7 +84,7 @@ public:
     /// @param is_index whether the channel is an index channel.
     Channel(
         const std::string &name,
-        const synnax::DataType &data_type,
+        const telem::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     );
@@ -97,13 +95,13 @@ public:
     /// @param rate the rate of the channel.
     Channel(
         const std::string &name,
-        const synnax::DataType &data_type,
-        synnax::Rate rate
+        const telem::DataType &data_type,
+        telem::Rate rate
     );
 
     Channel(
         const std::string &name,
-        const synnax::DataType &data_type,
+        const telem::DataType &data_type,
         bool is_virtual = true
     );
 
@@ -131,7 +129,7 @@ public:
     /// @modifies channel Assigns a unique key to the channel.
     /// @returns an error where ok() is false if the channel could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] freighter::Error create(Channel &channel) const;
+    [[nodiscard]] xerrors::Error create(Channel &channel) const;
 
     /// @brief creates the given channels in the Synnax cluster.
     /// @details More efficient than calling create on each channel individually, and
@@ -139,7 +137,7 @@ public:
     /// @modifies channels Assigns a unique key to each channel.
     /// @returns an error where ok() is false if the channels could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] freighter::Error create(std::vector<Channel> &channels) const;
+    [[nodiscard]] xerrors::Error create(std::vector<Channel> &channels) const;
 
     /// @brief creates a new index or indexed channel.
     /// @param name a human-readable name for the channel.
@@ -150,9 +148,9 @@ public:
     /// if the channel could not be created. In the case of an error, the returned
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
-    [[nodiscard]] std::pair<Channel, freighter::Error> create(
+    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
         const std::string &name,
-        const synnax::DataType &data_type,
+        const telem::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     ) const;
@@ -166,10 +164,10 @@ public:
     /// if the channel could not be created. In the case of an error, the returned
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
-    [[nodiscard]] std::pair<Channel, freighter::Error> create(
+    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
         const std::string &name,
-        const synnax::DataType &data_type,
-        synnax::Rate rate
+        const telem::DataType &data_type,
+        telem::Rate rate
     ) const;
 
     /// @brief retrieves a channel with the given name.
@@ -181,7 +179,7 @@ public:
     /// if the channel could not be retrieved. In the case of an error, the returned
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
-    [[nodiscard]] std::pair<Channel, freighter::Error> retrieve(
+    [[nodiscard]] std::pair<Channel, xerrors::Error> retrieve(
         const std::string &name) const;
 
     /// @brief retrieves a channel with the given key.
@@ -192,7 +190,7 @@ public:
     /// if the channel could not be retrieved. In the case of an error, the returned
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
-    [[nodiscard]] std::pair<Channel, freighter::Error>
+    [[nodiscard]] std::pair<Channel, xerrors::Error>
     retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
@@ -202,7 +200,7 @@ public:
     /// @returns a pair containing the retrieved channels and an error where ok() is
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error message
-    [[nodiscard]] std::pair<std::vector<Channel>, freighter::Error>
+    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
     /// @brief retrieves channels with the given keys.
@@ -212,7 +210,7 @@ public:
     /// @returns a pair containing the retrieved channels and an error where ok() is
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error message.
-    [[nodiscard]] std::pair<std::vector<Channel>, freighter::Error>
+    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
     retrieve(const std::vector<ChannelKey> &keys) const;
 
 private:

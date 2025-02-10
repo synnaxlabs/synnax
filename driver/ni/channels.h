@@ -15,7 +15,7 @@
 
 #include "nidaqmx/nidaqmx.h"
 #include "nidaqmx/nidaqmx_api.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/ni/scale.h"
 #include "driver/ni/util.h"
 #include "driver/task/task.h"
@@ -309,10 +309,10 @@ public:
         const std::string &name
     )
         : min_val(
-              parser.optional<float_t>("min_val", 0)
+              parser.optional<float>("min_val", 0)
           ),
           max_val(
-              parser.optional<float_t>("max_val", 0)
+              parser.optional<float>("max_val", 0)
           ),
           units(
               get_units(

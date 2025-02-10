@@ -18,7 +18,7 @@
 
 #include "driver/ni/util.h"
 #include "nidaqmx/nidaqmx.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"

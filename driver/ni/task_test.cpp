@@ -40,7 +40,7 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
     auto [time, tErr] = client->channels.create(
         // index channel for analog input channels
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true
     );
@@ -51,7 +51,7 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
 
     auto [data, dErr] = client->channels.create( // analog input channel
         "acq_data",
-        synnax::FLOAT32,
+        telem::FLOAT32,
         time.key,
         false
     );
@@ -129,7 +129,7 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
         int i = 0;
         i < 30; i++) {
         auto [frame, err] = streamer.read();
-        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
         uint32_t ai_count = 0;
         for (
@@ -143,7 +143,7 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
             // check series type before casting
             if (frame.series->
                 at(i)
-                .data_type == synnax::FLOAT32) {
+                .data_type == telem::FLOAT32) {
                 auto s = frame.series->at(i).float32();
                 for (
                     int j = 0;
@@ -160,7 +160,7 @@ TEST(NiTaskTests, test_NI_analog_reader_task) {
                 ai_count++;
             } else if (frame.series->
                        at(i)
-                       .data_type == synnax::TIMESTAMP) {
+                       .data_type == telem::TIMESTAMP) {
                 auto s = frame.series->at(i).uint64();
                 for (
                     int j = 0;
@@ -202,7 +202,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
     auto [time, tErr] = client->channels.create(
         // index channel for digital input channels
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true
     );
@@ -213,7 +213,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
 
     auto [data, dErr] = client->channels.create( // analog input channel
         "acq_data2",
-        synnax::SY_UINT8,
+        telem::SY_UINT8,
         time.key,
         false
     );
@@ -288,7 +288,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
         int i = 0;
         i < 30; i++) {
         auto [frame, err] = streamer.read();
-        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
         uint32_t ai_count = 0;
         for (
@@ -302,7 +302,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
             // check series type before casting
             if (frame.series->
                 at(i)
-                .data_type == synnax::SY_UINT8) {
+                .data_type == telem::SY_UINT8) {
                 auto s = frame.series->at(i).uint8();
                 for (
                     int j = 0;
@@ -318,7 +318,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
                 ai_count++;
             } else if (frame.series->
                        at(i)
-                       .data_type == synnax::TIMESTAMP) {
+                       .data_type == telem::TIMESTAMP) {
                 auto s = frame.series->at(i).uint64();
                 for (
                     int j = 0;
@@ -357,7 +357,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     // create all the necessary channels in the synnax client
     auto [ack_idx, tErr1] = client->channels.create( // index channel for acks
         "do_state_idx",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true
     );
@@ -368,7 +368,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [cmd_idx, tErr2] = client->channels.create( // index channel for cmd
         "do_cmd_idx",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true
     );
@@ -379,7 +379,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [ack, aErr] = client->channels.create( // ack channel
         "do_state",
-        synnax::SY_UINT8,
+        telem::SY_UINT8,
         ack_idx.key,
         false
     );
@@ -390,7 +390,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [cmd, cErr] = client->channels.create( // cmd channel
         "do_cmd",
-        synnax::SY_UINT8,
+        telem::SY_UINT8,
         cmd_idx.key,
         false
     );
@@ -489,16 +489,16 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
             add(
                 cmd_idx
                 .key,
-                synnax::Series(
-                    std::vector<uint64_t>{synnax::TimeStamp::now().value},
-                    synnax::TIMESTAMP
+                telem::Series(
+                    std::vector<uint64_t>{telem::TimeStamp::now().value},
+                    telem::TIMESTAMP
                 )
             );
     cmd_frame.
             add(
                 cmd
                 .key,
-                synnax::Series(std::vector<uint8_t>{1}
+                telem::Series(std::vector<uint8_t>{1}
                 )
             );
     ASSERT_TRUE(cmdWriter
@@ -590,14 +590,14 @@ TEST(NiTaskTests, test_NI_scanner_task) {
 TEST(read_test, taring) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
 
-    auto [data2, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key, false);
+    auto [data2, dErr2] = client->channels.create("ai2", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr2) << dErr2.message();
 
     auto config = json{

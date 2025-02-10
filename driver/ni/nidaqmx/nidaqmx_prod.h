@@ -15,16 +15,16 @@
 /// internal
 #include "driver/ni/nidaqmx/nidaqmx_api.h"
 #include "driver/ni/nidaqmx/nidaqmx.h"
-#include "driver/libutil/libutil.h"
-#include "freighter/cpp/freighter.h"
+#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/xerrors/errors.h"
 
 class DAQmxProd final : public DAQmx {
 public:
-    explicit DAQmxProd(std::unique_ptr<libutil::SharedLib> &lib_);
+    explicit DAQmxProd(std::unique_ptr<xlib::SharedLib> &lib_);
 
     ~DAQmxProd() override;
 
-    static std::pair<std::shared_ptr<DAQmx>, freighter::Error> load();
+    static std::pair<std::shared_ptr<DAQmx>, xerrors::Error> load();
 
     int32 AddCDAQSyncConnection(const char portList[]) override;
 
@@ -3222,5 +3222,5 @@ private:
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
-    std::unique_ptr<libutil::SharedLib> lib;
+    std::unique_ptr<xlib::SharedLib> lib;
 };

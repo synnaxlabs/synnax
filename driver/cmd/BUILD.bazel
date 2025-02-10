@@ -1,0 +1,64 @@
+cc_library(
+    name = "cmd",
+    srcs = [
+        "clear.cpp",
+        "exec.cpp",
+        "login.cpp",
+        "service.cpp",
+        "start.cpp",
+        "version.cpp",
+        "//synnax/pkg/version",
+    ],
+    hdrs = [
+        "cmd.h",
+    ],
+    copts = select({
+        # "@platforms//os:windows": [
+        #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+        #     "/ZI",                # Debug info
+        #     "/DEBUG",             # Enable debug info
+        #     "/MDd",               # Debug runtime
+        #     "-std:c++20",
+        # ],
+        "//conditions:default": [
+        ],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:ws2_32.lib",
+            "/DEFAULTLIB:iphlpapi.lib",
+            "/DEFAULTLIB:psapi.lib",
+            "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbols because of labjack lib. temp workaround
+        ],
+        "//conditions:default": [
+            "-lm",
+            "-ldl",
+        ],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/config",
+        "//driver/daemon",
+        "//driver/heartbeat",
+        "//driver/meminfo",
+        "//driver/ni",
+        "//driver/opc",
+        "//driver/sequence",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/xlog",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
+    ] + select({
+        "@platforms//os:windows": [
+            "//driver/labjack",
+            "@mbedtls_win",
+        ],
+        "@platforms//os:linux": [
+            "@mbedtls_linux",
+        ],
+        "@platforms//os:macos": [
+            "@mbedtls_macos",
+        ],
+    }),
+)

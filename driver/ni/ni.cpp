@@ -128,15 +128,15 @@ int ni::Source::init() {
     return 0;
 }
 
-freighter::Error ni::Source::cycle() {
+xerrors::Error ni::Source::cycle() {
     auto err = this->start_ni();
     if (err) return err;
     err = this->stop_ni();
     if (err) return err;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::Source::start_ni() {
+xerrors::Error ni::Source::start_ni() {
     if (this->check_error(this->dmx->StartTask(this->task_handle), "StartTask")) {
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
@@ -144,20 +144,20 @@ freighter::Error ni::Source::start_ni() {
         this->clear_task();
         return driver::CRITICAL_HARDWARE_ERROR;
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::Source::stop_ni() {
+xerrors::Error ni::Source::stop_ni() {
     if (this->check_error(this->dmx->StopTask(this->task_handle), "StopTask")) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
         return driver::CRITICAL_HARDWARE_ERROR;
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::Source::start(const std::string &cmd_key) {
-    if (this->breaker.running() || !this->ok()) return freighter::NIL;
+xerrors::Error ni::Source::start(const std::string &cmd_key) {
+    if (this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.start();
     this->start_ni();
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
@@ -170,11 +170,11 @@ freighter::Error ni::Source::start(const std::string &cmd_key) {
             {"message", "Task started successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::Source::stop(const std::string &cmd_key) {
-    if (!this->breaker.running() || !this->ok()) return freighter::NIL;
+xerrors::Error ni::Source::stop(const std::string &cmd_key) {
+    if (!this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
     this->stop_ni();
@@ -188,7 +188,7 @@ freighter::Error ni::Source::stop(const std::string &cmd_key) {
             {"message", "Task stopped successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 void ni::Source::clear_task() {
@@ -242,7 +242,7 @@ void ni::Source::log_error(std::string err_msg) {
     this->ok_state = false;
 }
 
-void ni::Source::stopped_with_err(const freighter::Error &err) {
+void ni::Source::stopped_with_err(const xerrors::Error &err) {
     if(this->ok()) return;
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());

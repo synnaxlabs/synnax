@@ -39,7 +39,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
     };
     
     plugins::JSON source(test_data);
-    ASSERT_EQ(source.before_all(L), freighter::NIL);
+    ASSERT_EQ(source.before_all(L), xerrors::NIL);
     
     lua_getglobal(L, "number");
     ASSERT_TRUE(lua_isnumber(L, -1));

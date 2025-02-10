@@ -13,7 +13,7 @@
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FramerTests, testConstruction) {
     const auto f = synnax::Frame(2);
-    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     ASSERT_EQ(f.size(), 1);
 }
@@ -21,7 +21,7 @@ TEST(FramerTests, testConstruction) {
 /// @brief it should construct a frame from a proto.
 TEST(FramerTests, toProto) {
     const auto f = synnax::Frame(2);
-    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     const auto p = new api::v1::Frame();
     f.to_proto(p);
@@ -36,7 +36,7 @@ TEST(FramerTests, toProto) {
 /// @brief test ostream operator.
 TEST(FramerTests, ostream) {
     auto f = synnax::Frame(2);
-    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     std::stringstream ss;
     ss << f;

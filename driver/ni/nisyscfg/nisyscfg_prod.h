@@ -2,13 +2,13 @@
 
 #include "driver/ni/nisyscfg/nisyscfg.h"
 #include "driver/ni/nisyscfg/nisyscfg_api.h"
-#include "driver/libutil/libutil.h"
+#include "x/cpp/xlib/xlib.h"
 
 class SysCfgProd : public SysCfg {
 public:
-    explicit SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_);
+    explicit SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_);
 
-    static std::pair<std::shared_ptr<SysCfg>, freighter::Error> load();
+    static std::pair<std::shared_ptr<SysCfg>, xerrors::Error> load();
 
     NISYSCFGCFUNC InitializeSession(
         const char *targetName,
@@ -86,6 +86,6 @@ private:
         GetResourceIndexedPropertyPtr GetResourceIndexedProperty;
     } FunctionPointers;
 
-    std::unique_ptr<libutil::SharedLib> lib;
+    std::unique_ptr<xlib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };

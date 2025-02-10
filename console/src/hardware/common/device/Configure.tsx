@@ -27,7 +27,7 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
   icon: "Device",
   location: "modal",
   name: "Configure",
-  window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 325, width: 800 }, navTop: true },
 };
 
 interface InternalProps<
@@ -103,7 +103,7 @@ const Internal = <
         >
           {isNameStep ? (
             <>
-              <Text.Text level="h4" shade={7}>
+              <Text.Text level="p" shade={7}>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
@@ -116,7 +116,7 @@ const Internal = <
             </>
           ) : (
             <>
-              <Text.Text level="h4" shade={7}>
+              <Text.Text level="p" shade={7}>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
                 channels associated with this device. We've generated some suggestions

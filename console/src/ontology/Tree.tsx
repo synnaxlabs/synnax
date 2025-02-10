@@ -61,6 +61,7 @@ export const toTreeNode = (
     hasChildren,
     haulItems: haulItems(resource),
     allowRename: services[id.type].allowRename(resource),
+    extraData: resource.data ?? undefined,
   };
 };
 

@@ -14,7 +14,7 @@
 #include <regex>
 #include <set>
 
-#include "client/cpp/telem/telem.h"
+#include "x/cpp/telem/telem.h"
 #include "driver/ni/writer.h"
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
@@ -38,18 +38,18 @@ void ni::WriteSink::get_index_keys() {
     this->writer_config.state_index_keys = {unique_keys.begin(), unique_keys.end()};
 }
 
-freighter::Error ni::WriteSink::cycle() {
+xerrors::Error ni::WriteSink::cycle() {
     auto err = this->start_ni();
     if (err) return err;
     err = this->stop_ni();
     if (err) return err;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::WriteSink::start(const std::string &cmd_key) {
-    if (this->breaker.running() || !this->ok()) return freighter::NIL;
+xerrors::Error ni::WriteSink::start(const std::string &cmd_key) {
+    if (this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.start();
-    freighter::Error err = this->start_ni();
+    xerrors::Error err = this->start_ni();
     if (err) return err;
     ctx->set_state({
         .task = this->task.key,
@@ -60,13 +60,13 @@ freighter::Error ni::WriteSink::start(const std::string &cmd_key) {
             {"message", "Task started successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::WriteSink::stop(const std::string &cmd_key) {
-    if (!this->breaker.running()) return freighter::NIL;
+xerrors::Error ni::WriteSink::stop(const std::string &cmd_key) {
+    if (!this->breaker.running()) return xerrors::NIL;
     this->breaker.stop();
-    freighter::Error err = this->stop_ni();
+    xerrors::Error err = this->stop_ni();
     if (err) return err;
     ctx->set_state({
         .task = this->task.key,
@@ -77,7 +77,7 @@ freighter::Error ni::WriteSink::stop(const std::string &cmd_key) {
             {"message", "Task stopped successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 std::vector<synnax::ChannelKey> ni::WriteSink::get_cmd_channel_keys() {
@@ -128,7 +128,7 @@ void ni::WriteSink::log_error(std::string err_msg) {
     this->ok_state = false;
 }
 
-void ni::WriteSink::stopped_with_err(const freighter::Error &err) {
+void ni::WriteSink::stopped_with_err(const xerrors::Error &err) {
     this->stop("");
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
@@ -320,28 +320,28 @@ int ni::DigitalWriteSink::init() {
     return 0;
 }
 
-freighter::Error ni::DigitalWriteSink::start_ni() {
+xerrors::Error ni::DigitalWriteSink::start_ni() {
     if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
         this->log_error("failed to start writer for task " + this->writer_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
     }
     LOG(INFO) << "[ni.writer] successfully started writer for task " << this->writer_config.task_name;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::stop_ni() {
+xerrors::Error ni::DigitalWriteSink::stop_ni() {
     if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
         this->log_error("failed to stop writer for task " + this->writer_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->writer_config.task_name;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
+xerrors::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
     auto err = format_data(frame);
-    if (err != freighter::NIL) {
+    if (err != xerrors::NIL) {
         this->log_error("failed to format data");
         return err;
     }
@@ -359,7 +359,7 @@ freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
             NULL
         ), "write.WriteDigitalLines", "")) {
         this->log_error("failed while writing digital data");
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR,
                               "Error writing digital data");
     }
 
@@ -368,10 +368,10 @@ freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
         this->writer_config.digital_modified_state_values
     );
 
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
+xerrors::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
@@ -391,7 +391,7 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
         }
         frame_index++;
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -452,28 +452,28 @@ int ni::AnalogWriteSink::init() {
     return 0;
 }
 
-freighter::Error ni::AnalogWriteSink::start_ni() {
+xerrors::Error ni::AnalogWriteSink::start_ni() {
     if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
         this->log_error("failed to start writer for task " + this->writer_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
     }
     LOG(INFO) << "[ni.writer] successfully started writer for task " << this->writer_config.task_name;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::AnalogWriteSink::stop_ni() {
+xerrors::Error ni::AnalogWriteSink::stop_ni() {
     if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
         this->log_error("failed to stop writer for task " + this->writer_config.task_name);
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->writer_config.task_name;
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
+xerrors::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
     auto err = format_data(frame);
-    if (err != freighter::NIL) {
+    if (err != xerrors::NIL) {
         this->log_error("failed to format data");
         return err;
     }
@@ -491,7 +491,7 @@ freighter::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
             NULL
         ), "write.WriteAnalogF64", "")) {
         this->log_error("failed while writing analog data");
-        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
+        return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR,
                               "Error writing analog data");
     }
 
@@ -500,10 +500,10 @@ freighter::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
         this->writer_config.analog_modified_state_values
     );
 
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
+xerrors::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
@@ -517,16 +517,16 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
             const auto &series = frame.series->at(frame_index);
             double value = 0.0;
 
-            if (series.data_type == synnax::FLOAT32) {
+            if (series.data_type == telem::FLOAT32) {
                 value = series.at<float>(0);
-            } else if (series.data_type == synnax::FLOAT64) {
+            } else if (series.data_type == telem::FLOAT64) {
                 value = series.at<double>(0);
-            } else if (series.data_type == synnax::INT32) {
+            } else if (series.data_type == telem::INT32) {
                 value = static_cast<double>(series.at<int32_t>(0));
-            } else if (series.data_type == synnax::SY_UINT8) {
+            } else if (series.data_type == telem::SY_UINT8) {
                 value = static_cast<double>(series.at<uint8_t>(0));
             } else {
-                return freighter::NIL;
+                return xerrors::NIL;
             }
 
             write_buffer[cmd_channel_index] = value;
@@ -537,5 +537,5 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
         }
         frame_index++;
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }

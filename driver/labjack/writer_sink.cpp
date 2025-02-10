@@ -15,43 +15,43 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Helpers                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-synnax::Series val_to_series(double val, synnax::DataType data_type) {
-    if (data_type == synnax::FLOAT64)
-        return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
-    if (data_type == synnax::FLOAT32)
-        return synnax::Series(static_cast<float>(val), synnax::FLOAT32);
-    if (data_type == synnax::INT32)
-        return synnax::Series(static_cast<int32_t>(val), synnax::INT32);
-    if (data_type == synnax::INT16)
-        return synnax::Series(static_cast<int16_t>(val), synnax::INT16);
-    if (data_type == synnax::INT8)
-        return synnax::Series(static_cast<int8_t>(val), synnax::INT8);
-    if (data_type == synnax::UINT32)
-        return synnax::Series(static_cast<uint32_t>(val), synnax::UINT32);
-    if (data_type == synnax::SY_UINT16)
-        return synnax::Series(static_cast<uint16_t>(val), synnax::SY_UINT16);
-    if (data_type == synnax::SY_UINT8)
-        return synnax::Series(static_cast<uint8_t>(val), synnax::SY_UINT8);
+telem::Series val_to_series(double val, telem::DataType data_type) {
+    if (data_type == telem::FLOAT64)
+        return telem::Series(static_cast<double>(val), telem::FLOAT64);
+    if (data_type == telem::FLOAT32)
+        return telem::Series(static_cast<float>(val), telem::FLOAT32);
+    if (data_type == telem::INT32)
+        return telem::Series(static_cast<int32_t>(val), telem::INT32);
+    if (data_type == telem::INT16)
+        return telem::Series(static_cast<int16_t>(val), telem::INT16);
+    if (data_type == telem::INT8)
+        return telem::Series(static_cast<int8_t>(val), telem::INT8);
+    if (data_type == telem::UINT32)
+        return telem::Series(static_cast<uint32_t>(val), telem::UINT32);
+    if (data_type == telem::SY_UINT16)
+        return telem::Series(static_cast<uint16_t>(val), telem::SY_UINT16);
+    if (data_type == telem::SY_UINT8)
+        return telem::Series(static_cast<uint8_t>(val), telem::SY_UINT8);
     LOG(ERROR) << "[labjack.writer] Invalid data type";
 }
 
-double series_to_val(const synnax::Series &series) {
-    synnax::DataType data_type = series.data_type;
-    if (data_type == synnax::FLOAT64)
+double series_to_val(const telem::Series &series) {
+    telem::DataType data_type = series.data_type;
+    if (data_type == telem::FLOAT64)
         return static_cast<double>(series.values<double>()[0]);
-    if (data_type == synnax::FLOAT32)
+    if (data_type == telem::FLOAT32)
         return static_cast<double>(series.values<float>()[0]);
-    if (data_type == synnax::INT32)
+    if (data_type == telem::INT32)
         return static_cast<double>(series.values<int32_t>()[0]);
-    if (data_type == synnax::INT16)
+    if (data_type == telem::INT16)
         return static_cast<double>(series.values<int16_t>()[0]);
-    if (data_type == synnax::INT8)
+    if (data_type == telem::INT8)
         return static_cast<double>(series.values<int8_t>()[0]);
-    if (data_type == synnax::UINT32)
+    if (data_type == telem::UINT32)
         return static_cast<double>(series.values<uint32_t>()[0]);
-    if (data_type == synnax::SY_UINT16)
+    if (data_type == telem::SY_UINT16)
         return static_cast<double>(series.values<uint16_t>()[0]);
-    if (data_type == synnax::SY_UINT8)
+    if (data_type == telem::SY_UINT8)
         return static_cast<double>(series.values<uint8_t>()[0]);
     LOG(ERROR) << "[labjack.writer] Invalid data type";
 }
@@ -60,7 +60,7 @@ double series_to_val(const synnax::Series &series) {
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
-    const synnax::Rate state_rate,
+    const telem::Rate state_rate,
     std::vector<synnax::ChannelKey> state_index_keys,
     const std::map<synnax::ChannelKey, out_state> state_map
 ) : state_rate(state_rate),
@@ -69,12 +69,12 @@ labjack::StateSource::StateSource(
     this->timer = loop::Timer(this->state_rate);
 }
 
-std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
+std::pair<synnax::Frame, xerrors::Error> labjack::StateSource::read(
     breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     this->timer.wait(breaker); // sleep for state period
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
-    return std::make_pair(this->get_state(), freighter::NIL);
+    return std::make_pair(this->get_state(), xerrors::NIL);
 }
 
 synnax::Frame labjack::StateSource::get_state() {
@@ -83,7 +83,7 @@ synnax::Frame labjack::StateSource::get_state() {
         this->state_map.size() + this->state_index_keys.size());
 
     for (auto key: this->state_index_keys) {
-        auto t = synnax::Series(synnax::TimeStamp::now().value, synnax::TIMESTAMP);
+        auto t = telem::Series(telem::TimeStamp::now().value, telem::TIMESTAMP);
         state_frame.emplace(key, std::move(t));
     }
     for (auto &[key, value]: this->state_map) {
@@ -153,7 +153,7 @@ void labjack::WriteSink::init() {
         auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->writer_config.device_key
         );
-        if (err != freighter::NIL) {
+        if (err != xerrors::NIL) {
             this->log_err("Error retrieving device.");
             return;
         }
@@ -173,7 +173,7 @@ void labjack::WriteSink::init() {
     }
 }
 
-freighter::Error labjack::WriteSink::write(const synnax::Frame &frame) {
+xerrors::Error labjack::WriteSink::write(const synnax::Frame &frame) {
     auto frame_index = 0;
     for (auto key: *(frame.channels)) {
         double value = series_to_val(frame.series->at(frame_index));
@@ -188,13 +188,13 @@ freighter::Error labjack::WriteSink::write(const synnax::Frame &frame) {
         frame_index++;
     }
     this->state_source->update_state(std::move(frame));
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 
-freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
+xerrors::Error labjack::WriteSink::stop(const std::string &cmd_key) {
     if (!this->ok())
-        return freighter::Error(
+        return xerrors::Error(
             "Device disconnected or is in error. Please reconfigure task and try again");
     ctx->set_state({
         .task = task.key,
@@ -205,10 +205,10 @@ freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
             {"message", "Task stopped successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
-freighter::Error labjack::WriteSink::start(const std::string &cmd_key) {
+xerrors::Error labjack::WriteSink::start(const std::string &cmd_key) {
     this->init();
     ctx->set_state({
         .task = task.key,
@@ -219,7 +219,7 @@ freighter::Error labjack::WriteSink::start(const std::string &cmd_key) {
             {"message", "Task started successfully"}
         }
     });
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 std::vector<synnax::ChannelKey> labjack::WriteSink::get_cmd_channel_keys() {

@@ -22,18 +22,18 @@ TEST(TestAuth, testLoginHappyPath) {
     auto mock_login_client = std::make_unique<MockUnaryClient<
         api::v1::LoginRequest,
         api::v1::LoginResponse
-    > >(res, freighter::NIL);
+    > >(res, xerrors::NIL);
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
         3
     );
-    auto mock_client = MockUnaryClient<int, int>{1, freighter::NIL};
+    auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
-    EXPECT_TRUE(err.matches(freighter::NIL));
+    EXPECT_TRUE(err.matches(xerrors::NIL));
 }
 
 /// @brief it should return an error if credentials are invalid.
@@ -43,17 +43,17 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto mock_login_client = std::make_unique<MockUnaryClient<
         api::v1::LoginRequest,
         api::v1::LoginResponse
-    > >(res, freighter::Error(synnax::INVALID_CREDENTIALS, ""));
+    > >(res, xerrors::Error(INVALID_CREDENTIALS, ""));
     auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
         3
     );
-    auto mock_client = MockUnaryClient<int, int>{1, freighter::NIL};
+    auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
     EXPECT_TRUE(err) << err.message();
-    EXPECT_TRUE(err.matches(synnax::INVALID_CREDENTIALS));
+    EXPECT_TRUE(err.matches(INVALID_CREDENTIALS));
 }

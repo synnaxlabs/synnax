@@ -9,25 +9,26 @@
 
 #pragma once
 
-#include <mutex>
-#include "freighter/cpp/freighter.h"
+/// external.
 #include "grpc/grpc.h"
-#include "grpcpp/grpcpp.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
-#include "grpcpp/create_channel.h"
 #include "grpcpp/security/credentials.h"
+#include "glog/logging.h"
+
+/// internal.
+#include "freighter/cpp/freighter.h"
 
 
 namespace priv {
 const std::string PROTOCOL = "grpc";
 
-/// @brief converts a grpc::Status to a freighter::Error.
-inline freighter::Error errFromStatus(const grpc::Status &status) {
-    if (status.ok()) return freighter::NIL;
+/// @brief converts a grpc::Status to a xerrors::Error.
+inline xerrors::Error err_from_status(const grpc::Status &status) {
+    if (status.ok()) return xerrors::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::UNREACHABLE.type, status.error_message()};
-    return freighter::Error(status.error_message());
+    return xerrors::Error(status.error_message());
 }
 
 /// @brief an internal method for reading the entire contents of certificate files
@@ -53,9 +54,9 @@ inline std::string readFile(const std::string &path) {
 
 namespace fgrpc {
 class Pool {
+    std::mutex mu;
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<grpc::Channel> > channels{};
-
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<grpc::ChannelCredentials> credentials =
             grpc::InsecureChannelCredentials();
@@ -95,10 +96,19 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> getChannel(const std::string &target) {
-        if (channels.find(target) == channels.end())
-            channels[target] = grpc::CreateChannel(target, credentials);
-        return channels[target];
+    std::shared_ptr<grpc::Channel> get_channel(const std::string &target) {
+        std::lock_guard lock(mu);
+        const auto it = channels.find(target);
+        if (it != channels.end()) {
+            auto channel = it->second;
+            if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+                channels.erase(target);
+            } else return channel;
+        }
+        grpc::ChannelArguments args;
+        auto channel = grpc::CreateCustomChannel(target, credentials, args);
+        channels[target] = channel;
+        return channel;
     }
 };
 
@@ -130,7 +140,7 @@ public:
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<RS, freighter::Error> send(
+    std::pair<RS, xerrors::Error> send(
         const std::string &target,
         RQ &request
     ) override {
@@ -153,7 +163,7 @@ public:
             grpc_ctx.AddMetadata(k, v);
 
         // Execute request.
-        auto channel = pool->getChannel(req_ctx.target);
+        auto channel = pool->get_channel(req_ctx.target);
         auto stub = RPC::NewStub(channel);
         auto res = RS();
 
@@ -163,12 +173,12 @@ public:
             req_ctx.target,
             freighter::UNARY
         );
-        if (!stat.ok()) return {res_ctx, priv::errFromStatus(stat), res};
+        if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
         // Set inbound metadata.
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
             res_ctx.set(k.data(), v.data());
-        return {res_ctx, freighter::NIL, res};
+        return {res_ctx, xerrors::NIL, res};
     }
 
 private:
@@ -204,15 +214,15 @@ public:
     }
 
     /// @brief Streamer send.
-    freighter::Error send(RQ &request) const override {
-        if (stream->Write(request)) return freighter::NIL;
+    xerrors::Error send(RQ &request) const override {
+        if (stream->Write(request)) return xerrors::NIL;
         return freighter::STREAM_CLOSED;
     }
 
     /// @brief Streamer read.
-    std::pair<RS, freighter::Error> receive() override {
+    std::pair<RS, xerrors::Error> receive() override {
         RS res;
-        if (stream->Read(&res)) return {res, freighter::NIL};
+        if (stream->Read(&res)) return {res, xerrors::NIL};
         const auto ctx = freighter::Context("grpc", "", freighter::STREAM);
         auto v = nullptr;
         const auto err = mw.exec(ctx, this, v).second;
@@ -233,7 +243,7 @@ public:
         if (closed) return {outbound, close_err};
         const grpc::Status status = stream->Finish();
         closed = true;
-        close_err = status.ok() ? freighter::EOF_ : priv::errFromStatus(status);
+        close_err = status.ok() ? freighter::EOF_ : priv::err_from_status(status);
         return {outbound, close_err, nullptr};
     }
 
@@ -248,7 +258,7 @@ private:
     std::unique_ptr<typename RPC::Stub> stub;
 
     bool closed = false;
-    freighter::Error close_err = freighter::NIL;
+    xerrors::Error close_err = xerrors::NIL;
     bool writes_done_called = false;
 };
 
@@ -282,7 +292,7 @@ public:
     /// @returns A stream object, which can be used to listen to the server.
     /// NOTE: Sharing stream invocations is not thread safe.
     /// It is suggested to create one StreamClient and create a stream per thread.
-    std::pair<std::unique_ptr<freighter::Stream<RQ, RS> >, freighter::Error>
+    std::pair<std::unique_ptr<freighter::Stream<RQ, RS> >, xerrors::Error>
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
             "grpc",
@@ -299,7 +309,7 @@ public:
         freighter::Context req_ctx,
         std::nullptr_t &_
     ) override {
-        auto channel = pool->getChannel(req_ctx.target);
+        auto channel = pool->get_channel(req_ctx.target);
         grpc::ClientContext grpcContext;
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
@@ -313,10 +323,10 @@ public:
             res_ctx
         );
         if (res_ctx.has("error"))
-            return {res_ctx, freighter::Error(res_ctx.get("error"))};
+            return {res_ctx, xerrors::Error(res_ctx.get("error"))};
         return {
             res_ctx,
-            freighter::NIL,
+            xerrors::NIL,
             std::move(latest_stream)
         };
     }
@@ -325,8 +335,10 @@ private:
     /// GRPCPool to pool connections across clients.
     std::shared_ptr<Pool> pool;
     /// Middleware collector.
-    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
-        RS> > > mw;
+    freighter::MiddlewareCollector<
+        std::nullptr_t,
+        std::unique_ptr<freighter::Stream<RQ, RS> >
+    > mw;
     /// Base target for all requests.
     freighter::URL base_target;
 };

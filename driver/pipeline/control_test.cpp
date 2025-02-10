@@ -16,26 +16,26 @@
 
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = synnax::Frame(1);
-    fr_1.emplace(1, synnax::Series(1.0));
+    fr_1.emplace(1, telem::Series(1.0));
     auto fr_2 = synnax::Frame(1);
-    fr_2.emplace(1, synnax::Series(2.0));
+    fr_2.emplace(1, telem::Series(2.0));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<freighter::Error> >(
+    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
         std::vector{
-            freighter::NIL,
-            freighter::NIL,
+            xerrors::NIL,
+            xerrors::NIL,
         });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<MockStreamerFactory>(
-        std::vector<freighter::Error>{},
+        std::vector<xerrors::Error>{},
         std::make_shared<std::vector<MockStreamerConfig> >(
             std::vector{
                 MockStreamerConfig{
                     reads,
                     read_errors,
-                    freighter::NIL
+                    xerrors::NIL
                 }
             })
     );
@@ -75,40 +75,40 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
 
 TEST(ControlPipeline, testOpenRetrySuccessful) {
     auto fr_1 = synnax::Frame(1);
-    fr_1.emplace(1, synnax::Series(1.0));
+    fr_1.emplace(1, telem::Series(1.0));
     auto fr_2 = synnax::Frame(1);
-    fr_2.emplace(1, synnax::Series(2.0));
+    fr_2.emplace(1, telem::Series(2.0));
     auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    auto read_errors = std::make_shared<std::vector<freighter::Error> >(
+    auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
         std::vector{
-            freighter::NIL,
-            freighter::NIL,
+            xerrors::NIL,
+            xerrors::NIL,
         });
     auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     auto streamer_factory = std::make_shared<MockStreamerFactory>(
         std::vector{
             freighter::UNREACHABLE,
             freighter::UNREACHABLE,
-            freighter::NIL
+            xerrors::NIL
         },
         std::make_shared<std::vector<MockStreamerConfig> >(
             std::vector{
                 MockStreamerConfig{
                     reads,
                     read_errors,
-                    freighter::NIL,
+                    xerrors::NIL,
                 },
                 MockStreamerConfig{
                     reads,
                     read_errors,
-                    freighter::NIL,
+                    xerrors::NIL,
                 },
                 MockStreamerConfig{
                     reads,
                     read_errors,
-                    freighter::NIL
+                    xerrors::NIL
                 }
             }
         )
@@ -120,7 +120,7 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
         sink,
         breaker::Config{
             .max_retries = 2,
-            .base_interval = synnax::MICROSECOND * 10
+            .base_interval = telem::MICROSECOND * 10
         }
     );
 

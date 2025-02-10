@@ -198,7 +198,7 @@ void ni::Scanner::create_devices() {
         // simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(
             device["key"]);
-        const auto is_not_found = err.matches(synnax::NOT_FOUND);
+        const auto is_not_found = err.matches(xerrors::NOT_FOUND);
         if (err) {
             if (!is_not_found) {
                 LOG(WARNING) << "[ni.scanner] failed to retrieve device " << device["model"] 
@@ -213,7 +213,7 @@ void ni::Scanner::create_devices() {
         }
         auto new_device = synnax::Device(
             device["key"].get<std::string>(), // key
-            device["model"].get<std::string>() + " / " + device["location"].get<std::string>(), // name
+            device["model"].get<std::string>(), // name
             synnax::task_key_rack(this->task.key), // rack key
             device["location"].get<std::string>(), // location
             device["serial_number"].get<std::string>(), // serial number
@@ -221,7 +221,7 @@ void ni::Scanner::create_devices() {
             device["model"].get<std::string>(), // model
             device.dump() // device properties
         );
-        if (this->ctx->client->hardware.create_device(new_device) != freighter::NIL) {
+        if (this->ctx->client->hardware.create_device(new_device) != xerrors::NIL) {
             LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] <<
                     " with key " << device["key"] << " for task " << this->task.name;
             device["failed_to_create"] = true;

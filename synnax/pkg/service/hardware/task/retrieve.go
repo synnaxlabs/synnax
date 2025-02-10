@@ -43,9 +43,9 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-func (r Retrieve) WhereRack(key rack.Key) Retrieve {
+func (r Retrieve) WhereRacks(key ...rack.Key) Retrieve {
 	r.gorp = r.gorp.Where(func(m *Task) bool {
-		return m.Rack() == key
+		return lo.Contains(key, m.Rack())
 	}, gorp.Required())
 	return r
 }
@@ -82,20 +82,36 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: OntologyType,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys, err := KeysFromOntologyIds(ids)
-		if err != nil {
-			return err
-		}
-		r = r.WhereKeys(keys...)
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.otg.SearchIDs(ctx, search.Request{
+		Type: OntologyType,
+		Term: r.searchTerm,
+	})
+	if err != nil {
+		return r, err
+	}
+	keys, err := KeysFromOntologyIds(ids)
+	if err != nil {
+		return r, err
+	}
+	r = r.WhereKeys(keys...)
+	return r, nil
+}
+
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
+	if r, err = r.execSearch(ctx); err != nil {
+		return
 	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+}
+
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return false, err
+	}
+	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

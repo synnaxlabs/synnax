@@ -13,7 +13,7 @@
 
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
-#include "client/cpp/errors/errors.h"
+#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
@@ -38,13 +38,13 @@ inline void check_little_endian() {
 /// @see Synnax
 struct Config {
     /// @brief the host of a node in the cluster.
-    std::string host;
+    std::string host = "localhost";
     /// @brief the port for the specified host.
-    std::uint16_t port;
+    std::uint16_t port = 9090;
     /// @brief the username to use when authenticating with the node.
-    std::string username;
+    std::string username = "synnax";
     /// @brief the password to use when authenticating with the node.
-    std::string password;
+    std::string password = "seldon";
     /// @brief path to the CA certificate file to use when connecting to a secure node.
     /// This is only required if the node is configured to use TLS.
     std::string ca_cert_file;

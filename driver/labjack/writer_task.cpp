@@ -62,7 +62,7 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
 
     auto state_writer_config = synnax::WriterConfig{
         .channels = state_keys,
-        .start = synnax::TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .mode = writer_config.data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,

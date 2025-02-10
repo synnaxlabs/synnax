@@ -319,6 +319,7 @@ func start(cmd *cobra.Command) {
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
 				hardwareSvc.Rack.EmbeddedKey,
+				dist.Cluster.Key(),
 				insecure,
 			),
 		)
@@ -422,6 +423,7 @@ func buildServerConfig(
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
 	rackKey rack.Key,
+	clusterKey uuid.UUID,
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
@@ -433,6 +435,7 @@ func buildEmbeddedDriverConfig(
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
 		RackKey:         rackKey,
+		ClusterKey:      clusterKey,
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),

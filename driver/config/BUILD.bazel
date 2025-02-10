@@ -1,18 +1,24 @@
 cc_library(
     name = "config",
-    hdrs = [
+    srcs = [
+        "config.cpp",
         "config.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp/errors",
-        "//freighter/cpp:freighter",
-        "@nlohmann_json//:json",
-    ],
+        "//client/cpp:synnax",
+        "//driver/ni",
+        "//driver/opc",
+        "//driver/sequence",
+        "//x/cpp/config",
+        "@com_github_google_glog//:glog",
+    ] + select({
+        "@platforms//os:windows": [
+            "//driver/labjack",
+        ],
+        "//conditions:default": [
+        ],
+    }),
 )
 
 cc_test(
@@ -22,8 +28,7 @@ cc_test(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":config",
+        "//driver/config",
         "@com_google_googletest//:gtest_main",
-        "@nlohmann_json//:json",
     ],
 )

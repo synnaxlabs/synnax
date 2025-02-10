@@ -2,19 +2,19 @@ cc_library(
     name = "opc",
     srcs = [
         "factory.cpp",
-        "reader_task.cpp",
         "reader_source.cpp",
+        "reader_task.cpp",
         "scanner.cpp",
         "util.cpp",
-        "writer_task.cpp",
         "writer_sink.cpp",
+        "writer_task.cpp",
     ],
     hdrs = [
         "opc.h",
         "reader.h",
         "scanner.h",
         "util.h",
-        "writer.h"
+        "writer.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -31,10 +31,10 @@ cc_library(
     deps = [
         ":mbedtls",
         "//client/cpp:synnax",
-        "//driver/config",
-        "//driver/loop",
         "//driver/pipeline",
         "//driver/task",
+        "//x/cpp/config",
+        "//x/cpp/loop",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
         "@open62541",
@@ -57,7 +57,7 @@ cc_test(
         "mock_server.h",
         "reader_test.cpp",
         "scanner_test.cpp",
-        "writer_test.cpp"
+        "writer_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

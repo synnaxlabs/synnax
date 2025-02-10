@@ -27,11 +27,11 @@ StateSource<T>::StateSource(
 }
 
 template<typename T>
-std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(breaker::Breaker &breaker) {
+std::pair<synnax::Frame, xerrors::Error> StateSource<T>::read(breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     this->timer.wait(breaker);
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
-    return std::make_pair(this->get_state(), freighter::NIL);
+    return std::make_pair(this->get_state(), xerrors::NIL);
 }
 
 template<typename T>
@@ -41,16 +41,16 @@ synnax::Frame StateSource<T>::get_state() {
     
     // Create timestamp series for each index key
     for (auto &index_key : this->state_index_keys) {
-        auto timestamp_series = synnax::Series(
-            synnax::TimeStamp::now().value,
-            synnax::TIMESTAMP
+        auto timestamp_series = telem::Series(
+            telem::TimeStamp::now().value,
+            telem::TIMESTAMP
         );
         state_frame.add(index_key, timestamp_series);
     }
 
     // Add each state value
     for (auto &[key, value]: this->state_map) {
-        auto value_series = synnax::Series(value);
+        auto value_series = telem::Series(value);
         state_frame.emplace(key, std::move(value_series));
     }
 

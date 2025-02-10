@@ -16,7 +16,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
-        "//driver/breaker",
+        "//x/cpp/breaker",
         "//driver/errors",
         "//driver/task",
         "@nlohmann_json//:json",

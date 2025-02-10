@@ -15,16 +15,16 @@
 
 class MockSource final: public pipeline::Source {
 public:
-    synnax::TimeStamp start_ts;
+    telem::TimeStamp start_ts;
 
-    explicit MockSource(const synnax::TimeStamp start_ts) : start_ts(start_ts) {
+    explicit MockSource(const telem::TimeStamp start_ts) : start_ts(start_ts) {
     }
 
-   std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
+   std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         auto fr = Frame(1);
-        fr.emplace(1, synnax::Series(start_ts));
-        return {std::move(fr), freighter::Error()};
+        fr.emplace(1, telem::Series(start_ts));
+        return {std::move(fr), xerrors::Error()};
     }
 };
 
@@ -34,7 +34,7 @@ public:
 TEST(AcquisitionPipeline, testStartResolution) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
     const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
-    auto start_ts = synnax::TimeStamp::now();
+    auto start_ts = telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
     synnax::WriterConfig writer_config{.channels = {1}};
     auto pipeline = pipeline::Acquisition(
@@ -58,9 +58,9 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     const auto mock_factory = std::make_shared<MockWriterFactory>(
         writes,
         std::vector{
-            freighter::UNREACHABLE, freighter::UNREACHABLE, freighter::NIL
+            freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL
         });
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),
@@ -68,7 +68,7 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
         breaker::Config{
             .max_retries = 3,
             .scale = 0,
-            .base_interval = synnax::MICROSECOND * 10
+            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -83,10 +83,10 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
     const auto mock_factory = std::make_shared<MockWriterFactory>(
         writes,
         std::vector{
-            freighter::Error(synnax::UNAUTHORIZED_ERROR), freighter::NIL
+            xerrors::Error(xerrors::UNAUTHORIZED_ERROR), xerrors::NIL
         }
     );
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),
@@ -94,7 +94,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         breaker::Config{
             .max_retries = 3,
             .scale = 0,
-            .base_interval = synnax::MICROSECOND * 10
+            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -109,11 +109,11 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
     const auto mock_factory = std::make_shared<MockWriterFactory>(
         writes,
-        std::vector<freighter::Error>{},
+        std::vector<xerrors::Error>{},
         std::vector{freighter::UNREACHABLE},
         std::vector{1}
     );
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),
@@ -121,7 +121,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
         breaker::Config{
             .max_retries = 1,
             .scale = 0,
-            .base_interval = synnax::MICROSECOND * 10
+            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -137,11 +137,11 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
     const auto mock_factory = std::make_shared<MockWriterFactory>(
         writes,
-        std::vector<freighter::Error>{},
-        std::vector{freighter::Error(synnax::UNAUTHORIZED_ERROR)},
+        std::vector<xerrors::Error>{},
+        std::vector{xerrors::Error(xerrors::UNAUTHORIZED_ERROR)},
         std::vector{0}
     );
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),
@@ -149,7 +149,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
         breaker::Config{
             .max_retries = 1,
             .scale = 0,
-            .base_interval = synnax::MICROSECOND * 10
+            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -163,7 +163,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
     const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),
@@ -182,7 +182,7 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
     const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(synnax::TimeStamp::now());
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         WriterConfig(),

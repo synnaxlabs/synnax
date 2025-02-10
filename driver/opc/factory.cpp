@@ -35,7 +35,7 @@ opc::Factory::configure_initial_tasks(
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
     auto [old_scanner, err2] = rack.tasks.retrieveByType("opcScanner");
-    if(err2 == freighter::NIL) {
+    if(err2 == xerrors::NIL) {
         LOG(INFO) << "[opc] Removing old scanner task";
         auto del_err = rack.tasks.del(old_scanner.key);
         if (del_err) {
@@ -45,7 +45,7 @@ opc::Factory::configure_initial_tasks(
     }
 
     auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
-    if (err.matches(synnax::NOT_FOUND)) {
+    if (err.matches(xerrors::NOT_FOUND)) {
         LOG(INFO) << "[opc] Creating scanner task";
         auto sy_task = synnax::Task(
             rack.key,

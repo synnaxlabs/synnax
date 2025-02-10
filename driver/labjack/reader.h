@@ -23,13 +23,13 @@
 
 #include "client/cpp/synnax.h"
 
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/middleware.h"
 #include "driver/queue/ts_queue.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "driver/labjack/util.h"
 
 
@@ -151,7 +151,7 @@ struct ReaderChannelConfig {
     std::string location;
     ///@brief Whether to read from this channel
     bool enabled = true;
-    synnax::DataType data_type;
+    telem::DataType data_type;
     ///@brief Synnax channel key
     uint32_t key;
     ///@brief voltage range
@@ -197,8 +197,8 @@ struct ReaderConfig {
     ///@brief Key of device on synnax server
     std::string device_key;
     std::vector<ReaderChannelConfig> channels;
-    synnax::Rate sample_rate = synnax::Rate(1);
-    synnax::Rate stream_rate = synnax::Rate(1);
+    telem::Rate sample_rate = telem::Rate(1);
+    telem::Rate stream_rate = telem::Rate(1);
     synnax::ChannelKey task_key;
     std::set<uint32_t> index_keys;
     std::string serial_number; // used to open devices
@@ -217,8 +217,8 @@ struct ReaderConfig {
     explicit ReaderConfig(config::Parser &parser)
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
-          sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
-          stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
+          sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
+          stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
           serial_number(parser.required<std::string>("device")),
           connection_type(parser.optional<std::string>("connection_type", "")),
           data_saving(parser.optional<bool>("data_saving", false)
@@ -259,13 +259,13 @@ public:
 
     std::vector<synnax::ChannelKey> get_ai_channel_keys();
 
-    void stopped_with_err(const freighter::Error &err) override;
+    void stopped_with_err(const xerrors::Error &err) override;
 
-    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker);
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker);
 
-    freighter::Error stop(const std::string &cmd_key);
+    xerrors::Error stop(const std::string &cmd_key);
 
-    freighter::Error start(const std::string &cmd_key);
+    xerrors::Error start(const std::string &cmd_key);
 
     bool ok();
 
@@ -281,16 +281,16 @@ private:
     int check_err(int err, std::string caller);
 
     void write_to_series(
-        synnax::Series &series,
+        telem::Series &series,
         double &data,
-        synnax::DataType data_type
+        telem::DataType data_type
     );
 
     void acquire_data();
 
-    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
+    std::pair<Frame, xerrors::Error> read_stream(breaker::Breaker &breaker);
 
-    std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
+    std::pair<Frame, xerrors::Error> read_cmd_response(breaker::Breaker &breaker);
 
     void open_device();
 

@@ -16,7 +16,7 @@
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "include/open62541/types.h"
 #include "driver/opc/util.h"
 

@@ -27,7 +27,7 @@ enum WriterCommand : uint32_t {
 };
 
 
-std::pair<Writer, freighter::Error> FrameClient::open_writer(
+std::pair<Writer, xerrors::Error> FrameClient::open_writer(
     const WriterConfig &config) const {
     auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
@@ -65,25 +65,25 @@ bool Writer::write(const Frame &fr) {
     return !err_accumulated;
 }
 
-std::pair<synnax::TimeStamp, bool> Writer::commit() {
+std::pair<telem::TimeStamp, bool> Writer::commit() {
     assert_open();
-    if (err_accumulated) return {synnax::TimeStamp(), false};
+    if (err_accumulated) return {telem::TimeStamp(), false};
 
     api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
 
     if (const auto err = stream->send(req); err) {
         err_accumulated = true;
-        return {synnax::TimeStamp(0), false};
+        return {telem::TimeStamp(0), false};
     }
 
     while (true) {
         auto [res, recExc] = stream->receive();
         if (recExc) {
             err_accumulated = true;
-            return {synnax::TimeStamp(0), false};
+            return {telem::TimeStamp(0), false};
         }
-        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), res.ack()};
+        if (res.command() == COMMIT) return {telem::TimeStamp(res.end()), res.ack()};
     }
 }
 
@@ -115,7 +115,7 @@ bool Writer::set_authority(
 }
 
 
-freighter::Error Writer::error() const {
+xerrors::Error Writer::error() const {
     assert_open();
     api::v1::FrameWriterRequest req;
     req.set_command(ERROR_MODE);
@@ -123,15 +123,15 @@ freighter::Error Writer::error() const {
     while (true) {
         auto [res, recExc] = stream->receive();
         if (recExc) return recExc;
-        if (res.command() == ERROR_MODE) return freighter::Error(res.error());
+        if (res.command() == ERROR_MODE) return xerrors::Error(res.error());
     }
 }
 
-freighter::Error Writer::close() const {
+xerrors::Error Writer::close() const {
     stream->close_send();
     while (true)
         if (const auto rec_exc = stream->receive().second; rec_exc) {
-            if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;
+            if (rec_exc.matches(freighter::EOF_)) return xerrors::NIL;
             return rec_exc;
         }
 }

@@ -18,6 +18,7 @@ jobs:
     outputs:
       go: ${{ steps.filter.outputs.go }}
       ts: ${{ steps.filter.outputs.ts }}
+      cpp: ${{ steps.filter.outputs.cpp }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -30,6 +31,9 @@ jobs:
           filters: |
             shared: &shared
               - .github/workflows/test.x.yaml
+            cpp:
+              - *shared
+              - x/cpp/**
             go:
               - *shared
               - alamos/go/**
@@ -112,3 +116,28 @@ jobs:
 
       - name: Test
         run: pnpm test:x
+
+  cpp:
+    name: C++ (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Test
+        run: bazel test --test_output=all //x/cpp/... --nocache_test_results

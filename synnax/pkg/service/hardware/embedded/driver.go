@@ -10,6 +10,7 @@
 package embedded
 
 import (
+	"github.com/google/uuid"
 	"io"
 	"os/exec"
 	"sync"
@@ -30,6 +31,7 @@ type Config struct {
 	// Address
 	Address        address.Address `json:"address"`
 	RackKey        rack.Key        `json:"rack_key"`
+	ClusterKey     uuid.UUID       `json:"cluster_key"`
 	Integrations   []string        `json:"integrations"`
 	CACertPath     string          `json:"ca_cert_path"`
 	ClientCertFile string          `json:"client_cert_file"`
@@ -55,9 +57,8 @@ func (c Config) format() map[string]interface{} {
 			"max_retries":   40,
 			"scale":         1.1,
 		},
-		"rack": map[string]rack.Key{
-			"key": c.RackKey,
-		},
+		"rack_key":     c.RackKey,
+		"cluster_key":  c.ClusterKey.String(),
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
 	}
@@ -79,6 +80,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
+	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.CACertPath = override.String(c.CACertPath, other.CACertPath)
 	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)

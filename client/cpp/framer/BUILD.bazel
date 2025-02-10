@@ -15,9 +15,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
-        "//client/cpp/telem",
         "//freighter/cpp/fgrpc",
+        "//freighter/cpp:freighter",
         "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
         "@com_github_grpc_grpc//:grpc++",
     ],
@@ -42,9 +43,9 @@ cc_test(
 )
 
 cc_test(
-    name ="streamer_test",
+    name = "streamer_test",
     srcs = [
-        "streamer_test.cpp"
+        "streamer_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

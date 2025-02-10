@@ -12,7 +12,7 @@
 #include <include/gtest/gtest.h>
 
 #include "client/cpp/synnax.h"
-#include "client/cpp/errors/errors.h"
+#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/testutil/testutil.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
@@ -22,16 +22,16 @@ TEST(RangerTests, testCreate) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(10),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(10),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(range.name, "test");
     ASSERT_FALSE(range.key.length() == 0);
-    ASSERT_EQ(range.time_range.start, synnax::TimeStamp(10));
-    ASSERT_EQ(range.time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(range.time_range.start, telem::TimeStamp(10));
+    ASSERT_EQ(range.time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its key.
@@ -39,9 +39,9 @@ TEST(RangerTests, testRetrieveByKey) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err);
@@ -49,8 +49,8 @@ TEST(RangerTests, testRetrieveByKey) {
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(30));
-    ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got.time_range.start, telem::TimeStamp(30));
+    ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its name.
@@ -59,9 +59,9 @@ TEST(RangerTests, testRetrieveByName) {
     auto rand_name = std::to_string(gen_rand());
     auto [range, err] = client.ranges.create(
         rand_name,
-        synnax::TimeRange(
-            synnax::TimeStamp(10),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(10),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err);
@@ -69,8 +69,8 @@ TEST(RangerTests, testRetrieveByName) {
     ASSERT_FALSE(err2);
     ASSERT_EQ(got.name, rand_name);
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(10));
-    ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got.time_range.start, telem::TimeStamp(10));
+    ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief test retrieve by name not found
@@ -78,7 +78,7 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
     auto client = new_test_client();
     auto [got, err] = client.ranges.retrieve_by_name("not_found");
     ASSERT_TRUE(err);
-    ASSERT_EQ(err, synnax::NOT_FOUND);
+    ASSERT_EQ(err, xerrors::NOT_FOUND);
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -87,17 +87,17 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     auto rand_name = std::to_string(gen_rand());
     auto [range, err] = client.ranges.create(
         rand_name,
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err);
     auto [range2, err2] = client.ranges.create(
         rand_name,
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err2);
@@ -107,20 +107,20 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(30));
-    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got[0].time_range.start, telem::TimeStamp(30));
+    ASSERT_EQ(got[0].time_range.end, telem::TimeStamp(100));
     ASSERT_EQ(got[1].name, rand_name);
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(30));
-    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got[1].time_range.start, telem::TimeStamp(30));
+    ASSERT_EQ(got[1].time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief it should retrieve multiple ranges by their keys.
 TEST(RangerTests, testRetrieveMultipleByKey) {
     auto client = new_test_client();
-    auto tr = synnax::TimeRange(
-        synnax::TimeStamp(10 * synnax::SECOND),
-        synnax::TimeStamp(100 * synnax::SECOND)
+    auto tr = telem::TimeRange(
+        telem::TimeStamp(10 * telem::SECOND),
+        telem::TimeStamp(100 * telem::SECOND)
     );
     auto [range, err] = client.ranges.create("test", tr);
     ASSERT_FALSE(err) << err.message();
@@ -132,12 +132,12 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(10 * synnax::SECOND));
-    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100 * synnax::SECOND));
+    ASSERT_EQ(got[0].time_range.start, telem::TimeStamp(10 * telem::SECOND));
+    ASSERT_EQ(got[0].time_range.end, telem::TimeStamp(100 * telem::SECOND));
     ASSERT_EQ(got[1].name, "test2");
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(10 * synnax::SECOND));
-    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100 * synnax::SECOND));
+    ASSERT_EQ(got[1].time_range.start, telem::TimeStamp(10 * telem::SECOND));
+    ASSERT_EQ(got[1].time_range.end, telem::TimeStamp(100 * telem::SECOND));
 }
 
 
@@ -146,9 +146,9 @@ TEST(RangerTests, testSet) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err);
@@ -161,9 +161,9 @@ TEST(RangerTests, testGet) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err) << err.message();
@@ -179,9 +179,9 @@ TEST(RangerTests, testGetFromRetrieved) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(100)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(100)
         )
     );
     ASSERT_FALSE(err) << err.message();
@@ -200,9 +200,9 @@ TEST(RangerTests, testKVDelete) {
     auto client = new_test_client();
     auto [range, err] = client.ranges.create(
         "test",
-        synnax::TimeRange(
-            synnax::TimeStamp(30),
-            synnax::TimeStamp(10 * synnax::SECOND)
+        telem::TimeRange(
+            telem::TimeStamp(30),
+            telem::TimeStamp(10 * telem::SECOND)
         )
     );
     ASSERT_FALSE(err);

@@ -10,7 +10,7 @@
 #pragma once
 
 #include "driver/task/task.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 
 namespace meminfo {
@@ -23,13 +23,13 @@ class MemInfoSource final : public pipeline::Source {
 
 public:
     explicit MemInfoSource(const synnax::ChannelKey &key) : key(key),
-                                                            timer(synnax::HZ * 1) {
+                                                            timer(telem::HZ * 1) {
     }
 
-    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         timer.wait(breaker);
-        auto s = Series(getUsage(), synnax::UINT32);
-        return {Frame(key, std::move(s)), freighter::NIL};
+        auto s = telem::Series(getUsage(), telem::UINT32);
+        return {Frame(key, std::move(s)), xerrors::NIL};
     }
 };
 
@@ -61,17 +61,17 @@ public:
                 "sy_rack" + std::to_string(rack_key_node(task_key_rack(task.key))) +
                 "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
-        if (err.matches(synnax::NOT_FOUND)) {
+        if (err.matches(xerrors::NOT_FOUND)) {
             ch = synnax::Channel(
                 ch_name,
-                synnax::UINT32,
+                telem::UINT32,
                 true
             );
             auto new_err = ctx->client->channels.create(ch);
         }
         auto source = std::make_shared<MemInfoSource>(ch.key);
         auto writer_cfg = synnax::WriterConfig{
-            .channels = {ch.key}, .start = TimeStamp::now()
+            .channels = {ch.key}, .start = telem::TimeStamp::now()
         };
         return std::make_unique<MemInfo>(
             ctx, 
@@ -101,7 +101,7 @@ class Factory final : public task::Factory {
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
         auto [existing, err] = rack.tasks.retrieveByType("meminfo");
-        if (err.matches(synnax::NOT_FOUND)) {
+        if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,
                 "meminfo",

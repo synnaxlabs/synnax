@@ -22,13 +22,17 @@ void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.set_downsample_factor(downsample_factor);
 }
 
-std::pair<Streamer, freighter::Error>
+std::pair<Streamer, xerrors::Error>
 FrameClient::open_streamer(const StreamerConfig &config) const {
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc) return {Streamer(), exc};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);
-    if (auto exc2 = s->send(req)) return {Streamer(std::move(s)), exc2};
+    if (auto exc2 = s->send(req)) {
+        s->close_send();
+        auto [_, err] = s->receive();
+        return {Streamer(std::move(s)), err};
+    }
     auto [_, resExc] = s->receive();
     return {Streamer(std::move(s)), resExc};
 }
@@ -37,7 +41,7 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
     stream(std::move(stream)) {
 }
 
-std::pair<Frame, freighter::Error> Streamer::read() const {
+std::pair<Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     return {Frame(fr.frame()), exc};
@@ -45,13 +49,13 @@ std::pair<Frame, freighter::Error> Streamer::read() const {
 
 void Streamer::close_send() const { this->stream->close_send(); }
 
-freighter::Error Streamer::close() const {
+xerrors::Error Streamer::close() const {
     this->close_send();
     auto [_, err] = this->stream->receive();
     return err.skip(freighter::EOF_);
 }
 
-freighter::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
+xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
     this->assert_open();
     api::v1::FrameStreamerRequest req;
     req.mutable_keys()->Add(channels.begin(), channels.end());

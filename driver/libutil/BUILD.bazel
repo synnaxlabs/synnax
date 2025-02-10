@@ -1,9 +1,0 @@
-cc_library(
-    name = "libutil",
-    hdrs = ["libutil.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//client/cpp:synnax",
-        "//freighter/cpp:freighter",
-    ],
-)

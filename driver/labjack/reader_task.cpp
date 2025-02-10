@@ -97,7 +97,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
 
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
-        .start = synnax::TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .subject = control_subject,
         .mode = reader_config.data_saving
                     ? synnax::WriterMode::PersistStream

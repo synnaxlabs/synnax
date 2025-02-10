@@ -13,10 +13,10 @@
 
 #include "opc.h"
 #include "util.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/control.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 
 #include "include/open62541/types.h"
 #include "include/open62541/types_generated.h"
@@ -60,7 +60,7 @@ struct WriterConfig {
     /// @brief the list of channels to read from the server.
     std::vector<WriterChannelConfig> channels;
     /// @brief frequency state of a controlled channel is published
-    synnax::Rate state_rate = synnax::Rate(1); // default to 1 Hz
+    telem::Rate state_rate = telem::Rate(1); // default to 1 Hz
     /// @brief index key for all state channels in this task
     synnax::ChannelKey state_index_key;
 
@@ -99,7 +99,7 @@ public:
     std::mutex client_mutex;
     breaker::Breaker breaker;
     ///@brief the rate at which sink will ping the OPC UA server to maintain the connection
-    synnax::Rate ping_rate = synnax::Rate(0.1); // default to every 10s
+    telem::Rate ping_rate = telem::Rate(0.1); // default to every 10s
 
     WriterSink(
         WriterConfig cfg,
@@ -114,18 +114,18 @@ public:
         this->keep_alive_thread.join();
     }
 
-    freighter::Error write(const synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
     void maintain_connection();
 
 private:
-    void stopped_with_err(const freighter::Error &err) override;
+    void stopped_with_err(const xerrors::Error &err) override;
 
     static void set_variant(
         UA_Variant *val,
         const synnax::Frame &frame,
         const uint32_t &series_index,
-        const synnax::DataType &type
+        const telem::DataType &type
     );
 
 

@@ -47,7 +47,10 @@ export const SELECTABLE: Layout.Selectable = {
   },
 };
 
-const schema = z.object({ rack: rack.keyZ, config: configZ });
+const schema = z.object({
+  rack: rack.keyZ.min(1, "Rack is required"),
+  config: configZ,
+});
 
 const Internal = ({
   task: base,

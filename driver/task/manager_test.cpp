@@ -11,7 +11,7 @@
 #include "driver/task/task.h"
 #include "driver/driver.h"
 #include "driver/testutil/testutil.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
@@ -33,7 +33,7 @@ TEST(TaskManagerTests, testModuleNominalConfiguration) {
 
     auto breaker = breaker::Breaker(breaker::Config{
         "test_breaker",
-        synnax::TimeSpan(1),
+        telem::TimeSpan(1),
         1,
         1
     });

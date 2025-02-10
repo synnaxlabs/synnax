@@ -141,7 +141,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
-        .start = synnax::TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .mode = data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,
@@ -282,7 +282,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     auto state_writer_config = synnax::WriterConfig{
         .channels = state_keys,
-        .start = synnax::TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .mode = data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,
