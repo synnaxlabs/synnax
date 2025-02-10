@@ -65,7 +65,7 @@ export const useState = <D extends BaseStateDetails>(
     open: async () => client?.hardware.tasks.openStateObserver<D>(),
     onChange: (state) => {
       if (state.task !== key) return;
-      const { details, variant } = state as task.State<D>;
+      const { details, variant } = state;
       const nowRunning = details?.running ?? false;
       setIsRunning(nowRunning);
       if (details?.errors != null && formMethods != null)

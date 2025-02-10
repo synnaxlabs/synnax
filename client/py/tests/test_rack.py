@@ -62,10 +62,7 @@ class TestRackClient:
         """Should raise a validation error if devices are attached to the rack"""
         rack = client.hardware.racks.create(name="test")
         client.hardware.devices.create(
-            key=str(uuid4()),
-            name="test",
-            rack=rack.key,
-            location="dev1"
+            key=str(uuid4()), name="test", rack=rack.key, location="dev1"
         )
         with pytest.raises(sy.ValidationError, match="devices are still attached"):
             client.hardware.racks.delete([rack.key])
