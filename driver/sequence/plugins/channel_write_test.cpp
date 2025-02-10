@@ -338,8 +338,3 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
     ASSERT_NE(luaL_dostring(L, "set_authority('channel1', 'not_a_number')"), 0);
     EXPECT_EQ(sink->authority_calls.size(), 0);
 }
-
-int main(int argc, char **argv) {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

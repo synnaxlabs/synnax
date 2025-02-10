@@ -18,6 +18,7 @@ cc_library(
         "//client/cpp/framer",
         "//client/cpp/hardware",
         "//client/cpp/ranger",
+        "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",

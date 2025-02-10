@@ -18,8 +18,6 @@
 namespace freighter {
 
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
-
-
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 

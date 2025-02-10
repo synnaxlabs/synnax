@@ -13,13 +13,16 @@
 #include <string>
 
 /// external.
-#include "client/cpp/synnax.h"
 #include "nlohmann/json.hpp"
 
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 }
+
+/// module
+#include "client/cpp/synnax.h"
+#include "x/cpp/xerrors/errors.h"
 
 /// internal.
 #include "driver/sequence/plugins/plugins.h"

@@ -22,7 +22,6 @@ extern "C" {
 }
 
 /// internal
-#include "freighter/cpp/freighter.h"
 #include "driver/pipeline/control.h"
 
 using json = nlohmann::json;

@@ -16,6 +16,7 @@ cc_library(
     deps = [
         "//client/cpp/channel",
         "//freighter/cpp/fgrpc",
+        "//freighter/cpp:freighter",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
