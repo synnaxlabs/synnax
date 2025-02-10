@@ -25,7 +25,7 @@
         .console-task-channel-form-container {
             border-radius: 1rem;
             overflow: hidden;
-            background: var(--pluto-gray-l1);
+            background: var(--pluto-gray-l1-70);
             border-color: var(--pluto-gray-l4);
             .pluto-header {
                 background: var(--pluto-gray-l2-50);
@@ -55,7 +55,7 @@
     .console-task-controls {
         border-radius: 1rem;
         border-color: var(--pluto-gray-l4);
-        background-color: var(--pluto-gray-l1);
+        background-color: var(--pluto-gray-l1-70);
         .console-task-state {
             flex-grow: 1;
             border-right: var(--pluto-border);

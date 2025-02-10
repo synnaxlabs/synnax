@@ -127,9 +127,9 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 const LIGHT_SCALE = [
   "#FDFDFD", // l0
   "#fafafa", // l1
-  "#F0F0F0", // l2
+  "#F2F2F2", // l2
   "#E6E6E6", // l3
-  "#D3D3D3", // l4
+  "#D8D8D8", // l4
   "#ADADAD", // l5
   "#878787", // l6
   "#636363", // l7
