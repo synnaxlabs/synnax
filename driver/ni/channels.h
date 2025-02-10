@@ -309,10 +309,10 @@ public:
         const std::string &name
     )
         : min_val(
-              parser.optional<float_t>("min_val", 0)
+              parser.optional<float>("min_val", 0)
           ),
           max_val(
-              parser.optional<float_t>("max_val", 0)
+              parser.optional<float>("max_val", 0)
           ),
           units(
               get_units(

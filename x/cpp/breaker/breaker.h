@@ -31,7 +31,7 @@ struct Config {
     uint32_t max_retries;
     /// @brief sets the rate at which the base_interval will scale on each successive
     /// call to wait(). We do not recommend setting this factor lower than 1.
-    float_t scale;
+    float scale;
 
     [[nodiscard]] Config child(const std::string &name) const {
         return Config{this->name + "." + name, base_interval, max_retries, scale};

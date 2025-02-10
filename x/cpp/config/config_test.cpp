@@ -16,7 +16,7 @@
 TEST(testConfig, testParserHappyPath) {
     struct MyConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
     MyConfig v;
 
@@ -26,7 +26,7 @@ TEST(testConfig, testParserHappyPath) {
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
+    v.dog = parser.optional<float>("dog", 12);
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(v.name, "test");
     ASSERT_EQ(v.dog, 1.0);
@@ -35,13 +35,13 @@ TEST(testConfig, testParserHappyPath) {
 TEST(testConfig, testParserFieldDoesnNotExist) {
     struct MyConfig {
         std::string name;
-        std::float_t dog{};
+        float dog{};
     };
     MyConfig v;
     json j = {};
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
+    v.dog = parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -52,7 +52,7 @@ TEST(testConfig, testParserFieldDoesnNotExist) {
 TEST(testConfig, testParserFieldHasInvalidType) {
     struct MyConfig {
         std::string name;
-        std::float_t dog{};
+        float dog{};
     };
     MyConfig v;
     json j = {
@@ -61,7 +61,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
-    v.dog = parser.optional<std::float_t>("dog", 12);
+    v.dog = parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -72,7 +72,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
 TEST(testConfig, testParserFieldChildHappyPath) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -91,7 +91,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     config::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
+    v.child.dog = child_parser.optional<float>("dog", 12);
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(v.child.name, "test");
     ASSERT_EQ(v.child.dog, 1.0);
@@ -100,7 +100,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
 TEST(testConfig, testParserFieldChildDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -112,7 +112,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
     config::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
+    v.child.dog = child_parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -123,7 +123,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
 TEST(testConfig, testParserChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -142,7 +142,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     config::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
-    v.child.dog = child_parser.optional<std::float_t>("dog", 12);
+    v.child.dog = child_parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -153,7 +153,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
 TEST(testConfig, testIterHappyPath) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -180,7 +180,7 @@ TEST(testConfig, testIterHappyPath) {
     parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
+        child.dog = child_parser.optional<float>("dog", 12);
         v.children.push_back(child);
     });
     EXPECT_TRUE(parser.ok());
@@ -192,7 +192,7 @@ TEST(testConfig, testIterHappyPath) {
 TEST(testConfig, testIterFieldDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -205,7 +205,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
     parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
+        child.dog = child_parser.optional<float>("dog", 12);
         v.children.push_back(child);
     });
     EXPECT_FALSE(parser.ok());
@@ -218,7 +218,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
 TEST(testConfig, testIterFieldIsNotArray) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -238,7 +238,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
     parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
+        child.dog = child_parser.optional<float>("dog", 12);
         v.children.push_back(child);
     });
     EXPECT_FALSE(parser.ok());
@@ -251,7 +251,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
 TEST(testConfig, testIterFieldChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        std::float_t dog;
+        float dog;
     };
 
     struct MyConfig {
@@ -278,7 +278,7 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
-        child.dog = child_parser.optional<std::float_t>("dog", 12);
+        child.dog = child_parser.optional<float>("dog", 12);
         v.children.push_back(child);
     });
     EXPECT_FALSE(parser.ok());
@@ -290,7 +290,7 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
 
 TEST(testConfig, testInterpretStringAsNumber) {
     struct MyConfig {
-        std::float_t dog;
+        float dog;
     };
     // const json j = {
     //     {"dog", "1.232"}
@@ -300,7 +300,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
     j["dog"] = 1.232;
     MyConfig v;
     config::Parser parser(j);
-    v.dog = parser.required<std::float_t>("dog");
+    v.dog = parser.required<float>("dog");
     EXPECT_TRUE(parser.ok());
     // assert that the value is close to the expected value.
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
