@@ -79,7 +79,7 @@ export const ListAndDetails = <C extends Channel>({
         generateChannel={handleGenerateChannel}
       />
       <Divider.Divider direction="y" />
-      <Align.Space direction="y" grow>
+      <Align.Space direction="y" grow empty>
         <Header.Header level="h4">
           <Header.Title weight={500} wrap={false} shade={8}>
             Details

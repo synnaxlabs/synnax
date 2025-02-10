@@ -47,7 +47,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
     align="center"
     style={{ padding: "1.25rem 2rem" }}
   >
-    <Align.Space direction="x" size="small">
+    <Align.Space direction="x" size="small" align="center">
       <Text.Text
         level="p"
         shade={6}

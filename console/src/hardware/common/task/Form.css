@@ -46,8 +46,8 @@
         }
 
         .console-details {
-            padding: 1rem 3rem;
-            overflow: scroll;
+            padding: 3rem 3rem;
+            overflow: auto;
             height: 100%;
         }
     }
