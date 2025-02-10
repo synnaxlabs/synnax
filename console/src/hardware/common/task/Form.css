@@ -14,6 +14,7 @@
     align-items: center;
     container-type: size;
     contain: layout size style;
+    background: var(--pluto-gray-l0);
 
     > div {
         padding: 5rem;
@@ -22,7 +23,13 @@
         width: 100%;
 
         .console-task-channel-form-container {
+            border-radius: 1rem;
             overflow: hidden;
+            background: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l4);
+            .pluto-header {
+                background: var(--pluto-gray-l2-50);
+            }
         }
 
         .console-channel-list {
@@ -42,6 +49,19 @@
             padding: 1rem 3rem;
             overflow: scroll;
             height: 100%;
+        }
+    }
+
+    .console-task-controls {
+        border-radius: 1rem;
+        border-color: var(--pluto-gray-l4);
+        background-color: var(--pluto-gray-l1);
+        .console-task-state {
+            flex-grow: 1;
+            border-right: var(--pluto-border);
+        }
+        > div {
+            padding: 2rem;
         }
     }
 
@@ -73,6 +93,8 @@
         flex-direction: column !important;
         .console-task-state {
             min-height: 10rem;
+            border-right: none !important;
+            border-bottom: var(--pluto-border);
         }
     }
 }
