@@ -248,60 +248,44 @@ public:
     }
 };
 
-typedef std::function<xerrors::Error(synnax::RackKey, std::string)> PersistRemoteInfo;
-
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
 /// acquisition and control tasks.
 class Manager {
 public:
     Manager(
-        const RackKey &rack_key,
-        std::string cluster_key,
-        PersistRemoteInfo persist_rack_info,
+        synnax::Rack rack,
         const std::shared_ptr<Synnax> &client,
-        std::unique_ptr<task::Factory> factory,
-        const breaker::Config &breaker
-    );
+        std::unique_ptr<task::Factory> factory
+    ): rack(std::move(rack)), ctx(std::make_shared<SynnaxContext>(client)),
+       factory(std::move(factory)) {
+    }
 
-    ~Manager();
+    xerrors::Error run();
 
-    xerrors::Error start();
-
-    xerrors::Error stop();
+    void stop();
 
 private:
-    RackKey rack_key;
-    std::string cluster_key;
-    Rack rack;
+    synnax::Rack rack;
     std::shared_ptr<task::Context> ctx;
     std::unique_ptr<Streamer> streamer;
     std::unique_ptr<task::Factory> factory;
     std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
-    PersistRemoteInfo persist_remote_info;
-    breaker::Breaker breaker;
-    std::thread run_thread;
-    xerrors::Error run_err;
 
     struct {
         Channel task_set;
         Channel task_delete;
         Channel task_cmd;
         Channel task_state;
-
-        std::vector<synnax::ChannelKey> stream_keys() {
-            return {task_set.key, task_delete.key, task_cmd.key};
-        }
     } channels;
 
-    void run();
-
-    xerrors::Error run_guarded();
 
     [[nodiscard]] bool skip_foreign_rack(const TaskKey &task_key) const;
 
-    xerrors::Error start_guarded();
+    xerrors::Error open_streamer();
 
-    xerrors::Error resolve_remote_info();
+    xerrors::Error configure_initial_tasks();
+
+    xerrors::Error stop_all_tasks();
 
     void process_task_set(const telem::Series &series);
 

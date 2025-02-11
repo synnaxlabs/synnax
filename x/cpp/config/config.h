@@ -18,7 +18,7 @@
 /// external
 #include "nlohmann/json.hpp"
 
-/// module
+/// internal
 #include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;

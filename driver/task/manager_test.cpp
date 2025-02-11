@@ -98,9 +98,6 @@ protected:
 TEST_F(TaskManagerTestFixture, basicStartStop) {
     std::unique_ptr<EchoTaskFactory> factory = std::make_unique<EchoTaskFactory>();
     task_manager = std::make_unique<task::Manager>(
-        rack.key,
-        "",
-        [](synnax::RackKey, std::string) { return xerrors::NIL; },
         client,
         std::move(factory),
         breaker::default_config("name")
@@ -154,6 +151,8 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
     ASSERT_EQ(state.details["message"], "task configured successfully");
+    const auto close_err = streamer.close();
+    ASSERT_FALSE(close_err) << close_err;
 }
 
 TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
@@ -207,6 +206,8 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
     ASSERT_EQ(state.details["message"], "task stopped successfully");
+    auto close_err = streamer.close();
+    ASSERT_FALSE(close_err) << close_err;
 }
 
 TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
@@ -268,9 +269,11 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
     auto parser = config::Parser(state_str);
-    auto state = task::State::parse(parser);
-    ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.key, cmd.key);
-    ASSERT_EQ(state.variant, "success");
-    ASSERT_EQ(state.details["message"], "hello world");
+    auto [task, key, variant, details] = task::State::parse(parser);
+    ASSERT_EQ(task, echo_task.key);
+    ASSERT_EQ(key, cmd.key);
+    ASSERT_EQ(variant, "success");
+    ASSERT_EQ(details["message"], "hello world");
+    auto close_err = streamer.close();
+    ASSERT_FALSE(close_err) << close_err;
 }

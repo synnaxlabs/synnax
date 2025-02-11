@@ -9,9 +9,7 @@ cc_library(
         "version.cpp",
         "//synnax/pkg/version",
     ],
-    hdrs = [
-        "cmd.h",
-    ],
+    hdrs = ["cmd.h"],
     copts = select({
         # "@platforms//os:windows": [
         #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
@@ -37,28 +35,15 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/config",
         "//driver/daemon",
-        "//driver/heartbeat",
-        "//driver/meminfo",
-        "//driver/ni",
-        "//driver/opc",
-        "//driver/sequence",
-        "//driver/task",
+        "//driver/rack",
         "//x/cpp/breaker",
         "//x/cpp/xlog",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",
     ] + select({
-        "@platforms//os:windows": [
-            "//driver/labjack",
-            "@mbedtls_win",
-        ],
-        "@platforms//os:linux": [
-            "@mbedtls_linux",
-        ],
-        "@platforms//os:macos": [
-            "@mbedtls_macos",
-        ],
+        "@platforms//os:windows": ["@mbedtls_win"],
+        "@platforms//os:linux": ["@mbedtls_linux"],
+        "@platforms//os:macos": ["@mbedtls_macos"],
     }),
 )

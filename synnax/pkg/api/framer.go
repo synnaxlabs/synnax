@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"go/types"
 
 	"github.com/synnaxlabs/alamos"

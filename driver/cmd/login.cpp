@@ -20,7 +20,7 @@
 
 /// internal
 #include "driver/cmd/cmd.h"
-#include "driver/config/config.h"
+#include "driver/rack/rack.h"
 
 std::string get_secure_input(const std::string &prompt, bool hide_input = false) {
     std::string input;
@@ -94,15 +94,15 @@ int cmd::sub::login(int argc, char **argv) {
     LOG(INFO) << "Attempting to connect to Synnax at " << config.host << ":" << config.
             port;
     synnax::Synnax client(config);
-    if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << xlog::RED << "Failed to authenticate: " << err << xlog::RESET;
-        return 1;
-    }
-    LOG(INFO) << xlog::GREEN << "Successfully logged in!" << xlog::RESET;
-    if (auto err = driver::save_conn_params(config)) {
-        LOG(ERROR) << xlog::RED << "Failed to save credentials: " << err << xlog::RESET;
-        return 1;
-    }
-    LOG(INFO) << xlog::GREEN << "Credentials saved successfully!" << xlog::RESET;
+    // if (const auto err = client.auth->authenticate()) {
+    //     LOG(ERROR) << xlog::RED << "Failed to authenticate: " << err << xlog::RESET;
+    //     return 1;
+    // }
+    // LOG(INFO) << xlog::GREEN << "Successfully logged in!" << xlog::RESET;
+    // if (auto err = driver::save_conn_params(config)) {
+    //     LOG(ERROR) << xlog::RED << "Failed to save credentials: " << err << xlog::RESET;
+    //     return 1;
+    // }
+    // LOG(INFO) << xlog::GREEN << "Credentials saved successfully!" << xlog::RESET;
     return 0;
 }

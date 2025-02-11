@@ -1,0 +1,27 @@
+cc_library(
+    name = "rack",
+    srcs = [
+        "factories.cpp",
+        "file.cpp",
+        "persist.cpp",
+        "remote.cpp",
+    ],
+    hdrs = ["rack.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ni",
+        "//driver/opc",
+        "//driver/sequence",
+        "//driver/task",
+        "//x/cpp/kv",
+        "//x/cpp/xos",
+    ] + select({
+        "@platforms//os:windows": [
+            "//driver/labjack",
+        ],
+        "@platforms//os:linux": [
+        ],
+        "@platforms//os:macos": [
+        ],
+    }),
+)

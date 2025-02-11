@@ -47,6 +47,8 @@ int cmd::exec(int argc, char *argv[]) {
     FLAGS_logtostderr = 1;
     FLAGS_colorlogtostderr = 1;
     google::InitGoogleLogging(argv[0]);
+
+    return cmd::sub::start(argc, argv);
     if (argc < 2) {
         print_usage();
         return 1;
