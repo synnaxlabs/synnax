@@ -9,10 +9,15 @@
 
 #pragma once
 
+/// std
+#include <string>
+
 /// @brief the configuration for opening a connection to the driver.
 namespace cmd {
 /// @brief exec runs the CLI command.
 int exec(int argc, char **argv);
+
+std::string version();
 
 namespace sub {
 /// @brief logs the user into a Synnax cluster.

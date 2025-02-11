@@ -11,43 +11,28 @@
 #include <iostream>
 #include <thread>
 #include <condition_variable>
+#include <csignal>
 
 /// external
 #include "glog/logging.h"
 
 /// internal
+
+#include <sys/socket.h>
+
 #include "cmd.h"
 #include "driver/rack/rack.h"
-
-const std::string STOP_COMMAND = "STOP";
-
-std::mutex mtx;
-std::condition_variable cv;
-bool should_stop = false;
-
-void input_listener() {
-    std::string input;
-    while (std::getline(std::cin, input)) {
-        if (input == STOP_COMMAND) {
-            {
-                std::lock_guard lock(mtx);
-                should_stop = true;
-            }
-            cv.notify_one();
-            break;
-        }
-    }
-}
+#include "x/cpp/xshutdown/xshutdown.h"
+#include "x/cpp/xlog/xlog.h"
 
 int cmd::sub::start(int argc, char *argv[]) {
-    std::thread listener(input_listener);
+    LOG(INFO) << xlog::BLUE << "starting synnax driver " << cmd::version() << xlog::RESET;
     rack::Rack r;
     r.start(argc, argv);
-    {
-        std::unique_lock lock(mtx);
-        cv.wait(lock, [] { return should_stop; });
-    }
-    r.stop();
-    listener.join();
+    xshutdown::Listen::listen();
+    LOG(INFO) << xlog::BLUE << "received shutdown signal. stopping driver" << xlog::RESET;
+    if (auto err = r.stop())
+        LOG(FATAL) << "driver stopped with error: " << err;
+    else LOG(INFO) << xlog::BLUE << "driver stopped" << xlog::RESET;
     return 0;
 }

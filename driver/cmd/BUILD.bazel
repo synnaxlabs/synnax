@@ -39,6 +39,7 @@ cc_library(
         "//driver/rack",
         "//x/cpp/breaker",
         "//x/cpp/xlog",
+        "//x/cpp/xshutdown",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",
     ] + select({

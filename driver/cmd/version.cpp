@@ -12,11 +12,22 @@
 /// module
 #include "synnax/pkg/version/version.h"
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "driver/cmd/cmd.h"
+#include "x/cpp/xlog/xlog.h"
+
+std::string cmd::version() {
+    return "v" +
+        std::string(SYNNAX_DRIVER_VERSION)+
+            " (" +
+            std::string(SYNNAX_BUILD_TIMESTAMP)
+    + ")";
+}
 
 int cmd::sub::version(int argc, char **argv) {
-    std::cout << "Synnax Driver version " << SYNNAX_DRIVER_VERSION << " (" <<
-            SYNNAX_BUILD_TIMESTAMP << ")" << std::endl;
+    LOG(INFO) << xlog::BLUE << "Synnax Driver " << cmd::version() << xlog::RESET;
     return 0;
 }

@@ -71,7 +71,6 @@ xerrors::Error task::Manager::configure_initial_tasks() {
 
 void task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
-    this->streamer = nullptr;
 }
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
