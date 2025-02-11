@@ -16,8 +16,6 @@ import { type Layout } from "@/layout";
 
 export * from "@/channel/Create";
 export * from "@/channel/CreateCalculated";
-export * from "@/channel/services/ontology";
-export * from "@/channel/services/palette";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: CreateModal,
