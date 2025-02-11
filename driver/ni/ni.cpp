@@ -22,10 +22,10 @@ void ni::Source::get_index_keys() {
     std::set<std::uint32_t> index_keys;
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
-            channel.channel_key);
+            channel.key);
         if (err)
             return this->log_error(
-                "failed to retrieve channel " + std::to_string(channel.channel_key));
+                "failed to retrieve channel " + std::to_string(channel.key));
         index_keys.insert(channel_info.index);
     }
     for (auto &index_key: index_keys) {
@@ -34,9 +34,9 @@ void ni::Source::get_index_keys() {
             return this->log_error(
                 "failed to retrieve channel " + std::to_string(index_key));
         this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{
-            .channel_key = channel_info.key,
+            .key = channel_info.key,
             .name = channel_info.name,
-            .channel_type = "index"
+            .type = "index"
         });
     }
 }
@@ -231,7 +231,7 @@ std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (const auto &channel : this->reader_config.channels) {
         if (channel.enabled) {
-            keys.push_back(channel.channel_key);
+            keys.push_back(channel.key);
         }
     }
     return keys;

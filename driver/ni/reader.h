@@ -30,10 +30,9 @@
 
 namespace ni {
 struct ReaderChannelConfig {
-    uint32_t channel_key;
-    uint32_t state_channel_key;
+    uint32_t key;
     std::string name;
-    std::string channel_type;
+    std::string type;
     std::shared_ptr<ni::Analog> ni_channel; // TODO: change to AIChan
     bool enabled = true;
     telem::DataType data_type;
@@ -173,10 +172,10 @@ public:
 
     int create_channels() override;
 
-    std::shared_ptr<ni::Analog> parse_channel(
+    std::shared_ptr<ni::Analog> bind_channel(
         config::Parser &parser,
-        const std::string &channel_type,
-        const std::string &channel_name
+        const std::string &type,
+        const std::string &name
     );
 
     void parse_channels(config::Parser &parser) override;

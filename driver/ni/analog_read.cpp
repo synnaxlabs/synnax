@@ -22,66 +22,61 @@
 using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
-    std::uint64_t c_count = 0;
-    parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ReaderChannelConfig config;
-                    // analog channel names are formatted: <device_name>/ai<port>
-                    std::string port = std::to_string(
-                        channel_builder.required<std::uint64_t>("port"));
+    parser.iter("channels", [&](config::Parser &channel_builder) {
+        const auto port = channel_builder.required<std::uint64_t>("port");
+        const auto type = channel_builder.required<std::string>("type");
+        
+        const std::string device = [&]() {
+            if (this->reader_config.device_key != "cross-device")
+                return this->reader_config.device_name;
+            
+            auto device_key = channel_builder.required<std::string>("device");
+            auto [dev, err] = this->ctx->client->hardware.retrieve_device(device_key);
+            if (err) {
+                this->log_error("failed to retrieve device with key " + device_key);
+                return std::string();
+            }
+            return dev.location;
+        }();
+        if (device.empty()) return;
 
-                    std::string name;
-                    if (this->reader_config.device_key != "cross-device") {
-                        name = this->reader_config.device_name;
-                    } else {
-                        auto device_key = channel_builder.required<std::string>(
-                            "device");
-                        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
-                            device_key
-                        );
-                        if (err) {
-                            this->log_error(
-                                "failed to retrieve device with key " + device_key);
-                            return;
-                        }
-                        name = dev.location;
-                    }
-                    config.name = name + "/ai" + port;
+        const auto name = device + "/ai" + std::to_string(port);
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("type");
+        this->channel_map[name] = "channels." + std::to_string(this->reader_config.channels.size());
+        this->port_to_channel[port] = name;
 
-                    config.ni_channel = this->parse_channel(
-                        channel_builder, config.channel_type, config.name
-                    );
+        this->reader_config.channels.emplace_back(ReaderChannelConfig{
+            .key = channel_builder.required<uint32_t>("channel"),
+            .name = name,
+            .type = type,
+            .ni_channel = AnalogInputChannelFactory::create_channel(
+                type,
+                channel_builder,
+                name,
+                this->port_to_channel
+            ),
+            .enabled = channel_builder.optional<bool>("enabled", true),
+        });
+    });
 
-                    this->channel_map[config.name] = "channels." + std::to_string(c_count);
-
-                    this->port_to_channel[channel_builder.required<std::uint64_t>(
-                        "port")] = config.name;
-
-                    config.enabled = channel_builder.optional<bool>("enabled", true);
-
-                    this->reader_config.channels.push_back(config);
-
-                    c_count++;
-                }
-    );
+    if (!parser.ok()) {
+        LOG(ERROR) << "Failed to parse channels for task " << this->reader_config.task_name;
+    }
 }
 
-std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
+std::shared_ptr<ni::Analog> ni::AnalogReadSource::bind_channel(
     config::Parser &parser,
-    const std::string &channel_type,
-    const std::string &channel_name
+    const std::string &type,
+    const std::string &name
 ) {
     auto channel = AnalogInputChannelFactory::create_channel(
-        channel_type,
+        type,
         parser,
-        channel_name,
+        name,
         this->port_to_channel
     );
     if (channel == nullptr) {
-        std::string msg = "Channel " + channel_name + " has an unrecognized type: " + channel_type;
+        std::string msg = "Channel " + name + " has an unrecognized type: " + type;
         this->ctx->set_state({
             .task = task.key,
             .variant = "error",
@@ -92,7 +87,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
         });
         this->log_error(msg);
     }
-
     return channel;
 }
 
@@ -183,10 +177,10 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
     size_t data_index = 0;
     for (const auto &ch: this->reader_config.channels) {
         if (!ch.enabled) continue;
-        if (ch.channel_type == "index") {
+        if (ch.type == "index") {
             auto t = telem::Series(telem::TIMESTAMP, count);
             for (uint64_t i = 0; i < count; ++i) t.write(d.t0 + i * incr);
-            f.emplace(ch.channel_key, std::move(t));
+            f.emplace(ch.key, std::move(t));
             continue;
         }
         auto series = telem::Series(ch.data_type, count);
@@ -196,7 +190,7 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
         else
             for (int i = 0; i < count; ++i)
                 series.write(static_cast<float>(buf[start + i]));
-        f.emplace(ch.channel_key, std::move(series));
+        f.emplace(ch.key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), xerrors::NIL);
@@ -205,7 +199,7 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
 int ni::AnalogReadSource::create_channels() {
     for (auto &channel: this->reader_config.channels) {
         this->num_channels++;
-        if (channel.channel_type == "index" || !channel.enabled ||
+        if (channel.type == "index" || !channel.enabled ||
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
@@ -221,8 +215,8 @@ int ni::AnalogReadSource::create_channels() {
 
 int ni::AnalogReadSource::validate_channels() {
     for (auto &channel: this->reader_config.channels) {
-        if (channel.channel_type == "index") {
-            if (channel.channel_key == 0) {
+        if (channel.type == "index") {
+            if (channel.key == 0) {
                 LOG(ERROR) << "[ni.reader] Index channel key is 0";
                 return -1;
             }
@@ -230,9 +224,9 @@ int ni::AnalogReadSource::validate_channels() {
         }
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
-            channel.channel_key);
-        if (channel_info.data_type != telem::FLOAT32 && channel_info.data_type !=
-            telem::FLOAT64) {
+            channel.key);
+        if (channel_info.data_type != telem::FLOAT32 && 
+            channel_info.data_type != telem::FLOAT64) {
             this->log_error(
                 "Channel " + channel.name + " is not of type float32 or float64");
             this->ctx->set_state({
@@ -252,7 +246,6 @@ int ni::AnalogReadSource::validate_channels() {
             });
             return -1;
         }
-        channel.data_type = channel_info.data_type;
     }
     return 0;
 }
