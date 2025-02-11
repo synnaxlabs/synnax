@@ -14,7 +14,6 @@ import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
@@ -83,7 +82,7 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <Layouts.ListAndDetailsChannelItem
+    <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}

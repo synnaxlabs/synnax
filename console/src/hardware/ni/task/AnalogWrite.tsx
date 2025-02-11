@@ -14,7 +14,6 @@ import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
-import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { generateAOChannel } from "@/hardware/ni/task/generateChannel";
@@ -64,7 +63,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
     entry: { port, type, cmdChannel },
   } = rest;
   return (
-    <Layouts.ListAndDetailsChannelItem
+    <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={port}
       hasTareButton={false}

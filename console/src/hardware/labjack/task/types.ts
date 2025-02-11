@@ -199,6 +199,7 @@ export const ZERO_OUTPUT_CHANNEL: OutputChannel = {
 };
 
 export type Channel = InputChannel | OutputChannel;
+export type ChannelType = Channel["type"];
 
 // Tasks
 
