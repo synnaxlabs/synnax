@@ -258,6 +258,7 @@ public:
 
     xerrors::Error stop();
 
+
 private:
     RackKey rack_key;
     std::string cluster_key;
@@ -269,10 +270,17 @@ private:
 
     PersistRemoteInfo persist_remote_info;
 
-    Channel task_set_channel;
-    Channel task_delete_channel;
-    Channel task_cmd_channel;
-    Channel task_state_channel;
+    struct Channels {
+        Channel task_set;
+        Channel task_delete;
+        Channel task_cmd;
+        Channel task_state;
+
+        std::vector<synnax::ChannelKey> stream_keys() {
+            return {task_set.key, task_delete.key, task_cmd.key};
+        }
+    } channels;
+
 
     breaker::Breaker breaker;
 
@@ -282,6 +290,8 @@ private:
     void run();
 
     xerrors::Error run_guarded();
+
+    bool skip_foreign_rack(const TaskKey &task_key) const;
 
     xerrors::Error start_guarded();
 

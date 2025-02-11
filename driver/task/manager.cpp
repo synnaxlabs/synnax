@@ -59,18 +59,18 @@ xerrors::Error task::Manager::start_guarded() {
     auto [task_set, task_set_err] = this->ctx->client->channels.retrieve(
         TASK_SET_CHANNEL);
     if (task_set_err) return task_set_err;
-    this->task_set_channel = task_set;
+    this->channels.task_set = task_set;
 
     // Fetch task delete channel.
     auto [task_del, task_del_err] = this->ctx->client->channels.retrieve(
         TASK_DELETE_CHANNEL);
     if (task_del_err) return task_del_err;
-    this->task_delete_channel = task_del;
+    this->channels.task_delete = task_del;
 
     // Fetch task command channel.
     auto [task_cmd, task_cmd_err] = this->ctx->client->channels.retrieve(
         TASK_CMD_CHANNEL);
-    this->task_cmd_channel = task_cmd;
+    this->channels.task_cmd = task_cmd;
 
     // Retrieve all tasks that are already configured and start them.
     VLOG(1) << "[driver] pulling and configuring existing tasks from Synnax";
@@ -159,15 +159,18 @@ xerrors::Error task::Manager::stop() {
     return run_err;
 }
 
+bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
+    if (task_key !=  this->rack_key) {
+        LOG(WARNING) << "[driver] received task for foreign rack: " << task_key;
+        return true;
+    }
+    return false;
+}
+
 xerrors::Error task::Manager::run_guarded() {
     if (const auto err = this->start_guarded()) return err;
-    const std::vector stream_channels = {
-        this->task_set_channel.key,
-        this->task_delete_channel.key,
-        this->task_cmd_channel.key
-    };
     auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
-        .channels = stream_channels
+        .channels = this->channels.stream_keys()
     });
 
     if (open_err) return open_err;
@@ -184,32 +187,33 @@ xerrors::Error task::Manager::run_guarded() {
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
             const auto &series = (*frame.series)[i];
-            if (key == this->task_set_channel.key) process_task_set(series);
-            else if (key == this->task_delete_channel.key) process_task_delete(series);
-            else if (key == this->task_cmd_channel.key) process_task_cmd(series);
+            if (key == this->channels.task_set.key) process_task_set(series);
+            else if (key == this->channels.task_delete.key) process_task_delete(series);
+            else if (key == this->channels.task_cmd.key) process_task_cmd(series);
         }
     }
     return this->streamer->close();
 }
 
 void task::Manager::process_task_set(const telem::Series &series) {
-    auto keys = series.values<std::uint64_t>();
-    for (auto key: keys) {
+    const auto task_keys = series.values<std::uint64_t>();
+    for (const auto task_key: task_keys) {
         // If a module exists with this key, stop and remove it.
-        auto task_iter = this->tasks.find(key);
+        auto task_iter = this->tasks.find(task_key);
         if (task_iter != this->tasks.end()) {
             task_iter->second->stop();
             this->tasks.erase(task_iter);
         }
-        auto [sy_task, err] = this->rack.tasks.retrieve(key);
+        if (this->skip_foreign_rack(task_key)) continue;
+        auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
         if (err) {
             std::cerr << err.message() << std::endl;
             continue;
         }
         LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
-                key << ".";
+                task_key << ".";
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, sy_task);
-        if (ok && driver_task != nullptr) this->tasks[key] = std::move(driver_task);
+        if (ok && driver_task != nullptr) this->tasks[task_key] = std::move(driver_task);
         else
             LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
     }
@@ -227,6 +231,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
         }
         LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
                 task;
+        if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
             LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.
@@ -239,9 +244,10 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
 
 
 void task::Manager::process_task_delete(const telem::Series &series) {
-    const auto keys = series.values<std::uint64_t>();
-    for (auto key: keys) {
-        const auto it = this->tasks.find(key);
+    const auto task_keys = series.values<std::uint64_t>();
+    for (const auto task_key: task_keys) {
+        if (this->skip_foreign_rack(task_key)) continue;
+        const auto it = this->tasks.find(task_key);
         if (it != this->tasks.end()) {
             it->second->stop();
             this->tasks.erase(it);
