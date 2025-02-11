@@ -10,26 +10,29 @@
 import { Device } from "@/hardware/labjack/device";
 import { type Channel } from "@/hardware/labjack/task/types";
 
+// This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
+// DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).
+export type Port<T extends Device.PortType> = T extends Device.AIPortType
+  ? Device.AIPort
+  : T extends Device.DIPortType
+    ? Device.DIPort
+    : T extends Device.DOPortType
+      ? Device.DOPort
+      : T extends Device.AOPortType
+        ? Device.AOPort
+        : never;
+
 export const getOpenPort = <T extends Device.PortType>(
   channels: Channel[],
   model: Device.Model,
   types: T[],
-): T extends Device.AIPortType
-  ? Device.AIPort | null
-  : T extends Device.DIPortType
-    ? Device.DIPort | null
-    : T extends Device.DOPortType
-      ? Device.DOPort | null
-      : T extends Device.AOPortType
-        ? Device.AOPort | null
-        : null => {
+): Port<T> | null => {
   const portsInUse = new Set(channels.map(({ port }) => port));
-  // @ts-expect-error TypeScript cannot properly infer the type of the return value.
-  return (
-    types.find(
-      (type) =>
-        Device.DEVICES[model].ports[type].find(({ key }) => !portsInUse.has(key)) !=
-        null,
-    ) ?? null
-  );
+  for (const type of types) {
+    const port = Device.DEVICES[model].ports[type].find(
+      ({ key }) => !portsInUse.has(key),
+    );
+    if (port != null) return port as Port<T>;
+  }
+  return null;
 };

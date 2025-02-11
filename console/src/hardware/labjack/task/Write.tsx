@@ -18,14 +18,14 @@ import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
 import {
+  type OutputChannel,
   type OutputChannelType,
   WRITE_TYPE,
-  type WriteChannel,
   type WriteConfig,
   writeConfigZ,
   type WriteStateDetails,
   type WriteType,
-  ZERO_WRITE_CHANNEL,
+  ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 import { type Layout } from "@/layout";
@@ -55,7 +55,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<WriteChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<OutputChannel> {
   device: Device.Device;
 }
 
@@ -126,14 +126,7 @@ const ChannelListItem = ({
                   }}
                   empty
                 >
-                  {(p) => (
-                    <SelectOutputChannelType
-                      {...p}
-                      onClick={(e) => e.stopPropagation()}
-                      pack={false}
-                      size="medium"
-                    />
-                  )}
+                  {(p) => <SelectOutputChannelType {...p} />}
                 </PForm.Field>,
               ]}
             />
@@ -152,8 +145,8 @@ const ChannelListItem = ({
   );
 };
 
-const getOpenChannel = (channels: WriteChannel[], device: Device.Device) => {
-  if (channels.length === 0) return { ...deep.copy(ZERO_WRITE_CHANNEL), key: id.id() };
+const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
+  if (channels.length === 0) return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.id() };
   const last = channels[channels.length - 1];
   const backupType =
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
@@ -179,11 +172,11 @@ interface ChannelListProps {
 
 const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   const generateChannel = useCallback(
-    (channels: WriteChannel[]) => getOpenChannel(channels, device),
+    (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
   );
   return (
-    <Common.Task.Layouts.List<WriteChannel>
+    <Common.Task.Layouts.List<OutputChannel>
       isSnapshot={isSnapshot}
       generateChannel={generateChannel}
       ListItem={(p) => <ChannelListItem {...p} device={device} />}
@@ -236,8 +229,8 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
     dev.properties.DO.channels = {};
     dev.properties.AO.channels = {};
   }
-  const commandChannelsToCreate: WriteChannel[] = [];
-  const stateChannelsToCreate: WriteChannel[] = [];
+  const commandChannelsToCreate: OutputChannel[] = [];
+  const stateChannelsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = channel.port;
     const existingPair = dev.properties[channel.type].channels[key];
