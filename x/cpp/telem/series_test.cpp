@@ -53,7 +53,7 @@ TEST(TestSeries, testStringConstruction) {
     ASSERT_EQ(v[0], val);
 }
 
-TEST(TestSeries, testJSONConstruction) {
+TEST(TestSeries, testJSONStringConstruction) {
     const std::string raw = R"({ "key": "abc" })";
     const telem::Series s(raw, telem::JSON);
     ASSERT_EQ(s.data_type, telem::JSON);
@@ -319,4 +319,35 @@ TEST_F(SeriesAtTest, testAtFloat64) {
     const std::vector<double> vals = {-1.5, 0.0, 1.5};
     const telem::Series s{vals};
     validateAt(s, vals, telem::FLOAT64);
+}
+
+TEST(TestSeries, testJSONValueConstruction) {
+    // Test with a simple JSON object
+    json obj = {{"key", "value"}};
+    telem::Series s1(obj);
+    ASSERT_EQ(s1.data_type, telem::JSON);
+    ASSERT_EQ(s1.size, 1);
+    auto v1 = s1.strings();
+    ASSERT_EQ(v1[0], obj.dump());
+
+    // Test with a more complex JSON object
+    json complex_obj = {
+        {"string", "hello"},
+        {"number", 42},
+        {"array", {1, 2, 3}},
+        {"nested", {{"a", 1}, {"b", 2}}}
+    };
+    telem::Series s2(complex_obj);
+    ASSERT_EQ(s2.data_type, telem::JSON);
+    ASSERT_EQ(s2.size, 1);
+    auto v2 = s2.strings();
+    ASSERT_EQ(v2[0], complex_obj.dump());
+
+    // Test with a JSON array
+    json arr = json::array({1, 2, 3});
+    telem::Series s3(arr);
+    ASSERT_EQ(s3.data_type, telem::JSON);
+    ASSERT_EQ(s3.size, 1);
+    auto v3 = s3.strings();
+    ASSERT_EQ(v3[0], arr.dump());
 }

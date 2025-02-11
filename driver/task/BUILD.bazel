@@ -17,3 +17,13 @@ cc_library(
         "@nlohmann_json//:json",
     ],
 )
+
+cc_test(
+    name = "task_test",
+    srcs = ["manager_test.cpp"],
+    deps = [
+        "//driver/task",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

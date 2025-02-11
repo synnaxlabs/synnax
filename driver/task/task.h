@@ -41,9 +41,8 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(
-        config::Parser parser
-    ) : task(parser.required<TaskKey>("task")),
+    explicit Command(config::Parser parser) :
+        task(parser.required<TaskKey>("task")),
         type(parser.required<std::string>("type")),
         key(parser.optional<std::string>("key", "")),
         args(parser.optional<json>("args", json{})) {
@@ -53,12 +52,55 @@ struct Command {
     Command(const TaskKey task, std::string type, json args)
         : task(task), type(std::move(type)), args(std::move(args)) {
     }
+
+    [[nodiscard]] json to_json() const {
+        return {
+            {"task", task},
+            {"type", type},
+            {"key", key},
+            {"args", args}
+        };
+    }
+};
+
+/// @brief struct that represents the network portable state of a task. Used both
+/// internally by a task and externally by the driver to track its state.
+struct State {
+    /// @brief the key of the task.
+    TaskKey task = 0;
+    /// @brief an optional key to assign to the state update. This is particularly
+    /// useful for identifying responses to commands.
+    std::string key;
+    /// @brief the type of the task.
+    std::string variant;
+    /// @brief relevant details about the current state of the task.
+    json details = {};
+
+    /// @brief parses a state from the provided configuration parser.
+    static State parse(config::Parser parser) {
+        return State{
+            .task = parser.required<TaskKey>("task"),
+            .key = parser.optional<std::string>("key", ""),
+            .variant = parser.required<std::string>("variant"),
+            .details = parser.optional<json>("details", json{})
+        };
+    }
+
+    [[nodiscard]] json to_json() const {
+        return {
+            {"task", task},
+            {"key", key},
+            {"variant", variant},
+            {"details", details}
+        };
+    }
 };
 
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
 public:
+    /// @brief the key of the task
     synnax::TaskKey key = 0;
 
     virtual std::string name() { return ""; }
@@ -74,31 +116,6 @@ public:
     virtual void stop() = 0;
 
     virtual ~Task() = default;
-};
-
-const std::string TASK_FAILED = "error";
-
-/// @brief struct that represents the network portable state of a task. Used both
-/// internally by a task and externally by the driver to track its state.
-struct State {
-    /// @brief the key of the task.
-    TaskKey task = 0;
-    /// @brief an optional key to assign to the state update. This is particularly
-    /// useful for identifying responses to commands.
-    std::string key;
-    /// @brief the type of the task.
-    std::string variant;
-    /// @brief relevant details about the current state of the task.
-    json details = {};
-
-    [[nodiscard]] json to_json() const {
-        json j;
-        j["task"] = task;
-        j["key"] = key;
-        j["variant"] = variant;
-        j["details"] = details;
-        return std::move(j);
-    }
 };
 
 /// @brief name of the channel used in Synnax to communicate state updates.
@@ -125,31 +142,33 @@ public:
 
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
+    std::mutex mu;
+
 public:
     std::vector<State> states{};
 
-    explicit MockContext(std::shared_ptr<Synnax> client) : Context(client) {
+    explicit MockContext(const std::shared_ptr<Synnax> &client) : Context(client) {
     }
-
 
     void set_state(const State &state) override {
-        state_mutex.lock();
+        mu.lock();
         states.push_back(state);
-        state_mutex.unlock();
+        mu.unlock();
     }
-
-private:
-    std::mutex state_mutex;
 };
 
 class SynnaxContext final : public Context {
+    std::mutex mu;
+    std::unique_ptr<Writer> writer;
+    Channel chan;
+
 public:
-    explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
+    explicit SynnaxContext(const std::shared_ptr<Synnax> &client) : Context(client) {
     }
 
     void set_state(const State &state) override {
-        std::unique_lock lock(state_mutex);
-        if (state_updater == nullptr) {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
             if (err) {
                 LOG(ERROR) <<
@@ -170,20 +189,14 @@ public:
                         message();
                 return;
             }
-            state_updater = std::make_unique<Writer>(std::move(su));
+            writer = std::make_unique<Writer>(std::move(su));
         }
-        auto s = telem::Series(to_string(state.to_json()), telem::JSON);
-        auto fr = Frame(chan.key, std::move(s));
-        if (state_updater->write(fr)) return;
-        auto err = state_updater->close();
+        auto fr = Frame(chan.key, telem::Series(state.to_json()));
+        if (writer->write(fr)) return;
+        auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
-        state_updater = nullptr;
+        writer = nullptr;
     }
-
-private:
-    std::mutex state_mutex;
-    std::unique_ptr<Writer> state_updater;
-    Channel chan;
 };
 
 class Factory {
@@ -203,6 +216,8 @@ public:
 };
 
 class MultiFactory final : public Factory {
+    std::vector<std::unique_ptr<Factory> > factories;
+
 public:
     explicit MultiFactory(std::vector<std::unique_ptr<Factory> > &&factories)
         : factories(std::move(factories)) {
@@ -221,8 +236,7 @@ public:
         return tasks;
     }
 
-    std::pair<std::unique_ptr<Task>, bool>
-    configure_task(
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) override {
@@ -232,9 +246,6 @@ public:
         }
         return {nullptr, false};
     }
-
-private:
-    std::vector<std::unique_ptr<Factory> > factories;
 };
 
 typedef std::function<xerrors::Error(synnax::RackKey, std::string)> PersistRemoteInfo;
@@ -258,7 +269,6 @@ public:
 
     xerrors::Error stop();
 
-
 private:
     RackKey rack_key;
     std::string cluster_key;
@@ -267,10 +277,12 @@ private:
     std::unique_ptr<Streamer> streamer;
     std::unique_ptr<task::Factory> factory;
     std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
-
     PersistRemoteInfo persist_remote_info;
+    breaker::Breaker breaker;
+    std::thread run_thread;
+    xerrors::Error run_err;
 
-    struct Channels {
+    struct {
         Channel task_set;
         Channel task_delete;
         Channel task_cmd;
@@ -281,17 +293,11 @@ private:
         }
     } channels;
 
-
-    breaker::Breaker breaker;
-
-    std::thread run_thread;
-    xerrors::Error run_err;
-
     void run();
 
     xerrors::Error run_guarded();
 
-    bool skip_foreign_rack(const TaskKey &task_key) const;
+    [[nodiscard]] bool skip_foreign_rack(const TaskKey &task_key) const;
 
     xerrors::Error start_guarded();
 

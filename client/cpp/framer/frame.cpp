@@ -89,6 +89,12 @@ NumericType Frame::at(const ChannelKey &key, const int &index) const {
     throw std::runtime_error("channel not found");
 }
 
+void Frame::at(const ChannelKey &key, const int &index, std:: string &value) const {
+    for (size_t i = 0; i < channels->size(); i++)
+        if (channels->at(i) == key) return series->at(i).at(index, value);
+    throw std::runtime_error("channel not found");
+}
+
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
     os << "Frame{" << std::endl;
     for (size_t i = 0; i < f.channels->size(); i++)

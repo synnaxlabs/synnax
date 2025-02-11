@@ -124,6 +124,7 @@ TEST(TestChannel, testRetrieveByName) {
         telem::FLOAT64,
         telem::Rate(1));
     ASSERT_FALSE(err) << err.message();
+    auto ch = synnax::Channel("test", telem::FLOAT64, true);
     auto [retrieved, err2] = client.channels.retrieve(rand_name);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(channel.name, retrieved.name);

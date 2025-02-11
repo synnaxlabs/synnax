@@ -110,6 +110,8 @@ struct Frame {
     template<typename NumericType>
     NumericType at(const ChannelKey &key, const int &index) const;
 
+    void at(const ChannelKey &key, const int &index, std::string &value) const;
+
     [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.

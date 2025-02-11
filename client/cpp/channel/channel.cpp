@@ -9,6 +9,7 @@
 
 #include "client/cpp/channel/channel.h"
 
+#include <utility>
 #include <vector>
 
 #include "x/cpp/xerrors/errors.h"
@@ -36,28 +37,28 @@ Channel::Channel(
 
 /// @brief rate based ctor.
 Channel::Channel(
-    const std::string &name,
-    const telem::DataType &data_type,
+    std::string name,
+    telem::DataType data_type,
     const telem::Rate rate
-) : name(name), data_type(data_type), rate(rate) {
+) : name(std::move(name)), data_type(std::move(data_type)), rate(rate) {
 }
 
 /// @brief index based ctor.
 Channel::Channel(
-    const std::string &name,
-    const telem::DataType &data_type,
+    std::string name,
+    telem::DataType data_type,
     const ChannelKey index,
     const bool is_index
-) : name(name), data_type(data_type), index(index), is_index(is_index) {
+) : name(std::move(name)), data_type(std::move(data_type)), index(index),
+    is_index(is_index) {
 }
 
 Channel::Channel(
-    const std::string &name,
-    const telem::DataType &data_type,
+    std::string name,
+    telem::DataType data_type,
     const bool is_virtual
-) : name(name), data_type(data_type), is_virtual(is_virtual) {
+) : name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {
 }
-
 
 /// @brief binds to the given proto.
 void Channel::to_proto(api::v1::Channel *a) const {
@@ -79,7 +80,7 @@ xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     if (!exc) {
         if (res.channels_size() == 0)
             return xerrors::Error(xerrors::UNEXPECTED_ERROR,
-                                    "no channels returned from server on create. please report this issue to the synnax team");
+                                  "no channels returned from server on create. please report this issue to the synnax team");
         const auto first = res.channels(0);
         channel.key = first.key();
         channel.name = first.name();
@@ -138,7 +139,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key)
         return {
             Channel(),
             xerrors::Error(xerrors::NOT_FOUND,
-                             "no channels found matching key " + std::to_string(key))
+                           "no channels found matching key " + std::to_string(key))
         };
     return {Channel(res.channels(0)), err};
 }
@@ -155,13 +156,13 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(
         return {
             Channel(),
             xerrors::Error(xerrors::NOT_FOUND,
-                             "no channels found matching name " + name)
+                           "no channels found matching name " + name)
         };
     if (res.channels_size() > 1)
         return {
             Channel(),
             xerrors::Error(xerrors::QUERY_ERROR,
-                             "multiple channels found matching name " + name)
+                           "multiple channels found matching name " + name)
         };
     return {Channel(res.channels(0)), err};
 }

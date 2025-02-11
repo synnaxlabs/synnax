@@ -189,7 +189,7 @@ func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
 // RawString displays the time range with both timestamps in raw string format.
 func (tr TimeRange) RawString() string {
-	return tr.Start.String() + " - " + tr.End.String()
+	return tr.Start.RawString() + " - " + tr.End.RawString()
 }
 
 // String displays the time range with both timestamps as formatted time.

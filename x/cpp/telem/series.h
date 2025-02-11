@@ -9,13 +9,20 @@
 
 #pragma once
 
+/// std
 #include <cstddef>
 #include <string>
 #include <vector>
 #include <variant>
 
+/// external
+#include "nlohmann/json.hpp"
+
+/// internal
 #include "x/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
+
+using json = nlohmann::json;
 
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>('\n');
 constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
@@ -76,10 +83,8 @@ public:
     /// Calls to write can be used to populate the series.
     /// @param data_type the type of data being stored.
     /// @param cap the number of samples that can be stored in the series.
-    Series(
-        const DataType &data_type,
-        const size_t cap
-    ) : size(0),
+    Series(const DataType &data_type, const size_t cap) :
+        size(0),
         cap(cap),
         data_type(data_type),
         data(std::make_unique<std::byte[]>(cap * data_type.density())) {
@@ -96,10 +101,8 @@ public:
     /// you do choose to override the data type, it's up to you to ensure that the
     /// contents of the series are compatible with the data type.
     template<typename NumericType>
-    explicit Series(
-        const std::vector<NumericType> &d,
-        DataType dt = DATA_TYPE_UNKNOWN
-    ) : size(d.size()),
+    explicit Series(const std::vector<NumericType> &d, DataType dt = DATA_TYPE_UNKNOWN):
+        size(d.size()),
         cap(d.size()),
         data_type(std::move(dt)) {
         static_assert(
@@ -115,9 +118,8 @@ public:
     /// @brief constructs a series of size 1 with a data type of TIMESTAMP from the
     /// given timestamp.
     /// @param v the timestamp to be used.
-    explicit Series(
-        const TimeStamp v
-    ) : size(1),
+    explicit Series(const TimeStamp v):
+        size(1),
         cap(1),
         data_type(telem::TIMESTAMP) {
         data = std::make_unique<std::byte[]>(this->byte_size());
@@ -131,12 +133,10 @@ public:
     /// data type, it's up to you to ensure that the contents of the series are
     /// compatible with the data type.
     template<typename NumericType>
-    explicit Series(
-        NumericType v,
-        DataType dt = DATA_TYPE_UNKNOWN
-    ): size(1),
-       cap(1),
-       data_type(std::move(dt)) {
+    explicit Series(NumericType v, DataType dt = DATA_TYPE_UNKNOWN):
+        size(1),
+        cap(1),
+        data_type(std::move(dt)) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -147,6 +147,62 @@ public:
         memcpy(this->data.get(), &v, this->byte_size());
     }
 
+    /// @brief constructs the series from the given vector of strings. These can also
+    /// be JSON encoded strings, in which case the data type should be set to JSON.
+    /// @param d the vector of strings to be used as the data.
+    /// @param data_type_ the type of data being used.
+    explicit Series(const std::vector<std::string> &d, DataType data_type_ = STRING):
+        data_type(std::move(data_type_)) {
+        if (!this->data_type.is_variable())
+            throw std::runtime_error("expected data type to be STRING or JSON");
+        this->cached_byte_size = 0;
+        this->data = std::make_unique<std::byte[]>(byte_size());
+        size_t offset = 0;
+        for (const auto &s: d) {
+            memcpy(this->data.get() + offset, s.data(), s.size());
+            offset += s.size();
+            this->data[offset] = static_cast<std::byte>('\n');
+            offset++;
+            this->cached_byte_size += s.size() + 1;
+        }
+        this->size = d.size();
+        this->cap = size;
+    }
+
+    /// @brief constructs the series from the given string. This can also be a JSON
+    /// encoded string, in which case the data type should be set to JSON.
+    /// @param data the string to be used as the data.
+    /// @param data_type_ the type of data being used. Defaults to STRING, but can
+    /// also be set to JSON.
+    explicit Series(const std::string &data, DataType data_type_ = STRING) :
+        size(1), cap(1), data_type(std::move(data_type_)) {
+        if (!this->data_type.matches({STRING, JSON}))
+            throw std::runtime_error(
+                "cannot set a string value on a non-string or JSON series");
+        this->cached_byte_size = data.size() + 1;
+        this->data = std::make_unique<std::byte[]>(byte_size());
+        memcpy(this->data.get(), data.data(), data.size());
+        this->data[byte_size() - 1] = static_cast<std::byte>('\n');
+    }
+
+
+    /// @brief constructs the series from its protobuf representation.
+    explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
+        if (this->data_type.is_variable()) {
+            this->size = 0;
+            for (const char &v: s.data())
+                if (v == NEWLINE_TERMINATOR_CHAR)
+                    this->size++;
+            this->cached_byte_size = s.data().size();
+        } else this->size = s.data().size() / this->data_type.density();
+        this->cap = this->size;
+        this->data = std::make_unique<std::byte[]>(byte_size());
+        memcpy(this->data.get(), s.data().data(), byte_size());
+    }
+
+    /// @brief constructs the series from the given JSON value.
+    explicit Series(const json &value): Series(value.dump(), JSON) {
+    }
 
     /// @brief sets a number at an index.
     /// @param index the index to set the number at. If negative, the index is treated
@@ -261,61 +317,6 @@ public:
         return count;
     }
 
-    /// @brief constructs the series from the given vector of strings. These can also
-    /// be JSON encoded strings, in which case the data type should be set to JSON.
-    /// @param d the vector of strings to be used as the data.
-    /// @param data_type_ the type of data being used.
-    explicit Series(
-        const std::vector<std::string> &d,
-        DataType data_type_ = STRING
-    ) : data_type(std::move(data_type_)) {
-        if (!this->data_type.is_variable())
-            throw std::runtime_error("expected data type to be STRING or JSON");
-        this->cached_byte_size = 0;
-        this->data = std::make_unique<std::byte[]>(byte_size());
-        size_t offset = 0;
-        for (const auto &s: d) {
-            memcpy(this->data.get() + offset, s.data(), s.size());
-            offset += s.size();
-            this->data[offset] = static_cast<std::byte>('\n');
-            offset++;
-            this->cached_byte_size += s.size() + 1;
-        }
-        this->size = d.size();
-        this->cap = size;
-    }
-
-    /// @brief constructs the series from the given string. This can also be a JSON
-    /// encoded string, in which case the data type should be set to JSON.
-    ///  @param data the string to be used as the data.
-    ///  @param data_type_ the type of data being used. Defaults to STRING, but can
-    ///  also be set to JSON.
-    explicit Series(
-        const std::string &data,
-        DataType data_type_ = STRING
-    ) : size(1), cap(1), data_type(std::move(data_type_)) {
-        if (!this->data_type.matches({STRING, JSON}))
-            throw std::runtime_error(
-                "cannot set a string value on a non-string or JSON series");
-        this->cached_byte_size = data.size() + 1;
-        this->data = std::make_unique<std::byte[]>(byte_size());
-        memcpy(this->data.get(), data.data(), data.size());
-        this->data[byte_size() - 1] = static_cast<std::byte>('\n');
-    }
-
-    /// @brief constructs the series from its protobuf representation.
-    explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
-        if (this->data_type.is_variable()) {
-            this->size = 0;
-            for (const char &v: s.data())
-                if (v == NEWLINE_TERMINATOR_CHAR)
-                    this->size++;
-            this->cached_byte_size = s.data().size();
-        } else this->size = s.data().size() / this->data_type.density();
-        this->cap = this->size;
-        this->data = std::make_unique<std::byte[]>(byte_size());
-        memcpy(this->data.get(), s.data().data(), byte_size());
-    }
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
@@ -430,6 +431,18 @@ public:
             } else value += static_cast<char>(this->data[i]);
     }
 
+    /// @brief binds the JSON value at the given index to the provided json object. The
+    /// series' data type must be JSON.
+    /// @param index the index to get the JSON at. If negative, the index is treated
+    /// as an offset from the end of the series.
+    /// @param value the json object to bind the value to.
+    void at(const int &index, json &value) const {
+        if (!data_type.matches({JSON}))
+            throw std::runtime_error("cannot bind a JSON value on a non-JSON series");
+        std::string str_value;
+        this->at(index, str_value);
+        value = json::parse(str_value);
+    }
 
     /// @brief returns the number at the given index.
     /// @param index the index to get the number at.

@@ -56,21 +56,20 @@ xerrors::Error task::Manager::start_guarded() {
         LOG(WARNING) << "[driver] failed to persist rack info: " << err;
 
     // Fetch task set channel.
-    auto [task_set, task_set_err] = this->ctx->client->channels.retrieve(
-        TASK_SET_CHANNEL);
+    auto [channels, task_set_err] = this->ctx->client->channels.retrieve({
+        TASK_SET_CHANNEL,
+        TASK_DELETE_CHANNEL,
+        TASK_CMD_CHANNEL
+    });
     if (task_set_err) return task_set_err;
-    this->channels.task_set = task_set;
-
-    // Fetch task delete channel.
-    auto [task_del, task_del_err] = this->ctx->client->channels.retrieve(
-        TASK_DELETE_CHANNEL);
-    if (task_del_err) return task_del_err;
-    this->channels.task_delete = task_del;
-
-    // Fetch task command channel.
-    auto [task_cmd, task_cmd_err] = this->ctx->client->channels.retrieve(
-        TASK_CMD_CHANNEL);
-    this->channels.task_cmd = task_cmd;
+    if (channels.size() != 3)
+        return xerrors::Error(
+            "expected 3 channels, got " + std::to_string(channels.size()));
+    for (const auto &channel: channels)
+        if (channel.name == TASK_SET_CHANNEL) this->channels.task_set = channel;
+        else if (channel.name == TASK_DELETE_CHANNEL)
+            this->channels.task_delete = channel;
+        else if (channel.name == TASK_CMD_CHANNEL) this->channels.task_cmd = channel;
 
     // Retrieve all tasks that are already configured and start them.
     VLOG(1) << "[driver] pulling and configuring existing tasks from Synnax";
@@ -81,20 +80,19 @@ xerrors::Error task::Manager::start_guarded() {
         if (ok && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
     }
-
     VLOG(1) << "[driver] configuring initial tasks from factory";
     auto initial_tasks =
             this->factory->configure_initial_tasks(this->ctx, this->rack);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
-
-    return task_cmd_err;
+    return xerrors::NIL;
 }
 
 xerrors::Error task::Manager::resolve_remote_info() {
     std::pair<synnax::Rack, xerrors::Error> res;
     if (const auto err = this->ctx->client->auth->authenticate()) return err;
-    if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key && this->rack_key != 0) {
+    if (this->cluster_key != this->ctx->client->auth->cluster_info.cluster_key && this->
+        rack_key != 0) {
         LOG(WARNING) << "[driver] detected a change in cluster key. Resetting rack key";
         this->rack_key = 0;
         this->cluster_key = this->ctx->client->auth->cluster_info.cluster_key;
@@ -148,7 +146,7 @@ void task::Manager::run() {
 xerrors::Error task::Manager::stop() {
     if (!this->breaker.running()) return xerrors::NIL;
     if (!this->run_thread.joinable()) return xerrors::NIL;
-    this->streamer->close_send();
+    if (this->streamer != nullptr) this->streamer->close_send();
     this->breaker.stop();
     this->run_thread.join();
     for (auto &[key, task]: this->tasks) {
@@ -160,7 +158,7 @@ xerrors::Error task::Manager::stop() {
 }
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
-    if (task_key !=  this->rack_key) {
+    if (synnax::task_key_rack(task_key) != this->rack.key) {
         LOG(WARNING) << "[driver] received task for foreign rack: " << task_key;
         return true;
     }
@@ -213,7 +211,8 @@ void task::Manager::process_task_set(const telem::Series &series) {
         LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
                 task_key << ".";
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, sy_task);
-        if (ok && driver_task != nullptr) this->tasks[task_key] = std::move(driver_task);
+        if (ok && driver_task != nullptr)
+            this->tasks[task_key] = std::move(driver_task);
         else
             LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
     }
