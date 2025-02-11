@@ -14,7 +14,7 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Layout } from "@/layout";
-import { Range } from "@/range";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export interface ParentRangeButtonProps<
   Config extends UnknownRecord = UnknownRecord,
@@ -58,7 +58,7 @@ export const ParentRangeButton = <
   }, [task, client?.key]);
   if (parent == null) return null;
   const handleClick = () =>
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });
+    placeLayout({ ...OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });
   return (
     <Align.Space align="center" direction="x" size="small">
       <Text.Text level="p">Snapshotted to</Text.Text>

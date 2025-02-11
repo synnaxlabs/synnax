@@ -23,7 +23,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createLayout } from "@/range/CreateLayout";
-import { OVERVIEW_LAYOUT } from "@/range/overview/Overview";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {

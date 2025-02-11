@@ -45,7 +45,7 @@ import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { createLayout } from "@/range/CreateLayout";
-import { OVERVIEW_LAYOUT } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,

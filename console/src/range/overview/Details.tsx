@@ -31,7 +31,7 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { OVERVIEW_LAYOUT } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
 
