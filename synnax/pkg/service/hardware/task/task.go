@@ -12,11 +12,11 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/synnaxlabs/x/gorp"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -58,14 +58,22 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 }
 
 type Task struct {
-	Key      Key    `json:"key" msgpack:"key"`
-	Name     string `json:"name" msgpack:"name"`
-	Type     string `json:"type" msgpack:"type"`
-	Config   string `json:"config" msgpack:"config"`
-	State    *State `json:"state" msgpack:"state"`
-	Internal bool   `json:"internal" msgpack:"internal"`
-	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
+	Key      Key        `json:"key" msgpack:"key"`
+	Name     string     `json:"name" msgpack:"name"`
+	Type     string     `json:"type" msgpack:"type"`
+	Config   string     `json:"config" msgpack:"config"`
+	State    *TaskState `json:"state" msgpack:"state"`
+	Internal bool       `json:"internal" msgpack:"internal"`
+	Snapshot bool       `json:"snapshot" msgpack:"snapshot"`
 }
+
+var _ gorp.Entry[Key] = Task{}
+
+func (t Task) GorpKey() Key { return t.Key }
+
+func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+
+func (t Task) Rack() rack.Key { return t.Key.Rack() }
 
 func (t Task) String() string {
 	if t.Name != "" {
@@ -113,7 +121,8 @@ func (d *Details) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type State struct {
+// TaskState represents the state of a task.
+type TaskState struct {
 	Key      string  `json:"key" msgpack:"key"`
 	Internal bool    `json:"internal" msgpack:"internal"`
 	Task     Key     `json:"task" msgpack:"task"`
@@ -121,10 +130,6 @@ type State struct {
 	Details  Details `json:"details" msgpack:"details"`
 }
 
-var _ gorp.Entry[Key] = Task{}
+func (s TaskState) GorpKey() Key { return s.Task }
 
-func (t Task) GorpKey() Key { return t.Key }
-
-func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
-
-func (t Task) Rack() rack.Key { return t.Key.Rack() }
+func (s TaskState) SetOptions() []interface{} { return []interface{}{s.Task.Rack().Node()} }

@@ -12,6 +12,8 @@ package state
 import (
 	"context"
 	"encoding/binary"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"io"
 	"sync"
 
@@ -33,18 +35,19 @@ import (
 	"go.uber.org/zap"
 )
 
-type Rack struct {
-	Key       rack.Key                `json:"key" msgpack:"key"`
-	Heartbeat uint64                  `json:"heartbeat" msgpack:"heartbeat"`
-	Tasks     map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
+type RackState struct {
+	Key       rack.Key                    `json:"key" msgpack:"key"`
+	Heartbeat uint64                      `json:"heartbeat" msgpack:"heartbeat"`
+	Tasks     map[task.Key]task.TaskState `json:"tasks" msgpack:"tasks"`
 }
 
 type Tracker struct {
 	mu struct {
 		sync.RWMutex
-		Racks map[rack.Key]*Rack
+		Racks map[rack.Key]*RackState
 	}
-	stopListeners io.Closer
+	stopListeners     io.Closer
+	saveNotifications chan task.Key
 }
 
 type TrackerConfig struct {
@@ -98,7 +101,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	}
 	sCtx, cancel := signal.Isolated()
 	t = &Tracker{}
-	t.mu.Racks = make(map[rack.Key]*Rack, len(racks))
+	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
 	for _, r := range racks {
 		var tasks []task.Task
 		if err = cfg.Task.NewRetrieve().
@@ -107,11 +110,19 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			Exec(ctx, nil); err != nil {
 			return
 		}
-		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
-		for _, t := range tasks {
-			r.Tasks[t.Key] = task.State{Task: t.Key, Variant: task.StatusInfo}
+		rck := &RackState{Key: r.Key, Tasks: make(map[task.Key]task.TaskState, len(tasks))}
+		for _, tsk := range tasks {
+			// try to fetch the task state
+			taskState := task.TaskState{Task: tsk.Key, Variant: task.StatusInfo}
+			if err = gorp.NewRetrieve[task.Key, task.TaskState]().
+				WhereKeys(tsk.Key).
+				Entry(&taskState).
+				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+				return
+			}
+			rck.Tasks[tsk.Key] = taskState
 		}
-		t.mu.Racks[r.Key] = r
+		t.mu.Racks[rck.Key] = rck
 	}
 	if err = cfg.Channels.CreateMany(
 		ctx,
@@ -166,11 +177,11 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				rackKey := c.Key.Rack()
 				rck, rckOk := t.mu.Racks[rackKey]
 				if !rckOk {
-					rck = &Rack{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+					rck = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.TaskState)}
 					t.mu.Racks[rackKey] = rck
 				}
 				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-					rck.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.StatusInfo}
+					rck.Tasks[c.Key] = task.TaskState{Task: c.Key, Variant: task.StatusInfo}
 				}
 			}
 		}
@@ -183,7 +194,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				delete(t.mu.Racks, c.Key)
 			} else {
 				if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
-					t.mu.Racks[c.Key] = &Rack{Key: c.Key, Tasks: make(map[task.Key]task.State)}
+					t.mu.Racks[c.Key] = &RackState{Key: c.Key, Tasks: make(map[task.Key]task.TaskState)}
 				}
 			}
 		}
@@ -214,7 +225,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		// Assume the tasks state is encoded as JSON
 		decoder := &binaryx.JSONCodec{}
 		for _, ch := range changes {
-			var taskState task.State
+			var taskState task.TaskState
 			if err = decoder.Decode(ctx, ch.Key, &taskState); err != nil {
 				cfg.L.Warn("failed to decode task state", zap.Error(err))
 			}
@@ -225,7 +236,19 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			} else {
 				r.Tasks[taskState.Task] = taskState
 			}
+			t.sendSaveSignal(taskState.Task)
 		}
+	})
+	t.saveNotifications = make(chan task.Key, 10)
+	signal.GoRange[task.Key](sCtx, t.saveNotifications, func(ctx context.Context, taskKey task.Key) error {
+		tsk, ok := t.GetTask(ctx, taskKey)
+		if !ok {
+			return nil
+		}
+		if err := gorp.NewCreate[task.Key, task.TaskState]().Entry(&tsk).Exec(ctx, cfg.DB); err != nil {
+			cfg.L.Warn("failed to save task state", zap.Error(err))
+		}
+		return nil
 	})
 	t.stopListeners = xio.MultiCloser{
 		signal.NewShutdown(sCtx, cancel),
@@ -235,23 +258,30 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	return
 }
 
-func (t *Tracker) GetTask(ctx context.Context, key task.Key) (task.State, bool) {
+func (t *Tracker) sendSaveSignal(taskKey task.Key) {
+	select {
+	case t.saveNotifications <- taskKey:
+	default:
+	}
+}
+
+func (t *Tracker) GetTask(ctx context.Context, key task.Key) (task.TaskState, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	r, ok := t.mu.Racks[key.Rack()]
 	if !ok {
-		return task.State{}, false
+		return task.TaskState{}, false
 	}
 	tsk, ok := r.Tasks[key]
 	return tsk, ok
 }
 
-func (t *Tracker) GetRack(ctx context.Context, key rack.Key) (Rack, bool) {
+func (t *Tracker) GetRack(ctx context.Context, key rack.Key) (RackState, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	r, ok := t.mu.Racks[key]
 	if !ok {
-		return Rack{}, false
+		return RackState{}, false
 	}
 	return *r, true
 }

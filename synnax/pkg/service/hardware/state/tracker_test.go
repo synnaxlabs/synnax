@@ -151,7 +151,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
+			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.TaskState{
 				Variant: task.StatusError,
 				Task:    taskKey,
 			}))
