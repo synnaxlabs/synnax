@@ -12,8 +12,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use,
   useCallback,
-  useContext as reactUseContext,
   useMemo,
   useState,
 } from "react";
@@ -30,14 +30,11 @@ interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
 export type AddStatusFn = status.AddStatusFn;
 export type ExceptionHandler = status.ExceptionHandler;
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  statuses: [],
-  add: () => {},
-};
+const ZERO_CONTEXT_VALUE: ContextValue = { statuses: [], add: () => {} };
 
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
-export const useContext = reactUseContext;
+const useContext = () => use(Context);
 
 export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
@@ -72,13 +69,13 @@ export const Aggregator = ({
   );
 
   return (
-    <Context.Provider value={value}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context.Provider>
+    </Context>
   );
 };
 
-export const useAggregator = (): status.AddStatusFn => useContext(Context).add;
+export const useAggregator = () => useContext().add;
 
 export const useExceptionHandler = (): status.ExceptionHandler => {
   const addStatus = useAggregator();
@@ -113,7 +110,7 @@ export interface UseNotificationsReturn {
 export const useNotifications = (
   props: UseNotificationsProps = {},
 ): UseNotificationsReturn => {
-  const { statuses } = useContext(Context);
+  const { statuses } = useContext();
   const { expiration = DEFAULT_EXPIRATION } = props;
   const statusesRef = useSyncedRef(statuses);
 
