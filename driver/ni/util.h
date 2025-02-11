@@ -557,12 +557,12 @@ inline ParsedNIError parse_ni_error(const std::string& error_msg) {
     static const std::regex min_value_regex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
     static const std::regex property_regex(R"(Property:\s*(\S+))");
     
-    // Remove task name and status code lines
+    // Remove task name, status code, and trailing status code
     std::string s = error_msg;
-    static const std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
-    static const std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
-    s = std::regex_replace(s, task_name_line_regex, "");
-    s = std::regex_replace(s, status_code_line_regex, "");
+    static const std::regex task_name_regex(R"(\s*Task Name:.*?(?=\s*(?:Status Code:|$)))");
+    static const std::regex status_code_end_regex(R"(\s*Status Code:.*$)");
+    s = std::regex_replace(s, task_name_regex, "");
+    s = std::regex_replace(s, status_code_end_regex, "");
 
     // Extract all fields using helper function
     auto extract = [](const std::string& str, const std::regex& regex) -> std::string {
@@ -575,25 +575,34 @@ inline ParsedNIError parse_ni_error(const std::string& error_msg) {
     result.status_code = extract(error_msg, status_code_regex);
     result.device = extract(s, device_regex);
     
-    // Handle physical channel vs regular channel
-    if (auto phys = extract(s, physical_channel_regex); !phys.empty()) {
+    if (auto phys = extract(s, physical_channel_regex); !phys.empty()) 
         result.channel_name = !result.device.empty() ? result.device + "/" + phys : phys;
-    } else {
+    else 
         result.channel_name = extract(s, channel_regex);
-    }
 
     result.property = extract(s, property_regex);
     if (result.status_code == "-200170") result.property = "port";
 
     result.possible_values = extract(s, possible_values_regex);
-    if (size_t pos = result.possible_values.find("Channel Name"); pos != std::string::npos) {
+    if (size_t pos = result.possible_values.find("Channel Name"); pos != std::string::npos) 
         result.possible_values.erase(pos, std::string("Channel Name").length());
-    }
 
     result.max_value = extract(s, max_value_regex);
     result.min_value = extract(s, min_value_regex);
 
     return result;
+}
+
+inline std::string clean_error_message(const std::string& error_msg) {
+    std::string s = error_msg;
+    
+    static const std::regex task_name_regex(R"(\s*Task Name:\s*[^<]*<[^>]*>\s*)");
+    static const std::regex status_code_regex(R"(\s*Status Code:\s*-?\d+\s*)");
+    
+    s = std::regex_replace(s, task_name_regex, "");
+    s = std::regex_replace(s, status_code_regex, "");
+    
+    return s;
 }
 
 inline nlohmann::json format_ni_error(
@@ -604,34 +613,21 @@ inline nlohmann::json format_ni_error(
     nlohmann::json err_info;
     err_info["running"] = false;
 
-    // Set path
-    if (channel_map.count(parsed.channel_name) != 0) {
+    if (channel_map.count(parsed.channel_name) != 0) 
         err_info["path"] = channel_map.at(parsed.channel_name) + ".";
-    } else if (!parsed.channel_name.empty()) {
+    else if (!parsed.channel_name.empty()) 
         err_info["path"] = parsed.channel_name + ".";
-    } else {
+    else 
         err_info["path"] = "";
-    }
 
-    // Add property to path
-    if (FIELD_MAP.count(parsed.property) == 0) {
+    if (FIELD_MAP.count(parsed.property) == 0) 
         err_info["path"] = err_info["path"].get<std::string>() + parsed.property;
-    } else {
+    else 
         err_info["path"] = err_info["path"].get<std::string>() + FIELD_MAP.at(parsed.property);
-    }
 
-    // Construct error message
-    std::string error_message = "NI Error " + parsed.status_code + ": " + original_error + 
+    std::string cleaned_msg = clean_error_message(original_error);
+    std::string error_message = "NI Error " + parsed.status_code + ": " + cleaned_msg + 
                                "\nPath: " + err_info["path"].get<std::string>();
-    
-    if (!parsed.channel_name.empty()) 
-        error_message += " Channel: " + parsed.channel_name;
-    if (!parsed.possible_values.empty())
-        error_message += " Possible Values: " + parsed.possible_values;
-    if (!parsed.max_value.empty()) 
-        error_message += " Maximum Value: " + parsed.max_value;
-    if (!parsed.min_value.empty()) 
-        error_message += " Minimum Value: " + parsed.min_value;
     
     err_info["message"] = error_message;
     return err_info;
