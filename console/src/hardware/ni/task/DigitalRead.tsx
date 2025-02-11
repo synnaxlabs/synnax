@@ -145,7 +145,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   return [config, dev.rack];
 };
 
-export const DigitalRead = Common.Task.wrapForm(() => <Properties />, Form, {
+export const DigitalRead = Common.Task.wrapForm(Properties, Form, {
   configSchema: digitalReadConfigZ,
   getInitialPayload,
   onConfigure,

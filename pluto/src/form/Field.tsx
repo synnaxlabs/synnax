@@ -195,3 +195,18 @@ export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton
 }: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
   BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
 >;
+
+export type ButtonSelectFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
+  K,
+  K,
+  Select.ButtonProps<K, E>
+>;
+export const buildButtonSelectField = fieldBuilder(Select.Button) as <
+  K extends Key,
+  E extends Keyed<K>,
+>({
+  fieldProps,
+  inputProps,
+}: FieldBuilderProps<K, K, Select.ButtonProps<K, E>>) => FC<
+  BuiltFieldProps<K, K, Select.ButtonProps<K, E>>
+>;

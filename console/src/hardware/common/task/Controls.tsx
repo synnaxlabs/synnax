@@ -60,28 +60,14 @@ export const Controls = ({
       className={CSS.B("task-controls")}
       direction="x"
       justify="spaceBetween"
+      empty
+      bordered
     >
-      <Align.Space
-        className={CSS.B("task-state")}
-        direction="x"
-        style={{
-          borderRadius: "1rem",
-          border: "var(--pluto-border)",
-          padding: "2rem",
-          width: "100%",
-        }}
-      >
+      <Align.Space className={CSS.B("task-state")} direction="x">
         {stateContent}
       </Align.Space>
       {!isSnapshot && (
-        <Align.Space
-          align="center"
-          bordered
-          direction="x"
-          justify="end"
-          rounded
-          style={{ borderRadius: "1rem", padding: "2rem" }}
-        >
+        <Align.Space align="center" direction="x" justify="end">
           <Button.Button
             disabled={configureDisabled}
             loading={isConfiguring}

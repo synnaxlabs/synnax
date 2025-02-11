@@ -125,17 +125,17 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 // Grayscale
 
 const LIGHT_SCALE = [
-  "#FDFDFD",
-  "#FAFAFA",
-  "#F3F3F3",
-  "#EAEAEA",
-  "#D8D8D8",
-  "#ADADAD",
-  "#878787",
-  "#616161",
-  "#404040",
-  "#1C1C1C",
-  "#050505",
+  "#FDFDFD", // l0
+  "#fafafa", // l1
+  "#F2F2F2", // l2
+  "#E6E6E6", // l3
+  "#D8D8D8", // l4
+  "#ADADAD", // l5
+  "#878787", // l6
+  "#636363", // l7
+  "#444444", // l8
+  "#1C1C1C", // l9
+  "#050505", // l10
 ];
 
 const lightGrayScale: GrayScale = Object.fromEntries(
@@ -229,17 +229,17 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 });
 
 const DARK_SCALE = [
-  "#020202",
-  "#0A0A0A",
-  "#131313",
-  "#1E1E1E",
-  "#2E2E2E",
-  "#444444",
-  "#646464",
-  "#8A8A8A",
-  "#AFAFAF",
-  "#D5D5D5",
-  "#FDFDFD",
+  "#020202", // l0
+  "#0C0C0C", // l1
+  "#161616", // l2
+  "#252525", // l3
+  "#323232", // l4
+  "#464646", // l5
+  "#646464", // l6
+  "#989898", // l7
+  "#b2b1b1", // l8
+  "#d8d8d8", // l9
+  "#FDFDFD", // l10
 ];
 
 const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(

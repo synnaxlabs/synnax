@@ -310,6 +310,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <SensitivityField
         path={prefix}
         inputProps={{
+          showDragHandle: false,
           children: (
             <AccelSensitivityUnitsField
               path={prefix}
