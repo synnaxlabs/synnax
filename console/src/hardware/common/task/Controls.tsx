@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type ReturnState } from "@/hardware/common/task/useState";
