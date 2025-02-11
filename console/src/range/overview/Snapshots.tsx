@@ -30,7 +30,7 @@ import { type FC, useState } from "react";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
-import { create } from "@/schematic/external";
+import { create } from "@/schematic/Schematic";
 
 interface SnapshotCtx {
   client: Client | null;

@@ -13,18 +13,18 @@ import { READ_LAYOUT } from "@/hardware/labjack/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
 import { type Palette } from "@/palette";
 
-const createReadCommand: Palette.Command = {
+const CREATE_READ_COMMAND: Palette.Command = {
   key: "labjack-create-read-task",
   name: "Create LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
-const createWriteCommand: Palette.Command = {
+const CREATE_WRITE_COMMAND: Palette.Command = {
   key: "labjack-create-write-task",
   name: "Create LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };
 
-export const COMMANDS = [createReadCommand, createWriteCommand];
+export const COMMANDS = [CREATE_READ_COMMAND, CREATE_WRITE_COMMAND];
