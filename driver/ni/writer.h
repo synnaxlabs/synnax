@@ -134,7 +134,7 @@ struct WriterConfig {
     ///@brief queues to maintain changes to state channels
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> digital_modified_state_values;
-    std::queue<double> analog_modified_state_values;
+    std::queue<float> analog_modified_state_values;
 
     ///@brief maps NI channel names to configuration paths for error reporting
     std::map<std::string, std::string> channel_map;
@@ -241,7 +241,7 @@ private:
 
 // Type aliases
 using DigitalStateSource = StateSource<uint8_t>;
-using AnalogStateSource = StateSource<double>;
+using AnalogStateSource = StateSource<float>;
 
 
 ///////////////////////////////////////////////////////////////////////////////////

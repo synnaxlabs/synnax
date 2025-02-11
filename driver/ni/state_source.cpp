@@ -73,5 +73,5 @@ void StateSource<T>::update_state(
 
 ///@brief  Template instantiations to tell the compiler which versions to generate
 template class StateSource<uint8_t>; // For DigitalStateSource
-template class StateSource<double>; // For AnalogStateSource
+template class StateSource<float>; // For AnalogStateSource
 } // namespace ni

@@ -385,7 +385,8 @@ xerrors::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
             auto series = frame.series->at(frame_index).values<uint8_t>();
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
-                this->writer_config.state_channel_keys[cmd_channel_index]);
+                this->writer_config.state_channel_keys[cmd_channel_index]
+            );
             this->writer_config.digital_modified_state_values.emplace(series[0]);
             
         }
@@ -526,14 +527,14 @@ xerrors::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
             } else if (series.data_type == telem::SY_UINT8) {
                 value = static_cast<double>(series.at<uint8_t>(0));
             } else {
-                return xerrors::NIL;
+                return xerrors::VALIDATION_ERROR.sub("invalid_data_type");
             }
 
             write_buffer[cmd_channel_index] = value;
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]
             );
-            this->writer_config.analog_modified_state_values.push(value);
+            this->writer_config.analog_modified_state_values.push(static_cast<float>(value));
         }
         frame_index++;
     }
