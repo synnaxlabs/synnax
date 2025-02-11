@@ -14,6 +14,8 @@
 #include <utility>
 #include <memory>
 #include <thread>
+#include <regex>
+#include <nlohmann/json.hpp>
 
 namespace ni {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
@@ -531,4 +533,107 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_Chan_SyncUnlockBehavior", "chan_sync_unlock_behavior"},
     {"DAQmx_SampClk_Rate", "sample_rate"}
 };
+
+struct ParsedNIError {
+    std::string status_code;
+    std::string device;
+    std::string channel_name;
+    std::string property;
+    std::string possible_values;
+    std::string max_value;
+    std::string min_value;
+};
+
+inline ParsedNIError parse_ni_error(const std::string& error_msg) {
+    ParsedNIError result;
+    
+    // Define regex patterns
+    static const std::regex status_code_regex(R"(Status Code:\s*(-?\d+))");
+    static const std::regex channel_regex(R"(Channel Name:\s*(\S+))");
+    static const std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
+    static const std::regex device_regex(R"(Device:\s*(\S+))");
+    static const std::regex possible_values_regex(R"(Possible Values:\s*([\w\s,.-]+))");
+    static const std::regex max_value_regex(R"(Maximum Value:\s*([\d.\s,eE-]+))");
+    static const std::regex min_value_regex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
+    static const std::regex property_regex(R"(Property:\s*(\S+))");
+    
+    // Remove task name and status code lines
+    std::string s = error_msg;
+    static const std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
+    static const std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
+    s = std::regex_replace(s, task_name_line_regex, "");
+    s = std::regex_replace(s, status_code_line_regex, "");
+
+    // Extract all fields using helper function
+    auto extract = [](const std::string& str, const std::regex& regex) -> std::string {
+        std::smatch match;
+        if (std::regex_search(str, match, regex))
+            return match[1].str();
+        return "";
+    };
+
+    result.status_code = extract(error_msg, status_code_regex);
+    result.device = extract(s, device_regex);
+    
+    // Handle physical channel vs regular channel
+    if (auto phys = extract(s, physical_channel_regex); !phys.empty()) {
+        result.channel_name = !result.device.empty() ? result.device + "/" + phys : phys;
+    } else {
+        result.channel_name = extract(s, channel_regex);
+    }
+
+    result.property = extract(s, property_regex);
+    if (result.status_code == "-200170") result.property = "port";
+
+    result.possible_values = extract(s, possible_values_regex);
+    if (size_t pos = result.possible_values.find("Channel Name"); pos != std::string::npos) {
+        result.possible_values.erase(pos, std::string("Channel Name").length());
+    }
+
+    result.max_value = extract(s, max_value_regex);
+    result.min_value = extract(s, min_value_regex);
+
+    return result;
+}
+
+inline nlohmann::json format_ni_error(
+    const ParsedNIError& parsed,
+    const std::string& original_error,
+    const std::map<std::string, std::string>& channel_map
+) {
+    nlohmann::json err_info;
+    err_info["running"] = false;
+
+    // Set path
+    if (channel_map.count(parsed.channel_name) != 0) {
+        err_info["path"] = channel_map.at(parsed.channel_name) + ".";
+    } else if (!parsed.channel_name.empty()) {
+        err_info["path"] = parsed.channel_name + ".";
+    } else {
+        err_info["path"] = "";
+    }
+
+    // Add property to path
+    if (FIELD_MAP.count(parsed.property) == 0) {
+        err_info["path"] = err_info["path"].get<std::string>() + parsed.property;
+    } else {
+        err_info["path"] = err_info["path"].get<std::string>() + FIELD_MAP.at(parsed.property);
+    }
+
+    // Construct error message
+    std::string error_message = "NI Error " + parsed.status_code + ": " + original_error + 
+                               "\nPath: " + err_info["path"].get<std::string>();
+    
+    if (!parsed.channel_name.empty()) 
+        error_message += " Channel: " + parsed.channel_name;
+    if (!parsed.possible_values.empty())
+        error_message += " Possible Values: " + parsed.possible_values;
+    if (!parsed.max_value.empty()) 
+        error_message += " Maximum Value: " + parsed.max_value;
+    if (!parsed.min_value.empty()) 
+        error_message += " Minimum Value: " + parsed.min_value;
+    
+    err_info["message"] = error_message;
+    return err_info;
+}
 }

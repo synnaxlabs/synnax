@@ -41,8 +41,6 @@ void ni::Source::get_index_keys() {
     }
 }
 
-
-
 ni::Source::Source(
     const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,
@@ -261,108 +259,5 @@ void ni::Source::stopped_with_err(const xerrors::Error &err) {
 
 
 void ni::Source::jsonify_error(std::string s) {
-    this->err_info["running"] = false;
-
-    // Define regex patterns
-    std::regex status_code_regex(R"(Status Code:\s*(-?\d+))");
-    std::regex channel_regex(R"(Channel Name:\s*(\S+))");
-    std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
-    std::regex device_regex(R"(Device:\s*(\S+))");
-    std::regex possible_values_regex(R"(Possible Values:\s*([\w\s,.-]+))");
-    std::regex max_value_regex(R"(Maximum Value:\s*([\d.\s,eE-]+))");
-    std::regex min_value_regex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
-    std::regex property_regex(R"(Property:\s*(\S+))");
-    std::regex task_name_regex(R"(Task Name:\s*(\S+))");
-
-    // Remove the Task Name line if it exists
-    std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
-    s = std::regex_replace(s, task_name_line_regex, "");
-
-    // Extract status code
-    std::string sc = "";
-    std::smatch status_code_match;
-    if (std::regex_search(s, status_code_match, status_code_regex))
-        sc = status_code_match[1].str();
-
-    // Remove the redundant Status Code line at the end
-    std::regex status_code_line_regex(R"(\nStatus Code:.*$)");
-    s = std::regex_replace(s, status_code_line_regex, "");
-
-    // Extract device name
-    std::string device = "";
-    std::smatch device_match;
-    if (std::regex_search(s, device_match, device_regex))
-        device = device_match[1].str();
-
-    // Extract physical channel name or channel name
-    std::string cn = "";
-    std::smatch physical_channel_match;
-    if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
-        cn = physical_channel_match[1].str();
-        if (!device.empty()) cn = device + "/" + cn;
-        // Combine device and physical channel name
-    } else {
-        std::smatch channel_match;
-        if (std::regex_search(s, channel_match, channel_regex))
-            cn = channel_match[1].str();
-    }
-
-    // Extract the first property
-    std::string p = "";
-    std::smatch property_match;
-    if (std::regex_search(s, property_match, property_regex))
-        p = property_match[1].str();
-    if (sc == "-200170") p = "port";
-
-    // Extract possible values
-    std::string possible_values = "";
-    std::smatch possible_values_match;
-    if (std::regex_search(s, possible_values_match, possible_values_regex)) {
-        possible_values = possible_values_match[1].str();
-        size_t pos = possible_values.find("Channel Name");
-        if (pos != std::string::npos)
-            possible_values.erase(
-                pos, std::string("Channel Name").length());
-    }
-
-    // Extract maximum value
-    std::string max_value = "";
-    std::smatch max_value_match;
-    if (std::regex_search(s, max_value_match, max_value_regex))
-        max_value = max_value_match[1].str();
-
-    // Extract minimum value
-    std::string min_value = "";
-    std::smatch min_value_match;
-    if (std::regex_search(s, min_value_match, min_value_regex))
-        min_value = min_value_match[1].str();
-
-    // Check if the channel name is in the channel map
-    if (channel_map.count(cn) != 0) this->err_info["path"] = channel_map[cn] + ".";
-    else if (!cn.empty()) this->err_info["path"] = cn + ".";
-    else this->err_info["path"] = "";
-
-    // Check if the property is in the field map
-    if (FIELD_MAP.count(p) == 0)
-        this->err_info["path"] =
-                this->err_info["path"].get<std::string>() + p;
-    else
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.
-                                 at(p);
-
-    // Construct the error message
-    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " + this->
-                                err_info["path"].get<std::string>();
-    if (!cn.empty()) error_message += " Channel: " + cn;
-    if (!possible_values.empty())
-        error_message += " Possible Values: " +
-                possible_values;
-    if (!max_value.empty()) error_message += " Maximum Value: " + max_value;
-    if (!min_value.empty()) error_message += " Minimum Value: " + min_value;
-    this->err_info["message"] = error_message;
-
-    json j = json::array();
-    j.push_back(this->err_info);
-
-    LOG(INFO) << this->err_info.dump(4);
+    this->err_info = format_ni_error(parse_ni_error(s), s, this->channel_map);
 }
