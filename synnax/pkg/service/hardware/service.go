@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/state"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -29,7 +29,7 @@ type Service struct {
 	Task   *task.Service
 	Device *device.Service
 	CDC    *signals.Provider
-	State  *state.Tracker
+	State  *tracker.Tracker
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -66,7 +66,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	stateSvc, err := state.OpenTracker(ctx, state.TrackerConfig{
+	stateSvc, err := tracker.Open(ctx, tracker.Config{
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
 		Rack:            rackSvc,

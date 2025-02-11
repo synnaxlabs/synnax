@@ -11,10 +11,19 @@ package types
 
 import "reflect"
 
+type CustomTypeName interface {
+	CustomTypeName() string
+}
+
 func Name[T any]() string {
+	var t T
+	if ct, ok := any(t).(CustomTypeName); ok {
+		return ct.CustomTypeName()
+	}
 	return reflect.TypeOf(*new(T)).Name()
 }
 
 func PluralName[T any]() string {
-	return reflect.TypeOf(*new(T)).Name() + "s"
+	name := Name[T]()
+	return name + "s"
 }

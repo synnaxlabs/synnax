@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package tracker_test
 
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/config"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +28,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	_b = mock.NewBuilder()
+	_b = mock.NewBuilder(distribution.Config{Ontology: ontology.Config{EnableSearch: config.False()}})
 	dist = _b.New(ctx)
 })
 
