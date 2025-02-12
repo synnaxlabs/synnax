@@ -198,6 +198,14 @@ public:
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;
     }
+
+    ~SynnaxContext() override {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) return;
+        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in destructors.
+        if (const auto err = writer->close())
+            std::cerr << "[task.context] failed to close writer: " << err.message();
+    }
 };
 
 class Factory {
@@ -258,40 +266,70 @@ public:
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory
     ): rack(std::move(rack)), ctx(std::make_shared<SynnaxContext>(client)),
-       factory(std::move(factory)) {
+       factory(std::move(factory)), channels({}) {
     }
 
-    xerrors::Error run(std::promise<void>* started_promise = nullptr);
+    /// @brief runs the main task manager loop, booting up initial tasks retrieved
+    /// from the cluster, and processing task modifications (set, delete, and command)
+    /// requests through streamed channel values. Note that this function does not
+    /// for a thread to run in, and blocks until stop() is called.
+    ///
+    /// This function NOT be called concurrently with any other calls
+    /// to run(). It is safe to call run() concurrently with stop().
+    ///
+    /// @param started_promise an optional promise that will be set when the manager
+    /// has started successfully.
+    xerrors::Error run(std::promise<void> *started_promise = nullptr);
 
-    void stop() const;
-
+    /// @brief stops the task manager, halting all tasks and freeing all resources.
+    /// Once the manager has shut down, the run() function will return with any errors
+    /// encountered during operation.
+    void stop();
 private:
+    /// @brief the rack that this task manager belongs to.
     synnax::Rack rack;
+    /// @brief a common context object passed to all tasks.
     std::shared_ptr<task::Context> ctx;
-    std::unique_ptr<Streamer> streamer;
+    /// @brief the factory used to create tasks.
     std::unique_ptr<task::Factory> factory;
-    std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
+    /// @brief a map of tasks that have been configured on the rack.
+    std::unordered_map<synnax::TaskKey, std::unique_ptr<task::Task> > tasks{};
 
+    /// @brief the streamer variable is read from in both the run() and stop() functions,
+    /// so we need to lock its assignment.
+    std::mutex mu;
+    /// @brief receives streamed values from the Synnax server to change tasks in the
+    /// manager.
+    std::unique_ptr<Streamer> streamer;
+
+    /// @brief information on channels we need to work with tasks.
     struct {
         Channel task_set;
         Channel task_delete;
         Channel task_cmd;
-        Channel task_state;
     } channels;
 
 
     [[nodiscard]] bool skip_foreign_rack(const TaskKey &task_key) const;
 
+    /// @brief opens the streamer for the task manager, which is used to listen for
+    /// incoming task set, delete, and command requests.
     xerrors::Error open_streamer();
 
+    /// @brief retrieves and configures all initial tasks for the rack from the server.
     xerrors::Error configure_initial_tasks();
 
+    /// @brief stops all tasks.
     xerrors::Error stop_all_tasks();
 
+    /// @brief processes when a new task is created or an existing task needs to be
+    /// reconfigured.
     void process_task_set(const telem::Series &series);
 
+    /// @brief processes when a task is deleted.
     void process_task_delete(const telem::Series &series);
 
+    /// @brief processes when a command needs to be executed on a configured task.
     void process_task_cmd(const telem::Series &series);
 };
 }

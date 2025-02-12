@@ -43,15 +43,18 @@ xerrors::Error task::Manager::open_streamer() {
             this->channels.task_delete = channel;
         else if (channel.name == TASK_CMD_CHANNEL) this->channels.task_cmd = channel;
 
-    auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
-        .channels = {
-            this->channels.task_set.key,
-            this->channels.task_delete.key,
-            this->channels.task_cmd.key
-        }
-    });
-    if (open_err) return open_err;
-    this->streamer = std::make_unique<Streamer>(std::move(s));
+    {
+        std::lock_guard lock{this->mu};
+        auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
+            .channels = {
+                this->channels.task_set.key,
+                this->channels.task_delete.key,
+                this->channels.task_cmd.key
+            }
+        });
+        if (open_err) return open_err;
+        this->streamer = std::make_unique<Streamer>(std::move(s));
+    }
     return xerrors::NIL;
 }
 
@@ -70,7 +73,10 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     return xerrors::NIL;
 }
 
-void task::Manager::stop() const {
+void task::Manager::stop() {
+    std::lock_guard lock{this->mu};
+    // Very important that we do NOT set the streamer to a nullptr here, as the run()
+    // method still needs access before shutting down.
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
@@ -88,6 +94,8 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
     LOG(INFO) << xlog::GREEN << "[driver] started successfully" << xlog::RESET;
     if (started_promise != nullptr) started_promise->set_value();
     do {
+        // no need to lock the streamer here, as it's safe to call close_send()
+        // and read() concurrently.
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
@@ -99,7 +107,11 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
         }
     } while (true);
     const auto err = this->stop_all_tasks();
-    if (const auto c_err = this->streamer->close()) return c_err;
+    {
+        std::lock_guard lock{this->mu};
+        if (const auto c_err = this->streamer->close()) return c_err;
+        this->streamer = nullptr;
+    }
     return err;
 }
 

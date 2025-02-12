@@ -26,6 +26,7 @@ void rack::Rack::run(const int argc, char **argv) {
             if (this->should_exit(err)) return;
             continue;
         }
+        LOG(INFO) << cfg;
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             cfg.new_client(),

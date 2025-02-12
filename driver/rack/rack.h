@@ -101,6 +101,20 @@ struct Config {
 
     [[nodiscard]] bool integration_enabled(const std::string &integration) const;
 
+    friend std::ostream& operator<<(std::ostream& os, const Config& cfg) {
+        os << "driver configuration:\n"
+           << "  connection: " << cfg.connection.host << ":" << cfg.connection.port << "\n"
+           << "  rack: " << cfg.rack.name << " (" << cfg.rack.key << ")\n"
+           << "  cluster key: " << cfg.remote.cluster_key << "\n"
+           << "  enabled integrations: ";
+        for (size_t i = 0; i < cfg.integrations.size(); ++i) {
+            os << cfg.integrations[i];
+            if (i < cfg.integrations.size() - 1) os << ", ";
+        }
+        os << "\n";
+        return os;
+    }
+
     static std::pair<Config, xerrors::Error> load(
         int argc,
         char **argv,
