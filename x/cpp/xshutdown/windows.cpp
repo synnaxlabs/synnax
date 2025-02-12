@@ -17,24 +17,21 @@
 #endif
 #include <windows.h>
 
-namespace xshutdown {
-
-static Listen* active_listener = nullptr;
+namespace xshutdown::priv {
 
 static BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
-    if (ctrl_type == CTRL_C_EVENT && active_listener != nullptr) {
-        active_listener->signal_shutdown();
+    if (ctrl_type == CTRL_C_EVENT) {
+        signal_shutdown();
         return TRUE;
     }
     return FALSE;
 }
 
-void Listen::listen_signal() {
-    active_listener = this;
+void listen_signal() {
     SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 }
 
-void Listen::listen_stdin() {
+void listen_stdin() {
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode;
     GetConsoleMode(hStdin, &mode);
@@ -46,7 +43,6 @@ void Listen::listen_stdin() {
     while (true) {
         if (should_shutdown()) break;
         
-        // Check for input
         DWORD available;
         INPUT_RECORD record;
         PeekConsoleInput(hStdin, &record, 1, &available);
@@ -57,7 +53,6 @@ void Listen::listen_stdin() {
                 buffer[read] = '\0';
                 input += buffer;
                 
-                // Process complete lines
                 size_t pos;
                 while ((pos = input.find('\n')) != std::string::npos) {
                     std::string line = input.substr(0, pos);
@@ -74,27 +69,8 @@ void Listen::listen_stdin() {
             }
         }
         
-        Sleep(100); // Prevent busy waiting
+        Sleep(100);
     }
 }
+} // namespace xshutdown
 
-void Listen::listen() {
-    Listen listener;
-    listener.listen_signal();
-    listener.listen_stdin();
-}
-
-bool Listen::should_shutdown() const {
-    std::lock_guard<std::mutex> lock(mu);
-    return should_stop;
-}
-
-void Listen::signal_shutdown() {
-    {
-        std::lock_guard<std::mutex> lock(mu);
-        should_stop = true;
-    }
-    cv.notify_all();
-}
-
-} // namespace shutdown

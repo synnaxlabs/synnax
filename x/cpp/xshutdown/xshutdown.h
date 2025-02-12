@@ -18,29 +18,34 @@
 #include <string>
 
 namespace xshutdown {
+namespace priv {
+    static std::mutex shutdown_mutex;
+    static std::condition_variable shutdown_cv;
+    static bool should_stop = false;
 
-class Listen {
-private:
-    mutable std::mutex mu;
-    std::condition_variable cv;
-    bool should_stop = false;
-
-    // Platform specific implementations
     void listen_signal();
+
     void listen_stdin();
+}
 
-public:
-    // Default constructor needed
-    Listen() : should_stop(false) {}
-    
-    // Main entry point that starts both signal and stdin listeners
-    static void listen();
-    
-    // Check if we should stop
-    bool should_shutdown() const;
-    
-    // Signal shutdown
-    void signal_shutdown();
-};
 
-} // namespace shutdown
+inline void listen(bool sigint_enabled = true, bool stdin_enabled = true) {
+    if (sigint_enabled) priv::listen_signal();
+    if (stdin_enabled) return priv::listen_stdin();
+    std::unique_lock lock(priv::shutdown_mutex);
+    priv::shutdown_cv.wait(lock, [] { return priv::should_stop; });
+}
+
+inline bool should_shutdown() {
+    std::lock_guard lock(priv::shutdown_mutex);
+    return priv::should_stop;
+}
+
+inline void signal_shutdown() {
+    {
+        std::lock_guard lock(priv::shutdown_mutex);
+        priv::should_stop = true;
+    }
+    priv::shutdown_cv.notify_all();
+}
+} // namespace xshutdown

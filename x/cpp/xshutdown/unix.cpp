@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 2/11/25.
-//
-
 #include <mutex>
 #include <string>
 #include <poll.h>
@@ -18,23 +14,18 @@
 #include "xshutdown.h"
 #include <signal.h>
 
-namespace xshutdown {
+namespace xshutdown::priv {
 
-static Listen* active_listener = nullptr;
-
-static void signal_handler(int signal) {
-    if (signal == SIGINT && active_listener != nullptr) {
-        active_listener->signal_shutdown();
-    }
+static void signal_handler(const int signal) {
+    if (signal == SIGINT) signal_shutdown();
 }
 
-void Listen::listen_signal() {
-    active_listener = this;
+void listen_signal() {
     signal(SIGINT, signal_handler);
 }
 
-void Listen::listen_stdin() {
-    struct pollfd fds[1];
+void listen_stdin() {
+    pollfd fds[1];
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
     
@@ -42,31 +33,23 @@ void Listen::listen_stdin() {
     std::string input;
     
     while (true) {
-        // Poll with a timeout of 100ms
-        int ret = poll(fds, 1, 100);
-        
+        const int ret = poll(fds, 1, 100);
         if (ret < 0) {
-            if (errno == EINTR) continue;  // Interrupted by signal, retry
-            break;  // Error occurred
+            if (errno == EINTR) continue;
+            break;
         }
-        
-        // Check if we should stop
         if (should_shutdown()) break;
-        
-        // If there's data to read
-        if (ret > 0 && (fds[0].revents & POLLIN)) {
-            ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
+        if (ret > 0 && fds[0].revents & POLLIN) {
+            const ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
             if (n <= 0) break;
             
             buffer[n] = '\0';
             input += buffer;
             
-            // Process complete lines
             size_t pos;
             while ((pos = input.find('\n')) != std::string::npos) {
                 std::string line = input.substr(0, pos);
                 input.erase(0, pos + 1);
-                
                 if (line == "STOP") {
                     signal_shutdown();
                     return;
@@ -75,24 +58,4 @@ void Listen::listen_stdin() {
         }
     }
 }
-
-void Listen::listen() {
-    Listen listener;
-    listener.listen_signal();
-    listener.listen_stdin();
-}
-
-bool Listen::should_shutdown() const {
-    std::lock_guard lock(mu);
-    return should_stop;
-}
-
-void Listen::signal_shutdown() {
-    {
-        std::lock_guard lock(mu);
-        should_stop = true;
-    }
-    cv.notify_all();
-}
-
-} // namespace shutdown
+} // namespace xshutdown
