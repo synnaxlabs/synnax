@@ -14,7 +14,7 @@ import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { Channel } from "@/channel";
+import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Controls } from "@/components";
@@ -55,7 +55,7 @@ const COMMANDS = [
   ...RangeServices.COMMANDS,
   ...Hardware.COMMANDS,
   ...Persist.COMMANDS,
-  ...Channel.COMMANDS,
+  ...ChannelServices.COMMANDS,
   ...LabelServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...LogServices.COMMANDS,

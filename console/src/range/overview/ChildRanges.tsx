@@ -24,7 +24,8 @@ import { type FC, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
-import { createLayout, OVERVIEW_LAYOUT } from "@/range/external";
+import { createLayout } from "@/range/CreateLayout";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;

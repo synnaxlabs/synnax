@@ -19,18 +19,18 @@ export type Make = typeof MAKE;
 
 // Models
 
-const T4_MODEL = "LJM_dtT4";
-type T4Model = typeof T4_MODEL;
+export const T4_MODEL = "LJM_dtT4";
+export type T4Model = typeof T4_MODEL;
 
-const T7_MODEL = "LJM_dtT7";
-type T7Model = typeof T7_MODEL;
+export const T7_MODEL = "LJM_dtT7";
+export type T7Model = typeof T7_MODEL;
 
-const T8_MODEL = "LJM_dtT8";
-type T8Model = typeof T8_MODEL;
+export const T8_MODEL = "LJM_dtT8";
+export type T8Model = typeof T8_MODEL;
 
 export type Model = T4Model | T7Model | T8Model;
 
-interface BasePort {
+export interface BasePort {
   key: string;
   aliases: string[];
 }
@@ -190,18 +190,18 @@ const T8_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
 ];
 const T8_PORTS: Ports = {
-  AI: T8_AI_PORTS,
-  AO: T8_AO_PORTS,
-  DI: T8_DI_PORTS,
-  DO: T8_DO_PORTS,
+  [AI_PORT_TYPE]: T8_AI_PORTS,
+  [AO_PORT_TYPE]: T8_AO_PORTS,
+  [DI_PORT_TYPE]: T8_DI_PORTS,
+  [DO_PORT_TYPE]: T8_DO_PORTS,
 };
 
-interface ModelInfo {
+export interface ModelInfo {
   name: string;
   ports: Ports;
 }
 
-interface Devices extends Record<Model, ModelInfo> {}
+export interface Devices extends Record<Model, ModelInfo> {}
 
 export const DEVICES: Devices = {
   [T4_MODEL]: { name: "T4", ports: T4_PORTS },

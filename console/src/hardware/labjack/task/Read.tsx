@@ -14,31 +14,27 @@ import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { Layouts } from "@/hardware/common/task/layouts";
 import { Device } from "@/hardware/labjack/device";
-import { CustomScaleForm } from "@/hardware/labjack/task/CustomScaleForm";
+import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
+import { FORMS } from "@/hardware/labjack/task/OutputChannelForms";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
-import { ThermocoupleForm } from "@/hardware/labjack/task/ThermocoupleForm";
 import {
   AI_CHANNEL_TYPE,
   DI_CHANNEL_TYPE,
-  getPortTypeFromChannelType,
+  INPUT_CHANNEL_SCHEMAS,
+  type InputChannel,
   type InputChannelType,
-  inputChannelZ,
   READ_TYPE,
-  type ReadChannel,
   type ReadConfig,
   readConfigZ,
   type ReadPayload,
   type ReadStateDetails,
   type ReadTask,
   type ReadType,
-  TC_CHANNEL_TYPE,
-  thermocoupleChannelZ,
-  ZERO_READ_CHANNEL,
+  ZERO_INPUT_CHANNEL,
+  ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
-  ZERO_THERMOCOUPLE_CHANNEL,
 } from "@/hardware/labjack/task/types";
 import { type Layout } from "@/layout";
 
@@ -68,7 +64,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<ReadChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<InputChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -86,7 +82,7 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <Layouts.ListAndDetailsChannelItem
+    <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}
@@ -105,8 +101,9 @@ interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
 }
 
 const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
-  const channel = PForm.useFieldValue<ReadChannel>(path);
+  const channel = PForm.useFieldValue<InputChannel>(path);
   const model = device.model;
+  const Form = FORMS[channel.type];
   return (
     <>
       <Align.Space direction="x">
@@ -116,15 +113,12 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
           onChange={(value, { get, path, set }) => {
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
-            const next = deep.copy(
-              value === TC_CHANNEL_TYPE ? ZERO_THERMOCOUPLE_CHANNEL : ZERO_READ_CHANNEL,
-            );
+            const next = deep.copy(ZERO_INPUT_CHANNELS[value]);
             const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
-            const schema =
-              value === TC_CHANNEL_TYPE ? thermocoupleChannelZ : inputChannelZ;
+            const prevParent = get<InputChannel>(parentPath).value;
+            const schema = INPUT_CHANNEL_SCHEMAS[value];
             const port =
-              Device.DEVICES[model].ports[getPortTypeFromChannelType(value)][0].key;
+              Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: next.type,
@@ -138,46 +132,46 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
             <Device.SelectPort
               {...p}
               model={model}
-              portType={getPortTypeFromChannelType(channel.type)}
+              portType={convertChannelTypeToPortType(channel.type)}
             />
           )}
         </PForm.Field>
       </Align.Space>
-      <PForm.NumericField
-        path={`${path}.range`}
-        label="Max Voltage"
-        inputProps={{ endContent: "V" }}
-      />
-      <ThermocoupleForm model={model} prefix={path} />
-      <CustomScaleForm prefix={path} />
+      <Form deviceModel={device.model} path={path} />
     </>
   );
 };
 
 const getOpenChannel = (
-  channels: ReadChannel[],
+  channels: InputChannel[],
   index: number,
   device: Device.Device,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_READ_CHANNEL), key: id.id() };
+  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.id() };
   const channelToCopy = channels[index];
-  const preferredType = getPortTypeFromChannelType(channelToCopy.type);
-  const backupType =
-    preferredType === Device.DI_PORT_TYPE ? Device.AI_PORT_TYPE : Device.DI_PORT_TYPE;
-  const port = getOpenPort(channels, device.model, [preferredType, backupType]);
+  // preferredPortType is AI or DI
+  const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
+  // backupPortType is the opposite of preferredPortType
+  const backupPortType =
+    preferredPortType === Device.DI_PORT_TYPE
+      ? Device.AI_PORT_TYPE
+      : Device.DI_PORT_TYPE;
+  const port = getOpenPort(channels, device.model, [preferredPortType, backupPortType]);
   if (port == null) return null;
-  const base = {
+  // Now we need to determine what channel type we use the schema and zero channel for.
+  // Note that if the copied channel was a TC channel, then we need to grab
+  // channelToCopy.type instead of port.type as port.type cannot be TC.
+  const channelTypeUsed =
+    port.type === preferredPortType ? channelToCopy.type : backupPortType;
+  return {
+    ...deep.overrideValidItems(
+      ZERO_INPUT_CHANNELS[channelTypeUsed],
+      channelToCopy,
+      INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
+    ),
     key: id.id(),
     port: port.key,
-    channel: device.properties[port.type]?.channels[port.key] ?? 0,
-  };
-  if (port.type === preferredType || channelToCopy.type !== TC_CHANNEL_TYPE)
-    return { ...deep.copy(channelToCopy), ...base };
-  // because the TC channel schema is more complicated, we need to overrideValidItems
-  // when we use a digital input type based off of a TC channel
-  return {
-    ...deep.overrideValidItems(ZERO_READ_CHANNEL, channelToCopy, inputChannelZ),
-    ...base,
+    channel: device.properties[port.type].channels[port.key] ?? 0,
   };
 };
 
@@ -196,18 +190,19 @@ const ChannelsForm = ({
   configured,
   task,
 }: ChannelsFormProps) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<ReadChannel>({
+  const [tare, allowTare, handleTare] = Common.Task.useTare<InputChannel>({
     isChannelTareable: ({ type }) => type === AI_CHANNEL_TYPE,
     isRunning,
     configured,
     task,
-  } as Common.Task.UseTareProps<ReadChannel>);
+  } as Common.Task.UseTareProps<InputChannel>);
   const generateChannel = useCallback(
-    (channels: ReadChannel[], index: number) => getOpenChannel(channels, index, device),
+    (channels: InputChannel[], index: number) =>
+      getOpenChannel(channels, index, device),
     [device],
   );
   return (
-    <Common.Task.Layouts.ListAndDetails<ReadChannel>
+    <Common.Task.Layouts.ListAndDetails<InputChannel>
       ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
       Details={(p) => <ChannelDetails {...p} device={device} />}
       generateChannel={generateChannel}
@@ -266,9 +261,9 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
     });
     dev.properties.readIndex = index.key;
   }
-  const toCreate: ReadChannel[] = [];
+  const toCreate: InputChannel[] = [];
   for (const c of config.channels) {
-    const type = getPortTypeFromChannelType(c.type);
+    const type = convertChannelTypeToPortType(c.type);
     const existing = dev.properties[type].channels[c.port];
     // check if the channel is in properties
     if (primitiveIsZero(existing)) toCreate.push(c);
@@ -291,14 +286,15 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
     );
     channels.forEach((c, i) => {
       const toCreateC = toCreate[i];
-      const type = getPortTypeFromChannelType(toCreateC.type);
+      const type = convertChannelTypeToPortType(toCreateC.type);
       dev.properties[type].channels[toCreateC.port] = c.key;
     });
   }
   if (modified) await client.hardware.devices.create(dev);
   config.channels.forEach(
     (c) =>
-      (c.channel = dev.properties[getPortTypeFromChannelType(c.type)].channels[c.port]),
+      (c.channel =
+        dev.properties[convertChannelTypeToPortType(c.type)].channels[c.port]),
   );
   return [config, dev.rack];
 };

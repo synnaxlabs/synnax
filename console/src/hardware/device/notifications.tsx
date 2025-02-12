@@ -9,13 +9,13 @@
 
 import { Button, Text } from "@synnaxlabs/pluto";
 
-import { Device } from "@/hardware/device";
 import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
+import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
 const notificationAdapter: Notifications.Adapter = (status) => {
-  const key = Device.getKeyFromStatus(status);
+  const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
   const make = getMake(status.data?.make);
