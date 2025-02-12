@@ -5,14 +5,40 @@ on:
     branches:
       - main
       - rc
+      - sy-1990-test-moving-cards-between-racks
   pull_request:
     branches:
       - main
       - rc
   workflow_dispatch:
 jobs:
-  test:
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
+    outputs:
+      cpp: ${{ steps.filter.outputs.cpp }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            cpp:
+              - .github/workflows/test.driver.yaml
+              - x/cpp/**
+              - client/cpp/**
+              - freighter/cpp/**
+              - driver/**
+
+  test:
+    name: Test Driver
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
