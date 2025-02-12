@@ -80,3 +80,11 @@ xerrors::Error rack::Config::save_remote_info(const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv();
     return kv->set("remote_info", remote_info.to_json().dump());
 }
+
+xerrors::Error rack::Config::clear_persisted_state() {
+    auto [kv, err] = open_kv();
+    if (err) return err;
+    if (const auto d1_err = kv->del("conn_params")) return d1_err;
+    if (const auto d2_err = kv->del("remote_info")) return d2_err;
+    return xerrors::NIL;
+}

@@ -17,25 +17,25 @@ namespace daemond {
 void run(const Config &config, int argc, char *argv[]) { config.callback(argc, argv); }
 
 xerrors::Error install_service() {
-    return xerrors::Error("install_service not supported on " + xos::get_os());
+    return xerrors::Error("install_service not supported on " + xos::get());
 }
 xerrors::Error uninstall_service() {
-    return xerrors::Error("uninstall_service not supported on " + xos::get_os());
+    return xerrors::Error("uninstall_service not supported on " + xos::get());
 }
 xerrors::Error start_service() {
-    return xerrors::Error("start_service not supported on " + xos::get_os());
+    return xerrors::Error("start_service not supported on " + xos::get());
 }
 xerrors::Error stop_service() {
-    return xerrors::Error("stop_service not supported on " + xos::get_os());
+    return xerrors::Error("stop_service not supported on " + xos::get());
 }
 xerrors::Error restart_service() {
-    return xerrors::Error("restart_service not supported on " + xos::get_os());
+    return xerrors::Error("restart_service not supported on " + xos::get());
 }
 
 xerrors::Error view_logs() {
-    return xerrors::Error("view_logs not supported on " + xos::get_os());
+    return xerrors::Error("view_logs not supported on " + xos::get());
 }
 xerrors::Error status() {
-    return xerrors::Error("status not supported on " + xos::get_os());
+    return xerrors::Error("status not supported on " + xos::get());
 }
 } // namespace daemond

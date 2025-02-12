@@ -57,11 +57,11 @@ int cmd::sub::login(int argc, char **argv) {
 
     while (!valid_input) {
         // Get host
-        config.host = get_secure_input("Host (default: localhost): ");
+        config.host = get_secure_input("host (default: localhost): ");
         if (config.host.empty()) config.host = "localhost";
 
         // Get port
-        std::string port_str = get_secure_input("Port (default: 9090): ");
+        std::string port_str = get_secure_input("port (default: 9090): ");
         if (port_str.empty()) {
             config.port = 9090;
         } else {
@@ -75,14 +75,14 @@ int cmd::sub::login(int argc, char **argv) {
         }
 
         // Get username
-        config.username = get_secure_input("Username: ");
+        config.username = get_secure_input("username: ");
         if (config.username.empty()) {
             LOG(WARNING) << "Username cannot be empty.";
             continue;
         }
 
         // Get password
-        config.password = get_secure_input("Password: ", true);
+        config.password = get_secure_input("password: ", true);
         if (config.password.empty()) {
             LOG(WARNING) << "Password cannot be empty.";
             continue;
@@ -91,18 +91,17 @@ int cmd::sub::login(int argc, char **argv) {
         valid_input = true;
     }
 
-    LOG(INFO) << "Attempting to connect to Synnax at " << config.host << ":" << config.
-            port;
+    LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
     synnax::Synnax client(config);
-    // if (const auto err = client.auth->authenticate()) {
-    //     LOG(ERROR) << xlog::RED << "Failed to authenticate: " << err << xlog::RESET;
-    //     return 1;
-    // }
-    // LOG(INFO) << xlog::GREEN << "Successfully logged in!" << xlog::RESET;
-    // if (auto err = driver::save_conn_params(config)) {
-    //     LOG(ERROR) << xlog::RED << "Failed to save credentials: " << err << xlog::RESET;
-    //     return 1;
-    // }
-    // LOG(INFO) << xlog::GREEN << "Credentials saved successfully!" << xlog::RESET;
+    if (const auto err = client.auth->authenticate()) {
+        LOG(ERROR) << xlog::RED << "failed to authenticate: " << err << xlog::RESET;
+        return 1;
+    }
+    LOG(INFO) << xlog::GREEN << "successfully logged in!" << xlog::RESET;
+    if (auto err = rack::Config::save_conn_params(config)) {
+        LOG(ERROR) << xlog::RED << "failed to save credentials: " << err << xlog::RESET;
+        return 1;
+    }
+    LOG(INFO) << xlog::GREEN << "credentials saved successfully!" << xlog::RESET;
     return 0;
 }

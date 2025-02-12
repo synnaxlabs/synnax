@@ -20,6 +20,7 @@
 
 /// module
 #include "x/cpp/config/config.h"
+#include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
@@ -69,21 +70,23 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     return xerrors::NIL;
 }
 
-void task::Manager::stop() {
+void task::Manager::stop() const {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
-        LOG(WARNING) << "[driver] received task for foreign rack: " << task_key;
+        LOG(INFO) << "[driver] received task for foreign rack: " << task_key << ", skipping";
         return true;
     }
     return false;
 }
 
-xerrors::Error task::Manager::run() {
+xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
     if (const auto err = this->configure_initial_tasks()) return err;
     if (const auto err = this->open_streamer()) return err;
+    LOG(INFO) << xlog::GREEN << "[driver] started successfully" << xlog::RESET;
+    if (started_promise != nullptr) started_promise->set_value();
     do {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
@@ -103,20 +106,20 @@ xerrors::Error task::Manager::run() {
 void task::Manager::process_task_set(const telem::Series &series) {
     const auto task_keys = series.values<std::uint64_t>();
     for (const auto task_key: task_keys) {
-        // If a module exists with this key, stop and remove it.
+        if (this->skip_foreign_rack(task_key)) continue;
+
         auto task_iter = this->tasks.find(task_key);
         if (task_iter != this->tasks.end()) {
             task_iter->second->stop();
             this->tasks.erase(task_iter);
         }
-        if (this->skip_foreign_rack(task_key)) continue;
+
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
         if (err) {
             LOG(WARNING) << "[driver] failed to retrieve task: " << err;
             continue;
         }
-        LOG(INFO) << "[driver] configuring task " << sy_task.name << " with key: " <<
-                task_key << ".";
+        LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key << ")";
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, sy_task);
         if (ok && driver_task != nullptr)
             this->tasks[task_key] = std::move(driver_task);

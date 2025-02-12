@@ -92,7 +92,6 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 ) {
     task::State cfg_state{.task = task.key};
 
-    LOG(INFO) << "[sequence] configuring task " << task.name;
     auto parser = config::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {

@@ -13,6 +13,7 @@
 #include <memory>
 #include <thread>
 #include <utility>
+#include <future>
 
 /// external
 #include "glog/logging.h"
@@ -260,9 +261,9 @@ public:
        factory(std::move(factory)) {
     }
 
-    xerrors::Error run();
+    xerrors::Error run(std::promise<void>* started_promise = nullptr);
 
-    void stop();
+    void stop() const;
 
 private:
     synnax::Rack rack;

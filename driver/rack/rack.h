@@ -119,6 +119,8 @@ struct Config {
 
     static xerrors::Error save_remote_info(const RemoteInfo &remote_info);
 
+    static xerrors::Error clear_persisted_state();
+
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
     [[nodiscard]] xerrors::Error load_persisted_state();
@@ -135,7 +137,12 @@ xerrors::Error clear_persisted_state();
 class Rack {
     std::thread run_thread;
     std::unique_ptr<task::Manager> task_manager;
-    breaker::Breaker breaker;
+    breaker::Breaker breaker = breaker::Breaker({
+        .name = "driver",
+        .base_interval = telem::TimeSpan::seconds(1),
+        .max_retries = 100,
+        .scale = 1.05,
+    });
     xerrors::Error run_err = xerrors::NIL;
 
     bool should_exit(const xerrors::Error &err) {

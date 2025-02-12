@@ -123,7 +123,7 @@ public:
         }
         LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
                 max_retries
-                << " times. " << "Retrying in " << interval << " seconds. " <<
+                << " times. " << "Retrying in " << interval.seconds() << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.chrono());

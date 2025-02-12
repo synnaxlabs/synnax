@@ -36,13 +36,13 @@ inline std::pair<std::string, bool> get_hostname() {
 
 /// @brief returns the name of the operating system, if the operating system could not
 /// be determined, returns "unknown".
-inline std::string get_os() {
+inline std::string get() {
 #if defined(_WIN32) || defined(_WIN64)
-    return "windows";
+    return "Windows";
 #elif defined(__APPLE__)
-    return "macos";
+    return "macOS";
 #elif defined(__linux__)
-    return "linux";
+    return "Linux";
 #else
     return "unknown";
 #endif

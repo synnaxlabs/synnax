@@ -12,12 +12,12 @@
 
 /// internal
 #include "driver/cmd/cmd.h"
+#include "driver/rack/rack.h"
 
 int cmd::sub::clear(int argc, char **argv) {
-    // // clear the driver persisted state
-    // if (const auto err = driver::clear_persisted_state(); err) {
-    //     LOG(ERROR) << "failed to clear persisted state: " << err;
-    //     return 1;
-    // }
+    if (const auto err = rack::Config::clear_persisted_state(); err) {
+        LOG(ERROR) << "failed to clear persisted state: " << err;
+        return 1;
+    }
     return 0;
 }

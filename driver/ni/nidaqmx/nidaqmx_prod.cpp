@@ -15,6 +15,8 @@
 #include "x/cpp/xlib/xlib.h"
 #include "driver/ni/nidaqmx/nidaqmx_prod.h"
 
+#include "x/cpp/xos/xos.h"
+
 #ifdef _WIN32
 static const std::string LIB_NAME = "nicaiu.dll";
 #else
@@ -27,6 +29,7 @@ const auto LOAD_ERROR = xerrors::Error(
 );
 
 std::pair<std::shared_ptr<DAQmx>, xerrors::Error> DAQmxProd::load() {
+    if (xos::get() == "macOS") return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<DAQmxProd>(lib), xerrors::Error()};

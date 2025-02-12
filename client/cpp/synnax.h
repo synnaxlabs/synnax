@@ -13,7 +13,6 @@
 
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
-#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
