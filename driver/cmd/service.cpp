@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// external
-#include "glog/logging.h"
-
-/// module
-#include "x/cpp/xlog/xlog.h"
-
-/// internal
-#include "driver/daemon/daemon.h"
 #include "driver/cmd/cmd.h"
 
 // Updated helper function with C++ strings

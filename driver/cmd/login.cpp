@@ -7,20 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
-#include <string>
-#include <iostream>
-
-/// external
-#include "glog/logging.h"
-
-/// module
-#include "client/cpp/synnax.h"
-#include "x/cpp/xlog/xlog.h"
-
-/// internal
 #include "driver/cmd/cmd.h"
-#include "driver/rack/rack.h"
 
 std::string get_secure_input(const std::string &prompt, bool hide_input = false) {
     std::string input;

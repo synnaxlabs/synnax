@@ -7,17 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <iostream>
-
-/// module
-#include "synnax/pkg/version/version.h"
-
-/// external
-#include "glog/logging.h"
-
-/// internal
 #include "driver/cmd/cmd.h"
-#include "x/cpp/xlog/xlog.h"
 
 std::string cmd::version() {
     return "v" +

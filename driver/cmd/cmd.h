@@ -9,8 +9,36 @@
 
 #pragma once
 
+// IT IS ABSOLUTELY MISSION CRITICAL THAT THIS BLOCK IS THE FIRST INCLUDE IN THIS FILE.
+// Otherwise you will see a bunch of linker errors.
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#endif
+// END OF MISSION CRITICAL CODE BLOCK.
+
 /// std
 #include <string>
+#include <iostream>
+#include <string>
+#include <iostream>
+
+/// external
+#include "glog/logging.h"
+
+/// module
+#include "x/cpp/xshutdown/xshutdown.h"
+#include "x/cpp/xlog/xlog.h"
+#include "synnax/pkg/version/version.h"
+#include "client/cpp/synnax.h"
+
+/// internal
+#include "driver/cmd/cmd.h"
+#include "driver/rack/rack.h"
+#include "driver/daemon/daemon.h"
+
 
 /// @brief the configuration for opening a connection to the driver.
 namespace cmd {
