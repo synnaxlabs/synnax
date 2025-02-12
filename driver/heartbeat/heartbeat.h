@@ -20,6 +20,7 @@
 
 namespace heartbeat {
 const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
+const std::string INTEGRATION_NAME = "heartbeat";
 
 class HeartbeatSource final : public pipeline::Source {
     synnax::ChannelKey key;

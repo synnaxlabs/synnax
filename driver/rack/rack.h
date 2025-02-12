@@ -25,6 +25,7 @@
 #include "driver/sequence/sequence.h"
 
 /// internal
+#include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/sequence/sequence.h"
@@ -51,6 +52,7 @@ struct RemoteInfo {
 inline std::vector<std::string> default_integrations() {
 #ifdef _WIN32
     return {
+        heartbeat::INTEGRATION_NAME,
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
@@ -60,7 +62,8 @@ inline std::vector<std::string> default_integrations() {
     return {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
-        sequence::INTEGRATION_NAME
+        sequence::INTEGRATION_NAME,
+        heartbeat::INTEGRATION_NAME
     };
 #endif
 }

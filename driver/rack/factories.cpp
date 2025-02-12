@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/heartbeat/heartbeat.h"
 #include "driver/rack/rack.h"
 
 typedef std::vector<std::unique_ptr<task::Factory> > FactoryList;
@@ -35,6 +36,11 @@ void configure_sequences(const rack::Config &config, FactoryList &factories) {
     factories.push_back(std::make_unique<sequence::Factory>());
 }
 
+void configure_heartbeat(const rack::Config &config, FactoryList &factories) {
+    if (!config.integration_enabled(heartbeat::INTEGRATION_NAME)) return;
+    factories.push_back(std::make_unique<heartbeat::Factory>());
+}
+
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
 #ifdef _WIN32
     if (
@@ -48,6 +54,7 @@ void configure_labjack(const rack::Config &config, FactoryList &factories) {
 
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     FactoryList factories;
+    configure_heartbeat(*this, factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
     configure_sequences(*this, factories);
