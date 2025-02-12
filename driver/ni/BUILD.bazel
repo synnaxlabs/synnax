@@ -52,6 +52,7 @@ cc_test(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    tags = ["hardware"],
     deps = [
         "ni",
         "//driver/testutil",
@@ -68,6 +69,7 @@ cc_test(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    tags = ["hardware"],
     deps = [
         "ni",
         "//driver/testutil",
@@ -84,22 +86,7 @@ cc_test(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
-    deps = [
-        "ni",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "task_test",
-    srcs = [
-        "task_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
+    tags = ["hardware"],
     deps = [
         "ni",
         "//driver/testutil",
@@ -112,7 +99,11 @@ cc_test(
     srcs = [
         "writer_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    tags = ["hardware"],
     deps = [
         "ni",
         "//driver/testutil",

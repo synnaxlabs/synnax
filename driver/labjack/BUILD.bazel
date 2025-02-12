@@ -1,41 +1,53 @@
 cc_library(
     name = "labjack_headers",
-    hdrs = [
-        "LJM_StreamUtilities.h",
-        "LJM_Utilities.h",
-        "LabJackM.h",
-        "LabJackMModbusMap.h",
-    ],
+    hdrs = select({
+        "@platforms//os:windows": [
+            "LJM_StreamUtilities.h",
+            "LJM_Utilities.h",
+            "LabJackM.h",
+            "LabJackMModbusMap.h",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "labjack_lib",
+    deps = select({
+        "@platforms//os:windows": ["@labjack//:labjackm_lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
-    deps = ["@labjack//:labjackm_lib"],
 )
 
 cc_library(
     name = "labjack",
-    srcs = [
-        "factory.cpp",
-        "reader_source.cpp",
-        "reader_task.cpp",
-        "scanner.cpp",
-        "writer_sink.cpp",
-        "writer_task.cpp",
-    ],
-    hdrs = [
-        "dll_check_windows.h",
-        "errors.h",
-        "labjack.h",
-        "reader.h",
-        "scanner.h",
-        "util.h",
-        "writer.h",
-    ],
+    srcs = select({
+        "@platforms//os:windows": [
+            "factory.cpp",
+            "reader_source.cpp",
+            "reader_task.cpp",
+            "scanner.cpp",
+            "writer_sink.cpp",
+            "writer_task.cpp",
+        ],
+        "//conditions:default": [],
+    }),
+    hdrs = select({
+        "@platforms//os:windows": [
+            "dll_check_windows.h",
+            "errors.h",
+            "labjack.h",
+            "reader.h",
+            "scanner.h",
+            "util.h",
+            "writer.h",
+        ],
+        "//conditions:default": [],
+    }),
     copts = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
             "/DNOMINMAX",
             "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
@@ -45,80 +57,108 @@ cc_library(
         "//conditions:default": [],
     }),
     linkopts = select({
-        "@bazel_tools//src/conditions:windows": ["/DEFAULTLIB:ws2_32.lib"],
+        "@platforms//os:windows": ["/DEFAULTLIB:ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            ":labjack_headers",
+            ":labjack_lib",
+            "//client/cpp:synnax",
+            "//driver/errors",
+            "//driver/pipeline",
+            "//driver/queue",
+            "//driver/task",
+            "//x/cpp/breaker",
+            "//x/cpp/config",
+            "//x/cpp/loop",
+            "@com_github_google_glog//:glog",
+            "@nlohmann_json//:json",
+        ],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
-    deps = [
-        ":labjack_headers",
-        ":labjack_lib",
-        "//client/cpp:synnax",
-        "//driver/errors",
-        "//driver/pipeline",
-        "//driver/queue",
-        "//driver/task",
-        "//x/cpp/breaker",
-        "//x/cpp/config",
-        "//x/cpp/loop",
-        "@com_github_google_glog//:glog",
-        "@nlohmann_json//:json",
-    ],
 )
 
 cc_test(
     name = "scanner_test",
-    srcs = ["scanner_test.cpp"],
-    linkopts = select({
-        # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
-        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+    srcs = select({
+        "@platforms//os:windows": ["scanner_test.cpp"],
         "//conditions:default": [],
     }),
-    deps = [
-        ":labjack",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
+    tags = ["hardware"],
+    linkopts = select({
+        "@platforms//os:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            ":labjack",
+            "//driver/testutil",
+            "@com_google_googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
     name = "reader_test",
-    srcs = ["reader_test.cpp"],
-    linkopts = select({
-        # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
-        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+    srcs = select({
+        "@platforms//os:windows": ["reader_test.cpp"],
         "//conditions:default": [],
     }),
-    deps = [
-        ":labjack",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
+    tags = ["hardware"],
+    linkopts = select({
+        "@platforms//os:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            ":labjack",
+            "//driver/testutil",
+            "@com_google_googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
     name = "writer_test",
-    srcs = ["writer_test.cpp"],
-    linkopts = select({
-        # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
-        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+    srcs = select({
+        "@platforms//os:windows": ["writer_test.cpp"],
         "//conditions:default": [],
     }),
-    deps = [
-        ":labjack",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
+    tags = ["hardware"],
+    linkopts = select({
+        "@platforms//os:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            ":labjack",
+            "//driver/testutil",
+            "@com_google_googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
-cc_binary(
-    name = "test",
-    srcs = ["test_labjack.cpp"],
-    linkopts = select({
-        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+cc_test(
+    name = "test_labjack",
+    srcs = select({
+        "@platforms//os:windows": ["test_labjack.cpp"],
         "//conditions:default": [],
     }),
-    deps = [
-        ":labjack_headers",
-        ":labjack_lib",
-    ],
+    tags = ["hardware"],
+    linkopts = select({
+        "@platforms//os:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
+    deps = select({
+        "@platforms//os:windows": [
+            ":labjack_headers",
+            ":labjack_lib",
+        ],
+        "//conditions:default": [],
+    }),
 )

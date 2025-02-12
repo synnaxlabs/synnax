@@ -55,7 +55,7 @@ TEST(ControlPipeline, testHappyPath) {
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<MockStreamerFactory>(
         std::vector{
-            freighter::UNKNOWN
+            xerrors::UNKNOWN
         },
         std::make_shared<std::vector<MockStreamerConfig> >()
     );
@@ -70,7 +70,7 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
     std::this_thread::sleep_for(std::chrono::microseconds(500));
     control.stop();
     ASSERT_EQ(sink->writes->size(), 0);
-    ASSERT_TRUE(sink->stop_err.matches(freighter::UNKNOWN));
+    ASSERT_TRUE(sink->stop_err.matches(xerrors::UNKNOWN));
 }
 
 TEST(ControlPipeline, testOpenRetrySuccessful) {

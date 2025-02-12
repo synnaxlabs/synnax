@@ -15,6 +15,8 @@
 #include "driver/testutil/testutil.h"
 
 #include <gtest/gtest.h>
+
+#include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nidaqmx/nidaqmx_prod.h"
 
@@ -96,7 +98,7 @@ TEST(read_tests, multiple_analog_channels) {
     dmx->CreateTask("", &taskHandle);
 
     auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start("");
@@ -157,7 +159,7 @@ TEST(read_tests, analog_linear_scaling) {
     dmx->CreateTask("", &taskHandle);
 
     auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start("");
@@ -214,7 +216,7 @@ TEST(read_tests, analog_map_scaling) {
     dmx->CreateTask("", &taskHandle);
 
     auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
     reader.start("");
@@ -282,7 +284,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config,
     auto b = breaker::Breaker(
         breaker::Config{
             "my-breaker",
-            1 * SECOND,
+            1 * telem::SECOND,
             1,
             1
         });
