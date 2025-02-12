@@ -13,9 +13,12 @@
 #include <windows.h>
 
 /// internal
-#include "x/cpp/xshutdown.h"
+#include "x/cpp/xshutdown/xshutdown.h"
 
 namespace xshutdown::priv {
+std::mutex shutdown_mutex;
+std::condition_variable shutdown_cv;
+bool should_stop = false;
 
 BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
     if (ctrl_type == CTRL_C_EVENT) {

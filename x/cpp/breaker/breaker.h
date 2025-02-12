@@ -32,9 +32,11 @@ struct Config {
     /// @brief sets the rate at which the base_interval will scale on each successive
     /// call to wait(). We do not recommend setting this factor lower than 1.
     float scale;
+    /// @brief the maximum amount of time to wait for a retry.
+    telem::TimeSpan max_interval;
 
     [[nodiscard]] Config child(const std::string &name) const {
-        return Config{this->name + "." + name, base_interval, max_retries, scale};
+        return Config{this->name + "." + name, base_interval, max_retries, scale, max_interval};
     }
 };
 
@@ -57,7 +59,8 @@ public:
         "default",
         telem::TimeSpan(1 * telem::SECOND),
         10,
-        1.1
+        1.1,
+        telem::TimeSpan(1 * telem::MINUTE)
     }) {
     }
 
@@ -134,6 +137,7 @@ public:
             }
         }
         interval = interval * config.scale;
+        if (interval > config.max_interval) interval = config.max_interval;
         return true;
     }
 
