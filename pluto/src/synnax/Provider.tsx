@@ -18,8 +18,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use as reactUse,
   useCallback,
-  useContext,
 } from "react";
 
 import { Aether } from "@/aether";
@@ -29,9 +29,11 @@ import { synnax } from "@/synnax/aether";
 
 const Context = createContext<synnax.ContextValue>(synnax.ZERO_CONTEXT_VALUE);
 
-export const use = (): Synnax | null => useContext(Context).synnax;
+const useContext = (): synnax.ContextValue => reactUse(Context);
 
-export const useConnectionState = (): connection.State => useContext(Context).state;
+export const use = () => useContext().synnax;
+
+export const useConnectionState = () => useContext().state;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
@@ -64,7 +66,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     initialState: { props: connParams ?? null, state: null },
   });
 
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
 
   const handleChange = useCallback(
     (state: connection.State) => {
@@ -142,8 +144,8 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   }, [connParams, handleChange]);
 
   return (
-    <Context.Provider value={state}>
+    <Context value={state}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context.Provider>
+    </Context>
   );
 };

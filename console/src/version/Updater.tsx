@@ -23,7 +23,7 @@ import { silenceUpdateNotifications } from "@/version/slice";
 const STATUS_KEY_PREFIX = "versionUpdate";
 
 export const useCheckForUpdates = (): boolean => {
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const isSilenced = useSelectUpdateNotificationsSilenced();
   const [available, setAvailable] = useState(false);
 

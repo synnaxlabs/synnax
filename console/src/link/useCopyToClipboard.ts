@@ -21,7 +21,7 @@ export interface CopyToClipboardProps {
 
 export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) => {
   const activeClusterKey = Cluster.useSelectActiveKey();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   return ({ ontologyID, name, clusterKey }) => {
     let url = PREFIX;
     const key = clusterKey ?? activeClusterKey;

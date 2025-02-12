@@ -50,15 +50,22 @@ export type FormProps<
   | {
       methods: PForm.ContextValue<Schema<Config>>;
       task: task.Payload<Config, Details, Type>;
-      isSnapshot: boolean;
-      isRunning: boolean;
+      isSnapshot: false;
+      isRunning: false;
       configured: false;
     }
   | {
       methods: PForm.ContextValue<Schema<Config>>;
       task: task.Task<Config, Details, Type>;
-      isSnapshot: boolean;
+      isSnapshot: false;
       isRunning: boolean;
+      configured: true;
+    }
+  | {
+      methods: PForm.ContextValue<Schema<Config>>;
+      task: task.Task<Config, Details, Type>;
+      isSnapshot: true;
+      isRunning: false;
       configured: true;
     };
 
@@ -96,6 +103,7 @@ export const wrapForm = <
     onConfigure,
   }: WrapFormOptions<Config, Details, Type>,
 ): Layout.Renderer => {
+  const schema = z.object({ name: nameZ, config: configSchema });
   const Wrapper = ({
     layoutKey,
     task: tsk,
@@ -103,7 +111,6 @@ export const wrapForm = <
   }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
-    const schema = z.object({ name: nameZ, config: configSchema });
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
@@ -168,7 +175,7 @@ export const wrapForm = <
                 methods={methods}
                 task={tsk as task.Task<Config, Details, Type>}
                 isRunning={state.state === "running"}
-                isSnapshot={isSnapshot}
+                isSnapshot={isSnapshot as false}
                 configured={configured as true}
               />
             </Align.Space>
