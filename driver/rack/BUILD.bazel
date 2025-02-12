@@ -4,6 +4,7 @@ cc_library(
         "factories.cpp",
         "file.cpp",
         "persist.cpp",
+        "rack.cpp",
         "remote.cpp",
     ],
     hdrs = ["rack.h"],
@@ -17,12 +18,18 @@ cc_library(
         "//x/cpp/kv",
         "//x/cpp/xos",
     ] + select({
-        "@platforms//os:windows": [
-            "//driver/labjack",
-        ],
-        "@platforms//os:linux": [
-        ],
-        "@platforms//os:macos": [
-        ],
+        "@platforms//os:windows": ["//driver/labjack"],
+        "//conditions:default": [],
     }),
+)
+
+cc_test(
+    name = "rack_test",
+    srcs = [
+        "config_test.cpp",
+    ],
+    deps = [
+        "//driver/rack",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

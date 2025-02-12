@@ -85,7 +85,7 @@ int cmd::sub::login(int argc, char **argv) {
         return 1;
     }
     LOG(INFO) << xlog::GREEN << "successfully logged in!" << xlog::RESET;
-    if (auto err = rack::Config::save_conn_params(config)) {
+    if (auto err = rack::Config::save_conn_params(argc, argv, config)) {
         LOG(ERROR) << xlog::RED << "failed to save credentials: " << err << xlog::RESET;
         return 1;
     }

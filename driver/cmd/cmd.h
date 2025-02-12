@@ -39,7 +39,6 @@
 #include "driver/rack/rack.h"
 #include "driver/daemon/daemon.h"
 
-
 /// @brief the configuration for opening a connection to the driver.
 namespace cmd {
 /// @brief exec runs the CLI command.

@@ -27,7 +27,16 @@ constexpr auto PERSISTED_STATE_DIR_PERMISSIONS = std::filesystem::perms::owner_a
                                                  std::filesystem::perms::group_all |
                                                  std::filesystem::perms::others_all;
 
-std::string get_persisted_state_path() {
+std::string get_persisted_state_path(const int argc, char *argv[]) {
+    std::string p_path;
+    for (int i = 2; i < argc; i++) {
+        const std::string arg = argv[i];
+        if (arg == "--state-file") {
+            p_path = argv[++i];
+            break;
+        }
+    }
+    if (!p_path.empty()) return p_path;
 #ifdef _WIN32
     if (const char* appdata = std::getenv("LOCALAPPDATA"))
         return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
@@ -42,16 +51,16 @@ std::string get_persisted_state_path() {
 #endif
 }
 
-std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv() {
+std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv(int argc, char **argv) {
     return kv::JSONFile::open(kv::JSONFileConfig{
-        .path = get_persisted_state_path(),
+        .path = get_persisted_state_path(argc, argv),
         .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
         .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
     });
 }
 
-xerrors::Error rack::Config::load_persisted_state() {
-    auto [kv, open_err] = open_kv();
+xerrors::Error rack::Config::load_persisted_state(int argc, char **argv) {
+    auto [kv, open_err] = open_kv(argc, argv);
     if (open_err) return open_err;
 
     // Load the connection config.
@@ -71,18 +80,26 @@ xerrors::Error rack::Config::load_persisted_state() {
     return xerrors::NIL;
 }
 
-xerrors::Error rack::Config::save_conn_params(const synnax::Config &conn_params) {
-    auto [kv, err] = open_kv();
+xerrors::Error rack::Config::save_conn_params(
+    int argc,
+    char **argv,
+    const synnax::Config &conn_params
+) {
+    auto [kv, err] = open_kv(argc, argv);
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
-xerrors::Error rack::Config::save_remote_info(const RemoteInfo &remote_info) {
-    auto [kv, err] = open_kv();
+xerrors::Error rack::Config::save_remote_info(
+    int argc,
+    char **argv,
+    const RemoteInfo &remote_info
+) {
+    auto [kv, err] = open_kv(argc, argv);
     return kv->set("remote_info", remote_info.to_json().dump());
 }
 
-xerrors::Error rack::Config::clear_persisted_state() {
-    auto [kv, err] = open_kv();
+xerrors::Error rack::Config::clear_persisted_state(int argc, char **argv) {
+    auto [kv, err] = open_kv(argc, argv);
     if (err) return err;
     if (const auto d1_err = kv->del("conn_params")) return d1_err;
     if (const auto d2_err = kv->del("remote_info")) return d2_err;

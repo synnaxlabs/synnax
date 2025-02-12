@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/cmd/cmd.h"
+#include "driver/rack/rack.h"
+#include "gtest/gtest.h"
 
-int cmd::sub::clear(int argc, char **argv) {
-    if (const auto err = rack::Config::clear_persisted_state(argc, argv); err) {
-        LOG(ERROR) << "failed to clear persisted state: " << err;
-        return 1;
-    }
-    return 0;
+TEST(CConfig, testDefault) {
+    breaker::Breaker brk;
+    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
+    ASSERT_FALSE(c_err) << c_err;
+    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+    ASSERT_TRUE(err) << err;
 }

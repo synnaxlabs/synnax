@@ -21,15 +21,17 @@
 #include "driver/labjack/labjack.h"
 #endif
 
-#include "driver/ni/ni.h"
-#include "driver/sequence/sequence.h"
-
 /// internal
-#include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
-#include "driver/opc/opc.h"
 #include "driver/sequence/sequence.h"
+#include "driver/heartbeat/heartbeat.h"
+#include "driver/opc/opc.h"
 #include "driver/task/task.h"
+
+/// external
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 namespace rack {
 struct RemoteInfo {
@@ -82,7 +84,9 @@ struct Config {
     /// @brief this is the rack that the driver will attach to on the server. If not
     /// provided, the driver will automatically create a new rack and persist it in state.
     synnax::Rack rack;
-
+    /// @brief important info used to determine the identity of the driver when
+    /// connecting to a cluster. This is cached on the local file system to compare
+    /// and contrast.
     RemoteInfo remote;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
@@ -111,22 +115,22 @@ struct Config {
             },
             .integrations = default_integrations(),
         };
-        if (const auto err = cfg.load_persisted_state()) return {cfg, err};
+        if (const auto err = cfg.load_persisted_state(argc, argv)) return {cfg, err};
         if (const auto err = cfg.load_config_file(argc, argv)) return {cfg, err};
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        const auto err = cfg.save_remote_info(cfg.remote);
+        const auto err = cfg.save_remote_info(argc, argv, cfg.remote);
         return {cfg, err};
     }
 
-    static xerrors::Error save_conn_params(const synnax::Config &conn_params);
+    static xerrors::Error save_conn_params(int argc, char **argv, const synnax::Config &conn_params);
 
-    static xerrors::Error save_remote_info(const RemoteInfo &remote_info);
+    static xerrors::Error save_remote_info(int argc, char **argv, const RemoteInfo &remote_info);
 
-    static xerrors::Error clear_persisted_state();
+    static xerrors::Error clear_persisted_state(int argc, char **argv);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
-    [[nodiscard]] xerrors::Error load_persisted_state();
+    [[nodiscard]] xerrors::Error load_persisted_state(int argc, char **argv);
 
     [[nodiscard]] xerrors::Error load_config_file(int argc, char **argv);
 
@@ -136,7 +140,9 @@ struct Config {
 /// @brief clears the persisted state file, removing all cached information.
 xerrors::Error clear_persisted_state();
 
-
+/// @brief rack is the entry point for driver operation. It is responsible for
+/// communicating its identity to the Synnax cluster and managing the lifecycle
+/// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
     std::unique_ptr<task::Manager> task_manager;
@@ -148,47 +154,17 @@ class Rack {
     });
     xerrors::Error run_err = xerrors::NIL;
 
-    bool should_exit(const xerrors::Error &err) {
-        this->run_err = err;
-        if (err) {
-            if (err.matches(freighter::UNREACHABLE) && breaker.wait(err))
-                return false;
-            return true;
-        }
-        return false;
-    }
+    /// @brief returns true if the error cannot be recovered from and the rack
+    /// should stop operations and shut down.
+    bool should_exit(const xerrors::Error &err);
 
-    void run(const int argc, char **argv) {
-        while (this->breaker.running()) {
-            auto [cfg, err] = Config::load(argc, argv, this->breaker);
-            if (err) {
-                if (this->should_exit(err)) return;
-                continue;
-            }
-            this->task_manager = std::make_unique<task::Manager>(
-                cfg.rack,
-                cfg.new_client(),
-                cfg.new_factory()
-            );
-            err = this->task_manager->run();
-            if (err && this->should_exit(err)) return;
-        }
-    }
-
+    /// @brief starts the main loop for the rack.
+    void run(int argc, char **argv);
 public:
-    void start(int argc, char **argv) {
-        this->breaker.start();
-        this->run_thread = std::thread([this, argv, argc] {
-            this->run(argc, argv);
-        });
-    }
+    /// @brief starts the rack.
+    void start(int argc, char **argv);
 
-    xerrors::Error stop() {
-        if (!this->breaker.running()) return xerrors::NIL;
-        breaker.stop();
-        if (task_manager != nullptr) task_manager->stop();
-        this->run_thread.join();
-        return xerrors::NIL;
-    }
+    /// @brief stops the rack.
+    xerrors::Error stop();
 };
 }
