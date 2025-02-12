@@ -168,7 +168,7 @@ const PaletteDialog = ({
   close,
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtils<Key, Entry>();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
   const client = Synnax.use();
   const store = useStore<RootState, RootAction>();

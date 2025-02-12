@@ -112,7 +112,7 @@ const Content = () => {
     {},
   );
   const menuProps = PMenu.useContextMenu();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const dispatch = useDispatch();
   const place = Layout.usePlacer();
   useAsyncEffect(async () => {

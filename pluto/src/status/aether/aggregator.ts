@@ -13,19 +13,10 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { type CrudeSpec, specZ } from "@/status/aether/types";
 
-export const aggregatorStateZ = z.object({
-  statuses: specZ.array(),
-});
+export const aggregatorStateZ = z.object({ statuses: specZ.array() });
+export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
 
 const CONTEXT_KEY = "status.aggregator";
-
-export interface AddStatusFn {
-  (spec: CrudeSpec): void;
-}
-
-export interface ExceptionHandler {
-  (exc: unknown, message?: string): void;
-}
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
@@ -43,19 +34,27 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export const useAggregator = (ctx: aether.Context): AddStatusFn => {
+export interface Adder {
+  (spec: CrudeSpec): void;
+}
+
+export const useAdder = (ctx: aether.Context): Adder => {
   const agg = ctx.get<Aggregator>(CONTEXT_KEY);
   return agg.add.bind(agg);
 };
 
-export const useOptionalAggregator = (ctx: aether.Context): AddStatusFn => {
+export const useOptionalAdder = (ctx: aether.Context): Adder => {
   const agg = ctx.getOptional<Aggregator>(CONTEXT_KEY);
   if (agg != null) return agg.add.bind(agg);
   return () => {};
 };
 
+export interface ExceptionHandler {
+  (exc: unknown, message?: string): void;
+}
+
 export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler => {
-  const addStatus = useAggregator(ctx);
+  const addStatus = useAdder(ctx);
   return (exc: unknown, message?: string): void => {
     if (!(exc instanceof Error)) throw exc;
     addStatus({

@@ -148,7 +148,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
   const dispatch = useDispatch();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
 
   const handleDrop = useCallback(

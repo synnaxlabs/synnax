@@ -66,7 +66,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     initialState: { props: connParams ?? null, state: null },
   });
 
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
 
   const handleChange = useCallback(
     (state: connection.State) => {
