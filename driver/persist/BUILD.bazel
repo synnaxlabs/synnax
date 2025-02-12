@@ -1,6 +1,0 @@
-cc_library(
-    name = "persist",
-    srcs = ["persist.cpp"],
-    hdrs = ["persist.h"],
-    deps = ["@nlohmann_json//:json"],
-)

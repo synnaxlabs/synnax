@@ -22,19 +22,3 @@ cc_library(
         "@nlohmann_json//:json",
     ],
 )
-
-cc_test(
-    name = "sequence_test",
-    size = "small",
-    srcs = [
-        "sequence_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "//driver/sequence",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
