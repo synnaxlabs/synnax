@@ -14,6 +14,8 @@
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+constexpr auto WAIT_FOR = std::chrono::milliseconds(3);
+
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = synnax::Frame(1);
     fr_1.emplace(1, telem::Series(1.0));
@@ -47,7 +49,7 @@ TEST(ControlPipeline, testHappyPath) {
         breaker::Config{}
     );
     control.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    std::this_thread::sleep_for(WAIT_FOR);
     control.stop();
     ASSERT_EQ(sink->writes->size(), 2);
 }
@@ -67,7 +69,7 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
         breaker::Config{}
     );
     control.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    std::this_thread::sleep_for(WAIT_FOR);
     control.stop();
     ASSERT_EQ(sink->writes->size(), 0);
     ASSERT_TRUE(sink->stop_err.matches(xerrors::UNKNOWN));
@@ -125,7 +127,7 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     );
 
     control.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    std::this_thread::sleep_for(WAIT_FOR);
     control.stop();
     ASSERT_EQ(streamer_factory->streamer_opens, 3);
     ASSERT_EQ(sink->writes->size(), 2);

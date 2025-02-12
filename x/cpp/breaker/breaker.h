@@ -9,11 +9,16 @@
 
 #pragma once
 
+/// std
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
+/// external
 #include "glog/logging.h"
+
+/// module
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
 
@@ -26,17 +31,19 @@ struct Config {
     /// @brief the interval that will be used by the breaker on the first trigger.
     /// This interval will be scaled on each successive retry based on the value of
     /// scale.
-    telem::TimeSpan base_interval;
+    telem::TimeSpan base_interval = 1 * telem::SECOND;
     /// @brief sets the maximum number of retries before the wait() method returns false.
-    uint32_t max_retries;
+    uint32_t max_retries = 50;
     /// @brief sets the rate at which the base_interval will scale on each successive
     /// call to wait(). We do not recommend setting this factor lower than 1.
-    float scale;
+    float scale = 1.1;
     /// @brief the maximum amount of time to wait for a retry.
-    telem::TimeSpan max_interval;
+    telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
     [[nodiscard]] Config child(const std::string &name) const {
-        return Config{this->name + "." + name, base_interval, max_retries, scale, max_interval};
+        return Config{
+            this->name + "." + name, base_interval, max_retries, scale, max_interval
+        };
     }
 };
 
@@ -45,14 +52,26 @@ struct Config {
 /// scaled interval, with a set number of maximum retries before giving up.
 /// @see breaker::Config for information on configuring the breaker.
 class Breaker {
+    /// @brief configuration parameters for the breaker.
+    Config config;
+    /// @brief current retry interval.
+    telem::TimeSpan interval;
+    /// @brief the current number of retries.
+    uint32_t retries;
+    /// @brief a flag to indicate if the breaker is currently running.
+    std::atomic<bool> is_running;
+    /// @brief a condition variable used to notify the breaker to shut down immediately.
+    std::condition_variable shutdown_cv;
+    /// @brief used to protect the condition variable.
+    std::mutex shutdown_mu;
+
 public:
     explicit Breaker(
         const Config &config
     ) : config(config),
         interval(config.base_interval),
         retries(0),
-        is_running(false),
-        breaker_shutdown(std::make_unique<std::condition_variable>()) {
+        is_running(false) {
     }
 
     Breaker(): Breaker(Config{
@@ -64,38 +83,9 @@ public:
     }) {
     }
 
-    Breaker(
-        const Breaker &other
-    ) noexcept: config(other.config),
-                interval(other.interval),
-                retries(other.retries),
-                is_running(other.is_running),
-                breaker_shutdown(std::make_unique<std::condition_variable>()) {
-    }
-
-    Breaker(Breaker &&other) noexcept : config(other.config),
-                                        interval(other.interval),
-                                        retries(other.retries),
-                                        is_running(other.is_running),
-                                        breaker_shutdown(
-                                            std::make_unique<
-                                                std::condition_variable>()) {
-    }
-
-    Breaker &operator=(const Breaker &other) noexcept {
-        if (this == &other) return *this;
-        this->config = other.config;
-        this->interval = other.interval;
-        this->retries = other.retries;
-        this->is_running = other.is_running;
-        this->breaker_shutdown = std::make_unique<std::condition_variable>();
-        return *this;
-    }
-
     ~Breaker() {
-        stop();
-        // sleep to allow for the breaker to shutdown.
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (this->running())
+            throw std::runtime_error("breaker was not stopped before destruction");
     }
 
 
@@ -126,10 +116,13 @@ public:
         }
         LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
                 max_retries
-                << " times. " << "Retrying in " << interval.seconds() << " seconds. " <<
-                "Error: " << message << "."; {
-            std::unique_lock lock(shutdown_mutex);
-            breaker_shutdown->wait_for(lock, interval.chrono());
+                << " times. " << "Retrying 7in " << interval.seconds() << " seconds. "
+                <<
+                "Error: " << message << ".";
+        //
+        {
+            std::unique_lock lock(shutdown_mu);
+            shutdown_cv.wait_for(lock, interval.chrono());
             if (!this->running()) {
                 LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
@@ -137,7 +130,8 @@ public:
             }
         }
         interval = interval * config.scale;
-        if (interval > config.max_interval) interval = config.max_interval;
+        std::cout << interval;
+        // if (interval > config.max_interval) interval = config.max_interval;
         return true;
     }
 
@@ -147,15 +141,22 @@ public:
     /// @param time the time to wait (supports multiple time units).
     void wait_for(const telem::TimeSpan &time) { this->wait_for(time.chrono()); }
 
-    /// @brief waits for the given time duration. If the breaker stopped before the specified time,
-    /// the method will return immediately to ensure graceful exit of objects using the breaker.
+    /// @brief waits for the given time duration. If the breaker stopped before the
+    /// specified time, the method will return immediately to ensure graceful exit of
+    /// objects using the breaker.
+    /// @note that this implementation is not performance efficient as it relies on
+    /// a condition variable to wake up the thread. It is recommended for longer
+    /// sleeps where the breaker may need to be interrupted for shut down.
     /// @param time the time to wait for in nanoseconds.
     void wait_for(const std::chrono::nanoseconds &time) {
         if (!running()) return;
-        std::unique_lock lock(shutdown_mutex);
-        breaker_shutdown->wait_for(lock, time);
+        std::unique_lock lock(shutdown_mu);
+        shutdown_cv.wait_for(lock, time);
     }
 
+    /// @brief starts the breaker, using it as a signaling mechanism for a thread to
+    /// operate. A breaker that is started must be stopped before it is destroyed.
+    /// @throws std::runtime_error inside the destructor if hte breaker is not stopped.
     void start() {
         if (running()) return;
         is_running = true;
@@ -164,11 +165,13 @@ public:
     /// @brief shuts down the breaker, preventing any further retries.
     void stop() {
         if (!running()) return;
-        std::lock_guard lock(shutdown_mutex);
+        std::lock_guard lock(shutdown_mu);
         is_running = false;
-        breaker_shutdown->notify_all();
+        shutdown_cv.notify_all();
     }
 
+    /// @brief returns true if the breaker is currently running (i.e. start() has been
+    /// called, but stop() has not been called yet.
     [[nodiscard]] bool running() const { return is_running; }
 
     /// @brief resets the retry count and the retry interval on the breaker, allowing
@@ -178,25 +181,9 @@ public:
         retries = 0;
         interval = config.base_interval;
     }
-
-    [[nodiscard]] uint32_t num_retries() const { return retries; }
-private:
-    Config config;
-    telem::TimeSpan interval;
-    uint32_t retries;
-    volatile bool is_running;
-    /// @brief a condition variable used to notify the breaker to shutdown immediately.
-    std::unique_ptr<std::condition_variable> breaker_shutdown;
-    std::mutex shutdown_mutex;
 };
 
-/// @brief Creates a default breaker configuration with standard retry and backoff settings
 inline Config default_config(const std::string &name) {
-    return Config{
-        .name = name,
-        .base_interval = 1 * telem::SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
+    return Config{.name = name,};
 }
 }

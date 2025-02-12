@@ -41,15 +41,13 @@ jobs:
     if: needs.changes.outputs.cpp == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [macos-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Deps On Ubuntu
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get install -y libmbedtls-dev libsystemd-dev
+      - name: Install MbedTLS On Mac
+        run: brew install mbedtls
 
       - name: Cache Open62541 Build
         id: cache-open62541

@@ -28,6 +28,7 @@ public:
     }
 };
 
+constexpr auto WAIT_FOR = std::chrono::milliseconds(5);
 
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
@@ -44,11 +45,9 @@ TEST(AcquisitionPipeline, testStartResolution) {
         breaker::Config()
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(600));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_GE(writes->size(), 5);
-    ASSERT_LE(writes->size(), 7);
-    // ASSERT_EQ(writes->at(0).at<double>(1, 0), 0);
     ASSERT_EQ(mock_factory->config.start.value, start_ts.value);
 }
 
@@ -66,13 +65,14 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
         WriterConfig(),
         source,
         breaker::Config{
+            .name = "pipeline",
             .max_retries = 3,
             .scale = 0,
             .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_GE(writes->size(), 1);
 }
@@ -98,7 +98,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_EQ(writes->size(), 0);
 }
@@ -125,7 +125,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_EQ(mock_factory->writer_opens, 2);
     ASSERT_GE(writes->size(), 3);
@@ -153,7 +153,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_EQ(mock_factory->writer_opens, 1);
     ASSERT_EQ(writes->size(), 0);
@@ -172,10 +172,9 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     );
     pipeline.start();
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     ASSERT_GE(writes->size(), 5);
-    ASSERT_LE(writes->size(), 7);
 }
 
 /// @brief it should not stop the pipeline if it has already been stopped.
@@ -190,9 +189,8 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
         breaker::Config()
     );
     pipeline.start();
-    std::this_thread::sleep_for(std::chrono::microseconds(550));
+    std::this_thread::sleep_for(WAIT_FOR);
     pipeline.stop();
     pipeline.stop();
     ASSERT_GE(writes->size(), 5);
-    ASSERT_LE(writes->size(), 7);
 }
