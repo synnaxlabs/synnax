@@ -7,21 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <mutex>
 #include <string>
 #include <poll.h>
 #include <unistd.h>
-#include "xshutdown.h"
-#include <signal.h>
+#include <csignal>
+#include <iostream>
+
+/// internal
+#include "driver/xshutdown/xshutdown.h"
 
 namespace xshutdown::priv {
+std::mutex shutdown_mutex;
+std::condition_variable shutdown_cv;
+bool should_stop = false;
 
-static void signal_handler(const int signal) {
-    if (signal == SIGINT) signal_shutdown();
+void signal_handler(const int signal) {
+    if (signal == SIGINT || signal == SIGTERM) signal_shutdown();
 }
 
 void listen_signal() {
     signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
 }
 
 void listen_stdin() {

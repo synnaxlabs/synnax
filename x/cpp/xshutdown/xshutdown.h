@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 2/11/25.
-//
-
 #pragma once
 
 #include <condition_variable>
@@ -19,9 +15,11 @@
 
 namespace xshutdown {
 namespace priv {
-    static std::mutex shutdown_mutex;
-    static std::condition_variable shutdown_cv;
-    static bool should_stop = false;
+    // These need to be declared as extern and defined in os-specific cpp files
+    // so that we don't cause internal linkage issues.
+    extern std::mutex shutdown_mutex;
+    extern std::condition_variable shutdown_cv;
+    extern bool should_stop;
 
     void listen_signal();
 
@@ -33,7 +31,7 @@ inline void listen(bool sigint_enabled = true, bool stdin_enabled = true) {
     if (sigint_enabled) priv::listen_signal();
     if (stdin_enabled) return priv::listen_stdin();
     std::unique_lock lock(priv::shutdown_mutex);
-    priv::shutdown_cv.wait(lock, [] { return priv::should_stop; });
+    priv::shutdown_cv.wait(lock, [] {return priv::should_stop;});
 }
 
 inline bool should_shutdown() {
