@@ -96,6 +96,7 @@ export const wrapForm = <
     onConfigure,
   }: WrapFormOptions<Config, Details, Type>,
 ): Layout.Renderer => {
+  const schema = z.object({ name: nameZ, config: configSchema });
   const Wrapper = ({
     layoutKey,
     task: tsk,
@@ -103,7 +104,6 @@ export const wrapForm = <
   }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
-    const schema = z.object({ name: nameZ, config: configSchema });
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
