@@ -13,6 +13,7 @@ import {
   type PropsWithChildren,
   use,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -30,6 +31,8 @@ export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
 }
 
+const TRUNCATE_FACTOR = 0.9;
+
 export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   const [{ path }, { statuses }, setState] = Aether.use({
     type: status.Aggregator.TYPE,
@@ -37,7 +40,7 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
     initialState: { statuses: [] },
   });
   if (statuses.length > maxHistory) {
-    const slice = Math.floor(maxHistory * 0.9);
+    const slice = Math.floor(maxHistory * TRUNCATE_FACTOR);
     setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
   }
   const handleAdd: Adder = useCallback(
@@ -96,19 +99,25 @@ export const useNotifications = ({
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = use(StatusesContext);
   const [threshold, setThreshold] = useState<TimeStamp>(TimeStamp.now());
-  const [silenced, setSilenced] = useState<string[]>([]);
+  const [silenced, setSilenced] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
-    const fresh = statuses.filter(({ key, time }) => {
-      if (time.beforeEq(threshold)) return false;
-      setTimeout(
-        () => setThreshold((t) => (time.after(t) ? time : t)),
-        expiration.milliseconds,
-      );
-      return !silenced.includes(key);
-    });
+    const fresh = statuses.filter(
+      ({ key, time }) => time.after(threshold) && !silenced.has(key),
+    );
     return filterDuplicates(fresh);
-  }, [statuses, threshold, setThreshold, expiration, silenced]);
+  }, [statuses, threshold, silenced]);
+
+  useEffect(() => {
+    if (filtered.length === 0) return;
+    const lastTime = filtered.reduce(
+      (latest, { time }) => (time.after(latest) ? time : latest),
+      threshold,
+    );
+    if (lastTime.beforeEq(threshold)) return;
+    const timeout = setTimeout(() => setThreshold(lastTime), expiration.milliseconds);
+    return () => clearTimeout(timeout);
+  }, [filtered, expiration, threshold]);
 
   const silence: UseNotificationsReturn["silence"] = useCallback(
     (key) => {
@@ -120,9 +129,19 @@ export const useNotifications = ({
             message === status.message && variant === status.variant,
         )
         .map(({ key }) => key);
-      setSilenced((silenced) => [...silenced, ...duplicates]);
+      // create a new set to trigger a rerender
+      setSilenced((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        duplicates.forEach((key) => {
+          if (next.has(key)) return;
+          next.add(key);
+          changed = true;
+        });
+        return changed ? next : prev;
+      });
     },
-    [statuses, setSilenced],
+    [statuses],
   );
 
   return { statuses: filtered, silence };
@@ -132,14 +151,17 @@ const filterDuplicates = (statuses: status.Spec[]): NotificationSpec[] => {
   const map = new Map<string, NotificationSpec>();
   statuses.forEach((status) => {
     const { message, variant } = status;
-    const key = `${message}-${variant}`;
+    const key = JSON.stringify({ message, variant });
     const existing = map.get(key);
     if (existing == null) {
       map.set(key, { ...status, count: 1 });
       return;
     }
-    existing.count += 1;
-    if (existing.time.before(status.time)) existing.time = status.time;
+    map.set(key, {
+      ...existing,
+      count: existing.count + 1,
+      time: status.time.after(existing.time) ? status.time : existing.time,
+    });
   });
   return Array.from(map.values());
 };
