@@ -15,8 +15,8 @@ int cmd::sub::start(int argc, char *argv[]) {
     r.start(argc, argv);
     xshutdown::Listen::listen();
     LOG(INFO) << xlog::BLUE << "[driver] received shutdown signal. stopping driver" << xlog::RESET;
-    if (auto err = r.stop())
-        LOG(FATAL) << "[driver] stopped with error: " << err;
+    if (const auto err = r.stop())
+        LOG(ERROR) << "[driver] stopped with error: " << err;
     else LOG(INFO) << xlog::BLUE << "[driver] stopped" << xlog::RESET;
     return 0;
 }
