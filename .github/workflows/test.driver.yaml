@@ -36,9 +36,12 @@ jobs:
 
   test:
     name: Test Driver
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: changes
     if: needs.changes.outputs.cpp == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
