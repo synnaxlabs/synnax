@@ -28,7 +28,7 @@ export interface DataContextValue<K extends Key = Key, E extends Keyed<K> = Keye
   emptyContent?: React.ReactElement;
 }
 
-export interface DataUtilsContextValue<
+export interface DataUtilContextValue<
   K extends Key = Key,
   E extends Keyed<K> = Keyed<K>,
 > extends Omit<UseTransformsReturn<E>, "transform"> {
@@ -41,13 +41,13 @@ export interface DataUtilsContextValue<
   getTransformed: () => boolean;
 }
 
-const Context = createContext<DataContextValue | null>({
+const DataContext = createContext<DataContextValue | null>({
   transformedData: [],
   sourceData: [],
   transformed: false,
 });
 
-const UtilsContext = createContext<DataUtilsContextValue | null>({
+const DataUtilContext = createContext<DataUtilContextValue | null>({
   setSourceData: () => undefined,
   getSourceData: () => [],
   getTransformedData: () => [],
@@ -59,11 +59,17 @@ const UtilsContext = createContext<DataUtilsContextValue | null>({
   getTransformed: () => false,
 });
 
-export const useDataContext = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(Context) as DataContextValue<K, E>;
+export const useDataContext = <
+  K extends Key = Key,
+  E extends Keyed<K> = Keyed<K>,
+>(): DataContextValue<K, E> =>
+  useRequiredContext(DataContext) as DataContextValue<K, E>;
 
-export const useDataUtils = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(UtilsContext) as unknown as DataUtilsContextValue<K, E>;
+export const useDataUtilContext = <
+  K extends Key = Key,
+  E extends Keyed<K> = Keyed<K>,
+>(): DataUtilContextValue<K, E> =>
+  useRequiredContext(DataUtilContext) as unknown as DataUtilContextValue<K, E>;
 
 export const useTransformedData = <
   K extends Key = Key,
@@ -78,12 +84,12 @@ export const useSourceData = <
 export const useGetTransformedData = <
   K extends Key = Key,
   E extends Keyed<K> = Keyed<K>,
->(): (() => E[]) => useDataUtils<K, E>().getTransformedData;
+>(): (() => E[]) => useDataUtilContext<K, E>().getTransformedData;
 
 export const useSetSourceData = <
   K extends Key = Key,
   E extends Keyed<K> = Keyed<K>,
->(): state.Set<E[]> => useDataUtils<K, E>().setSourceData;
+>(): state.Set<E[]> => useDataUtilContext<K, E>().setSourceData;
 
 export interface DataProviderProps<K extends Key, E extends Keyed<K>>
   extends PropsWithChildren<{}> {
@@ -119,7 +125,7 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
     if (emptyContentProp != null) setEmptyContent(emptyContentProp);
   }, [emptyContentProp]);
 
-  const utilValue: DataUtilsContextValue<K, E> = useMemo(
+  const utilValue: DataUtilContextValue<K, E> = useMemo(
     () => ({
       setSourceData: setData,
       getSourceData: () => dataRef.current,
@@ -145,8 +151,8 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   );
 
   return (
-    <UtilsContext value={utilValue as unknown as DataUtilsContextValue}>
-      <Context value={ctxValue}>{children}</Context>
-    </UtilsContext>
+    <DataUtilContext.Provider value={utilValue as unknown as DataUtilContextValue}>
+      <DataContext.Provider value={ctxValue}>{children}</DataContext.Provider>
+    </DataUtilContext.Provider>
   );
 };

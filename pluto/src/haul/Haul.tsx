@@ -24,8 +24,8 @@ import React, {
   type PropsWithChildren,
   type ReactElement,
   type RefObject,
-  use,
   useCallback,
+  useContext as reactUseContext,
   useId,
   useMemo,
   useRef,
@@ -49,7 +49,10 @@ export interface Item {
   data?: UnknownRecord;
 }
 
-export const draggingStateZ = z.object({ source: itemZ, items: z.array(itemZ) });
+export const draggingStateZ = z.object({
+  source: itemZ,
+  items: z.array(itemZ),
+});
 
 export interface DraggingState {
   source: Item;
@@ -58,7 +61,10 @@ export interface DraggingState {
 
 export const ZERO_ITEM: Item = { key: "", type: "" };
 
-export const ZERO_DRAGGING_STATE: DraggingState = { source: ZERO_ITEM, items: [] };
+export const ZERO_DRAGGING_STATE: DraggingState = {
+  source: ZERO_ITEM,
+  items: [],
+};
 
 interface DropProps {
   target: Item;
@@ -77,10 +83,7 @@ export const isFileDrag = (event: DragEvent, dragging: DraggingState): boolean =
   ALLOWED_FILE_DRAG_EFFECTS.has(event.dataTransfer.effectAllowed) &&
   dragging.items.length === 0;
 
-interface DragEndInterceptor {
-  (state: DraggingState, cursor: xy.XY): DropProps | null;
-}
-
+type DragEndInterceptor = (state: DraggingState, cursor: xy.XY) => DropProps | null;
 export interface ContextValue {
   state: DraggingState;
   start: (
@@ -109,7 +112,7 @@ const HAUL_REF: ProviderRef = {
   onSuccessfulDrop: () => {},
 };
 
-export const useContext = () => use(Context);
+export const useContext = (): ContextValue | null => reactUseContext(Context);
 
 export const Provider = memo(
   ({
@@ -117,7 +120,7 @@ export const Provider = memo(
     useState = React.useState,
     onDropOutside,
   }: ProviderProps): ReactElement => {
-    const ctx = useContext();
+    const ctx = reactUseContext(Context);
 
     const [state, setState] = useState(ZERO_DRAGGING_STATE);
     const ref = useRef<ProviderRef>(HAUL_REF);
@@ -164,7 +167,7 @@ export const Provider = memo(
       () => ctx ?? { state, start, end, drop, bind },
       [state, start, end, drop, ctx],
     );
-    return <Context value={oCtx}>{children}</Context>;
+    return <Context.Provider value={oCtx}>{children}</Context.Provider>;
   },
 );
 Provider.displayName = "HaulProvider";
@@ -217,15 +220,13 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
 
 // |||||| DROP ||||||
 
-export interface CanDrop {
-  (state: DraggingState): boolean;
-}
+export type CanDrop = (state: DraggingState) => boolean;
 
 export interface OnDropProps extends DraggingState {
   event?: DragEvent;
 }
 
-export interface OnDragOverProps extends OnDropProps {}
+export type OnDragOverProps = OnDropProps;
 
 export interface UseDropProps extends Optional<Item, "key"> {
   canDrop: CanDrop;

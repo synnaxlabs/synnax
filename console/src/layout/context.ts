@@ -7,30 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, use } from "react";
+import { createContext, useContext } from "react";
 
 import { type ContextMenuRenderer, type Renderer } from "@/layout/slice";
 
-export interface Renderers extends Record<string, Renderer> {}
+export type Renderers = Record<string, Renderer>;
 
 const RendererContext = createContext<Renderers>({});
 
-export const RendererProvider = RendererContext;
+export const RendererProvider = RendererContext.Provider;
 
-export const useRenderer = (type: string): Renderer => {
-  const r = use(RendererContext)[type];
+export const useLayoutRenderer = (type: string): Renderer => {
+  const r = useContext(RendererContext)[type];
   if (r == null) throw new Error(`no renderer for layout type ${type}`);
   return r;
 };
 
 export const useOptionalRenderer = (type: string): Renderer | null =>
-  use(RendererContext)[type] ?? null;
+  useContext(RendererContext)[type] ?? null;
 
-export interface ContextMenus extends Record<string, ContextMenuRenderer> {}
+export type ContextMenus = Record<string, ContextMenuRenderer>;
 
 const ContextMenuContext = createContext<ContextMenus>({});
 
-export const ContextMenuProvider = ContextMenuContext;
+export const ContextMenuProvider = ContextMenuContext.Provider;
 
 export const useContextMenuRenderer = (type: string): ContextMenuRenderer | null =>
-  use(ContextMenuContext)[type] ?? null;
+  useContext(ContextMenuContext)[type] ?? null;

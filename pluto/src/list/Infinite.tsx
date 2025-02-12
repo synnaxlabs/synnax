@@ -11,8 +11,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext,
   useMemo,
   useState,
 } from "react";
@@ -24,7 +24,7 @@ export interface InfiniteContextValue {
   onFetchMore: () => void;
 }
 
-export interface InfiniteUtilsContextValue {
+export interface InfiniteUtilContextValue {
   setHasMore: (hasMore: boolean) => void;
   setOnFetchMore: (onFetchMore: () => void) => void;
 }
@@ -34,14 +34,15 @@ const Context = createContext<InfiniteContextValue>({
   onFetchMore: () => undefined,
 });
 
-const UtilsContext = createContext<InfiniteUtilsContextValue>({
+const UtilContext = createContext<InfiniteUtilContextValue>({
   setHasMore: () => undefined,
   setOnFetchMore: () => undefined,
 });
 
-export const useInfiniteContext = () => use(Context);
+export const useInfiniteContext = (): InfiniteContextValue => useContext(Context);
 
-export const useInfiniteUtils = () => use(UtilsContext);
+export const useInfiniteUtilContext = (): InfiniteUtilContextValue =>
+  useContext(UtilContext);
 
 export interface InfiniteProviderProps extends PropsWithChildren<{}> {}
 
@@ -60,7 +61,7 @@ export const InfiniteProvider = ({ children }: InfiniteProviderProps): ReactElem
     [hasMore, fetchMore],
   );
 
-  const utilValue = useMemo<InfiniteUtilsContextValue>(
+  const utilValue = useMemo<InfiniteUtilContextValue>(
     () => ({
       setHasMore,
       setOnFetchMore: (onFetchMore) => {
@@ -71,8 +72,8 @@ export const InfiniteProvider = ({ children }: InfiniteProviderProps): ReactElem
   );
 
   return (
-    <Context value={ctxValue}>
-      <UtilsContext value={utilValue}>{children}</UtilsContext>
-    </Context>
+    <Context.Provider value={ctxValue}>
+      <UtilContext.Provider value={utilValue}>{children}</UtilContext.Provider>
+    </Context.Provider>
   );
 };

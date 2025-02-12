@@ -17,8 +17,8 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
@@ -38,7 +38,7 @@ import { lineplot } from "@/vis/lineplot/aether";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
-export interface ContextValue {
+export interface LinePlotContextValue {
   id: string;
   setGridEntry: (meta: grid.Region) => void;
   removeGridEntry: (key: string) => void;
@@ -50,10 +50,10 @@ export interface ContextValue {
   setHold: (hold: boolean) => void;
 }
 
-const Context = createContext<ContextValue | null>(null);
+const Context = createContext<LinePlotContextValue | null>(null);
 
-export const useContext = (component: string) => {
-  const ctx = use(Context);
+export const useContext = (component: string): LinePlotContextValue => {
+  const ctx = reactUseContext(Context);
   if (ctx == null)
     throw new Error(`Cannot to use ${component} as a non-child of LinePlot.`);
   return ctx;
@@ -170,7 +170,7 @@ export const LinePlot = ({
 
   const ref = Canvas.useRegion(handleResize, { debounce });
 
-  const setGridEntry = useCallback(
+  const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
     (meta: grid.Region) =>
       setState((prev) => ({ ...prev, grid: { ...prev.grid, [meta.key]: meta } })),
     [setState],
@@ -209,7 +209,7 @@ export const LinePlot = ({
 
   const id = `line-plot-${aetherKey}`;
 
-  const contextValue = useMemo<ContextValue>(
+  const contextValue = useMemo<LinePlotContextValue>(
     () => ({
       lines,
       setGridEntry,
@@ -242,9 +242,9 @@ export const LinePlot = ({
       ref={ref}
       {...props}
     >
-      <Context value={contextValue}>
+      <Context.Provider value={contextValue}>
         <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Context>
+      </Context.Provider>
     </div>
   );
 };

@@ -42,8 +42,8 @@ import {
   createContext,
   memo,
   type ReactElement,
-  use as reactUse,
   useCallback,
+  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
@@ -197,7 +197,7 @@ const Context = createContext<ContextValue>({
   setFitViewOnResize: () => {},
 });
 
-export const useContext = () => reactUse(Context);
+export const useContext = (): ContextValue => reactUseContext(Context);
 
 export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
@@ -438,7 +438,7 @@ const Core = ({
   );
 
   return (
-    <Context value={ctxValue}>
+    <Context.Provider value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
           <ReactFlow<RFNode, RFEdge<RFEdgeData>>
@@ -479,7 +479,7 @@ const Core = ({
           </ReactFlow>
         )}
       </Aether.Composite>
-    </Context>
+    </Context.Provider>
   );
 };
 
@@ -501,8 +501,10 @@ export const Controls = ({ children, ...props }: ControlsProps): ReactElement =>
   </Align.Pack>
 );
 
-export interface ToggleEditControlProps
-  extends Omit<Button.ToggleIconProps, "value" | "onChange" | "children"> {}
+export type ToggleEditControlProps = Omit<
+  Button.ToggleIconProps,
+  "value" | "onChange" | "children"
+>;
 
 export const ToggleEditControl = ({
   onClick,
@@ -530,8 +532,7 @@ export const ToggleEditControl = ({
   );
 };
 
-export interface FitViewControlProps
-  extends Omit<Button.IconProps, "children" | "onChange"> {}
+export type FitViewControlProps = Omit<Button.IconProps, "children" | "onChange">;
 
 export const FitViewControl = ({
   onClick,

@@ -25,7 +25,7 @@ const MAX_RETRY_COUNT = 3;
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
   const prevSync = useRef<unknown>(null);
   const sync = useMutation({

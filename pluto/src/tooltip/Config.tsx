@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type CrudeTimeSpan,TimeSpan } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext,
   useRef,
   useState,
 } from "react";
@@ -36,9 +36,9 @@ const ZERO_TOOLTIP_CONFIG: ContextValue = {
   startAccelerating: () => {},
 };
 
-const Context = createContext<ContextValue>(ZERO_TOOLTIP_CONFIG);
+export const Context = createContext<ContextValue>(ZERO_TOOLTIP_CONFIG);
 
-export const useConfig = () => use(Context);
+export const useConfig = (): ContextValue => useContext(Context);
 
 /**
  * Sets the default configuration for all tooltips in its children.
@@ -73,10 +73,13 @@ export const Config = ({
     }, new TimeSpan(accelerationDelay).milliseconds);
   }, [accelerating, accelerationDelay]);
   return (
-    <Context
-      value={{ delay: accelerating ? acceleratedDelay : delay, startAccelerating }}
+    <Context.Provider
+      value={{
+        delay: accelerating ? acceleratedDelay : delay,
+        startAccelerating,
+      }}
     >
       {children}
-    </Context>
+    </Context.Provider>
   );
 };

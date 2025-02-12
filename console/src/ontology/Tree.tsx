@@ -215,7 +215,7 @@ export const Tree = (): ReactElement => {
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
   const menuProps = Menu.useContextMenu();
 

@@ -27,7 +27,7 @@ const BASE_STATUS: Status.CrudeSpec = {
 };
 
 export const useDeep = (handlers: Record<string, Handler>): void => {
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();

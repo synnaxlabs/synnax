@@ -13,8 +13,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext as reactUseContext,
   useState,
 } from "react";
 
@@ -24,28 +24,37 @@ import { Input } from "@/input";
 import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
-export interface AliasContextValue {
+interface AliasContextValue {
   aliases: Record<channel.Key, string>;
   getName: (key: channel.Key) => Promise<string | undefined>;
   setAlias: ((key: channel.Key, alias: string) => Promise<void>) | null;
   activeRange?: string | null;
 }
 
-const Context = createContext<AliasContextValue>({
+const AliasContext = createContext<AliasContextValue>({
   aliases: {},
   getName: async () => await Promise.resolve(undefined),
   setAlias: null,
 });
 
-export const useContext = () => use(Context);
+export const useContext = (): AliasContextValue => reactUseContext(AliasContext);
 
-export const useAlias = (key: channel.Key): string | null =>
-  useContext().aliases[key] ?? null;
+export interface AliasProviderProps extends PropsWithChildren {
+  activeRange?: string | null;
+}
 
-export const useAliases = (): Record<channel.Key, string> => useContext().aliases;
+export const useAlias = (key: channel.Key): string | null => {
+  const { aliases } = reactUseContext(AliasContext);
+  return aliases[key] ?? null;
+};
+
+export const useAliases = (): Record<channel.Key, string> => {
+  const { aliases } = reactUseContext(AliasContext);
+  return aliases;
+};
 
 export const useName = (key: channel.Key, def: string = ""): string => {
-  const { getName } = useContext();
+  const { getName } = reactUseContext(AliasContext);
   const [name, setName] = useState<string | undefined>(def);
   useAsyncEffect(async () => {
     const n = await getName(key);
@@ -54,11 +63,10 @@ export const useName = (key: channel.Key, def: string = ""): string => {
   return name ?? def;
 };
 
-export const useActiveRange = () => useContext().activeRange ?? undefined;
-
-export interface AliasProviderProps extends PropsWithChildren {
-  activeRange?: string | null;
-}
+export const useActiveRange = (): string | undefined => {
+  const { activeRange } = reactUseContext(AliasContext);
+  return activeRange ?? undefined;
+};
 
 export const AliasProvider = ({
   activeRange,
@@ -119,7 +127,7 @@ export const AliasProvider = ({
   }, [c, activeRange]);
 
   return (
-    <Context
+    <AliasContext.Provider
       value={{
         aliases,
         activeRange,
@@ -128,7 +136,7 @@ export const AliasProvider = ({
       }}
     >
       {children}
-    </Context>
+    </AliasContext.Provider>
   );
 };
 

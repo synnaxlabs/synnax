@@ -15,8 +15,8 @@ import {
   memo,
   type PropsWithChildren,
   type ReactElement,
-  use as reactUse,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -47,7 +47,7 @@ const ZERO_CONTEXT_VALUE = {
   create: () => ({ setState: () => {}, delete: () => {} }),
 };
 
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+export const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 export interface ProviderProps extends PropsWithChildren {
   workerKey: string;
@@ -112,17 +112,17 @@ export const Provider = ({
 
   const value = useMemo<ContextValue>(() => ({ create, path: ["root"] }), [create]);
 
-  return <Context value={value}>{ready && children}</Context>;
+  return <Context.Provider value={value}>{ready && children}</Context.Provider>;
 };
 
-export const useContext = () => reactUse(Context);
+export const useAetherContext = (): ContextValue => useContext(Context);
 
 export interface UseLifecycleReturn<S extends z.ZodTypeAny> {
   path: string[];
   setState: (state: z.input<S>, transfer?: Transferable[]) => void;
 }
 
-interface UseLifecycleProps<S extends z.ZodTypeAny> {
+export interface UseLifecycleProps<S extends z.ZodTypeAny> {
   type: string;
   schema: S;
   aetherKey?: string;
@@ -141,7 +141,7 @@ const useLifecycle = <S extends z.ZodTypeAny>({
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
   const key = useUniqueKey(aetherKey);
   const comms = useRef<CreateReturn | null>(null);
-  const ctx = useContext();
+  const ctx = useAetherContext();
   const path = useMemoCompare(
     () => [...ctx.path, key],
     ([a], [b]) => compare.primitiveArrays(a, b) === 0,
@@ -213,7 +213,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
-export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
+export interface UsePropsProps<S extends z.ZodTypeAny>
   extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
   type: string;
   state: z.input<S>;
@@ -226,7 +226,7 @@ export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
 export const useUnidirectional = <S extends z.ZodTypeAny>({
   state,
   ...props
-}: UseUnidirectionalProps<S>): ComponentContext => {
+}: UsePropsProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle({ ...props, initialState: state });
   const ref = useRef(null);
   if (!deep.equal(ref.current, state)) {
@@ -328,8 +328,8 @@ export interface CompositeProps extends PropsWithChildren {
  * Naturally, composites can be nested within each other. Child components that are
  */
 export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
-  const ctx = useContext();
+  const ctx = useAetherContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
-  return <Context value={value}>{children}</Context>;
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 });
 Composite.displayName = "AetherComposite";

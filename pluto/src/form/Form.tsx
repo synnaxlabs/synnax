@@ -15,8 +15,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use as reactUse,
   useCallback,
+  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
@@ -321,9 +321,7 @@ export const useFieldArray = <V extends unknown = unknown>({
   );
 };
 
-export interface Listener<V = unknown> {
-  (state: FieldState<V>): void;
-}
+export type Listener<V = unknown> = (state: FieldState<V>) => void;
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -353,17 +351,13 @@ interface GetFunc {
   ): FieldState<V>;
 }
 
-interface RemoveFunc {
-  (path: string): void;
-}
+type RemoveFunc = (path: string) => void;
 
 interface SetOptions {
   validateChildren?: boolean;
 }
 
-interface SetFunc {
-  (path: string, value: unknown, opts?: SetOptions): void;
-}
+type SetFunc = (path: string, value: unknown, opts?: SetOptions) => void;
 
 interface BindProps<V = unknown> {
   path: string;
@@ -371,9 +365,7 @@ interface BindProps<V = unknown> {
   listenToChildren?: boolean;
 }
 
-interface BindFunc {
-  <V = unknown>(props: BindProps<V>): Destructor;
-}
+type BindFunc = <V = unknown>(props: BindProps<V>) => Destructor;
 
 type Mode = "normal" | "preview";
 
@@ -392,7 +384,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   clearStatuses: () => void;
 }
 
-const Context = createContext<ContextValue>({
+export const Context = createContext<ContextValue>({
   mode: "normal",
   bind: () => () => {},
   set: () => {},
@@ -415,7 +407,7 @@ const Context = createContext<ContextValue>({
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
   override?: ContextValue<Z>,
 ): ContextValue<Z> => {
-  const internal = reactUse(Context);
+  const internal = reactUseContext(Context);
   return override ?? (internal as unknown as ContextValue<Z>);
 };
 
@@ -748,5 +740,5 @@ export const use = <Z extends z.ZodTypeAny>({
 };
 
 export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => (
-  <Context value={props}>{props.children}</Context>
+  <Context.Provider value={props}>{props.children}</Context.Provider>
 );

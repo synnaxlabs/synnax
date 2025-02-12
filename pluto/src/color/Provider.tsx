@@ -12,8 +12,8 @@ import React, {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext as reactUseContext,
   useMemo,
 } from "react";
 import { z } from "zod";
@@ -30,21 +30,27 @@ export const relevancyZ = z.object({
 
 export const frequentZ = z.record(z.string(), relevancyZ);
 
-export interface Frequent extends z.infer<typeof frequentZ> {}
+export type Frequent = z.infer<typeof frequentZ>;
 
 export const contextStateZ = z.object({
   palettes: z.record(color.paletteZ),
   frequent: z.record(relevancyZ),
 });
 
-export interface ContextState extends z.infer<typeof contextStateZ> {}
+export type ContextState = z.infer<typeof contextStateZ>;
 
 export interface ContextValue extends ContextState {
   updateFrequent: (color: color.Color) => void;
 }
 
 export const ZERO_CONTEXT_STATE: ContextState = {
-  palettes: { frequent: { key: "frequent", name: "Frequent", swatches: [] } },
+  palettes: {
+    frequent: {
+      key: "frequent",
+      name: "Frequent",
+      swatches: [],
+    },
+  },
   frequent: {},
 };
 
@@ -55,7 +61,11 @@ const ZERO_CONTEXT_VALUE: ContextValue = {
 
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
-export const useContext = () => use(Context);
+export interface ProviderProps extends PropsWithChildren<{}> {
+  useState?: state.PureUse<ContextState>;
+}
+
+export const useContext = (): ContextValue => reactUseContext(Context);
 
 const RECENCY_WEIGHT = 0.6;
 const FREQUENCY_WEIGHT = 0.4;
@@ -82,10 +92,6 @@ export const recalculate = (limit: number, frequent: Frequent): Frequent => {
   entries.sort((a, b) => b[1].relevance - a[1].relevance);
   return Object.fromEntries(entries.slice(0, limit));
 };
-
-export interface ProviderProps extends PropsWithChildren<{}> {
-  useState?: state.PureUse<ContextState>;
-}
 
 export const Provider = ({
   useState = React.useState,
@@ -118,7 +124,7 @@ export const Provider = ({
     () => ({ ...value, updateFrequent }),
     [value, updateFrequent],
   );
-  return <Context value={memoValue}>{children}</Context>;
+  return <Context.Provider value={memoValue}>{children}</Context.Provider>;
 };
 
 export const useFrequent = (): color.Color[] => {

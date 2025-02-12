@@ -11,8 +11,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext,
   useMemo,
 } from "react";
 
@@ -20,23 +20,26 @@ import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
-export interface ContextValue {
+interface MenuContextValue {
   onClick: (key: string) => void;
   selected: string;
   level?: Text.Level;
   iconSpacing?: ComponentSize;
 }
 
-const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
+export const MenuContext = createContext<MenuContextValue>({
+  onClick: () => {},
+  selected: "",
+});
 
 export interface MenuProps
   extends PropsWithChildren,
-    Pick<ContextValue, "level" | "iconSpacing"> {
+    Pick<MenuContextValue, "level" | "iconSpacing"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
 
-export const useContext = () => use(Context);
+export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
 /**
  * Menu is a modular component that allows you to create a menu with a list of items.
@@ -71,7 +74,7 @@ export const Menu = ({
     }),
     [selected, onClick, level, iconSpacing],
   );
-  return <Context value={ctxValue}>{children}</Context>;
+  return <MenuContext.Provider value={ctxValue}>{children}</MenuContext.Provider>;
 };
 
 export const Divider = (): ReactElement => <CoreDivider.Divider direction="x" padded />;

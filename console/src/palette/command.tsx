@@ -44,7 +44,7 @@ export interface CommandSelectionContext {
   client: Synnax | null;
   placeLayout: Layout.Placer;
   confirm: Modals.PromptConfirm;
-  addStatus: Status.Adder;
+  addStatus: Status.AddStatusFn;
   handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
   extractors: Record<string, Export.Extractor>;

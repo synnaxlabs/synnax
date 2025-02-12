@@ -24,7 +24,7 @@ export type LightState = z.input<typeof lightStateZ>;
 
 interface InternalState {
   source: telem.BooleanSource;
-  addStatus: status.Adder;
+  addStatus: status.AddStatusFn;
   stopListening: Destructor;
 }
 
@@ -38,7 +38,7 @@ export class Light
   schema = lightStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.addStatus = status.useOptionalAdder(ctx);
+    this.internal.addStatus = status.useOptionalAggregator(ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
     this.internal.source = await telem.useSource(

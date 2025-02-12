@@ -215,7 +215,7 @@ export const DefaultItem = memo(
     } = entry;
 
     const { getSelected } = List.useSelectionUtils<string>();
-    const { getSourceData } = List.useDataUtils<string, FlattenedNode>();
+    const { getSourceData } = List.useDataUtilContext<string, FlattenedNode>();
 
     const actuallyHasChildren =
       hasChildren || (children != null && children.length > 0);

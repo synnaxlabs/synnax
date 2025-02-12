@@ -30,20 +30,19 @@ import {
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useRequiredContext } from "@/hooks/useRequiredContext";
-import { useDataUtils, useSourceData } from "@/list/Data";
+import { useDataUtilContext, useSourceData } from "@/list/Data";
 import { ItemFrame, type ItemFrameProps } from "@/list/Item";
 import { type ItemProps } from "@/list/types";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { type RenderProp } from "@/util/renderProp";
 
-interface RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends RenderProp<{
-    key: string | number | symbol;
-    index: number;
-    entry: E;
-    style: CSSProperties;
-  }> {}
+type RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = RenderProp<{
+  key: string | number | symbol;
+  index: number;
+  entry: E;
+  style: CSSProperties;
+}>;
 
 export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   /** The key of the object to render. */
@@ -70,10 +69,12 @@ interface ColumnContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   columns: Array<ColumnSpec<K, E>>;
 }
 
-const Context = createContext<ColumnContextValue | null>(null);
+export const ColumnContext = createContext<ColumnContextValue | null>(null);
 
-const useColumnContext = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(Context) as ColumnContextValue<K, E>;
+const useColumnContext = <
+  K extends Key = Key,
+  E extends Keyed<K> = Keyed<K>,
+>(): ColumnContextValue<K, E> => useRequiredContext(ColumnContext);
 
 type SortState<E> = [keyof E | null, boolean];
 
@@ -91,7 +92,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
   children,
 }: ColumnHeaderProps<K, E>): ReactElement => {
   const sourceData = useSourceData<K, E>();
-  const { setTransform, deleteTransform } = useDataUtils<K, E>();
+  const { setTransform, deleteTransform } = useDataUtilContext<K, E>();
 
   const font = Theming.useTypography("p").toString();
   const [sort, setSort] = useState<SortState<E>>([null, false]);
@@ -126,7 +127,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
   }, [font, sourceData, initialColumns]);
 
   return (
-    <Context value={ctxValue as ColumnContextValue}>
+    <ColumnContext.Provider value={ctxValue as ColumnContextValue}>
       {!hide && (
         <Align.Space
           direction="x"
@@ -161,7 +162,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
         </Align.Space>
       )}
       {children}
-    </Context>
+    </ColumnContext.Provider>
   );
 };
 

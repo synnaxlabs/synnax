@@ -12,7 +12,7 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
+  useContext as reactUseContext,
   useEffect,
 } from "react";
 import { type z } from "zod";
@@ -34,7 +34,7 @@ export interface ContextValue {
 
 const Context = createContext<ContextValue>({ needsControlOf: [] });
 
-export const useContext = () => use(Context);
+export const useContext = (): ContextValue => reactUseContext(Context);
 
 export const Controller = ({
   children,
@@ -56,8 +56,8 @@ export const Controller = ({
   useEffect(() => () => onStatusChange?.("released"), []);
 
   return (
-    <Context value={{ needsControlOf }}>
+    <Context.Provider value={{ needsControlOf }}>
       <Aether.Composite path={path}>{children}</Aether.Composite>;
-    </Context>
+    </Context.Provider>
   );
 };

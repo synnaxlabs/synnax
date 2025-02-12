@@ -11,74 +11,95 @@ import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
-  use,
+  type ReactElement,
   useCallback,
+  useContext as reactUseContext,
   useMemo,
   useState,
 } from "react";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const StatusesContext = createContext<status.Spec[]>([]);
+interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
+  add: status.AddStatusFn;
+}
 
-export interface Adder extends status.Adder {}
+export type AddStatusFn = status.AddStatusFn;
+export type ExceptionHandler = status.ExceptionHandler;
 
-const AdderContext = createContext<Adder>(() => {});
+const ZERO_CONTEXT_VALUE: ContextValue = {
+  statuses: [],
+  add: () => {},
+};
+
+const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+
+export const useContext = reactUseContext;
 
 export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
 }
 
-export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+}: AggregatorProps): ReactElement => {
   const [{ path }, { statuses }, setState] = Aether.use({
     type: status.Aggregator.TYPE,
     schema: status.aggregatorStateZ,
     initialState: { statuses: [] },
   });
-  if (statuses.length > maxHistory) {
+
+  if (maxHistory != null && statuses.length > maxHistory) {
     const slice = Math.floor(maxHistory * 0.9);
     setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
   }
-  const handleAdd: Adder = useCallback(
+
+  const handleAdd: AddStatusFn = useCallback(
     (status) => {
-      const spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
     },
     [setState],
   );
 
+  const value = useMemo<ContextValue>(
+    () => ({ statuses, add: handleAdd }),
+    [statuses, handleAdd],
+  );
+
   return (
-    <StatusesContext value={statuses}>
-      <AdderContext value={handleAdd}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </AdderContext>
-    </StatusesContext>
+    <Context.Provider value={value}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context.Provider>
   );
 };
 
-export const useAdder = () => use(AdderContext);
+export const useAggregator = (): status.AddStatusFn => useContext(Context).add;
 
-export interface ExceptionHandler extends status.ExceptionHandler {}
-
-export const useExceptionHandler = (): ExceptionHandler => {
-  const add = useAdder();
+export const useExceptionHandler = (): status.ExceptionHandler => {
+  const addStatus = useAggregator();
   return useCallback(
     (exc: unknown, message?: string): void => {
       if (!(exc instanceof Error)) throw exc;
-      add({
+      addStatus({
         variant: "error",
         message: message ?? exc.message,
         description: message != null ? exc.message : undefined,
       });
     },
-    [add],
+    [addStatus],
   );
 };
 
 export interface UseNotificationsProps {
   expiration?: TimeSpan;
 }
+
+const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
 export interface NotificationSpec extends status.Spec {
   count: number;
@@ -89,57 +110,58 @@ export interface UseNotificationsReturn {
   silence: (key: string) => void;
 }
 
-const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
+export const useNotifications = (
+  props: UseNotificationsProps = {},
+): UseNotificationsReturn => {
+  const { statuses } = useContext(Context);
+  const { expiration = DEFAULT_EXPIRATION } = props;
+  const statusesRef = useSyncedRef(statuses);
 
-export const useNotifications = ({
-  expiration = DEFAULT_EXPIRATION,
-}: UseNotificationsProps = {}): UseNotificationsReturn => {
-  const statuses = use(StatusesContext);
-  const [threshold, setThreshold] = useState<TimeStamp>(TimeStamp.now());
+  const [threshold, setThreshold] = useState<TimeStamp>(() => TimeStamp.now());
   const [silenced, setSilenced] = useState<string[]>([]);
 
-  const filtered = useMemo(() => {
-    const fresh = statuses.filter(({ key, time }) => {
-      if (time.beforeEq(threshold)) return false;
+  const filtered = statuses.filter((status) => {
+    const new_ = status.time.after(threshold);
+    if (new_)
       setTimeout(
-        () => setThreshold((t) => (time.after(t) ? time : t)),
+        () => setThreshold((p) => (status.time.after(p) ? status.time : p)),
         expiration.milliseconds,
       );
-      return !silenced.includes(key);
-    });
-    return filterDuplicates(fresh);
-  }, [statuses, threshold, setThreshold, expiration, silenced]);
+    return new_ && !silenced.includes(status.key);
+  });
 
-  const silence: UseNotificationsReturn["silence"] = useCallback(
-    (key) => {
-      const status = statuses.find((s) => s.key === key);
-      if (status == null) return;
-      const duplicates = statuses
-        .filter(
-          ({ message, variant }) =>
-            message === status.message && variant === status.variant,
-        )
-        .map(({ key }) => key);
-      setSilenced((silenced) => [...silenced, ...duplicates]);
+  const silence = useCallback(
+    (key: string) => {
+      const s = statusesRef.current.find((s) => s.key === key);
+      if (s == null) return;
+      const duplicates = findDuplicateStatus(s, statusesRef.current);
+      setSilenced((silenced) => [...silenced, ...duplicates.map((s) => s.key)]);
     },
-    [statuses, setSilenced],
+    [setSilenced],
   );
 
-  return { statuses: filtered, silence };
+  return {
+    statuses: reduceDuplicateStatuses(filtered),
+    silence,
+  };
 };
 
-const filterDuplicates = (statuses: status.Spec[]): NotificationSpec[] => {
-  const map = new Map<string, NotificationSpec>();
-  statuses.forEach((status) => {
+const reduceDuplicateStatuses = (statuses: status.Spec[]): NotificationSpec[] =>
+  statuses.reduce<NotificationSpec[]>((acc, status) => {
     const { message, variant } = status;
-    const key = `${message}-${variant}`;
-    const existing = map.get(key);
-    if (existing == null) {
-      map.set(key, { ...status, count: 1 });
-      return;
-    }
-    existing.count += 1;
-    if (existing.time.before(status.time)) existing.time = status.time;
+    const existing = acc.find((s) => s.message === message && s.variant === variant);
+    if (existing != null) {
+      existing.count += 1;
+      if (existing.time.before(status.time)) existing.time = status.time;
+    } else acc.push({ ...status, count: 1 });
+    return acc;
+  }, []);
+
+const findDuplicateStatus = (
+  target: status.Spec,
+  statuses: status.Spec[],
+): status.Spec[] =>
+  statuses.filter((status) => {
+    const { message, variant } = status;
+    return message === target.message && variant === target.variant;
   });
-  return Array.from(map.values());
-};

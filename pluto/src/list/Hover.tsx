@@ -12,8 +12,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -39,12 +39,12 @@ export interface HoverContextValue {
   setHover: (hover: number) => void;
 }
 
-const Context = createContext<HoverContextValue>({
+const HoverContext = createContext<HoverContextValue>({
   hover: -1,
   setHover: () => {},
 });
 
-export const useHoverContext = () => use(Context);
+export const useHoverContext = (): HoverContextValue => useContext(HoverContext);
 
 export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
@@ -104,5 +104,5 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [hover, setHover],
   );
 
-  return <Context value={ctxValue}>{children}</Context>;
+  return <HoverContext.Provider value={ctxValue}>{children}</HoverContext.Provider>;
 };

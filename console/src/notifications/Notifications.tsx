@@ -10,6 +10,7 @@
 import "@/notifications/Notifications.css";
 
 import { type Button, List, Status } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
@@ -24,13 +25,18 @@ export interface Adapter {
   (status: Status.NotificationSpec, silence: (key: string) => void): null | Sugared;
 }
 
+const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
+
 interface NotificationsProps {
-  adapters: Adapter[];
+  adapters?: Adapter[];
 }
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
-  const { statuses, silence } = Status.useNotifications();
+  const { statuses, silence } = Status.useNotifications({
+    expiration: DEFAULT_EXPIRATION,
+  });
   const sugared = statuses.map((status) => {
+    if (adapters == null || adapters.length === 0) return status;
     for (const adapter of adapters) {
       const result = adapter(status, silence);
       if (result != null) return result;

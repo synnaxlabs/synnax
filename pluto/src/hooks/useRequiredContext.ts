@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { use } from "react";
+import { useContext } from "react";
 
 export const useRequiredContext = <T>(context: React.Context<T | null>): T => {
-  const value = use(context);
+  const value = useContext(context);
   if (value === null) throw new Error(`useRequiredContext: context value is null`);
   return value;
 };

@@ -59,7 +59,7 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
   const handleException = Status.useExceptionHandler();
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAggregator();
   const [isPending, setIsPending] = useState(false);
 
   const methods = Form.useSynced<typeof formSchema>({

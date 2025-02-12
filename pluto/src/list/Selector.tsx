@@ -25,7 +25,7 @@ interface SelectContextValue<K extends Key = Key> {
   selected: K[];
 }
 
-interface SelectUtilsContextValue<K extends Key = Key> {
+interface SelectUtilContextValue<K extends Key = Key> {
   onSelect: (key: K) => void;
   clear: () => void;
   getSelected: () => K[];
@@ -36,22 +36,24 @@ export type SelectorProps<
   E extends Keyed<K> = Keyed<K>,
 > = PropsWithChildren<UseSelectProps<K, E>>;
 
-const Context = createContext<SelectContextValue>({ selected: [] });
+const SelectionContext = createContext<SelectContextValue>({
+  selected: [],
+});
 
-const UtilsContext = createContext<SelectUtilsContextValue>({
+const SelectionUtilContext = createContext<SelectUtilContextValue>({
   onSelect: () => {},
   clear: () => {},
   getSelected: () => [],
 });
 
-export const useSelectionContext = <K extends Key = Key>() =>
-  useContext(Context) as SelectContextValue<K>;
+export const useSelectionContext = <K extends Key = Key>(): SelectContextValue<K> =>
+  useContext(SelectionContext) as SelectContextValue<K>;
 
-export const useSelection = <K extends Key = Key>() =>
+export const useSelection = <K extends Key = Key>(): K[] =>
   useSelectionContext<K>().selected;
 
-export const useSelectionUtils = <K extends Key = Key>() =>
-  useContext(UtilsContext) as unknown as SelectUtilsContextValue<K>;
+export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue<K> =>
+  useContext(SelectionUtilContext) as unknown as SelectUtilContextValue<K>;
 
 /**
  * Implements selection behavior for a list.
@@ -76,14 +78,22 @@ const Base = memo(
       () => ({ selected: nullToArr(value) }),
       [value],
     );
-    const utilCtxValue: SelectUtilsContextValue<K> = useMemo(
-      () => ({ onSelect, clear, getSelected: () => nullToArr(selectedRef.current) }),
+    const utilCtxValue: SelectUtilContextValue<K> = useMemo(
+      () => ({
+        onSelect,
+        clear,
+        getSelected: () => nullToArr(selectedRef.current),
+      }),
       [onSelect, clear],
     );
     return (
-      <UtilsContext value={utilCtxValue as unknown as SelectUtilsContextValue}>
-        <Context value={ctxValue}>{children}</Context>
-      </UtilsContext>
+      <SelectionUtilContext.Provider
+        value={utilCtxValue as unknown as SelectUtilContextValue}
+      >
+        <SelectionContext.Provider value={ctxValue}>
+          {children}
+        </SelectionContext.Provider>
+      </SelectionUtilContext.Provider>
     );
   },
 );

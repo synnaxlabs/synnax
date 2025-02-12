@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
-  return useCallback(
-    (text: string, name: string) => {
-      navigator.clipboard
-        .writeText(text)
-        .then(() =>
-          addStatus({ variant: "success", message: `Copied ${name} to clipboard.` }),
-        )
-        .catch((e) => handleException(e, `Failed to copy ${name} to clipboard`));
-    },
-    [addStatus, handleException],
-  );
+  return (text: string, name: string) => {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        addStatus({
+          variant: "success",
+          message: `Copied ${name} to clipboard.`,
+        });
+      })
+      .catch((e) => handleException(e, `Failed to copy ${name} to clipboard`));
+  };
 };

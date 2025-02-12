@@ -212,7 +212,7 @@ export const Dialog = ({
 
   const ctxValue = useMemo(() => ({ close }), [close]);
   return (
-    <CoreDialog.Provider value={ctxValue}>
+    <CoreDialog.Context.Provider value={ctxValue}>
       <C
         {...props}
         ref={combinedParentRef}
@@ -236,7 +236,7 @@ export const Dialog = ({
         {children[0]}
         {child}
       </C>
-    </CoreDialog.Provider>
+    </CoreDialog.Context.Provider>
   );
 };
 Dialog.displayName = "Dropdown";
