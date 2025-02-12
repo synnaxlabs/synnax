@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include <utility>
-
-#include "freighter/cpp/freighter.h"
-#include "client/cpp/synnax.h"
-#include "x/cpp/breaker/breaker.h"
+/// internal
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
+
+/// module
+#include "client/cpp/synnax.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
 namespace heartbeat {

@@ -10,7 +10,7 @@
 #pragma once
 
 // IT IS ABSOLUTELY MISSION CRITICAL THAT THIS BLOCK IS THE FIRST INCLUDE IN THIS FILE.
-// Otherwise you will see a bunch of linker errors.
+// Otherwise, you will see a bunch of linker errors.
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
