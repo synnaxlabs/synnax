@@ -50,15 +50,22 @@ export type FormProps<
   | {
       methods: PForm.ContextValue<Schema<Config>>;
       task: task.Payload<Config, Details, Type>;
-      isSnapshot: boolean;
-      isRunning: boolean;
+      isSnapshot: false;
+      isRunning: false;
       configured: false;
     }
   | {
       methods: PForm.ContextValue<Schema<Config>>;
       task: task.Task<Config, Details, Type>;
-      isSnapshot: boolean;
+      isSnapshot: false;
       isRunning: boolean;
+      configured: true;
+    }
+  | {
+      methods: PForm.ContextValue<Schema<Config>>;
+      task: task.Task<Config, Details, Type>;
+      isSnapshot: true;
+      isRunning: false;
       configured: true;
     };
 
@@ -168,7 +175,7 @@ export const wrapForm = <
                 methods={methods}
                 task={tsk as task.Task<Config, Details, Type>}
                 isRunning={state.state === "running"}
-                isSnapshot={isSnapshot}
+                isSnapshot={isSnapshot as false}
                 configured={configured as true}
               />
             </Align.Space>
