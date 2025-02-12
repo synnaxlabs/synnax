@@ -29,7 +29,7 @@ import { synnax } from "@/synnax/aether";
 
 const Context = createContext<synnax.ContextValue>(synnax.ZERO_CONTEXT_VALUE);
 
-const useContext = (): synnax.ContextValue => reactUse(Context);
+const useContext = () => reactUse(Context);
 
 export const use = () => useContext().synnax;
 
