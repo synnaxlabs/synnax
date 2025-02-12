@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-1990-test-moving-cards-between-racks
   pull_request:
     branches:
       - main
