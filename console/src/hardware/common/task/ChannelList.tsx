@@ -148,7 +148,7 @@ export const ChannelList = <C extends Channel>({
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        style={{ height: "calc(100% - 6rem)" }}
+        style={{ height: "calc(100% - 5.5rem)" }}
       >
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>
