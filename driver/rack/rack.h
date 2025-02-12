@@ -163,8 +163,9 @@ class Rack {
     breaker::Breaker breaker = breaker::Breaker({
         .name = "driver",
         .base_interval = telem::TimeSpan::seconds(1),
-        .max_retries = 100,
-        .scale = 1.05,
+        .max_retries = 200,
+        .scale = 1.1,
+        .max_interval = telem::TimeSpan::minutes(1)
     });
     xerrors::Error run_err = xerrors::NIL;
 
