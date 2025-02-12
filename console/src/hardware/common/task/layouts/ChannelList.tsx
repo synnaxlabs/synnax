@@ -23,8 +23,8 @@ interface HeaderProps {
 }
 
 const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header level="h4">
-    <PHeader.Title weight={450} shade={8}>
+  <PHeader.Header level="p">
+    <PHeader.Title weight={500} shade={8}>
       Channels
     </PHeader.Title>
     {!isSnapshot && (
@@ -34,7 +34,7 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
             key: "add",
             onClick: onAdd,
             children: <Icon.Add />,
-            size: "large",
+            size: "small",
             tooltip: "Add Channel",
           },
         ]}
