@@ -152,6 +152,11 @@ export interface SelectAllPayload {
   key: string;
 }
 
+export interface SetControlAuthorityPayload {
+  key: string;
+  authority: number;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -386,6 +391,14 @@ export const { actions, reducer } = createSlice({
       if (status === "released") schematic.controlAcquireTrigger -= 1;
       else schematic.controlAcquireTrigger += 1;
     },
+    setControlAuthority: (
+      state,
+      { payload }: PayloadAction<SetControlAuthorityPayload>,
+    ) => {
+      const { key: layoutKey, authority } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.controlAuthority = authority;
+    },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { key: layoutKey, control } = payload;
       const schematic = state.schematics[layoutKey];
@@ -482,6 +495,7 @@ export const {
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
+  setControlAuthority,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

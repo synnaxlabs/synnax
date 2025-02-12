@@ -19,15 +19,23 @@ import * as v2 from "@/schematic/types/v2";
 export const VERSION = "3.0.0";
 export type Version = typeof VERSION;
 
-export const stateZ = v2.stateZ
-  .omit({ version: true })
-  .extend({ version: z.literal(VERSION) });
+const DEFAULT_CONTROL_AUTHORITY = 200;
+
+export const stateZ = v2.stateZ.omit({ version: true }).extend({
+  version: z.literal(VERSION),
+  controlAuthority: z.number().optional().default(DEFAULT_CONTROL_AUTHORITY),
+});
 
 export interface State extends Omit<v2.State, "version"> {
   version: Version;
+  controlAuthority?: number;
 }
 
-export const ZERO_STATE: State = { ...v2.ZERO_STATE, version: VERSION };
+export const ZERO_STATE: State = {
+  ...v2.ZERO_STATE,
+  version: VERSION,
+  controlAuthority: DEFAULT_CONTROL_AUTHORITY,
+};
 
 export const sliceStateZ = v2.sliceStateZ
   .omit({ version: true })
@@ -44,6 +52,7 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
     ...state,
     edges: state.edges.map((edge) => ({ ...edge, segments: [] })),
     version: VERSION,
+    controlAuthority: DEFAULT_CONTROL_AUTHORITY,
   }),
 });
 
