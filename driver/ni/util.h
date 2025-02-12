@@ -547,7 +547,6 @@ struct ParsedNIError {
 inline ParsedNIError parse_ni_error(const std::string& error_msg) {
     ParsedNIError result;
     
-    // Define regex patterns
     static const std::regex status_code_regex(R"(Status Code:\s*(-?\d+))");
     static const std::regex channel_regex(R"(Channel Name:\s*(\S+))");
     static const std::regex physical_channel_regex(R"(Physical Channel Name:\s*(\S+))");
@@ -557,14 +556,12 @@ inline ParsedNIError parse_ni_error(const std::string& error_msg) {
     static const std::regex min_value_regex(R"(Minimum Value:\s*([\d.\s,eE-]+))");
     static const std::regex property_regex(R"(Property:\s*(\S+))");
     
-    // Remove task name, status code, and trailing status code
     std::string s = error_msg;
     static const std::regex task_name_regex(R"(\s*Task Name:.*?(?=\s*(?:Status Code:|$)))");
     static const std::regex status_code_end_regex(R"(\s*Status Code:.*$)");
     s = std::regex_replace(s, task_name_regex, "");
     s = std::regex_replace(s, status_code_end_regex, "");
 
-    // Extract all fields using helper function
     auto extract = [](const std::string& str, const std::regex& regex) -> std::string {
         std::smatch match;
         if (std::regex_search(str, match, regex))
