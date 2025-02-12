@@ -79,5 +79,4 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Test Driver
-        run: |
-          bazel test //driver/... --test-tag_filters=-hardware --nocache_test_results
+        run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
