@@ -116,9 +116,8 @@ class Factory final : public task::Factory {
                 true
             );
             err = rack.tasks.create(sy_task);
-            if (err) {
+            if (err)
                 LOG(ERROR) << "failed to create heartbeat task: " << err;
-            }
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
