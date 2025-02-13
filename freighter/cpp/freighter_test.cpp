@@ -18,9 +18,9 @@ public:
     }
 
     std::pair<freighter::Context, xerrors::Error> operator()(
-        freighter::Context context, freighter::Next *next) override {
+        freighter::Context context, freighter::Next &next) override {
         context.set("test", value);
-        return next->operator()(context);
+        return next(context);
     }
 };
 
