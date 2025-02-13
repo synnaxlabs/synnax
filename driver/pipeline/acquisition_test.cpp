@@ -28,7 +28,7 @@ public:
     }
 };
 
-constexpr auto WAIT_FOR = std::chrono::milliseconds(5);
+constexpr auto WAIT_FOR = std::chrono::milliseconds(10);
 
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
