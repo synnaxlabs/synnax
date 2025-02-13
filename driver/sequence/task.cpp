@@ -92,7 +92,6 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 ) {
     task::State cfg_state{.task = task.key};
 
-    LOG(INFO) << "[sequence] configuring task " << task.name;
     auto parser = config::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
@@ -147,7 +146,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
-            .authorities = {200},
+            .authorities = {100},
             .subject = synnax::ControlSubject{
                 .name = task.name,
                 .key = std::to_string(task.key),

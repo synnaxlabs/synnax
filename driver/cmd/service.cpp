@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// external
-#include "glog/logging.h"
-
-/// module
-#include "x/cpp/xlog/xlog.h"
-
-/// internal
-#include "driver/daemon/daemon.h"
 #include "driver/cmd/cmd.h"
 
 // Updated helper function with C++ strings
@@ -25,13 +16,11 @@ int exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "[driver] " << xlog::RED << "Failed to " << action << " driver: "
-                  << err << xlog::RESET;
+        LOG(ERROR) << "[driver] " << xlog::RED << "Failed to " << action << ": "<< err << xlog::RESET;
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "[driver] " << xlog::GREEN << "Driver " << past_tense
-                 << " successfully" << xlog::RESET;
+        LOG(INFO) << "[driver] " << xlog::GREEN << past_tense << " successfully" << xlog::RESET;
     }
     return 0;
 }

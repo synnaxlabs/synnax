@@ -336,8 +336,9 @@ const Content = () => {
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
-              {(p) => (
+              {({ key, ...p }) => (
                 <TaskListItem
+                  key={key}
                   {...p}
                   desiredState={desiredStates[p.entry.key]}
                   onStopStart={(state) => {
@@ -349,7 +350,7 @@ const Content = () => {
                       return next;
                     });
                   }}
-                  onRename={(name) => handleRename({ name, key: p.key })}
+                  onRename={(name) => handleRename({ name, key })}
                 />
               )}
             </List.Core>

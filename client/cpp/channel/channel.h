@@ -38,6 +38,7 @@ typedef freighter::UnaryClient<
     api::v1::ChannelCreateResponse
 > ChannelCreateClient;
 
+
 class ChannelClient;
 
 /// @brief A channel is a logical collection of samples emitted by or representing the
@@ -83,8 +84,8 @@ public:
     /// @param index the index of the channel.
     /// @param is_index whether the channel is an index channel.
     Channel(
-        const std::string &name,
-        const telem::DataType &data_type,
+        std::string name,
+        telem::DataType data_type,
         ChannelKey index,
         bool is_index = false
     );
@@ -93,17 +94,13 @@ public:
     /// @param name a human-readable name for the channel.
     /// @param data_type the data type of the channel.
     /// @param rate the rate of the channel.
-    Channel(
-        const std::string &name,
-        const telem::DataType &data_type,
-        telem::Rate rate
-    );
+    Channel(std::string name, telem::DataType data_type, telem::Rate rate);
 
-    Channel(
-        const std::string &name,
-        const telem::DataType &data_type,
-        bool is_virtual = true
-    );
+    /// @brief constructs a new virtual channel.
+    /// @param name a human-readable name for the channel.
+    /// @param data_type the data type of the channel.
+    /// @param is_virtual whether the channel is virtual.
+    Channel(std::string name, telem::DataType data_type, bool is_virtual);
 
     /// @brief constructs the channel from its protobuf type.
     explicit Channel(const api::v1::Channel &ch);
@@ -114,6 +111,24 @@ private:
 
     friend class ChannelClient;
 };
+
+/// @brief creates a vector of channel keys from a variadic list of channels.
+template<typename... Channels>
+inline std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
+    std::vector<ChannelKey> keys;
+    keys.reserve(sizeof...(channels));
+    ((keys.push_back(channels.key)), ...);
+    return keys;
+}
+
+/// @brief creates a vector of channel keys from a vector of channels.
+inline std::vector<ChannelKey>
+keys_from_channels(const std::vector<Channel>& channels) {
+    std::vector<ChannelKey> keys;
+    keys.reserve(channels.size());
+    for (const auto& channel : channels) keys.push_back(channel.key);
+    return keys;
+}
 
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
 class ChannelClient {

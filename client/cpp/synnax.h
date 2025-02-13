@@ -13,10 +13,10 @@
 
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
-#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
+#include "x/cpp/config/config.h"
 
 using namespace synnax;
 
@@ -56,6 +56,28 @@ struct Config {
     /// using client authentication. This is not required when in insecure mode or using
     /// username/password authentication.
     std::string client_key_file;
+
+    void override(config::Parser &parser) {
+        this->host = parser.optional("host", this->host);
+        this->port = parser.optional("port", this->port);
+        this->username = parser.optional("username", this->username);
+        this->password = parser.optional("password", this->password);
+        this->client_cert_file = parser.optional("client_cert_file", this->client_cert_file);
+        this->client_key_file = parser.optional("client_key_file", this->client_key_file);
+        this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
+    }
+
+    json to_json() const {
+        return {
+            {"host", this->host},
+            {"port", this->port},
+            {"username", this->username},
+            {"password", this->password},
+            {"ca_cert_file", this->ca_cert_file},
+            {"client_cert_file", this->client_cert_file},
+            {"client_key_file", this->client_key_file},
+        };
+    }
 };
 
 /// @brief Client to perform operations against a Synnax cluster.

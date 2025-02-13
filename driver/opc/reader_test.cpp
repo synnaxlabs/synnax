@@ -24,7 +24,7 @@ TEST(opcReaderTest, testReaderConfigurationFromJSON) {
 
     auto [idx, idx_err] = client->channels.create(
         "index1",
-        TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true
     );
@@ -32,7 +32,7 @@ TEST(opcReaderTest, testReaderConfigurationFromJSON) {
 
     auto [ch1, ch1_err] = client->channels.create(
         "node1",
-        INT32,
+        telem::INT32,
         idx.key,
         false
     );

@@ -1,7 +1,18 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Align, List, Text } from "@synnaxlabs/pluto";
 import { type Key, type Keyed } from "@synnaxlabs/x";
 
-import { Common } from "@/hardware/common";
+import { ChannelName } from "@/hardware/common/task/ChannelName";
+import { EnableDisableButton } from "@/hardware/common/task/EnableDisableButton";
+import { TareButton } from "@/hardware/common/task/TareButton";
 
 export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K>>
   extends List.ItemProps<K, E> {
@@ -59,17 +70,14 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
       {name != null ? (
         <Text.Text {...NAME_PROPS}>{name}</Text.Text>
       ) : (
-        <Common.Task.ChannelName {...NAME_PROPS} channel={channel} />
+        <ChannelName {...NAME_PROPS} channel={channel} />
       )}
     </Align.Space>
     <Align.Pack direction="x" align="center" size="small">
       {hasTareButton && (
-        <Common.Task.TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
+        <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
       )}
-      <Common.Task.EnableDisableButton
-        path={`${path}.enabled`}
-        isSnapshot={isSnapshot}
-      />
+      <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
     </Align.Pack>
   </List.ItemFrame>
 );

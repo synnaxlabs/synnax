@@ -24,12 +24,14 @@
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::WriteSink::get_index_keys() {
     if (this->writer_config.state_channel_keys.empty()) return;
-    
+
     std::set<synnax::ChannelKey> unique_keys;
-    for (const auto& state_channel : this->writer_config.state_channel_keys) {
-        auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
+    for (const auto &state_channel: this->writer_config.state_channel_keys) {
+        auto [state_channel_info, err] = this->ctx->client->channels.retrieve(
+            state_channel);
         if (err) {
-            this->log_error("failed to retrieve channel " + std::to_string(state_channel));
+            this->log_error(
+                "failed to retrieve channel " + std::to_string(state_channel));
             continue;
         }
         unique_keys.insert(state_channel_info.index);
@@ -93,19 +95,20 @@ std::vector<synnax::ChannelKey> ni::WriteSink::get_state_channel_keys() {
     for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index" && channel.enabled)
             keys.push_back(channel.state_channel_key);
-    for (auto &index_key : this->writer_config.state_index_keys) {
+    for (auto &index_key: this->writer_config.state_index_keys) {
         keys.push_back(index_key);
     }
     return keys;
 }
 
-int ni::WriteSink::check_err(int32 error, std::string caller, std::string channel_name) {
+int ni::WriteSink::check_err(int32 error, std::string caller,
+                             std::string channel_name) {
     if (error == 0) return 0;
     char errBuff[2048] = {'\0'};
     this->dmx->GetExtendedErrorInfo(errBuff, 2048);
 
     std::string s(errBuff);
-    
+
     // Pass the channel name to jsonify_error
     jsonify_error(s, channel_name);
 
@@ -144,7 +147,8 @@ void ni::WriteSink::stopped_with_err(const xerrors::Error &err) {
 
 void ni::WriteSink::clear_task() {
     if (this->check_err(this->dmx->ClearTask(task_handle), "clear_task.ClearTask", ""))
-        this->log_error("failed to clear writer for task " + this->writer_config.task_name);
+        this->log_error(
+            "failed to clear writer for task " + this->writer_config.task_name);
 }
 
 void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
@@ -202,7 +206,7 @@ void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
     // Add debug print
     LOG(INFO) << "Trying to find channel '" << cn << "' in channel map";
     LOG(INFO) << "Channel map contents:";
-    for (const auto& [name, path] : writer_config.channel_map) {
+    for (const auto &[name, path]: writer_config.channel_map) {
         LOG(INFO) << "  " << name << " -> " << path;
     }
 
@@ -236,7 +240,8 @@ void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
         min_value = min_value_match[1].str();
 
     // Set the path
-    if (writer_config.channel_map.count(cn) != 0) this->err_info["path"] = writer_config.channel_map[cn] + ".";
+    if (writer_config.channel_map.count(cn) != 0)
+        this->err_info["path"] = writer_config.channel_map[cn] + ".";
     else if (!cn.empty()) this->err_info["path"] = cn + ".";
     else this->err_info["path"] = "";
 
@@ -244,12 +249,15 @@ void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
     if (FIELD_MAP.count(p) == 0)
         this->err_info["path"] = this->err_info["path"].get<std::string>() + p;
     else
-        this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.at(p);
+        this->err_info["path"] = this->err_info["path"].get<std::string>() + FIELD_MAP.
+                                 at(p);
 
     // Construct the error message
-    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " + this->err_info["path"].get<std::string>();
+    std::string error_message = "NI Error " + sc + ": " + s + "\nPath: " + this->
+                                err_info["path"].get<std::string>();
     if (!cn.empty()) error_message += " Channel: " + cn;
-    if (!possible_values.empty()) error_message += " Possible Values: " + possible_values;
+    if (!possible_values.empty()) error_message += " Possible Values: " +
+                                  possible_values;
     if (!max_value.empty()) error_message += " Maximum Value: " + max_value;
     if (!min_value.empty()) error_message += " Minimum Value: " + min_value;
     this->err_info["message"] = error_message;
@@ -273,14 +281,14 @@ ni::DigitalWriteSink::DigitalWriteSink(
     writer_config = WriterConfig(config_parser, ctx, true, task_handle, task.key);
 
     if (!config_parser.ok()) {
-        this->log_error("Failed to parse config: " + config_parser.error_json().dump(4));
+        this->log_error(
+            "Failed to parse config: " + config_parser.error_json().dump(4));
         return;
     }
 
-    this->breaker = breaker::Breaker(breaker::default_config(task.name));
-
     if (this->init()) {
-        this->log_error("Failed to configure NI hardware for task " + writer_config.task_name);
+        this->log_error(
+            "Failed to configure NI hardware for task " + writer_config.task_name);
     }
 
     this->get_index_keys();
@@ -321,21 +329,26 @@ int ni::DigitalWriteSink::init() {
 }
 
 xerrors::Error ni::DigitalWriteSink::start_ni() {
-    if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
-        this->log_error("failed to start writer for task " + this->writer_config.task_name);
+    if (this->check_err(this->dmx->StartTask(this->task_handle),
+                        "start_ni.StartTask")) {
+        this->log_error(
+            "failed to start writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
     }
-    LOG(INFO) << "[ni.writer] successfully started writer for task " << this->writer_config.task_name;
+    LOG(INFO) << "[ni.writer] successfully started writer for task " << this->
+            writer_config.task_name;
     return xerrors::NIL;
 }
 
 xerrors::Error ni::DigitalWriteSink::stop_ni() {
     if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
-        this->log_error("failed to stop writer for task " + this->writer_config.task_name);
+        this->log_error(
+            "failed to stop writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->writer_config.task_name;
+    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
+            writer_config.task_name;
     return xerrors::NIL;
 }
 
@@ -387,7 +400,6 @@ xerrors::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
             this->writer_config.digital_modified_state_values.emplace(series[0]);
-            
         }
         frame_index++;
     }
@@ -407,14 +419,14 @@ ni::AnalogWriteSink::AnalogWriteSink(
     writer_config = WriterConfig(config_parser, ctx, false, task_handle, task.key);
 
     if (!config_parser.ok()) {
-        this->log_error("Failed to parse config: " + config_parser.error_json().dump(4));
+        this->log_error(
+            "Failed to parse config: " + config_parser.error_json().dump(4));
         return;
     }
 
-    this->breaker = breaker::Breaker(breaker::default_config(task.name));
-
     if (this->init()) {
-        this->log_error("Failed to configure NI hardware for task " + writer_config.task_name);
+        this->log_error(
+            "Failed to configure NI hardware for task " + writer_config.task_name);
     }
 
     this->get_index_keys();
@@ -434,10 +446,12 @@ int ni::AnalogWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        if (this->check_err(channel.ni_channel->create_ni_scale(this->dmx), "init.create_ni_scale", channel.name)) {
+        if (this->check_err(channel.ni_channel->create_ni_scale(this->dmx),
+                            "init.create_ni_scale", channel.name)) {
             return -1;
         }
-        if (this->check_err(channel.ni_channel->bind(this->dmx, this->task_handle), "init.bind", channel.name)) {
+        if (this->check_err(channel.ni_channel->bind(this->dmx, this->task_handle),
+                            "init.bind", channel.name)) {
             return -1;
         }
         if (!this->ok()) {
@@ -453,21 +467,26 @@ int ni::AnalogWriteSink::init() {
 }
 
 xerrors::Error ni::AnalogWriteSink::start_ni() {
-    if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
-        this->log_error("failed to start writer for task " + this->writer_config.task_name);
+    if (this->check_err(this->dmx->StartTask(this->task_handle),
+                        "start_ni.StartTask")) {
+        this->log_error(
+            "failed to start writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
     }
-    LOG(INFO) << "[ni.writer] successfully started writer for task " << this->writer_config.task_name;
+    LOG(INFO) << "[ni.writer] successfully started writer for task " << this->
+            writer_config.task_name;
     return xerrors::NIL;
 }
 
 xerrors::Error ni::AnalogWriteSink::stop_ni() {
     if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
-        this->log_error("failed to stop writer for task " + this->writer_config.task_name);
+        this->log_error(
+            "failed to stop writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->writer_config.task_name;
+    LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
+            writer_config.task_name;
     return xerrors::NIL;
 }
 

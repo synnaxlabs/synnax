@@ -14,8 +14,6 @@ import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
-import { Layouts } from "@/hardware/common/task/layouts";
-import { type UseTareProps } from "@/hardware/common/task/useTare";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
@@ -77,7 +75,7 @@ const ChannelListItem = ({
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <Layouts.ListAndDetailsChannelItem
+    <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}
@@ -109,7 +107,7 @@ const Form: FC<
     task,
     isRunning,
     configured,
-  } as UseTareProps<AIChannel>);
+  } as Common.Task.UseTareProps<AIChannel>);
   return (
     <Common.Task.Layouts.ListAndDetails<AIChannel>
       ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}

@@ -12,6 +12,7 @@
 
 #include "client/cpp/synnax.h"
 #include "driver/ni/ni.h"
+#include "driver/ni/reader.h"
 #include "driver/testutil/testutil.h"
 
 #include <gtest/gtest.h>
@@ -73,7 +74,7 @@ void digital_channel_helper(json config, json channel_config) {
     auto b = breaker::Breaker(
         breaker::Config{
             "my-breaker",
-            1 * SECOND,
+            1 * telem::SECOND,
             1,
             1
         });
@@ -192,7 +193,7 @@ TEST(read_tests, multiple_digital_channels) {
     dmx->CreateTask("", &taskHandle);
 
     auto reader = ni::DigitalReadSource(dmx, taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
     reader.start("");

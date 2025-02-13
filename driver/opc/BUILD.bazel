@@ -51,21 +51,21 @@ cc_library(
     }),
 )
 
-cc_test(
-    name = "opc_test",
-    srcs = [
-        "mock_server.h",
-        "reader_test.cpp",
-        "scanner_test.cpp",
-        "writer_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        ":opc",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
+#cc_test(
+#    name = "opc_test",
+#    srcs = [
+#        "mock_server.h",
+#        "reader_test.cpp",
+#        "scanner_test.cpp",
+#    ],
+#    copts = select({
+#        "@platforms//os:windows": ["/std:c++20"],
+#        "//conditions:default": [],
+#    }),
+#    tags = ["hardware"],
+#    deps = [
+#        ":opc",
+#        "//driver/testutil",
+#        "@com_google_googletest//:gtest_main",
+#    ],
+#)

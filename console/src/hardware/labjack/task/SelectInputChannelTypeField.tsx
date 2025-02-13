@@ -10,15 +10,28 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
 
-import { type InputChannelType } from "@/hardware/labjack/task/types";
+import {
+  AI_CHANNEL_TYPE,
+  DI_CHANNEL_TYPE,
+  type InputChannelType,
+  TC_CHANNEL_TYPE,
+} from "@/hardware/labjack/task/types";
 
-interface InputChannelTypeEntry extends KeyedNamed<InputChannelType> {}
+const COLUMNS = [{ key: "name", name: "Name" }];
+
+export interface InputChannelTypeEntry extends KeyedNamed<InputChannelType> {}
 
 const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
-  { key: "AI", name: "Analog In" },
-  { key: "DI", name: "Digital In" },
-  { key: "TC", name: "Thermocouple" },
+  { key: AI_CHANNEL_TYPE, name: "Analog Input" },
+  { key: DI_CHANNEL_TYPE, name: "Digital Input" },
+  { key: TC_CHANNEL_TYPE, name: "Thermocouple" },
 ];
+
+export interface SelectInputChannelTypeFieldProps
+  extends Omit<
+    Form.DropdownButtonFieldProps<InputChannelType, InputChannelTypeEntry>,
+    "data" | "entryRenderKey" | "columns"
+  > {}
 
 export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   InputChannelType,
@@ -29,7 +42,7 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   inputProps: {
     allowNone: false,
     entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
+    columns: COLUMNS,
     data: INPUT_CHANNEL_TYPES,
   },
 });
