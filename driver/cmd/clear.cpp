@@ -7,16 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
-#include "glog/logging.h"
-
-/// internal
 #include "driver/cmd/cmd.h"
-#include "driver/config/config.h"
 
 int cmd::sub::clear(int argc, char **argv) {
-    // clear the driver persisted state
-    if (const auto err = driver::clear_persisted_state(); err) {
+    if (const auto err = rack::Config::clear_persisted_state(argc, argv); err) {
         LOG(ERROR) << "failed to clear persisted state: " << err;
         return 1;
     }

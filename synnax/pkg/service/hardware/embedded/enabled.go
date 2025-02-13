@@ -88,7 +88,7 @@ func (d *Driver) start() error {
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(driverFileName, "start", "-s", "--config", cfgFileName)
+		d.cmd = exec.Command(driverFileName, "start", "-s", "--block-sig-stop", "--config", cfgFileName)
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()

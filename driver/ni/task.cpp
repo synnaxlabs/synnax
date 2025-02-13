@@ -118,7 +118,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    LOG(INFO) << "[ni.task] configuring task " << task.name;
+    VLOG(2) << "[ni.task] configuring task " << task.name;
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
@@ -264,7 +264,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     TaskHandle task_handle;
     dmx->CreateTask("", &task_handle);
 
-    LOG(INFO) << "[ni.writer] configuring task " << task.name;
+    VLOG(2) << "[ni.writer] configuring task " << task.name;
 
     // Create the appropriate sink based on the task type
     std::shared_ptr<WriteSink> daq_writer;

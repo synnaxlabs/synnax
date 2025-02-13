@@ -14,28 +14,19 @@
 #include "x/cpp/xos/xos.h"
 
 namespace daemond {
-void run(const Config &config, int argc, char *argv[]) { config.callback(argc, argv); }
-
-xerrors::Error install_service() {
-    return xerrors::Error("install_service not supported on " + xos::get_os());
-}
-xerrors::Error uninstall_service() {
-    return xerrors::Error("uninstall_service not supported on " + xos::get_os());
-}
-xerrors::Error start_service() {
-    return xerrors::Error("start_service not supported on " + xos::get_os());
-}
-xerrors::Error stop_service() {
-    return xerrors::Error("stop_service not supported on " + xos::get_os());
-}
-xerrors::Error restart_service() {
-    return xerrors::Error("restart_service not supported on " + xos::get_os());
+void run(const Config &config, const int argc, char *argv[]) {
+    config.callback(argc, argv);
 }
 
-xerrors::Error view_logs() {
-    return xerrors::Error("view_logs not supported on " + xos::get_os());
-}
-xerrors::Error status() {
-    return xerrors::Error("status not supported on " + xos::get_os());
-}
+const auto NOT_SUPPORTED = xerrors::Error(
+    "running the driver as a daemon is not supported on" + xos::get() +
+    ". Use the -s flag to start in standalone mode");
+
+xerrors::Error install_service() { return NOT_SUPPORTED; }
+xerrors::Error uninstall_service() { return NOT_SUPPORTED; }
+xerrors::Error start_service() { return NOT_SUPPORTED; }
+xerrors::Error stop_service() { return NOT_SUPPORTED; }
+xerrors::Error restart_service() { return NOT_SUPPORTED; }
+xerrors::Error view_logs() { return NOT_SUPPORTED; }
+xerrors::Error status() { return NOT_SUPPORTED; }
 } // namespace daemond

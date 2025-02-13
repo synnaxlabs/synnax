@@ -8,10 +8,11 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/errors",
+        "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
-        "//freighter/cpp:freighter",
         "//x/cpp/xerrors",
         "//x/go/telem:telem_grpc",
         "@com_github_grpc_grpc//:grpc++",

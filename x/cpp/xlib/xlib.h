@@ -12,7 +12,9 @@
 #include "x/cpp/xerrors/errors.h"
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN // optional but often recommended
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 typedef HMODULE LibraryHandle;
 #else

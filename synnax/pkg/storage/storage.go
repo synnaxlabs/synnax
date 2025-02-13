@@ -141,7 +141,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	if *cfg.MemBacked {
+	if cfg.MemBacked != nil && *cfg.MemBacked {
 		cfg.Dirname = ""
 	}
 	return cfg

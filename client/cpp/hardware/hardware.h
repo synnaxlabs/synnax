@@ -211,7 +211,7 @@ private:
 struct Device {
     std::string key;
     std::string name;
-    RackKey rack;
+    RackKey rack = 0;
     std::string location;
     std::string identifier;
     std::string make;

@@ -55,6 +55,7 @@ const schema = z.object({
 const Internal = ({
   task: base,
   layoutKey,
+  configured,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
@@ -77,8 +78,7 @@ const Internal = ({
   });
   const startOrStopMutation = useMutation({
     mutationFn: async () => {
-      if (!(base instanceof task.Task))
-        throw new Error("Sequence has not been configured");
+      if (!configured) throw new Error("Sequence has not been configured");
       if (state.state === "loading")
         throw new Error(
           "State is loading, should not be able to start or stop sequence",
@@ -92,13 +92,6 @@ const Internal = ({
       ),
   });
   const isSnapshot = base?.snapshot ?? false;
-
-  // const running = taskState?.details?.running;
-
-  // const startingOrStopping = start.isPending;
-  // const configuring = configureMutation.isPending;
-  // const onStartStop = start.mutate;
-  // const onConfigure = configureMutation.mutate;
 
   const isLoading = state.state === "loading";
   const isConfiguring = configureMutation.isPending;

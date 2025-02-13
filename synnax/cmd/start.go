@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"os"
 	"os/signal"
 	"time"
@@ -388,15 +389,15 @@ func buildDistributionConfig(
 	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
-	return distribution.Config{
+	coreCfg := core.Config{
 		Instrumentation:  ins.Child("distribution"),
 		AdvertiseAddress: address.Address(viper.GetString(listenFlag)),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
-		Verifier:         verifier,
-	}, err
+	}
+	return distribution.Config{Config: coreCfg, Verifier: verifier}, err
 }
 
 func buildServerConfig(

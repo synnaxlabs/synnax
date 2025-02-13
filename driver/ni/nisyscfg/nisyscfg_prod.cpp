@@ -19,6 +19,7 @@
 #include "driver/ni/nisyscfg/nisyscfg.h"
 #include "driver/ni/nisyscfg/nisyscfg_prod.h"
 #include "driver/ni/nisyscfg/nisyscfg_errors.h"
+#include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nisyscfg.dll";
@@ -28,10 +29,11 @@ static const std::string LIB_NAME = "libnisyscfg.so";
 
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "failed to load NI System Configuration library. Is it installed?"
+    "failed to load ni system configuration library. is it installed?"
 );
 
 std::pair<std::shared_ptr<SysCfg>, xerrors::Error> SysCfgProd::load() {
+    if (xos::get() == "macOS") return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<SysCfgProd>(lib), xerrors::NIL};

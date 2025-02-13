@@ -10,6 +10,9 @@
 package core
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -23,7 +26,7 @@ type Frame struct {
 
 func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Series) }
 
-func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
+func (f Frame) SplitByLeaseholder() map[core.NodeKey]Frame {
 	frames := make(map[core.NodeKey]Frame)
 	for i, key := range f.Keys {
 		nodeKey := key.Leaseholder()
@@ -103,6 +106,38 @@ func (f Frame) Extend(fr Frame) Frame {
 	f.Keys = append(f.Keys, fr.Keys...)
 	f.Series = append(f.Series, fr.Series...)
 	return f
+}
+
+func (f Frame) String() string {
+	if len(f.Keys) == 0 {
+		return "Frame{}"
+	}
+
+	var b strings.Builder
+	b.WriteString("Frame{\n")
+
+	// Calculate the maximum key width for alignment
+	maxKeyWidth := 0
+	for _, key := range f.Keys {
+		if len(key.String()) > maxKeyWidth {
+			maxKeyWidth = len(key.String())
+		}
+	}
+
+	// Format each key-series pair
+	for i, key := range f.Keys {
+		// Pad the key with spaces for alignment
+		keyStr := key.String()
+		padding := strings.Repeat(" ", maxKeyWidth-len(keyStr))
+
+		b.WriteString(fmt.Sprintf("    %s%s: %v", keyStr, padding, f.Series[i]))
+		if i < len(f.Keys)-1 {
+			b.WriteString(",\n")
+		}
+	}
+
+	b.WriteString("\n}")
+	return b.String()
 }
 
 func MergeFrames(frames []Frame) (f Frame) {

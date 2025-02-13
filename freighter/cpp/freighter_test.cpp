@@ -18,9 +18,9 @@ public:
     }
 
     std::pair<freighter::Context, xerrors::Error> operator()(
-        freighter::Context context, freighter::Next *next) override {
+        freighter::Context context, freighter::Next &next) override {
         context.set("test", value);
-        return next->operator()(context);
+        return next(context);
     }
 };
 
@@ -28,11 +28,7 @@ class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
     freighter::FinalizerReturn<int>
     operator()(freighter::Context context, int &req) override {
-        return {
-            context,
-            xerrors::NIL,
-            req + 1
-        };
+        return {context, xerrors::NIL, req + 1};
     }
 };
 

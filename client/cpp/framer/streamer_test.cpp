@@ -14,7 +14,7 @@
 #include "client/cpp/testutil/testutil.h"
 
 void test_downsample(
-    std::vector<int> raw_data,
+    const std::vector<int>& raw_data,
     std::vector<int> expected,
     int32_t downsample_factor
 );
@@ -28,11 +28,11 @@ TEST(FramerTests, testStreamBasic) {
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
-    std::vector<synnax::ChannelKey> channels = {data.key};
+    std::vector channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        {synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -45,11 +45,8 @@ TEST(FramerTests, testStreamBasic) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.emplace(
-        data.key,
-        telem::Series(std::vector<int>{1})
-    );
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    frame.emplace(data.key, telem::Series(1));
+    ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
 
@@ -74,7 +71,7 @@ TEST(FramerTests, testStreamSetChannels) {
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         {data.key},
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        {synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -95,7 +92,7 @@ TEST(FramerTests, testStreamSetChannels) {
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
         })
     );
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
 
@@ -110,11 +107,11 @@ TEST(FramerTests, testStreamSetChannels) {
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(FramerTests, TestStreamDownsample) {
-    std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    const std::vector data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     test_downsample(data, data, 1);
 
-    std::vector<int> expected = {1, 3, 5, 7, 9};
+    std::vector expected = {1, 3, 5, 7, 9};
     test_downsample(data, expected, 2);
 
     expected = {1, 4, 7, 10};
@@ -147,7 +144,7 @@ TEST(FramerTests, TestStreamDownsample) {
 }
 
 void test_downsample(
-    std::vector<int> raw_data,
+    const std::vector<int>& raw_data,
     std::vector<int> expected,
     int32_t downsample_factor
 ) {
@@ -158,11 +155,11 @@ void test_downsample(
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
-    std::vector<synnax::ChannelKey> channels = {data.key};
+    std::vector channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        std::vector{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -180,7 +177,7 @@ void test_downsample(
         data.key,
         telem::Series(raw_data)
     );
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
 
@@ -206,11 +203,11 @@ void test_downsample_string(
     ASSERT_FALSE(err) << err.message();
 
     auto now = telem::TimeStamp::now();
-    std::vector<synnax::ChannelKey> channels = {virtual_channel.key};
+    std::vector channels = {virtual_channel.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        std::vector{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -224,9 +221,8 @@ void test_downsample_string(
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(1);
-    frame.emplace(virtual_channel.key, telem::Series(raw_data, telem::STRING));
-    ASSERT_TRUE(writer.write(std::move(frame)));
+    auto frame = synnax::Frame(virtual_channel.key, telem::Series(raw_data, telem::STRING));
+    ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
 
@@ -244,8 +240,7 @@ void test_downsample_string(
 }
 
 TEST(FramerTests, TestStreamDownsampleString) {
-    std::vector<std::string> data = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
-
-    std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
+    const std::vector<std::string> data = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+    const std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
 }

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"math"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -195,6 +196,7 @@ var _ = Describe("Control", func() {
 					w2.Flow(ctx2, confluence.CloseOutputInletsOnExit())
 
 					runtime.Gosched()
+					time.Sleep(1 * time.Millisecond)
 
 					By("Writing to the first writer")
 					w1In.Inlet() <- cesium.WriterRequest{
@@ -220,6 +222,7 @@ var _ = Describe("Control", func() {
 					Eventually(stOut.Outlet()).Should(Receive(&res))
 					Expect(json.Unmarshal(res.Frame.Series[0].Data, &d)).To(Succeed())
 					Expect(d.Transfers).To(HaveLen(1))
+					Expect(d.Transfers[0].To).ToNot(BeNil())
 					Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
 
 					By("Writing to the second writer")

@@ -124,7 +124,7 @@ public:
     /// unique, and should represent the data that the range contains i.e.
     /// "Hot fire 1", "Print 22", or "Tank Burst Test".
     /// @param time_range - the time range of the range.
-    Range(const std::string &name, telem::TimeRange time_range);
+    Range(std::string name, telem::TimeRange time_range);
 
     /// @brief constructs the range from its protobuf type.
     explicit Range(const api::v1::Range &rng);
@@ -177,7 +177,7 @@ public:
     /// if the ranges could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<std::vector<Range>, xerrors::Error>
-    retrieve_by_key(std::vector<std::string> keys) const;
+    retrieve_by_key(const std::vector<std::string> &keys) const;
 
     /// @brief retrieves the ranges with the given names.
     /// @param names - the names of the ranges to retrieve.
@@ -185,7 +185,7 @@ public:
     /// if the ranges could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<std::vector<Range>, xerrors::Error>
-    retrieve_by_name(std::vector<std::string> names) const;
+    retrieve_by_name(const std::vector<std::string> &names) const;
 
     /// @brief creates the given ranges.
     /// @param ranges - the ranges to create.
@@ -207,7 +207,7 @@ public:
     /// if the range could not be created. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<Range, xerrors::Error>
-    create(std::string name, telem::TimeRange time_range) const;
+    create(const std::string &name, telem::TimeRange time_range) const;
 
 private:
     /// @brief range retrieval transport.

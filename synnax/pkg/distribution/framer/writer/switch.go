@@ -42,7 +42,7 @@ func (rs *peerSwitchSender) _switch(
 	oReqs map[address.Address]Request,
 ) error {
 	if r.Command == Data {
-		for nodeKey, frame := range r.Frame.SplitByNodeKey() {
+		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {
 				rs.logger.DPanic("missing address for node", zap.Uint32("node", uint32(nodeKey)))
