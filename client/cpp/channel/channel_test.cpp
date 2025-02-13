@@ -19,7 +19,7 @@ std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(TestChannel, testCreate) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
         telem::FLOAT64,
@@ -32,7 +32,7 @@ TEST(TestChannel, testCreate) {
 /// @brief it should return a validation error when an index channel has the
 /// wrong data type.
 TEST(TestChannel, testCreateValidation) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "validation",
         telem::FLOAT64,
@@ -109,7 +109,7 @@ TEST(TestChannel, testRetrieve) {
 
 /// @brief it should return a query error when the channel cannot be found.
 TEST(TestChannel, testRetrieveNotFound) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(22);
     ASSERT_TRUE(err) << err.message();
     ASSERT_TRUE(err.matches(xerrors::QUERY_ERROR));
@@ -138,7 +138,7 @@ TEST(TestChannel, testRetrieveByName) {
 
 /// @brief it should return the correct error when a channel cannot be found by name.
 TEST(TestChannel, testRetrieveByNameNotFound) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err, xerrors::NOT_FOUND);
@@ -153,8 +153,7 @@ TEST(TestChannel, testRetrieveMany) {
         {"test3", telem::FLOAT64, 20 * telem::HZ}
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
-    auto [retrieved, exc] = client.channels.retrieve(
-        std::vector<ChannelKey>{channels[0].key, channels[1].key, channels[2].key});
+    auto [retrieved, exc] = client.channels.retrieve(synnax::keys_from_channels(channels));
     ASSERT_FALSE(exc) << exc.message();
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
@@ -178,7 +177,7 @@ TEST(TestChannel, testRetrieveMany) {
 /// @brief it should return the correct error when a channel cannot be found 
 /// by key multiple retrieval.
 TEST(TestChannel, testRetrieveManyNotFound) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(
         std::vector<ChannelKey>{1, 2, 3});
     ASSERT_TRUE(err) << err.message();

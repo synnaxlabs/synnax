@@ -9,6 +9,8 @@
 
 #include "client/cpp/ranger/ranger.h"
 
+#include <utility>
+
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
@@ -16,8 +18,8 @@
 
 using namespace synnax;
 
-Range::Range(const std::string &name, telem::TimeRange time_range)
-    : name(name),
+Range::Range(std::string name, telem::TimeRange time_range)
+    : name(std::move(name)),
       time_range(time_range) {
 }
 
@@ -77,8 +79,8 @@ std::pair<Range, xerrors::Error> RangeClient::retrieve_by_name(
     return {rng, err};
 }
 
-std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_many(
-    api::v1::RangeRetrieveRequest &req) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
@@ -88,15 +90,15 @@ std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_many(
     return {ranges, err};
 }
 
-std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_by_name(
-    std::vector<std::string> names) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_by_name(const std::vector<std::string> &names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names) req.add_names(name);
     return retrieve_many(req);
 }
 
-std::pair<std::vector<Range>, xerrors::Error> RangeClient::retrieve_by_key(
-    std::vector<std::string> keys) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_by_key(const std::vector<std::string> &keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys) req.add_keys(key);
     return retrieve_many(req);
@@ -121,15 +123,15 @@ xerrors::Error RangeClient::create(Range &range) const {
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (!err) {
-        auto rng = res.ranges(0);
+        const auto rng = res.ranges(0);
         range.key = rng.key();
         range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
     }
     return err;
 }
 
-std::pair<Range, xerrors::Error> RangeClient::create(
-    std::string name, telem::TimeRange time_range) const {
+std::pair<Range, xerrors::Error>
+RangeClient::create(const std::string& name, telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};

@@ -38,6 +38,7 @@ typedef freighter::UnaryClient<
     api::v1::ChannelCreateResponse
 > ChannelCreateClient;
 
+
 class ChannelClient;
 
 /// @brief A channel is a logical collection of samples emitted by or representing the
@@ -110,6 +111,24 @@ private:
 
     friend class ChannelClient;
 };
+
+/// @brief creates a vector of channel keys from a variadic list of channels.
+template<typename... Channels>
+inline std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
+    std::vector<ChannelKey> keys;
+    keys.reserve(sizeof...(channels));
+    ((keys.push_back(channels.key)), ...);
+    return keys;
+}
+
+/// @brief creates a vector of channel keys from a vector of channels.
+inline std::vector<ChannelKey>
+keys_from_channels(const std::vector<Channel>& channels) {
+    std::vector<ChannelKey> keys;
+    keys.reserve(channels.size());
+    for (const auto& channel : channels) keys.push_back(channel.key);
+    return keys;
+}
 
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
 class ChannelClient {

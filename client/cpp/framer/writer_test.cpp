@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <thread>
+#include <__ranges/elements_view.h>
+
 #include "gtest/gtest.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
@@ -33,9 +35,9 @@ TEST(FramerTests, testWriteBasic) {
 
     auto now = telem::TimeStamp::now();
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{time.key, data.key},
+        synnax::keys_from_channels(time, data),
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
+        std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -43,7 +45,7 @@ TEST(FramerTests, testWriteBasic) {
     auto frame = synnax::Frame(2);
     frame.emplace(
         time.key,
-        telem::Series(std::vector<std::uint64_t>{
+        telem::Series(std::vector{
                            (now.value + telem::SECOND).value,
                            (now + telem::SECOND * 2).value,
                            (now + telem::SECOND * 3).value,
@@ -81,7 +83,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
     auto [writer, w_err] = client.telem.open_writer(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key, 1000},
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        std::vector{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_TRUE(w_err) << w_err.message();
@@ -98,9 +100,9 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     );
     ASSERT_FALSE(t_err) << t_err.message();
     auto [writer, w_err] = client.telem.open_writer(synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{time.key},
+        std::vector{time.key},
         telem::TimeStamp::now(),
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        std::vector{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(w_err) << w_err.message();

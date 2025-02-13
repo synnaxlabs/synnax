@@ -15,8 +15,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
-        "//freighter/cpp/fgrpc",
         "//freighter/cpp:freighter",
+        "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
@@ -30,22 +30,6 @@ cc_test(
         "frame_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "//client/cpp:synnax",
-        "//client/cpp/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "streamer_test",
-    srcs = [
-        "streamer_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

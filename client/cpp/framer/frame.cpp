@@ -56,7 +56,9 @@ void Frame::add(const ChannelKey &chan, telem::Series &ser) const {
 }
 
 void Frame::to_proto(api::v1::Frame *f) const {
-    f->mutable_keys()->Add(channels->begin(), channels->end());
+    for (const auto& key : *channels) {
+        f->mutable_keys()->Add(key);
+    }
     f->mutable_series()->Reserve(static_cast<int>(series->size()));
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
@@ -79,7 +81,7 @@ Frame Frame::deep_copy() const {
     auto new_series = std::make_unique<std::vector<telem::Series>>();
     new_series->reserve(series->size());
     for (const auto &ser: *series) new_series->emplace_back(ser.deep_copy());
-    return Frame(std::move(new_channels), std::move(new_series));
+    return {std::move(new_channels), std::move(new_series)};
 }
 
 template<typename NumericType>

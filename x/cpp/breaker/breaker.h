@@ -119,7 +119,7 @@ public:
                 << " times. " << "Retrying 7in " << interval.seconds() << " seconds. "
                 <<
                 "Error: " << message << ".";
-        //
+        // keeps the formatter happy
         {
             std::unique_lock lock(shutdown_mu);
             shutdown_cv.wait_for(lock, interval.chrono());

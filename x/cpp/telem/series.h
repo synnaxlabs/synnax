@@ -156,6 +156,7 @@ public:
         if (!this->data_type.is_variable())
             throw std::runtime_error("expected data type to be STRING or JSON");
         this->cached_byte_size = 0;
+        for (const auto &s: d) this->cached_byte_size += s.size() + 1;
         this->data = std::make_unique<std::byte[]>(byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
@@ -163,7 +164,6 @@ public:
             offset += s.size();
             this->data[offset] = static_cast<std::byte>('\n');
             offset++;
-            this->cached_byte_size += s.size() + 1;
         }
         this->size = d.size();
         this->cap = size;
