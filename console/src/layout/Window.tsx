@@ -40,7 +40,7 @@ export const NavTop = ({
     <Nav.Bar
       className="console-main-nav-top"
       location="top"
-      size={"6rem"}
+      size="6rem"
       data-tauri-drag-region
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>

@@ -74,14 +74,9 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     const synnax::Task &task,
     std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    LOG(INFO) << "[labjack.task] configuring task " << task.name;
+    VLOG(2) << "[labjack.task] configuring task " << task.name;
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
+    auto breaker_config = breaker::default_config(task.name);
 
     auto parser = config::Parser(task.config);
     ReaderConfig reader_config(parser);
@@ -102,7 +97,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
 
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
-        .start = synnax::TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .subject = control_subject,
         .mode = reader_config.data_saving
                     ? synnax::WriterMode::PersistStream

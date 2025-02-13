@@ -17,48 +17,7 @@
 
 using namespace pipeline;
 
-class SynnaxStreamer final : public pipeline::Streamer {
-    std::unique_ptr<synnax::Streamer> internal;
 
-public:
-    explicit SynnaxStreamer(
-        std::unique_ptr<synnax::Streamer> internal
-    ) : internal(std::move(internal)) {
-    }
-
-    std::pair<synnax::Frame, freighter::Error> read() override {
-        return this->internal->read();
-    }
-
-    freighter::Error close() override {
-        return this->internal->close();
-    }
-
-    void closeSend() override {
-        this->internal->closeSend();
-    }
-};
-
-class SynnaxStreamerFactory final : public StreamerFactory {
-    std::shared_ptr<synnax::Synnax> client;
-
-public:
-    explicit SynnaxStreamerFactory(
-        std::shared_ptr<synnax::Synnax> client
-    ) : client(std::move(client)) {
-    }
-
-    std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
-        synnax::StreamerConfig config) override {
-        auto [ss, err] = client->telem.openStreamer(config);
-        if (err) return {nullptr, err};
-        return {
-            std::make_unique<SynnaxStreamer>(
-                std::make_unique<synnax::Streamer>(std::move(ss))),
-            freighter::NIL
-        };
-    }
-};
 
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
@@ -85,7 +44,7 @@ Control::Control(
 }
 
 
-void Control::ensureThreadJoined() const {
+void Control::ensure_thread_joined() const {
     if (
         this->thread == nullptr ||
         !this->thread->joinable() ||
@@ -98,7 +57,7 @@ void Control::ensureThreadJoined() const {
 
 void Control::start() {
     if (this->breaker.running()) return;
-    this->ensureThreadJoined();
+    this->ensure_thread_joined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Control::run, this);
     LOG(INFO) << "[control] started";
@@ -108,15 +67,15 @@ void Control::stop() {
     const auto was_running = this->breaker.running();
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
-    if (this->streamer) this->streamer->closeSend();
+    if (this->streamer) this->streamer->close_send();
     this->breaker.stop();
-    this->ensureThreadJoined();
+    this->ensure_thread_joined();
     if (was_running) LOG(INFO) << "[control] stopped";
 }
 
 void Control::run() {
     try {
-        this->runInternal();
+        this->run_internal();
     } catch (const std::exception &e) {
         LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
     } catch (...) {
@@ -125,23 +84,22 @@ void Control::run() {
     this->stop();
 }
 
-void Control::runInternal() {
-    auto [s, open_err] = this->factory->openStreamer(this->config);
+void Control::run_internal() {
+    auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
         if (
             open_err.matches(freighter::UNREACHABLE)
             && breaker.wait(open_err.message())
         )
-            return runInternal();
+            return run_internal();
         return this->sink->stopped_with_err(open_err);
     }
 
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
-        const auto sink_err = this->sink->write(std::move(cmd_frame));
-        if (sink_err) {
+        if (const auto sink_err = this->sink->write(cmd_frame)) {
             if (
                 sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
                 && breaker.wait(sink_err.message())
@@ -156,6 +114,37 @@ void Control::runInternal() {
         close_err.matches(freighter::UNREACHABLE)
         && breaker.wait()
     )
-        return runInternal();
+        return run_internal();
     if (close_err) this->sink->stopped_with_err(close_err);
+}
+
+SynnaxStreamer::SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal)
+    : internal(std::move(internal)) {
+}
+
+std::pair<synnax::Frame, xerrors::Error> SynnaxStreamer::read() {
+    return this->internal->read();
+}
+
+xerrors::Error SynnaxStreamer::close() {
+    return this->internal->close();
+}
+
+void SynnaxStreamer::close_send() {
+    this->internal->close_send();
+}
+
+SynnaxStreamerFactory::SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client)
+    : client(std::move(client)) {
+}
+
+std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
+SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
+    auto [ss, err] = client->telem.open_streamer(config);
+    if (err) return {nullptr, err};
+    return {
+        std::make_unique<SynnaxStreamer>(
+            std::make_unique<synnax::Streamer>(std::move(ss))),
+        xerrors::NIL
+    };
 }

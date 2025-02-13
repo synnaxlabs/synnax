@@ -11,16 +11,9 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type NewUser,
-  newUserZ,
-  type User,
-  userZ,
-} from "@/user/payload";
+import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 
-const createReqZ = z.object({ users: newUserZ.array() });
+const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 
 const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
@@ -48,7 +41,7 @@ export class Writer {
     this.client = client;
   }
 
-  async create(users: NewUser | NewUser[]): Promise<User[]> {
+  async create(users: New | New[]): Promise<User[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,

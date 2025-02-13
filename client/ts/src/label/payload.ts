@@ -9,10 +9,7 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
 export const keyZ = z.string().uuid();
-
 export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
@@ -22,10 +19,7 @@ export const labelZ = z.object({
   name: z.string().min(1),
   color: z.string(),
 });
+export interface Label extends z.infer<typeof labelZ> {}
 
-export type Label = z.infer<typeof labelZ>;
-
-export const ONTOLOGY_TYPE: ontology.ResourceType = "label";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ONTOLOGY_TYPE = "label";
+export type OntologyType = typeof ONTOLOGY_TYPE;

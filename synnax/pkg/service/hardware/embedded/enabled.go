@@ -31,6 +31,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	startCmdName        = "start"
+	startStandaloneFlag = "--standalone"
+)
+
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -83,7 +88,7 @@ func (d *Driver) start() error {
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(driverFileName, cfgFileName)
+		d.cmd = exec.Command(driverFileName, "start", "-s", "--block-sig-stop", "--config", cfgFileName)
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()

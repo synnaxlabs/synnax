@@ -33,8 +33,12 @@ func (d Delete[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Delete[K
 }
 
 // Guard executes the given function on each entry matching the query. If the function
-// returns an error, the query will fail and no further entries will be processed.
+// returns an error, the query will fail and no further entries will be processed. If
+// the provided guard function is nil, no guard will be applied.
 func (d Delete[K, E]) Guard(filter func(E) error) Delete[K, E] {
+	if filter == nil {
+		return d
+	}
 	addGuard[K, E](d.params, filter)
 	return d
 }

@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   type ConsolePolicy,
@@ -66,7 +67,7 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
     name: "Permissions",
     values: { ...initialPermissions, keys: {} },
     queryFn: async ({ client }) => {
-      if (client == null) throw new Error("Client is not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       const policies = await client.access.policy.retrieveFor(
         clientUser.ontologyID(user.key),
       );

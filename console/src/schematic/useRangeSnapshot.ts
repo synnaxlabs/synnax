@@ -12,6 +12,7 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Range } from "@/range";
 
 interface SchematicNameAndKey extends Pick<schematic.Schematic, "key" | "name"> {}
@@ -39,7 +40,7 @@ export const useRangeSnapshot = () => {
         message: `Successfully snapshotted ${context}`,
       }),
     mutationFn: async (schematics) => {
-      if (client == null) throw new Error("Server is not available");
+      if (client == null) throw NULL_CLIENT_ERROR;
       if (rng == null) throw new Error("No active range selected");
       const ids = await Promise.all(
         toArray(schematics).map(async (s) => {

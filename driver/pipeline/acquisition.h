@@ -9,15 +9,15 @@
 
 #pragma once
 
-/// std.
+/// std
 #include <thread>
 #include <atomic>
 
-/// external.
+/// external
 #include "client/cpp/synnax.h"
 
 /// module
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 #include "driver/pipeline/middleware.h"
 
 namespace pipeline {
@@ -32,7 +32,7 @@ public:
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will
     /// exit.
-    virtual std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) = 0;
+    virtual std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
     /// it to shut down or occurred during commanded shutdown.
@@ -41,13 +41,13 @@ public:
     /// source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stopped_with_err(const freighter::Error &err) {
+    virtual void stopped_with_err(const xerrors::Error &err) {
     }
 
     virtual ~Source() = default;
 };
 
-//// @brief an interface that writes acquired data over the network (to Synnax during
+/// @brief an interface that writes acquired data over the network (to Synnax during
 /// production, and to mock objects during testing).
 class Writer {
 public:
@@ -62,7 +62,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error will
     /// be considered permanent and the pipeline will exit.
-    virtual freighter::Error close() = 0;
+    virtual xerrors::Error close() = 0;
 
     virtual ~Writer() = default;
 };
@@ -76,13 +76,35 @@ public:
     /// a breaker will be triggered (temporary backoff), and the acquisition pipeline will
     /// retry the operation until the configured number of maximum retries is exceeded. Any
     /// other error will be considered permanent and the pipeline will exit.
-    virtual std::pair<std::unique_ptr<Writer>, freighter::Error> openWriter(
+    virtual std::pair<std::unique_ptr<Writer>, xerrors::Error> open_writer(
         const WriterConfig &config
     ) = 0;
 
     virtual ~WriterFactory() = default;
 };
 
+/// @brief an implementation of the pipeline::Writer interface that is backed
+/// by a Synnax writer that writes data to a cluster.
+class SynnaxWriter final : public pipeline::Writer {
+    std::unique_ptr<synnax::Writer> internal;
+
+public:
+    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal);
+    bool write(synnax::Frame &fr) override;
+    xerrors::Error close() override;
+};
+
+/// @brief an implementation of the pipeline::WriterFactory interface that is
+/// backed by an actual synnax client connected to a cluster.
+class SynnaxWriterFactory final : public WriterFactory {
+    std::shared_ptr<synnax::Synnax> client;
+
+public:
+    explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
+    std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
+        const WriterConfig &config
+    ) override;
+};
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The pipeline
 /// should be used as a utility for implementing a broader acquisition task. It implements
@@ -139,7 +161,7 @@ public:
     /// @brief adds a middleware to the acquisition pipeline that will be called on each
     /// frame read from source
     void add_middleware(
-        std::shared_ptr<pipeline::Middleware> middleware
+        const std::shared_ptr<pipeline::Middleware> &middleware
     ){
         middleware_chain.add(middleware);
     }
@@ -154,9 +176,9 @@ private:
     std::shared_ptr<Source> source;
     pipeline::MiddlewareChain middleware_chain;
 
-    void runInternal();
+    void run_internal();
 
-    void ensureThreadJoined() const;
+    void ensure_thread_joined() const;
 
     void run();
 };

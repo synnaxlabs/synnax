@@ -14,9 +14,9 @@
 
 #include "driver/opc/reader.h"
 #include "driver/opc/util.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "driver/errors/errors.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 
 #include "include/open62541/types.h"
@@ -33,12 +33,12 @@ using namespace opc;
 ReaderConfig::ReaderConfig(
     config::Parser &parser
 ): device(parser.required<std::string>("device")),
-   sample_rate(parser.required<std::float_t>("sample_rate")),
-   stream_rate(parser.required<std::float_t>("stream_rate")),
+   sample_rate(parser.required<float>("sample_rate")),
+   stream_rate(parser.required<float>("stream_rate")),
    array_size(parser.optional<std::size_t>("array_size", 1)),
    data_saving(parser.optional<bool>("data_saving", true)) {
     if(array_size <= 0) array_size = 1;
-    if (stream_rate.value <= 0) stream_rate = Rate(1);
+    if (stream_rate.value <= 0) stream_rate = telem::Rate(1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);
@@ -50,13 +50,13 @@ ReaderConfig::ReaderConfig(
 ///////////////////////////////////////////////////////////////////////////////////
 ///@brief retrieves index channel information for given set of channels
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
-    freighter::Error> retrieveAdditionalChannelInfo(
+    xerrors::Error> retrieveAdditionalChannelInfo(
     const std::shared_ptr<task::Context> &ctx,
     ReaderConfig &cfg,
     breaker::Breaker &breaker
 ) {
     auto channel_keys = cfg.channel_keys();
-    if (channel_keys.empty()) return {{channel_keys, {}}, freighter::NIL};
+    if (channel_keys.empty()) return {{channel_keys, {}}, xerrors::NIL};
     auto indexes = std::set<ChannelKey>();
     auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channel_keys());
     if (c_err) {
@@ -74,7 +74,7 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
         }
         cfg.channels[i].ch = ch;
     }
-    return {{channel_keys, indexes}, freighter::Error()};
+    return {{channel_keys, indexes}, xerrors::Error()};
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -97,7 +97,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         return nullptr;
     }
     VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
-    auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
+    auto [device, dev_err] = ctx->client->hardware.retrieve_device(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
@@ -112,15 +112,13 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    auto breaker = breaker::Breaker(breaker_config);
+    auto breaker = breaker::Breaker(breaker::default_config(task.name));
     // Fetch additional index channels we also need as part of the configuration.
-    auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
+    auto [res, err] = retrieveAdditionalChannelInfo(
+        ctx, 
+        cfg, 
+        breaker
+    );
     if (err) {
         ctx->set_state({
             .task = task.key,
@@ -182,7 +180,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 
     auto writer_cfg = synnax::WriterConfig{
         .channels = channel_keys,
-        .start = TimeStamp::now(),
+        .start = telem::TimeStamp::now(),
         .subject = synnax::ControlSubject{
             .name = task.name,
             .key = std::to_string(task.key)
@@ -205,7 +203,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         ctx,
         task,
         cfg,
-        breaker_config,
+        breaker::default_config(task.name),
         std::move(source),
         writer_cfg,
         ua_client,
@@ -234,7 +232,7 @@ void ReaderTask::stop(const std::string &cmd_key) {
 }
 
 void ReaderTask::start(const std::string &cmd_key) {
-    freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
+    xerrors::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
         ctx->set_state({
             .task = task.key,

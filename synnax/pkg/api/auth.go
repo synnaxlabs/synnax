@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -24,13 +25,15 @@ type AuthService struct {
 	dbProvider
 	authProvider
 	userProvider
+	clusterProvider
 }
 
 func NewAuthService(p Provider) *AuthService {
 	return &AuthService{
-		dbProvider:   p.db,
-		authProvider: p.auth,
-		userProvider: p.user,
+		dbProvider:      p.db,
+		authProvider:    p.auth,
+		userProvider:    p.user,
+		clusterProvider: p.cluster,
 	}
 }
 
@@ -39,6 +42,8 @@ type AuthLoginResponse struct {
 	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
 	Token string `json:"token" msgpack:"token"`
+	// ClusterInfo is the information about the cluster.
+	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
 type AuthLoginRequest struct {
@@ -56,7 +61,14 @@ func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLogi
 		return AuthLoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
-	return AuthLoginResponse{User: u, Token: tk}, err
+	return AuthLoginResponse{
+		User:  u,
+		Token: tk,
+		ClusterInfo: ClusterInfo{
+			ClusterKey:  s.clusterProvider.cluster.Key().String(),
+			NodeVersion: version.Get(),
+		},
+	}, err
 }
 
 type AuthChangePasswordRequest struct {

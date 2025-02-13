@@ -17,6 +17,7 @@
 
     &:focus {
         outline: none;
+        overflow: unset !important;
         &.pluto--outline::after {
             content: "";
             position: absolute;

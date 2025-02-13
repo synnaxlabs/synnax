@@ -182,7 +182,7 @@ export class Controller
   }
 
   async set(
-    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+    frame: framer.Crude | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);

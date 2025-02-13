@@ -419,7 +419,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
 export const Schematic: Layout.Renderer = ({
   layoutKey,
-  ...props
+  ...rest
 }): ReactElement | null => {
   const loaded = useLoadRemote({
     name: "Schematic",
@@ -433,7 +433,7 @@ export const Schematic: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (!loaded) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
 export const LAYOUT_TYPE = "schematic";
@@ -443,7 +443,7 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 export interface CreateArg

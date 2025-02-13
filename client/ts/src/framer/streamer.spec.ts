@@ -239,16 +239,8 @@ describe("Streamer - Calculated Channels", () => {
 
     // Create source channels
     const [channelA, channelB] = await client.channels.create([
-      {
-        name: "multi_test_a",
-        dataType: DataType.FLOAT64,
-        index: timeChannel.key,
-      },
-      {
-        name: "multi_test_b",
-        dataType: DataType.FLOAT64,
-        index: timeChannel.key,
-      },
+      { name: "multi_test_a", dataType: DataType.FLOAT64, index: timeChannel.key },
+      { name: "multi_test_b", dataType: DataType.FLOAT64, index: timeChannel.key },
     ]);
 
     // Create calculated channel with multiple operations

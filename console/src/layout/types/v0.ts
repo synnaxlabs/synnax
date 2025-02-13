@@ -14,11 +14,7 @@ import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
-const placementLocationZ = z.union([
-  z.literal("window"),
-  z.literal("mosaic"),
-  z.literal("modal"),
-]);
+const placementLocationZ = z.enum(["window", "mosaic", "modal"]);
 
 /**
  * The location options for placing a layout:

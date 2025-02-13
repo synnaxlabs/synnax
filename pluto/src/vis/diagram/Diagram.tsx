@@ -79,7 +79,7 @@ import {
 import { Edge as EdgeComponent } from "@/vis/diagram/edge";
 import { type connector } from "@/vis/diagram/edge/connector";
 import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
-import { type PathType } from "@/vis/diagram/external";
+import { type PathType } from "@/vis/diagram/edge/paths";
 
 export interface SymbolProps {
   symbolKey: string;

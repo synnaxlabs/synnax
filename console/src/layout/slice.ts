@@ -22,7 +22,6 @@ import * as latest from "@/layout/types";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
-export interface BaseState<A = unknown> extends Omit<latest.State<A>, "windowKey"> {}
 export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
@@ -95,11 +94,6 @@ interface ResizeNavDrawerPayload {
   windowKey: string;
   location: NavDrawerLocation;
   size: number;
-}
-
-interface SetAltKeyPayload {
-  key: string;
-  altKey: string;
 }
 
 interface SetFocusPayload {
@@ -245,15 +239,6 @@ export const { actions, reducer } = createSlice({
         state.mosaics[layout.windowKey] = mosaic;
         purgeEmptyMosaics(state);
       });
-    },
-    setAltKey: (
-      state,
-      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
-    ) => {
-      const layout = select(state, key);
-      if (layout == null) return;
-      state.altKeyToKey[altKey] = key;
-      state.keyToAltKey[key] = altKey;
     },
     moveMosaicTab: (
       state,
@@ -472,7 +457,6 @@ export const {
   place,
   setFocus,
   remove,
-  setAltKey,
   toggleActiveTheme,
   setActiveTheme,
   moveMosaicTab,

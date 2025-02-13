@@ -7,23 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Align,
-  Button,
-  Form,
-  Input,
-  Nav,
-  Status,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
+import { Triggers } from "@/triggers";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username must not be empty"),
@@ -41,8 +33,6 @@ const initialValues: FormValues = {
 };
 
 export const REGISTER_LAYOUT_TYPE = "registerUser";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const registerLayout = ({
   window,
@@ -72,7 +62,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
     mutationFn: async () => {
       if (!methods.validate()) return;
       const values = methods.value();
-      if (client == null) throw new Error("No Cluster Connected");
+      if (client == null) throw NULL_CLIENT_ERROR;
       await client.user.create({ ...values });
       onClose();
     },
@@ -121,12 +111,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Register
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
             onClick={() => mutate()}
@@ -138,7 +123,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
             }
             tooltipLocation="bottom"
             loading={isPending}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             Register
           </Button.Button>

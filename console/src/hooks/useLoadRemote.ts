@@ -14,6 +14,8 @@ import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
+
 export interface UseLoadRemoteProps<V extends migrate.Migratable> {
   name: string;
   targetVersion: string;
@@ -37,7 +39,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   const client = PSynnax.use();
   const get = useMutation({
     mutationFn: async () => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       return fetcher(client, layoutKey);
     },
     onError: (e) => handleException(e, `Failed to load ${name}`),

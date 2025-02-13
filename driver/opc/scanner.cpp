@@ -13,7 +13,7 @@
 
 #include "scanner.h"
 #include "glog/logging.h"
-#include "driver/config/config.h"
+#include "x/cpp/config/config.h"
 #include "include/open62541/statuscodes.h"
 #include "include/open62541/types.h"
 #include "include/open62541/client_config_default.h"
@@ -120,7 +120,7 @@ static UA_StatusCode node_iter(
             reinterpret_cast<char *>(browseName.name.data),
             browseName.name.length
         );
-        auto data_type = synnax::DATA_TYPE_UNKNOWN;
+        auto data_type = telem::DATA_TYPE_UNKNOWN;
         bool is_array = false;
         if (nodeClass == UA_NODECLASS_VARIABLE && response.results[2].hasValue) {
             UA_Variant value;

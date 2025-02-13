@@ -10,7 +10,7 @@
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -19,7 +19,7 @@ import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Table } from "@/table";
 
@@ -105,11 +105,20 @@ const loadTable = async (
   placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-}) => await loadTable(client, selection[0].id, placeLayout);
+  handleException,
+}) => {
+  loadTable(client, selection[0].id, placeLayout).catch((e) => {
+    const names = strings.naturalLanguageJoin(
+      selection.map(({ name }) => name),
+      "table",
+    );
+    handleException(e, `Failed to select ${names}`);
+  });
+};
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
@@ -119,9 +128,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   handleException,
 }) => {
-  void (async () => {
-    try {
-      const table = await client.workspaces.table.retrieve(id.key);
+  client.workspaces.table
+    .retrieve(id.key)
+    .then((table) => {
       placeLayout(
         Table.create({
           name: table.name,
@@ -131,21 +140,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load table");
-    }
-  })();
+    })
+    .catch((e) => handleException(e, "Failed to load table"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: table.ONTOLOGY_TYPE,
   icon: <Icon.Table />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

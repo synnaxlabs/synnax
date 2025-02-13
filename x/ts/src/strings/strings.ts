@@ -53,8 +53,8 @@ export const generateShortIdentifiers = (name: string): string[] => {
 
   // Generate initials
   const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials);
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+  identifiers.add(initials.replace(/-/g, "_"));
+  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
 
   // Generate combinations with numbers
   const regex = /\d+/g;
@@ -66,8 +66,10 @@ export const generateShortIdentifiers = (name: string): string[] => {
         const abbreviatedWords = words
           .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
           .join("");
-        identifiers.add(abbreviatedWords);
-        identifiers.add(abbreviatedWords.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+        identifiers.add(abbreviatedWords.replace(/-/g, "_"));
+        identifiers.add(
+          abbreviatedWords.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_"),
+        ); // Insert underscores
       }
     });
 
@@ -75,12 +77,12 @@ export const generateShortIdentifiers = (name: string): string[] => {
   const wordAbbreviations = words.map((word) =>
     (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
   );
-  identifiers.add(wordAbbreviations.join(""));
-  identifiers.add(wordAbbreviations.join("_"));
+  identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
+  identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
 
-  // Limit length of identifiers
+  // Limit length of identifiers and ensure they don't start with numbers
   const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12,
+    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
   );
 
   return filteredIdentifiers;

@@ -20,15 +20,6 @@ import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
-export const overviewLayout: Layout.State = {
-  key: "overview",
-  windowKey: "overview",
-  type: "overview",
-  name: "Overview",
-  location: "mosaic",
-  icon: "Range",
-};
-
 export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
   <Align.Space
     direction="y"

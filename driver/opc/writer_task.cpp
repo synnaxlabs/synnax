@@ -9,8 +9,8 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "driver/config/config.h"
-#include "driver/loop/loop.h"
+#include "x/cpp/config/config.h"
+#include "x/cpp/loop/loop.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                     WriterConfig                              //
@@ -33,7 +33,7 @@ void opc::WriterTask::exec(task::Command &cmd) {
 }
 
 void opc::WriterTask::start() {
-    freighter::Error conn_err = refresh_connection(
+    xerrors::Error conn_err = refresh_connection(
         this->ua_client,
         device_props.connection.endpoint
     );
@@ -89,7 +89,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
-    auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
+    auto [device, dev_err] = ctx->client->hardware.retrieve_device(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.writer] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
@@ -105,14 +105,6 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
 
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
-
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    auto breaker = breaker::Breaker(breaker_config);
 
     auto [ua_client, conn_err] = opc::connect(properties.connection,
                                               "[opc.writer.cmd] ");
@@ -150,7 +142,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         ctx,
         task,
         cfg,
-        breaker_config,
+        breaker::default_config(task.name),
         std::move(sink),
         cmd_streamer_config,
         ua_client,

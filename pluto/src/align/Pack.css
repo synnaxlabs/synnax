@@ -122,12 +122,24 @@
         }
     }
 
-    > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--middle);
+    &.pluto--y {
+        > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
+            border-radius: var(--pluto-pack--middle);
+        }
+
+        > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
+            border-radius: var(--pluto-pack--first);
+        }
     }
 
-    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
-        border-radius: var(--pluto-pack--first);
+    &.pluto--x {
+        > *:not(:first-child):not(:last-child) {
+            border-radius: var(--pluto-pack--middle);
+        }
+
+        > *:first-child:not(:only-child) {
+            border-radius: var(--pluto-pack--first);
+        }
     }
 
     > *:last-child:not(:only-child) {

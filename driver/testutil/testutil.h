@@ -31,7 +31,7 @@ extern synnax::Synnax new_test_client();
 
 /// @brief creates a new random generator for a test suite, and
 /// outputs the seed to stdout for reproducibility.
-extern std::mt19937 random_generator(std::string suite_name);
+extern std::mt19937 random_generator(const std::string &suite_name);
 
 /// @brief adds a digital output channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
@@ -65,7 +65,7 @@ json add_AI_channel_JSON(json &config,
                          std::string name,
                          int key,
                          int port,
-                         std::float_t min_val,
-                         std::float_t max_val,
+                         float min_val,
+                         float max_val,
                          std::string terminal_config,
                          json scale_config);

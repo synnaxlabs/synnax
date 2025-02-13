@@ -13,16 +13,10 @@ import { z } from "zod";
 import { InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
-const insecureCredentialsZ = z.object({
-  username: z.string(),
-  password: z.string(),
-});
-type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
+const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
+interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
 
-const tokenResponseZ = z.object({
-  token: z.string(),
-  user: user.userZ,
-});
+const tokenResponseZ = z.object({ token: z.string(), user: user.userZ });
 
 const LOGIN_ENDPOINT = "/auth/login";
 

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.38.1",
+  "version": "0.39.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -152,7 +152,7 @@
       "require": "./dist/search.cjs"
     },
     "./unique": {
-      "types": "./dist/src/unique.d.ts",
+      "types": "./dist/src//unique/index.d.ts",
       "import": "./dist/unique.js",
       "require": "./dist/unique.cjs"
     },

@@ -94,7 +94,7 @@ describe("Policy", () => {
     });
     describe("many", () => {
       test("with keys", async () => {
-        const policiesToCreate: policy.NewPolicy[] = [
+        const policiesToCreate: policy.New[] = [
           {
             subjects: [{ type: user.ONTOLOGY_TYPE, key: "10" }],
             objects: [
@@ -219,7 +219,7 @@ describe("Policy", () => {
       const id1 = id.id();
       const id2 = id.id();
       const id3 = id.id();
-      const policies: policy.NewPolicy[] = [
+      const policies: policy.New[] = [
         {
           subjects: [
             { type: user.ONTOLOGY_TYPE, key: id1 },
@@ -253,7 +253,7 @@ describe("Policy", () => {
       const id1 = id.id();
       const id2 = id.id();
       const id3 = id.id();
-      const policies: policy.NewPolicy[] = [
+      const policies: policy.New[] = [
         {
           subjects: [
             { type: user.ONTOLOGY_TYPE, key: id1 },

@@ -15,6 +15,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type FileIngestor } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
@@ -54,7 +55,7 @@ export const createImporter: ImporterCreator =
     if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
       let ws = Workspace.select(storeState, workspaceKey);
       if (ws == null) {
-        if (client == null) throw new Error("Cannot reach cluster");
+        if (client == null) throw NULL_CLIENT_ERROR;
         ws = await client.workspaces.retrieve(workspaceKey);
       }
       store.dispatch(Workspace.add(ws));

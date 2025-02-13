@@ -14,8 +14,11 @@
 #include "driver/ni/ni.h"
 #include "driver/testutil/testutil.h"
 
-#include <include/gtest/gtest.h>
+#include <gtest/gtest.h>
+
+#include "driver/ni/reader.h"
 #include "glog/logging.h"
+#include "nidaqmx/nidaqmx_prod.h"
 
 #include "nlohmann/json.hpp"
 
@@ -42,24 +45,24 @@ PXI1Slot3 : NI PXIe-4357 (simulated device)
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(read_tests, multiple_analog_channels) {
-    // setup synnax test infrustructure
+    // Setup synnax test infrastructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key,
+    auto [data1, dErr2] = client->channels.create("ai2", telem::FLOAT32, time.key,
                                                   false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key,
+    auto [data2, dErr3] = client->channels.create("ai3", telem::FLOAT32, time.key,
                                                   false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key,
+    auto [data3, dErr4] = client->channels.create("ai4", telem::FLOAT32, time.key,
                                                   false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
@@ -88,23 +91,26 @@ TEST(read_tests, multiple_analog_channels) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
 
     for (int i = 0; i < 2; i++) {
-        std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
         auto [frame, err] = reader.read(b);
-        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+        std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
         VLOG(1) << frame << "\n";
     }
-    reader.stop();
+    reader.stop("");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,10 +124,10 @@ TEST(read_tests, multiple_analog_channels) {
 TEST(read_tests, analog_linear_scaling) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel", synnax::FLOAT32, time.key,
+    auto [data, dErr] = client->channels.create("ai_channel", telem::FLOAT32, time.key,
                                                 false);
     ASSERT_FALSE(dErr) << dErr.message();
 
@@ -146,22 +152,24 @@ TEST(read_tests, analog_linear_scaling) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
+
     TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    dmx->CreateTask("", &taskHandle);
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
-
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
 
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
     VLOG(1) << frame;
-    reader.stop();
+    reader.stop("");
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -170,10 +178,10 @@ TEST(read_tests, analog_linear_scaling) {
 TEST(read_tests, analog_map_scaling) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai_channel", synnax::FLOAT32, time.key,
+    auto [data, dErr] = client->channels.create("ai_channel", telem::FLOAT32, time.key,
                                                 false);
     ASSERT_FALSE(dErr) << dErr.message();
 
@@ -201,20 +209,23 @@ TEST(read_tests, analog_map_scaling) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    reader.start("");
+    std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
     VLOG(1) << frame;
-    reader.stop();
+    reader.stop("");
 }
 
 
@@ -226,13 +237,14 @@ TEST(read_tests, analog_map_scaling) {
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-void analog_channel_helper(json config, json scale_config, json channel_config, float lower_bound = -1000,
+void analog_channel_helper(json config, json scale_config, json channel_config,
+                           float lower_bound = -1000,
                            float upper_bound = 1000) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create(
         "idx",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP,
         0,
         true);
 
@@ -240,7 +252,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
 
     auto [data, dErr] = client->channels.create(
         "ai_channel",
-        synnax::FLOAT32,
+        telem::FLOAT32,
         time.key,
         false);
 
@@ -261,28 +273,29 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(
-        taskHandle,
-        mockCtx,
-        task);
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
 
     auto b = breaker::Breaker(
         breaker::Config{
             "my-breaker",
-            1 * SECOND,
+            1 * telem::SECOND,
             1,
             1
         });
 
-    if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
-    reader.start();
+    if (reader.init() != 0)
+        LOG(ERROR) << "Failed to initialize reader" << std::endl;
+    reader.start("");
 
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
     VLOG(1) << frame << "\n";
     std::cout << frame << std::endl;
@@ -295,7 +308,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
         ASSERT_LE(val, upper_bound);
     }
 
-    reader.stop();
+    reader.stop("");
 }
 
 ///////////////////////////////////////////////////////////////////

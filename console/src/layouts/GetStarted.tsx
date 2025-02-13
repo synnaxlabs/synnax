@@ -11,9 +11,7 @@ import "@/layouts/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Eraser, Synnax } from "@synnaxlabs/pluto";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Align, Button, Eraser, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -26,8 +24,7 @@ import { Workspace } from "@/workspace";
 
 export const GetStarted = (): ReactElement => {
   const client = Synnax.use();
-  if (client == null) return <NoCluster />;
-  return <Overview />;
+  return client == null ? <NoCluster /> : <Overview />;
 };
 
 const NoCluster = (): ReactElement => {

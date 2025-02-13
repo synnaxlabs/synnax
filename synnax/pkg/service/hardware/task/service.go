@@ -31,6 +31,7 @@ import (
 // Config is the configuration for creating a Service.
 type Config struct {
 	alamos.Instrumentation
+	// DB is the gorp database that tasks will be stored in.
 	DB           *gorp.DB
 	Ontology     *ontology.Ontology
 	Group        *group.Service
@@ -69,7 +70,7 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
+	cfg             Config
 	shutdownSignals io.Closer
 	group           group.Group
 }
@@ -85,7 +86,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return
 	}
-	s = &Service{Config: cfg, group: g}
+	s = &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Signals == nil {
@@ -101,18 +102,18 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.
-// we want ot hide internal tasks from the user.
+// we want to hide internal tasks from the user.
 func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	var tasks []Task
 	if err := s.NewRetrieve().WhereInternal(true).Entries(&tasks).Exec(ctx, nil); err != nil {
-		s.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
+		s.cfg.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
 	}
 	ids := make([]ontology.ID, 0, len(tasks))
 	for _, t := range tasks {
 		ids = append(ids, OntologyID(t.Key))
 	}
-	if err := s.Ontology.NewWriter(nil).DeleteManyResources(ctx, ids); err != nil {
-		s.L.Warn("unable to delete internal task resources", zap.Error(err))
+	if err := s.cfg.Ontology.NewWriter(nil).DeleteManyResources(ctx, ids); err != nil {
+		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
 }
 
@@ -125,17 +126,17 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.DB, tx),
-		otg:   s.Ontology.NewWriter(tx),
-		rack:  s.Rack.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		rack:  s.cfg.Rack.NewWriter(tx),
 		group: s.group,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.Ontology,
-		baseTX: s.DB,
+		otg:    s.cfg.Ontology,
+		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[Key, Task](),
 	}
 }

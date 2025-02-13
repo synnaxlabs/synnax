@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
@@ -40,7 +39,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	var (
 		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
-		builder  = mock.NewCoreBuilder(distribution.Config{
+		builder  = mock.NewCoreBuilder(core.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
 		core1 = builder.New()

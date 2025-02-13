@@ -24,21 +24,21 @@
 #include "glog/logging.h"
 
 /// @brief maps opc data types to their corresponding Synnax types.
-std::map<UA_UInt16, synnax::DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN, synnax::SY_UINT8},
-    {UA_NS0ID_SBYTE, synnax::INT8},
-    {UA_NS0ID_BYTE, synnax::SY_UINT8},
-    {UA_NS0ID_INT16, synnax::INT16},
-    {UA_NS0ID_UINT16, synnax::SY_UINT16},
-    {UA_NS0ID_INT32, synnax::INT32},
-    {UA_NS0ID_UINT32, synnax::UINT32},
-    {UA_NS0ID_INT64, synnax::INT64},
-    {UA_NS0ID_UINT64, synnax::UINT64},
-    {UA_NS0ID_FLOAT, synnax::FLOAT32},
-    {UA_NS0ID_DOUBLE, synnax::FLOAT64},
-    {UA_NS0ID_STRING, synnax::STRING},
-    {UA_NS0ID_DATETIME, synnax::TIMESTAMP},
-    {UA_NS0ID_GUID, synnax::UINT128},
+std::map<UA_UInt16, telem::DataType> data_type_map = {
+    {UA_NS0ID_BOOLEAN, telem::SY_UINT8},
+    {UA_NS0ID_SBYTE, telem::INT8},
+    {UA_NS0ID_BYTE, telem::SY_UINT8},
+    {UA_NS0ID_INT16, telem::INT16},
+    {UA_NS0ID_UINT16, telem::SY_UINT16},
+    {UA_NS0ID_INT32, telem::INT32},
+    {UA_NS0ID_UINT32, telem::UINT32},
+    {UA_NS0ID_INT64, telem::INT64},
+    {UA_NS0ID_UINT64, telem::UINT64},
+    {UA_NS0ID_FLOAT, telem::FLOAT32},
+    {UA_NS0ID_DOUBLE, telem::FLOAT64},
+    {UA_NS0ID_STRING, telem::STRING},
+    {UA_NS0ID_DATETIME, telem::TIMESTAMP},
+    {UA_NS0ID_GUID, telem::UINT128},
 };
 
 opc::ClientDeleter getDefaultClientDeleter() {
@@ -112,7 +112,15 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
     return byteString;
 }
 
-// Function to extract URI from client certificate using mbedtls
+#ifndef MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER
+// Standard value for URI in X.509 Subject Alternative Name. We need to use this
+// instead of the macro MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER in mbedtls,
+// as it's not available in ubuntu 20.04. The actual value is 6, as
+// defined in RFC 5280.
+#define MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER 6
+#endif
+
+
 std::string extractApplicationUriFromCert(const std::string &certPath) {
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
@@ -138,9 +146,8 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     std::string applicationUri;
     const mbedtls_asn1_sequence *cur = &crt.subject_alt_names;
     while (cur != nullptr) {
-        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC |
-                             MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
-            applicationUri.assign((char *) cur->buf.p, cur->buf.len);
+        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
+            applicationUri.assign(reinterpret_cast<char *>(cur->buf.p), cur->buf.len);
             break;
         }
         cur = cur->next;
@@ -167,7 +174,7 @@ UA_StatusCode privateKeyPasswordCallBack(
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
 // TODO: make this clearer to read through
-freighter::Error configure_encryption(
+xerrors::Error configure_encryption(
     opc::ConnectionConfig &cfg,
     std::shared_ptr<UA_Client> client
 ) {
@@ -178,7 +185,7 @@ freighter::Error configure_encryption(
     else if (cfg.security_mode == "SignAndEncrypt")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     else client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
-    if (cfg.security_policy == "None") return freighter::NIL;
+    if (cfg.security_policy == "None") return xerrors::NIL;
 
     client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
 
@@ -213,11 +220,11 @@ freighter::Error configure_encryption(
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: " <<
                 UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
-        return freighter::Error(freighter::TYPE_UNREACHABLE,
+        return xerrors::Error(freighter::TYPE_UNREACHABLE,
                                 "Failed to configure encryption: " + std::string(
                                     status_name));
     }
-    return freighter::NIL;
+    return xerrors::NIL;
 }
 
 void fetchEndpointDiagnosticInfo(
@@ -273,7 +280,7 @@ void fetchEndpointDiagnosticInfo(
 
 
 ///@ connect returns a new UA_Client object which is connected to the specified endpoint
-std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
+std::pair<std::shared_ptr<UA_Client>, xerrors::Error> opc::connect(
     opc::ConnectionConfig &cfg,
     std::string log_prefix
 ) {
@@ -302,7 +309,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
                     UA_StatusCode_name(status);
             return {
                 std::move(client),
-                freighter::Error(freighter::TYPE_UNREACHABLE,
+                xerrors::Error(freighter::TYPE_UNREACHABLE,
                                  "Failed to set authentication: " + std::string(
                                      UA_StatusCode_name(status)))
             };
@@ -312,13 +319,13 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
 
     // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
     status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
-    if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
+    if (status == UA_STATUSCODE_GOOD) return {std::move(client), xerrors::NIL};
 
     const auto status_name = UA_StatusCode_name(status);
     LOG(WARNING) << "[opc.scanner] failed to connect: " << std::string(status_name);
     return {
         std::move(client),
-        freighter::Error(freighter::TYPE_UNREACHABLE,
+        xerrors::Error(freighter::TYPE_UNREACHABLE,
                          "failed to connect: " + std::string(status_name))
     };
 }

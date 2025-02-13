@@ -14,16 +14,14 @@ import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { Channel } from "@/channel";
+import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Controls } from "@/components";
-import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
+import { NAV_DRAWER_ITEMS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
+import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
@@ -55,11 +53,9 @@ const COMMANDS = [
   ...WorkspaceServices.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
-  ...LabJack.COMMANDS,
-  ...OPC.COMMANDS,
+  ...Hardware.COMMANDS,
   ...Persist.COMMANDS,
-  ...NI.COMMANDS,
-  ...Channel.COMMANDS,
+  ...ChannelServices.COMMANDS,
   ...LabelServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...LogServices.COMMANDS,
@@ -131,7 +127,10 @@ export const NavTop = (): ReactElement => {
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
-  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer("left", NAV_DRAWERS);
+  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer(
+    "left",
+    NAV_DRAWER_ITEMS,
+  );
   const os = OS.use();
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="left" size={NAV_SIZES.side}>
@@ -154,12 +153,15 @@ export const NavLeft = (): ReactElement => {
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
-  const { activeItem, menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
+  const { activeItem, menuItems, onSelect } = Layout.useNavDrawer(
+    "right",
+    NAV_DRAWER_ITEMS,
+  );
   const {
     menuItems: bottomMenuItems,
     activeItem: bottomActiveItem,
     onSelect: onBottomSelect,
-  } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
+  } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">

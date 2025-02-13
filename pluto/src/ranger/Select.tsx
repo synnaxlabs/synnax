@@ -21,10 +21,7 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 const canDrop = (
@@ -112,7 +109,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       columns={rangeCols}
       emptyContent={emptyContent}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dropProps}
       {...props}
     />
@@ -194,7 +191,7 @@ export const SelectSingle = ({
       value={value}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
       {...props}
     />
@@ -214,7 +211,7 @@ export const SelectButton = ({
       value={value as string}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
       {...props}
     />

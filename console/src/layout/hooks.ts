@@ -52,12 +52,12 @@ export interface CreatorProps {
   store: RootStore;
 }
 
-type StateWithoutWindowKey = Omit<State, "windowKey">;
+export interface BaseState<A = unknown> extends Omit<State<A>, "windowKey"> {}
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => StateWithoutWindowKey;
+export type Creator<A = unknown> = (props: CreatorProps) => BaseState<A>;
 
-export type PlacerArgs = StateWithoutWindowKey | Creator;
+export type PlacerArgs<A = unknown> = BaseState<A> | Creator<A>;
 
 /** A function that places a layout using the given properties or creation func. */
 export type Placer = (layout: PlacerArgs) => {

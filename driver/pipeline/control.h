@@ -13,10 +13,10 @@
 #include <thread>
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/breaker/breaker.h"
 
 namespace pipeline {
-/// @brief an object that writes data to an acuqisition computer or other resource.
+/// @brief an object that writes data to an acquisition computer or other resource.
 class Sink {
 public:
     /// @brief writes the given frame to the sink, returning an error if one occurs.
@@ -24,16 +24,16 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
     /// the read operation. Any other error type will be considered a permanent error and
     /// the pipeline will exit.
-    virtual freighter::Error write(synnax::Frame frame) = 0;
+    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
 
-    /// @brief communicates an error encoutered by the control pipeline that occurred
+    /// @brief communicates an error encountered by the control pipeline that occurred
     /// during shut down or occurred during a commanded shutdown.
     ///
-    /// After this method is called, the pipeline will NOT make nay furhter calls to
+    /// After this method is called, the pipeline will NOT make nay further calls to
     /// the source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stopped_with_err(const freighter::Error &_) {
+    virtual void stopped_with_err(const xerrors::Error &_) {
     }
 
     virtual ~Sink() = default;
@@ -48,17 +48,17 @@ public:
     /// an error matching driver::TEMPORARY_HARDWARE_ERROR, the control pipeline will
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will exit.
-    virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
+    virtual std::pair<synnax::Frame, xerrors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occured during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
     /// control pipeline will trigger a breaker (temporary backoff), and then retry
     ///  until the configured number of maximum retries is exceeded. Any other error will
     /// be considered permanent and the pipeline will exit.
-    virtual freighter::Error close() = 0;
+    virtual xerrors::Error close() = 0;
 
     // TODO: add a description
-    virtual void closeSend() = 0;
+    virtual void close_send() = 0;
 
     virtual ~Streamer() = default;
 };
@@ -72,12 +72,39 @@ public:
     /// control pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error
     /// is considered permanent and the pipeline will exit.
-    virtual std::pair<std::unique_ptr<Streamer>, freighter::Error> openStreamer(
+    virtual std::pair<std::unique_ptr<Streamer>, xerrors::Error> open_streamer(
         synnax::StreamerConfig config
     ) = 0;
 
     virtual ~StreamerFactory() = default;
 };
+
+
+/// @brief an implementation of the pipeline::Streamer interface that is backed
+/// by a Synnax streamer that receives data from a cluster.
+class SynnaxStreamer final : public Streamer {
+    std::unique_ptr<synnax::Streamer> internal;
+public:
+    explicit SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal);
+
+    std::pair<synnax::Frame, xerrors::Error> read() override;
+
+    xerrors::Error close() override;
+
+    void close_send() override;
+};
+
+/// @brief an implementation of the pipeline::StreamerFactory interface that is
+/// backed by an actual synnax client connected to a cluster.
+class SynnaxStreamerFactory final : public StreamerFactory {
+    std::shared_ptr<synnax::Synnax> client;
+public:
+    explicit SynnaxStreamerFactory(std::shared_ptr<synnax::Synnax> client);
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error> open_streamer(
+        synnax::StreamerConfig config) override;
+};
+
 
 /// @brief A pipeline that reads incoming data over the network and writes to to a sink.
 /// The pipeline should be used as a utility for implementing a broader control task. It
@@ -90,7 +117,7 @@ public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax database
     /// cluster.
     /// @param client the Synnax client to use for opening streamers.
-    /// @param streamer_config the ocnfiguration for the Synnax streamer.
+    /// @param streamer_config the configuration for the Synnax streamer.
     /// @param sink the sink to write data to. See the Sink interface for more information.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
@@ -133,9 +160,9 @@ private:
     std::unique_ptr<Streamer> streamer = nullptr;
     breaker::Breaker breaker;
 
-    void runInternal();
+    void run_internal();
 
-    void ensureThreadJoined() const;
+    void ensure_thread_joined() const;
 
     void run();
 };

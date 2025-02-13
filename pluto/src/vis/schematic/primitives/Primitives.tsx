@@ -2599,7 +2599,7 @@ export const Cylinder = ({
       >
         <path
           d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"
-          vectorEffect={"non-scaling-stroke"}
+          vectorEffect="non-scaling-stroke"
           strokeWidth="2"
           stroke={boardColor}
           transform={transform}
