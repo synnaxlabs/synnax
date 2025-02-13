@@ -11,6 +11,7 @@
 #include "client/cpp/hardware/hardware.h"
 
 /// module
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/xerrors/errors.h"
 
 using namespace synnax;
@@ -35,14 +36,6 @@ void Rack::to_proto(api::v1::Rack *rack) const {
 
 const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
-
-xerrors::Error unexpected_missing(const std::string &name) {
-    return xerrors::Error(
-        xerrors::UNEXPECTED_ERROR,
-        "No " + name +
-        " returned from server on create. Please report this error to the Synnax team."
-    );
-}
 
 std::pair<Rack, xerrors::Error>
 HardwareClient::retrieve_rack(const RackKey key) const {

@@ -14,6 +14,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <iomanip>
 
 /// external
 #include "glog/logging.h"
@@ -116,7 +117,7 @@ public:
         }
         LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
                 max_retries
-                << " times. " << "Retrying 7in " << interval.seconds() << " seconds. "
+                << " times. " << "Retrying in " << std::fixed << std::setprecision(1) << interval.seconds() << " seconds. "
                 <<
                 "Error: " << message << ".";
         // keeps the formatter happy
@@ -130,8 +131,7 @@ public:
             }
         }
         interval = interval * config.scale;
-        std::cout << interval;
-        // if (interval > config.max_interval) interval = config.max_interval;
+        if (interval > config.max_interval) interval = config.max_interval;
         return true;
     }
 

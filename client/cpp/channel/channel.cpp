@@ -19,6 +19,8 @@
 /// internal
 #include "client/cpp/channel/channel.h"
 
+#include "client/cpp/errors/errors.h"
+
 const std::string CREATE_ENDPOINT = "/api/v1/channel/create";
 const std::string RETRIEVE_ENDPOINT = "/api/v1/channel/retrieve";
 
@@ -78,22 +80,19 @@ void Channel::to_proto(api::v1::Channel *ch) const {
 xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     auto req = api::v1::ChannelCreateRequest();
     channel.to_proto(req.add_channels());
-    auto [res, exc] = create_client->send(CREATE_ENDPOINT, req);
-    if (!exc) {
-        if (res.channels_size() == 0)
-            return xerrors::Error(xerrors::UNEXPECTED_ERROR,
-                                  "no channels returned from server on create. please report this issue to the synnax team");
-        const auto first = res.channels(0);
-        channel.key = first.key();
-        channel.name = first.name();
-        channel.data_type = telem::DataType(first.data_type());
-        channel.rate = telem::Rate(first.rate());
-        channel.is_index = first.is_index();
-        channel.leaseholder = first.leaseholder();
-        channel.index = first.index();
-        channel.internal = first.internal();
-    }
-    return exc;
+    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    if (err) return err;
+    if (res.channels_size() == 0) return unexpected_missing("channel");
+    const auto first = res.channels(0);
+    channel.key = first.key();
+    channel.name = first.name();
+    channel.data_type = telem::DataType(first.data_type());
+    channel.rate = telem::Rate(first.rate());
+    channel.is_index = first.is_index();
+    channel.leaseholder = first.leaseholder();
+    channel.index = first.index();
+    channel.internal = first.internal();
+    return xerrors::NIL;
 }
 
 /// @brief index based create.

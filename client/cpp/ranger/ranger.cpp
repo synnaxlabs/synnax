@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/ranger/ranger.h"
-
-#include <utility>
-
+/// module
 #include "x/cpp/xerrors/errors.h"
-#include "x/cpp/telem/telem.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/cpp/telem/telem.h"
+
+/// internal
+#include "client/cpp/ranger/ranger.h"
+#include "client/cpp/errors/errors.h"
+
+/// protos
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 using namespace synnax;
 
@@ -109,24 +112,24 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges) range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err)
-        for (auto i = 0; i < res.ranges_size(); i++) {
-            ranges[i].key = res.ranges(i).key();
-            ranges[i].kv = RangeKV(ranges[i].key, kv_get_client, kv_set_client,
-                                   kv_delete_client);
-        }
-    return err;
+    if (err) return err;
+    for (auto i = 0; i < res.ranges_size(); i++) {
+        ranges[i].key = res.ranges(i).key();
+        ranges[i].kv = RangeKV(ranges[i].key, kv_get_client, kv_set_client,
+                               kv_delete_client);
+    }
+    return xerrors::NIL;
 }
 
 xerrors::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err) {
-        const auto rng = res.ranges(0);
-        range.key = rng.key();
-        range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
-    }
+    if (err) return err;
+    if (res.ranges_size() == 0) return unexpected_missing("range");
+    const auto rng = res.ranges(0);
+    range.key = rng.key();
+    range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
     return err;
 }
 

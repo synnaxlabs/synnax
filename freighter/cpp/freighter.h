@@ -33,11 +33,9 @@ struct URL {
     /// @brief The IP address of the target.
     std::string ip;
     /// @brief The port of the target.
-    std::uint16_t port;
+    std::uint16_t port = 0;
     /// @brief Supplementary path information.
     std::string path;
-
-    URL();
 
     /// @brief Creates a URL with the given IP, port, and path.
     URL(std::string ip, std::uint16_t port, const std::string &path);

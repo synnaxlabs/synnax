@@ -43,18 +43,16 @@ xerrors::Error task::Manager::open_streamer() {
             this->channels.task_delete = channel;
         else if (channel.name == TASK_CMD_CHANNEL) this->channels.task_cmd = channel;
 
-    {
-        std::lock_guard lock{this->mu};
-        auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
-            .channels = {
-                this->channels.task_set.key,
-                this->channels.task_delete.key,
-                this->channels.task_cmd.key
-            }
-        });
-        if (open_err) return open_err;
-        this->streamer = std::make_unique<Streamer>(std::move(s));
-    }
+    std::lock_guard lock{this->mu};
+    auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
+        .channels = {
+            this->channels.task_set.key,
+            this->channels.task_delete.key,
+            this->channels.task_cmd.key
+        }
+    });
+    if (open_err) return open_err;
+    this->streamer = std::make_unique<Streamer>(std::move(s));
     return xerrors::NIL;
 }
 
@@ -106,13 +104,11 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
             else if (key == this->channels.task_cmd.key) process_task_cmd(series);
         }
     } while (true);
-    const auto err = this->stop_all_tasks();
-    {
-        std::lock_guard lock{this->mu};
-        if (const auto c_err = this->streamer->close()) return c_err;
-        this->streamer = nullptr;
-    }
-    return err;
+    this->stop_all_tasks();
+    std::lock_guard lock{this->mu};
+    const auto c_err = this->streamer->close();
+    this->streamer = nullptr;
+    return c_err;
 }
 
 void task::Manager::process_task_set(const telem::Series &series) {
@@ -163,14 +159,13 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
     }
 }
 
-xerrors::Error task::Manager::stop_all_tasks() {
+void task::Manager::stop_all_tasks() {
     for (auto &[task_key, task]: this->tasks) task->stop();
     this->tasks.clear();
-    return xerrors::NIL;
 }
 
 void task::Manager::process_task_delete(const telem::Series &series) {
-    const auto task_keys = series.values<std::uint64_t>();
+    const auto task_keys = series.values<synnax::TaskKey>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
         const auto it = this->tasks.find(task_key);

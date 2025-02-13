@@ -320,7 +320,7 @@ private:
     xerrors::Error configure_initial_tasks();
 
     /// @brief stops all tasks.
-    xerrors::Error stop_all_tasks();
+    void stop_all_tasks();
 
     /// @brief processes when a new task is created or an existing task needs to be
     /// reconfigured.

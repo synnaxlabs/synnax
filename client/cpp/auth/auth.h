@@ -45,7 +45,7 @@ struct ClusterInfo {
 };
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
-/// no preference on order when provided to use. Middlewware is safe to use concurrently.
+/// no preference on order when provided to use. Middleware is safe to use concurrently.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
