@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"time"
 )
 
 var _ = Describe("Tracker", Ordered, func() {
@@ -123,6 +124,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			var heartbeatCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_heartbeat").Entry(&heartbeatCh).Exec(ctx, nil)).To(Succeed())
+			time.Sleep(5 * time.Millisecond)
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{heartbeatCh.Key()},
