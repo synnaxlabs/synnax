@@ -43,7 +43,7 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const selected = active?.key ?? null;
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));

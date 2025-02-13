@@ -14,8 +14,8 @@ import React, {
   createContext,
   type ReactElement,
   type ReactNode,
+  use,
   useCallback,
-  useContext as reactUseContext,
 } from "react";
 
 import { Align } from "@/align";
@@ -84,7 +84,7 @@ export const useStatic = ({
   content,
   selected,
   onSelect,
-}: UseStaticTabsProps): TabsContextValue => {
+}: UseStaticTabsProps): ContextValue => {
   const [value, onChange] = state.usePurePassthrough({
     initial: selected ?? tabs[0]?.tabKey ?? "",
     value: selected,
@@ -108,7 +108,7 @@ export const useStatic = ({
   };
 };
 
-export interface TabsContextValue {
+export interface ContextValue {
   /** The array of tabs to display. */
   tabs: Tab[];
   /** Content to display when no tab is selected. */
@@ -175,7 +175,7 @@ export interface TabsProps
       | "content"
       | "contextMenu"
     >,
-    TabsContextValue {
+    ContextValue {
   children?: RenderProp | ReactNode;
   size?: ComponentSize;
   selectedAltColor?: boolean;
@@ -183,19 +183,19 @@ export interface TabsProps
 }
 
 /**
- * Context used to propagate tab related information to children. See the {@link TabsContextValue}
+ * Context used to propagate tab related information to children. See the {@link ContextValue}
  * type for information on the shape of the context.
  */
-export const Context = createContext<TabsContextValue>({ tabs: [] });
+const Context = createContext<ContextValue>({ tabs: [] });
 
 /**
- * Provider for the {@link Context} context. See the {@link TabsContextValue} type for information
+ * Provider for the {@link Context} context. See the {@link ContextValue} type for information
  * on the shape of the context.
  */
-export const Provider = Context.Provider;
+export const Provider = Context;
 
 /** @returns The current value of the {@link Context} context. */
-export const useContext = (): TabsContextValue => reactUseContext(Context);
+export const useContext = () => use(Context);
 
 /**
  * High-level component for creating a tabbed interface. This component is a composition

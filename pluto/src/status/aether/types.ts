@@ -30,7 +30,6 @@ export const specZ = z.object({
   time: TimeStamp.z,
   data: z.record(z.unknown()).optional(),
 });
+export interface Spec extends z.infer<typeof specZ> {}
 
-export type Spec = z.infer<typeof specZ>;
-
-export type CrudeSpec = Optional<Spec, "time" | "key">;
+export interface CrudeSpec extends Optional<Spec, "time" | "key"> {}

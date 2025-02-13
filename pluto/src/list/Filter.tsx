@@ -14,7 +14,7 @@ import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { type OptionalControl } from "@/input/types";
-import { useDataUtilContext } from "@/list/Data";
+import { useDataUtils } from "@/list/Data";
 import { state } from "@/state";
 import { type RenderProp } from "@/util/renderProp";
 
@@ -38,7 +38,7 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     value,
     initial: "",
   });
-  const { setTransform, deleteTransform } = useDataUtilContext<K, E>();
+  const { setTransform, deleteTransform } = useDataUtils<K, E>();
 
   const debounced = useDebouncedCallback(setTransform, debounce, []);
 

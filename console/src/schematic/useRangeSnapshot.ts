@@ -19,7 +19,7 @@ interface SchematicNameAndKey extends Pick<schematic.Schematic, "key" | "name"> 
 
 export const useRangeSnapshot = () => {
   const handleException = Status.useExceptionHandler();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const rng = Range.useSelect();
   const client = Synnax.use();
   const { mutate: snapshot } = useMutation<

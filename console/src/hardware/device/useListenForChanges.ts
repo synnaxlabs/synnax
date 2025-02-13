@@ -15,7 +15,7 @@ const PREFIX = "new-device-";
 
 export const useListenForChanges = () => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
   useAsyncEffect(async () => {
     if (client == null) return;

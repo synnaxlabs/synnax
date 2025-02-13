@@ -98,7 +98,7 @@ const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
   Observe.useListener({
     key: [client?.key, addStatus, handleException],
@@ -167,7 +167,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     sync: true,
   });
 
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
 
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
