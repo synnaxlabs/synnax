@@ -14,19 +14,20 @@
 #include "driver/pipeline/acquisition.h"
 #include "freighter/cpp/freighter.h"
 
-struct MockStreamerConfig {
+namespace pipeline::mock {
+struct StreamerConfig {
     std::shared_ptr<std::vector<synnax::Frame> > reads;
     std::shared_ptr<std::vector<xerrors::Error> > read_errors;
     xerrors::Error close_err;
 };
 
-class MockStreamer final : public pipeline::Streamer {
+class Streamer final : public pipeline::Streamer {
 public:
-    MockStreamerConfig config;
+    StreamerConfig config;
     size_t current_read = 0;
 
-    explicit MockStreamer(
-        MockStreamerConfig config
+    explicit Streamer(
+        StreamerConfig config
     ) : config(std::move(config)) {
     }
 
@@ -47,16 +48,16 @@ public:
     void close_send() override {};
 };
 
-class MockStreamerFactory final : public pipeline::StreamerFactory {
+class StreamerFactory final : public pipeline::StreamerFactory {
 public:
     std::vector<xerrors::Error> open_errors;
-    std::shared_ptr<std::vector<MockStreamerConfig> > configs;
-    StreamerConfig config;
+    std::shared_ptr<std::vector<StreamerConfig> > configs;
+    synnax::StreamerConfig config;
     size_t streamer_opens = 0;
 
-    MockStreamerFactory(
+    StreamerFactory(
         std::vector<xerrors::Error> open_errors,
-        std::shared_ptr<std::vector<MockStreamerConfig> > configs
+        std::shared_ptr<std::vector<StreamerConfig> > configs
     ) : open_errors(std::move(open_errors)), configs(std::move(configs)) {
     }
 
@@ -75,20 +76,20 @@ public:
                        : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
         return {
-            std::make_unique<MockStreamer>((*this->configs)[idx]),
+            std::make_unique<Streamer>((*this->configs)[idx]),
             xerrors::NIL
         };
     }
 };
 
 
-class MockWriter final : public pipeline::Writer {
+class Writer final : public pipeline::Writer {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
     xerrors::Error close_err;
     int return_false_ok_on;
 
-    explicit MockWriter(
+    explicit Writer(
         std::shared_ptr<std::vector<synnax::Frame> > writes,
         const xerrors::Error &close_err = xerrors::NIL,
         const int return_false_ok_on = -1
@@ -108,7 +109,7 @@ public:
     }
 };
 
-class MockWriterFactory final : public pipeline::WriterFactory {
+class WriterFactory final : public pipeline::WriterFactory {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
     std::vector<xerrors::Error> open_errors;
@@ -117,7 +118,7 @@ public:
     WriterConfig config;
     size_t writer_opens;
 
-    explicit MockWriterFactory(
+    explicit WriterFactory(
         std::shared_ptr<std::vector<synnax::Frame> > writes,
         std::vector<xerrors::Error> open_errors = {},
         std::vector<xerrors::Error> close_errors = {},
@@ -152,19 +153,19 @@ public:
             if (!this->return_false_ok_on.empty())
                 this->return_false_ok_on.erase(
                     this->return_false_ok_on.begin());
-            auto writer = std::make_unique<MockWriter>(
+            auto writer = std::make_unique<Writer>(
                 this->writes, close_err, return_false_ok_on);
             return {std::move(writer), err};
     }
 };
 
-class MockSink final : public pipeline::Sink {
+class Sink final : public pipeline::Sink {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
     std::shared_ptr<std::vector<xerrors::Error> > write_errors;
     xerrors::Error stop_err;
 
-    MockSink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
+    Sink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
                  write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
     }
 
@@ -182,3 +183,4 @@ public:
         this->stop_err = err;
     }
 };
+}

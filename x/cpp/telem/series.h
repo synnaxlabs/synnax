@@ -375,6 +375,10 @@ public:
     /// as an offset from the end of the series.
     template<typename NumericType>
     [[nodiscard]] NumericType at(const int &index) const {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "template argument to at must be a numeric type"
+        );
         const auto adjusted = this->validate_bounds(index);
         NumericType value;
         memcpy(

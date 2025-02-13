@@ -114,8 +114,12 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
 xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
     std::lock_guard lock(this->mu);
     for (const auto &[key, value]: this->latest_values) {
-        const auto ch = this->channels.at(key);
-        apply(L, ch.name, value);
+        const auto ch = this->channels.find(key);
+        if (ch == this->channels.end()) {
+            LOG(WARNING) << "[sequence.plugins.channel_receive] received value for unknown channel key: " << key;
+            continue;
+        }
+        apply(L, ch->second.name, value);
     }
     return xerrors::NIL;
 }

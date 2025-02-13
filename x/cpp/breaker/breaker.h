@@ -86,7 +86,7 @@ public:
 
     ~Breaker() {
         if (this->running())
-            throw std::runtime_error("breaker was not stopped before destruction");
+            std::cerr << "breaker was not stopped before destruction" << std::endl;
     }
 
 

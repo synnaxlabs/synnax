@@ -1,0 +1,17 @@
+cc_library(
+    name = "xtest",
+    hdrs = ["xtest.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "xtest_test",
+    srcs = ["xtest_test.cpp"],
+    deps = [
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

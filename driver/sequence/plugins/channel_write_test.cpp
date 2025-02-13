@@ -84,7 +84,9 @@ protected:
         op->after_next(L);
         ASSERT_EQ(sink->written_frames.size(), 1);
         const telem::Series ser = std::move(sink->written_frames[0].series->at(0));
-        EXPECT_EQ(ser.at<std::string>(0), expected_value);
+        std::string value;
+        ser.at(0, value);
+        ASSERT_EQ(value, expected_value);
     }
 
     std::shared_ptr<MockSink> sink;
@@ -158,6 +160,10 @@ TEST_F(SetOperatorTest, UInt64Value) {
     RunTest<uint64_t>("18446744073709551615", 18446744073709551615ULL);
 }
 
+TEST_F(SetOperatorTest, StringValue) {
+    SetupChannel(telem::STRING);
+    RunStringTest("'hello'", "hello");
+}
 
 class SetOperatorWithIndexTest : public testing::Test {
 protected:

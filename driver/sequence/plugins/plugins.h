@@ -102,6 +102,7 @@ public:
     ) = 0;
 
     [[nodiscard]] virtual xerrors::Error close() { return xerrors::NIL; }
+    [[nodiscard]] virtual xerrors::Error open() { return xerrors::NIL; }
 };
 
 /// @brief a FrameSink implementation that writes frames to Synnax.
@@ -127,6 +128,7 @@ public:
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;
+    [[nodiscard]] xerrors::Error open() override;
 };
 
 /// @brief a plugin implementation that lets the sequence write to Synnax channels.

@@ -14,7 +14,7 @@
 #include "client/cpp/testutil/testutil.h"
 
 void test_downsample(
-    const std::vector<int>& raw_data,
+    const std::vector<int> &raw_data,
     std::vector<int> expected,
     int32_t downsample_factor
 );
@@ -28,7 +28,11 @@ TEST(FramerTests, testStreamBasic) {
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
+
     std::vector channels = {data.key};
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
+        channels,
+    });
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
@@ -36,13 +40,6 @@ TEST(FramerTests, testStreamBasic) {
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
-
-    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-    });
-
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
     frame.emplace(data.key, telem::Series(1));
@@ -68,6 +65,14 @@ TEST(FramerTests, testStreamSetChannels) {
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
+
+
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
+        {},
+    });
+
+    auto setErr = streamer.set_channels({data.key});
+
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         {data.key},
         now,
@@ -75,12 +80,6 @@ TEST(FramerTests, testStreamSetChannels) {
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
-
-    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        {},
-    });
-
-    auto setErr = streamer.set_channels({data.key});
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_FALSE(setErr) << setErr.message();
@@ -93,16 +92,16 @@ TEST(FramerTests, testStreamSetChannels) {
         })
     );
     ASSERT_TRUE(writer.write(frame));
-    auto [res_frame, recErr] = streamer.read();
-    ASSERT_FALSE(recErr) << recErr.message();
+    auto [res_frame, res_err] = streamer.read();
+    ASSERT_FALSE(res_err) << res_err.message();
 
     ASSERT_EQ(res_frame.size(), 1);
     ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
 
-    auto wcErr = writer.close();
-    ASSERT_FALSE(cErr) << cErr.message();
-    auto wsErr = streamer.close();
-    ASSERT_FALSE(wsErr) << wsErr.message();
+    auto close_writer_err = writer.close();
+    ASSERT_FALSE(close_writer_err) << cErr.message();
+    auto close_streamer_err = streamer.close();
+    ASSERT_FALSE(close_streamer_err) << close_streamer_err.message();
 }
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
@@ -144,7 +143,7 @@ TEST(FramerTests, TestStreamDownsample) {
 }
 
 void test_downsample(
-    const std::vector<int>& raw_data,
+    const std::vector<int> &raw_data,
     std::vector<int> expected,
     int32_t downsample_factor
 ) {
@@ -221,7 +220,8 @@ void test_downsample_string(
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(virtual_channel.key, telem::Series(raw_data, telem::STRING));
+    auto frame = synnax::Frame(virtual_channel.key,
+                               telem::Series(raw_data, telem::STRING));
     ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
@@ -240,7 +240,9 @@ void test_downsample_string(
 }
 
 TEST(FramerTests, TestStreamDownsampleString) {
-    const std::vector<std::string> data = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+    const std::vector<std::string> data = {
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j"
+    };
     const std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
 }

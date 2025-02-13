@@ -10,6 +10,10 @@
 /// GTest
 #include "gtest/gtest.h"
 
+/// module
+#include "x/cpp/xtest/xtest.h"
+
+/// internal
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -28,13 +32,11 @@ public:
     }
 };
 
-constexpr auto WAIT_FOR = std::chrono::milliseconds(10);
-
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     auto start_ts = telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
     synnax::WriterConfig writer_config{.channels = {1}};
@@ -45,16 +47,15 @@ TEST(AcquisitionPipeline, testStartResolution) {
         breaker::Config()
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_GE(writes->size(), 5);
     pipeline.stop();
-    ASSERT_GE(writes->size(), 5);
     ASSERT_EQ(mock_factory->config.start.value, start_ts.value);
 }
 
 /// @brief it should correctly retry opening the writer when an unreachable error occurs.
 TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector{
             freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL
@@ -72,15 +73,14 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
     pipeline.stop();
-    ASSERT_GE(writes->size(), 1);
 }
 
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector{
             xerrors::Error(xerrors::UNAUTHORIZED_ERROR), xerrors::NIL
@@ -98,7 +98,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_EQ(writes->size(), 0);
     pipeline.stop();
     ASSERT_EQ(writes->size(), 0);
 }
@@ -107,7 +107,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
 /// error is unreachable.
 TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector<xerrors::Error>{},
         std::vector{freighter::UNREACHABLE},
@@ -125,17 +125,16 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_GE(writes->size(), 3);
     pipeline.stop();
     ASSERT_EQ(mock_factory->writer_opens, 2);
-    ASSERT_GE(writes->size(), 3);
 }
 
 /// @brief it should not retry opening the writer when write returns false and the
 /// error is not unreachable.
 TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector<xerrors::Error>{},
         std::vector{xerrors::Error(xerrors::UNAUTHORIZED_ERROR)},
@@ -153,16 +152,14 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
         }
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     pipeline.stop();
-    ASSERT_EQ(mock_factory->writer_opens, 1);
-    ASSERT_EQ(writes->size(), 0);
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
@@ -172,15 +169,14 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     );
     pipeline.start();
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_GE(writes->size(), 5);
     pipeline.stop();
-    ASSERT_GE(writes->size(), 5);
 }
 
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     auto writes = std::make_shared<std::vector<synnax::Frame> >();
-    const auto mock_factory = std::make_shared<MockWriterFactory>(writes);
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
@@ -189,8 +185,7 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
         breaker::Config()
     );
     pipeline.start();
-    std::this_thread::sleep_for(WAIT_FOR);
+    ASSERT_EVENTUALLY_EQ(writes->size(), 0);
     pipeline.stop();
     pipeline.stop();
-    ASSERT_GE(writes->size(), 5);
 }

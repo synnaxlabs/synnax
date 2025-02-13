@@ -36,6 +36,7 @@ cc_test(
     deps = [
         "//driver/pipeline/mock",
         "//driver/sequence/plugins",
-        "@com_google_googletest//:gtest_main",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest",
     ],
 )

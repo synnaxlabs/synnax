@@ -9,6 +9,7 @@
 
 /// external.
 #include "gtest/gtest.h"
+#include "x/cpp/xtest/xtest.h"
 
 extern "C" {
 #include <lualib.h>
@@ -32,11 +33,11 @@ TEST(ChannelReceive, Basic) {
             xerrors::NIL,
         });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<MockStreamerFactory>(
+    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<MockStreamerConfig> >(
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
             std::vector{
-                MockStreamerConfig{
+                pipeline::mock::StreamerConfig{
                     reads,
                     read_errors,
                     xerrors::NIL
@@ -44,12 +45,21 @@ TEST(ChannelReceive, Basic) {
             })
     );
     auto plugin = plugins::ChannelReceive(streamer_factory, std::vector{ch});
-    auto L = luaL_newstate();
+    const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
-    plugin.before_next(L);
-    ASSERT_EQ(lua_getglobal(L, "my_channel"), LUA_TNUMBER);
+    ASSERT_EVENTUALLY_EQ_F([&] {
+        plugin.before_next(L);
+        return lua_getglobal(L, "my_channel");
+    }, LUA_TNUMBER);
     ASSERT_EQ(lua_tonumber(L, -1), 1.0);
     lua_close(L);
     plugin.after_all(L);
+}
+
+// We need to explicitly define a main function here instead of using gtest_main
+// because otherwise the lua interpreters main function will get executed instead.
+int main(int argc, char** argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

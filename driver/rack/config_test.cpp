@@ -58,7 +58,7 @@ TEST(RackConfig, clearRackFromPersistedState) {
     ASSERT_NE(cfg2.rack.key, cfg.rack.key);
 }
 
-TEST(RackConfig, saveConnParamsTopersistedState) {
+TEST(RackConfig, saveConnParamsToPersistedState) {
     breaker::Breaker brk;
     auto c_err = rack::Config::clear_persisted_state(0, nullptr);
     ASSERT_FALSE(c_err) << c_err;
