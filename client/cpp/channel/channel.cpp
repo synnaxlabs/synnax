@@ -39,7 +39,11 @@ Channel::Channel(const api::v1::Channel &ch)
 }
 
 /// @brief rate based ctor.
-Channel::Channel(std::string name, telem::DataType data_type, const telem::Rate rate)
+Channel::Channel(
+    std::string name,
+    telem::DataType data_type,
+    const telem::Rate rate
+)
     : name(std::move(name)),
       data_type(std::move(data_type)),
       rate(rate) {
@@ -61,7 +65,9 @@ Channel::Channel(
     std::string name,
     telem::DataType data_type,
     const bool is_virtual
-) : name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {
+) : name(std::move(name)),
+    data_type(std::move(data_type)),
+    is_virtual(is_virtual) {
 }
 
 /// @brief binds to the given proto.
