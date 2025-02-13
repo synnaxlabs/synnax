@@ -99,7 +99,7 @@ struct Config {
         return std::make_shared<synnax::Synnax>(this->connection);
     }
 
-    [[nodiscard]] bool integration_enabled(const std::string &integration) const;
+    [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
     friend std::ostream& operator<<(std::ostream& os, const Config& cfg) {
         os << "driver configuration:\n"

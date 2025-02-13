@@ -11,14 +11,9 @@
 
 typedef std::vector<std::unique_ptr<task::Factory> > FactoryList;
 
-bool rack::Config::integration_enabled(const std::string &integration) const {
-    return std::find(
-               integrations.begin(),
-               integrations.end(),
-               integration
-           ) != integrations.end();
+bool rack::Config::integration_enabled(const std::string &i) const {
+    return std::find(integrations.begin(), integrations.end(), i) != integrations.end();
 }
-
 
 void configure_opc(const rack::Config &config, FactoryList &factories) {
     if (!config.integration_enabled(opc::INTEGRATION_NAME)) return;
