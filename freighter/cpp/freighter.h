@@ -9,19 +9,21 @@
 
 #pragma once
 
+/// std
 #include <memory>
 #include <string>
-#include <iostream>
 
+/// module
 #include "x/cpp/xerrors/errors.h"
 
 namespace freighter {
-
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 
-const xerrors::Error STREAM_CLOSED = {TYPE_UNREACHABLE + ".stream_closed", "Stream closed"};
+const xerrors::Error STREAM_CLOSED = {
+    TYPE_UNREACHABLE + ".stream_closed", "Stream closed"
+};
 const xerrors::Error EOF_ = {"freighter.eof", "EOF"};
 const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
@@ -38,7 +40,7 @@ struct URL {
     URL();
 
     /// @brief Creates a URL with the given IP, port, and path.
-    URL(const std::string &ip, std::uint16_t port, const std::string &path);
+    URL(std::string ip, std::uint16_t port, const std::string &path);
 
     /// @brief Parses the given address into a URL.
     /// @throws std::invalid_argument if the address is not a valid URL.
@@ -86,12 +88,11 @@ public:
     }
 
     /// @brief Copy constructor
-    Context(
-        const Context &other
-    ) : id(other.id),
-        protocol(other.protocol),
-        target(other.target),
-        variant(other.variant) {
+    Context(const Context &other)
+        : id(other.id),
+          protocol(other.protocol),
+          target(other.target),
+          variant(other.variant) {
         for (const auto &[k, v]: other.params) params[k] = v;
     }
 
@@ -133,7 +134,7 @@ public:
     /// @param next a lambda that can be called to execute the next middleware in the
     /// chain.
     /// @returns a pair containing the context for the inbound response and an error.
-    virtual std::pair<Context, xerrors::Error> operator()(Context context, Next *next)
+    virtual std::pair<Context, xerrors::Error> operator()(Context context, Next &next)
     = 0;
 
     virtual ~Middleware() = default;
@@ -150,10 +151,10 @@ public:
 
     /// @implements Middleware::operator()
     std::pair<Context, xerrors::Error> operator()(
-        Context context,
-        Next *next
+        const Context context,
+        Next &next
     ) override {
-        return next->operator()(context);
+        return next(context);
     }
 };
 
@@ -183,12 +184,10 @@ public:
 /// @see StreamClient
 template<typename RQ, typename RS>
 class MiddlewareCollector {
+    /// @brief The middlewares in the chain.
+    std::vector<std::shared_ptr<freighter::Middleware> > middlewares;
 public:
     MiddlewareCollector() = default;
-
-    MiddlewareCollector(const MiddlewareCollector &other) {
-        middlewares = other.middlewares;
-    }
 
     /// @brief Adds a middleware to the chain. Middleware is executed in the order it
     /// is added i.e. the last middleware added will be executed as the final middleware
@@ -196,7 +195,7 @@ public:
     /// @implements UnaryClient::use
     /// @implements StreamClient::use
     void use(std::shared_ptr<freighter::Middleware> middleware) {
-        middlewares.push_back(std::move(middleware));
+        this->middlewares.push_back(std::move(middleware));
     }
 
     /// @brief Executes the middleware chain.
@@ -214,9 +213,8 @@ public:
         class NextImpl : public Next {
             int index;
             const MiddlewareCollector &collector;
-            freighter::Finalizer<RQ, RS> *finalizer;
             RQ req;
-
+            freighter::Finalizer<RQ, RS> *finalizer;
         public:
             RS res;
 
@@ -224,30 +222,26 @@ public:
                 const MiddlewareCollector &collector,
                 freighter::Finalizer<RQ, RS> *finalizer,
                 RQ &req
-            ) : index(0), collector(collector), finalizer(finalizer), req(req) {
+            ) : index(0), collector(collector), req(req), finalizer(finalizer) {
             }
 
             std::pair<Context, xerrors::Error> operator()(
                 freighter::Context context
             ) override {
-                if (index >= collector.middlewares.size()) {
-                    auto f_res = finalizer->operator()(context, req);
-                    res = std::move(f_res.response);
+                if (this->index >= this->collector.middlewares.size()) {
+                    auto f_res = this->finalizer->operator()(context, req);
+                    this->res = std::move(f_res.response);
                     return {f_res.context, f_res.error};
                 }
-                auto mw = collector.middlewares[index].get();
-                index++;
-                return mw->operator()(context, this);
+                auto mw = this->collector.middlewares[this->index].get();
+                ++this->index;
+                return mw->operator()(context, *this);
             }
         };
         auto mw = std::make_unique<NextImpl>(*this, finalizer, req);
         auto err = mw->operator()(context).second;
         return {std::move(mw->res), err};
     }
-
-private:
-    /// @brief The middlewares in the chain.
-    std::vector<std::shared_ptr<freighter::Middleware> > middlewares{};
 };
 
 /// @brief The client side interface for a simple request-response transport between two
@@ -267,7 +261,8 @@ public:
     /// @param target the target to send the request to.
     /// @param request the request to send.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<RS, xerrors::Error> send(const std::string &target, RQ &request) = 0;
+    virtual std::pair<RS, xerrors::Error> send(const std::string &target, RQ &request) =
+    0;
 
     virtual ~UnaryClient() = default;
 };
@@ -289,7 +284,7 @@ public:
     virtual xerrors::Error send(RQ &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no
-    /// more requests will be send, and (if desired) allowing the server to close the
+    /// more requests will be sent, and (if desired) allowing the server to close the
     /// receiving end of the stream.
     virtual void close_send() = 0;
 

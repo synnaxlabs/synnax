@@ -15,11 +15,12 @@
 #include "freighter/cpp/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
-/// Auth metadata key. NOTE: This must be lowercase, GRPC will panic on capitalized or
-/// uppercase keys.
+/// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
+/// capitalized or uppercase keys.
 const std::string HEADER_KEY = "authorization";
-/// Auth value prefix.
+/// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
+const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
 typedef freighter::UnaryClient<
@@ -44,13 +45,13 @@ struct ClusterInfo {
 };
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
-/// no preference on order when provided to use.
+/// no preference on order when provided to use. Middlewware is safe to use concurrently.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
     std::string token;
     /// Whether the middleware has successfully authenticated with the server.
-    bool authenticated = false;
+    std::atomic<bool> authenticated = false;
     /// Transport for authentication requests.
     std::unique_ptr<AuthLoginClient> login_client;
     /// Username to be used for authentication.
@@ -61,6 +62,8 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::uint32_t max_retries;
     /// Number of times authentication has been retried.
     std::uint32_t retry_count = 0;
+    /// @brief
+    std::mutex mu;
 public:
     /// Cluster information.
     ClusterInfo cluster_info;
@@ -73,16 +76,17 @@ public:
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
         password(std::move(password)),
-        max_retries(max_retries), cluster_info() {
+        max_retries(max_retries) {
     }
 
     /// @brief authenticates with the credentials provided when construction the 
     /// Synnax client.
     xerrors::Error authenticate() {
+        std::lock_guard lock(mu);
         api::v1::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
-        auto [res, err] = login_client->send("/auth/login", req);
+        auto [res, err] = login_client->send(AUTH_ENDPOINT, req);
         if (err) return err;
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());
@@ -95,14 +99,13 @@ public:
     /// Synnax cluster are appropriately authenticated.
     std::pair<freighter::Context, xerrors::Error> operator()(
         freighter::Context context,
-        freighter::Next *next
+        freighter::Next &next
     ) override {
         if (!this->authenticated)
-            if (auto err = this->authenticate(); err)
-                return {context, err};
-        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-        auto [res_ctx, err] = next->operator()(context);
-        if (err.matches(INVALID_TOKEN) && retry_count < max_retries) {
+            if (const auto err = this->authenticate()) return {context, err};
+        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token);
+        auto [res_ctx, err] = next(context);
+        if (err.matches(INVALID_TOKEN) && this->retry_count < this->max_retries) {
             this->authenticated = false;
             this->retry_count++;
             return this->operator()(context, next);
