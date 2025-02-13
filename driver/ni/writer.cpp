@@ -40,9 +40,9 @@ void ni::WriteSink::get_index_keys() {
 }
 
 xerrors::Error ni::WriteSink::cycle() {
-    auto err = this->start_ni();
+    auto err = this->silent_start();
     if (err) return err;
-    err = this->stop_ni();
+    err = this->silent_stop();
     if (err) return err;
     return xerrors::NIL;
 }
@@ -50,7 +50,7 @@ xerrors::Error ni::WriteSink::cycle() {
 xerrors::Error ni::WriteSink::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.start();
-    xerrors::Error err = this->start_ni();
+    xerrors::Error err = this->silent_start();
     if (err) return err;
     ctx->set_state({
         .task = this->task.key,
@@ -67,7 +67,7 @@ xerrors::Error ni::WriteSink::start(const std::string &cmd_key) {
 xerrors::Error ni::WriteSink::stop(const std::string &cmd_key) {
     if (!this->breaker.running()) return xerrors::NIL;
     this->breaker.stop();
-    xerrors::Error err = this->stop_ni();
+    xerrors::Error err = this->silent_stop();
     if (err) return err;
     ctx->set_state({
         .task = this->task.key,
@@ -94,9 +94,8 @@ std::vector<synnax::ChannelKey> ni::WriteSink::get_state_channel_keys() {
     for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index" && channel.enabled)
             keys.push_back(channel.state_channel_key);
-    for (auto &index_key : this->writer_config.state_index_keys) {
+    for (auto &index_key : this->writer_config.state_index_keys) 
         keys.push_back(index_key);
-    }
     return keys;
 }
 
@@ -107,13 +106,24 @@ int ni::WriteSink::check_err(int32 error, std::string caller, std::string channe
 
     std::string s(errBuff);
     
-    jsonify_error(s, channel_name);
+    // Special handling for -200561 (value out of range warning)
+    if (error == -200561) {
+        jsonify_error(s, channel_name);
+        this->ctx->set_state({
+            .task = this->task.key,
+            .variant = "warning",
+            .details = err_info
+        });
+        return 0;  // Return 0 to indicate non-critical error
+    }
 
+    jsonify_error(s, channel_name);
     this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = err_info
     });
+
     this->log_error("NI Vendor Error (" + caller + "): " + std::string(errBuff));
     this->ok_state = false;
     return -1;
@@ -149,9 +159,8 @@ void ni::WriteSink::clear_task() {
 
 void ni::WriteSink::jsonify_error(std::string s, std::string channel_name) {
     auto parsed = parse_ni_error(s);
-    if (!channel_name.empty()) {
+    if (!channel_name.empty()) 
         parsed.channel_name = channel_name;
-    }
     this->err_info = format_ni_error(parsed, s, this->writer_config.channel_map);
 }
 
@@ -176,6 +185,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
 
     if (this->init()) {
         this->log_error("Failed to configure NI hardware for task " + writer_config.task_name);
+        return;
     }
 
     this->get_index_keys();
@@ -215,8 +225,8 @@ int ni::DigitalWriteSink::init() {
     return 0;
 }
 
-xerrors::Error ni::DigitalWriteSink::start_ni() {
-    if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
+xerrors::Error ni::DigitalWriteSink::silent_start() {
+    if (this->check_err(this->dmx->StartTask(this->task_handle), "silent_start.StartTask")) {
         this->log_error("failed to start writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
@@ -225,8 +235,8 @@ xerrors::Error ni::DigitalWriteSink::start_ni() {
     return xerrors::NIL;
 }
 
-xerrors::Error ni::DigitalWriteSink::stop_ni() {
-    if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
+xerrors::Error ni::DigitalWriteSink::silent_stop() {
+    if (this->check_err(this->dmx->StopTask(task_handle), "silent_stop.StopTask")) {
         this->log_error("failed to stop writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
@@ -348,8 +358,8 @@ int ni::AnalogWriteSink::init() {
     return 0;
 }
 
-xerrors::Error ni::AnalogWriteSink::start_ni() {
-    if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
+xerrors::Error ni::AnalogWriteSink::silent_start() {
+    if (this->check_err(this->dmx->StartTask(this->task_handle), "silent_start_ni.StartTask")) {
         this->log_error("failed to start writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
@@ -358,8 +368,8 @@ xerrors::Error ni::AnalogWriteSink::start_ni() {
     return xerrors::NIL;
 }
 
-xerrors::Error ni::AnalogWriteSink::stop_ni() {
-    if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
+xerrors::Error ni::AnalogWriteSink::silent_stop() {
+    if (this->check_err(this->dmx->StopTask(task_handle), "silent_stop.StopTask")) {
         this->log_error("failed to stop writer for task " + this->writer_config.task_name);
         return xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
@@ -401,30 +411,51 @@ xerrors::Error ni::AnalogWriteSink::write(const synnax::Frame &frame) {
     return xerrors::NIL;
 }
 
+template<typename T>
+static double convert_to_double(const telem::Series& series) {
+    return static_cast<double>(series.at<T>(0));
+}
+
+static std::pair<double, xerrors::Error> convert_series_to_double(const telem::Series& series) {
+    if (series.data_type == telem::FLOAT64) 
+        return {convert_to_double<double>(series), xerrors::NIL};
+    if (series.data_type == telem::FLOAT32) 
+        return {convert_to_double<float>(series), xerrors::NIL};
+    if (series.data_type == telem::INT8) 
+        return {convert_to_double<int8_t>(series), xerrors::NIL};
+    if (series.data_type == telem::INT16) 
+        return {convert_to_double<int16_t>(series), xerrors::NIL};
+    if (series.data_type == telem::INT32) 
+        return {convert_to_double<int32_t>(series), xerrors::NIL};
+    if (series.data_type == telem::INT64) 
+        return {convert_to_double<int64_t>(series), xerrors::NIL};
+    if (series.data_type == telem::SY_UINT8) 
+        return {convert_to_double<uint8_t>(series), xerrors::NIL};
+    if (series.data_type == telem::SY_UINT16) 
+        return {convert_to_double<uint16_t>(series), xerrors::NIL};
+    if (series.data_type == telem::UINT32) 
+        return {convert_to_double<uint32_t>(series), xerrors::NIL};
+    if (series.data_type == telem::UINT64) 
+        return {convert_to_double<uint64_t>(series), xerrors::NIL};
+    
+    return {0.0, xerrors::VALIDATION_ERROR.sub("invalid_data_type")};
+}
+
 xerrors::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
     for (auto key: *(frame.channels)) {
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
-                            this->writer_config.drive_cmd_channel_keys.end(), key);
+                           this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
                 it);
             const auto &series = frame.series->at(frame_index);
-            double value = 0.0;
-
-            if (series.data_type == telem::FLOAT32) 
-                value = series.at<float>(0);
-            else if (series.data_type == telem::FLOAT64) 
-                value = series.at<double>(0);
-            else if (series.data_type == telem::INT32) 
-                value = static_cast<double>(series.at<int32_t>(0));
-            else if (series.data_type == telem::SY_UINT8) 
-                value = static_cast<double>(series.at<uint8_t>(0));
-            else 
-                return xerrors::VALIDATION_ERROR.sub("invalid_data_type");
+            
+            auto [value, err] = convert_series_to_double(series);
+            if (err) return err;
 
             write_buffer[cmd_channel_index] = value;
             this->writer_config.modified_state_keys.push(

@@ -89,13 +89,17 @@ public:
 
     virtual void parse_config(config::Parser &parser);
 
+    /// @brief starts the task and logs the error
     virtual xerrors::Error start(const std::string &cmd_key);
 
+    /// @brief stops the task and logs the error
     virtual xerrors::Error stop(const std::string &cmd_key);
 
-    virtual xerrors::Error start_ni();
+    /// @brief starts the task without logging or updating state    
+    virtual xerrors::Error silent_start();
 
-    virtual xerrors::Error stop_ni();
+    /// @brief stops the task without logging or updating state
+    virtual xerrors::Error silent_stop();
 
     void clear_task();
 

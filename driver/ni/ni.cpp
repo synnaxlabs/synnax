@@ -127,14 +127,14 @@ int ni::Source::init() {
 }
 
 xerrors::Error ni::Source::cycle() {
-    auto err = this->start_ni();
+    auto err = this->silent_start();
     if (err) return err;
-    err = this->stop_ni();
+    err = this->silent_stop();
     if (err) return err;
     return xerrors::NIL;
 }
 
-xerrors::Error ni::Source::start_ni() {
+xerrors::Error ni::Source::silent_start() {
     if (this->check_error(this->dmx->StartTask(this->task_handle), "StartTask")) {
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
@@ -145,7 +145,7 @@ xerrors::Error ni::Source::start_ni() {
     return xerrors::NIL;
 }
 
-xerrors::Error ni::Source::stop_ni() {
+xerrors::Error ni::Source::silent_stop() {
     if (this->check_error(this->dmx->StopTask(this->task_handle), "StopTask")) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
@@ -157,7 +157,7 @@ xerrors::Error ni::Source::stop_ni() {
 xerrors::Error ni::Source::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.start();
-    this->start_ni();
+    this->silent_start();
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
     ctx->set_state({
         .task = task.key,
@@ -175,7 +175,7 @@ xerrors::Error ni::Source::stop(const std::string &cmd_key) {
     if (!this->breaker.running() || !this->ok()) return xerrors::NIL;
     this->breaker.stop();
     if (this->sample_thread.joinable()) this->sample_thread.join();
-    this->stop_ni();
+    this->silent_stop();
     data_queue.reset();
     ctx->set_state({
         .task = task.key,

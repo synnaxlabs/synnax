@@ -292,10 +292,11 @@ protected:
 
     void clear_task();
 
-    // Pure virtual methods that derived classes must implement
-    virtual xerrors::Error start_ni() = 0;
+    /// @brief starts the task without logging or updating state
+    virtual xerrors::Error silent_start() = 0;
 
-    virtual xerrors::Error stop_ni() = 0;
+    /// @brief stops the task without logging or updating state
+    virtual xerrors::Error silent_stop() = 0;
 
     virtual int init() = 0;
 
@@ -334,9 +335,9 @@ public:
     std::shared_ptr<ni::DigitalStateSource> writer_state_source;
 
 private:
-    xerrors::Error start_ni() override;
+    xerrors::Error silent_start() override;
 
-    xerrors::Error stop_ni() override;
+    xerrors::Error silent_stop() override;
 
     int init() override;
 
@@ -364,9 +365,9 @@ public:
     std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 
 private:
-    xerrors::Error start_ni() override;
+    xerrors::Error silent_start() override;
 
-    xerrors::Error stop_ni() override;
+    xerrors::Error silent_stop() override;
 
     int init() override;
 
