@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
@@ -32,6 +33,11 @@ jobs:
               - client/cpp/**
               - freighter/cpp/**
               - driver/**
+
+      - name: Run clang-format
+        run: |
+          find ./driver ./x/cpp ./client/cpp ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+          git diff --exit-code || (echo "C++ files need formatting. Run clang-format locally with: find ./driver ./x/cpp ./client/cpp ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
   test:
     name: Test Driver
