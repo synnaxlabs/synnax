@@ -15,12 +15,10 @@ xerrors::Error plugins::Time::before_all(lua_State *L) {
     this->iteration = 0;
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {
-        const auto *plugin = static_cast<Time *>(
-            lua_touserdata(cL, lua_upvalueindex(1))
-        );
+        const auto *plug = static_cast<Time *>(lua_touserdata(cL, lua_upvalueindex(1)));
         const auto start = telem::TimeSpan::seconds(luaL_checknumber(cL, 1));
         const auto end = telem::TimeSpan::seconds(luaL_checknumber(cL, 2));
-        lua_pushboolean(cL, plugin->elapsed >= start && plugin->elapsed <= end);
+        lua_pushboolean(cL, plug->elapsed >= start && plug->elapsed <= end);
         return 1;
     }, 1);
     lua_setglobal(L, "time_within");

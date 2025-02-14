@@ -234,8 +234,9 @@ class Time final : public Plugin {
     telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
     telem::TimeSpan elapsed;
-    /// @brief the current iteration of the sequence.
-    uint64_t iteration;
+    /// @brief the current iteration of the sequence. We use an int64 as it's the
+    /// highest precision integer lua supports.
+    int64_t iteration;
 
 public:
     explicit Time(
