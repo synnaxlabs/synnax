@@ -38,7 +38,8 @@ jobs:
       - name: Run clang-format
         run: |
           find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --exit-code || (echo "C++ files in driver need formatting. Run clang-format locally with: find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+          git diff --color=always | cat
+          git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
   test:
     name: Test Driver
@@ -63,7 +64,8 @@ jobs:
       - name: Run clang-format
         run: |
           find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --exit-code || (echo "C++ files in driver need formatting. Run clang-format locally with: find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+          git diff --color=always | cat
+          git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Install MbedTLS On Mac
         run: brew install mbedtls

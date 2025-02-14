@@ -144,7 +144,8 @@ jobs:
         if: matrix.lint
         run: |
           find ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --exit-code || (echo "C++ files in x/cpp need formatting. Run clang-format locally with: find ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+          git diff --color=always | cat
+          git diff --exit-code || (echo -e "\033[0;31mC++ files in x/cpp need formatting. Run clang-format locally with:\033[0m\nfind ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
