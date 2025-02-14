@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
@@ -71,6 +72,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
         exclude:
           - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
           - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
@@ -78,6 +82,16 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Install clang-format
+        if: matrix.lint
+        run: sudo apt-get install -y clang-format
+
+      - name: Run clang-format
+        if: matrix.lint
+        run: |
+          find ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+          git diff --exit-code || (echo "C++ files in freighter/cpp need formatting. Run clang-format locally with: find ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

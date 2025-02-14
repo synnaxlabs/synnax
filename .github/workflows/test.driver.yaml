@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2071-add-linter-in-ci
   workflow_dispatch:
 jobs:
   changes:
@@ -36,8 +37,8 @@ jobs:
 
       - name: Run clang-format
         run: |
-          find ./driver ./x/cpp ./client/cpp ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --exit-code || (echo "C++ files need formatting. Run clang-format locally with: find ./driver ./x/cpp ./client/cpp ./freighter/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+          find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+          git diff --exit-code || (echo "C++ files in driver need formatting. Run clang-format locally with: find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
   test:
     name: Test Driver
@@ -50,6 +51,19 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get install -y clang-format
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install clang-format
+          fi
+
+      - name: Run clang-format
+        run: |
+          find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+          git diff --exit-code || (echo "C++ files in driver need formatting. Run clang-format locally with: find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Install MbedTLS On Mac
         run: brew install mbedtls

@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
@@ -116,6 +117,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Run clang-format
+        run: |
+          find ./client/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+          git diff --exit-code || (echo "C++ files in client/cpp need formatting. Run clang-format locally with: find ./client/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
