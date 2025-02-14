@@ -19,30 +19,7 @@
 #include "driver/sequence/sequence.h"
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/pipeline/mock/pipeline.h"
-
-class MockSink final : public plugins::FrameSink {
-public:
-    std::vector<synnax::Frame> written_frames;
-    std::vector<std::pair<
-            std::vector<synnax::ChannelKey>,
-            std::vector<synnax::Authority> >
-    > authority_calls;
-
-    xerrors::Error write(synnax::Frame &frame) override {
-        written_frames.push_back(std::move(frame));
-        return xerrors::NIL;
-    }
-
-    xerrors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &
-        authorities
-    ) override {
-        authority_calls.emplace_back(keys, authorities);
-        return xerrors::NIL;
-    }
-};
-
+#include "driver/sequence/plugins/mock/plugins.h"
 
 TEST(Sequence, basic) {
     // Read pipeline
@@ -53,18 +30,7 @@ TEST(Sequence, basic) {
     auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{xerrors::NIL, xerrors::NIL,});
-    const auto streamer_config = synnax::StreamerConfig{.channels = {read_channel.key}};
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(std::vector{
-            pipeline::mock::StreamerConfig{
-                reads,
-                read_errors,
-                xerrors::NIL
-            },
-        }));
+    auto streamer_factory = pipeline::mock::simple_streamer_factory({read_channel.key}, reads);
     auto ch_receive_plugin = std::make_shared<plugins::ChannelReceive>(
         streamer_factory, std::vector{read_channel}
     );
@@ -74,7 +40,7 @@ TEST(Sequence, basic) {
     write_channel.key = 1;
     write_channel.name = "write_channel";
     write_channel.data_type = telem::FLOAT64_T;
-    auto mock_sink = std::make_shared<MockSink>();
+    auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
         mock_sink, std::vector{write_channel});
     auto plugins = std::make_shared<plugins::MultiPlugin>(
@@ -98,11 +64,11 @@ TEST(Sequence, basic) {
     ASSERT_FALSE(next_err) << next_err;
     ASSERT_EVENTUALLY_EQ_F([&]-> size_t {
         auto _ = seq.next();
-        return mock_sink->written_frames.size();
+        return mock_sink->writes->size();
     }, 1);
     const auto stop_err = seq.end();
     ASSERT_FALSE(stop_err) << stop_err;
-    ASSERT_EQ(mock_sink->written_frames[0].channels->at(0), write_channel.key);
+    ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 }
 
 

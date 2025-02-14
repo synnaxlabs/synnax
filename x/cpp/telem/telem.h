@@ -90,7 +90,8 @@ public:
 
     /// @returns the data type corresponding to the given type.
     template<typename T>
-    DataType static infer() {
+    DataType static infer(const DataType &dt = DataType("")) {
+        if (dt != DataType("")) return dt;
         const auto type_index = std::type_index(typeid(T));
         if (!TYPE_INDEXES.count(type_index))
             throw std::runtime_error("failed to infer data type for " + std::string(typeid(T).name()));

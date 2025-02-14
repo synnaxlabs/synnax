@@ -117,9 +117,9 @@ public:
             auto &series = frame.series->at(i);
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                if (series.size > 0 && series.data_type == telem::FLOAT64_T)
+                if (series.size() > 0 && series.data_type == telem::FLOAT64_T)
                     last_raw_value[channel_key] = series.at<double>(0);
-                else if (series.size > 0 && series.data_type == telem::FLOAT32_T)
+                else if (series.size() > 0 && series.data_type == telem::FLOAT32_T)
                     last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
             }
 
@@ -133,11 +133,11 @@ public:
             }
 
             if (series.data_type == telem::FLOAT64_T) {
-                series.transform_inplace<double>(
+                series.map_inplace<double>(
                     [tare](double val) { return val - static_cast<double>(tare); }
                 );
             } else if (series.data_type == telem::FLOAT32_T) {
-                series.transform_inplace<float>(
+                series.map_inplace<float>(
                     [tare](float val) { return val - static_cast<float>(tare); }
                 );
             }
@@ -170,13 +170,13 @@ struct LinearScale {
 
     void transform_inplace(telem::Series &series) {
         if (series.data_type == telem::FLOAT64_T) {
-            series.transform_inplace<double>(
+            series.map_inplace<double>(
                 [this](double val) {
                     return (val * slope + offset);
                 }
             );
         } else if (series.data_type == telem::FLOAT32_T) {
-            series.transform_inplace<float>(
+            series.map_inplace<float>(
                 [this](float val) {
                     return (val * slope + offset);
                 }
@@ -208,14 +208,14 @@ struct MapScale {
 
     void transform_inplace(telem::Series &series) {
         if (series.data_type == telem::FLOAT64_T) {
-            series.transform_inplace<double>(
+            series.map_inplace<double>(
                 [this](double val) {
                     return (val - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) +
                            scaled_min;
                 }
             );
         } else if (series.data_type == telem::FLOAT32_T) {
-            series.transform_inplace<float>(
+            series.map_inplace<float>(
                 [this](float val) {
                     return (val - static_cast<float>(prescaled_min)) / (
                                static_cast<float>(prescaled_max) - static_cast<float>(prescaled_min)) * (

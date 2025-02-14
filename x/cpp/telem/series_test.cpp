@@ -36,7 +36,7 @@ TEST(TestSeries, testStringVectorConstruction) {
     const std::vector<std::string> vals = {"hello", "world"};
     const telem::Series s{vals};
     ASSERT_EQ(s.data_type, telem::STRING_T);
-    ASSERT_EQ(s.size, 2);
+    ASSERT_EQ(s.size(), 2);
     ASSERT_EQ(s.byte_size(), 12);
     const auto v = s.strings();
     for (size_t i = 0; i < vals.size(); i++)
@@ -47,7 +47,7 @@ TEST(TestSeries, testStringConstruction) {
     const std::string val = "hello";
     const telem::Series s{val};
     ASSERT_EQ(s.data_type, telem::STRING_T);
-    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 6);
     const auto v = s.strings();
     ASSERT_EQ(v[0], val);
@@ -57,7 +57,7 @@ TEST(TestSeries, testJSONStringConstruction) {
     const std::string raw = R"({ "key": "abc" })";
     const telem::Series s(raw, telem::JSON_T);
     ASSERT_EQ(s.data_type, telem::JSON_T);
-    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 17);
     const auto v = s.strings();
     ASSERT_EQ(v[0], raw);
@@ -66,7 +66,7 @@ TEST(TestSeries, testJSONStringConstruction) {
 TEST(TestSeries, testTimestampConstruction) {
     const telem::Series s(telem::TimeStamp(100));
     ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
-    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 8);
     const auto v = s.values<std::uint64_t>();
     ASSERT_EQ(v[0], 100);
@@ -76,7 +76,7 @@ TEST(TestSeries, testTimestampNowConstruction) {
     const auto now = telem::TimeStamp::now();
     const telem::Series s(now);
     ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
-    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 8);
     const auto v = s.values<std::uint64_t>();
     ASSERT_EQ(v[0], now.value);
@@ -133,7 +133,7 @@ TEST(TestSeries, testAtVar) {
 TEST(TestSeries, testAllocation) {
     const telem::Series s{telem::UINT32_T, 5};
     ASSERT_EQ(s.data_type, telem::UINT32_T);
-    ASSERT_EQ(s.size, 0);
+    ASSERT_EQ(s.size(), 0);
     ASSERT_EQ(s.cap, 5);
     ASSERT_EQ(s.byte_size(), 0);
     ASSERT_EQ(s.byte_cap(), 20);
@@ -153,7 +153,7 @@ TEST(TestSeries, testWrite) {
     ASSERT_EQ(s.write(value), 1);
     value++;
     ASSERT_EQ(s.write(value), 0);
-    ASSERT_EQ(s.size, 5);
+    ASSERT_EQ(s.size(), 5);
     ASSERT_EQ(s.at<std::uint32_t>(0), 1);
     ASSERT_EQ(s.at<std::uint32_t>(1), 2);
     ASSERT_EQ(s.at<std::uint32_t>(2), 3);
@@ -166,7 +166,7 @@ TEST(TestSeries, testWriteVector) {
     const std::vector<float> values = {1.0, 2.0, 3.0, 4.0, 5.0};
     ASSERT_EQ(s.write(values), 5);
     ASSERT_EQ(s.write(values), 0);
-    ASSERT_EQ(s.size, 5);
+    ASSERT_EQ(s.size(), 5);
     const auto v = s.values<float>();
     ASSERT_EQ(s.at<float>(1), 2.0);
     for (size_t i = 0; i < values.size(); i++)
@@ -176,11 +176,8 @@ TEST(TestSeries, testWriteVector) {
 
 TEST(TestSeries, testOstreamOperatorForAllTypes) {
     // Refactored tests to match the new format "Series(type: TYPE, size: SIZE, cap: CAP, data: [DATA ])"
-
     telem::Series s_uint32{telem::UINT32_T, 3};
-    for (std::uint32_t i = 1; i <= 3; ++i) {
-        s_uint32.write(i);
-    }
+    for (std::uint32_t i = 1; i <= 3; ++i) s_uint32.write(i);
     std::ostringstream oss_uint32;
     oss_uint32 << s_uint32;
     ASSERT_EQ(oss_uint32.str(),
@@ -246,7 +243,7 @@ TEST(TestSeries, test_transform_inplace) {
     telem::Series s{vals};
     ASSERT_EQ(s.data_type, telem::FLOAT64_T);
 
-    s.transform_inplace<double>([](double x) { return x * 2; });
+    s.map_inplace<double>([](const double x) { return x * 2; });
     const auto v = s.values<double>();
     ASSERT_EQ(v.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
@@ -254,8 +251,8 @@ TEST(TestSeries, test_transform_inplace) {
 
     vals = std::vector<double>({2.0, 4.0, 6.0, 8.0, 10.0});
 
-    // now try a lienar transformation
-    s.transform_inplace<double>([](double x) { return (3*x + 1); });
+    // now try a linear transformation
+    s.map_inplace<double>([](const double x) { return 3 * x + 1; });
     const auto v2 = s.values<double>();
     ASSERT_EQ(v2.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
@@ -265,16 +262,16 @@ TEST(TestSeries, test_transform_inplace) {
 class SeriesAtTest : public ::testing::Test {
 protected:
     template<typename T>
-    void validateAt(const telem::Series& s, const std::vector<T>& vals, const telem::DataType expected_type) {
-        ASSERT_EQ(s.data_type, expected_type) 
+    void validateAt(const telem::Series &s, const std::vector<T> &vals,
+                    const telem::DataType expected_type) {
+        ASSERT_EQ(s.data_type, expected_type)
             << "Expected data type " << expected_type << " but got " << s.data_type;
-            
+
         for (size_t i = 0; i < vals.size(); i++) {
-            if constexpr (std::is_floating_point_v<T>) {
+            if constexpr (std::is_floating_point_v<T>)
                 ASSERT_DOUBLE_EQ(s.at<T>(i), vals[i]);
-            } else {
+            else
                 ASSERT_EQ(s.at<T>(i), vals[i]);
-            }
         }
     }
 };
@@ -326,7 +323,7 @@ TEST(TestSeries, testJSONValueConstruction) {
     json obj = {{"key", "value"}};
     telem::Series s1(obj);
     ASSERT_EQ(s1.data_type, telem::JSON_T);
-    ASSERT_EQ(s1.size, 1);
+    ASSERT_EQ(s1.size(), 1);
     auto v1 = s1.strings();
     ASSERT_EQ(v1[0], obj.dump());
 
@@ -339,7 +336,7 @@ TEST(TestSeries, testJSONValueConstruction) {
     };
     telem::Series s2(complex_obj);
     ASSERT_EQ(s2.data_type, telem::JSON_T);
-    ASSERT_EQ(s2.size, 1);
+    ASSERT_EQ(s2.size(), 1);
     auto v2 = s2.strings();
     ASSERT_EQ(v2[0], complex_obj.dump());
 
@@ -347,7 +344,36 @@ TEST(TestSeries, testJSONValueConstruction) {
     json arr = json::array({1, 2, 3});
     telem::Series s3(arr);
     ASSERT_EQ(s3.data_type, telem::JSON_T);
-    ASSERT_EQ(s3.size, 1);
+    ASSERT_EQ(s3.size(), 1);
     auto v3 = s3.strings();
     ASSERT_EQ(v3[0], arr.dump());
+}
+
+TEST(TestSeries, testDeepCopy) {
+    telem::Series s1{telem::UINT32_T, 3};
+    s1.write(1);
+    s1.write(2);
+    s1.write(3);
+
+    const telem::Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(1), 2);
+    ASSERT_EQ(s2.at<std::uint32_t>(2), 3);
+    ASSERT_EQ(s2.data_type, telem::UINT32_T);
+    ASSERT_EQ(s2.byte_size(), s1.byte_size());
+    ASSERT_EQ(s2.cap, s1.cap);
+}
+
+TEST(TestSeries, testDeepCopyVariableDataType) {
+    const telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    ASSERT_EQ(s1.size(), 3);
+    const telem::Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::string>(0), "hello");;
+    ASSERT_EQ(s2.at<std::string>(1), "world");
+    ASSERT_EQ(s2.at<std::string>(2), "test");
+    ASSERT_EQ(s2.data_type, telem::STRING_T);
+    ASSERT_EQ(s2.byte_size(), s1.byte_size());
+    ASSERT_EQ(s2.cap, s1.cap);
 }

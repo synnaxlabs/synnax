@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "client/cpp/synnax.h"
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/acquisition.h"
@@ -38,14 +40,17 @@ public:
             return {synnax::Frame(0), xerrors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
-        auto err = config.read_errors->at(current_read);
+        auto err = xerrors::NIL;
+        if (config.read_errors != nullptr && config.read_errors->size() > current_read)
+            err = config.read_errors->at(current_read);
         current_read++;
-        return {std::move(fr), xerrors::NIL};
+        return {std::move(fr), err};
     }
 
     xerrors::Error close() override { return config.close_err; }
 
-    void close_send() override {};
+    void close_send() override {
+    };
 };
 
 class StreamerFactory final : public pipeline::StreamerFactory {
@@ -81,6 +86,19 @@ public:
         };
     }
 };
+
+inline std::shared_ptr<pipeline::StreamerFactory> simple_streamer_factory(
+    const std::vector<synnax::ChannelKey> &keys,
+    const std::shared_ptr<std::vector<synnax::Frame> > &reads
+) {
+    const auto cfg = synnax::StreamerConfig{.channels = keys};
+    const auto factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector<xerrors::Error>{},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
+            std::vector{pipeline::mock::StreamerConfig{reads, {}, xerrors::NIL}})
+    );
+    return factory;
+}
 
 
 class Writer final : public pipeline::Writer {
@@ -133,44 +151,44 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
         const WriterConfig &config) override {
-            this->writer_opens++;
-            this->config = config;
-            auto err = this->open_errors.empty()
-                           ? xerrors::NIL
-                           : this->open_errors.front();
-            if (!this->open_errors.empty())
-                this->open_errors.erase(
-                    this->open_errors.begin());
-            auto close_err = this->close_errors.empty()
-                                 ? xerrors::NIL
-                                 : this->close_errors.front();
-            if (!this->close_errors.empty())
-                this->close_errors.erase(
-                    this->close_errors.begin());
-            auto return_false_ok_on = this->return_false_ok_on.empty()
-                                          ? -1
-                                          : this->return_false_ok_on.front();
-            if (!this->return_false_ok_on.empty())
-                this->return_false_ok_on.erase(
-                    this->return_false_ok_on.begin());
-            auto writer = std::make_unique<Writer>(
-                this->writes, close_err, return_false_ok_on);
-            return {std::move(writer), err};
+        this->writer_opens++;
+        this->config = config;
+        auto err = this->open_errors.empty()
+                       ? xerrors::NIL
+                       : this->open_errors.front();
+        if (!this->open_errors.empty())
+            this->open_errors.erase(
+                this->open_errors.begin());
+        auto close_err = this->close_errors.empty()
+                             ? xerrors::NIL
+                             : this->close_errors.front();
+        if (!this->close_errors.empty())
+            this->close_errors.erase(
+                this->close_errors.begin());
+        auto return_false_ok_on = this->return_false_ok_on.empty()
+                                      ? -1
+                                      : this->return_false_ok_on.front();
+        if (!this->return_false_ok_on.empty())
+            this->return_false_ok_on.erase(
+                this->return_false_ok_on.begin());
+        auto writer = std::make_unique<Writer>(
+            this->writes, close_err, return_false_ok_on);
+        return {std::move(writer), err};
     }
 };
 
-class Sink final : public pipeline::Sink {
+class Sink : public pipeline::Sink {
 public:
     std::shared_ptr<std::vector<synnax::Frame> > writes;
     std::shared_ptr<std::vector<xerrors::Error> > write_errors;
     xerrors::Error stop_err;
 
     Sink() : writes(std::make_shared<std::vector<synnax::Frame> >()),
-                 write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
+             write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
-        if (frame.size() == 0) return xerrors::NIL;
+        if (frame.empty()) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
         if (this->write_errors->empty()) return xerrors::NIL;

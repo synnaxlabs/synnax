@@ -28,24 +28,8 @@ TEST(ChannelReceive, Basic) {
     fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{
-            xerrors::NIL,
-            xerrors::NIL,
-        });
-    const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
-            std::vector{
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL
-                }
-            })
-    );
-    auto plugin = plugins::ChannelReceive(streamer_factory, std::vector{ch});
+    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
+    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);

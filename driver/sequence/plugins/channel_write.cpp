@@ -98,7 +98,7 @@ xerrors::Error plugins::SynnaxFrameSink::open() {
     return xerrors::NIL;
 }
 
-xerrors::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
+xerrors::Error plugins::SynnaxFrameSink::write(const synnax::Frame &frame) {
     if (frame.empty()) return xerrors::NIL;
     if (const bool ok = this->writer->write(frame); !ok)
         return this->writer->error();
