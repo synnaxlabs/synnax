@@ -23,8 +23,9 @@ TEST(ChannelReceive, Basic) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
+    ch.data_type = telem::FLOAT64_T;
     auto fr_1 = synnax::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0));
+    fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
     const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(

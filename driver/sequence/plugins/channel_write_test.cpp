@@ -96,72 +96,72 @@ protected:
 };
 
 TEST_F(SetOperatorTest, Float32Value) {
-    SetupChannel(telem::FLOAT32);
+    SetupChannel(telem::FLOAT32_T);
     RunTest<float>("3.14", 3.14f);
 }
 
 TEST_F(SetOperatorTest, Float64Value) {
-    SetupChannel(telem::FLOAT64);
+    SetupChannel(telem::FLOAT64_T);
     RunTest<double>("3.14159265359", 3.14159265359);
 }
 
 TEST_F(SetOperatorTest, Int8Value) {
-    SetupChannel(telem::INT8);
+    SetupChannel(telem::INT8_T);
     RunTest<int8_t>("127", 127);
 }
 
 TEST_F(SetOperatorTest, Int16Value) {
-    SetupChannel(telem::INT16);
+    SetupChannel(telem::INT16_T);
     RunTest<int16_t>("32767", 32767);
 }
 
 TEST_F(SetOperatorTest, Int32Value) {
-    SetupChannel(telem::INT32);
+    SetupChannel(telem::INT32_T);
     RunTest<int32_t>("2147483647", 2147483647);
 }
 
 TEST_F(SetOperatorTest, Int64Value) {
-    SetupChannel(telem::INT64);
+    SetupChannel(telem::INT64_T);
     RunTest<int64_t>("9223372036854775807", 9223372036854775807L);
 }
 
 TEST_F(SetOperatorTest, Uint8NumberValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("0", 0);
 }
 
 TEST_F(SetOperatorTest, Uint8Number1Value) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("1", 1);
 }
 
 TEST_F(SetOperatorTest, Uint8ChannelBooleanValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
 TEST_F(SetOperatorTest, Uint8ChannelFalseValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
 TEST_F(SetOperatorTest, UInt16Value) {
-    SetupChannel(telem::SY_UINT16);
+    SetupChannel(telem::UINT16_T);
     RunTest<uint16_t>("65535", 65535);
 }
 
 TEST_F(SetOperatorTest, UInt32Value) {
-    SetupChannel(telem::UINT32);
+    SetupChannel(telem::UINT32_T);
     RunTest<uint32_t>("4294967295", 4294967295);
 }
 
 TEST_F(SetOperatorTest, UInt64Value) {
-    SetupChannel(telem::UINT64);
+    SetupChannel(telem::UINT64_T);
     RunTest<uint64_t>("18446744073709551615", 18446744073709551615ULL);
 }
 
 TEST_F(SetOperatorTest, StringValue) {
-    SetupChannel(telem::STRING);
+    SetupChannel(telem::STRING_T);
     RunStringTest("'hello'", "hello");
 }
 
@@ -174,7 +174,7 @@ protected:
         // Add index channel
         synnax::Channel index_ch;
         index_ch.name = "index";
-        index_ch.data_type = telem::INT64;
+        index_ch.data_type = telem::INT64_T;
         index_ch.key = 1;
         index_ch.is_index = true;
         channels.push_back(index_ch);
@@ -221,17 +221,17 @@ protected:
 };
 
 TEST_F(SetOperatorWithIndexTest, Float32ValueWithIndex) {
-    SetupChannels(telem::FLOAT32);
+    SetupChannels(telem::FLOAT32_T);
     RunIndexedTest<float>("3.14", 3.14f);
 }
 
 TEST_F(SetOperatorWithIndexTest, Int32ValueWithIndex) {
-    SetupChannels(telem::INT32);
+    SetupChannels(telem::INT32_T);
     RunIndexedTest<int32_t>("42", 42);
 }
 
 TEST_F(SetOperatorWithIndexTest, BooleanValueWithIndex) {
-    SetupChannels(telem::SY_UINT8);
+    SetupChannels(telem::UINT8_T);
     RunIndexedTest<uint8_t>("true", 1);
 }
 

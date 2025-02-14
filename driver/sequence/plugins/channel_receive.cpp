@@ -7,53 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// external
+#include "glog/logging.h"
+
+/// module
+#include "x/cpp/xlua/xlua.h"
+
+/// internal
 #include "driver/sequence/plugins/plugins.h"
-
-/// @brief binds the sample value to the lua state as global variable.
-void apply(
-    lua_State *L,
-    const std::string &name,
-    const telem::SampleValue &value
-) {
-    switch (value.index()) {
-        case 0: // float64
-            lua_pushnumber(L, std::get<double>(value));
-            break;
-        case 1: // float32
-            lua_pushnumber(L, std::get<float>(value));
-            break;
-        case 2: // int64
-            lua_pushinteger(L, std::get<int64_t>(value));
-            break;
-        case 3: // int32
-            lua_pushinteger(L, std::get<int32_t>(value));
-            break;
-        case 4: // int16
-            lua_pushinteger(L, std::get<int16_t>(value));
-            break;
-        case 5: // int8
-            lua_pushinteger(L, std::get<int8_t>(value));
-            break;
-        case 6: // uint64
-            lua_pushinteger(L, std::get<uint64_t>(value));
-            break;
-        case 7: // uint32
-            lua_pushinteger(L, std::get<uint32_t>(value));
-            break;
-        case 8: // uint16
-            lua_pushinteger(L, std::get<uint16_t>(value));
-            break;
-        case 9: // uint8
-            lua_pushinteger(L, std::get<uint8_t>(value));
-            break;
-        case 10: // string
-            lua_pushstring(L, std::get<std::string>(value).c_str());
-            break;
-        default: ;
-    }
-    lua_setglobal(L, name.c_str());
-}
-
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<pipeline::StreamerFactory> &factory,
@@ -61,19 +22,12 @@ plugins::ChannelReceive::ChannelReceive(
 ) :
     pipe(
         factory,
-        synnax::StreamerConfig{
-            .channels = [&read_from] {
-                std::vector<synnax::ChannelKey> keys;
-                keys.reserve(read_from.size());
-                for (const auto &ch: read_from) keys.push_back(ch.key);
-                return keys;
-            }()
-        },
+        synnax::StreamerConfig{.channels = synnax::keys_from_channels(read_from)},
         std::make_shared<Sink>(Sink(*this)),
-        breaker::Config{}
+        breaker::default_config("sequence.plugins.channel_receive")
     ),
-    latest_values(read_from.size()) {
-    for (const auto &channel: read_from) this->channels[channel.key] = channel;
+    latest_values(read_from.size()),
+    channels(synnax::channel_keys_map(read_from)) {
 }
 
 plugins::ChannelReceive::ChannelReceive(
@@ -114,12 +68,16 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
 xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
     std::lock_guard lock(this->mu);
     for (const auto &[key, value]: this->latest_values) {
-        const auto ch = this->channels.find(key);
-        if (ch == this->channels.end()) {
-            LOG(WARNING) << "[sequence.plugins.channel_receive] received value for unknown channel key: " << key;
+        const auto res = this->channels.find(key);
+        if (res == this->channels.end()) {
+            LOG(WARNING) <<
+                    "[sequence.plugins.channel_receive] received value for unknown channel key: "
+                    << key;
             continue;
         }
-        apply(L, ch->second.name, value);
+        const auto ch = res->second;
+        if (const auto err = xlua::set_global_sample_value(L, ch.name, ch.data_type, value))
+            LOG(WARNING) << "[sequence.plugins.channel_receive] failed to set global sample value. using nil instead: " << err;
     }
     return xerrors::NIL;
 }

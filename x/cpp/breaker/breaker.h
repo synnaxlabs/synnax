@@ -67,12 +67,11 @@ class Breaker {
     std::mutex shutdown_mu;
 
 public:
-    explicit Breaker(
-        const Config &config
-    ) : config(config),
-        interval(config.base_interval),
-        retries(0),
-        is_running(false) {
+    explicit Breaker(const Config &config)
+        : config(config),
+          interval(config.base_interval),
+          retries(0),
+          is_running(false) {
     }
 
     Breaker(): Breaker(Config{
@@ -85,10 +84,12 @@ public:
     }
 
     ~Breaker() {
-        if (this->running())
-            std::cerr << "breaker was not stopped before destruction" << std::endl;
+        if (!this->running()) return;
+        // Very important that we do not use GLOG here, as it can cause problems
+        // in destructors.
+        std::cerr << "breaker was not stopped before destruction" << std::endl;
+        assert(false && "breaker was not stopped before destruction");
     }
-
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
@@ -103,35 +104,40 @@ public:
     /// @param message a message to inject additional information into the logs about what
     /// error occurred to trigger the breaker.
     bool wait(const std::string &message) {
-        if (!running()) {
-            LOG(ERROR) << "[" << config.name << "] breaker not started. Exiting.";
+        if (!this->running()) {
+            LOG(ERROR) << "[" << this->config.name << "] breaker not started. Exiting.";
             return false;
         }
-        retries++;
-        if (retries > config.max_retries) {
-            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of "
-                    << config.max_retries << ". Exiting." << "Error: " << message <<
+        this->retries++;
+        if (this->retries > this->config.max_retries) {
+            LOG(ERROR) << "[" << this->config.name <<
+                    "] exceeded the maximum retry count of "
+                    << this->config.max_retries << ". Exiting." << "Error: " << message
+                    <<
                     ".";
             reset();
             return false;
         }
-        LOG(ERROR) << "[" << config.name << "] failed " << retries << "/" << config.
+        LOG(ERROR) << "[" << this->config.name << "] failed " << this->retries << "/" <<
+                this->config.
                 max_retries
-                << " times. " << "Retrying in " << std::fixed << std::setprecision(1) << interval.seconds() << " seconds. "
+                << " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
+                this->interval.seconds() << " seconds. "
                 <<
                 "Error: " << message << ".";
         // keeps the formatter happy
         {
-            std::unique_lock lock(shutdown_mu);
-            shutdown_cv.wait_for(lock, interval.chrono());
+            std::unique_lock lock(this->shutdown_mu);
+            shutdown_cv.wait_for(lock, this->interval.chrono());
             if (!this->running()) {
-                LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
+                LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
                 reset();
                 return false;
             }
         }
-        interval = interval * config.scale;
-        if (interval > config.max_interval) interval = config.max_interval;
+        this->interval = this->interval * this->config.scale;
+        if (this->interval > this->config.max_interval)
+            this->interval = this->config.max_interval;
         return true;
     }
 
@@ -149,37 +155,37 @@ public:
     /// sleeps where the breaker may need to be interrupted for shut down.
     /// @param time the time to wait for in nanoseconds.
     void wait_for(const std::chrono::nanoseconds &time) {
-        if (!running()) return;
-        std::unique_lock lock(shutdown_mu);
-        shutdown_cv.wait_for(lock, time);
+        if (!this->running()) return;
+        std::unique_lock lock(this->shutdown_mu);
+        this->shutdown_cv.wait_for(lock, time);
     }
 
     /// @brief starts the breaker, using it as a signaling mechanism for a thread to
     /// operate. A breaker that is started must be stopped before it is destroyed.
     /// @throws std::runtime_error inside the destructor if hte breaker is not stopped.
     void start() {
-        if (running()) return;
-        is_running = true;
+        if (this->running()) return;
+        this->is_running = true;
     }
 
     /// @brief shuts down the breaker, preventing any further retries.
     void stop() {
         if (!running()) return;
-        std::lock_guard lock(shutdown_mu);
-        is_running = false;
-        shutdown_cv.notify_all();
+        std::lock_guard lock(this->shutdown_mu);
+        this->is_running = false;
+        this->shutdown_cv.notify_all();
     }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has been
     /// called, but stop() has not been called yet.
-    [[nodiscard]] bool running() const { return is_running; }
+    [[nodiscard]] bool running() const { return this->is_running; }
 
     /// @brief resets the retry count and the retry interval on the breaker, allowing
     /// it to be re-used. It's typically to call this method after the breaker has been
     /// triggered, but the request has succeeded.
     void reset() {
-        retries = 0;
-        interval = config.base_interval;
+        this->retries = 0;
+        this->interval = this->config.base_interval;
     }
 };
 

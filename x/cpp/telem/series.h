@@ -59,21 +59,7 @@ static void output_partial_vector_byte(
 }
 
 
-/// @brief all the possible types for a sample within the series.
-/// THE ORDER OF THESE TYPES IS VERY IMPORTANT. DO NOT CHANGE IT.
-using SampleValue = std::variant<
-    double, // FLOAT64
-    float, // FLOAT32
-    int64_t, // INT64
-    int32_t, // INT32
-    int16_t, // INT16
-    int8_t, // INT8
-    uint64_t, // UINT64
-    uint32_t, // UINT32
-    uint16_t, // UINT16
-    uint8_t, // UINT8
-    std::string // STRING
->;
+
 
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
@@ -121,7 +107,7 @@ public:
     explicit Series(const TimeStamp v):
         size(1),
         cap(1),
-        data_type(telem::TIMESTAMP) {
+        data_type(telem::TIMESTAMP_T) {
         data = std::make_unique<std::byte[]>(this->byte_size());
         memcpy(data.get(), &v.value, this->byte_size());
     }
@@ -151,7 +137,7 @@ public:
     /// be JSON encoded strings, in which case the data type should be set to JSON.
     /// @param d the vector of strings to be used as the data.
     /// @param data_type_ the type of data being used.
-    explicit Series(const std::vector<std::string> &d, DataType data_type_ = STRING):
+    explicit Series(const std::vector<std::string> &d, DataType data_type_ = STRING_T):
         data_type(std::move(data_type_)) {
         if (!this->data_type.is_variable())
             throw std::runtime_error("expected data type to be STRING or JSON");
@@ -174,9 +160,9 @@ public:
     /// @param data the string to be used as the data.
     /// @param data_type_ the type of data being used. Defaults to STRING, but can
     /// also be set to JSON.
-    explicit Series(const std::string &data, DataType data_type_ = STRING) :
+    explicit Series(const std::string &data, DataType data_type_ = STRING_T) :
         size(1), cap(1), data_type(std::move(data_type_)) {
-        if (!this->data_type.matches({STRING, JSON}))
+        if (!this->data_type.matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot set a string value on a non-string or JSON series");
         this->cached_byte_size = data.size() + 1;
@@ -201,7 +187,7 @@ public:
     }
 
     /// @brief constructs the series from the given JSON value.
-    explicit Series(const json &value): Series(value.dump(), JSON) {
+    explicit Series(const json &value): Series(value.dump(), JSON_T) {
     }
 
     /// @brief sets a number at an index.
@@ -328,7 +314,7 @@ public:
     /// @brief returns the data as a vector of strings. This method can only be used
     /// if the data type is STRING or JSON.
     [[nodiscard]] std::vector<std::string> strings() const {
-        if (!data_type.matches({STRING, JSON}))
+        if (!data_type.matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot convert a non-JSON or non-string series to strings");
         std::vector<std::string> v;
@@ -393,17 +379,17 @@ public:
     [[nodiscard]] SampleValue at(const int &index) const {
         const auto adjusted = validate_bounds(index);
         const auto dt = this->data_type;
-        if (dt == FLOAT64) return this->at<double>(adjusted);
-        if (dt == FLOAT32) return this->at<float>(adjusted);
-        if (dt == INT64) return this->at<int64_t>(adjusted);
-        if (dt == INT32) return this->at<int32_t>(adjusted);
-        if (dt == INT16) return this->at<int16_t>(adjusted);
-        if (dt == INT8) return this->at<int8_t>(adjusted);
-        if (dt == UINT64) return this->at<uint64_t>(adjusted);
-        if (dt == UINT32) return this->at<uint32_t>(adjusted);
-        if (dt == SY_UINT16) return this->at<uint16_t>(adjusted);
-        if (dt == SY_UINT8) return this->at<uint8_t>(adjusted);
-        if (dt == STRING || dt == JSON) {
+        if (dt == FLOAT64_T) return this->at<double>(adjusted);
+        if (dt == FLOAT32_T) return this->at<float>(adjusted);
+        if (dt == INT64_T) return this->at<int64_t>(adjusted);
+        if (dt == INT32_T) return this->at<int32_t>(adjusted);
+        if (dt == INT16_T) return this->at<int16_t>(adjusted);
+        if (dt == INT8_T) return this->at<int8_t>(adjusted);
+        if (dt == UINT64_T) return this->at<uint64_t>(adjusted);
+        if (dt == UINT32_T) return this->at<uint32_t>(adjusted);
+        if (dt == UINT16_T) return this->at<uint16_t>(adjusted);
+        if (dt == UINT8_T) return this->at<uint8_t>(adjusted);
+        if (dt == STRING_T || dt == JSON_T) {
             std::string value;
             this->at(adjusted, value);
             return value;
@@ -420,7 +406,7 @@ public:
     /// as an offset from the end of the series.
     /// @param value the string to bind the value to.
     void at(const int &index, std::string &value) const {
-        if (!data_type.matches({STRING, JSON}))
+        if (!data_type.matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot bind a string value on a non-string or JSON series"
             );
@@ -441,7 +427,7 @@ public:
     /// as an offset from the end of the series.
     /// @param value the json object to bind the value to.
     void at(const int &index, json &value) const {
-        if (!data_type.matches({JSON}))
+        if (!data_type.matches({JSON_T}))
             throw std::runtime_error("cannot bind a JSON value on a non-JSON series");
         std::string str_value;
         this->at(index, str_value);
@@ -465,25 +451,25 @@ public:
         os << "Series(type: " << s.data_type.name() << ", size: " << s.size
                 << ", cap: "
                 << s.cap << ", data: [";
-        if (s.data_type == telem::STRING || s.data_type == telem::JSON)
+        if (s.data_type == telem::STRING_T || s.data_type == telem::JSON_T)
             output_partial_vector(os, s.strings());
-        else if (s.data_type == telem::FLOAT32)
+        else if (s.data_type == telem::FLOAT32_T)
             output_partial_vector(os, s.values<float>());
-        else if (s.data_type == telem::INT64)
+        else if (s.data_type == telem::INT64_T)
             output_partial_vector(os, s.values<int64_t>());
-        else if (s.data_type == telem::UINT64 || s.data_type == telem::TIMESTAMP)
+        else if (s.data_type == telem::UINT64_T || s.data_type == telem::TIMESTAMP_T)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (s.data_type == telem::SY_UINT8)
+        else if (s.data_type == telem::UINT8_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
-        else if (s.data_type == telem::INT32)
+        else if (s.data_type == telem::INT32_T)
             output_partial_vector(os, s.values<int32_t>());
-        else if (s.data_type == telem::INT16)
+        else if (s.data_type == telem::INT16_T)
             output_partial_vector(os, s.values<int16_t>());
-        else if (s.data_type == telem::SY_UINT16)
+        else if (s.data_type == telem::UINT16_T)
             output_partial_vector(os, s.values<uint16_t>());
-        else if (s.data_type == telem::UINT32)
+        else if (s.data_type == telem::UINT32_T)
             output_partial_vector(os, s.values<uint32_t>());
-        else if (s.data_type == telem::FLOAT64)
+        else if (s.data_type == telem::FLOAT64_T)
             output_partial_vector(os, s.values<double>());
         else os << "unknown data type";
         os << "])";

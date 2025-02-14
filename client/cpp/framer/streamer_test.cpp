@@ -24,7 +24,7 @@ TEST(FramerTests, testStreamBasic) {
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        telem::INT32,
+        telem::INT32_T,
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
@@ -61,7 +61,7 @@ TEST(FramerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        telem::FLOAT32,
+        telem::FLOAT32_T,
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
@@ -150,7 +150,7 @@ void test_downsample(
     auto client = new_test_client();
     auto [data, cErr] = client.channels.create(
         "data",
-        telem::INT32,
+        telem::INT32_T,
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
@@ -197,7 +197,7 @@ void test_downsample_string(
     auto client = new_test_client();
 
     // Create a virtual channel
-    synnax::Channel virtual_channel("virtual_string_channel", telem::STRING, true);
+    synnax::Channel virtual_channel("virtual_string_channel", telem::STRING_T, true);
     auto err = client.channels.create(virtual_channel);
     ASSERT_FALSE(err) << err.message();
 
@@ -221,7 +221,7 @@ void test_downsample_string(
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(virtual_channel.key,
-                               telem::Series(raw_data, telem::STRING));
+                               telem::Series(raw_data, telem::STRING_T));
     ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();

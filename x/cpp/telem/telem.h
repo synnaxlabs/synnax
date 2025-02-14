@@ -29,12 +29,51 @@ constexpr uint64_t HOUR = MINUTE * 60;
 constexpr uint64_t DAY = HOUR * 24;
 } // namespace _priv
 
+#define ASSERT_TYPE_SIZE(type, size) \
+    static_assert(sizeof(type) == size, "synnax only supports compilation environments with " #size " bit " #type "s")
+
+ASSERT_TYPE_SIZE(float, 4);
+ASSERT_TYPE_SIZE(double, 8);
+ASSERT_TYPE_SIZE(int64_t, 8);
+ASSERT_TYPE_SIZE(int32_t, 4);
+ASSERT_TYPE_SIZE(int16_t, 2);
+ASSERT_TYPE_SIZE(int8_t, 1);
+ASSERT_TYPE_SIZE(uint64_t, 8);
+ASSERT_TYPE_SIZE(uint32_t, 4);
+ASSERT_TYPE_SIZE(uint16_t, 2);
+ASSERT_TYPE_SIZE(uint8_t, 1);
+
+/// @brief all the possible types for a sample within the series.
+/// THE ORDER OF THESE TYPES IS VERY IMPORTANT. DO NOT CHANGE IT.
+using SampleValue = std::variant<
+    double, // FLOAT64
+    float, // FLOAT32
+    int64_t, // INT64
+    int32_t, // INT32
+    int16_t, // INT16
+    int8_t, // INT8
+    uint64_t, // UINT64
+    uint32_t, // UINT32
+    uint16_t, // UINT16
+    uint8_t, // UINT8
+    std::string // STRING
+>;
+constexpr size_t FLOAT64_INDEX = 0;
+constexpr size_t FLOAT32_INDEX = 1;
+constexpr size_t INT64_INDEX = 2;
+constexpr size_t INT32_INDEX = 3;
+constexpr size_t INT16_INDEX = 4;
+constexpr size_t INT8_INDEX = 5;
+constexpr size_t UINT64_INDEX = 6;
+constexpr size_t UINT32_INDEX = 7;
+constexpr size_t UINT16_INDEX = 8;
+constexpr size_t UINT8_INDEX = 9;
+constexpr size_t STRING_INDEX = 10;
 
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType() {
-    }
+    DataType() = default;
 
     /// @brief Holds the id of the data type
     std::string value;
@@ -128,7 +167,7 @@ private:
         {"json", 0},
     };
 
-    /// @brief stores a map of C++ type indexes to their correspondign synnax data
+    /// @brief stores a map of C++ type indexes to their corresponding synnax data
     /// type identifiers.
     inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
         {std::type_index(typeid(float)), "float32"},
@@ -179,39 +218,39 @@ private:
 /// @brief
 const auto DATA_TYPE_UNKNOWN = DataType("");
 /// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
-const auto FLOAT64 = DataType("float64");
+const auto FLOAT64_T = DataType("float64");
 /// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
-const auto FLOAT32 = DataType("float32");
+const auto FLOAT32_T = DataType("float32");
 /// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
-const auto INT8 = DataType("int8");
+const auto INT8_T = DataType("int8");
 /// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
-const auto INT16 = DataType("int16");
+const auto INT16_T = DataType("int16");
 /// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
-const auto INT32 = DataType("int32");
+const auto INT32_T = DataType("int32");
 /// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
-const auto INT64 = DataType("int64");
+const auto INT64_T = DataType("int64");
 /// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
-const auto TIMESTAMP = DataType("timestamp");
+const auto TIMESTAMP_T = DataType("timestamp");
 /// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
-const auto SY_UINT8 = DataType("uint8");
+const auto UINT8_T = DataType("uint8");
 /// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
-const auto SY_UINT16 = DataType("uint16");
+const auto UINT16_T = DataType("uint16");
 /// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
-const auto UINT32 = DataType("uint32");
+const auto UINT32_T = DataType("uint32");
 /// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
-const auto UINT64 = DataType("uint64");
+const auto UINT64_T = DataType("uint64");
 /// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
-const auto UINT128 = DataType("uint128");
+const auto UINT128_T = DataType("uint128");
 /// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
-const auto UUID = DataType("uuid");
+const auto UUID_T = DataType("uuid");
 /// @brief identifier for a newline separated, variable-length string data type in a
 /// Synnax cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
-const auto STRING = DataType("string");
+const auto STRING_T = DataType("string");
 /// @brief identifier for a newline separated, stringified JSON data type in a Synnax
 /// cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
-const auto JSON = DataType("json");
+const auto JSON_T = DataType("json");
 
 class TimeSpan {
 public:

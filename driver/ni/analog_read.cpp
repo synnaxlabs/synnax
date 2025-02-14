@@ -184,7 +184,7 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
     for (const auto &ch: this->reader_config.channels) {
         if (!ch.enabled) continue;
         if (ch.channel_type == "index") {
-            auto t = telem::Series(telem::TIMESTAMP, count);
+            auto t = telem::Series(telem::TIMESTAMP_T, count);
             for (uint64_t i = 0; i < count; ++i) t.write(d.t0 + i * incr);
             f.emplace(ch.channel_key, std::move(t));
             continue;
@@ -192,7 +192,7 @@ std::pair<synnax::Frame, xerrors::Error> ni::AnalogReadSource::read(
         auto series = telem::Series(ch.data_type, count);
         const auto buf = d.analog_data.data();
         const int start = data_index * count;
-        if (series.data_type == telem::FLOAT64) series.write(buf + start, count);
+        if (series.data_type == telem::FLOAT64_T) series.write(buf + start, count);
         else
             for (int i = 0; i < count; ++i)
                 series.write(static_cast<float>(buf[start + i]));
@@ -231,8 +231,8 @@ int ni::AnalogReadSource::validate_channels() {
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != telem::FLOAT32 && channel_info.data_type !=
-            telem::FLOAT64) {
+        if (channel_info.data_type != telem::FLOAT32_T && channel_info.data_type !=
+            telem::FLOAT64_T) {
             this->log_error(
                 "Channel " + channel.name + " is not of type float32 or float64");
             this->ctx->set_state({

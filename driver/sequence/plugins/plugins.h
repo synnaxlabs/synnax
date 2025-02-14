@@ -35,20 +35,32 @@ public:
 
     /// @brief called before the sequence starts. The caller can optionally override
     /// this method to perform any setup that is required before the sequence starts.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error before_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after the sequence ends. The caller can optionally override
     /// this method to perform any cleanup that is required after the sequence ends.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called before each iteration of the sequence. The caller can optionally
     /// override this method to bind any variables or functions that must be updated on
     /// every loop iteration.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error before_next(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after each iteration of the sequence. The caller can optionally
     /// override this method to perform any cleanup that is required after each loop
     /// iteration.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_next(lua_State *L) { return xerrors::NIL; }
 };
 
@@ -61,24 +73,28 @@ public:
     MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops): plugins(std::move(ops)) {
     }
 
+    /// @brief implements Plugin::before_all.
     xerrors::Error before_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_all(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::after_all.
     xerrors::Error after_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_all(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::before_next.
     xerrors::Error before_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_next(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::after_next.
     xerrors::Error after_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_next(L)) return err;
@@ -208,8 +224,6 @@ public:
     explicit JSON(json source_data);
 
     xerrors::Error before_all(lua_State *L) override;
-
-    static xerrors::Error push_value(lua_State *L, const json &value);
 };
 
 /// @brief a plugin that adds timing utilities to the sequence.

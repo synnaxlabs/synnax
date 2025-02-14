@@ -20,14 +20,14 @@ TEST(FramerTests, testWriteBasic) {
     auto client = new_test_client();
     auto [time, tErr] = client.channels.create(
         "time",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_FALSE(tErr) << tErr.message();
     auto [data, dErr] = client.channels.create(
         "data",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
     );
@@ -54,7 +54,7 @@ TEST(FramerTests, testWriteBasic) {
                            (now + telem::SECOND * 6).value,
                            (now + telem::SECOND * 7).value,
                            (now + telem::SECOND * 8).value,
-                       }, telem::TIMESTAMP)
+                       }, telem::TIMESTAMP_T)
     );
     frame.emplace(
         data.key,
@@ -74,7 +74,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
     auto client = new_test_client();
     auto [time, t_err] = client.channels.create(
         "time",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -94,7 +94,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     auto client = new_test_client();
     auto [time, t_err] = client.channels.create(
         "time",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -123,14 +123,14 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
     auto [time, t_err] = client.channels.create(
         "time",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_FALSE(t_err) << t_err.message();
     auto [data, d_err] = client.channels.create(
         "data",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
     );
@@ -159,21 +159,21 @@ TEST(FramerTests, testSetAuthority) {
     auto client = new_test_client();
     auto [time, t_err] = client.channels.create(
         "time",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_FALSE(t_err) << t_err.message();
     auto [data1, d1_err] = client.channels.create(
         "data1",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
     );
     ASSERT_FALSE(d1_err) << d1_err.message();
     auto [data2, d2_err] = client.channels.create(
         "data2",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
     );

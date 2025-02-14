@@ -39,14 +39,14 @@ void digital_channel_helper(json config, json channel_config) {
 
     auto [time, tErr] = client->channels.create(
         "idx",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true);
     ASSERT_FALSE(tErr) << tErr.message();
 
     auto [data, dErr] = client->channels.create(
         "di_channel",
-        telem::FLOAT32,
+        telem::FLOAT32_T,
         time.key,
         false);
     ASSERT_FALSE(dErr) << dErr.message();
@@ -118,19 +118,19 @@ TEST(read_tests, one_digital_channel) {
 TEST(read_tests, multiple_digital_channels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("di", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("di", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create("di2", telem::FLOAT32, time.key, false);
+    auto [data1, dErr2] = client->channels.create("di2", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create("di3", telem::FLOAT32, time.key, false);
+    auto [data2, dErr3] = client->channels.create("di3", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create("di4", telem::FLOAT32, time.key, false);
+    auto [data3, dErr4] = client->channels.create("di4", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
     auto config = json{

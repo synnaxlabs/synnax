@@ -22,7 +22,7 @@ TEST(TestChannel, testCreate) {
     const auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         1 * telem::HZ);
     ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(channel.name, "test");
@@ -35,7 +35,7 @@ TEST(TestChannel, testCreateValidation) {
     const auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "validation",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         0,
         true);
     ASSERT_TRUE(err) << err.message();
@@ -47,13 +47,13 @@ TEST(TestChannel, testCreateIndex) {
     auto client = new_test_client();
     auto [index, err] = client.channels.create(
         "test",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true);
     ASSERT_FALSE(err) << err.message();
     auto [indexed, err2] = client.channels.create(
         "test",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         index.key,
         false);
     ASSERT_FALSE(err2) << err2.message();
@@ -65,7 +65,7 @@ TEST(TestChannel, testCreateIndex) {
 }
 
 TEST(TestChannel, testCreateVirtual) {
-    auto ch = synnax::Channel("test", telem::FLOAT64, true);
+    auto ch = synnax::Channel("test", telem::FLOAT64_T, true);
     auto client = new_test_client();
     auto err = client.channels.create(ch);
     ASSERT_FALSE(err) << err.message();
@@ -78,9 +78,9 @@ TEST(TestChannel, testCreateVirtual) {
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
-        {"test1", telem::FLOAT64, 2 * telem::HZ},
-        {"test2", telem::FLOAT64, 4 * telem::HZ},
-        {"test3", telem::FLOAT64, 8 * telem::HZ}
+        {"test1", telem::FLOAT64_T, 2 * telem::HZ},
+        {"test2", telem::FLOAT64_T, 4 * telem::HZ},
+        {"test3", telem::FLOAT64_T, 8 * telem::HZ}
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
@@ -93,7 +93,7 @@ TEST(TestChannel, testRetrieve) {
     auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         telem::Rate(1));
     ASSERT_FALSE(err) << err.message();
     auto [retrieved, err2] = client.channels.retrieve(channel.key);
@@ -121,10 +121,10 @@ TEST(TestChannel, testRetrieveByName) {
     auto rand_name = std::to_string(gen_rand());
     auto [channel, err] = client.channels.create(
         rand_name,
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         telem::Rate(1));
     ASSERT_FALSE(err) << err.message();
-    auto ch = synnax::Channel("test", telem::FLOAT64, true);
+    auto ch = synnax::Channel("test", telem::FLOAT64_T, true);
     auto [retrieved, err2] = client.channels.retrieve(rand_name);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(channel.name, retrieved.name);
@@ -148,9 +148,9 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
-        {"test1", telem::FLOAT64, 5 * telem::HZ},
-        {"test2", telem::FLOAT64, 10 * telem::HZ},
-        {"test3", telem::FLOAT64, 20 * telem::HZ}
+        {"test1", telem::FLOAT64_T, 5 * telem::HZ},
+        {"test2", telem::FLOAT64_T, 10 * telem::HZ},
+        {"test3", telem::FLOAT64_T, 20 * telem::HZ}
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     auto [retrieved, exc] = client.channels.retrieve(synnax::keys_from_channels(channels));
@@ -189,12 +189,12 @@ TEST(TestChannel, testRetrieveManySameName) {
     auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         telem::Rate(1));
     ASSERT_FALSE(err) << err.message();
     auto [channel2, err2] = client.channels.create(
         "test",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         telem::Rate(1));
     ASSERT_FALSE(err2) << err2.message();
     auto [retrieved, err3] = client.channels.retrieve("test");

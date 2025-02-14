@@ -114,7 +114,7 @@ private:
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
 template<typename... Channels>
-inline std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
+std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
     std::vector<ChannelKey> keys;
     keys.reserve(sizeof...(channels));
     ((keys.push_back(channels.key)), ...);
@@ -128,6 +128,14 @@ keys_from_channels(const std::vector<Channel>& channels) {
     keys.reserve(channels.size());
     for (const auto& channel : channels) keys.push_back(channel.key);
     return keys;
+}
+
+inline std::unordered_map<ChannelKey, Channel> channel_keys_map(
+    const std::vector<Channel> &channels) {
+    std::unordered_map<ChannelKey, Channel> map;
+    map.reserve(channels.size());
+    for (const auto &channel : channels) map[channel.key] = channel;
+    return map;
 }
 
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.

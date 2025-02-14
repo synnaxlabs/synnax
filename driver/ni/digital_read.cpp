@@ -152,13 +152,13 @@ std::pair<synnax::Frame, xerrors::Error> ni::DigitalReadSource::read(
     for (int i = 0; i < num_channels; i++) {
         if (!this->reader_config.channels[i].enabled) continue;
         if (this->reader_config.channels[i].channel_type == "index") {
-            auto t = telem::Series(telem::TIMESTAMP, this->num_samples_per_channel);
+            auto t = telem::Series(telem::TIMESTAMP_T, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
             f.emplace(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
-        auto series = telem::Series(telem::SY_UINT8, d.samples_read_per_channel);
+        auto series = telem::Series(telem::UINT8_T, d.samples_read_per_channel);
 
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write(d.digital_data[data_index + j]);
@@ -180,7 +180,7 @@ int ni::DigitalReadSource::validate_channels() {
         }
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != telem::SY_UINT8) {
+        if (channel_info.data_type != telem::UINT8_T) {
             this->log_error("Channel " + channel.name + " is not of type SY_UINT8");
             this->ctx->set_state({
                 .task = task.key,

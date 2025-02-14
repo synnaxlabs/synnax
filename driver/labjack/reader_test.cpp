@@ -27,10 +27,10 @@ using json = nlohmann::json;
 TEST(read_tests, labjack_t4) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto config = json{
@@ -69,13 +69,13 @@ TEST(read_tests, labjack_t4) {
 TEST(read_tests, labjack_t4_multi_ain) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data1, dErr1] = client->channels.create("ai_1", telem::FLOAT32, time.key, false);
+    auto [data1, dErr1] = client->channels.create("ai_1", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr1) << dErr1.message();
 
-    auto [data2, dErr2] = client->channels.create("ai_2", telem::FLOAT32, time.key, false);
+    auto [data2, dErr2] = client->channels.create("ai_2", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr2) << dErr2.message();
 
 
@@ -128,16 +128,16 @@ TEST(read_tests, labjack_t4_multi_ain) {
 TEST(read_tests, labjack_t4_ai_fio) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data1, dErr1] = client->channels.create("ai_1", telem::FLOAT32, time.key, false);
+    auto [data1, dErr1] = client->channels.create("ai_1", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr1) << dErr1.message();
 
-    auto [data2, dErr2] = client->channels.create("ai_2", telem::FLOAT32, time.key, false);
+    auto [data2, dErr2] = client->channels.create("ai_2", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr2) << dErr2.message();
 
-    auto [data3, dErr3] = client->channels.create("di", telem::SY_UINT8, time.key, false);
+    auto [data3, dErr3] = client->channels.create("di", telem::UINT8_T, time.key, false);
     ASSERT_FALSE(dErr3) << dErr3.message();
 
     auto config = json{
@@ -202,10 +202,10 @@ TEST(read_tests, labjack_scan_and_read) {
     auto scanner = labjack::ScannerTask::configure(scanner_mock_ctx, scan_task);
     ///////////////////////////////////////////////////////////////////////////////
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto config = json{
@@ -244,10 +244,10 @@ TEST(read_tests, labjack_scan_and_read) {
 TEST(read_tests, labjack_t4_read_and_write) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     //    auto [data, dErr3] = client->channels.create("di", telem::SY_UINT8, time.key, false);
@@ -296,16 +296,16 @@ TEST(read_tests, labjack_t4_read_and_write) {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////// WRITE TASK
-    auto [state_idx, tErr1] = client->channels.create("do_state_idx", telem::TIMESTAMP, 0, true);
+    auto [state_idx, tErr1] = client->channels.create("do_state_idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", telem::TIMESTAMP, 0, true);
+    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr2) << tErr2.message();
 
-    auto [state, aErr] = client->channels.create("do_state", telem::SY_UINT8, state_idx.key, false);
+    auto [state, aErr] = client->channels.create("do_state", telem::UINT8_T, state_idx.key, false);
     ASSERT_FALSE(aErr) << aErr.message();
 
-    auto [cmd, cErr] = client->channels.create("do_cmd", telem::SY_UINT8, cmd_idx.key, false);
+    auto [cmd, cErr] = client->channels.create("do_cmd", telem::UINT8_T, cmd_idx.key, false);
     ASSERT_FALSE(cErr) << cErr.message();
 
     auto writer_config = json{
@@ -351,10 +351,10 @@ signal
 TEST(read_tests, labjack_t7_tc) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto config = json{
@@ -417,13 +417,13 @@ TEST(read_tests, labjack_t7_tc) {
 TEST(read_tests, labjack_t7_tc_and_ain) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP, 0, true);
+    auto [time, tErr] = client->channels.create("idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr) << tErr.message();
 
-    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32, time.key, false);
+    auto [data, dErr] = client->channels.create("ai", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data2, dErr2] = client->channels.create("tc", telem::FLOAT32, time.key, false);
+    auto [data2, dErr2] = client->channels.create("tc", telem::FLOAT32_T, time.key, false);
     ASSERT_FALSE(dErr2) << dErr2.message();
 
     auto config = json{

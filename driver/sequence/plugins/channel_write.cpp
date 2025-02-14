@@ -14,64 +14,64 @@ telem::Series lua_to_series(
     const int index,
     const synnax::Channel &ch
 ) {
-    if (ch.data_type == telem::FLOAT32)
+    if (ch.data_type == telem::FLOAT32_T)
         return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::FLOAT64)
+    if (ch.data_type == telem::FLOAT64_T)
         return telem::Series(
             lua_tonumber(L, index),
             ch.data_type
         );
-    if (ch.data_type == telem::INT8)
+    if (ch.data_type == telem::INT8_T)
         return telem::Series(
             static_cast<int8_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT16)
+    if (ch.data_type == telem::INT16_T)
         return telem::Series(
             static_cast<int16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT32)
+    if (ch.data_type == telem::INT32_T)
         return telem::Series(
             static_cast<int32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT64)
+    if (ch.data_type == telem::INT64_T)
         return telem::Series(
             lua_tointeger(L, index),
             ch.data_type
         );
-    if (ch.data_type == telem::SY_UINT8)
+    if (ch.data_type == telem::UINT8_T)
         return telem::Series(
             static_cast<uint8_t>(lua_isnumber(L, index)
                                      ? lua_tonumber(L, index)
                                      : lua_toboolean(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::SY_UINT16)
+    if (ch.data_type == telem::UINT16_T)
         return telem::Series(
             static_cast<uint16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::UINT32)
+    if (ch.data_type == telem::UINT32_T)
         return telem::Series(
             static_cast<uint32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::UINT64)
+    if (ch.data_type == telem::UINT64_T)
         return telem::Series(
             static_cast<uint64_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::STRING)
+    if (ch.data_type == telem::STRING_T)
         return telem::Series(
             std::string(lua_tostring(L, index)),
-            telem::STRING
+            telem::STRING_T
         );
-    if (ch.data_type == telem::FLOAT32)
+    if (ch.data_type == telem::FLOAT32_T)
         return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type

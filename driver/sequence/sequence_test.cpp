@@ -49,7 +49,7 @@ TEST(Sequence, basic) {
     synnax::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
-    read_channel.data_type = telem::FLOAT64;
+    read_channel.data_type = telem::FLOAT64_T;
     auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
@@ -73,7 +73,7 @@ TEST(Sequence, basic) {
     synnax::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
-    write_channel.data_type = telem::FLOAT64;
+    write_channel.data_type = telem::FLOAT64_T;
     auto mock_sink = std::make_shared<MockSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
         mock_sink, std::vector{write_channel});

@@ -1,0 +1,20 @@
+cc_library(
+    name = "xlua",
+    hdrs = ["xlua.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@lua",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "test_xlua",
+    srcs = ["xlua_test.cpp"],
+    deps = [
+        "//x/cpp/xlua",
+        "@com_google_googletest//:gtest",
+    ],
+)

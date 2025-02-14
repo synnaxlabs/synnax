@@ -35,7 +35,7 @@ namespace labjack {
 struct out_state {
     std::string location = "";
     double state = 0.0;
-    telem::DataType data_type = telem::FLOAT64;
+    telem::DataType data_type = telem::FLOAT64_T;
     synnax::ChannelKey state_key = 0;
 };
 

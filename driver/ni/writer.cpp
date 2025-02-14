@@ -536,13 +536,13 @@ xerrors::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
             const auto &series = frame.series->at(frame_index);
             double value = 0.0;
 
-            if (series.data_type == telem::FLOAT32) {
+            if (series.data_type == telem::FLOAT32_T) {
                 value = series.at<float>(0);
-            } else if (series.data_type == telem::FLOAT64) {
+            } else if (series.data_type == telem::FLOAT64_T) {
                 value = series.at<double>(0);
-            } else if (series.data_type == telem::INT32) {
+            } else if (series.data_type == telem::INT32_T) {
                 value = static_cast<double>(series.at<int32_t>(0));
-            } else if (series.data_type == telem::SY_UINT8) {
+            } else if (series.data_type == telem::UINT8_T) {
                 value = static_cast<double>(series.at<uint8_t>(0));
             } else {
                 return xerrors::NIL;
