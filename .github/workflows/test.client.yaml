@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - rc
-      - sy-2071-add-linter-in-ci
+      # - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
