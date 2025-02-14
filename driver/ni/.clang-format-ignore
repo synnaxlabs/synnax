@@ -1,0 +1,4 @@
+nisyscfg/nisyscfg.h
+nisyscfg/nisyscfg_errors.h
+nidaqmx/nidaqmx.h
+nisyscfg_wide.h
