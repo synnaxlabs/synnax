@@ -58,7 +58,11 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
     std::lock_guard lock(this->receiver.mu);
     for (int i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
-        this->receiver.latest_values[key] = frame.series->at(i).at(-1);
+        if (!frame.series->at(i).empty())
+            this->receiver.latest_values[key] = {
+                frame.series->at(i).at(-1),
+                true
+            };
     }
     return xerrors::NIL;
 }
@@ -67,7 +71,8 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
 /// on every sequence iteration.
 xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
     std::lock_guard lock(this->mu);
-    for (const auto &[key, value]: this->latest_values) {
+    for (const auto &[key, latest]: this->latest_values) {
+        if (!latest.changed) continue;
         const auto res = this->channels.find(key);
         if (res == this->channels.end()) {
             LOG(WARNING) <<
@@ -76,8 +81,13 @@ xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
             continue;
         }
         const auto ch = res->second;
-        if (const auto err = xlua::set_global_sample_value(L, ch.name, ch.data_type, value))
-            LOG(WARNING) << "[sequence.plugins.channel_receive] failed to set global sample value. using nil instead: " << err;
+        if (const auto err = xlua::set_global_sample_value(
+            L, ch.name, ch.data_type, latest.value)) {
+            LOG(WARNING) <<
+                    "[sequence.plugins.channel_receive] failed to set global sample value. using nil instead: "
+                    << err;
+        }
+        this->latest_values[key].changed = false;
     }
     return xerrors::NIL;
 }

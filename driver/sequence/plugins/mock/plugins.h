@@ -22,8 +22,10 @@
 namespace plugins::mock {
 class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
 public:
-    std::vector<std::pair<std::vector<synnax::ChannelKey>, std::vector<
-        synnax::Authority> > > authority_calls;
+    std::vector<std::pair<
+        std::vector<synnax::ChannelKey>,
+        std::vector<synnax::Authority>
+    > > authority_calls;
 
     xerrors::Error write(const synnax::Frame &frame) override {
         return pipeline::mock::Sink::write(frame);

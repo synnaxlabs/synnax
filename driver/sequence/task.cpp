@@ -32,7 +32,7 @@ sequence::Task::Task(
 }
 
 void sequence::Task::run() {
-    if (const auto err = this->seq->start(); err) {
+    if (const auto err = this->seq->begin(); err) {
         this->state.variant = "error";
         this->state.details["running"] = false;
         this->state.details["message"] = err.message();

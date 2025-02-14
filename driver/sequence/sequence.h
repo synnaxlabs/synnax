@@ -86,7 +86,7 @@ public:
 
     /// @brief starts the sequence, initializing all plugins. Note that this function
     /// does not actually run the sequence, but prepares it for execution.
-    [[nodiscard]] xerrors::Error start();
+    [[nodiscard]] xerrors::Error begin();
 
     /// @brief executes the next iteration in the sequence.
     [[nodiscard]] xerrors::Error next() const;

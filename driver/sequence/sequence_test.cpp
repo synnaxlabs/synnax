@@ -57,7 +57,7 @@ TEST(Sequence, basic) {
     )";
 
     auto seq = sequence::Sequence(plugins, script);
-    const auto start_err = seq.start();
+    const auto start_err = seq.begin();
 
     ASSERT_FALSE(start_err) << start_err;
     const auto next_err = seq.next();

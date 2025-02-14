@@ -273,7 +273,7 @@ xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
     for (const auto key: *this->frame.channels) {
         auto it = this->channels.find(key);
         if (it == this->channels.end())
-            return xerrors::Error(xerrors::NOT_FOUND, "Channel not found");
+            return xerrors::Error(xerrors::NOT_FOUND, "channel not found");
         synnax::Channel ch = it->second;
         if (!ch.is_virtual) index_keys.push_back(ch.index);
     }

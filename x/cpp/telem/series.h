@@ -113,6 +113,8 @@ private:
 public:
     [[nodiscard]] size_t size() const { return size_; }
 
+    [[nodiscard]] bool empty() const { return size_ == 0; }
+
     /// @brief move constructor.
     Series(Series &&other) noexcept:
         data_type(other.data_type),
