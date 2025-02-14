@@ -19,6 +19,7 @@ import { controlNav } from "@/pages/reference/control/_nav";
 import { deviceDriversNav } from "@/pages/reference/device-drivers/_nav";
 import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
+import { plutoNav } from "@/pages/reference/pluto/_nav";
 
 export const componentsPages = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
@@ -29,6 +30,7 @@ export const componentsPages = [
   controlNav,
   consoleNav,
   deviceDriversNav,
+  plutoNav,
 ];
 
 export const guidesPages = [
