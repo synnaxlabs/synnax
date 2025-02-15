@@ -25,3 +25,7 @@ func ShouldNotLeakGoroutines() {
 func ShouldNotLeakGoroutinesDuringEach() {
 	BeforeEach(func() { ShouldNotLeakGoroutines() })
 }
+
+func ShouldNotLeakRoutinesJustBeforeEach() {
+	JustBeforeEach(func() { ShouldNotLeakGoroutines() })
+}
