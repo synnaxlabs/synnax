@@ -63,7 +63,7 @@ jobs:
   test:
     name: Test Driver
     runs-on: ${{ matrix.os }}
-    needs: changes
+    needs: server
     if: needs.changes.outputs.cpp == 'true'
     services:
       synnax:
@@ -81,7 +81,7 @@ jobs:
           - 9090:9090
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [ubuntu-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
