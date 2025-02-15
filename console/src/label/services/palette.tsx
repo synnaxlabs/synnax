@@ -16,7 +16,7 @@ const EDIT_COMMAND: Palette.Command = {
   key: "edit-labels",
   name: "Edit Labels",
   icon: <Icon.Label />,
-  onSelect: ({ placeLayout }) => placeLayout(Label.createEditLayout()),
+  onSelect: ({ placeLayout }) => placeLayout(Label.EDIT_LAYOUT),
 };
 
 export const COMMANDS = [EDIT_COMMAND];

@@ -80,18 +80,14 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
 
 export const EDIT_LAYOUT_TYPE = "editLabels";
 
-export const createEditLayout = (): Layout.State => ({
+export const EDIT_LAYOUT: Layout.BaseState = {
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
-  windowKey: EDIT_LAYOUT_TYPE,
-  name: "Edit Labels",
+  name: "Labels.Edit",
   location: "modal",
   icon: "Label",
-  window: {
-    size: { height: 800, width: 500 },
-    navTop: true,
-  },
-});
+  window: { navTop: true, size: { height: 800, width: 500 } },
+};
 
 const listItem = componentRenderProp(LabelListItem);
 
