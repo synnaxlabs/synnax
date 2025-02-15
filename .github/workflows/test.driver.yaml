@@ -1,6 +1,5 @@
 name: Test - Driver
-
-on:
+n:
   push:
     branches:
       - main
@@ -10,6 +9,9 @@ on:
       - main
       - rc
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
   changes:
     name: Changes
