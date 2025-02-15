@@ -114,7 +114,7 @@ public:
     /// @brief sets the authority of the channels being written to.
     virtual xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) = 0;
 
     [[nodiscard]] virtual xerrors::Error close() { return xerrors::NIL; }
@@ -140,7 +140,7 @@ public:
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;

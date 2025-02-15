@@ -139,22 +139,25 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             };
             return nullptr;
         }
-        for (const auto &ch: write_channels) 
-            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(), ch.index) == cfg.write.end())
+        for (const auto &ch: write_channels)
+            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(),
+                                            ch.index) == cfg.write.end())
                 cfg.write.push_back(ch.index);
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
-            .authorities = {100},
-            .subject = synnax::ControlSubject{
+            .authorities = {cfg.authority},
+            .subject = telem::ControlSubject{
                 .name = task.name,
                 .key = std::to_string(task.key),
             }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
-        auto ch_write_plugin = std::make_shared<
-            plugins::ChannelWrite>(sink, write_channels);
+        auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
+            sink,
+            write_channels
+        );
         plugins_list.push_back(ch_write_plugin);
     }
 

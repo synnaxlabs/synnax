@@ -33,8 +33,7 @@ class Parser {
     std::string path_prefix;
     /// @brief noop means the parser should fail fast.
     bool noop = false;
-    /// @brief the current list of accumulated errors.
-    std::shared_ptr<std::vector<json> > errors;
+
 
     Parser(
         json config,
@@ -66,6 +65,8 @@ class Parser {
         }
     }
 public:
+    /// @brief the current list of accumulated errors.
+    std::shared_ptr<std::vector<json> > errors;
 
     /// @brief constructs a parser for accessing values on the given JSON configuration.
     explicit Parser(json config) : errors(std::make_shared<std::vector<json> >()),

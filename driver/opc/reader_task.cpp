@@ -181,7 +181,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto writer_cfg = synnax::WriterConfig{
         .channels = channel_keys,
         .start = telem::TimeStamp::now(),
-        .subject = synnax::ControlSubject{
+        .subject = telem::ControlSubject{
             .name = task.name,
             .key = std::to_string(task.key)
         },

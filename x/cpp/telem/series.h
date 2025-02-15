@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <string>
 #include <vector>
-#include <variant>
 
 /// external
 #include "nlohmann/json.hpp"

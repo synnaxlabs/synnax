@@ -24,7 +24,7 @@ class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
 public:
     std::vector<std::pair<
         std::vector<synnax::ChannelKey>,
-        std::vector<synnax::Authority>
+        std::vector<telem::Authority>
     > > authority_calls;
 
     xerrors::Error write(const synnax::Frame &frame) override {
@@ -33,7 +33,7 @@ public:
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) override {
         this->authority_calls.emplace_back(keys, authorities);
         return xerrors::NIL;

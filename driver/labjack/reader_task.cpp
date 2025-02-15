@@ -81,7 +81,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto parser = xjson::Parser(task.config);
     ReaderConfig reader_config(parser);
 
-    auto control_subject = synnax::ControlSubject{
+    auto control_subject = telem::ControlSubject{
             .name = task.name,
             .key =  task.name + "-" +  std::to_string(task.key)
     };

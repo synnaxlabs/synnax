@@ -79,7 +79,7 @@ int cmd::sub::login(xargs::Parser &args) {
     }
 
     LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
-    synnax::Synnax client(config);
+    const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << xlog::RED << "failed to authenticate: " << err << xlog::RESET;
         return 1;

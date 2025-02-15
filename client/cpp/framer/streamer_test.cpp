@@ -36,8 +36,8 @@ TEST(FramerTests, testStreamBasic) {
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        {synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        {telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
@@ -76,8 +76,8 @@ TEST(FramerTests, testStreamSetChannels) {
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         {data.key},
         now,
-        {synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        {telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
@@ -158,8 +158,8 @@ void test_downsample(
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        std::vector{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        std::vector{telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
@@ -206,8 +206,8 @@ void test_downsample_string(
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
-        std::vector{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        std::vector{telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 

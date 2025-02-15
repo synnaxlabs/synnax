@@ -364,7 +364,7 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 			delete(t.mu.Racks, c.Key)
 		} else {
 			if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
-				t.mu.Racks[c.Key] = &RackState{Key: c.Key, Tasks: make(map[task.Key]task.State)}
+				t.mu.Racks[c.Key] = &RackState{Key: c.Key, Tasks: make(map[task.Key]task.State), LastReceived: telem.Now()}
 			}
 		}
 	}

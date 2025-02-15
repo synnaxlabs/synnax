@@ -232,11 +232,11 @@ struct WriterConfig {
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
     /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
-    std::vector<synnax::Authority> authorities;
+    std::vector<telem::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and name
     /// will be used to identify the writer in control transfer scenarios.
-    synnax::ControlSubject subject;
+    telem::ControlSubject subject;
 
     /// @brief sets whether the writer is configured to persist data, stream it, or both.
     /// Options are:
@@ -302,7 +302,7 @@ public:
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] bool set_authority(const synnax::Authority &auth);
+    [[nodiscard]] bool set_authority(const telem::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority level. 
     /// This does not affect the authority levels of any other channels in the writer.
@@ -311,7 +311,7 @@ public:
     /// @param authority the authority level to set the channel to.
     [[nodiscard]] bool set_authority(
         const ChannelKey &key,
-        const synnax::Authority &authority
+        const telem::Authority &authority
     );
 
     /// @brief changes the authority of the given channels to the given authority levels.
@@ -320,7 +320,7 @@ public:
     /// @param authorities the authority levels to set the channels to.
     [[nodiscard]] bool set_authority(
         const std::vector<ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called

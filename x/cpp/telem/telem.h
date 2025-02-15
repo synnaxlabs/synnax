@@ -9,6 +9,7 @@
 
 #pragma once
 
+/// std
 #include <chrono>
 #include <cstdint>
 #include <string>
@@ -16,6 +17,7 @@
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
+#include <variant>
 
 namespace telem {
 // private namespace for internal constants
