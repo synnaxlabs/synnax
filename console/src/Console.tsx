@@ -48,6 +48,7 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
+  ...Channel.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -56,7 +57,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Hardware.LAYOUTS,
   ...Range.LAYOUTS,
   ...Cluster.LAYOUTS,
-  ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
   ...Modals.LAYOUTS,
   ...Label.LAYOUTS,

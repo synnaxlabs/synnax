@@ -29,10 +29,9 @@ import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
 
-export const CREATE_LAYOUT: Layout.State = {
+export const CREATE_LAYOUT: Layout.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  windowKey: CREATE_LAYOUT_TYPE,
   name: "Channel.Create",
   icon: "Channel",
   location: "modal",
@@ -82,7 +81,7 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   requires: [],
 };
 
-export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
+export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use<Schema>({
     schema: createFormSchema,
