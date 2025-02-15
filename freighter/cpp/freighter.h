@@ -37,6 +37,8 @@ struct URL {
     /// @brief Supplementary path information.
     std::string path;
 
+    URL() = default;
+
     /// @brief Creates a URL with the given IP, port, and path.
     URL(std::string ip, std::uint16_t port, const std::string &path);
 
