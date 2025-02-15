@@ -39,14 +39,15 @@ public:
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        timer.wait(breaker);
-        const auto heartbeat = static_cast<std::uint64_t>(rack_key) << 32 | version;
-        version++;
+        this->timer.wait(breaker);
+        const auto heartbeat = static_cast<std::uint64_t>(this->rack_key) << 32 | this->
+                               version;
+        this->version++;
         return {Frame(key, telem::Series(heartbeat)), xerrors::NIL};
     }
 };
 
-/// @brief periodically sends an incremented version number and rack key to the cluster
+/// @brief a task that periodically
 /// to indicate that the driver is still alive.
 class Heartbeat final : public task::Task {
     pipeline::Acquisition pipe;
@@ -57,8 +58,12 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ) : pipe(pipeline::Acquisition(ctx->client, writer_config, std::move(source),
-                                   breaker_config)) {
+    ) : pipe(pipeline::Acquisition(
+        ctx->client,
+        writer_config,
+        std::move(source),
+        breaker_config
+    )) {
         pipe.start();
     }
 
@@ -83,7 +88,7 @@ public:
         );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
-            .start =  telem::TimeStamp::now(),
+            .start = telem::TimeStamp::now(),
         };
         auto breaker_config = breaker::default_config(task.name);
         return std::make_unique<Heartbeat>(ctx, source, writer_cfg, breaker_config);

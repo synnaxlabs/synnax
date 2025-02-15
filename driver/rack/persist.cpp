@@ -90,7 +90,7 @@ xerrors::Error rack::Config::save_conn_params(
 }
 
 xerrors::Error rack::Config::save_remote_info(
-    int argc,
+    const int argc,
     char **argv,
     const RemoteInfo &remote_info
 ) {

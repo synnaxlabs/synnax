@@ -74,6 +74,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		Signals:         cfg.Signals,
 		HostProvider:    cfg.HostProvider,
 		Channels:        cfg.Channel,
+		Framer:          cfg.Framer,
 	})
 	if err != nil {
 		return nil, err

@@ -96,7 +96,7 @@ type Config struct {
 	Signals *signals.Provider
 	// Channels is used to create channels for the tracker service.
 	// [REQUIRED]
-	Channels channel.ReadWriteable
+	Channels channel.Writeable
 	// HostProvider returns information about the cluster host.
 	// [REQUIRED]
 	HostProvider dcore.HostProvider

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -52,6 +53,7 @@ type Config struct {
 	Signals *signals.Provider
 	// Channel
 	Channel channel.Writeable
+	Framer  *framer.Service
 }
 
 var (
@@ -71,6 +73,7 @@ func (c Config) Override(other Config) Config {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
 	return c
 }
 
@@ -81,6 +84,9 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "host", c.HostProvider)
+	validate.NotNil(v, "signals", c.Signals)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
 	return v.Error()
 }
 
