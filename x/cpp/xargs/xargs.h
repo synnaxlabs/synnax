@@ -22,9 +22,11 @@ namespace xargs {
 class Parser {
     template<typename... Args>
     std::pair<std::string, bool> find_arg(const Args&... names) {
-        for (size_t i = 1; i < argv_.size(); i++) 
-            if ((... || (argv_[i].compare(names) == 0)))
-                return {argv_[i + 1], true};
+        for (size_t i = 0; i < argv_.size(); i++) {
+            if ((... || (argv_[i] == names)))
+                if (i + 1 < argv_.size())
+                    return {argv_[i + 1], true};
+        }
         return {"", false};
     }
 
@@ -61,6 +63,16 @@ class Parser {
         return parse_value<T>(value, name, error_msg);
     }
 
+    // Add a new helper method for flag checking
+    template<typename... Args>
+    bool has_arg(const Args&... names) {
+        for (const auto& arg : argv_) {
+            if ((... || (arg == names)))
+                return true;
+        }
+        return false;
+    }
+
 public:
     std::vector<std::string> argv_;
     std::vector<xerrors::Error> errors;
@@ -79,16 +91,22 @@ public:
     }
 
     template<typename T>
-    T optional(const std::string& name, T default_value) {
+    T optional(const std::string& name, const T& default_value) {
         const auto [value, found] = find_arg(name);
         if (!found) return default_value;
         return parse_value<T>(value, name, "Invalid value");
     }
 
+    std::string optional(const std::string& name, const char* default_value) {
+        const auto [value, found] = find_arg(name);
+        if (!found) return std::string(default_value);
+        return value;
+    }
+
     template<typename... Args>
     [[nodiscard]] bool flag(const Args&... names) {
-        const auto [value, found] = find_arg(names...);
-        return found;
+        // Just check if the flag exists, don't look for a value after it
+        return has_arg(names...);
     }
 
     [[nodiscard]] xerrors::Error error() const {
