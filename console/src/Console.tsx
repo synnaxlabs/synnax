@@ -26,7 +26,7 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
+import { Error } from "@/error";
 import { Hardware } from "@/hardware";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -150,9 +150,9 @@ const MainUnderContext = (): ReactElement => {
 };
 
 export const Console = (): ReactElement => (
-  <ErrorOverlayWithoutStore>
+  <Error.OverlayWithoutStore>
     <Provider store={store}>
-      <ErrorOverlayWithStore>
+      <Error.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
@@ -160,7 +160,7 @@ export const Console = (): ReactElement => (
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
-      </ErrorOverlayWithStore>
+      </Error.OverlayWithStore>
     </Provider>
-  </ErrorOverlayWithoutStore>
+  </Error.OverlayWithoutStore>
 );
