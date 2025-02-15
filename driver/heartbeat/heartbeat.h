@@ -104,8 +104,8 @@ public:
             synnax::task_key_rack(task.key)
         );
         auto writer_cfg = synnax::WriterConfig{
-            .start = telem::TimeStamp::now(),
             .channels = {ch.key},
+            .start = telem::TimeStamp::now(),
         };
         auto breaker_config = breaker::default_config(task.name);
         return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);

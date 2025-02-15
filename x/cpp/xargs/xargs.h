@@ -121,12 +121,6 @@ public:
         }
         return argv_[index];
     };
-
-    template<>
-    std::string required<std::string>(const std::string& name);
-
-    template<>
-    bool required<bool>(const std::string& name);
 };
 
 template<>
