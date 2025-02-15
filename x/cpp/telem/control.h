@@ -15,8 +15,7 @@
 
 namespace synnax {
 typedef std::uint8_t Authority;
-
-const Authority AUTH_ABSOLUTE = 255;
+constexpr Authority AUTH_ABSOLUTE = 255;
 
 struct ControlSubject {
     std::string name;

@@ -81,7 +81,7 @@ typedef freighter::UnaryClient<
 typedef std::uint32_t RackKey;
 typedef std::uint64_t TaskKey;
 
-inline TaskKey createTaskKey(const RackKey rack, const TaskKey task) {
+inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
     return static_cast<TaskKey>(rack) << 32 | task;
 }
 

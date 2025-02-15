@@ -20,15 +20,54 @@
 /// protos
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
-///// @brief create basic int series.
-TEST(TestSeries, testConstruction) {
-    const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
-    const telem::Series s{vals};
-    ASSERT_EQ(s.data_type, telem::UINT8_T);
-    const auto v = s.values<std::uint8_t>();
-    ASSERT_EQ(v.size(), vals.size());
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v[i], vals[i]);
+
+template<typename T>
+class NumericSeriesTest : public ::testing::Test {
+protected:
+    void validate_construction(
+        const std::vector<T> &vals,
+        const telem::DataType &expected_type
+    ) {
+        const telem::Series s{vals};
+        ASSERT_EQ(s.data_type, expected_type);
+        const auto v = s.values<T>();
+        ASSERT_EQ(v.size(), vals.size());
+        for (size_t i = 0; i < vals.size(); i++)
+            ASSERT_EQ(v[i], vals[i]);
+    }
+
+    void validate_single_value_construction(const T value) {
+        const auto s = telem::Series(value);
+        ASSERT_EQ(s.data_type, telem::DataType::infer<T>());
+        ASSERT_EQ(s.size(), 1);
+        ASSERT_EQ(s.byte_size(), sizeof(T));
+        const auto v = s.values<T>();
+        ASSERT_EQ(v[0], value);
+        ASSERT_EQ(s.at<T>(0), value);
+    }
+};
+
+using NumericTypes = ::testing::Types<
+    uint8_t, uint16_t, uint32_t, uint64_t,
+    int8_t, int16_t, int32_t, int64_t,
+    float, double>;
+
+TYPED_TEST_SUITE(NumericSeriesTest, NumericTypes);
+
+TYPED_TEST(NumericSeriesTest, test_construction) {
+    std::vector<TypeParam> vals;
+    if constexpr (std::is_floating_point_v<TypeParam>)
+        vals = {1.0, 2.0, 3.0, 4.0, 5.0};
+     else
+        vals = {1, 2, 3, 4, 5};
+    this->validate_construction(vals, telem::DataType::infer<TypeParam>());
+}
+
+TYPED_TEST(NumericSeriesTest, test_single_value_construction) {
+    if constexpr (std::is_floating_point_v<TypeParam>)
+        this->validate_single_value_construction(TypeParam{1.0});
+    else
+        this->validate_single_value_construction(TypeParam{1});
 }
 
 //// @brief it should correctly initialize and parse a string series.
@@ -95,6 +134,17 @@ TEST(TestSeries, testProto) {
     delete s2;
 }
 
+TEST(TestSeries, testConstructionSingleValue) {
+    const std::uint64_t value = 1;
+    const auto s = telem::Series(value);
+    ASSERT_EQ(s.data_type, telem::UINT64_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.byte_size(), 8);
+    const auto v = s.values<std::uint64_t>();
+    ASSERT_EQ(v[0], 1);
+    ASSERT_EQ(s.at<std::uint64_t>(0), value);
+}
+
 TEST(TestSeries, testProtoVariable) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const telem::Series s{vals};
@@ -118,7 +168,7 @@ TEST(TestSeries, testAtFixed) {
     ASSERT_EQ(s.at<uint8_t>(4), 5);
 }
 
-/// @brief it should correclty return the value at a particular index for a variable
+/// @brief it should correctly return the value at a particular index for a variable
 /// length data type.
 TEST(TestSeries, testAtVar) {
     const std::vector<std::string> vals = {"hello", "world"};

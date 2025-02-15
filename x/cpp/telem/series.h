@@ -476,7 +476,7 @@ public:
     }
 
     template<typename T>
-    [[nodiscard]] T operator[](const int &index) { return this->at(index); }
+    [[nodiscard]] T operator[](int index) { return this->at(index); }
 
     /// @returns the value at the given index.
     [[nodiscard]] SampleValue at(const int &index) const {
