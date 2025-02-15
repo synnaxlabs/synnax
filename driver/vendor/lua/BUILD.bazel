@@ -1,6 +1,9 @@
 cc_library(
     name = "lua",
-    srcs = glob(["src/*.c"]),
+    srcs = glob(
+        ["src/*.c"],
+        exclude = ["src/lua.c", "src/luac.c"]
+    ),
     hdrs = glob(["src/*.h"]),
     copts = select({
         "@platforms//os:windows": [

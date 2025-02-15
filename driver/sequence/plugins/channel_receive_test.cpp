@@ -41,10 +41,3 @@ TEST(ChannelReceive, Basic) {
     lua_close(L);
     plugin.after_all(L);
 }
-
-// We need to explicitly define a main function here instead of using gtest_main
-// because otherwise the lua interpreters main function will get executed instead.
-int main(int argc, char** argv) {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

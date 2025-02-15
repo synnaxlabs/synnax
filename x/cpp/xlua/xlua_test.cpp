@@ -521,8 +521,3 @@ TEST_F(XLuaTest, SetGlobalTelemJsonInvalid) {
     EXPECT_TRUE(lua_isnil(L, -1));
     lua_pop(L, 1);
 }
-
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
