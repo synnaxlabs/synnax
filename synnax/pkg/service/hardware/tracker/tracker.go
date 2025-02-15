@@ -12,6 +12,7 @@ package tracker
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -311,15 +312,15 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			}
 		} else {
 			rackKey := c.Key.Rack()
-			rck, rckOk := t.mu.Racks[rackKey]
+			rackState, rckOk := t.mu.Racks[rackKey]
 			if !rckOk {
-				rck = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.State)}
-				t.mu.Racks[rackKey] = rck
+				rackState = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+				t.mu.Racks[rackKey] = rackState
 			}
-			if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-				rck.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.InfoStateVariant}
+			if _, taskOk := rackState.Tasks[c.Key]; !taskOk {
+				rackState.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.InfoStateVariant}
 			}
-			alive := rck.Alive(t.cfg.RackStateAliveThreshold)
+			alive := rackState.Alive(t.cfg.RackStateAliveThreshold)
 			if !rckOk || !alive {
 				state := task.State{
 					Task:    c.Key,
@@ -328,6 +329,19 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						"message": "rack is not alive",
 						"running": false,
 					}),
+				}
+				if rckOk {
+					var rck rack.Rack
+					if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
+						WhereKeys(rackKey).
+						Entry(&rck).
+						Exec(ctx, t.cfg.DB); err != nil {
+						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+					}
+					state.Details = task.NewStaticDetails(map[string]interface{}{
+						"running": "false",
+						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived)),
+					})
 				}
 				t.taskStateWriter.Inlet() <- framer.WriterRequest{
 					Command: writer.Data,

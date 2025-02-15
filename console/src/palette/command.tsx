@@ -48,6 +48,7 @@ export interface CommandSelectionContext {
   handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
   extractors: Record<string, Export.Extractor>;
+  rename: Modals.PromptRename;
 }
 
 export interface Command {

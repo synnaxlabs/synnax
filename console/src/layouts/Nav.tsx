@@ -22,6 +22,7 @@ import { NAV_DRAWER_ITEMS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
+import { Sequence } from "@/hardware/task/sequence";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
@@ -60,6 +61,7 @@ const COMMANDS = [
   ...UserServices.COMMANDS,
   ...LogServices.COMMANDS,
   ...TableServices.COMMANDS,
+  ...Sequence.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (

@@ -23,7 +23,7 @@
 #include "freighter/cpp/freighter.h"
 
 namespace synnax {
-/// @brief an alias for the type of a channel's key.
+/// @brief an alias for the type of channel's key.
 typedef std::uint32_t ChannelKey;
 
 /// @brief freighter retrieve transport.

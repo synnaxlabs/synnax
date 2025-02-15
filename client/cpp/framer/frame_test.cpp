@@ -11,11 +11,19 @@
 #include "client/cpp/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
-TEST(FramerTests, testConstruction) {
+TEST(FramerTests, testConstructionFromSize) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     ASSERT_EQ(f.size(), 1);
+}
+
+/// @brief it should construct a frame from a single series and channel.
+TEST(FramerTests, testConstructionFromSingleSeriesAndChannel) {
+    const auto f = synnax::Frame(65537, telem::Series(std::vector<float>{1, 2, 3}));
+    ASSERT_EQ(f.size(), 1);
+    ASSERT_EQ(f.channels->at(0), 65537);
+    ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
 }
 
 /// @brief it should construct a frame from a proto.
@@ -42,4 +50,37 @@ TEST(FramerTests, ostream) {
     ss << f;
     ASSERT_EQ(ss.str(),
               "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
+}
+
+TEST(FramerTests, testClear) {
+    const auto f = synnax::Frame(2);
+    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    f.emplace(65537, std::move(s));
+    f.clear();
+    ASSERT_EQ(f.size(), 0);
+    ASSERT_EQ(f.channels->size(), 0);
+    ASSERT_EQ(f.series->size(), 0); 
+}
+
+TEST(FramerTests, testReserve) {
+    const auto f = synnax::Frame(2);
+    f.reserve(10);
+    ASSERT_EQ(f.size(), 0);
+    ASSERT_EQ(f.channels->size(), 0);
+    ASSERT_EQ(f.series->size(), 0);
+    f.emplace(65537, telem::Series(std::vector<float>{1, 2, 3}));
+    f.reserve(10);
+    ASSERT_EQ(f.size(), 1);
+    ASSERT_EQ(f.channels->size(), 1);
+    ASSERT_EQ(f.series->size(), 1);
+}
+
+TEST(FramerTests, testDeepCopy) {
+    const auto f = synnax::Frame(2);
+    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    f.emplace(65537, std::move(s));
+    const auto f2 = f.deep_copy();
+    ASSERT_EQ(f2.size(), 1);
+    ASSERT_EQ(f2.channels->at(0), 65537);
+    ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }

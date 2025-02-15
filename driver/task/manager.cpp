@@ -97,8 +97,8 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
-            const auto &key = (*frame.channels)[i];
-            const auto &series = (*frame.series)[i];
+            const auto &key = frame.channels->at(i);
+            const auto &series = frame.series->at(i);
             if (key == this->channels.task_set.key) process_task_set(series);
             else if (key == this->channels.task_delete.key) process_task_delete(series);
             else if (key == this->channels.task_cmd.key) process_task_cmd(series);
@@ -146,8 +146,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
                     dump();
             continue;
         }
-        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
-                task;
+
         if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
@@ -155,7 +154,9 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
                     task;
             continue;
         }
-        it->second->exec(cmd);
+        const std::unique_ptr<Task> &tsk = it->second;
+        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->name() << " (" << cmd.task << ")";
+        tsk->exec(cmd);
     }
 }
 

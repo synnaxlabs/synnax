@@ -9,13 +9,17 @@
 
 #pragma once
 
+/// std
 #include <memory>
 
+/// internal
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
+
+/// module
 #include "x/cpp/config/config.h"
 
 using namespace synnax;

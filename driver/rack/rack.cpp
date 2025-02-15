@@ -35,6 +35,7 @@ void rack::Rack::run(const int argc, char **argv) {
         err = this->task_manager->run();
         if (err && this->should_exit(err)) return;
     }
+    this->run_err = xerrors::NIL;
 }
 
 void rack::Rack::start(int argc, char **argv) {

@@ -48,7 +48,7 @@ export const SELECTABLE: Layout.Selectable = {
 };
 
 const schema = z.object({
-  rack: rack.keyZ.min(1, "Rack is required"),
+  rack: rack.keyZ.min(1, "Location is required"),
   config: configZ,
 });
 

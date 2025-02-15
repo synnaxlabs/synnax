@@ -261,7 +261,8 @@ xerrors::Error plugins::ChannelWrite::after_all(lua_State *L) {
 
 /// @brief clears out the previous written frame before the next iteration.
 xerrors::Error plugins::ChannelWrite::before_next(lua_State *L) {
-    this->frame = synnax::Frame(channels.size());
+    this->frame.clear();
+    this->frame.reserve(this->channels.size());
     return xerrors::NIL;
 }
 

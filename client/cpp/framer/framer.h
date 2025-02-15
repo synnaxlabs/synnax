@@ -55,7 +55,10 @@ typedef freighter::StreamClient<
 
 
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
-struct Frame {
+class Frame {
+    /// @brief private copy constructor that deep copies the frame.
+    Frame(const Frame &other);
+public:
     /// @brief the channels in the frame.
     std::unique_ptr<std::vector<ChannelKey> > channels;
     /// @brief the series in the frame.
@@ -63,15 +66,8 @@ struct Frame {
 
     Frame() = default;
 
-    /// @brief constructs the frame from the given vector of channels and series.
-    /// @param channels the vector of channel keys. This must be the same size as the series
-    /// vector. The frame takes ownership of the vector.
-    /// @param series the vector of series mapped index-wise to the channels vector. This
-    /// must be the same size as the channels vector. The frame takes ownership of the vector.
-    Frame(
-        std::unique_ptr<std::vector<ChannelKey> > channels,
-        std::unique_ptr<std::vector<telem::Series> > series
-    );
+    /// @brief move constructor.
+    Frame(Frame &&other) noexcept;
 
     /// @brief allocates a frame that can hold the given number of series.
     /// @param size the number of series to allocate space for.
@@ -117,10 +113,17 @@ struct Frame {
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
 
+    /// @brief clears the frame of all channels and series, making it empty for reuse.
+    void clear() const;
+
+    /// @brief reserves the given number of series in the frame.
+    void reserve(const size_t &size) const;
+
     /// @brief deep copies the frame, all of its series, and their data. This function
     /// must be used explicitly (instead of through a copy constructor) to avoid
     /// unintentional deep copies.
     [[nodiscard]] Frame deep_copy() const;
+
 };
 
 /// @brief configuration for opening a new streamer.

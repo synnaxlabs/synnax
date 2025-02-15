@@ -20,12 +20,6 @@
 
 using namespace synnax;
 
-Frame::Frame(
-    std::unique_ptr<std::vector<ChannelKey> > channels,
-    std::unique_ptr<std::vector<telem::Series> > series
-) : channels(std::move(channels)), series(std::move(series)) {
-}
-
 Frame::Frame(const size_t size) :
     channels(std::make_unique<std::vector<ChannelKey> >()),
     series(std::make_unique<std::vector<telem::Series> >()) {
@@ -56,9 +50,7 @@ void Frame::add(const ChannelKey &chan, telem::Series &ser) const {
 }
 
 void Frame::to_proto(api::v1::Frame *f) const {
-    for (const auto& key : *channels) {
-        f->mutable_keys()->Add(key);
-    }
+    f->mutable_keys()->Add(channels->begin(), channels->end());
     f->mutable_series()->Reserve(static_cast<int>(series->size()));
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
@@ -76,12 +68,28 @@ telem::SampleValue Frame::at(const ChannelKey &key, const int &index) const {
     throw std::runtime_error("channel not found");
 }
 
-Frame Frame::deep_copy() const {
-    auto new_channels = std::make_unique<std::vector<ChannelKey>>(*channels);
-    auto new_series = std::make_unique<std::vector<telem::Series>>();
-    new_series->reserve(series->size());
-    for (const auto &ser: *series) new_series->emplace_back(ser.deep_copy());
-    return {std::move(new_channels), std::move(new_series)};
+void Frame::clear() const {
+    this->channels->clear();
+    this->series->clear();
+}
+
+void Frame::reserve(const size_t &size) const {
+    this->channels->reserve(size);
+    this->series->reserve(size);
+}
+
+Frame Frame::deep_copy() const { return Frame(*this); }
+
+Frame::Frame(const Frame &other) :
+    channels(std::make_unique<std::vector<ChannelKey>>(*other.channels)),
+    series(std::make_unique<std::vector<telem::Series>>()) {
+    series->reserve(other.series->size());
+    for (const auto &ser: *other.series) series->emplace_back(ser.deep_copy());
+}
+
+Frame::Frame(Frame &&other) noexcept :
+    channels(std::move(other.channels)),
+    series(std::move(other.series)) {
 }
 
 template<typename NumericType>
