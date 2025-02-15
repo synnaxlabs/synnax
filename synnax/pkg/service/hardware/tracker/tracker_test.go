@@ -37,7 +37,6 @@ var _ = Describe("Tracker", Ordered, func() {
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			HostProvider: dist.Cluster,
-			Channel:      dist.Channel,
 			Signals:      dist.Signals,
 		}))
 		taskSvc := MustSucceed(task.OpenService(ctx, task.Config{

@@ -11,6 +11,14 @@ package hardware
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/validate"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -18,11 +26,61 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 )
 
-type Config = rack.Config
+// Config is the configuration for opening hte hardware service.
+type Config struct {
+	alamos.Instrumentation
+	// DB is the gorp database that all meta-data structures will be stored in.
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is used to define relationships between hardware resources in the cluster.
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Group is used to create hardware related groups of ontology resources.
+	// [REQUIRED]
+	Group *group.Service
+	// HostProvider is used to add cluster topology information to hardware resources.
+	HostProvider core.HostProvider
+	// Signals is used to propagate changes to meta-data throughout the cluster.
+	Signals *signals.Provider
+	// Channel is used to create channels necessary for hardware communication.
+	Channel channel.Writeable
+	// Framer is used for writing hardware telemetry data.
+	Framer *framer.Service
+}
 
-var DefaultConfig = rack.DefaultConfig
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	return c
+}
+
+func (c Config) Validate() error {
+	v := validate.New("hardware")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "host_provider", c.HostProvider)
+	validate.NotNil(v, "signals", c.Signals)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	return v.Error()
+}
 
 type Service struct {
 	Rack   *rack.Service
@@ -38,7 +96,13 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	rackSvc, err := rack.OpenService(ctx, cfg)
+	rackSvc, err := rack.OpenService(ctx, rack.Config{
+		DB:           cfg.DB,
+		Ontology:     cfg.Ontology,
+		Group:        cfg.Group,
+		HostProvider: cfg.HostProvider,
+		Signals:      cfg.Signals,
+	})
 	if err != nil {
 		return nil, err
 	}
