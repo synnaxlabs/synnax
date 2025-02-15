@@ -50,8 +50,8 @@ import { Workspace } from "@/workspace";
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
-  ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
+  ...Layouts.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...LinePlot.LAYOUTS,

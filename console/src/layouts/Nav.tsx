@@ -80,7 +80,7 @@ export const NavTop = (): ReactElement => {
 
   const os = OS.use();
   const handleDocs = (): void => {
-    place(Docs.createLayout());
+    place(Docs.LAYOUT);
   };
 
   return (

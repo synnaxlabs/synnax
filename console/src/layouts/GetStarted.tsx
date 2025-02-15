@@ -50,7 +50,7 @@ const NoCluster = (): ReactElement => {
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Docs.createLayout());
+    place(Docs.LAYOUT);
   };
 
   return (
