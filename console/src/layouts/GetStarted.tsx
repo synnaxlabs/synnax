@@ -37,7 +37,7 @@ const NoCluster = (): ReactElement => {
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Cluster.connectWindowLayout);
+    place(Cluster.CONNECT_LAYOUT);
   };
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
