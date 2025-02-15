@@ -6,8 +6,9 @@ cc_library(
     hdrs = glob([
         "include/**/*.h",
     ]),
-    visibility = ["//visibility:public"],
     strip_include_prefix = "include",
+    tags = ["no-clang-tidy"],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -19,6 +20,7 @@ cc_library(
         "include/**/*.h",
     ]),
     strip_include_prefix = "include",
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
 )
 
@@ -30,5 +32,6 @@ cc_library(
     hdrs = glob([
         "include/**/*.h",
     ]),
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
 )

@@ -94,10 +94,10 @@ TEST(read_tests, multiple_analog_channels) {
     auto [dmx, dmx_err] = DAQmxProd::load();
     ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    TaskHandle taskHandle;
-    dmx->CreateTask("", &taskHandle);
+    TaskHandle task_handle;
+    dmx->CreateTask("", &task_handle);
 
-    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
@@ -155,10 +155,10 @@ TEST(read_tests, analog_linear_scaling) {
     auto [dmx, dmx_err] = DAQmxProd::load();
     ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    TaskHandle taskHandle;
-    dmx->CreateTask("", &taskHandle);
+    TaskHandle task_handle;
+    dmx->CreateTask("", &task_handle);
 
-    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
@@ -212,10 +212,10 @@ TEST(read_tests, analog_map_scaling) {
     auto [dmx, dmx_err] = DAQmxProd::load();
     ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    TaskHandle taskHandle;
-    dmx->CreateTask("", &taskHandle);
+    TaskHandle task_handle;
+    dmx->CreateTask("", &task_handle);
 
-    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
@@ -276,10 +276,10 @@ void analog_channel_helper(json config, json scale_config, json channel_config,
     auto [dmx, dmx_err] = DAQmxProd::load();
     ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    TaskHandle taskHandle;
-    dmx->CreateTask("", &taskHandle);
+    TaskHandle task_handle;
+    dmx->CreateTask("", &task_handle);
 
-    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
+    auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
 
     auto b = breaker::Breaker(
         breaker::Config{

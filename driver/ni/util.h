@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "driver/ni/nidaqmx/nidaqmx.h" 
+#include <map>
 #include <string>
 #include <vector>
 #include <utility>
@@ -531,4 +533,4 @@ static inline const std::map<std::string, std::string> FIELD_MAP = {
     {"DAQmx_Chan_SyncUnlockBehavior", "chan_sync_unlock_behavior"},
     {"DAQmx_SampClk_Rate", "sample_rate"}
 };
-}
+} // namespace ni

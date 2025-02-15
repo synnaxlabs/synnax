@@ -13,14 +13,23 @@ cc_library(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    includes = ["."],
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
-        "//x/cpp/breaker",
         "//driver/errors",
         "//driver/task",
+        "//x/cpp/breaker",
         "@nlohmann_json//:json",
     ],
+)
+
+cc_library(
+    name = "control",
+    hdrs = ["control.h"],
+    tags = ["no-clang-tidy"],
+    visibility = ["//visibility:public"],
 )
 
 cc_test(

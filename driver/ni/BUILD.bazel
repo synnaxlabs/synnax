@@ -19,9 +19,6 @@ cc_library(
         "scanner.h",
         "util.h",
         "writer.h",
-        "//client/cpp:synnax",
-        "//driver/pipeline",
-        "//driver/task",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

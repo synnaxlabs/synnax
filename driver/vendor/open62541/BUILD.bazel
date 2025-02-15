@@ -9,6 +9,6 @@ cc_library(
         "include/open62541/plugin/*.h",
     ]),
     strip_include_prefix = "include",
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
-
 )

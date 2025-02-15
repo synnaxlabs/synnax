@@ -4,6 +4,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/pipeline",
+        "//driver/pipeline:control",
         "//freighter/cpp:freighter",
     ],
 )

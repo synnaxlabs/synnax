@@ -17,15 +17,14 @@
 #include <variant>
 
 #include "driver/ni/util.h"
-#include "nidaqmx/nidaqmx.h"
+#include "driver/ni/nidaqmx/nidaqmx.h"
+#include "driver/ni/nidaqmx/nidaqmx_api.h"
 #include "x/cpp/config/config.h"
 
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 
 namespace ni {
-extern const std::map<std::string, int32_t> UNITS_MAP;
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    LinearScale                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -78,7 +77,12 @@ struct PolynomialScale {
     int32 num_points;
     int32 poly_order;
 
-    PolynomialScale() = default;
+    PolynomialScale() : 
+        num_coeffs(0),
+        min_x(0),
+        max_x(0),
+        num_points(0),
+        poly_order(0) {}  // Initialize all members
 
     explicit PolynomialScale(
         config::Parser &parser
@@ -88,8 +92,8 @@ struct PolynomialScale {
           max_x(parser.required<double>("max_x")),
           num_points(parser.optional<int>("num_reverse_coeffs", 0)),
           poly_order(parser.required<int>("poly_order")) {
-        forward_coeffs.resize(num_coeffs * 2);
-        reverse_coeffs.resize(num_coeffs * 2);
+        forward_coeffs.resize(static_cast<size_t>(num_coeffs * 2));
+        reverse_coeffs.resize(static_cast<size_t>(num_coeffs * 2));
 
         if (!parser.ok()) {
             LOG(ERROR) <<
@@ -131,7 +135,7 @@ struct TableScale {
     std::vector<double> scaled;
     uint32_t num_points;
 
-    TableScale() = default;
+    TableScale() : num_points(0) {}  // Initialize num_points
 
     explicit TableScale(config::Parser &parser) {
         if (!parser.ok()) {

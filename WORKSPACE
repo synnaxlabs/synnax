@@ -80,8 +80,8 @@ git_repository(
 
 new_local_repository(
     name = "labjack",
-    path = "driver/vendor/labjack",
     build_file = "@//driver/vendor/labjack:BUILD.bazel",
+    path = "driver/vendor/labjack",
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -132,8 +132,14 @@ http_archive(
 
 http_archive(
     name = "lua",
-    urls = ["https://www.lua.org/ftp/lua-5.4.6.tar.gz"],  # Replace with the latest version
+    build_file = "@//driver/vendor/lua:BUILD.bazel",
     sha256 = "7d5ea1b9cb6aa0b59ca3dde1c6adcb57ef83a1ba8e5432c0ecd06bf439b3ad88",
     strip_prefix = "lua-5.4.6",
-    build_file = "@//driver/vendor/lua:BUILD.bazel",
+    urls = ["https://www.lua.org/ftp/lua-5.4.6.tar.gz"],  # Replace with the latest version
+)
+
+git_repository(
+    name = "bazel_clang_tidy",
+    commit = "bff5c59c843221b05ef0e37cef089ecc9d24e7da",
+    remote = "https://github.com/erenon/bazel_clang_tidy.git",
 )

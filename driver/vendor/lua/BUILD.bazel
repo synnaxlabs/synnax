@@ -1,6 +1,12 @@
 cc_library(
     name = "lua",
-    srcs = glob(["src/*.c"]),
+    srcs = glob(
+        ["src/*.c"],
+        exclude = [
+            "src/lua.c",  # Excluded because its main function causes linking errors
+            "src/luac.c",  # Excluded because its main function causes linking errors
+        ],
+    ),
     hdrs = glob(["src/*.h"]),
     copts = select({
         "@platforms//os:windows": [
@@ -24,5 +30,6 @@ cc_library(
             "-ldl",  # Dynamic linking library for POSIX
         ],
     }),
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
 )

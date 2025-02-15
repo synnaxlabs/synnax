@@ -16,6 +16,7 @@
 #include <string>
 #include <variant>
 #include <thread>
+#include <glog/logging.h>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/config/config.h"
