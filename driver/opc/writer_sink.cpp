@@ -15,7 +15,7 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/errors/errors.h"

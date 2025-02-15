@@ -18,7 +18,7 @@
 #include <thread>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace pipeline {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ public:
 
     void tare(json &arg) {
         //create parser
-        config::Parser parser(arg);
+        xjson::Parser parser(arg);
         auto channels = parser.required_vector<uint32_t>("keys");
         if(!parser.ok())
             LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.error().message();
@@ -161,7 +161,7 @@ struct LinearScale {
     LinearScale() = default;
 
     explicit LinearScale(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : slope(parser.required<double>("slope")),
         offset(parser.required<double>("offset")) {
         if (!parser.ok())
@@ -197,7 +197,7 @@ struct MapScale {
     MapScale() = default;
 
     explicit MapScale(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : prescaled_min(parser.required<double>("pre_scaled_min")),
         prescaled_max(parser.required<double>("pre_scaled_max")),
         scaled_min(parser.required<double>("scaled_min")),
@@ -233,9 +233,9 @@ struct MapScale {
 class ScaleMiddleware : public Middleware {
 public:
     explicit ScaleMiddleware(
-        config::Parser &parser
+        xjson::Parser &parser
     ) {
-        parser.iter("channels", [this](config::Parser &channel_parser) {
+        parser.iter("channels", [this](xjson::Parser &channel_parser) {
             auto key = channel_parser.required<synnax::ChannelKey>("channel");
             if (channel_parser.get_json().contains("scale")) {
                 auto scale_config = channel_parser.child("scale");

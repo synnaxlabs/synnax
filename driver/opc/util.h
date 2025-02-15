@@ -49,7 +49,7 @@ struct ConnectionConfig {
     ConnectionConfig() = default;
 
     explicit ConnectionConfig(
-        config::Parser parser
+        xjson::Parser parser
     ) : endpoint(parser.required<std::string>("endpoint")),
         username(parser.optional<std::string>("username", "")),
         password(parser.optional<std::string>("password", "")),
@@ -90,7 +90,7 @@ struct DeviceNodeProperties {
         is_array(is_array) {
     }
 
-    explicit DeviceNodeProperties(config::Parser parser) : data_type(
+    explicit DeviceNodeProperties(xjson::Parser parser) : data_type(
                                                                telem::DataType(
                                                                    parser.required<std::string>("data_type"))),
                                                            name(
@@ -126,10 +126,10 @@ struct DeviceProperties {
     }
 
     explicit DeviceProperties(
-        config::Parser parser
+        xjson::Parser parser
     ) : connection(parser.child("connection")),
         channels({}) {
-        parser.iter("channels", [&](const config::Parser &cb) {
+        parser.iter("channels", [&](const xjson::Parser &cb) {
             channels.emplace_back(cb);
         });
     }
@@ -438,7 +438,7 @@ inline std::string guid_to_string(const UA_Guid &guid) {
 }
 
 ///@brief Parses a string NodeId into a UA_NodeId object
-inline UA_NodeId parse_node_id(const std::string &path, config::Parser &parser) {
+inline UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     const std::string nodeIdStr = parser.required<std::string>(path);

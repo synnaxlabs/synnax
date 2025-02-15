@@ -16,6 +16,8 @@ cc_library(
         "//driver/sequence",
         "//driver/task",
         "//x/cpp/kv",
+        "//x/cpp/xargs",
+        "//x/cpp/xlog",
         "//x/cpp/xos",
     ] + select({
         "@platforms//os:windows": ["//driver/labjack"],

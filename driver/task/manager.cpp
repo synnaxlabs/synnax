@@ -19,7 +19,7 @@
 #include "driver/task/task.h"
 
 /// module
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
 
@@ -139,7 +139,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
 void task::Manager::process_task_cmd(const telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
-        auto parser = config::Parser(cmd_str);
+        auto parser = xjson::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().

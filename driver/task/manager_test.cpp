@@ -138,7 +138,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     ASSERT_EQ(f.size(), 1);
     std::string state_str;
     f.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
@@ -180,7 +180,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_EQ(f2.size(), 1);
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
@@ -232,7 +232,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_EQ(f2.size(), 1);
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto [task, key, variant, details] = task::State::parse(parser);
     ASSERT_EQ(task, echo_task.key);
     ASSERT_EQ(key, cmd.key);
@@ -321,7 +321,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
 
     ASSERT_EQ(state.task, echo_task.key);

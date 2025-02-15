@@ -55,7 +55,7 @@ struct TaskConfig {
     /// available within the Lua script.
     json globals;
 
-    explicit TaskConfig(config::Parser &parser):
+    explicit TaskConfig(xjson::Parser &parser):
         // this comment keeps the formatter happy
         rate(telem::Rate(parser.required<float>("rate"))),
         script(parser.required<std::string>("script")),

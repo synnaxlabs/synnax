@@ -23,7 +23,7 @@
 
 #include "client/cpp/synnax.h"
 
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
@@ -103,7 +103,7 @@ struct TCConfig {
         units(units) {
     }
 
-    explicit TCConfig(config::Parser &parser)
+    explicit TCConfig(xjson::Parser &parser)
         : pos_chan(parser.required<int>("pos_chan")),
           neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
           cjc_slope(parser.required<float>("cjc_slope")),
@@ -165,7 +165,7 @@ struct ReaderChannelConfig {
 
     ReaderChannelConfig() = default;
 
-    explicit ReaderChannelConfig(config::Parser &parser)
+    explicit ReaderChannelConfig(xjson::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
           data_type(parser.optional<std::string>("data_type", "float32")),
           key(parser.required<uint32_t>("channel")),
@@ -214,7 +214,7 @@ struct ReaderConfig {
 
     ReaderConfig() = default;
 
-    explicit ReaderConfig(config::Parser &parser)
+    explicit ReaderConfig(xjson::Parser &parser)
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
           sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
@@ -226,7 +226,7 @@ struct ReaderConfig {
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
-        parser.iter("channels", [this](config::Parser &channel_parser) {
+        parser.iter("channels", [this](xjson::Parser &channel_parser) {
             auto channel = labjack::ReaderChannelConfig(channel_parser);
 
             if (channel.enabled && channel.channel_type != "TC") {

@@ -20,7 +20,7 @@
 #include "client/cpp/ranger/ranger.h"
 
 /// module
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 
 using namespace synnax;
 
@@ -61,7 +61,7 @@ struct Config {
     /// username/password authentication.
     std::string client_key_file;
 
-    void override(config::Parser &parser) {
+    void override(xjson::Parser &parser) {
         this->host = parser.optional("host", this->host);
         this->port = parser.optional("port", this->port);
         this->username = parser.optional("username", this->username);

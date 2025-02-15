@@ -1,7 +1,7 @@
 cc_library(
-    name = "config",
+    name = "xjson",
     hdrs = [
-        "config.h",
+        "xjson.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -15,9 +15,9 @@ cc_library(
 )
 
 cc_test(
-    name = "config_test",
+    name = "xjson_test",
     srcs = [
-        "config_test.cpp",
+        "xjson_test.cpp",
     ],
     visibility = ["//visibility:public"],
     deps = [

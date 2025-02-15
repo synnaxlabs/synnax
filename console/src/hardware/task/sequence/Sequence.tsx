@@ -160,7 +160,11 @@ const Internal = ({
               padHelpText={false}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
             <Form.Field<channel.Key[]>
@@ -169,7 +173,11 @@ const Internal = ({
               padHelpText={false}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
           </Align.Space>

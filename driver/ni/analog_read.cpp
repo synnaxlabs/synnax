@@ -21,10 +21,10 @@
 
 using json = nlohmann::json;
 
-void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
+void ni::AnalogReadSource::parse_channels(xjson::Parser &parser) {
     std::uint64_t c_count = 0;
     parser.iter("channels",
-                [&](config::Parser &channel_builder) {
+                [&](xjson::Parser &channel_builder) {
                     ni::ReaderChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
@@ -71,7 +71,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
-    config::Parser &parser,
+    xjson::Parser &parser,
     const std::string &channel_type,
     const std::string &channel_name
 ) {

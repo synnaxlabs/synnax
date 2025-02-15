@@ -92,7 +92,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 ) {
     task::State cfg_state{.task = task.key};
 
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
         LOG(ERROR) << "[sequence] failed to parse task configuration: " << parser.
