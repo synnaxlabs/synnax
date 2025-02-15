@@ -158,14 +158,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         plugins_list.push_back(ch_write_plugin);
     }
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * telem::SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-
-
+    auto breaker_config = breaker::default_config("sequence (" + task.name + ")");
     auto seq = std::make_unique<sequence::Sequence>(
         std::make_shared<plugins::MultiPlugin>(plugins_list),
         cfg.script

@@ -299,3 +299,11 @@ func (f *DecodeFallbackCodec) DecodeStream(ctx context.Context, r io.Reader, val
 	}
 	return
 }
+
+func MustEncodeJSONtoString(v interface{}) string {
+	b, err := (&JSONCodec{}).Encode(context.Background(), v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}

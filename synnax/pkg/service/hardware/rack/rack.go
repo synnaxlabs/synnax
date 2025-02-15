@@ -82,3 +82,13 @@ func (r Rack) Validate() error {
 	validate.NotEmptyString(v, "Name", r.Name)
 	return v.Error()
 }
+
+type Heartbeat uint64
+
+func NewHeartbeat(rack Key, secondsSinceStart uint32) Heartbeat {
+	return Heartbeat(uint64(rack)<<32 | uint64(secondsSinceStart))
+}
+
+func (h Heartbeat) Rack() Key { return Key(h >> 32) }
+
+func (h Heartbeat) SecondsSinceStart() uint32 { return uint32(h & 0xFFFFFFFF) }

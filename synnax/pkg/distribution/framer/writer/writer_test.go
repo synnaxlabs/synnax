@@ -38,6 +38,7 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+			ShouldNotLeakGoroutinesDuringEach()
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
@@ -71,6 +72,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func() { s = gatewayOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		ShouldNotLeakGoroutinesDuringEach()
 		It("Should return an error if no keys are provided", func() {
 			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys:  []channel.Key{},
@@ -99,6 +101,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		ShouldNotLeakGoroutinesDuringEach()
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
 			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 				Keys:  s.keys,
