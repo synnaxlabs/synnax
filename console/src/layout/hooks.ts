@@ -21,7 +21,7 @@ import {
   useDebouncedCallback,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
-import { compare } from "@synnaxlabs/x";
+import { compare, id } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -52,7 +52,9 @@ export interface CreatorProps {
   store: RootStore;
 }
 
-export interface BaseState<A = unknown> extends Omit<State<A>, "windowKey"> {}
+export interface BaseState<A = unknown>
+  extends Omit<State<A>, "windowKey" | "key">,
+    Partial<Pick<State<A>, "key">> {}
 
 /** A function that creates a layout given a set of utilities. */
 export type Creator<A = unknown> = (props: CreatorProps) => BaseState<A>;
@@ -87,8 +89,8 @@ export const usePlacer = (): Placer => {
       if (windowKey == null) throw new Error("windowKey is null");
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
-      const { key } = layout;
-      dispatch(place({ ...layout, windowKey }));
+      const key = layout.key ?? id.id();
+      dispatch(place({ ...layout, windowKey, key }));
       return { windowKey, key };
     },
     [dispatch, windowKey],
