@@ -32,12 +32,53 @@ jobs:
               - client/cpp/**
               - freighter/cpp/**
               - driver/**
+  server:
+    name: Server
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    env:
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Earthly
+        uses: earthly/actions-setup@v1
+
+      - name: Build Image
+        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
+        working-directory: synnax
+
+      - name: Push to Github Container Registry
+        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
   test:
     name: Test Driver
     runs-on: ${{ matrix.os }}
     needs: changes
     if: needs.changes.outputs.cpp == 'true'
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
     strategy:
       matrix:
         os: [macos-latest]
