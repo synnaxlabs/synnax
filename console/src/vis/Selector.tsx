@@ -18,8 +18,8 @@ import { Table } from "@/table";
 
 const SELECTABLES: Layout.Selectable[] = [
   ...LinePlot.SELECTABLES,
-  ...Log.SELECTABLES,
   ...Schematic.SELECTABLES,
+  ...Log.SELECTABLES,
   ...Table.SELECTABLES,
 ];
 

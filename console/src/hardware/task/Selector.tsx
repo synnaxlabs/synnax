@@ -14,8 +14,8 @@ import { Sequence } from "@/hardware/task/sequence";
 import { Layout } from "@/layout";
 
 export const SELECTABLES: Layout.Selectable[] = [
-  ...LabJack.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
+  ...LabJack.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
 ];
