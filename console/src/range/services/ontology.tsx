@@ -22,7 +22,7 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createLayout } from "@/range/CreateLayout";
+import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
@@ -228,7 +228,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const handleAddChildRange = () => {
-    placeLayout(createLayout({ initial: { parent: resources[0].id.key } }));
+    placeLayout(createCreateLayout({ parent: resources[0].id.key }));
   };
   const viewDetails = useViewDetails();
   const handleSelect = {

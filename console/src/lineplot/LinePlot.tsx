@@ -339,12 +339,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "range":
           place(
-            Range.createLayout({
-              initial: {
-                timeRange: {
-                  start: Number(timeRange.start.valueOf()),
-                  end: Number(timeRange.end.valueOf()),
-                },
+            Range.createCreateLayout({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
               },
             }),
           );

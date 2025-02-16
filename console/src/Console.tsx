@@ -58,12 +58,12 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Log.LAYOUTS,
   ...Modals.LAYOUTS,
   ...Permissions.LAYOUTS,
+  ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
-  ...Workspace.LAYOUTS,
-  ...Range.LAYOUTS,
-  ...Version.LAYOUTS,
   ...User.LAYOUTS,
+  ...Workspace.LAYOUTS,
+  ...Version.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

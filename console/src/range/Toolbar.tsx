@@ -44,7 +44,7 @@ import {
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
-import { createLayout } from "@/range/CreateLayout";
+import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
@@ -230,7 +230,7 @@ const List = (): ReactElement => {
   const activeRange = useSelect();
 
   const handleCreate = (key?: string): void => {
-    place(createLayout({ initial: { key } }));
+    place(createCreateLayout({ key }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -301,7 +301,7 @@ const List = (): ReactElement => {
     };
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () => {
-      place(createLayout({ initial: { parent: key } }));
+      place(createCreateLayout({ parent: key }));
     };
 
     const rangeExists = rng != null;
@@ -459,7 +459,7 @@ const Content = (): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
+          {[{ children: <Icon.Add />, onClick: () => place(CREATE_LAYOUT) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />
