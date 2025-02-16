@@ -193,7 +193,6 @@ const PaletteDialog = ({
       handleException,
       ingestors: INGESTORS,
       extractors: EXTRACTORS,
-      rename,
     }),
     [store, placeLayout, confirm, client, addStatus, handleException, rename],
   );
