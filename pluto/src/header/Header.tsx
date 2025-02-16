@@ -9,12 +9,7 @@
 
 import "@/header/Header.css";
 
-import {
-  createContext,
-  type ReactElement,
-  type ReactNode,
-  useContext as reactUseContext,
-} from "react";
+import { createContext, type ReactElement, type ReactNode, use } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -31,12 +26,9 @@ export interface ContextValue {
   level: Text.Level;
 }
 
-const Context = createContext<ContextValue>({
-  divided: false,
-  level: "h1",
-});
+const Context = createContext<ContextValue>({ divided: false, level: "h1" });
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = () => use(Context);
 
 /**
  * The container for a module header.
@@ -55,7 +47,7 @@ export const Header = ({
   divided = false,
   ...props
 }: HeaderProps): ReactElement => (
-  <Context.Provider value={{ level, divided }}>
+  <Context value={{ level, divided }}>
     <Align.Space
       el="header"
       direction="x"
@@ -70,5 +62,5 @@ export const Header = ({
     >
       {children}
     </Align.Space>
-  </Context.Provider>
+  </Context>
 );

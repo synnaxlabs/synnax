@@ -10,7 +10,7 @@
 import { Align, Text } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
+import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
 import { MAKE } from "@/hardware/opc/device/types";
 import { Layout } from "@/layout";
 
@@ -21,7 +21,7 @@ const EmptyContent = () => {
       <Text.Text level="p" shade={6}>
         No OPC UA servers connected.
       </Text.Text>
-      <Text.Link level="p" onClick={() => placeLayout(CONFIGURE_LAYOUT)}>
+      <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>
         Connect a new server.
       </Text.Link>
     </Align.Center>
@@ -30,7 +30,7 @@ const EmptyContent = () => {
 
 export const Select = () => (
   <Common.Device.Select
-    configureLayout={CONFIGURE_LAYOUT}
+    configureLayout={CONNECT_LAYOUT}
     emptyContent={<EmptyContent />}
     label="OPC UA Server"
     make={MAKE}

@@ -119,7 +119,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
@@ -313,7 +313,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
-    const place = Layout.usePlacer();
+    const placeLayout = Layout.usePlacer();
 
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
@@ -338,13 +338,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           );
           break;
         case "range":
-          place(
-            Range.createLayout({
-              initial: {
-                timeRange: {
-                  start: Number(timeRange.start.valueOf()),
-                  end: Number(timeRange.end.valueOf()),
-                },
+          placeLayout(
+            Range.createCreateLayout({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
               },
             }),
           );
@@ -426,7 +424,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name, handleException });
                     break;
                   case "metadata":
-                    place({ ...Range.OVERVIEW_LAYOUT, name, key });
+                    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
@@ -440,7 +438,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
                     Download as CSV
                   </PMenu.Item>
-                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
                     Open in New Plot
                   </PMenu.Item>
                   <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
@@ -503,11 +501,11 @@ const buildLines = (
     ),
   );
 
-export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";
+export type LayoutType = typeof LAYOUT_TYPE;
 
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
@@ -537,6 +535,6 @@ export const LinePlot: Layout.Renderer = ({
 export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
-  icon: <Icon.Visualize />,
+  icon: <Icon.LinePlot />,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

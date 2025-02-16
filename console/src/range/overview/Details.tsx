@@ -45,7 +45,7 @@ const ParentRangeButton = ({
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ranger.Range | null>();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
@@ -74,7 +74,7 @@ const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          place({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
         {parent.name}

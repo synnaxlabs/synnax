@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
+import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
 import { type Palette } from "@/palette";
 
 const CONNECT_SERVER_COMMAND: Palette.Command = {
   key: "opc-ua-connect-server",
   name: "Connect an OPC UA Server",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(CONFIGURE_LAYOUT),
+  onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
 };
 
 export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

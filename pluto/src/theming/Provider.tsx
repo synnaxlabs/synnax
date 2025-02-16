@@ -16,8 +16,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use as reactUse,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -52,12 +52,10 @@ export interface UseProviderProps {
   darkTheme?: string;
 }
 
-export type UseProviderReturn = ContextValue;
-
-const prefersDark = (): MediaQueryList | null => {
-  if (typeof window?.matchMedia === "undefined") return null;
-  return window.matchMedia("(prefers-color-scheme: dark)");
-};
+const prefersDark = () =>
+  typeof window?.matchMedia === "undefined"
+    ? null
+    : window.matchMedia("(prefers-color-scheme: dark)");
 
 const isDarkMode = (): boolean => prefersDark()?.matches ?? true;
 
@@ -68,7 +66,7 @@ export const useProvider = ({
   toggleTheme,
   lightTheme = "synnaxLight",
   darkTheme = "synnaxDark",
-}: UseProviderProps): UseProviderReturn => {
+}: UseProviderProps): ContextValue => {
   const [selected, setSelected] = useState<string>(
     isDarkMode() ? darkTheme : lightTheme,
   );
@@ -112,7 +110,7 @@ export const useProvider = ({
   };
 };
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = () => reactUse(Context);
 
 export const use = (): theming.Theme => useContext().theme;
 
@@ -161,9 +159,9 @@ export const Provider = ({
   }, [ret.theme.key]);
 
   return (
-    <Context.Provider value={ret}>
+    <Context value={ret}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context.Provider>
+    </Context>
   );
 };
 

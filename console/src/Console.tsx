@@ -26,7 +26,7 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
+import { Error } from "@/error";
 import { Hardware } from "@/hardware";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -48,22 +48,23 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Layouts.LAYOUTS,
-  ...Docs.LAYOUTS,
-  ...Workspace.LAYOUTS,
-  ...Schematic.LAYOUTS,
-  ...LinePlot.LAYOUTS,
-  ...Hardware.LAYOUTS,
-  ...Range.LAYOUTS,
-  ...Cluster.LAYOUTS,
   ...Channel.LAYOUTS,
-  ...Version.LAYOUTS,
-  ...Modals.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...Docs.LAYOUTS,
+  ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,
-  ...User.LAYOUTS,
-  ...Permissions.LAYOUTS,
+  ...Layouts.LAYOUTS,
+  ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
+  ...Modals.LAYOUTS,
+  ...Permissions.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
+  ...User.LAYOUTS,
+  ...Version.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -83,7 +84,7 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOptions: { double: true },
 };
 
-const client = new QueryClient();
+const queryClient = new QueryClient();
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = Layout.useSelectHauling();
@@ -122,7 +123,7 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <Pluto.Provider
         theming={theme}
         channelAlias={{
@@ -136,10 +137,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         color={{ useState: useColorContextState }}
-        alamos={{
-          level: "debug",
-          include: [],
-        }}
+        alamos={{ level: "debug", include: [] }}
       >
         <Vis.Canvas>
           <Layout.Window />
@@ -150,9 +148,9 @@ const MainUnderContext = (): ReactElement => {
 };
 
 export const Console = (): ReactElement => (
-  <ErrorOverlayWithoutStore>
+  <Error.OverlayWithoutStore>
     <Provider store={store}>
-      <ErrorOverlayWithStore>
+      <Error.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
@@ -160,7 +158,7 @@ export const Console = (): ReactElement => (
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
-      </ErrorOverlayWithStore>
+      </Error.OverlayWithStore>
     </Provider>
-  </ErrorOverlayWithoutStore>
+  </Error.OverlayWithoutStore>
 );

@@ -13,11 +13,12 @@ import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT_TYPE = "configure_LabJack";
 
-export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "key"> = {
+export const CONFIGURE_LAYOUT: Layout.BaseState = {
   ...Common.Device.CONFIGURE_LAYOUT,
   name: "Device.Configure",
   icon: "Logo.LabJack",
   type: CONFIGURE_LAYOUT_TYPE,
+  key: CONFIGURE_LAYOUT_TYPE,
 };
 
 export const Configure: Layout.Renderer = (props) => (

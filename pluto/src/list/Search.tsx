@@ -14,8 +14,8 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
-import { useDataUtilContext } from "@/list/Data";
-import { useInfiniteUtilContext } from "@/list/Infinite";
+import { useDataUtils } from "@/list/Data";
+import { useInfiniteUtils } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp } from "@/util/renderProp";
@@ -88,11 +88,11 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const promiseOut = useRef<boolean>(false);
   const hasMore = useRef(true);
   const offset = useRef(0);
-  const { setSourceData, setEmptyContent, getDefaultEmptyContent } = useDataUtilContext<
+  const { setSourceData, setEmptyContent, getDefaultEmptyContent } = useDataUtils<
     K,
     E
   >();
-  const { setHasMore, setOnFetchMore } = useInfiniteUtilContext();
+  const { setHasMore, setOnFetchMore } = useInfiniteUtils();
 
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
 

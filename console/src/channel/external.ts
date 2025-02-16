@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CREATE_LAYOUT_TYPE, CreateModal } from "@/channel/Create";
-import {
-  CREATE_CALCULATED_LAYOUT_TYPE,
-  CreateCalculatedModal,
-} from "@/channel/CreateCalculated";
+import { Calculated, CALCULATED_LAYOUT_TYPE } from "@/channel/Calculated";
+import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
 import { type Layout } from "@/layout";
 
+export * from "@/channel/Calculated";
 export * from "@/channel/Create";
-export * from "@/channel/CreateCalculated";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CREATE_LAYOUT_TYPE]: CreateModal,
-  [CREATE_CALCULATED_LAYOUT_TYPE]: CreateCalculatedModal,
+  [CREATE_LAYOUT_TYPE]: Create,
+  [CALCULATED_LAYOUT_TYPE]: Calculated,
 };

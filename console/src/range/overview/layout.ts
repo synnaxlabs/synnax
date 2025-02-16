@@ -9,9 +9,10 @@
 
 import { type Layout } from "@/layout";
 
+export const OVERVIEW_LAYOUT_TYPE = "overview";
+
 export const OVERVIEW_LAYOUT: Layout.BaseState = {
-  key: "overview",
-  type: "overview",
+  type: OVERVIEW_LAYOUT_TYPE,
   name: "Overview",
   location: "mosaic",
   icon: "Range",

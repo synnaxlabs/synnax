@@ -25,9 +25,8 @@ import {
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 
-export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
-  key: WRITE_TYPE,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.OPC",
@@ -54,7 +53,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   WriteConfig,
   WriteStateDetails,
   WriteType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
     ...ZERO_WRITE_PAYLOAD.config,

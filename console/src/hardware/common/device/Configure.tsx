@@ -23,7 +23,7 @@ import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 import { Triggers } from "@/triggers";
 
-export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
+export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
   icon: "Device",
   location: "modal",
   name: "Configure",

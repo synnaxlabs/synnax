@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/CreateLayout.css";
+import "@/range/Create.css";
 
 import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -44,35 +44,29 @@ const formSchema = z.object({
   parent: z.string().optional(),
 });
 
-type FormProps = z.infer<typeof formSchema>;
+export type FormProps = z.infer<typeof formSchema>;
 
-type Args = Partial<FormProps>;
+export type CreateLayoutArgs = Partial<FormProps>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
-interface CreateLayoutProps extends Partial<Layout.State> {
-  initial?: Partial<Args>;
-}
-
-export const createLayout = ({
-  name,
-  initial = {},
-  window,
-  ...rest
-}: CreateLayoutProps): Layout.State => ({
-  ...rest,
+export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  windowKey: CREATE_LAYOUT_TYPE,
-  icon: "Range",
   location: "modal",
-  name: name ?? "Range.Create",
+  name: "Range.Create",
+  icon: "Range",
   window: {
     resizable: false,
     size: { height: 370, width: 700 },
     navTop: true,
-    ...window,
   },
+};
+
+export const createCreateLayout = (
+  initial: CreateLayoutArgs,
+): Layout.BaseState<CreateLayoutArgs> => ({
+  ...CREATE_LAYOUT,
   args: initial,
 });
 
@@ -85,7 +79,7 @@ const parentRangeIcon = (
 export const Create = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
-  const args = Layout.useSelectArgs<Args>(layoutKey);
+  const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const initialValues: FormProps = {
     name: "",
     labels: [],

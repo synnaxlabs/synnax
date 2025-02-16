@@ -9,20 +9,19 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { LAYOUT } from "@/hardware/task/sequence/Sequence";
+import { createLayout } from "@/hardware/task/sequence/Sequence";
 import { type Palette } from "@/palette";
 
 const CREATE_SEQUENCE_COMMAND: Palette.Command = {
-  key: "create-sequence",
-  name: "Create Sequence",
+  key: "create-control-sequence",
+  name: "Create a Control Sequence",
   icon: <Icon.Control />,
-  onSelect: ({ placeLayout, handleException, rename }) => {
-    rename({}, { icon: "Control", name: "Control.Sequence.Create" })
-      .then((result) => {
-        if (result == null) return null;
-        return placeLayout({ ...LAYOUT, name: result });
+  onSelect: ({ placeLayout, rename, handleException }) => {
+    createLayout({ rename })
+      .then((layout) => {
+        if (layout != null) placeLayout(layout);
       })
-      .catch(handleException);
+      .catch((e) => handleException(e, "Failed to create a control sequence"));
   },
 };
 

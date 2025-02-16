@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { ContextMenu, LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
+import { ContextMenu, LAYOUT_TYPE, LinePlot, SELECTABLE } from "@/lineplot/LinePlot";
 
 export * from "@/lineplot/export";
 export * from "@/lineplot/LinePlot";
@@ -26,3 +26,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
+
+export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];

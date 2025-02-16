@@ -69,7 +69,7 @@ export const use = <
     } catch (e) {
       handleExc(e);
     }
-  }, [ctx, client?.key]);
+  }, [ctx.value, client?.key]);
   Form.useFieldListener<string, UseContextValue>({
     ctx,
     path: "config.device",

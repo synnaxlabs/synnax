@@ -12,7 +12,11 @@ import { TYPE } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/task/sequence/palette";
-export { LAYOUT } from "@/hardware/task/sequence/Sequence";
+export {
+  createLayout,
+  type CreateLayoutArgs,
+  LAYOUT,
+} from "@/hardware/task/sequence/Sequence";
 export * from "@/hardware/task/sequence/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
