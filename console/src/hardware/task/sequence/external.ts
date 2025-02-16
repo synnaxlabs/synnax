@@ -13,8 +13,8 @@ import { type Layout } from "@/layout";
 
 export * from "@/hardware/task/sequence/palette";
 export {
-  createNewLayout,
-  type CreateNewLayoutArgs,
+  createLayout,
+  type CreateLayoutArgs,
   LAYOUT,
 } from "@/hardware/task/sequence/Sequence";
 export * from "@/hardware/task/sequence/types";

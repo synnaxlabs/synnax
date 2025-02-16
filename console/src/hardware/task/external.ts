@@ -15,7 +15,7 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
-export * from "@/hardware/task/layoutUtil";
+export * from "@/hardware/task/layouts";
 export * from "@/hardware/task/link";
 export * from "@/hardware/task/ontology";
 export * from "@/hardware/task/Selector";

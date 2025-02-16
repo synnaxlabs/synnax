@@ -34,15 +34,15 @@ export const LAYOUT: Common.Task.Layout = {
   type: TYPE,
 };
 
-export interface CreateNewLayoutArgs {
+export interface CreateLayoutArgs {
   rackKey?: rack.Key;
   rename: Modals.PromptRename;
 }
 
-export const createNewLayout = async ({
+export const createLayout = async ({
   rackKey,
   rename,
-}: CreateNewLayoutArgs): Promise<Common.Task.Layout | null> => {
+}: CreateLayoutArgs): Promise<Common.Task.Layout | null> => {
   const name = await rename({}, { icon: "Control", name: "Control.Sequence.Create" });
   return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
@@ -52,7 +52,7 @@ export const SELECTABLE: Layout.Selectable = {
   title: "Control Sequence",
   icon: <Icon.Control />,
   create: async ({ layoutKey, rename }) => {
-    const layout = await createNewLayout({ rename });
+    const layout = await createLayout({ rename });
     return layout == null ? null : { ...layout, key: layoutKey };
   },
 };

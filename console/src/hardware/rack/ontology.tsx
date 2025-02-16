@@ -58,7 +58,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const rename = Modals.useRename();
   const handleException = Status.useExceptionHandler();
   const createSequence = () => {
-    Sequence.createNewLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
+    Sequence.createLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
       .then((layout) => {
         if (layout == null) return;
         placeLayout(layout);

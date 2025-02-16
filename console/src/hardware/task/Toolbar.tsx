@@ -33,7 +33,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
-import { createLayout } from "@/hardware/task/layoutUtil";
+import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";

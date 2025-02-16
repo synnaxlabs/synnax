@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createNewLayout } from "@/hardware/task/sequence/Sequence";
+import { createLayout } from "@/hardware/task/sequence/Sequence";
 import { type Palette } from "@/palette";
 
 const CREATE_SEQUENCE_COMMAND: Palette.Command = {
@@ -17,7 +17,7 @@ const CREATE_SEQUENCE_COMMAND: Palette.Command = {
   name: "Create a Control Sequence",
   icon: <Icon.Control />,
   onSelect: ({ placeLayout, rename, handleException }) => {
-    createNewLayout({ rename })
+    createLayout({ rename })
       .then((layout) => {
         if (layout != null) placeLayout(layout);
       })

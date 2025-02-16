@@ -53,7 +53,7 @@ export type TaskProps<
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
   extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
 
-export interface GetIntialPayloadArgs {
+export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
 }
 
@@ -62,7 +62,7 @@ export interface GetInitialPayload<
   Details extends {} = UnknownRecord,
   Type extends string = string,
 > {
-  (args: GetIntialPayloadArgs): task.Payload<Config, Details, Type>;
+  (args: GetInitialPayloadArgs): task.Payload<Config, Details, Type>;
 }
 
 export interface WrapOptions<
