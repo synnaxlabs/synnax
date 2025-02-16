@@ -8,9 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import { Icon, type IconProps } from "@synnaxlabs/media";
 import { DataType, nullToArr, toArray, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import {
+  type DragEvent,
+  type FC,
+  type ReactElement,
+  useCallback,
+  useId,
+  useMemo,
+} from "react";
 
 import { useActiveRange, useAliases } from "@/channel/AliasProvider";
 import { HAUL_TYPE } from "@/channel/types";
@@ -63,24 +70,25 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): PIcon.Element => {
-  if (ch == null) return <Icon.Channel />;
-  if (channel.isCalculated(ch)) return <Icon.Calculation />;
-  if (ch.isIndex) return <Icon.Index />;
+export const resolveIcon = (ch?: channel.Payload): FC<IconProps> => {
+  if (ch == null) return Icon.Channel;
+  if (channel.isCalculated(ch)) return Icon.Calculation;
+  if (ch.isIndex) return Icon.Index;
   const dt = new DataType(ch.dataType);
-  if (dt.isInteger) return <Icon.Binary />;
-  if (dt.isFloat) return <Icon.Decimal />;
-  if (dt.equals(DataType.STRING)) return <Icon.String />;
-  if (dt.equals(DataType.JSON)) return <Icon.JSON />;
-  return <Icon.Channel />;
+  if (dt.isInteger) return Icon.Binary;
+  if (dt.isFloat) return Icon.Decimal;
+  if (dt.equals(DataType.STRING)) return Icon.String;
+  if (dt.equals(DataType.JSON)) return Icon.JSON;
+  return Icon.Channel;
 };
 
 const renderTag = ({
   key,
   ...props
-}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => (
-  <Select.MultipleTag key={key} icon={resolveIcon(props.entry)} {...props} />
-);
+}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => {
+  const Icon = resolveIcon(props.entry);
+  return <Select.MultipleTag key={key} icon={<Icon />} {...props} />;
+};
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

@@ -15,6 +15,7 @@ import {
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
+  Text,
   Tree,
 } from "@synnaxlabs/pluto";
 import { errors, type UnknownRecord } from "@synnaxlabs/x";
@@ -282,7 +283,36 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElement => {
   const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
-  return <Tree.DefaultItem {...rest} entry={{ ...entry, name: alias ?? entry.name }} />;
+  const data = entry.extraData as channel.Payload;
+  const I = PChannel.resolveIcon(data);
+  return (
+    <Tree.DefaultItem
+      {...rest}
+      entry={{
+        ...entry,
+        name: alias ?? entry.name,
+        icon: <I style={{ color: "var(--pluto-gray-l8" }} />,
+      }}
+    >
+      {({ entry, onRename, key }) => (
+        <>
+          <Text.MaybeEditable
+            id={`text-${key}`}
+            level="p"
+            allowDoubleClick={false}
+            value={alias ?? entry.name}
+            disabled={!entry.allowRename}
+            onChange={(name) => onRename?.(entry.key, name)}
+          />
+          {data.virtual && (
+            <Icon.Virtual
+              style={{ color: "var(--pluto-gray-l6)", transform: "scale(0.9)" }}
+            />
+          )}
+        </>
+      )}
+    </Tree.DefaultItem>
+  );
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

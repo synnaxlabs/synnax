@@ -11,17 +11,24 @@ import { CSS as PCSS, Menu as PMenu, Nav, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { ChannelServices } from "@/channel/services";
 import { CSS } from "@/css";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
+import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
+import { WorkspaceServices } from "@/workspace/services";
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,
-  Range.Toolbar,
+  Range.TOOLBAR,
   Vis.Toolbar,
+  ChannelServices.TOOLBAR,
+  Hardware.TOOLBAR,
+  UserServices.TOOLBAR,
+  WorkspaceServices.TOOLBAR,
   ...Hardware.NAV_DRAWER_ITEMS,
 ];
 

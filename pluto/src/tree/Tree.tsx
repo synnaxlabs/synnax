@@ -280,8 +280,8 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
-    let offset = depth * 2.5 + 1;
-    if (actuallyHasChildren && useMargin) offset -= 1;
+    let offset = depth * 2.5 + 1.5;
+    if (actuallyHasChildren) offset -= 0.5;
 
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,

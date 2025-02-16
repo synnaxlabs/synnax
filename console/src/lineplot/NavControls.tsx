@@ -64,15 +64,13 @@ export const NavControls = (): ReactElement => {
     <>
       <Viewport.SelectMode
         value={mode}
-        bordered={false}
-        rounded={false}
         onChange={handleModeChange}
         triggers={triggers}
         size="medium"
       />
       <Button.Icon
         onClick={handleZoomReset}
-        variant="text"
+        variant="outlined"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
           <Align.Space direction="x" align="center">
@@ -93,7 +91,7 @@ export const NavControls = (): ReactElement => {
         value={control.enableTooltip}
         onChange={handleTooltipChange}
         checkedVariant="filled"
-        uncheckedVariant="text"
+        uncheckedVariant="outlined"
         sharp
         tooltip={
           <Align.Space direction="x" align="center">
@@ -133,7 +131,6 @@ export const NavControls = (): ReactElement => {
             key={entry.key}
             variant={rest.selected ? "filled" : "text"}
             style={{}}
-            size="medium"
             tooltip={entry.tooltip}
             tooltipLocation={{ x: "left", y: "top" }}
           >
@@ -146,7 +143,7 @@ export const NavControls = (): ReactElement => {
         value={control.hold}
         onChange={handleHoldChange}
         sharp
-        uncheckedVariant="text"
+        uncheckedVariant="outlined"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
           <Align.Space direction="x" align="center" size="small">

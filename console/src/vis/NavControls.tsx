@@ -32,7 +32,12 @@ export const NavControls = (): ReactElement | null => {
   if (layout == null) return null;
   const Controls = REGISTRY[layout.type as LayoutType];
   return Controls == null ? null : (
-    <Align.Space direction="x" empty className={CSS.B("nav-controls")}>
+    <Align.Space
+      direction="x"
+      size="medium"
+      className={CSS.B("nav-controls")}
+      style={{ paddingLeft: "0.5rem" }}
+    >
       <Controls />
     </Align.Space>
   );

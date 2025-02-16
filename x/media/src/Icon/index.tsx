@@ -149,6 +149,8 @@ import {
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbSquareLetterV,
+  TbSquareLetterVFilled,
   TbVariable,
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
@@ -415,6 +417,7 @@ export interface IconType {
   String: IconFC;
   Control: IconFC;
   Rack: IconFC;
+  Virtual: IconFC;
 }
 
 export const Icon: IconType = {
@@ -586,4 +589,5 @@ export const Icon: IconType = {
   String: wrapIcon(VscSymbolString, "string"),
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
+  Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
 };

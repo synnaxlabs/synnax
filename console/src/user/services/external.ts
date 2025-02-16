@@ -9,3 +9,4 @@
 
 export * from "@/user/services/ontology";
 export * from "@/user/services/palette";
+export * from "@/user/services/Toolbar";

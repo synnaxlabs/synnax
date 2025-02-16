@@ -11,27 +11,29 @@ import { Color } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v1 from "@/layout/types/v1";
-import * as v3 from "@/layout/types/v3";
+import * as v4 from "@/layout/types/v4";
 
-const VERSION = "4.0.0";
+const VERSION = "5.0.0";
 
-export const sliceStateZ = v3.sliceStateZ.omit({ version: true }).extend({
-  version: z.literal(VERSION),
-  colorContext: Color.contextStateZ,
-});
+export const sliceStateZ = v4.sliceStateZ
+  .omit({ version: true })
+  .extend({
+    version: z.literal(VERSION),
+    colorContext: Color.contextStateZ,
+  })
+  .transform(Color.transformColorsToHex);
 
 export type SliceState = z.infer<typeof sliceStateZ>;
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
-  ...v3.ZERO_SLICE_STATE,
+  ...v4.ZERO_SLICE_STATE,
   version: VERSION,
   colorContext: Color.ZERO_CONTEXT_STATE,
 });
 
-export const sliceMigration: migrate.Migration<v3.SliceState, SliceState> =
+export const sliceMigration: migrate.Migration<v4.SliceState, SliceState> =
   migrate.createMigration({
-    name: v1.SLICE_MIGRATION_NAME,
+    name: v4.sliceMigration.name,
     migrate: (s) => ({
       ...s,
       version: VERSION,

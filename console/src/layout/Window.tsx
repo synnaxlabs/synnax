@@ -119,7 +119,7 @@ const WindowInternal = (): ReactElement | null => {
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space
-        empty
+        size={0.25}
         className={CSS(
           CSS.B("main"),
           CSS.BM("main", os.toLowerCase()),

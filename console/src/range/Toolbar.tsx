@@ -467,7 +467,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

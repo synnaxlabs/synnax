@@ -215,8 +215,11 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   nav: {
     main: {
       drawers: {
-        left: { activeItem: null, menuItems: ["resources"] },
-        right: { activeItem: null, menuItems: ["range", "task"] },
+        left: {
+          activeItem: null,
+          menuItems: ["channel", "range", "workspace", "device", "task", "user"],
+        },
+        right: { activeItem: null, menuItems: [] },
         bottom: { activeItem: null, menuItems: ["visualization"] },
       },
     },

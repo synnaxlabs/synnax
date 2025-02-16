@@ -41,6 +41,10 @@ export const ConnectionStatusBadge = ({
     className={CSS.B("connection-status-badge")}
     variant={statusVariants[status]}
     justify="center"
+    style={{
+      backgroundColor: "var(--pluto-gray-l0)",
+      borderColor: "var(--pluto-gray-l4)",
+    }}
   >
     {caseconv.capitalize(status)}
   </Status.Text>

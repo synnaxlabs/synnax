@@ -10,7 +10,7 @@
 import "@/layouts/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
@@ -88,6 +88,7 @@ export const NavTop = (): ReactElement => {
       location="top"
       size={NAV_SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
+      bordered={false}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls className="console-controls--macos" visibleIfOS="macOS" />
@@ -107,8 +108,16 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.End
         className="console-main-nav-top__end"
         justify="end"
+        align="center"
         data-tauri-drag-region
+        size="small"
       >
+        <MemoryBadge />
+        <Version.Badge />
+        <Align.Pack style={{ "--pluto-pack-br": "0.5rem" }}>
+          <Cluster.Dropdown />
+          <Cluster.ConnectionBadge />
+        </Align.Pack>
         <Button.Icon
           size="medium"
           onClick={handleDocs}
@@ -132,8 +141,18 @@ export const NavLeft = (): ReactElement => {
     NAV_DRAWER_ITEMS,
   );
   const os = OS.use();
+  const {
+    menuItems: bottomMenuItems,
+    activeItem: bottomActiveItem,
+    onSelect: onBottomSelect,
+  } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
   return (
-    <Nav.Bar className={CSS.B("main-nav")} location="left" size={NAV_SIZES.side}>
+    <Nav.Bar
+      className={CSS.B("main-nav")}
+      location="left"
+      size={NAV_SIZES.side}
+      bordered={false}
+    >
       {os !== "Windows" && (
         <Nav.Bar.Start className="console-main-nav-left__start" bordered>
           <Logo className="console-main-nav-left__logo" />
@@ -144,6 +163,13 @@ export const NavLeft = (): ReactElement => {
           {menuItems}
         </NavMenu>
       </Nav.Bar.Content>
+      {bottomMenuItems.length > 0 && (
+        <Nav.Bar.End className="console-main-nav__content" bordered>
+          <NavMenu activeItem={bottomActiveItem} onChange={onBottomSelect}>
+            {bottomMenuItems}
+          </NavMenu>
+        </Nav.Bar.End>
+      )}
     </Nav.Bar>
   );
 };
@@ -157,11 +183,9 @@ export const NavRight = (): ReactElement | null => {
     "right",
     NAV_DRAWER_ITEMS,
   );
-  const {
-    menuItems: bottomMenuItems,
-    activeItem: bottomActiveItem,
-    onSelect: onBottomSelect,
-  } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
+
+  if (menuItems.length === 0) return null;
+
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">
@@ -169,13 +193,6 @@ export const NavRight = (): ReactElement | null => {
           {menuItems}
         </NavMenu>
       </Nav.Bar.Content>
-      {bottomMenuItems.length > 0 && (
-        <Nav.Bar.End className="console-main-nav__content" bordered>
-          <NavMenu activeItem={bottomActiveItem} onChange={onBottomSelect}>
-            {bottomMenuItems}
-          </NavMenu>
-        </Nav.Bar.End>
-      )}
     </Nav.Bar>
   );
 };
@@ -223,24 +240,3 @@ const MemoryBadge = (): ReactElement | null => {
     </>
   );
 };
-
-/**
- * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
- * presentational.
- */
-export const NavBottom = (): ReactElement => (
-  <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
-    <Nav.Bar.Start>
-      <Vis.NavControls />
-    </Nav.Bar.Start>
-    <Nav.Bar.End className="console-main-nav-bottom__end" empty>
-      <MemoryBadge />
-      <Divider.Divider />
-      <Version.Badge />
-      <Divider.Divider />
-      <Cluster.Dropdown />
-      <Divider.Divider />
-      <Cluster.ConnectionBadge />
-    </Nav.Bar.End>
-  </Nav.Bar>
-);

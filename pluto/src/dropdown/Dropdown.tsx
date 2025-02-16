@@ -216,7 +216,6 @@ export const Dialog = ({
       <C
         {...props}
         ref={combinedParentRef}
-        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),

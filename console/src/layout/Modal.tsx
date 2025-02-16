@@ -38,34 +38,32 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
   const { key, name, window, icon } = state;
   const menuProps = Menu.useContextMenu();
   return (
-    <Menu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-      <Core.Modal
-        key={key}
-        centered={centered}
-        visible
-        close={() => remove(key)}
-        style={layoutCSS(window)}
-        root={root}
-      >
-        {window?.navTop && (
-          <Nav.Bar location="top" size="6rem">
-            {(window?.showTitle ?? true) && (
-              <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-                <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
-                  {name}
-                </Breadcrumb.Breadcrumb>
-              </Nav.Bar.Start>
-            )}
-            <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              {state.beta != null && <Version.BetaTag />}
-              <Button.Icon onClick={() => remove(key)} size="small">
-                <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
-              </Button.Icon>
-            </Nav.Bar.End>
-          </Nav.Bar>
-        )}
-        <Content layoutKey={key} />
-      </Core.Modal>
-    </Menu.ContextMenu>
+    <Core.Modal
+      key={key}
+      centered={centered}
+      visible
+      close={() => remove(key)}
+      style={layoutCSS(window)}
+      root={root}
+    >
+      {window?.navTop && (
+        <Nav.Bar location="top" size="6rem">
+          {(window?.showTitle ?? true) && (
+            <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+              <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
+                {name}
+              </Breadcrumb.Breadcrumb>
+            </Nav.Bar.Start>
+          )}
+          <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+            {state.beta != null && <Version.BetaTag />}
+            <Button.Icon onClick={() => remove(key)} size="small">
+              <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
+            </Button.Icon>
+          </Nav.Bar.End>
+        </Nav.Bar>
+      )}
+      <Content layoutKey={key} />
+    </Core.Modal>
   );
 };

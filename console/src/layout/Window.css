@@ -24,6 +24,8 @@ body {
 .console-main {
     height: 100%;
     width: 100%;
+    padding: 0.5rem;
+    background: var(--pluto-gray-l2);
 }
 
 .console-controls--windows button {

@@ -22,7 +22,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes, parent, resources },
+    selection: { nodes, parentID, resources },
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
@@ -51,12 +51,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <GroupMenuItem selection={props.selection} />
-      {parent != null && (
-        <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
-          {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
-          {isDelete ? "Delete" : "Ungroup"}
-        </PMenu.Item>
-      )}
+      <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+        {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
+        {isDelete ? "Delete" : "Ungroup"}
+      </PMenu.Item>
       <PMenu.Divider />
       {singleResource && (
         <>
@@ -87,12 +85,12 @@ export const GroupMenuItem = ({
 const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, selection, state: { nodes } }) => {
-      if (selection.parent == null) return;
+      if (selection.parentID == null) return;
       for (const res of selection.resources) {
         const id = res.id;
         const children =
           Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
-        const parentID = new ontology.ID(selection.parent.key);
+        const parentID = selection.parentID;
         const childKeys = children.map((c) => new ontology.ID(c.key));
         await client.ontology.moveChildren(id, parentID, ...childKeys);
         await client.ontology.groups.delete(id.key);
@@ -102,7 +100,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       e,
       { selection, handleException, state: { setNodes, nodes: prevNodes } },
     ) => {
-      if (selection.parent == null || prevNodes == null) return;
+      if (selection.parentID == null || prevNodes == null) return;
       setNodes(prevNodes);
       handleException(e, "Failed to ungroup resources");
     },
@@ -116,7 +114,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       selection,
       state: { nodes, setNodes },
     } = props;
-    if (selection.parent == null) return;
+    if (selection.parentID == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resources.sort((a, b) => {
       const a_depth =
@@ -126,13 +124,14 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       return b_depth - a_depth;
     });
     const prevNodes = Tree.deepCopy(nodes);
+    const isLevel0 = selection.nodes.some(({ depth }) => depth === 0);
     setNodes([
       ...selection.resources.reduce((acc, { id }) => {
         const children =
           Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
         acc = Tree.moveNode({
           tree: acc,
-          destination: selection.parent?.key as string,
+          destination: isLevel0 ? null : selection.parentID.toString(),
           keys: children.map((c) => c.key),
         });
         acc = Tree.removeNode({ tree: acc, keys: id.toString() });
@@ -226,12 +225,13 @@ export const useCreateFromSelection = (): ((
       state: { nodes, setNodes, setSelection },
       newID,
     }) => {
-      if (selection.parent == null) return;
+      if (selection.parentID == null) return;
       const resourcesToGroup = getResourcesToGroup(selection);
       const prevNodes = Tree.deepCopy(nodes);
+      const isLevel0 = selection.nodes.some(({ depth }) => depth === 0);
       let nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.parent.key,
+        destination: isLevel0 ? null : selection.parentID.toString(),
         additions: {
           key: newID.toString(),
           icon: <Icon.Group />,
@@ -250,11 +250,10 @@ export const useCreateFromSelection = (): ((
       return prevNodes;
     },
     mutationFn: async ({ client, selection, newID }) => {
-      if (selection.parent == null) return;
+      const parentID = selection.parentID;
       const [groupName, renamed] = await Tree.asyncRename(newID.toString());
       if (!renamed) throw errors.CANCELED;
       const resourcesToGroup = getResourcesToGroup(selection);
-      const parentID = new ontology.ID(selection.parent.key);
       await client.ontology.groups.create(parentID, groupName, newID.key);
       await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
     },

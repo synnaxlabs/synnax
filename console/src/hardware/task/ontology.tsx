@@ -69,9 +69,9 @@ const useDelete = () => {
 
 const useRangeSnapshot = () =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ store, client, selection: { resources, parent } }) => {
+    mutationFn: async ({ store, client, selection: { resources, parentID } }) => {
       const activeRange = Range.selectActiveKey(store.getState());
-      if (activeRange === null || parent == null) return;
+      if (activeRange === null || parentID == null) return;
       const tasks = await Promise.all(
         resources.map(({ id, name }) =>
           client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),
@@ -79,11 +79,7 @@ const useRangeSnapshot = () =>
       );
       const otgIDs = tasks.map((t) => t.ontologyID);
       const rangeID = ranger.ontologyID(activeRange);
-      await client.ontology.moveChildren(
-        new ontology.ID(parent.key),
-        rangeID,
-        ...otgIDs,
-      );
+      await client.ontology.moveChildren(parentID, rangeID, ...otgIDs);
     },
     onError: (e: Error, { handleException }) =>
       handleException(e, "Failed to create snapshot"),

@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 export interface BarProps extends Omit<Align.SpaceProps, "direction" | "size" | "ref"> {
   location?: location.Crude;
   size?: string | number;
+  bordered?: boolean;
 }
 
 const CoreBar = ({
@@ -25,6 +26,7 @@ const CoreBar = ({
   size = "9rem",
   className,
   style,
+  bordered = true,
   ...props
 }: BarProps): ReactElement => {
   const loc = location.construct(location_);
@@ -34,7 +36,7 @@ const CoreBar = ({
     <Align.Space
       className={CSS(
         CSS.B("navbar"),
-        CSS.bordered(location.swap(loc)),
+        bordered && CSS.bordered(location.swap(loc)),
         CSS.dir(oppositeDir),
         CSS.loc(loc),
         className,

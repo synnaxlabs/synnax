@@ -24,10 +24,10 @@
 }
 
 .console-main-fixed--y {
-    height: calc(100vh - 6rem - 4.5rem);
+    height: calc(100vh - 7.5rem);
 }
 .console-main-fixed--x {
-    width: calc(100vw - 8rem - 8rem);
+    width: calc(100vw - 8rem - 1rem);
 }
 
 .console-main--driving {
@@ -38,9 +38,47 @@
 .console-main--driven {
     flex-grow: 1;
     flex-shrink: 1;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: repeat;
+}
+
+main {
+    border: var(--pluto-border);
+    border-radius: 1rem;
+    background: var(--pluto-gray-l0);
     overflow: hidden;
+    border-color: var(--pluto-gray-l4);
 }
 
 .console-main-content-drawers {
     overflow: hidden;
+}
+
+.pluto-navdrawer__content {
+    background-color: var(--pluto-gray-l0);
+    border-radius: 1rem;
+    overflow: hidden;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l4);
+    .pluto-resize__handle {
+        border-color: var(--pluto-gray-l4);
+        &:hover {
+            border-color: var(--pluto-primary-z);
+        }
+        &:active {
+            border-color: var(--pluto-primary-p1);
+        }
+    }
+    &.pluto--x {
+        border-right: none;
+    }
+    &.pluto--y {
+        border-top: none;
+    }
 }
