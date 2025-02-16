@@ -503,8 +503,8 @@ const buildLines = (
     ),
   );
 
-export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";
+export type LayoutType = typeof LAYOUT_TYPE;
 
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>

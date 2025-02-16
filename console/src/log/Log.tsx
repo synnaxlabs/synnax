@@ -21,8 +21,8 @@ import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
 import { Workspace } from "@/workspace";
 
-export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
+export type LayoutType = typeof LAYOUT_TYPE;
 
 interface SyncPayload {
   key?: string;
