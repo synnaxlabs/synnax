@@ -2,10 +2,17 @@ Checks: '-*,
         bugprone-*,
         performance-*,
         readability-*,
+        concurrency-*,
+        modernize-*,
+        misc-*,
+        cppcoreguidelines-*,
+        hicpp-*,
+        clang-analyzer-*,
         -readability-identifier-length,
-        -readability-magic-numbers,
         -readability-function-cognitive-complexity,
-        -bugprone-easily-swappable-parameters'
+        -bugprone-easily-swappable-parameters,
+        -readability-braces-around-statements'
+        -modernize-use-using
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
 FormatStyle: none
