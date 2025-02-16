@@ -185,7 +185,7 @@ void Acquisition::run_internal() {
     )
         return this->run_internal();
     if (writer_err) this->source->stopped_with_err(writer_err);
-    LOG(INFO) << "[acquisition] acquisition thread stopped";
+    VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 
 Acquisition::~Acquisition() {

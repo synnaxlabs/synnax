@@ -19,8 +19,8 @@ std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
-    auto client = new_test_client();
-    auto [range, err] = client.ranges.create(
+    const auto client = new_test_client();
+    const auto [range, err] = client.ranges.create(
         "test",
         telem::TimeRange(
             telem::TimeStamp(10),
@@ -29,15 +29,15 @@ TEST(RangerTests, testCreate) {
     );
     ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(range.name, "test");
-    ASSERT_FALSE(range.key.length() == 0);
+    ASSERT_FALSE(range.key.empty());
     ASSERT_EQ(range.time_range.start, telem::TimeStamp(10));
     ASSERT_EQ(range.time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its key.
 TEST(RangerTests, testRetrieveByKey) {
-    auto client = new_test_client();
-    auto [range, err] = client.ranges.create(
+    const auto client = new_test_client();
+    const auto [range, err] = client.ranges.create(
         "test",
         telem::TimeRange(
             telem::TimeStamp(30),
@@ -45,19 +45,19 @@ TEST(RangerTests, testRetrieveByKey) {
         )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieve_by_key(range.key);
+    const auto [got, err2] = client.ranges.retrieve_by_key(range.key);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(got.name, "test");
-    ASSERT_FALSE(got.key.length() == 0);
+    ASSERT_FALSE(got.key.empty());
     ASSERT_EQ(got.time_range.start, telem::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
-    auto client = new_test_client();
-    auto rand_name = std::to_string(gen_rand());
-    auto [range, err] = client.ranges.create(
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    const auto [range, err] = client.ranges.create(
         rand_name,
         telem::TimeRange(
             telem::TimeStamp(10),
@@ -65,10 +65,10 @@ TEST(RangerTests, testRetrieveByName) {
         )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieve_by_name(rand_name);
+    const auto [got, err2] = client.ranges.retrieve_by_name(rand_name);
     ASSERT_FALSE(err2);
     ASSERT_EQ(got.name, rand_name);
-    ASSERT_FALSE(got.key.length() == 0);
+    ASSERT_FALSE(got.key.empty());
     ASSERT_EQ(got.time_range.start, telem::TimeStamp(10));
     ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
@@ -83,9 +83,9 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
 
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
-    auto client = new_test_client();
-    auto rand_name = std::to_string(gen_rand());
-    auto [range, err] = client.ranges.create(
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    const auto [range, err] = client.ranges.create(
         rand_name,
         telem::TimeRange(
             telem::TimeStamp(30),
@@ -93,7 +93,7 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         )
     );
     ASSERT_FALSE(err);
-    auto [range2, err2] = client.ranges.create(
+    const auto [range2, err2] = client.ranges.create(
         rand_name,
         telem::TimeRange(
             telem::TimeStamp(30),
@@ -101,16 +101,15 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         )
     );
     ASSERT_FALSE(err2);
-    auto [got, err3] = client.ranges.retrieve_by_name(
-        std::vector<std::string>{rand_name});
+    const auto [got, err3] = client.ranges.retrieve_by_name(std::vector{rand_name});
     ASSERT_FALSE(err3);
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
-    ASSERT_FALSE(got[0].key.length() == 0);
+    ASSERT_FALSE(got[0].key.empty());
     ASSERT_EQ(got[0].time_range.start, telem::TimeStamp(30));
     ASSERT_EQ(got[0].time_range.end, telem::TimeStamp(100));
     ASSERT_EQ(got[1].name, rand_name);
-    ASSERT_FALSE(got[1].key.length() == 0);
+    ASSERT_FALSE(got[1].key.empty());
     ASSERT_EQ(got[1].time_range.start, telem::TimeStamp(30));
     ASSERT_EQ(got[1].time_range.end, telem::TimeStamp(100));
 }
@@ -126,16 +125,15 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     ASSERT_FALSE(err) << err.message();
     auto [range2, err2] = client.ranges.create("test2", tr);
     ASSERT_FALSE(err2) << err2.message();
-    auto [got, err3] = client.ranges.retrieve_by_key(
-        std::vector<std::string>{range.key, range2.key});
+    auto [got, err3] = client.ranges.retrieve_by_key({range.key, range2.key});
     ASSERT_FALSE(err3) << err3.message();
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
-    ASSERT_FALSE(got[0].key.length() == 0);
+    ASSERT_FALSE(got[0].key.empty());
     ASSERT_EQ(got[0].time_range.start, telem::TimeStamp(10 * telem::SECOND));
     ASSERT_EQ(got[0].time_range.end, telem::TimeStamp(100 * telem::SECOND));
     ASSERT_EQ(got[1].name, "test2");
-    ASSERT_FALSE(got[1].key.length() == 0);
+    ASSERT_FALSE(got[1].key.empty());
     ASSERT_EQ(got[1].time_range.start, telem::TimeStamp(10 * telem::SECOND));
     ASSERT_EQ(got[1].time_range.end, telem::TimeStamp(100 * telem::SECOND));
 }

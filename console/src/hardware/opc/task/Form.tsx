@@ -189,7 +189,7 @@ export const Form = <C extends ChannelConfig>({
 }: FormProps) => (
   <Common.Device.Provider<Device.Properties, Device.Make>
     canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
+    configureLayout={Device.CONNECT_LAYOUT}
   >
     {({ device }) => (
       <>

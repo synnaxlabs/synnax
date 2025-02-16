@@ -180,6 +180,7 @@ const PaletteDialog = ({
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
   const confirm = Modals.useConfirm();
+  const rename = Modals.useRename();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
     () => ({
@@ -191,8 +192,9 @@ const PaletteDialog = ({
       handleException,
       ingestors: INGESTORS,
       extractors: EXTRACTORS,
+      rename,
     }),
-    [store, placeLayout, confirm, client, addStatus, handleException],
+    [store, placeLayout, confirm, client, addStatus, handleException, rename],
   );
 
   const handleSelect = useCallback(

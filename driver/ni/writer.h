@@ -88,9 +88,11 @@ struct WriterChannelConfig {
             port = "ao" + std::to_string(port_num);
             name = device_name + "/" + port;
 
-            ni_channel = AnalogOutputChannelFactory::create_channel(channel_type, parser, name);
+            ni_channel = AnalogOutputChannelFactory::create_channel(
+                channel_type, parser, name);
             if (ni_channel == nullptr) {
-                std::string msg = "Channel " + name + " has an unrecognized type: " + channel_type;
+                std::string msg = "Channel " + name + " has an unrecognized type: " +
+                                  channel_type;
                 ctx->set_state({
                     .task = task_key,
                     .variant = "error",
@@ -172,7 +174,8 @@ struct WriterConfig {
 
             if (!channel.enabled) return;
             if (!channel_parser.ok()) {
-                LOG(ERROR) << "Failed to parse channel config: " << channel_parser.error_json().dump(4);
+                LOG(ERROR) << "Failed to parse channel config: " << channel_parser.
+                        error_json().dump(4);
                 return;
             }
             // Build the channel map for error reporting - using dot notation
@@ -187,7 +190,7 @@ struct WriterConfig {
 
         // Add debug print here
         LOG(INFO) << "Writer channel map contents:";
-        for (const auto& [channel_name, path] : channel_map) {
+        for (const auto &[channel_name, path]: channel_map) {
             LOG(INFO) << "Channel: " << channel_name << " -> Path: " << path;
         }
 
@@ -200,7 +203,8 @@ struct WriterConfig {
                     {"message", parser.error_json().dump(4)}
                 }
             });
-            LOG(ERROR) << "Failed to parse channel config: " << parser.error_json().dump(4);
+            LOG(ERROR) << "Failed to parse channel config: " << parser.error_json().
+                    dump(4);
         }
     }
 };
@@ -259,7 +263,8 @@ public:
         task_handle(task_handle),
         ctx(ctx),
         task(task),
-        err_info({}) {
+        err_info({}),
+        breaker(breaker::default_config(task.name)) {
     }
 
     virtual ~WriteSink() {

@@ -7,37 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-import { v4 as uuid } from "uuid";
+import { useStore } from "react-redux";
 
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
-import { Schematic } from "@/schematic";
-import { Table } from "@/table";
+import { type RootState } from "@/store";
+import { Vis } from "@/vis";
 
-const SELECTABLES: Layout.Selectable[] = [
-  LinePlot.SELECTABLE,
-  Schematic.SELECTABLE,
-  Table.SELECTABLE,
-  ...Log.SELECTABLES,
-  ...Hardware.SELECTABLES,
-];
+export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
-export const SELECTOR_TYPE = "visLayoutSelector";
-
-export const createSelector = (
-  props: Omit<Partial<Layout.State>, "type">,
-): Layout.BaseState => {
-  const { location = "mosaic", name = "New Layout", key = uuid(), window, tab } = props;
-  return { type: SELECTOR_TYPE, location, name, key, window, tab };
+export const SELECTOR_LAYOUT: Layout.BaseState = {
+  type: SELECTOR_LAYOUT_TYPE,
+  icon: "Visualize",
+  location: "mosaic",
+  name: "New Layout",
 };
 
-export const Selector = (props: Layout.SelectorProps): ReactElement => {
-  const canCreateSchematic = Schematic.useSelectHasPermission();
-  const selectables = SELECTABLES.filter((s) =>
-    s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
+export const Selector: Layout.Renderer = (props) => {
+  const store = useStore<RootState>();
+  const selectables = [
+    ...Vis.getSelectables(store.getState()),
+    ...Hardware.SELECTABLES,
+  ];
+  return (
+    <Layout.Selector
+      selectables={selectables}
+      text="Select a Component Type"
+      {...props}
+    />
   );
-  return Layout.createSelectorComponent(selectables)(props);
 };

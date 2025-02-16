@@ -56,7 +56,9 @@ void Frame::add(const ChannelKey &chan, telem::Series &ser) const {
 }
 
 void Frame::to_proto(api::v1::Frame *f) const {
-    f->mutable_keys()->Add(channels->begin(), channels->end());
+    for (const auto& key : *channels) {
+        f->mutable_keys()->Add(key);
+    }
     f->mutable_series()->Reserve(static_cast<int>(series->size()));
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
@@ -79,13 +81,19 @@ Frame Frame::deep_copy() const {
     auto new_series = std::make_unique<std::vector<telem::Series>>();
     new_series->reserve(series->size());
     for (const auto &ser: *series) new_series->emplace_back(ser.deep_copy());
-    return Frame(std::move(new_channels), std::move(new_series));
+    return {std::move(new_channels), std::move(new_series)};
 }
 
 template<typename NumericType>
 NumericType Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
         if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
+    throw std::runtime_error("channel not found");
+}
+
+void Frame::at(const ChannelKey &key, const int &index, std:: string &value) const {
+    for (size_t i = 0; i < channels->size(); i++)
+        if (channels->at(i) == key) return series->at(i).at(index, value);
     throw std::runtime_error("channel not found");
 }
 

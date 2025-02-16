@@ -74,7 +74,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     const synnax::Task &task,
     std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    LOG(INFO) << "[labjack.task] configuring task " << task.name;
+    VLOG(2) << "[labjack.task] configuring task " << task.name;
 
     auto breaker_config = breaker::default_config(task.name);
 

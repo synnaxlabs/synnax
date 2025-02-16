@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package tracker
 
 import (
 	"context"
 	"encoding/binary"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"io"
 	"sync"
 
@@ -33,47 +35,83 @@ import (
 	"go.uber.org/zap"
 )
 
-type Rack struct {
-	Key       rack.Key                `json:"key" msgpack:"key"`
-	Heartbeat uint64                  `json:"heartbeat" msgpack:"heartbeat"`
-	Tasks     map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
+// RackState is the state of a hardware rack. Unfortunately, we can't put this into
+// the rack package because it would create a circular dependency.
+type RackState struct {
+	// Key is the key of the rack.
+	Key rack.Key `json:"key" msgpack:"key"`
+	// Heartbeat is a unit64 where the first 32 bits are the rack key and the second 32
+	// bits are an incrementing heartbeat counter starting at 0 from when the rack
+	// boots up. When the rack restarts, this counter will reset to 0.
+	Heartbeat uint64 `json:"heartbeat" msgpack:"heartbeat"`
+	// Tasks is the state of the tasks associated with the rack.
+	Tasks map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
 }
 
+// Tracker is used to track the state of hardware racks and tasks.
 type Tracker struct {
+	// mu is a read-write lock used to protect the state of the tracker. Any fields
+	// inside of this struct should be accessed while holding the lock.
 	mu struct {
 		sync.RWMutex
-		Racks map[rack.Key]*Rack
+		// Racks is the map of racks to their corresponding state.
+		Racks map[rack.Key]*RackState
 	}
-	stopListeners io.Closer
+	// saveNotifications is used to signal an observing go-routine to save the state of
+	// a task to gorp. This ensures that the most recent task state is persisted
+	// across reloads.
+	saveNotifications chan task.Key
+	// closer shuts down all go-routines needed to keep the tracker service running.
+	closer io.Closer
 }
 
-type TrackerConfig struct {
+// Config is the configuration for the Tracker service.
+type Config struct {
+	// Instrumentation used for logging, tracing, etc.
+	// [OPTIONAL]
 	alamos.Instrumentation
-	Rack         *rack.Service
-	Task         *task.Service
-	Signals      *signals.Provider
-	Channels     channel.Writeable
+	// Rack is the service used to retrieve rack information.
+	// [REQUIRED]
+	Rack *rack.Service
+	// Task is the service used to retrieve task information.
+	// [TASK]
+	Task *task.Service
+	// Signals is used to subscribe to changes in rack and task state.
+	// [REQUIRED]
+	Signals *signals.Provider
+	// Channels is used to create channels for the tracker service.
+	// [REQUIRED]
+	Channels channel.Writeable
+	// HostProvider returns information about the cluster host.
+	// [REQUIRED]
 	HostProvider core.HostProvider
-	DB           *gorp.DB
+	// DB is used to persist and retrieve information about rack and task state.
+	// [REQUIRED]
+	DB *gorp.DB
 }
 
 var (
-	_             config.Config[TrackerConfig] = TrackerConfig{}
-	DefaultConfig                              = TrackerConfig{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration or opening the tracker service. This
+	// configuration is not valid on its own, and must be overridden with the required
+	// fields detailed in the Config struct.
+	DefaultConfig = Config{}
 )
 
-func (c TrackerConfig) Override(other TrackerConfig) TrackerConfig {
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Task = override.Nil(c.Task, other.Task)
-	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.DB = override.Nil(c.DB, other.DB)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
-func (c TrackerConfig) Validate() error {
+// Validate implements config.Config.
+func (c Config) Validate() error {
 	v := validate.New("hardware.state")
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "task", c.Task)
@@ -84,8 +122,10 @@ func (c TrackerConfig) Validate() error {
 	return v.Error()
 }
 
-func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err error) {
-	cfg, err := config.New[TrackerConfig](DefaultConfig, configs...)
+// Open opens a new task/rack state tracker with the provided configuration. If error
+// is nil, the Tracker must be closed after use.
+func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
+	cfg, err := config.New[Config](DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
@@ -98,7 +138,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	}
 	sCtx, cancel := signal.Isolated()
 	t = &Tracker{}
-	t.mu.Racks = make(map[rack.Key]*Rack, len(racks))
+	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
 	for _, r := range racks {
 		var tasks []task.Task
 		if err = cfg.Task.NewRetrieve().
@@ -107,11 +147,19 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			Exec(ctx, nil); err != nil {
 			return
 		}
-		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
-		for _, t := range tasks {
-			r.Tasks[t.Key] = task.State{Task: t.Key, Variant: task.StatusInfo}
+		rck := &RackState{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
+		for _, tsk := range tasks {
+			// try to fetch the task state
+			taskState := task.State{Task: tsk.Key, Variant: task.StatusInfo}
+			if err = gorp.NewRetrieve[task.Key, task.State]().
+				WhereKeys(tsk.Key).
+				Entry(&taskState).
+				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+				return
+			}
+			rck.Tasks[tsk.Key] = taskState
 		}
-		t.mu.Racks[r.Key] = r
+		t.mu.Racks[rck.Key] = rck
 	}
 	if err = cfg.Channels.CreateMany(
 		ctx,
@@ -166,7 +214,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				rackKey := c.Key.Rack()
 				rck, rckOk := t.mu.Racks[rackKey]
 				if !rckOk {
-					rck = &Rack{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+					rck = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.State)}
 					t.mu.Racks[rackKey] = rck
 				}
 				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
@@ -183,7 +231,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				delete(t.mu.Racks, c.Key)
 			} else {
 				if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
-					t.mu.Racks[c.Key] = &Rack{Key: c.Key, Tasks: make(map[task.Key]task.State)}
+					t.mu.Racks[c.Key] = &RackState{Key: c.Key, Tasks: make(map[task.Key]task.State)}
 				}
 			}
 		}
@@ -225,9 +273,26 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			} else {
 				r.Tasks[taskState.Task] = taskState
 			}
+			// Send a signal to the saveNotifications channel to save the task state
+			// in the gorp.DB.
+			select {
+			case t.saveNotifications <- taskState.Task:
+			default:
+			}
 		}
 	})
-	t.stopListeners = xio.MultiCloser{
+	t.saveNotifications = make(chan task.Key, 10)
+	signal.GoRange[task.Key](sCtx, t.saveNotifications, func(ctx context.Context, taskKey task.Key) error {
+		state, ok := t.GetTask(ctx, taskKey)
+		if !ok {
+			return nil
+		}
+		if err := gorp.NewCreate[task.Key, task.State]().Entry(&state).Exec(ctx, cfg.DB); err != nil {
+			cfg.L.Warn("failed to save task state", zap.Error(err))
+		}
+		return nil
+	})
+	t.closer = xio.MultiCloser{
 		signal.NewShutdown(sCtx, cancel),
 		xio.NopCloserFunc(dcRackObs),
 		xio.NopCloserFunc(dcTaskObs),
@@ -235,6 +300,8 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	return
 }
 
+// GetTask returns the state of a task by its key. If the task is not found, the second
+// return value will be false.
 func (t *Tracker) GetTask(ctx context.Context, key task.Key) (task.State, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -246,16 +313,18 @@ func (t *Tracker) GetTask(ctx context.Context, key task.Key) (task.State, bool) 
 	return tsk, ok
 }
 
-func (t *Tracker) GetRack(ctx context.Context, key rack.Key) (Rack, bool) {
+// GetRack returns the state of a rack by its key. If the rack is not found, the second
+// return value will be false.
+func (t *Tracker) GetRack(ctx context.Context, key rack.Key) (RackState, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	r, ok := t.mu.Racks[key]
 	if !ok {
-		return Rack{}, false
+		return RackState{}, false
 	}
 	return *r, true
 }
 
-func (t *Tracker) Close() error {
-	return t.stopListeners.Close()
-}
+// Close closes the tracker, freeing all associated go-routines and resources.
+// The tracker must not be used after it is closed.
+func (t *Tracker) Close() error { return t.closer.Close() }

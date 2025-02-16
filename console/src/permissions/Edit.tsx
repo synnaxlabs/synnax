@@ -23,31 +23,22 @@ import {
   permissionsZ,
 } from "@/permissions/permissions";
 
-export const SET_LAYOUT_TYPE = "setPermissions";
+export const EDIT_LAYOUT_TYPE = "setPermissions";
 
-interface EditLayoutProps extends Partial<Layout.State> {
+interface EditLayoutArgs {
   user: clientUser.User;
 }
 
-export const editLayout = ({
-  user,
-  window,
-  ...rest
-}: EditLayoutProps): Layout.State => ({
-  key: SET_LAYOUT_TYPE,
-  type: SET_LAYOUT_TYPE,
-  windowKey: SET_LAYOUT_TYPE,
+export const createEditLayout = (
+  user: clientUser.User,
+): Layout.BaseState<EditLayoutArgs> => ({
+  key: EDIT_LAYOUT_TYPE,
+  type: EDIT_LAYOUT_TYPE,
   icon: "Access",
   location: "modal",
-  name: `Permissions.${user.username}`,
-  window: {
-    resizable: false,
-    size: { height: 400, width: 700 },
-    navTop: true,
-    ...window,
-  },
-  args: user,
-  ...rest,
+  name: `${user.username}.Permissions.Edit`,
+  window: { resizable: false, size: { height: 400, width: 700 }, navTop: true },
+  args: { user },
 });
 
 const initialPermissions = { schematic: false, admin: false, keys: {} };
@@ -55,7 +46,7 @@ const initialPermissions = { schematic: false, admin: false, keys: {} };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
 
-export const EditModal = (props: Layout.RendererProps): ReactElement => {
+export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
   const handleException = Status.useExceptionHandler();

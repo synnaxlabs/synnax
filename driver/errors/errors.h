@@ -9,9 +9,11 @@
 
 #pragma once
 
+/// std
 #include <string>
+
+/// module
 #include "x/cpp/xerrors/errors.h"
-#include "freighter/cpp/freighter.h"
 
 namespace driver {
 const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("driver");

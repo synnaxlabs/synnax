@@ -11,5 +11,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/xlib",
+        "//x/cpp/xos",
     ],
 )

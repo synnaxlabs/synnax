@@ -11,13 +11,27 @@ import { type device } from "@synnaxlabs/client";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Breadcrumb } from "@/breadcrumb";
 import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
 const deviceColumns: Array<List.ColumnSpec<device.Key, device.Device>> = [
   { key: "name", name: "Name" },
-  { key: "location", name: "Location" },
+  {
+    key: "location",
+    name: "Location",
+    render: ({ entry }) => (
+      <Breadcrumb.Breadcrumb
+        level="small"
+        shade={7}
+        weight={500}
+        style={{ marginTop: "0.25rem" }}
+      >
+        {entry.location}
+      </Breadcrumb.Breadcrumb>
+    ),
+  },
 ];
 
 export interface SelectSingleProps

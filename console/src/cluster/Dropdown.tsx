@@ -28,7 +28,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { connectWindowLayout } from "@/cluster/Connect";
+import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";
@@ -41,7 +41,7 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const active = useSelect();
-  const openWindow = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const selected = active?.key ?? null;
   const addStatus = Status.useAdder();
 
@@ -146,7 +146,7 @@ export const List = (): ReactElement => {
           variant="outlined"
           size="medium"
           startIcon={<Icon.Add />}
-          onClick={() => openWindow(connectWindowLayout)}
+          onClick={() => placeLayout(CONNECT_LAYOUT)}
           className={CSS.B("cluster-list-add")}
         >
           Add
@@ -224,11 +224,11 @@ export const NoneConnectedBoundary = ({
 };
 
 export const NoneConnected = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
-    place(connectWindowLayout);
+    placeLayout(CONNECT_LAYOUT);
   };
 
   return (

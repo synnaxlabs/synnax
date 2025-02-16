@@ -24,17 +24,13 @@ void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
 
 std::pair<Streamer, xerrors::Error>
 FrameClient::open_streamer(const StreamerConfig &config) const {
-    auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
-    if (exc) return {Streamer(), exc};
+    auto [s, err] = streamer_client->stream(STREAM_ENDPOINT);
+    if (err) return {Streamer(), err};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);
-    if (auto exc2 = s->send(req)) {
-        s->close_send();
-        auto [_, err] = s->receive();
-        return {Streamer(std::move(s)), err};
-    }
-    auto [_, resExc] = s->receive();
-    return {Streamer(std::move(s)), resExc};
+    if (!s->send(req).ok()) s->close_send();
+    auto [_, res_err] = s->receive();
+    return {Streamer(std::move(s)), res_err};
 }
 
 Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :

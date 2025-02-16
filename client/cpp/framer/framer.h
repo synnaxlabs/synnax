@@ -11,17 +11,16 @@
 
 /// std
 #include <memory>
-#include <utility>
 #include <vector>
 
 /// internal
 #include "client/cpp/channel/channel.h"
-#include "x/cpp/telem/control.h"
-#include "x/cpp/telem/series.h"
-#include "x/cpp/telem/telem.h"
 
 /// module
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/telem/control.h"
+#include "x/cpp/telem/series.h"
+#include "x/cpp/telem/telem.h"
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -52,6 +51,7 @@ typedef freighter::StreamClient<
     api::v1::FrameWriterRequest,
     api::v1::FrameWriterResponse
 > WriterClient;
+
 
 
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
@@ -102,13 +102,15 @@ struct Frame {
     void emplace(const ChannelKey &chan, telem::Series &&ser) const;
 
     /// @brief returns true if the frame has no series.
-    bool empty() const;
+    [[nodiscard]] bool empty() const;
 
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
     NumericType at(const ChannelKey &key, const int &index) const;
+
+    void at(const ChannelKey &key, const int &index, std::string &value) const;
 
     [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
@@ -297,7 +299,7 @@ public:
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] bool set_authority(const synnax::Authority &auth) const;
+    [[nodiscard]] bool set_authority(const synnax::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority level. 
     /// This does not affect the authority levels of any other channels in the writer.
@@ -307,7 +309,7 @@ public:
     [[nodiscard]] bool set_authority(
         const ChannelKey &key,
         const synnax::Authority &authority
-    ) const;
+    );
 
     /// @brief changes the authority of the given channels to the given authority levels.
     /// @returns true if the authority was set successfully.
@@ -316,7 +318,7 @@ public:
     [[nodiscard]] bool set_authority(
         const std::vector<ChannelKey> &keys,
         const std::vector<synnax::Authority> &authorities
-    ) const;
+    );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called
     /// multiple times, committing any new writes made since the last commit.
@@ -327,7 +329,7 @@ public:
 
     /// @brief returns any error accumulated during the write process. If no err has
     /// occurred, err.ok() will be true.
-    [[nodiscard]] xerrors::Error error() const;
+    [[nodiscard]] xerrors::Error error();
 
     /// @brief closes the writer and releases any resources associated with it. A writer
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
@@ -340,7 +342,11 @@ private:
     /// @brief if close() has been called on the writer.e
     bool closed = false;
     /// @brief the stream transport for the writer.
-    std::unique_ptr<WriterStream> stream{};
+    std::unique_ptr<WriterStream> stream;
+
+    /// @brief internal function that waits until an ack is received for a
+    /// particular command.
+    api::v1::FrameWriterResponse ack(api::v1::FrameWriterRequest &req);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(std::unique_ptr<WriterStream> s);

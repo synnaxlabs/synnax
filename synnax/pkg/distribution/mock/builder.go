@@ -11,6 +11,7 @@ package mock
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -27,11 +28,13 @@ import (
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 
 type Builder struct {
+	cfg        distribution.Config
 	core       mock.CoreBuilder
 	Nodes      map[dcore.NodeKey]distribution.Distribution
 	writerNet  *tmock.FramerWriterNetwork
@@ -41,10 +44,11 @@ type Builder struct {
 	deleteNet  *tmock.FramerDeleterNetwork
 }
 
-func NewBuilder(cfg ...distribution.Config) *Builder {
-	coreBuilder := mock.NewCoreBuilder(cfg...)
-
+func NewBuilder(cfgs ...distribution.Config) *Builder {
+	cfg := lo.Must(config.New[distribution.Config](distribution.Config{}, cfgs...))
+	coreBuilder := mock.NewCoreBuilder(cfg.Config)
 	return &Builder{
+		cfg:        cfg,
 		core:       *coreBuilder,
 		writerNet:  tmock.NewWriterNetwork(),
 		iterNet:    tmock.NewIteratorNetwork(),
@@ -66,8 +70,8 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		deleter: b.deleteNet.New(core.Config.AdvertiseAddress),
 	}
 
-	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
-	d.Group = lo.Must(group.OpenService(group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
+	d.Ontology = lo.Must(ontology.Open(ctx, b.cfg.Ontology, ontology.Config{DB: d.Storage.Gorpify()}))
+	d.Group = lo.Must(group.OpenService(b.cfg.Group, group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &cluster.NodeOntologyService{
 		Cluster:  d.Cluster,
@@ -78,7 +82,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	d.Ontology.RegisterService(clusterOntologySvc)
 	nodeOntologySvc.ListenForChanges(ctx)
 
-	d.Channel = lo.Must(channel.New(ctx, channel.ServiceConfig{
+	d.Channel = lo.Must(channel.New(ctx, b.cfg.Channel, channel.ServiceConfig{
 		HostResolver:     d.Cluster,
 		ClusterDB:        d.Storage.Gorpify(),
 		TSChannel:        d.Storage.TS,
@@ -88,7 +92,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 	}))
 
-	d.Framer = lo.Must(framer.Open(framer.Config{
+	d.Framer = lo.Must(framer.Open(b.cfg.Framer, framer.Config{
 		Instrumentation: d.Instrumentation,
 		ChannelReader:   d.Channel,
 		TS:              d.Storage.TS,
@@ -96,7 +100,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Transport:       trans,
 	}))
 
-	d.Signals = lo.Must(signals.New(signals.Config{
+	d.Signals = lo.Must(signals.New(b.cfg.Signals, signals.Config{
 		Instrumentation: d.Instrumentation,
 		Channel:         d.Channel,
 		Framer:          d.Framer,

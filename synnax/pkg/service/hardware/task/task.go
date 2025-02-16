@@ -12,11 +12,11 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/synnaxlabs/x/gorp"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -67,6 +67,14 @@ type Task struct {
 	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
 }
 
+var _ gorp.Entry[Key] = Task{}
+
+func (t Task) GorpKey() Key { return t.Key }
+
+func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+
+func (t Task) Rack() rack.Key { return t.Key.Rack() }
+
 func (t Task) String() string {
 	if t.Name != "" {
 		return fmt.Sprintf("[%s]<%s>", t.Name, t.Key)
@@ -113,18 +121,30 @@ func (d *Details) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// State represents the state of a task.
 type State struct {
-	Key      string  `json:"key" msgpack:"key"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Task     Key     `json:"task" msgpack:"task"`
-	Variant  Status  `json:"variant" msgpack:"variant"`
-	Details  Details `json:"details" msgpack:"details"`
+	// Key is used to uniquely identify the state update, and is usually used to tie
+	// back a command with its corresponding state value.
+	Key string `json:"key" msgpack:"key"`
+	// Internal is true if the state update is for an internal task.
+	Internal bool `json:"internal" msgpack:"internal"`
+	// Task is the key of the task that the state update is for.
+	Task Key `json:"task" msgpack:"task"`
+	// Variant is the status of the task.
+	Variant Status `json:"variant" msgpack:"variant"`
+	// Details is an arbitrary string that provides additional information about the
+	// state.
+	Details Details `json:"details" msgpack:"details"`
 }
 
-var _ gorp.Entry[Key] = Task{}
+var _ gorp.Entry[Key] = State{}
 
-func (t Task) GorpKey() Key { return t.Key }
+// GorpKey implements the gorp.Entry interface.
+func (s State) GorpKey() Key { return s.Task }
 
-func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+// SetOptions implements the gorp.Entry interface.
+func (s State) SetOptions() []interface{} { return []interface{}{s.Task.Rack().Node()} }
 
-func (t Task) Rack() rack.Key { return t.Key.Rack() }
+// CustomTypeName implements types.CustomTypeName to ensure that State struct does
+// not conflict with any other types in gorp.
+func (s State) CustomTypeName() string { return "TaskState" }

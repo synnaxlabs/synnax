@@ -51,9 +51,9 @@ public:
     bool ack = false;
 
     std::pair<freighter::Context, xerrors::Error>
-    operator()(freighter::Context context, freighter::Next *next) override {
+    operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", "5");
-        auto [outContext, exc] = next->operator()(context);
+        auto [outContext, exc] = next(context);
         auto a = outContext.get("test");
         if (a == "dog") {
             ack = true;
@@ -100,9 +100,7 @@ TEST(testGRPC, testMultipleTargets) {
     std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
-    // wait for servers to start.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
     auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();

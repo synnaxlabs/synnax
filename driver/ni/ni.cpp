@@ -42,7 +42,6 @@ void ni::Source::get_index_keys() {
 }
 
 
-
 ni::Source::Source(
     const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,
@@ -52,7 +51,8 @@ ni::Source::Source(
     task_handle(task_handle),
     ctx(ctx),
     task(task),
-    err_info({}) {
+    err_info({}),
+    breaker(breaker::default_config(task.name)) {
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
@@ -89,14 +89,16 @@ int ni::Source::init() {
             .variant = "error",
             .details = {
                 {"running", false},
-                {"message", "Failed to parse configuration for " + this->reader_config.task_name}
+                {
+                    "message",
+                    "Failed to parse configuration for " + this->reader_config.task_name
+                }
             }
         });
         return -1;
     }
     this->get_index_keys();
     this->validate_channels();
-    this->breaker = breaker::Breaker(breaker::default_config(task.name));
     int err = this->create_channels();
     if (err) {
         this->log_error(
@@ -203,7 +205,7 @@ ni::Source::~Source() {
 }
 
 int ni::Source::check_error(int32 error, std::string caller) {
-    if(!this->ok()) return 0;
+    if (!this->ok()) return 0;
     if (error == 0) return 0;
 
     char errBuff[4096] = {'\0'};
@@ -229,7 +231,7 @@ bool ni::Source::ok() {
 
 std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for (const auto &channel : this->reader_config.channels) {
+    for (const auto &channel: this->reader_config.channels) {
         if (channel.enabled) {
             keys.push_back(channel.channel_key);
         }
@@ -243,7 +245,7 @@ void ni::Source::log_error(std::string err_msg) {
 }
 
 void ni::Source::stopped_with_err(const xerrors::Error &err) {
-    if(this->ok()) return;
+    if (this->ok()) return;
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->set_state({

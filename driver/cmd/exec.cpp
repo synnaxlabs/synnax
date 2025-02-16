@@ -7,16 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
-#include <string>
-#include <iostream>
-
-/// external
-#include "glog/logging.h"
-
-/// internal
 #include "driver/cmd/cmd.h"
-
 
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
@@ -34,19 +25,11 @@ void print_usage() {
             << "  clear           Clear the persisted state\n";
 }
 
-// void cmd_start_daemon(int argc, char *argv[]) {
-//     daemond::Config config;
-//     config.watchdog_interval = 10;
-//     config.callback = [](const int argc_, char *argv_[]) {
-//         cmd_start_standalone(argc_, argv_);
-//     };
-//     daemond::run(config, argc, argv);
-// }
-
 int cmd::exec(int argc, char *argv[]) {
     FLAGS_logtostderr = 1;
     FLAGS_colorlogtostderr = 1;
     google::InitGoogleLogging(argv[0]);
+
     if (argc < 2) {
         print_usage();
         return 1;
@@ -77,3 +60,5 @@ int cmd::exec(int argc, char *argv[]) {
     print_usage();
     return 1;
 }
+
+

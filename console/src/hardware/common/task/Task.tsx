@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type task } from "@synnaxlabs/client";
+import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
@@ -17,14 +17,15 @@ import { type z } from "zod";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
-interface LayoutArgs {
-  taskKey?: task.Key;
+export interface LayoutArgs {
   deviceKey?: device.Key;
+  taskKey?: task.Key;
+  rackKey?: rack.Key;
 }
 
-export interface LayoutBaseState extends Layout.BaseState<LayoutArgs> {}
+export interface Layout extends Layout.BaseState<LayoutArgs> {}
 
-export const LAYOUT: Omit<LayoutBaseState, "type" | "key"> = {
+export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
   icon: "Task",
   location: "mosaic",
@@ -37,11 +38,13 @@ export type TaskProps<
   Type extends string = string,
 > =
   | {
+      rackKey?: rack.Key;
       layoutKey: string;
       configured: false;
       task: task.Payload<Config, Details, Type>;
     }
   | {
+      rackKey?: rack.Key;
       layoutKey: string;
       configured: true;
       task: task.Task<Config, Details, Type>;
@@ -50,12 +53,16 @@ export type TaskProps<
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
   extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
 
+export interface GetInitialPayloadArgs {
+  deviceKey?: device.Key;
+}
+
 export interface GetInitialPayload<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
   Type extends string = string,
 > {
-  (deviceKey?: device.Key): task.Payload<Config, Details, Type>;
+  (args: GetInitialPayloadArgs): task.Payload<Config, Details, Type>;
 }
 
 export interface WrapOptions<
@@ -76,7 +83,7 @@ export const wrap = <
   options: WrapOptions<Config, Details, Type>,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const { deviceKey, taskKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
+    const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
     const client = Synnax.use();
     const { data, error, isError, isPending } = useQuery<
       TaskProps<Config, Details, Type>
@@ -84,14 +91,21 @@ export const wrap = <
       queryFn: async () => {
         const { configSchema, getInitialPayload } = options;
         if (taskKey == null)
-          return { configured: false, task: getInitialPayload(deviceKey), layoutKey };
+          return {
+            configured: false,
+            task: getInitialPayload({ deviceKey }),
+            layoutKey,
+            rackKey,
+          };
         if (client == null) throw NULL_CLIENT_ERROR;
-        const task = await client.hardware.tasks.retrieve<Config, Details, Type>(
+        const tsk = await client.hardware.tasks.retrieve<Config, Details, Type>(
           taskKey,
           { includeState: true },
         );
-        task.config = configSchema.parse(task.config);
-        return { configured: true, task, layoutKey };
+        tsk.config = configSchema.parse(tsk.config);
+        let newRackKey: rack.Key | undefined = rackKey ?? task.getRackKey(tsk.key);
+        newRackKey ||= undefined;
+        return { configured: true, task: tsk, layoutKey, rackKey: newRackKey };
       },
       queryKey: [taskKey, deviceKey, client?.key, layoutKey],
     });

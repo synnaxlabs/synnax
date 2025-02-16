@@ -11,6 +11,9 @@ package telem
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
+
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/x/types"
@@ -95,4 +98,81 @@ func SetValueAt[T types.Numeric](s Series, i int64, v T) {
 	}
 	f := MarshalF[T](s.DataType)
 	f(s.Data[i*int64(s.DataType.Density()):], v)
+}
+
+const maxDisplayValues = 12
+const endDisplayCount = 5
+
+// truncateSlice returns a string representation of a slice, showing only the first and last few elements
+// if the slice is longer than maxDisplayValues
+func truncateSlice[T any](slice []T) string {
+	if len(slice) <= maxDisplayValues {
+		return fmt.Sprintf("%v", slice)
+	}
+
+	// Create string representations of first and last elements
+	first := slice[:5]
+	last := slice[len(slice)-endDisplayCount:]
+
+	// Convert to string and trim the brackets
+	firstStr := strings.Trim(fmt.Sprintf("%v", first), "[]")
+	lastStr := strings.Trim(fmt.Sprintf("%v", last), "[]")
+
+	return fmt.Sprintf("[%s ... %s]", firstStr, lastStr)
+}
+
+// String implements the fmt.Stringer interface.
+func (s Series) String() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		s.TimeRange.RawString(),
+		s.DataType,
+		s.Len(),
+		s.Size(),
+	)
+
+	if s.Len() == 0 {
+		b.WriteString("[]}")
+		return b.String()
+	}
+
+	var contents string
+	if s.DataType.IsVariable() {
+		contents = truncateSlice(UnmarshalStrings(s.Data))
+	} else {
+		switch s.DataType {
+		case Float64T:
+			contents = truncateSlice(Unmarshal[float64](s))
+		case Float32T:
+			contents = truncateSlice(Unmarshal[float32](s))
+		case Int64T:
+			contents = truncateSlice(Unmarshal[int64](s))
+		case Int32T:
+			contents = truncateSlice(Unmarshal[int32](s))
+		case Int16T:
+			contents = truncateSlice(Unmarshal[int16](s))
+		case Int8T:
+			contents = truncateSlice(Unmarshal[int8](s))
+		case Uint64T:
+			contents = truncateSlice(Unmarshal[uint64](s))
+		case Uint32T:
+			contents = truncateSlice(Unmarshal[uint32](s))
+		case Uint16T:
+			contents = truncateSlice(Unmarshal[uint16](s))
+		case Uint8T:
+			contents = truncateSlice(Unmarshal[uint8](s))
+		case TimeStampT:
+			contents = truncateSlice(Unmarshal[TimeStamp](s))
+		case StringT:
+			contents = truncateSlice(UnmarshalStrings(s.Data))
+		case JSONT:
+			contents = truncateSlice(UnmarshalStrings(s.Data))
+		default:
+			contents = fmt.Sprintf("%v", s.Data)
+		}
+	}
+
+	b.WriteString(contents)
+	b.WriteString("}")
+	return b.String()
 }

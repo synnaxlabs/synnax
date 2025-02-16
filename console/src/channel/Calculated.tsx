@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, framer } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
   Button,
@@ -36,11 +35,11 @@ import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
 import { Triggers } from "@/triggers";
 
-export interface CalculatedChannelArgs {
+export interface CalculatedLayoutArgs {
   channelKey?: number;
 }
 
-const DEFAULT_ARGS: CalculatedChannelArgs = { channelKey: undefined };
+const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 
 const schema = createFormValidator(
   baseFormSchema
@@ -62,9 +61,11 @@ const schema = createFormValidator(
 
 type FormValues = z.infer<typeof schema>;
 
-export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
+export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 
-export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
+export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
+
+export const CALCULATED_LAYOUT: CalculatedLayout = {
   beta: true,
   name: "Channel.Create.Calculated",
   icon: "Channel",
@@ -76,10 +77,22 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
     navTop: true,
     showTitle: true,
   },
-  ...base,
-  key: CREATE_CALCULATED_LAYOUT_TYPE,
-  type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: MAIN_WINDOW,
+  type: CALCULATED_LAYOUT_TYPE,
+  key: CALCULATED_LAYOUT_TYPE,
+};
+
+export interface CreateCalculatedLayoutArgs {
+  key: channel.Key;
+  name: channel.Name;
+}
+
+export const createCalculatedLayout = ({
+  key,
+  name,
+}: CreateCalculatedLayoutArgs): CalculatedLayout => ({
+  ...CALCULATED_LAYOUT,
+  args: { channelKey: key },
+  name: `${name}.Edit`,
 });
 
 const ZERO_FORM_VALUES: FormValues = {
@@ -129,9 +142,9 @@ export const useListenForCalculationState = (): void => {
   });
 };
 
-export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
-  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? DEFAULT_ARGS;
+  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey) ?? DEFAULT_ARGS;
   const res = useQuery<FormValues>({
     queryKey: [args.channelKey, client?.key],
     staleTime: 0,

@@ -37,7 +37,7 @@ import { NAV_DRAWER_ITEMS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
-import { createSelector } from "@/layouts/Selector";
+import { SELECTOR_LAYOUT } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
@@ -52,7 +52,7 @@ const EmptyContent = (): ReactElement => (
 
 const emptyContent = <EmptyContent />;
 
-export const MOSAIC_TYPE = "mosaic";
+export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
 export const ContextMenu = ({
   keys,
@@ -146,7 +146,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
@@ -162,12 +162,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        place(
-          createSelector({
-            tab: { mosaicKey, location },
-            location: "mosaic",
-          }),
-        );
+        placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -181,20 +176,14 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             id,
             nodeKey: mosaicKey,
             location,
-            placeLayout: place,
+            placeLayout,
             addStatus,
             handleException,
           });
-        } else
-          place(
-            createSelector({
-              tab: { mosaicKey, location },
-              location: "mosaic",
-            }),
-          );
+        } else placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
       });
     },
-    [place, store, client, addStatus],
+    [placeLayout, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
@@ -241,7 +230,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               fileIngestors: INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
-              placeLayout: place,
+              placeLayout,
               store,
             });
           } catch (e) {
@@ -250,7 +239,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [client, place, store],
+    [client, placeLayout, store],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of

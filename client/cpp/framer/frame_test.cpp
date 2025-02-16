@@ -35,7 +35,7 @@ TEST(FramerTests, toProto) {
 
 /// @brief test ostream operator.
 TEST(FramerTests, ostream) {
-    auto f = synnax::Frame(2);
+    const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     std::stringstream ss;

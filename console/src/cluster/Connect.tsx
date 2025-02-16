@@ -24,20 +24,15 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Triggers } from "@/triggers";
 
-export const LAYOUT_TYPE = "connectCluster";
+export const CONNECT_LAYOUT_TYPE = "connectCluster";
 
-export const connectWindowLayout: Layout.State = {
-  key: LAYOUT_TYPE,
-  windowKey: LAYOUT_TYPE,
-  type: LAYOUT_TYPE,
+export const CONNECT_LAYOUT: Layout.BaseState = {
+  key: CONNECT_LAYOUT_TYPE,
+  type: CONNECT_LAYOUT_TYPE,
   name: "Cluster.Connect",
   icon: "Cluster",
   location: "modal",
-  window: {
-    resizable: false,
-    size: { height: 430, width: 650 },
-    navTop: true,
-  },
+  window: { resizable: false, size: { height: 430, width: 650 }, navTop: true },
 };
 
 const ZERO_VALUES: z.infer<typeof clusterZ> = {

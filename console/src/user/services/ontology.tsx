@@ -22,9 +22,7 @@ import { useSelectHasPermission } from "@/user/selectors";
 const useEditPermissions =
   (): ((props: Ontology.TreeContextMenuProps) => void) =>
   ({ placeLayout, selection }) =>
-    placeLayout(
-      Permissions.editLayout({ user: selection.resources[0].data as user.User }),
-    );
+    placeLayout(Permissions.createEditLayout(selection.resources[0].data as user.User));
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "User" });

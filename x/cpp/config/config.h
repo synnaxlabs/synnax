@@ -18,7 +18,7 @@
 /// external
 #include "nlohmann/json.hpp"
 
-/// module
+/// internal
 #include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;
@@ -47,12 +47,11 @@ public:
     /// @brief constructs a parser from an input stream (e.g., file stream).
     /// If the stream content is not valid JSON, immediately binds an error
     /// to the parser.
-    explicit Parser(std::istream& stream) : errors(
+    explicit Parser(std::istream &stream) : errors(
         std::make_shared<std::vector<json> >()) {
         parse_with_err_handling([&stream] { return json::parse(stream); });
     }
 
-    
 
     /// @brief default constructor constructs a parser that will fail fast.
     Parser() : errors(nullptr), noop(true) {
@@ -69,7 +68,7 @@ public:
             field_err(path, "This field is required");
             return T();
         }
-        if (iter->is_string() && std::is_arithmetic<T>::value) {
+        if (iter->is_string() && std::is_arithmetic_v<T>) {
             T value;
             std::istringstream iss(iter->get<std::string>());
             if (!(iss >> value)) {
@@ -228,7 +227,7 @@ public:
     /// @brief creates a parser from a file at the given path
     /// @param path The path to the JSON configuration file
     /// @return A parser for the configuration file
-    static Parser from_file_path(const std::string& path) {
+    static Parser from_file_path(const std::string &path) {
         std::ifstream file(path);
         if (!file.is_open()) {
             Parser p;
@@ -267,10 +266,10 @@ private:
     }
 
     /// @brief Helper method to parse JSON and handle errors
-    void parse_with_err_handling(const std::function<json()>& parser) {
+    void parse_with_err_handling(const std::function<json()> &parser) {
         try {
             config = parser();
-        } catch (const json::parse_error& e) {
+        } catch (const json::parse_error &e) {
             noop = true;
             field_err("", e.what());
         }

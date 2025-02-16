@@ -49,7 +49,7 @@ DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="(pid_file)"
 LOGFILE="/var/log/$NAME.log"
-START_CMD="start -s"
+START_CMD="start -s --block-stdin-stop"
 HEALTH_CHECK_DELAY_SECONDS=2
 
 # Color codes

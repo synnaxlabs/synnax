@@ -9,17 +9,18 @@
 
 #pragma once
 
-#include <utility>
-
-#include "freighter/cpp/freighter.h"
-#include "client/cpp/synnax.h"
-#include "x/cpp/breaker/breaker.h"
+/// internal
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
+
+/// module
+#include "client/cpp/synnax.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
 namespace heartbeat {
 const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
+const std::string INTEGRATION_NAME = "heartbeat";
 
 class HeartbeatSource final : public pipeline::Source {
     synnax::ChannelKey key;
@@ -115,9 +116,8 @@ class Factory final : public task::Factory {
                 true
             );
             err = rack.tasks.create(sy_task);
-            if (err) {
+            if (err)
                 LOG(ERROR) << "failed to create heartbeat task: " << err;
-            }
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)

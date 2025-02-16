@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { LAYOUT_TYPE, Table } from "@/table/Table";
+import { LAYOUT_TYPE, SELECTABLE, Table } from "@/table/Table";
 
 export * from "@/table/export";
 export * from "@/table/slice";
@@ -18,3 +18,5 @@ export * from "@/table/Toolbar";
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Table,
 };
+
+export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];

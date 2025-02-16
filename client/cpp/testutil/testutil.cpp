@@ -23,6 +23,5 @@ std::mt19937 random_generator(const std::string &suite_name) {
     const auto rand_seed = rd();
     std::cout << "Random seed for " << suite_name << " - " << rand_seed << std::endl;
     const std::mt19937 mt(rand_seed);
-    std::uniform_real_distribution<double> dist(0, 1);
     return mt;
 }

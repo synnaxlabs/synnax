@@ -37,13 +37,10 @@ opc::WriterSink::WriterSink(
     ua_client(ua_client),
     ctx(ctx),
     task(std::move(task)),
-    device_props(std::move(device_props)) {
-    for (auto &ch: this->cfg.channels) {
+    device_props(std::move(device_props)),
+    breaker(breaker::Breaker(breaker::default_config(task.name))) {
+    for (auto &ch: this->cfg.channels)
         this->cmd_channel_map[ch.cmd_channel] = ch;
-    }
-
-    this->breaker = breaker::Breaker(breaker::default_config(task.name));
-
     this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);
 };
