@@ -56,12 +56,12 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Layouts.LAYOUTS,
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
+  ...Modals.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Range.LAYOUTS,
   ...Version.LAYOUTS,
-  ...Modals.LAYOUTS,
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
 };
