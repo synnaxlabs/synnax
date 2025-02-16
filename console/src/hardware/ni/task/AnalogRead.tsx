@@ -32,12 +32,11 @@ import {
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
-export const ANALOG_READ_LAYOUT: Common.Task.LayoutBaseState = {
+export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   type: ANALOG_READ_TYPE,
   name: ZERO_ANALOG_READ_PAYLOAD.name,
   icon: "Logo.NI",
-  key: ANALOG_READ_TYPE,
 };
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {

@@ -17,14 +17,14 @@ import { type z } from "zod";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
-interface LayoutArgs {
-  taskKey?: task.Key;
+export interface LayoutArgs {
   deviceKey?: device.Key;
+  taskKey?: task.Key;
 }
 
-export interface LayoutBaseState extends Layout.BaseState<LayoutArgs> {}
+export interface Layout extends Layout.BaseState<LayoutArgs> {}
 
-export const LAYOUT: Omit<LayoutBaseState, "type" | "key"> = {
+export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
   icon: "Task",
   location: "mosaic",

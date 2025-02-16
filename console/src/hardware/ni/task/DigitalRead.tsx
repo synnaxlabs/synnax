@@ -32,10 +32,9 @@ import {
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
-export const DIGITAL_READ_LAYOUT: Common.Task.LayoutBaseState = {
+export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   icon: "Logo.NI",
-  key: DIGITAL_READ_TYPE,
   name: ZERO_DIGITAL_READ_PAYLOAD.name,
   type: DIGITAL_READ_TYPE,
 };

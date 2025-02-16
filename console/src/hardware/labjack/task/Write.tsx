@@ -30,10 +30,9 @@ import {
 } from "@/hardware/labjack/task/types";
 import { type Layout } from "@/layout";
 
-export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   type: WRITE_TYPE,
-  key: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.LabJack",
 };

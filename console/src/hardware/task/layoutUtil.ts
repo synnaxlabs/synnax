@@ -17,7 +17,7 @@ import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 
-const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
+const ZERO_LAYOUT_STATES: Record<string, Common.Task.Layout> = {
   [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
   [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
   [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,

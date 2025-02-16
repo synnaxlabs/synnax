@@ -16,7 +16,7 @@ import { type Ontology } from "@/ontology";
 export interface TaskContextMenuItemConfig {
   itemKey: string;
   label: string;
-  layout: Layout.BaseState;
+  layout: Task.Layout;
 }
 
 export interface ContextMenuItemsProps

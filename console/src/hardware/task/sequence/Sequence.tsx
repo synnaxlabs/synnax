@@ -26,10 +26,9 @@ import {
 } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
 
-export const LAYOUT: Common.Task.LayoutBaseState = {
+export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   icon: "Control",
-  key: TYPE,
   name: ZERO_PAYLOAD.name,
   type: TYPE,
 };

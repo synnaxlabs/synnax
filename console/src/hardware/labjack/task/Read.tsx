@@ -38,9 +38,8 @@ import {
 } from "@/hardware/labjack/task/types";
 import { type Layout } from "@/layout";
 
-export const READ_LAYOUT: Common.Task.LayoutBaseState = {
+export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
-  key: READ_TYPE,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.LabJack",
