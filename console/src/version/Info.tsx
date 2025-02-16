@@ -18,17 +18,14 @@ import { type ReactElement, useState } from "react";
 import { type Layout } from "@/layout";
 import { useSelectVersion } from "@/version/selectors";
 
-export const infoLayout: Layout.State = {
-  type: "versionInfo",
-  key: "versionInfo",
-  windowKey: "versionInfo",
+export const INFO_LAYOUT_TYPE = "versionInfo";
+
+export const INFO_LAYOUT: Layout.BaseState = {
+  type: INFO_LAYOUT_TYPE,
+  key: INFO_LAYOUT_TYPE,
   name: "Version Info",
   location: "window",
-  window: {
-    resizable: false,
-    navTop: true,
-    size: { width: 500, height: 325 },
-  },
+  window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromWorkspace: true,
 };
 

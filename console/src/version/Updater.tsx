@@ -16,7 +16,7 @@ import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
-import { infoLayout } from "@/version/Info";
+import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
 import { silenceUpdateNotifications } from "@/version/slice";
 
@@ -65,7 +65,7 @@ export const notificationAdapter: Notifications.Adapter = (status, silence) => {
 export const OpenUpdateDialogAction = () => {
   const place = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => place(infoLayout)}>
+    <Button.Button variant="outlined" size="small" onClick={() => place(INFO_LAYOUT)}>
       Update
     </Button.Button>
   );

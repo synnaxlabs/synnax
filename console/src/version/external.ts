@@ -9,7 +9,7 @@
 
 import { type Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
-import { Info, infoLayout } from "@/version/Info";
+import { Info, INFO_LAYOUT_TYPE } from "@/version/Info";
 import { notificationAdapter } from "@/version/Updater";
 
 export * from "@/version/Badge";
@@ -21,7 +21,7 @@ export * from "@/version/tauriVersion";
 export * from "@/version/Updater";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [infoLayout.type]: Info,
+  [INFO_LAYOUT_TYPE]: Info,
 };
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];
