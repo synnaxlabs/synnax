@@ -22,13 +22,13 @@ export interface TaskContextMenuItemConfig {
 export interface ContextMenuItemsProps
   extends Pick<Ontology.TreeContextMenuProps, "selection"> {
   children?: ReactElement;
-  deviceConfigLayout: Omit<Layout.BaseState, "key">;
+  configureLayout: Layout.BaseState;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 
 export const ContextMenuItems = ({
   children,
-  deviceConfigLayout,
+  configureLayout,
   selection: { resources },
   taskContextMenuItemConfigs,
 }: ContextMenuItemsProps) => {
@@ -37,7 +37,7 @@ export const ContextMenuItems = ({
   const key = resources[0].id.key;
   const maybeConfigure = () => {
     if (resources[0].data?.configured !== true)
-      placeLayout({ ...deviceConfigLayout, key });
+      placeLayout({ ...configureLayout, key });
   };
   return (
     <>
