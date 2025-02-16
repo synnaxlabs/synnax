@@ -28,7 +28,7 @@ export const GetStarted = (): ReactElement => {
 
 const NoCluster = (): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
@@ -36,12 +36,12 @@ const NoCluster = (): ReactElement => {
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Cluster.CONNECT_LAYOUT);
+    placeLayout(Cluster.CONNECT_LAYOUT);
   };
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Vis.SELECTOR_LAYOUT);
+    placeLayout(Vis.SELECTOR_LAYOUT);
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
     );
@@ -49,7 +49,7 @@ const NoCluster = (): ReactElement => {
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Docs.LAYOUT);
+    placeLayout(Docs.LAYOUT);
   };
 
   return (
@@ -80,9 +80,9 @@ const NoCluster = (): ReactElement => {
 };
 
 const Overview = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleWorkspace: Button.ButtonProps["onClick"] = () =>
-    place(Workspace.CREATE_LAYOUT);
+    placeLayout(Workspace.CREATE_LAYOUT);
 
   return (
     <Eraser.Eraser>

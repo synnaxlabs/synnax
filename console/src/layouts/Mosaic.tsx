@@ -146,7 +146,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
@@ -162,7 +162,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        place({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
+        placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -176,14 +176,14 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             id,
             nodeKey: mosaicKey,
             location,
-            placeLayout: place,
+            placeLayout,
             addStatus,
             handleException,
           });
-        } else place({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
+        } else placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
       });
     },
-    [place, store, client, addStatus],
+    [placeLayout, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
@@ -230,7 +230,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               fileIngestors: INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
-              placeLayout: place,
+              placeLayout,
               store,
             });
           } catch (e) {
@@ -239,7 +239,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [client, place, store],
+    [client, placeLayout, store],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of

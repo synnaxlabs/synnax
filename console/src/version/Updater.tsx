@@ -63,9 +63,13 @@ export const notificationAdapter: Notifications.Adapter = (status, silence) => {
 };
 
 export const OpenUpdateDialogAction = () => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => place(INFO_LAYOUT)}>
+    <Button.Button
+      variant="outlined"
+      size="small"
+      onClick={() => placeLayout(INFO_LAYOUT)}
+    >
       Update
     </Button.Button>
   );

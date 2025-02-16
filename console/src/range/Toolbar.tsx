@@ -170,12 +170,12 @@ const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await fetchIfNotInState(store, client, key);
-      place({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
+      placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
     onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;
@@ -184,13 +184,13 @@ const useViewDetails = (): ((key: string) => void) => {
 export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const res = await fetchIfNotInState(store, client, key);
-      place(
+      placeLayout(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
       );
     },
@@ -223,14 +223,14 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
 const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const remover = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
   const handleCreate = (key?: string): void => {
-    place(createCreateLayout({ key }));
+    placeLayout(createCreateLayout({ key }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -292,7 +292,7 @@ const List = (): ReactElement => {
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
-    const place = Layout.usePlacer();
+    const placeLayout = Layout.usePlacer();
     const handleSetActive = () => {
       dispatch(setActive(key));
     };
@@ -301,7 +301,7 @@ const List = (): ReactElement => {
     };
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () => {
-      place(createCreateLayout({ parent: key }));
+      placeLayout(createCreateLayout({ parent: key }));
     };
 
     const rangeExists = rng != null;
@@ -453,13 +453,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[{ children: <Icon.Add />, onClick: () => place(CREATE_LAYOUT) }]}
+          {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />

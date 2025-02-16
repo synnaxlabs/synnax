@@ -114,7 +114,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
     if (client == null) return;
     const v = (await client.hardware.tasks.list({ includeState: true })).filter(
@@ -245,7 +245,7 @@ const Content = () => {
               description: `Task with key ${key} not found`,
             });
           const layout = createLayout(task);
-          place(layout);
+          placeLayout(layout);
         };
         return (
           <PMenu.Menu
@@ -330,7 +330,7 @@ const Content = () => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[{ children: <Icon.Add />, onClick: () => place(SELECTOR_LAYOUT) }]}
+            {[{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>

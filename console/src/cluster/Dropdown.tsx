@@ -41,7 +41,7 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const active = useSelect();
-  const openWindow = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const selected = active?.key ?? null;
   const addStatus = Status.useAggregator();
 
@@ -146,7 +146,7 @@ export const List = (): ReactElement => {
           variant="outlined"
           size="medium"
           startIcon={<Icon.Add />}
-          onClick={() => openWindow(CONNECT_LAYOUT)}
+          onClick={() => placeLayout(CONNECT_LAYOUT)}
           className={CSS.B("cluster-list-add")}
         >
           Add
@@ -224,11 +224,11 @@ export const NoneConnectedBoundary = ({
 };
 
 export const NoneConnected = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
-    place(CONNECT_LAYOUT);
+    placeLayout(CONNECT_LAYOUT);
   };
 
   return (

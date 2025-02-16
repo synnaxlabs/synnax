@@ -36,7 +36,7 @@ import { add, setActive } from "@/workspace/slice";
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleException = Status.useExceptionHandler();
@@ -124,7 +124,7 @@ export const Selector = (): ReactElement => {
                       variant="outlined"
                       onClick={() => {
                         dProps.close();
-                        place(CREATE_LAYOUT);
+                        placeLayout(CREATE_LAYOUT);
                       }}
                       iconSpacing="small"
                       tooltip="Create a new workspace"

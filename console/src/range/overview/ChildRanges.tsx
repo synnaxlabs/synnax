@@ -29,10 +29,12 @@ import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
     <List.ItemFrame
-      onClick={() => place({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })}
+      onClick={() =>
+        placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
+      }
       direction="x"
       size={0.5}
       justify="spaceBetween"
@@ -62,7 +64,7 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
   const handleException = Status.useExceptionHandler();
 
@@ -98,7 +100,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         style={{ width: "fit-content" }}
         iconSpacing="small"
         variant="text"
-        onClick={() => place(createCreateLayout({ parent: rangeKey }))}
+        onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
       >
         Add Child Range
       </Button.Button>

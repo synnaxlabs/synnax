@@ -57,18 +57,21 @@ export interface BaseState<A = unknown>
     Partial<Pick<State<A>, "key">> {}
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator<A = unknown> = (props: CreatorProps) => BaseState<A>;
+export interface Creator<A = unknown> {
+  (props: CreatorProps): BaseState<A>;
+}
 
 export type PlacerArgs<A = unknown> = BaseState<A> | Creator<A>;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: PlacerArgs) => {
-  windowKey: string;
-  key: string;
-};
+export interface Placer {
+  (layout: PlacerArgs): { windowKey: string; key: string };
+}
 
 /** A function that removes a layout. */
-export type Remover = (...keys: string[]) => void;
+export interface Remover {
+  (...keys: string[]): void;
+}
 
 /**
  * useLayoutPlacer is a hook that returns a function that allows the caller to place
