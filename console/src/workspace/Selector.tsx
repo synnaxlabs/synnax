@@ -29,7 +29,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { CREATE_WINDOW_LAYOUT } from "@/workspace/Create";
+import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
@@ -124,7 +124,7 @@ export const Selector = (): ReactElement => {
                       variant="outlined"
                       onClick={() => {
                         dProps.close();
-                        place(CREATE_WINDOW_LAYOUT);
+                        place(CREATE_LAYOUT);
                       }}
                       iconSpacing="small"
                       tooltip="Create a new workspace"
