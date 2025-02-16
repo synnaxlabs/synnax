@@ -1,18 +1,22 @@
 Checks: '-*,
         bugprone-*,
-        performance-*,
-        readability-*,
+        clang-analyzer-*,
         concurrency-*,
-        modernize-*,
-        misc-*,
         cppcoreguidelines-*,
         hicpp-*,
-        clang-analyzer-*,
+        modernize-*,
+        performance-*,
+        portability-*,
+        readability-*,
         -readability-identifier-length,
+        -readability-magic-numbers,
         -readability-function-cognitive-complexity,
         -bugprone-easily-swappable-parameters,
-        -readability-braces-around-statements'
-        -modernize-use-using
+        -modernize-use-trailing-return-type,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -hicpp-special-member-functions,
+        -cppcoreguidelines-special-member-functions,
+        -cppcoreguidelines-owning-memory'
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
 FormatStyle: none
