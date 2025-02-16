@@ -84,7 +84,7 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOptions: { double: true },
 };
 
-const client = new QueryClient();
+const queryClient = new QueryClient();
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = Layout.useSelectHauling();
@@ -123,7 +123,7 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <Pluto.Provider
         theming={theme}
         channelAlias={{
@@ -137,10 +137,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         color={{ useState: useColorContextState }}
-        alamos={{
-          level: "debug",
-          include: [],
-        }}
+        alamos={{ level: "debug", include: [] }}
       >
         <Vis.Canvas>
           <Layout.Window />

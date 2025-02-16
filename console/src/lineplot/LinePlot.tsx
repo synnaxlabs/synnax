@@ -505,7 +505,7 @@ export const LAYOUT_TYPE = "lineplot";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);

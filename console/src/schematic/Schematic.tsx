@@ -446,7 +446,7 @@ export const SELECTABLE: Layout.Selectable = {
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
-export type CreateArg = Partial<State> & Partial<Layout.State>;
+export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =
   (initial: CreateArg): Layout.Creator =>

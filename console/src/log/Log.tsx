@@ -135,7 +135,7 @@ export const SELECTABLE: Layout.Selectable = {
 };
 
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
     const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
