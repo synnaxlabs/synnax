@@ -33,8 +33,8 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
-import { createLayout } from "@/hardware/task/layoutUtil";
-import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
+import { createLayout } from "@/hardware/task/layouts";
+import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -43,7 +43,7 @@ import { Modals } from "@/modals";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick: React.MouseEventHandler<HTMLParagraphElement> = () => {
-    placeLayout(ZERO_SELECTOR_LAYOUT);
+    placeLayout(SELECTOR_LAYOUT);
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
@@ -114,7 +114,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
     if (client == null) return;
     const v = (await client.hardware.tasks.list({ includeState: true })).filter(
@@ -245,7 +245,7 @@ const Content = () => {
               description: `Task with key ${key} not found`,
             });
           const layout = createLayout(task);
-          place(layout);
+          placeLayout(layout);
         };
         return (
           <PMenu.Menu
@@ -330,7 +330,7 @@ const Content = () => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[{ children: <Icon.Add />, onClick: () => place(ZERO_SELECTOR_LAYOUT) }]}
+            {[{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>

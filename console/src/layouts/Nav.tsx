@@ -76,11 +76,11 @@ const NavTopPalette = (): ReactElement => (
  * presentational.
  */
 export const NavTop = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   const os = OS.use();
   const handleDocs = (): void => {
-    place(Docs.createLayout());
+    placeLayout(Docs.LAYOUT);
   };
 
   return (

@@ -29,11 +29,11 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   } = props;
   if (resources.length !== 1) return null;
   const handleEditConnection = () =>
-    placeLayout({ ...Device.CONFIGURE_LAYOUT, key: resources[0].id.key });
+    placeLayout({ ...Device.CONNECT_LAYOUT, key: resources[0].id.key });
   return (
     <Common.DeviceServices.ContextMenuItems
       {...props}
-      deviceConfigLayout={Device.CONFIGURE_LAYOUT}
+      configureLayout={Device.CONNECT_LAYOUT}
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     >
       <>

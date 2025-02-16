@@ -31,9 +31,8 @@ import {
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
-export const ANALOG_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
-  key: ANALOG_WRITE_TYPE,
   type: ANALOG_WRITE_TYPE,
   name: ZERO_ANALOG_WRITE_PAYLOAD.name,
   icon: "Logo.NI",
@@ -104,7 +103,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogWriteConfig,
   AnalogWriteStateDetails,
   AnalogWriteType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_ANALOG_WRITE_PAYLOAD,
   config: {
     ...ZERO_ANALOG_WRITE_PAYLOAD.config,

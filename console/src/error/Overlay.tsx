@@ -35,7 +35,7 @@ import { NAV_SIZES } from "@/layouts/constants";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
-export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
+export interface OverlayProps extends PropsWithChildren {}
 
 const messageTranslation: Record<string, string> = {
   "[persist] - windows open":
@@ -158,14 +158,10 @@ const FallBackRenderContent = ({
 const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
 const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const ErrorOverlayWithStore = ({
-  children,
-}: ErrorOverlayProps): ReactElement => (
+export const OverlayWithStore = ({ children }: OverlayProps): ReactElement => (
   <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
 );
 
-export const ErrorOverlayWithoutStore = ({
-  children,
-}: ErrorOverlayProps): ReactElement => (
+export const OverlayWithoutStore = ({ children }: OverlayProps): ReactElement => (
   <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
 );

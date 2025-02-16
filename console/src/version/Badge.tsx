@@ -13,17 +13,17 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { infoLayout } from "@/version/Info";
+import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
 
 export const Badge = (): ReactElement => {
   const version = useSelectVersion();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const updateAvailable = useCheckForUpdates();
   return (
     <Button.Button
-      onClick={() => place(infoLayout)}
+      onClick={() => placeLayout(INFO_LAYOUT)}
       variant="text"
       size="medium"
       color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}

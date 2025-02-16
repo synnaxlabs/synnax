@@ -24,7 +24,7 @@ const CREATE_CALCULATED_COMMAND: Palette.Command = {
   icon: <Icon.Channel />,
   name: "Create Calculated Channel",
   key: "create-calculated-channel",
-  onSelect: ({ placeLayout }) => placeLayout(Channel.createCalculatedLayout({})),
+  onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
   endContent: [<Version.BetaTag key="beta-tag" />],
 };
 

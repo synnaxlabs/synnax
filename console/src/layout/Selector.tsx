@@ -10,14 +10,13 @@
 import "@/layout/Selector.css";
 
 import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type PlacerArgs, usePlacer } from "@/layout/hooks";
-import { type RendererProps } from "@/layout/slice";
+import { type Renderer, type RendererProps } from "@/layout/slice";
 import { Modals } from "@/modals";
 
-interface CreateArgs {
+export interface SelectableCreateArgs {
   layoutKey: string;
   rename: Modals.PromptRename;
 }
@@ -26,23 +25,15 @@ export interface Selectable {
   key: string;
   title: string;
   icon: Icon.Element;
-  create: (props: CreateArgs) => Promise<PlacerArgs | null>;
+  create: (props: SelectableCreateArgs) => Promise<PlacerArgs | null>;
 }
 
-export interface SelectorProps extends Align.SpaceProps, RendererProps {
-  layouts?: Selectable[];
-  text?: string;
+export interface SelectorProps extends RendererProps {
+  text: string;
+  selectables: Selectable[];
 }
 
-const Base = ({
-  layoutKey,
-  direction,
-  layouts,
-  visible: _,
-  focused: __,
-  text = "Select a Component Type",
-  ...rest
-}: SelectorProps): ReactElement => {
+export const Selector = ({ layoutKey, selectables, text, ...rest }: SelectorProps) => {
   const place = usePlacer();
   const rename = Modals.useRename();
   const handleException = Status.useExceptionHandler();
@@ -64,7 +55,7 @@ const Base = ({
           justify="center"
           size={2.5}
         >
-          {layouts?.map(({ key, title, icon, create }) => (
+          {selectables.map(({ key, title, icon, create }) => (
             <Button.Button
               key={key}
               variant="outlined"
@@ -87,11 +78,9 @@ const Base = ({
   );
 };
 
-export const createSelectorComponent = (
-  layouts: Selectable[],
-): ((props: SelectorProps) => ReactElement) => {
-  const C = (props: SelectorProps): ReactElement => (
-    <Base layouts={layouts} {...props} />
+export const createSelector = (selectables: Selectable[], text: string): Renderer => {
+  const C: Renderer = (props) => (
+    <Selector {...props} selectables={selectables} text={text} />
   );
   C.displayName = "LayoutSelector";
   return C;

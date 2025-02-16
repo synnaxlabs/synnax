@@ -22,7 +22,7 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createLayout } from "@/range/CreateLayout";
+import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
@@ -145,9 +145,9 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return ({ selection: { resources } }) =>
-    place({
+    placeLayout({
       ...OVERVIEW_LAYOUT,
       name: resources[0].name,
       key: resources[0].id.key,
@@ -228,7 +228,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const handleAddChildRange = () => {
-    placeLayout(createLayout({ initial: { parent: resources[0].id.key } }));
+    placeLayout(createCreateLayout({ parent: resources[0].id.key }));
   };
   const viewDetails = useViewDetails();
   const handleSelect = {

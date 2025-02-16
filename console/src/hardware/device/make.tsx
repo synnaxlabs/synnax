@@ -33,10 +33,10 @@ const MAKE_ICONS: Record<Make, PIcon.Element> = {
 export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
-export const CONFIGURE_LAYOUTS: Record<Make, Omit<Layout.BaseState, "key">> = {
+export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
   [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
   [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.CONFIGURE_LAYOUT,
+  [OPC.Device.MAKE]: OPC.Device.CONNECT_LAYOUT,
 };
 
 const CONTEXT_MENU_ITEMS: Record<

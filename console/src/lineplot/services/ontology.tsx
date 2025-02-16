@@ -151,7 +151,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: linePlot.ONTOLOGY_TYPE,
-  icon: <Icon.Visualize />,
+  icon: <Icon.LinePlot />,
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],

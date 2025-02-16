@@ -18,7 +18,6 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
-import { createSelector } from "@/layouts/Selector";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
@@ -29,7 +28,7 @@ export const GetStarted = (): ReactElement => {
 
 const NoCluster = (): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
@@ -37,12 +36,12 @@ const NoCluster = (): ReactElement => {
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Cluster.connectWindowLayout);
+    placeLayout(Cluster.CONNECT_LAYOUT);
   };
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(createSelector({}));
+    placeLayout(Vis.SELECTOR_LAYOUT);
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
     );
@@ -50,7 +49,7 @@ const NoCluster = (): ReactElement => {
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(Docs.createLayout());
+    placeLayout(Docs.LAYOUT);
   };
 
   return (
@@ -81,9 +80,9 @@ const NoCluster = (): ReactElement => {
 };
 
 const Overview = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleWorkspace: Button.ButtonProps["onClick"] = () =>
-    place(Workspace.CREATE_WINDOW_LAYOUT);
+    placeLayout(Workspace.CREATE_LAYOUT);
 
   return (
     <Eraser.Eraser>

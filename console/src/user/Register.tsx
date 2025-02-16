@@ -34,14 +34,9 @@ const initialValues: FormValues = {
 
 export const REGISTER_LAYOUT_TYPE = "registerUser";
 
-export const registerLayout = ({
-  window,
-  ...rest
-}: Partial<Layout.State>): Layout.State => ({
-  ...rest,
+export const REGISTER_LAYOUT: Layout.BaseState = {
   key: REGISTER_LAYOUT_TYPE,
   type: REGISTER_LAYOUT_TYPE,
-  windowKey: REGISTER_LAYOUT_TYPE,
   icon: "User",
   location: "modal",
   name: "User.Register",
@@ -49,11 +44,10 @@ export const registerLayout = ({
     resizable: false,
     size: { height: 425, width: 650 },
     navTop: true,
-    ...window,
   },
-});
+};
 
-export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Register = ({ onClose }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const handleException = Status.useExceptionHandler();

@@ -18,7 +18,7 @@ import { type Palette } from "@/palette";
 const CREATE_COMMAND: Palette.Command = {
   key: "create-line-plot",
   name: "Create Line Plot",
-  icon: <Icon.Visualize />,
+  icon: <Icon.LinePlot />,
   onSelect: ({ placeLayout }) => placeLayout(LinePlot.create({})),
 };
 

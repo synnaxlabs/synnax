@@ -18,6 +18,7 @@ import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
+import { type BaseState } from "@/layout/hooks";
 import * as latest from "@/layout/types";
 import { type RootState } from "@/store";
 
@@ -99,6 +100,11 @@ interface ResizeNavDrawerPayload {
 interface SetFocusPayload {
   key: string | null;
   windowKey: string;
+}
+
+interface SetAltKeyPayload {
+  key: string;
+  altKey: string;
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
@@ -273,6 +279,13 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
+    },
+    setAltKey: (
+      state,
+      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
+    ) => {
+      state.keyToAltKey[key] = altKey;
+      state.altKeyToKey[altKey] = key;
     },
     splitMosaicNode: (
       state,
@@ -462,6 +475,7 @@ export const {
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
+  setAltKey,
   splitMosaicNode,
   rename,
   setNavDrawer,
@@ -482,7 +496,7 @@ export type Payload = Action["payload"];
 
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
-export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
+export const createMosaicWindow = (window?: WindowProps): BaseState => ({
   key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,

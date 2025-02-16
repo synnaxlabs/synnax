@@ -22,7 +22,7 @@ interface BaseProps<R, A extends BaseArgs<R>> {
 }
 
 export interface LayoutOverrides
-  extends Omit<Partial<Layout.State>, "key" | "type" | "location"> {}
+  extends Omit<Partial<Layout.BaseState>, "key" | "type" | "location"> {}
 
 export interface Prompt<R, A extends BaseArgs<R>> {
   (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;
@@ -36,11 +36,10 @@ export const createBase = <R, A extends BaseArgs<R>>(
   const configureLayout = (
     args: A,
     layoutOverrides?: LayoutOverrides,
-  ): Layout.State<A> => ({
+  ): Layout.BaseState<A> & Pick<Layout.State<A>, "key"> => ({
     name,
     type,
     key: type,
-    windowKey: type,
     location: "modal",
     window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
     ...layoutOverrides,
