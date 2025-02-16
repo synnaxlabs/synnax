@@ -124,7 +124,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogReadConfig,
   AnalogReadStateDetails,
   AnalogReadType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_ANALOG_READ_PAYLOAD,
   config: {
     ...ZERO_ANALOG_READ_PAYLOAD.config,

@@ -25,6 +25,7 @@ import {
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -33,16 +34,26 @@ export const LAYOUT: Common.Task.Layout = {
   type: TYPE,
 };
 
+export interface CreateNewLayoutArgs {
+  rackKey?: rack.Key;
+  rename: Modals.PromptRename;
+}
+
+export const createNewLayout = async ({
+  rackKey,
+  rename,
+}: CreateNewLayoutArgs): Promise<Common.Task.Layout | null> => {
+  const name = await rename({}, { icon: "Control", name: "Control.Sequence.Create" });
+  return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
+};
+
 export const SELECTABLE: Layout.Selectable = {
   key: TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
   create: async ({ layoutKey, rename }) => {
-    const result = await rename(
-      {},
-      { icon: "Control", name: "Control.Sequence.Create" },
-    );
-    return result == null ? null : { ...LAYOUT, name: result, key: layoutKey };
+    const layout = await createNewLayout({ rename });
+    return layout == null ? null : { ...layout, key: layoutKey };
   },
 };
 
@@ -55,11 +66,12 @@ const Internal = ({
   task: base,
   layoutKey,
   configured,
+  rackKey,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({
-    values: { rack: task.getRackKey(base?.key ?? "0"), config: base.config },
+    values: { rack: rackKey ?? task.getRackKey(base.key ?? "0"), config: base.config },
     schema,
   });
   const create = Common.Task.useCreate(layoutKey);

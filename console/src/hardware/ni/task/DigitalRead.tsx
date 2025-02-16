@@ -75,7 +75,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalReadConfig,
   DigitalReadStateDetails,
   DigitalReadType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_READ_PAYLOAD,
   config: {
     ...ZERO_DIGITAL_READ_PAYLOAD.config,

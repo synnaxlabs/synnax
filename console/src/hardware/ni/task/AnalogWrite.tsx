@@ -103,7 +103,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogWriteConfig,
   AnalogWriteStateDetails,
   AnalogWriteType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_ANALOG_WRITE_PAYLOAD,
   config: {
     ...ZERO_ANALOG_WRITE_PAYLOAD.config,

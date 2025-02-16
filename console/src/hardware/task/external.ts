@@ -25,6 +25,7 @@ export const COMMANDS: Palette.Command[] = [
   ...LabJack.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
+  ...Sequence.COMMANDS,
 ];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

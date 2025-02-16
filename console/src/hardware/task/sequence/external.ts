@@ -11,7 +11,12 @@ import { SELECTABLE, Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
 
-export { LAYOUT } from "@/hardware/task/sequence/Sequence";
+export * from "@/hardware/task/sequence/palette";
+export {
+  createNewLayout,
+  type CreateNewLayoutArgs,
+  LAYOUT,
+} from "@/hardware/task/sequence/Sequence";
 export * from "@/hardware/task/sequence/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

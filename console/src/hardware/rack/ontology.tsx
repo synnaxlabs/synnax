@@ -9,11 +9,14 @@
 
 import { rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Icon as PIcon, Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Sequence } from "@/hardware/task/sequence";
+import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -51,14 +54,37 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection } = props;
   const { nodes } = selection;
   const handleDelete = useDelete();
+  const placeLayout = Layout.usePlacer();
+  const rename = Modals.useRename();
+  const handleException = Status.useExceptionHandler();
+  const createSequence = () => {
+    Sequence.createNewLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
+      .then((layout) => {
+        if (layout == null) return;
+        placeLayout(layout);
+      })
+      .catch((e) => handleException(e, "Failed to create control sequence"));
+  };
   const onSelect = {
     rename: () => Tree.startRenaming(nodes[0].key),
     delete: () => handleDelete(props),
+    createSequence,
   };
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Menu.RenameItem />
       <Menu.DeleteItem />
+      <PMenu.Divider />
+      <PMenu.Item
+        itemKey="createSequence"
+        startIcon={
+          <PIcon.Create>
+            <Icon.Control />
+          </PIcon.Create>
+        }
+      >
+        Create Control Sequence
+      </PMenu.Item>
     </PMenu.Menu>
   );
 };

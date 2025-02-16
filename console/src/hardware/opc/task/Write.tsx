@@ -53,7 +53,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   WriteConfig,
   WriteStateDetails,
   WriteType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
     ...ZERO_WRITE_PAYLOAD.config,

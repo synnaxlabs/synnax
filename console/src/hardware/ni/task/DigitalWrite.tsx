@@ -79,7 +79,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalWriteConfig,
   DigitalWriteStateDetails,
   DigitalWriteType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_WRITE_PAYLOAD,
   config: {
     ...ZERO_DIGITAL_WRITE_PAYLOAD.config,

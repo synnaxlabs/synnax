@@ -231,7 +231,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
   ReadStateDetails,
   ReadType
-> = (deviceKey) => ({
+> = ({ deviceKey }) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
     ...ZERO_READ_PAYLOAD.config,
