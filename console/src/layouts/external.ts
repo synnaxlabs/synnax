@@ -13,7 +13,6 @@ import { GetStarted } from "@/layouts/GetStarted";
 import { Main, MAIN_LAYOUT_TYPE } from "@/layouts/Main";
 import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/layouts/Mosaic";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/layouts/Selector";
-export { createSelector } from "@/layouts/Selector";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [MAIN_LAYOUT_TYPE]: Main,

@@ -63,6 +63,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Table.LAYOUTS,
   ...User.LAYOUTS,
   ...Version.LAYOUTS,
+  ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
 };
 

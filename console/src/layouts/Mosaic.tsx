@@ -37,7 +37,7 @@ import { NAV_DRAWER_ITEMS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
-import { createSelector } from "@/layouts/Selector";
+import { SELECTOR_LAYOUT } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
@@ -162,12 +162,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        place(
-          createSelector({
-            tab: { mosaicKey, location },
-            location: "mosaic",
-          }),
-        );
+        place({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -185,13 +180,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             addStatus,
             handleException,
           });
-        } else
-          place(
-            createSelector({
-              tab: { mosaicKey, location },
-              location: "mosaic",
-            }),
-          );
+        } else place({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
       });
     },
     [place, store, client, addStatus],

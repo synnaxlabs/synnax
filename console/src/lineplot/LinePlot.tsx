@@ -438,7 +438,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
                     Download as CSV
                   </PMenu.Item>
-                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
                     Open in New Plot
                   </PMenu.Item>
                   <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
@@ -535,6 +535,6 @@ export const LinePlot: Layout.Renderer = ({
 export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
-  icon: <Icon.Visualize />,
+  icon: <Icon.LinePlot />,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

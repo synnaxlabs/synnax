@@ -63,7 +63,7 @@ export const addToNewPlotMenuItem = (
     itemKey="addToNewPlot"
     startIcon={
       <PIcon.Create>
-        <Icon.Visualize key="plot" />
+        <Icon.LinePlot key="plot" />
       </PIcon.Create>
     }
   >
@@ -76,7 +76,7 @@ export const addToActivePlotMenuItem = (
     itemKey="addToActivePlot"
     startIcon={
       <PIcon.Icon topRight={<Icon.Range />}>
-        <Icon.Visualize key="plot" />
+        <Icon.LinePlot key="plot" />
       </PIcon.Icon>
     }
   >

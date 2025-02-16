@@ -9,30 +9,43 @@
 
 import { useStore } from "react-redux";
 
-import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
+import { Schematic } from "@/schematic";
 import { type RootState } from "@/store";
-import { Vis } from "@/vis";
+import { Table } from "@/table";
 
-export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
+const SELECTABLES: Layout.Selectable[] = [
+  ...LinePlot.SELECTABLES,
+  ...Log.SELECTABLES,
+  ...Schematic.SELECTABLES,
+  ...Table.SELECTABLES,
+];
+
+export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
 export const SELECTOR_LAYOUT: Layout.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
-  name: "New Layout",
+  name: "New Visualization",
+};
+
+export const getSelectables = (storeState: RootState): Layout.Selectable[] => {
+  const canCreateSchematic = Schematic.selectHasPermission(storeState);
+  return SELECTABLES.filter((s) =>
+    s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
+  );
 };
 
 export const Selector: Layout.Renderer = (props) => {
   const store = useStore<RootState>();
-  const selectables = [
-    ...Vis.getSelectables(store.getState()),
-    ...Hardware.SELECTABLES,
-  ];
+  const selectables = getSelectables(store.getState());
   return (
     <Layout.Selector
       selectables={selectables}
-      text="Select a Component Type"
+      text="Select a Visualization Type"
       {...props}
     />
   );

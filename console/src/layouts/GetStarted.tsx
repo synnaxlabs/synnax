@@ -18,7 +18,6 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
-import { createSelector } from "@/layouts/Selector";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
@@ -42,7 +41,7 @@ const NoCluster = (): ReactElement => {
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    place(createSelector({}));
+    place(Vis.SELECTOR_LAYOUT);
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
     );

@@ -13,44 +13,36 @@ import { type FC, type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { Layouts } from "@/layouts";
-import { Selector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
+import { SELECTOR_LAYOUT } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
-
-export const VisToolbarTitle = (): ReactElement => (
-  <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
-);
 
 interface ToolbarProps {
   layoutKey: string;
 }
 
-const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  schematic: Schematic.Toolbar,
-  lineplot: LinePlot.Toolbar,
-  log: Log.Toolbar,
-  table: Table.Toolbar,
-  vis: ({ layoutKey }) => (
-    <Selector layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
-  ),
+const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
+  [LinePlot.LAYOUT_TYPE]: LinePlot.Toolbar,
+  [Log.LAYOUT_TYPE]: Log.Toolbar,
+  [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
+  [Table.LAYOUT_TYPE]: Table.Toolbar,
 };
 
 const NoVis = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
     <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
       <ToolbarHeader>
-        <VisToolbarTitle />
+        <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
       </ToolbarHeader>
       <Align.Center direction="x" size="small">
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => place(Layouts.createSelector({}))}>
+        <Text.Link level="p" onClick={() => placeLayout(SELECTOR_LAYOUT)}>
           create a new one.
         </Text.Link>
       </Align.Center>
@@ -62,8 +54,7 @@ const Content = (): ReactElement => {
   const layout = Layout.useSelectActiveMosaicLayout();
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
-  if (Toolbar == null) return <NoVis />;
-  return <Toolbar layoutKey={layout.key} />;
+  return Toolbar == null ? <NoVis /> : <Toolbar layoutKey={layout.key} />;
 };
 
 export const Toolbar: Layout.NavDrawerItem = {
