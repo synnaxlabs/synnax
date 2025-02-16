@@ -118,8 +118,8 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
         streamer_config,
         sink,
         breaker::Config{
+            .base_interval = telem::MICROSECOND * 10,
             .max_retries = 2,
-            .base_interval = telem::MICROSECOND * 10
         }
     );
 

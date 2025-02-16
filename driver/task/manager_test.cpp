@@ -199,8 +199,8 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
     auto [writer, w_err] = client->telem.open_writer(synnax::WriterConfig{
+        .channels = {sy_task_cmd.key},
         .start = telem::TimeStamp::now(),
-        .channels = {sy_task_cmd.key}
     });
     ASSERT_FALSE(w_err) << w_err;
     auto echo_task = synnax::Task(

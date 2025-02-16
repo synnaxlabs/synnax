@@ -33,10 +33,11 @@ TEST(ChannelReceive, Basic) {
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
-    ASSERT_EVENTUALLY_EQ_F([&] {
+    auto check_writes = [&]() {
         plugin.before_next(L);
         return lua_getglobal(L, "my_channel");
-    }, LUA_TNUMBER);
+    };
+    ASSERT_EVENTUALLY_EQ_F(check_writes, LUA_TNUMBER);
     ASSERT_EQ(lua_tonumber(L, -1), 1.0);
     lua_close(L);
     plugin.after_all(L);

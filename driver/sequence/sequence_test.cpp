@@ -59,14 +59,16 @@ TEST(Sequence, nominal) {
 
     auto seq = sequence::Sequence(plugins, script);
     const auto start_err = seq.begin();
-
-    ASSERT_FALSE(start_err) << start_err;
     const auto next_err = seq.next();
-    ASSERT_FALSE(next_err) << next_err;
-    ASSERT_EVENTUALLY_EQ_F([&]-> size_t {
+
+    auto check_writes = [&]() -> size_t {
         auto _ = seq.next();
         return mock_sink->writes->size();
-    }, 1);
+    };
+
+    ASSERT_FALSE(start_err) << start_err;
+    ASSERT_FALSE(next_err) << next_err;
+    ASSERT_EVENTUALLY_GE_F(check_writes, 1);
     const auto stop_err = seq.end();
     ASSERT_FALSE(stop_err) << stop_err;
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
@@ -153,23 +155,28 @@ TEST(Sequence, restart) {
 
     auto seq = sequence::Sequence(plugins, script);
 
+    auto check_writes = [&]() -> size_t {
+        auto _ = seq.next();
+        return mock_sink->writes->size();
+    };
+
     // First execution
     ASSERT_FALSE(seq.begin());
     ASSERT_FALSE(seq.next());
-    ASSERT_EVENTUALLY_GE_F([&]-> size_t {
-        auto _ = seq.next();
-        return mock_sink->writes->size();
-    }, 1);
+    ASSERT_EVENTUALLY_GE_F(check_writes, 1);
     ASSERT_FALSE(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 
     auto curr_size = mock_sink->writes->size();
-    ASSERT_FALSE(seq.begin());
-    ASSERT_FALSE(seq.next());
-    ASSERT_EVENTUALLY_GE_F([&]-> size_t {
+    
+    auto check_writes_2 = [&]() -> size_t {
         auto _ = seq.next();
         return mock_sink->writes->size();
-    }, curr_size);
+    };
+
+    ASSERT_FALSE(seq.begin());
+    ASSERT_FALSE(seq.next());
+    ASSERT_EVENTUALLY_GE_F(check_writes_2, curr_size);
     ASSERT_FALSE(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 }

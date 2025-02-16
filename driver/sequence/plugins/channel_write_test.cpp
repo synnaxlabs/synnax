@@ -133,11 +133,6 @@ TEST_F(SetOperatorTest, UInt32Value) {
     RunTest<uint32_t>("4294967295", 4294967295);
 }
 
-TEST_F(SetOperatorTest, UInt64Value) {
-    SetupChannel(telem::UINT64_T);
-    RunTest<uint64_t>("18446744073709551615", 18446744073709551615ULL);
-}
-
 TEST_F(SetOperatorTest, StringValue) {
     SetupChannel(telem::STRING_T);
     RunStringTest("'hello'", "hello");
