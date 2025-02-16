@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
 const StatusesContext = createContext<status.Spec[]>([]);
@@ -119,11 +120,13 @@ export const useNotifications = ({
     return () => clearTimeout(timeout);
   }, [filtered, expiration, threshold]);
 
+  const statusesRef = useSyncedRef(statuses);
+
   const silence: UseNotificationsReturn["silence"] = useCallback(
     (key) => {
-      const status = statuses.find((s) => s.key === key);
+      const status = statusesRef.current.find((s) => s.key === key);
       if (status == null) return;
-      const duplicates = statuses
+      const duplicates = statusesRef.current
         .filter(
           ({ message, variant }) =>
             message === status.message && variant === status.variant,
@@ -141,7 +144,7 @@ export const useNotifications = ({
         return changed ? next : prev;
       });
     },
-    [statuses],
+    [statusesRef, setSilenced],
   );
 
   return { statuses: filtered, silence };
