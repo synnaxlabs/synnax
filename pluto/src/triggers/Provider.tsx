@@ -12,8 +12,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useRef,
 } from "react";
@@ -30,7 +30,9 @@ import {
   type Trigger,
 } from "@/triggers/triggers";
 
-type Listen = (callback: Callback) => Destructor;
+export interface Listen {
+  (callback: Callback): Destructor;
+}
 
 export interface ContextValue {
   listen: Listen;
@@ -42,7 +44,7 @@ const ZERO_CONTEXT_VALUE: ContextValue = {
 
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = () => use(Context);
 
 interface RefState {
   next: Trigger;
@@ -196,7 +198,7 @@ export const Provider = ({
     return () => registry.current.delete(callback);
   }, []);
 
-  return <Context.Provider value={{ listen }}>{children}</Context.Provider>;
+  return <Context value={{ listen }}>{children}</Context>;
 };
 
 const shouldPreventDefault = (

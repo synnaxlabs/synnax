@@ -9,8 +9,8 @@
 
 import {
   createContext,
+  use as reactUse,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useState,
 } from "react";
@@ -29,15 +29,17 @@ export interface UseReturn {
   toggle: (vis?: boolean | unknown) => void;
 }
 
-interface ContextValue extends Pick<UseReturn, "close"> {}
+export interface ContextValue extends Pick<UseReturn, "close"> {}
 
-export const Context = createContext<ContextValue>({
+const Context = createContext<ContextValue>({
   close: () => {
     console.error("Dialog context not provided.");
   },
 });
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const Provider = Context;
+
+export const useContext = () => reactUse(Context);
 
 /**
  * Implements basic dropdown behavior, and should be preferred when using
