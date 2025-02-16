@@ -52,7 +52,7 @@ const EmptyContent = (): ReactElement => (
 
 const emptyContent = <EmptyContent />;
 
-export const MOSAIC_TYPE = "mosaic";
+export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
 export const ContextMenu = ({
   keys,

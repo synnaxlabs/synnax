@@ -83,7 +83,7 @@ const NoCluster = (): ReactElement => {
 const Overview = (): ReactElement => {
   const place = Layout.usePlacer();
   const handleWorkspace: Button.ButtonProps["onClick"] = () =>
-    place(Workspace.CREATE_WINDOW_LAYOUT);
+    place(Workspace.CREATE_LAYOUT);
 
   return (
     <Eraser.Eraser>

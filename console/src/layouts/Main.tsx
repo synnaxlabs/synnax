@@ -77,7 +77,7 @@ const SideEffect = (): null => {
   return null;
 };
 
-export const MAIN_TYPE = Drift.MAIN_WINDOW;
+export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this

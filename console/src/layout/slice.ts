@@ -18,6 +18,7 @@ import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
+import { type BaseState } from "@/layout/hooks";
 import * as latest from "@/layout/types";
 import { type RootState } from "@/store";
 
@@ -482,7 +483,7 @@ export type Payload = Action["payload"];
 
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
-export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
+export const createMosaicWindow = (window?: WindowProps): BaseState => ({
   key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
