@@ -102,6 +102,11 @@ interface SetFocusPayload {
   windowKey: string;
 }
 
+interface SetAltKeyPayload {
+  key: string;
+  altKey: string;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
@@ -274,6 +279,13 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
+    },
+    setAltKey: (
+      state,
+      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
+    ) => {
+      state.keyToAltKey[key] = altKey;
+      state.altKeyToKey[altKey] = key;
     },
     splitMosaicNode: (
       state,
@@ -463,6 +475,7 @@ export const {
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
+  setAltKey,
   splitMosaicNode,
   rename,
   setNavDrawer,
