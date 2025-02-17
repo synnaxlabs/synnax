@@ -109,13 +109,13 @@ export const Edge = ({
   color = "var(--pluto-gray-l9)",
   selected = false,
   variant = "pipe",
-  ...props
+  ...rest
 }: EdgeProps): ReactElement => {
-  const sourcePos = xy.construct(props.sourceX, props.sourceY);
+  const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
   const sourcePosRef = useRef(sourcePos);
   const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
 
-  const targetPos = xy.construct(props.targetX, props.targetY);
+  const targetPos = xy.construct(rest.targetX, rest.targetY);
   const targetPosRef = useRef(targetPos);
   const targetPosEq = xy.equals(targetPos, targetPosRef.current);
 

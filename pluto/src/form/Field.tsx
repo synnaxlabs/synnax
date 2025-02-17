@@ -58,7 +58,7 @@ export const Field = <
   optional,
   onChange,
   className,
-  ...props
+  ...rest
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
@@ -87,7 +87,7 @@ export const Field = <
         CSS.BE("field", path.split(".").join("-")),
         CSS.M(field.status.variant),
       )}
-      {...props}
+      {...rest}
     >
       {children(childrenProps)}
     </Input.Item>
@@ -126,11 +126,11 @@ export const fieldBuilder =
       inputProps,
       path,
       fieldKey = baseFieldKey,
-      ...props
+      ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
-        {...props}
+        {...rest}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}

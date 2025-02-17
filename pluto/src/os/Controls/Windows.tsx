@@ -25,9 +25,9 @@ export const Windows = ({
   // no-ops on windows
   onFullscreen: _,
   focused: __,
-  ...props
+  ...rest
 }: InternalControlsProps): ReactElement => (
-  <Align.Pack {...props}>
+  <Align.Pack {...rest}>
     <Button
       className={CSS.BM("windows-control", "minimize")}
       onClick={onMinimize}
@@ -55,12 +55,12 @@ export const Windows = ({
 const Button = ({
   disabled = false,
   className,
-  ...props
+  ...rest
 }: CoreButton.IconProps): ReactElement | null =>
   !disabled ? (
     <CoreButton.Icon
       className={CSS(CSS.B("windows-control"), className)}
       tabIndex={-1}
-      {...props}
+      {...rest}
     />
   ) : null;

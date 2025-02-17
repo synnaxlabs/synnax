@@ -36,7 +36,7 @@ export const Switch = ({
   onChange,
   size = "medium",
   variant,
-  ...props
+  ...rest
 }: SwitchProps): ReactElement => {
   if (variant === "preview") disabled = true;
   return (
@@ -52,7 +52,7 @@ export const Switch = ({
           onChange={(e) => onChange(e.target.checked)}
           value=""
           disabled={disabled}
-          {...props}
+          {...rest}
         />
         <span className="pluto-input-switch__slider" />
       </label>

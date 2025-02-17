@@ -130,9 +130,9 @@ const setThemeClass = (el: HTMLElement, theme: theming.Theme): void => {
 export const Provider = ({
   children,
   applyCSSVars = true,
-  ...props
+  ...rest
 }: ProviderProps): ReactElement => {
-  const ret = useProvider(props);
+  const ret = useProvider(rest);
   const [{ path }, , setAetherTheme] = Aether.use({
     type: theming.Provider.TYPE,
     schema: theming.Provider.z,
@@ -165,9 +165,9 @@ export const Provider = ({
   );
 };
 
-export const Switch = ({
-  ...props
-}: Omit<SwitchProps, "onChange" | "value">): ReactElement => {
+export const Switch = (
+  props: Omit<SwitchProps, "onChange" | "value">,
+): ReactElement => {
   const { toggleTheme } = useContext();
   const [checked, setChecked] = useState(false);
   return (

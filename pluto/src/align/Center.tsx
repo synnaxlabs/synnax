@@ -22,15 +22,13 @@ export const Center = <E extends SpaceElementType = "div">({
   className,
   justify = "center",
   align = "center",
-  ref,
-  ...props
+  ...rest
 }: SpaceProps<E>): ReactElement => (
   // @ts-expect-error - generic element issues
   <Space<E>
-    ref={ref}
     justify={justify}
     align={align}
     className={CSS(CSS.BM("space", "centered"), className)}
-    {...props}
+    {...rest}
   />
 );

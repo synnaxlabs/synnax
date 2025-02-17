@@ -34,10 +34,10 @@ export const DateTime = <L extends text.Level = "h1">({
   suppliedTZ = "UTC",
   displayTZ = "local",
   children,
-  ...props
+  ...rest
 }: DateTimeProps<L>): ReactElement => (
   // @ts-expect-error - generic component errors
-  <Text<L> ref={ref} {...props}>
+  <Text<L> ref={ref} {...rest}>
     {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
   </Text>
 );

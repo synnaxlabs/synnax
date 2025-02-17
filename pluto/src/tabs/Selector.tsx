@@ -40,7 +40,7 @@ export const Selector = ({
   size = "medium",
   direction = "x",
   contextMenu,
-  ...props
+  ...rest
 }: SelectorProps): ReactElement | null => {
   const {
     tabs,
@@ -63,7 +63,7 @@ export const Selector = ({
       onDrop={onDrop}
       empty
       direction={direction}
-      {...props}
+      {...rest}
     >
       <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
         {tabs.map((tab) => (
@@ -218,11 +218,11 @@ const Name = ({
   name,
   tabKey,
   editable = true,
-  ...props
+  ...rest
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text className={NAME_CLS} noWrap {...props}>
+      <Text.Text className={NAME_CLS} noWrap {...rest}>
         {name}
       </Text.Text>
     );
@@ -233,7 +233,7 @@ const Name = ({
         onChange={(newText: string) => onRename(tabKey, newText)}
         value={name}
         noWrap
-        {...props}
+        {...rest}
       />
     </div>
   );

@@ -68,8 +68,8 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
  */
 export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children = (props) => <Input.Text placeholder="Filter" {...props} />,
-  ...props
-}: FilterProps): ReactElement | null => children(useFilter<K, E>(props));
+  ...rest
+}: FilterProps): ReactElement | null => children(useFilter<K, E>(rest));
 
 export interface Searcher<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   search: (term: string) => E[];

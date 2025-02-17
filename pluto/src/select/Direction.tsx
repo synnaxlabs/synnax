@@ -56,10 +56,10 @@ const defaultSelectDirectionButton = ({
 export const Direction = ({
   children = defaultSelectDirectionButton,
   yDirection = "up",
-  ...props
+  ...rest
 }: DirectionProps): ReactElement => (
   <Button
-    {...props}
+    {...rest}
     allowMultiple={false}
     data={yDirection === "up" ? DATA : ALTERNATE_DATA}
   >
