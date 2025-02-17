@@ -25,15 +25,14 @@ cc_library(
 cc_library(
     name = "mbedtls_linux",
     srcs = glob([
-        "lib/libmbed*.a",
-        "lib/libmbedcrypto.a",
-        "lib/libmbedtls.a",
-        "lib/libmbedx509.a",
+        "libmbed*.a",
+        "libmbedcrypto.a",
+        "libmbedtls.a",
+        "libmbedx509.a",
     ]),
     hdrs = glob([
         "include/**/*.h",
     ]),
-    strip_include_prefix = "include",
     visibility = ["//visibility:public"],
     strip_include_prefix = "include",
 )
