@@ -72,8 +72,13 @@ main() {
     local yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
     
     if [[ -z "$yaml_files" ]]; then
-        echo -e "${RED}No clang-tidy YAML files found!${NC}"
-        exit 1
+        echo "No clang-tidy files found. Running build..."
+        bazel build --config=clang-tidy //...
+        yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
+        if [[ -z "$yaml_files" ]]; then
+            echo -e "${RED}Build failed or no tidy files generated!${NC}"
+            exit 1
+        fi
     fi
 
     # Print header
