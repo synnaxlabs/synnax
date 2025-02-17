@@ -3,6 +3,7 @@
 # Colors for output
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 # Function to process a single YAML file
@@ -44,9 +45,26 @@ print_header() {
     echo -e "${NC}"
 }
 
+# Function to run build if needed
+ensure_build() {
+    local dir="$1"
+    if [[ ! -d "$dir" ]] || [[ -z "$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)" ]]; then
+        echo -e "${YELLOW}No clang-tidy files found. Running build...${NC}"
+        bazel build //driver/... --config=clang-tidy
+        if [[ $? -ne 0 ]]; then
+            echo -e "${RED}Build failed!${NC}"
+            exit 1
+        fi
+        echo -e "${GREEN}Build completed successfully${NC}"
+    fi
+}
+
 # Main script
 main() {
     local dir="${1:-.}"  # Use current directory if none specified
+    
+    # Ensure build is done
+    ensure_build "$dir"
     
     # Find all clang-tidy YAML files
     local yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
