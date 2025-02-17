@@ -197,7 +197,7 @@ void eventually_ge(
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_EQ_F(fn, expected) \
-    xtest::eventually_eq<decltype(fn())>((fn), (expected))
+    xtest::eventually_eq<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected))
 
 /// @brief Macro for asserting eventual equality with custom timeout and interval using a function
 /// @param fn The function to evaluate
@@ -205,13 +205,13 @@ void eventually_ge(
 /// @param timeout Maximum time to wait for equality
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(fn, expected, timeout, interval) \
-    xtest::eventually_eq<decltype(fn())>((fn), (expected), (interval), (timeout))
+    xtest::eventually_eq<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected), (interval), (timeout))
 
 /// @brief Macro for asserting eventual less than or equal with default timeout and interval using a function
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_LE_F(fn, expected) \
-    xtest::eventually_le<decltype(fn())>((fn), (expected))
+    xtest::eventually_le<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected))
 
 /// @brief Macro for asserting eventual less than or equal with custom timeout and interval using a function
 /// @param fn The function to evaluate
@@ -219,13 +219,13 @@ void eventually_ge(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_LE_F_WITH_TIMEOUT(fn, expected, timeout, interval) \
-    xtest::eventually_le<decltype(fn())>((fn), (expected), (interval), (timeout))
+    xtest::eventually_le<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected), (interval), (timeout))
 
 /// @brief Macro for asserting eventual greater than or equal with default timeout and interval using a function
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_GE_F(fn, expected) \
-    xtest::eventually_ge<decltype(fn())>((fn), (expected))
+    xtest::eventually_ge<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected))
 
 /// @brief Macro for asserting eventual greater than or equal with custom timeout and interval using a function
 /// @param fn The function to evaluate
@@ -233,7 +233,7 @@ void eventually_ge(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_GE_F_WITH_TIMEOUT(fn, expected, timeout, interval) \
-    xtest::eventually_ge<decltype(fn())>((fn), (expected), (interval), (timeout))
+    xtest::eventually_ge<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected), (interval), (timeout))
 
 } // namespace xtest
 

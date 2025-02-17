@@ -109,12 +109,12 @@ public:
     virtual ~FrameSink() = default;
 
     /// @brief writes the frame to the sink.
-    virtual xerrors::Error write(synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
 
     /// @brief sets the authority of the channels being written to.
     virtual xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) = 0;
 
     [[nodiscard]] virtual xerrors::Error close() { return xerrors::NIL; }
@@ -136,11 +136,11 @@ public:
         synnax::WriterConfig cfg
     );
 
-    xerrors::Error write(synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;
@@ -173,6 +173,11 @@ public:
     xerrors::Error after_next(lua_State *L) override;
 };
 
+struct LatestValue {
+    telem::SampleValue value;
+    bool changed;
+};
+
 /// @brief a plugin implementation that binds global variables containing channel
 /// values to the sequence.
 class ChannelReceive final : public Plugin {
@@ -182,7 +187,7 @@ class ChannelReceive final : public Plugin {
     /// @brief the pipeline used to manage the lifecycle of the receiver.
     pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> latest_values;
+    std::unordered_map<synnax::ChannelKey, LatestValue> latest_values;
     /// @brief maps channel keys to channels in order to bind variable names appropriately.
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
 

@@ -29,7 +29,7 @@
 #include "driver/task/task.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/ni/ni.h"
 
 namespace ni {
@@ -64,7 +64,7 @@ struct WriterChannelConfig {
     WriterChannelConfig() = default;
 
     explicit WriterChannelConfig(
-        config::Parser &parser,
+        xjson::Parser &parser,
         std::string device_name,
         bool is_digital,
         TaskHandle task_handle,
@@ -144,7 +144,7 @@ struct WriterConfig {
     WriterConfig() = default;
 
     explicit WriterConfig(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::shared_ptr<task::Context> &ctx,
         bool is_digital,
         TaskHandle task_handle,
@@ -162,7 +162,7 @@ struct WriterConfig {
         device_name = dev.location;
 
         int channel_index = 0;
-        parser.iter("channels", [&](config::Parser &channel_parser) {
+        parser.iter("channels", [&](xjson::Parser &channel_parser) {
             auto channel = WriterChannelConfig(
                 channel_parser,
                 device_name,

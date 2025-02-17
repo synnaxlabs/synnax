@@ -37,8 +37,8 @@ cc_library(
         "//driver/queue",
         "//driver/task",
         "//x/cpp/breaker",
-        "//x/cpp/config",
         "//x/cpp/loop",
+        "//x/cpp/xjson",
         "@nlohmann_json//:json",
     ],
 )

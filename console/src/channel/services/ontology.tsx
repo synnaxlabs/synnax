@@ -10,7 +10,7 @@
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Channel,
+  Channel as PChannel,
   type Haul,
   Menu as PMenu,
   type Schematic as PSchematic,
@@ -21,7 +21,7 @@ import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import { createCalculatedLayout } from "@/channel/CreateCalculated";
+import { Channel } from "@/channel";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -204,12 +204,10 @@ const useOpenCalculated =
   ({ selection: { resources }, placeLayout }: Ontology.TreeContextMenuProps) => {
     if (resources.length !== 1) return;
     const resource = resources[0];
-    const tabKey = `editCalculated-${resource.id.key}`;
     return placeLayout(
-      createCalculatedLayout({
-        key: tabKey,
-        name: `Edit ${resource.name}`,
-        args: { channelKey: Number(resource.id.key) },
+      Channel.createCalculatedLayout({
+        key: Number(resource.id.key),
+        name: resource.name,
       }),
     );
   };
@@ -283,7 +281,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElement => {
-  const alias = Channel.useAlias(Number(new ontology.ID(entry.key).key));
+  const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
   return <Tree.DefaultItem {...rest} entry={{ ...entry, name: alias ?? entry.name }} />;
 };
 

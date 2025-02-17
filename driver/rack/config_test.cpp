@@ -16,59 +16,60 @@
 /// module
 #include "client/cpp/testutil/testutil.h"
 
-TEST(RackConfig, testDefault) {
+class RackConfigTest: public ::testing::Test {
+protected:
+    xargs::Parser args;
     breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+
+    void SetUp() override {
+        args = xargs::Parser(std::vector<std::string>{"program", "--state-file", "/tmp/rack-config-test/state.json"});
+        std::cout << args.required<std::string>("--state-file") << std::endl;
+        const auto c_err = rack::Config::clear_persisted_state(args);
+        ASSERT_FALSE(c_err) << c_err;
+    }
+
+};
+
+TEST_F(RackConfigTest, testDefault) {
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.host, "localhost");
     ASSERT_EQ(cfg.connection.username, "synnax");
     ASSERT_EQ(cfg.connection.password, "seldon");
-
     ASSERT_NE(cfg.rack.key, 0);
     ASSERT_NE(cfg.rack.name, "");
 }
 
-TEST(RackConfig, loadRackFromPersistedState) {
-    breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+TEST_F(RackConfigTest, loadRackFromPersistedState) {
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     auto rack_key = cfg.rack.key;
-    auto [cfg2, err2] = rack::Config::load(0, nullptr, brk);
+    auto [cfg2, err2] = rack::Config::load(args, brk);
     ASSERT_FALSE(err2) << err2;
     ASSERT_NE(cfg2.rack.key, 0);
     ASSERT_EQ(cfg2.rack.key, rack_key);
 }
 
-TEST(RackConfig, clearRackFromPersistedState) {
-    breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+TEST_F(RackConfigTest, clearRackFromPersistedState) {
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     ASSERT_NE(cfg.rack.key, 0);
-    auto c_err2 = rack::Config::clear_persisted_state(0, nullptr);
+    auto c_err2 = rack::Config::clear_persisted_state(args);
     ASSERT_FALSE(c_err2) << c_err2;
-    auto [cfg2, err2] = rack::Config::load(0, nullptr, brk);
+    auto [cfg2, err2] = rack::Config::load(args, brk);
     ASSERT_FALSE(err2) << err2;
     ASSERT_NE(cfg2.rack.key, cfg.rack.key);
 }
 
-TEST(RackConfig, saveConnParamsToPersistedState) {
-    breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
-    rack::Config::save_conn_params(0, nullptr, {
+TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
+    rack::Config::save_conn_params(args, {
         .host = "dog",
         .port = 450,
         .username = "cat",
         .password = "nip",
     });
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_TRUE(err) << err;
     ASSERT_TRUE(err.matches(freighter::UNREACHABLE)) << err;
     ASSERT_EQ(cfg.connection.host, "dog");
@@ -77,7 +78,7 @@ TEST(RackConfig, saveConnParamsToPersistedState) {
     ASSERT_EQ(cfg.connection.password, "nip");
 }
 
-TEST(RackConfig, parseRackFromConfigArg) {
+TEST_F(RackConfigTest, parseRackFromConfigArg) {
     const auto client = new_test_client();
     auto [rack, r_err] = client.hardware.create_rack("abc rack");
     ASSERT_FALSE(r_err) << r_err;
@@ -85,29 +86,23 @@ TEST(RackConfig, parseRackFromConfigArg) {
         .rack_key = rack.key,
         .cluster_key = client.auth->cluster_info.cluster_key,
     };
-    breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
-    rack::Config::save_remote_info(0, nullptr, remote_info);
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+    rack::Config::save_remote_info(args, remote_info);
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.rack.name, "abc rack");
     ASSERT_EQ(cfg.remote.cluster_key, client.auth->cluster_info.cluster_key);
 }
 
-TEST(RackConfig, recreateOnClusterKeyMismatch) {
+TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
-    breaker::Breaker brk;
-    auto c_err = rack::Config::clear_persisted_state(0, nullptr);
-    ASSERT_FALSE(c_err) << c_err;
     auto [rack, r_err] = client.hardware.create_rack("abc rack");
     ASSERT_FALSE(r_err) << r_err;
-    rack::Config::save_remote_info(0, nullptr, {
+    rack::Config::save_remote_info(args, {
         .rack_key = rack.key,
         .cluster_key = "abc",
     });
-    auto [cfg, err] = rack::Config::load(0, nullptr, brk);
+    auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     ASSERT_NE(cfg.rack.key, rack.key);
     ASSERT_NE(cfg.remote.cluster_key, "abc");

@@ -28,39 +28,17 @@ TEST(ChannelReceive, Basic) {
     fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{
-            xerrors::NIL,
-            xerrors::NIL,
-        });
-    const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
-            std::vector{
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL
-                }
-            })
-    );
-    auto plugin = plugins::ChannelReceive(streamer_factory, std::vector{ch});
+    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
+    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
-    ASSERT_EVENTUALLY_EQ_F([&] {
+    auto check_writes = [&]() {
         plugin.before_next(L);
         return lua_getglobal(L, "my_channel");
-    }, LUA_TNUMBER);
+    };
+    ASSERT_EVENTUALLY_EQ_F(check_writes, LUA_TNUMBER);
     ASSERT_EQ(lua_tonumber(L, -1), 1.0);
     lua_close(L);
     plugin.after_all(L);
-}
-
-// We need to explicitly define a main function here instead of using gtest_main
-// because otherwise the lua interpreters main function will get executed instead.
-int main(int argc, char** argv) {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

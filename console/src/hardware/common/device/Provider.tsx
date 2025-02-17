@@ -36,7 +36,7 @@ export interface ProviderProps<
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
-  configureLayout: Omit<Layout.BaseState, "key">;
+  configureLayout: Layout.BaseState;
   noneSelectedContent?: ReactElement;
 }
 

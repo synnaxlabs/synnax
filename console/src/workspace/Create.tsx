@@ -20,10 +20,9 @@ import { add } from "@/workspace/slice";
 
 export const CREATE_LAYOUT_TYPE = "createWorkspace";
 
-export const CREATE_WINDOW_LAYOUT: Layout.State = {
+export const CREATE_LAYOUT: Layout.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  windowKey: CREATE_LAYOUT_TYPE,
   name: "Workspace.Create",
   icon: "Workspace",
   location: "modal",

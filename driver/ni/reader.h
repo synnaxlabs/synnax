@@ -25,7 +25,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/loop/loop.h"
 
 namespace ni {
@@ -88,7 +88,7 @@ public:
 
     std::vector<synnax::ChannelKey> get_channel_keys();
 
-    virtual void parse_config(config::Parser &parser);
+    virtual void parse_config(xjson::Parser &parser);
 
     virtual xerrors::Error start(const std::string &cmd_key);
 
@@ -109,7 +109,7 @@ public:
     virtual std::pair<synnax::Frame, xerrors::Error>
     read(breaker::Breaker &breaker) = 0;
 
-    virtual void parse_channels(config::Parser &parser) = 0;
+    virtual void parse_channels(xjson::Parser &parser) = 0;
 
     virtual int configure_timing() = 0;
 
@@ -174,12 +174,12 @@ public:
     int create_channels() override;
 
     std::shared_ptr<ni::Analog> parse_channel(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &channel_type,
         const std::string &channel_name
     );
 
-    void parse_channels(config::Parser &parser) override;
+    void parse_channels(xjson::Parser &parser) override;
 
     int validate_channels() override;
 
@@ -215,7 +215,7 @@ public:
 
     int create_channels() override;
 
-    void parse_channels(config::Parser &parser) override;
+    void parse_channels(xjson::Parser &parser) override;
 }; // class DigitalReadSource
 
 

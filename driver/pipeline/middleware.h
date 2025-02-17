@@ -18,7 +18,7 @@
 #include <thread>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace pipeline {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ public:
 
     void tare(json &arg) {
         //create parser
-        config::Parser parser(arg);
+        xjson::Parser parser(arg);
         auto channels = parser.required_vector<uint32_t>("keys");
         if(!parser.ok())
             LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.error().message();
@@ -117,9 +117,9 @@ public:
             auto &series = frame.series->at(i);
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                if (series.size > 0 && series.data_type == telem::FLOAT64_T)
+                if (series.size() > 0 && series.data_type == telem::FLOAT64_T)
                     last_raw_value[channel_key] = series.at<double>(0);
-                else if (series.size > 0 && series.data_type == telem::FLOAT32_T)
+                else if (series.size() > 0 && series.data_type == telem::FLOAT32_T)
                     last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
             }
 
@@ -133,11 +133,11 @@ public:
             }
 
             if (series.data_type == telem::FLOAT64_T) {
-                series.transform_inplace<double>(
+                series.map_inplace<double>(
                     [tare](double val) { return val - static_cast<double>(tare); }
                 );
             } else if (series.data_type == telem::FLOAT32_T) {
-                series.transform_inplace<float>(
+                series.map_inplace<float>(
                     [tare](float val) { return val - static_cast<float>(tare); }
                 );
             }
@@ -161,7 +161,7 @@ struct LinearScale {
     LinearScale() = default;
 
     explicit LinearScale(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : slope(parser.required<double>("slope")),
         offset(parser.required<double>("offset")) {
         if (!parser.ok())
@@ -170,13 +170,13 @@ struct LinearScale {
 
     void transform_inplace(telem::Series &series) {
         if (series.data_type == telem::FLOAT64_T) {
-            series.transform_inplace<double>(
+            series.map_inplace<double>(
                 [this](double val) {
                     return (val * slope + offset);
                 }
             );
         } else if (series.data_type == telem::FLOAT32_T) {
-            series.transform_inplace<float>(
+            series.map_inplace<float>(
                 [this](float val) {
                     return (val * slope + offset);
                 }
@@ -197,7 +197,7 @@ struct MapScale {
     MapScale() = default;
 
     explicit MapScale(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : prescaled_min(parser.required<double>("pre_scaled_min")),
         prescaled_max(parser.required<double>("pre_scaled_max")),
         scaled_min(parser.required<double>("scaled_min")),
@@ -208,14 +208,14 @@ struct MapScale {
 
     void transform_inplace(telem::Series &series) {
         if (series.data_type == telem::FLOAT64_T) {
-            series.transform_inplace<double>(
+            series.map_inplace<double>(
                 [this](double val) {
                     return (val - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) +
                            scaled_min;
                 }
             );
         } else if (series.data_type == telem::FLOAT32_T) {
-            series.transform_inplace<float>(
+            series.map_inplace<float>(
                 [this](float val) {
                     return (val - static_cast<float>(prescaled_min)) / (
                                static_cast<float>(prescaled_max) - static_cast<float>(prescaled_min)) * (
@@ -233,9 +233,9 @@ struct MapScale {
 class ScaleMiddleware : public Middleware {
 public:
     explicit ScaleMiddleware(
-        config::Parser &parser
+        xjson::Parser &parser
     ) {
-        parser.iter("channels", [this](config::Parser &channel_parser) {
+        parser.iter("channels", [this](xjson::Parser &channel_parser) {
             auto key = channel_parser.required<synnax::ChannelKey>("channel");
             if (channel_parser.get_json().contains("scale")) {
                 auto scale_config = channel_parser.child("scale");

@@ -20,19 +20,19 @@
 
 using json = nlohmann::json;
 
-static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+static std::string parse_digital_loc(xjson::Parser &p, const std::string &dev) {
     const auto port = std::to_string(p.required<std::uint64_t>("port"));
     const auto line = std::to_string(p.required<std::uint64_t>("line"));
     return dev + "/port" + port + "/line" + line;
 }
 
-void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
+void ni::DigitalReadSource::parse_channels(xjson::Parser &parser) {
     const auto dev_name = this->reader_config.device_name;
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
     parser.iter(
         "channels",
-        [&](config::Parser &channel_builder) {
+        [&](xjson::Parser &channel_builder) {
             const auto channel_key = channel_builder.required<uint32_t>("channel");
             const auto enabled = channel_builder.optional<bool>("enabled", true);
             this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{

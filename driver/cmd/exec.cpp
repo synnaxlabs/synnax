@@ -25,38 +25,29 @@ void print_usage() {
             << "  clear           Clear the persisted state\n";
 }
 
-int cmd::exec(int argc, char *argv[]) {
-    FLAGS_logtostderr = 1;
-    FLAGS_colorlogtostderr = 1;
+int cmd::exec(const int argc, char *argv[]) {
+    FLAGS_logtostderr = true;
+    FLAGS_colorlogtostderr = true;
     google::InitGoogleLogging(argv[0]);
-
-    if (argc < 2) {
+    auto args = xargs::Parser(argc, argv);
+    const std::string command = args.at(1, "command name required");
+    if (args.error()) {
         print_usage();
         return 1;
     }
-
-    const std::string command = argv[1];
     if (command == "start") {
-        bool standalone = false;
-        for (int i = 2; i < argc; i++) {
-            const std::string arg = argv[i];
-            if (arg == "--standalone" || arg == "-s") {
-                standalone = true;
-                break;
-            }
-        }
-        if (standalone) return cmd::sub::start(argc, argv);
-        return cmd::sub::service_start(argc, argv);
+        if (args.flag("--standalone", "-s")) return cmd::sub::start(args);
+        return cmd::sub::service_start(args);
     }
-    if (command == "stop") return cmd::sub::service_stop(argc, argv);
-    if (command == "restart") return cmd::sub::service_restart(argc, argv);
-    if (command == "login") return cmd::sub::login(argc, argv);
-    if (command == "install") return cmd::sub::service_install(argc, argv);
-    if (command == "uninstall") return cmd::sub::service_uninstall(argc, argv);
-    if (command == "logs") return cmd::sub::service_view_logs(argc, argv);
-    if (command == "status") return cmd::sub::service_status(argc, argv);
-    if (command == "version") return cmd::sub::version(argc, argv);
-    if (command == "clear") return cmd::sub::clear(argc, argv);
+    if (command == "stop") return cmd::sub::service_stop(args);
+    if (command == "restart") return cmd::sub::service_restart(args);
+    if (command == "login") return cmd::sub::login(args);
+    if (command == "install") return cmd::sub::service_install(args);
+    if (command == "uninstall") return cmd::sub::service_uninstall(args);
+    if (command == "logs") return cmd::sub::service_view_logs(args);
+    if (command == "status") return cmd::sub::service_status(args);
+    if (command == "version") return cmd::sub::version(args);
+    if (command == "clear") return cmd::sub::clear(args);
     print_usage();
     return 1;
 }

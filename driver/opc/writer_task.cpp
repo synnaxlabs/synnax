@@ -9,16 +9,16 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/loop/loop.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                     WriterConfig                              //
 ///////////////////////////////////////////////////////////////////////////////////
 opc::WriterConfig::WriterConfig(
-    config::Parser &parser
+    xjson::Parser &parser
 ) : device(parser.required<std::string>("device")) {
-    parser.iter("channels", [&](config::Parser &channel_parser) {
+    parser.iter("channels", [&](xjson::Parser &channel_parser) {
         const auto ch = WriterChannelConfig(channel_parser);
         if (ch.enabled) channels.push_back(ch);
     });
@@ -77,7 +77,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    auto config_parser = config::Parser(task.config);
+    auto config_parser = xjson::Parser(task.config);
     auto cfg = WriterConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
@@ -103,7 +103,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         return nullptr;
     }
 
-    auto properties_parser = config::Parser(device.properties);
+    auto properties_parser = xjson::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
 
     auto [ua_client, conn_err] = opc::connect(properties.connection,

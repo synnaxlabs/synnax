@@ -14,25 +14,19 @@ import { Sequence } from "@/hardware/task/sequence";
 import { Layout } from "@/layout";
 
 export const SELECTABLES: Layout.Selectable[] = [
-  ...LabJack.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
+  ...LabJack.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 
-export const ZERO_SELECTOR_LAYOUT: Layout.BaseState = {
+export const SELECTOR_LAYOUT: Layout.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Task",
   location: "mosaic",
   name: "New Task",
-  key: SELECTOR_LAYOUT_TYPE,
 };
 
-const SelectorComponent = Layout.createSelectorComponent(SELECTABLES);
-
-export const Selector = ({
-  text = "Select a Task Type",
-  ...rest
-}: Layout.SelectorProps) => <SelectorComponent text={text} {...rest} />;
+export const Selector = Layout.createSelector(SELECTABLES, "Select a Task Type");

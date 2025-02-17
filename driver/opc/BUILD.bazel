@@ -33,7 +33,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//driver/task",
-        "//x/cpp/config",
+        "//x/cpp/xjson",
         "//x/cpp/loop",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",

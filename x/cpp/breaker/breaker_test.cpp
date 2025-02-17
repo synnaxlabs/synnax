@@ -20,6 +20,7 @@ TEST(BreakerTests, testBreaker) {
     b.start();
     ASSERT_TRUE(b.wait("testBreaker breaker"));
     ASSERT_FALSE(b.wait("testBreaker breaker"));
+    b.stop();
 }
 
 /// @brief it should correctly expend max number of requests

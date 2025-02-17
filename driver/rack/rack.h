@@ -21,6 +21,13 @@
 #include "driver/labjack/labjack.h"
 #endif
 
+/// module
+#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xargs/xargs.h"
+
+/// external
+#include "nlohmann/json.hpp"
+
 /// internal
 #include "driver/ni/ni.h"
 #include "driver/sequence/sequence.h"
@@ -28,8 +35,6 @@
 #include "driver/opc/opc.h"
 #include "driver/task/task.h"
 
-/// external
-#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 
@@ -38,7 +43,7 @@ struct RemoteInfo {
     synnax::RackKey rack_key = 0;
     std::string cluster_key = "";
 
-    void override(config::Parser &p) {
+    void override(xjson::Parser &p) {
         this->rack_key = p.optional("rack_key", this->rack_key);
         this->cluster_key = p.optional("cluster_key", this->cluster_key);
     }
@@ -93,20 +98,29 @@ struct Config {
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
 
+    /// @brief returns a new task factory to use for creating tasks in the task manager.
     [[nodiscard]] std::unique_ptr<task::Factory> new_factory() const;
 
+    /// @brief returns a new Synnax client using the stored connection parameters.
     [[nodiscard]] std::shared_ptr<synnax::Synnax> new_client() const {
         return std::make_shared<synnax::Synnax>(this->connection);
     }
 
+    /// @brief returns true if the integration with the given name is enabled.
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
-    friend std::ostream& operator<<(std::ostream& os, const Config& cfg) {
-        os << "driver configuration:\n"
-           << "  connection: " << cfg.connection.host << ":" << cfg.connection.port << "\n"
-           << "  rack: " << cfg.rack.name << " (" << cfg.rack.key << ")\n"
-           << "  cluster key: " << cfg.remote.cluster_key << "\n"
-           << "  enabled integrations: ";
+    friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
+        os << "[driver] configuration:\n"
+                << "  " << xlog::SHALE << "cluster address" << xlog::RESET << ": " <<
+                cfg.connection.host << ":" << cfg.connection
+                .port << "\n"
+                << "  " << xlog::SHALE << "username" << xlog::RESET << ": " << cfg.
+                connection.username << "\n"
+                << "  " << xlog::SHALE << "rack" << xlog::RESET << ": " << cfg.rack.name
+                << " (" << cfg.rack.key << ")\n"
+                << "  " << xlog::SHALE << "cluster key" << xlog::RESET << ": " << cfg.
+                remote.cluster_key << "\n"
+                << "  " << xlog::SHALE << "enabled integrations" << xlog::RESET << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";
@@ -116,8 +130,7 @@ struct Config {
     }
 
     static std::pair<Config, xerrors::Error> load(
-        int argc,
-        char **argv,
+        xargs::Parser &parser,
         breaker::Breaker &breaker
     ) {
         rack::Config cfg{
@@ -129,24 +142,32 @@ struct Config {
             },
             .integrations = default_integrations(),
         };
-        if (const auto err = cfg.load_persisted_state(argc, argv)) return {cfg, err};
-        if (const auto err = cfg.load_config_file(argc, argv)) return {cfg, err};
+        if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
+        if (const auto err = cfg.load_config_file(parser)) return {cfg, err};
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        const auto err = cfg.save_remote_info(argc, argv, cfg.remote);
+        const auto err = cfg.save_remote_info(parser, cfg.remote);
         return {cfg, err};
     }
 
-    static xerrors::Error save_conn_params(int argc, char **argv, const synnax::Config &conn_params);
+    /// @brief permanently saves connection parameters to the persisted state file.
+    static xerrors::Error save_conn_params(
+        xargs::Parser &args,
+        const synnax::Config &conn_params
+    );
 
-    static xerrors::Error save_remote_info(int argc, char **argv, const RemoteInfo &remote_info);
+    /// @brief permanently saves the remote info to the persisted state file.
+    static xerrors::Error save_remote_info(
+        xargs::Parser &args,
+        const RemoteInfo &remote_info
+    );
 
-    static xerrors::Error clear_persisted_state(int argc, char **argv);
+    static xerrors::Error clear_persisted_state(xargs::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
-    [[nodiscard]] xerrors::Error load_persisted_state(int argc, char **argv);
+    [[nodiscard]] xerrors::Error load_persisted_state(xargs::Parser &args);
 
-    [[nodiscard]] xerrors::Error load_config_file(int argc, char **argv);
+    [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args);
 
     [[nodiscard]] xerrors::Error load_remote(breaker::Breaker &breaker);
 };
@@ -174,10 +195,11 @@ class Rack {
     bool should_exit(const xerrors::Error &err);
 
     /// @brief starts the main loop for the rack.
-    void run(int argc, char **argv);
+    void run(xargs::Parser &args);
+
 public:
     /// @brief starts the rack.
-    void start(int argc, char **argv);
+    void start(xargs::Parser &args);
 
     /// @brief stops the rack.
     xerrors::Error stop();

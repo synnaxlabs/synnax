@@ -14,7 +14,7 @@ import { type JSX, useCallback } from "react";
 import { Layout } from "@/layout";
 
 export interface SelectProps {
-  configureLayout: Omit<Layout.BaseState, "key">;
+  configureLayout: Layout.BaseState;
   emptyContent?: string | JSX.Element;
   label?: string;
   make: string;

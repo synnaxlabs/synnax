@@ -25,13 +25,26 @@ import {
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
-export const LAYOUT: Common.Task.LayoutBaseState = {
+export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   icon: "Control",
-  key: TYPE,
   name: ZERO_PAYLOAD.name,
   type: TYPE,
+};
+
+export interface CreateLayoutArgs {
+  rackKey?: rack.Key;
+  rename: Modals.PromptRename;
+}
+
+export const createLayout = async ({
+  rackKey,
+  rename,
+}: CreateLayoutArgs): Promise<Common.Task.Layout | null> => {
+  const name = await rename({}, { icon: "Control", name: "Control.Sequence.Create" });
+  return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
 
 export const SELECTABLE: Layout.Selectable = {
@@ -39,16 +52,13 @@ export const SELECTABLE: Layout.Selectable = {
   title: "Control Sequence",
   icon: <Icon.Control />,
   create: async ({ layoutKey, rename }) => {
-    const result = await rename(
-      {},
-      { icon: "Control", name: "Control.Sequence.Create" },
-    );
-    return result == null ? null : { ...LAYOUT, name: result, key: layoutKey };
+    const layout = await createLayout({ rename });
+    return layout == null ? null : { ...layout, key: layoutKey };
   },
 };
 
 const schema = z.object({
-  rack: rack.keyZ.min(1, "Rack is required"),
+  rack: rack.keyZ.min(1, "Location is required"),
   config: configZ,
 });
 
@@ -56,11 +66,12 @@ const Internal = ({
   task: base,
   layoutKey,
   configured,
+  rackKey,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({
-    values: { rack: task.getRackKey(base?.key ?? "0"), config: base.config },
+    values: { rack: rackKey ?? task.getRackKey(base.key ?? "0"), config: base.config },
     schema,
   });
   const create = Common.Task.useCreate(layoutKey);
@@ -160,7 +171,11 @@ const Internal = ({
               padHelpText={false}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
             <Form.Field<channel.Key[]>
@@ -169,7 +184,11 @@ const Internal = ({
               padHelpText={false}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
           </Align.Space>

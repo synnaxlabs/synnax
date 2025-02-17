@@ -13,7 +13,7 @@
 
 #include "scanner.h"
 #include "glog/logging.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "include/open62541/statuscodes.h"
 #include "include/open62541/types.h"
 #include "include/open62541/client_config_default.h"
@@ -147,7 +147,7 @@ static UA_StatusCode node_iter(
 }
 
 void Scanner::scan(const task::Command &cmd) const {
-    config::Parser parser(cmd.args);
+    xjson::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->set_state({
@@ -181,7 +181,7 @@ void Scanner::scan(const task::Command &cmd) const {
 }
 
 void Scanner::test_connection(const task::Command &cmd) const {
-    config::Parser parser(cmd.args);
+    xjson::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->set_state({

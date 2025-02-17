@@ -18,8 +18,7 @@ extern "C" {
 sequence::Sequence::Sequence(
     const std::shared_ptr<plugins::Plugin> &plugins,
     std::string script
-) : plugins(plugins), script(std::move(script)) {
-    L.reset(luaL_newstate());
+) : plugins(plugins), L(luaL_newstate()), script(std::move(script)) {
     luaL_openlibs(L.get());
 }
 
@@ -28,7 +27,7 @@ sequence::Sequence::~Sequence() {
         luaL_unref(L.get(), LUA_REGISTRYINDEX, script_ref);
 }
 
-[[nodiscard]] xerrors::Error sequence::Sequence::start() {
+[[nodiscard]] xerrors::Error sequence::Sequence::begin() {
     L.reset(luaL_newstate());
     luaL_openlibs(L.get());
     if (auto err = this->compile(); err) return err;

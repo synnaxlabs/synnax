@@ -277,7 +277,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) : WriteSink(dmx, task_handle, ctx, task) {
-    auto config_parser = config::Parser(task.config);
+    auto config_parser = xjson::Parser(task.config);
     writer_config = WriterConfig(config_parser, ctx, true, task_handle, task.key);
 
     if (!config_parser.ok()) {
@@ -415,7 +415,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) : WriteSink(dmx, task_handle, ctx, task) {
-    auto config_parser = config::Parser(task.config);
+    auto config_parser = xjson::Parser(task.config);
     writer_config = WriterConfig(config_parser, ctx, false, task_handle, task.key);
 
     if (!config_parser.ok()) {

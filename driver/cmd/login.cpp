@@ -38,7 +38,7 @@ std::string get_secure_input(const std::string &prompt, bool hide_input = false)
     return input;
 }
 
-int cmd::sub::login(int argc, char **argv) {
+int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;
     bool valid_input = false;
 
@@ -79,13 +79,13 @@ int cmd::sub::login(int argc, char **argv) {
     }
 
     LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
-    synnax::Synnax client(config);
+    const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << xlog::RED << "failed to authenticate: " << err << xlog::RESET;
         return 1;
     }
     LOG(INFO) << xlog::GREEN << "successfully logged in!" << xlog::RESET;
-    if (auto err = rack::Config::save_conn_params(argc, argv, config)) {
+    if (auto err = rack::Config::save_conn_params(args, config)) {
         LOG(ERROR) << xlog::RED << "failed to save credentials: " << err << xlog::RESET;
         return 1;
     }

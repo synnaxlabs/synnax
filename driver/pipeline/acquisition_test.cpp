@@ -17,14 +17,14 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-class MockSource final: public pipeline::Source {
+class MockSource final : public pipeline::Source {
 public:
     telem::TimeStamp start_ts;
 
     explicit MockSource(const telem::TimeStamp start_ts) : start_ts(start_ts) {
     }
 
-   std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         auto fr = Frame(1);
         fr.emplace(1, telem::Series(start_ts));
@@ -67,9 +67,9 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
         source,
         breaker::Config{
             .name = "pipeline",
+            .base_interval = telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
-            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -92,9 +92,9 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
         WriterConfig(),
         source,
         breaker::Config{
+            .base_interval = telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
-            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -119,9 +119,9 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
         WriterConfig(),
         source,
         breaker::Config{
+            .base_interval = telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
-            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();
@@ -146,9 +146,9 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
         WriterConfig(),
         source,
         breaker::Config{
+            .base_interval = telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
-            .base_interval = telem::MICROSECOND * 10
         }
     );
     pipeline.start();

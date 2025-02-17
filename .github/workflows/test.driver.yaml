@@ -1,5 +1,4 @@
 name: Test - Driver
-
 on:
   push:
     branches:
@@ -10,6 +9,9 @@ on:
       - main
       - rc
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
   changes:
     name: Changes
@@ -32,21 +34,63 @@ jobs:
               - client/cpp/**
               - freighter/cpp/**
               - driver/**
-
-  test:
-    name: Test Driver
-    runs-on: ${{ matrix.os }}
+  server:
+    name: Server
     needs: changes
-    if: needs.changes.outputs.cpp == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest]
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    env:
+      GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install MbedTLS On Mac
-        run: brew install mbedtls
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Earthly
+        uses: earthly/actions-setup@v1
+
+      - name: Build Image
+        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
+        working-directory: synnax
+
+      - name: Push to Github Container Registry
+        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+
+  test:
+    name: Test Driver
+    runs-on: ${{ matrix.os }}
+    needs: server
+    if: needs.changes.outputs.cpp == 'true'
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Deps On Ubuntu
+        run: |
+          sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
       - name: Cache Open62541 Build
         id: cache-open62541

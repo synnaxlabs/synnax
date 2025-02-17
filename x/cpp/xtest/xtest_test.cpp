@@ -20,17 +20,17 @@ protected:
     std::atomic<int> counter{0};
     
     void incrementCounter() {
-        counter++;
+        ++this->counter;
     }
 
     void SetUp() override {
-        counter = 0;
+        this->counter = 0;
     }
 };
 
 TEST_F(XTestTest, TestEventuallyEQ) {
     // Start a thread that increments counter to 5
-    std::thread t([this]() {
+    std::thread t([this] {
         for (int i = 0; i < 5; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             incrementCounter();
@@ -43,7 +43,7 @@ TEST_F(XTestTest, TestEventuallyEQ) {
 }
 
 TEST_F(XTestTest, TestEventuallyGE) {
-    std::thread t([this]() {
+    std::thread t([this] {
         for (int i = 0; i < 10; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             incrementCounter();
@@ -60,7 +60,7 @@ TEST_F(XTestTest, TestEventuallyLE) {
     std::thread t([this]() {
         for (int i = 0; i < 5; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            counter--;
+            --this->counter;
         }
     });
 
@@ -70,7 +70,7 @@ TEST_F(XTestTest, TestEventuallyLE) {
 }
 
 TEST_F(XTestTest, TestEventuallyEQWithCustomTimeout) {
-    std::thread t([this]() {
+    std::thread t([this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         counter = 5;
     });
@@ -86,7 +86,7 @@ TEST_F(XTestTest, TestEventuallyEQWithCustomTimeout) {
 }
 
 TEST_F(XTestTest, TestEventuallyGEWithCustomTimeout) {
-    std::thread t([this]() {
+    std::thread t([this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         counter = 10;
     });
@@ -102,7 +102,7 @@ TEST_F(XTestTest, TestEventuallyGEWithCustomTimeout) {
 
 TEST_F(XTestTest, TestEventuallyLEWithCustomTimeout) {
     counter = 10;
-    std::thread t([this]() {
+    std::thread t([this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         counter = 3;
     });

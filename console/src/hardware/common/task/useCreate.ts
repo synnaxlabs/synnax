@@ -32,6 +32,7 @@ export const useCreate = <
         rackKey ?? rack.DEFAULT_CHANNEL_NAME,
       );
       const createdTask = await rck.createTask<Config, Details, Type>(task);
+      dispatch(Layout.setAltKey({ key: layoutKey, altKey: createdTask.key }));
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
       return createdTask;
     },

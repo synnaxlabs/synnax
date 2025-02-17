@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/device/Configure.css";
+import "@/hardware/opc/device/Connect.css";
 
 import { rack as clientRack, TimeSpan } from "@synnaxlabs/client";
 import {
@@ -54,11 +54,11 @@ import {
 import { Layout } from "@/layout";
 import { Triggers } from "@/triggers";
 
-export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
+export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
-export const CONFIGURE_LAYOUT: Layout.BaseState = {
-  key: CONFIGURE_LAYOUT_TYPE,
-  type: CONFIGURE_LAYOUT_TYPE,
+export const CONNECT_LAYOUT: Layout.BaseState = {
+  key: CONNECT_LAYOUT_TYPE,
+  type: CONNECT_LAYOUT_TYPE,
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
@@ -98,7 +98,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       setConnectionState(state);
     },
   });
-  const configureMutation = useMutation({
+  const connectMutation = useMutation({
     onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
@@ -109,7 +109,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         clientRack.DEFAULT_CHANNEL_NAME,
       );
-      const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
@@ -130,9 +130,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const hasSecurity =
     Form.useFieldValue<SecurityMode>("connection.securityMode", undefined, methods) !=
     NO_SECURITY_MODE;
-  const isPending = testConnectionMutation.isPending || configureMutation.isPending;
+  const isPending = testConnectionMutation.isPending || connectMutation.isPending;
   return (
-    <Align.Space align="start" className={CSS.B("opc-configure")} justify="center">
+    <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
       <Align.Space className={CSS.B("content")} grow size="small">
         <Form.Form {...methods}>
           <Form.TextField
@@ -218,8 +218,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           </Button.Button>
           <Button.Button
             disabled={isPending}
-            loading={configureMutation.isPending}
-            onClick={() => configureMutation.mutate()}
+            loading={connectMutation.isPending}
+            onClick={() => connectMutation.mutate()}
           >
             Save
           </Button.Button>
@@ -229,12 +229,12 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   );
 };
 
-export const Configure: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
   const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
+      if (client == null || layoutKey === CONNECT_LAYOUT_TYPE)
         return [
           { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG } },
           deep.copy(ZERO_PROPERTIES),

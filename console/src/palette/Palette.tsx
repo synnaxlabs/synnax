@@ -167,8 +167,8 @@ const PaletteDialog = ({
   commandSymbol,
   close,
 }: PaletteDialogProps): ReactElement => {
-  const { setSourceData } = List.useDataUtilContext<Key, Entry>();
-  const addStatus = Status.useAggregator();
+  const { setSourceData } = List.useDataUtils<Key, Entry>();
+  const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
   const client = Synnax.use();
   const store = useStore<RootState, RootAction>();
@@ -180,19 +180,21 @@ const PaletteDialog = ({
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
   const confirm = Modals.useConfirm();
+  const rename = Modals.useRename();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
     () => ({
       store,
       placeLayout,
       confirm,
+      rename,
       client,
       addStatus,
       handleException,
       ingestors: INGESTORS,
       extractors: EXTRACTORS,
     }),
-    [store, placeLayout, confirm, client, addStatus, handleException],
+    [store, placeLayout, confirm, client, addStatus, handleException, rename],
   );
 
   const handleSelect = useCallback(

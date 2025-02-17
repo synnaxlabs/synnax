@@ -38,6 +38,7 @@ cc_library(
         "//driver/daemon",
         "//driver/rack",
         "//x/cpp/breaker",
+        "//x/cpp/xargs",
         "//x/cpp/xlog",
         "//x/cpp/xshutdown",
         "@com_github_gflags_gflags//:gflags",

@@ -34,7 +34,7 @@ labjack::ReaderTask::ReaderTask(
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     read_pipe.add_middleware(tare_mw);
 
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
     read_pipe.add_middleware(scale_mw);
 }
@@ -78,10 +78,10 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
 
     auto breaker_config = breaker::default_config(task.name);
 
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     ReaderConfig reader_config(parser);
 
-    auto control_subject = synnax::ControlSubject{
+    auto control_subject = telem::ControlSubject{
             .name = task.name,
             .key =  task.name + "-" +  std::to_string(task.key)
     };

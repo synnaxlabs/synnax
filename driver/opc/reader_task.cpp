@@ -14,7 +14,7 @@
 
 #include "driver/opc/reader.h"
 #include "driver/opc/util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/errors/errors.h"
 #include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
@@ -31,7 +31,7 @@ using namespace opc;
 //                                     ReaderConfig                              //
 ///////////////////////////////////////////////////////////////////////////////////
 ReaderConfig::ReaderConfig(
-    config::Parser &parser
+    xjson::Parser &parser
 ): device(parser.required<std::string>("device")),
    sample_rate(parser.required<float>("sample_rate")),
    stream_rate(parser.required<float>("stream_rate")),
@@ -39,7 +39,7 @@ ReaderConfig::ReaderConfig(
    data_saving(parser.optional<bool>("data_saving", true)) {
     if(array_size <= 0) array_size = 1;
     if (stream_rate.value <= 0) stream_rate = telem::Rate(1);
-    parser.iter("channels", [&](config::Parser &channel_builder) {
+    parser.iter("channels", [&](xjson::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);
     });
@@ -85,7 +85,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     const synnax::Task &task
 ) {
     VLOG(2) << "[opc.reader] configuring task " << task.name;
-    auto config_parser = config::Parser(task.config);
+    auto config_parser = xjson::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
@@ -110,7 +110,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         });
         return nullptr;
     }
-    auto properties_parser = config::Parser(device.properties);
+    auto properties_parser = xjson::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
     auto breaker = breaker::Breaker(breaker::default_config(task.name));
     // Fetch additional index channels we also need as part of the configuration.
@@ -181,7 +181,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto writer_cfg = synnax::WriterConfig{
         .channels = channel_keys,
         .start = telem::TimeStamp::now(),
-        .subject = synnax::ControlSubject{
+        .subject = telem::ControlSubject{
             .name = task.name,
             .key = std::to_string(task.key)
         },

@@ -26,7 +26,7 @@
 
 #include "driver/task/task.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/errors/errors.h"
 #include "x/cpp/loop/loop.h"
 

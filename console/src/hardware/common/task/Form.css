@@ -25,7 +25,7 @@
         .console-task-channel-form-container {
             border-radius: 1rem;
             overflow: hidden;
-            background: var(--pluto-gray-l1-70);
+            background: var(--pluto-gray-l1-75);
             border-color: var(--pluto-gray-l4);
             .pluto-header {
                 background: var(--pluto-gray-l2-50);
@@ -38,7 +38,7 @@
 
         .console-channel-list:not(:only-child) {
             max-width: 300px;
-            flex-basis: 250px;
+            flex-basis: 225px;
         }
 
         .console-channel-list:only-child {
@@ -46,6 +46,10 @@
         }
 
         .console-details {
+            flex-basis: 70%;
+        }
+
+        .console-details__form {
             padding: 3rem 3rem;
             overflow: auto;
             height: 100%;
@@ -55,7 +59,7 @@
     .console-task-controls {
         border-radius: 1rem;
         border-color: var(--pluto-gray-l4);
-        background-color: var(--pluto-gray-l1-70);
+        background-color: var(--pluto-gray-l1-75);
         .console-task-state {
             flex-grow: 1;
             border-right: var(--pluto-border);
@@ -80,10 +84,11 @@
     .console-task-configure {
         > div {
             padding: 3rem 2rem;
+            .console-details__form {
+                padding: 1rem 2rem;
+            }
         }
-        .console-details {
-            padding: 1rem 2rem;
-        }
+
         .console-task__channel-name:last-of-type {
             display: none;
         }

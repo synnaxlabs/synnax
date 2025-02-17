@@ -23,7 +23,7 @@ type relay struct {
 	inlet confluence.Inlet[Frame]
 }
 
-func newRelay(sCtx signal.Context) *relay {
+func openRelay(sCtx signal.Context) *relay {
 	delta := confluence.NewDynamicDeltaMultiplier[Frame](20 * time.Millisecond)
 	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)

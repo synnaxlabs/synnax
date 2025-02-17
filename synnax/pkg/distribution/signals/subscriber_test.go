@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"time"
@@ -42,15 +41,13 @@ var _ = Describe("Subscriber", func() {
 			GinkgoRecover()
 			Expect(publishCloser.Close()).To(Succeed())
 		}()
-		sCtx, cancel := signal.Isolated()
-		subscriber := MustSucceed(dist.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
+		subscriber, closer := MustSucceed2(dist.Signals.Subscribe(ctx, signals.ObservableSubscriberConfig{
 			SetChannelName:    subscriberSetChannelName,
 			DeleteChannelName: subscriberDeleteChannelName,
 		}))
 		defer func() {
 			GinkgoRecover()
-			cancel()
-			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Expect(closer.Close()).To(Succeed())
 		}()
 		time.Sleep(10 * time.Millisecond)
 		uid := uuid.New()
