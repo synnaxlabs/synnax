@@ -12,7 +12,6 @@
 /// std
 #include <string>
 #include <utility>
-#include <vector>
 
 /// external
 #include "google/protobuf/empty.pb.h"

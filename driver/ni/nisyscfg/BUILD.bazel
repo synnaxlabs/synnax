@@ -9,6 +9,7 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_prod.h",
     ],
+    tags = ["no-tidy"],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/xlib",

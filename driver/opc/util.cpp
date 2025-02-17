@@ -13,7 +13,6 @@
 #include "driver/opc/opc.h"
 #include "driver/opc/util.h"
 
-#include "include/open62541/plugin/log_stdout.h"
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client_highlevel.h"
 
@@ -232,8 +231,8 @@ void fetchEndpointDiagnosticInfo(
     std::string endpoint
 ) {
     size_t endpointCount = 0;
-    UA_EndpointDescription *endpointArray = NULL;
-    UA_StatusCode retval = UA_Client_getEndpoints(client.get(), endpoint.c_str(),
+    UA_EndpointDescription *endpointArray = nullptr;
+    const UA_StatusCode retval = UA_Client_getEndpoints(client.get(), endpoint.c_str(),
                                                   &endpointCount, &endpointArray);
     if (retval != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to get endpoints: " << std::string(
