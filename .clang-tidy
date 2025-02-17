@@ -1,4 +1,5 @@
 UseColor: true
+FormatStyle: file  
 Checks: '-*,
         bugprone-*,
         clang-analyzer-*,
@@ -22,3 +23,8 @@ Checks: '-*,
         -hicpp-braces-around-statements'
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(?!.*(/driver/ni/nidaqmx/|/driver/ni/nisyscfg/)).*$'
+CheckOptions:
+    - key: diagnostics.showLine
+      value: true
+    - key: diagnostics.showColumn
+      value: true

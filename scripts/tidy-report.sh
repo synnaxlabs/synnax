@@ -68,17 +68,25 @@ print_header() {
 main() {
     local dir="${1:-.}"  # Use current directory if none specified
     
-    # Find all clang-tidy YAML files
+    # Convert bazel-bin path to bazel target
+    local target
+    if [[ "$dir" == "bazel-bin/driver" ]]; then
+        target="//driver/..."
+    elif [[ "$dir" == "bazel-bin/driver/ni" ]]; then
+        target="//driver/ni/..."
+    else
+        target="//..."
+    fi
+
+    echo "Building target: $target"
+    bazel build --config=clang-tidy "$target"
+    
+    # Now find all YAML files
     local yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
     
     if [[ -z "$yaml_files" ]]; then
-        echo "No clang-tidy files found. Running build..."
-        bazel build --config=clang-tidy //...
-        yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
-        if [[ -z "$yaml_files" ]]; then
-            echo -e "${RED}Build failed or no tidy files generated!${NC}"
-            exit 1
-        fi
+        echo -e "${RED}No tidy files generated!${NC}"
+        exit 1
     fi
 
     # Print header
