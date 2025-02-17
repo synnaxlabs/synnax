@@ -21,6 +21,7 @@ import {
   glBufferUsageZ,
 } from "@/telem/gl";
 import {
+  addSamples,
   convertDataType,
   type CrudeDataType,
   type CrudeTimeStamp,
@@ -923,14 +924,6 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
 
   [Symbol.toStringTag] = "SeriesIterator";
 }
-
-export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
-  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0) return a;
-  if (a === 0) return b;
-  return Number(a) + Number(b);
-};
 
 export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
   readonly series: Array<Series<T>>;

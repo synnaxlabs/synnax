@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { math } from "@/math";
 import { type Stringer } from "@/primitive";
-import { addSamples } from "@/telem/series";
 
 export type TZInfo = "UTC" | "local";
 
@@ -1672,4 +1671,12 @@ export const convertDataType = (
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
   return addSamples(value, -offset).valueOf();
+};
+
+export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
+  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
+  if (typeof a === "number" && typeof b === "number") return a + b;
+  if (b === 0) return a;
+  if (a === 0) return b;
+  return Number(a) + Number(b);
 };
