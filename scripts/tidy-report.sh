@@ -5,10 +5,31 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Column widths
+FILE_WIDTH=35
+TARGET_WIDTH=15
+DIAG_WIDTH=45
+LINE_WIDTH=6
+TYPE_WIDTH=12
+
+# Function to extract target name
+get_target() {
+    local file="$1"
+    echo "$file" | sed -E 's/.*\.([^.]+)\.clang-tidy\.yaml/\1/'
+}
+
+# Function to clean up filename
+clean_filename() {
+    local file="$1"
+    # Then get just the filename without the path and preserve original extension
+    basename "$file" | sed -E 's/\.([^.]+)\.clang-tidy\.yaml//'
+}
+
 # Function to process a single YAML file
 process_yaml() {
     local file="$1"
-    local source_file=$(basename "$file" .clang-tidy.yaml)
+    local source_file=$(clean_filename "$file")
+    local target=$(get_target "$file")
     
     # Extract diagnostics using grep and sed
     while IFS= read -r line; do
@@ -22,7 +43,8 @@ process_yaml() {
             level=$(echo "$line" | sed 's/.*Level: *\(.*\)/\1/')
             # Print when we have all parts of a diagnostic
             if [[ -n "$diagnostic_name" && -n "$message" && -n "$file_offset" && -n "$level" ]]; then
-                printf "%-30s | %4s | %-10s | %s\n" "$source_file" "$file_offset" "$level" "$message"
+                printf "%-${FILE_WIDTH}s | %-${TARGET_WIDTH}s | %-${DIAG_WIDTH}s | %${LINE_WIDTH}s | %-${TYPE_WIDTH}s | %s\n" \
+                    "$source_file" "$target" "$diagnostic_name" "$file_offset" "$level" "$message"
                 # Reset variables
                 diagnostic_name=""
                 message=""
@@ -36,8 +58,9 @@ process_yaml() {
 # Print header
 print_header() {
     echo -e "${YELLOW}"
-    printf "%-30s | %4s | %-10s | %s\n" "FILE" "LINE" "TYPE" "MESSAGE"
-    printf "%s\n" "$(printf '=%.0s' {1..100})"
+    printf "%-${FILE_WIDTH}s | %-${TARGET_WIDTH}s | %-${DIAG_WIDTH}s | %${LINE_WIDTH}s | %-${TYPE_WIDTH}s | %s\n" \
+        "FILE" "TARGET" "DIAGNOSTIC" "LINE" "TYPE" "MESSAGE"
+    printf "%s\n" "$(printf '=%.0s' {1..150})"
     echo -e "${NC}"
 }
 
