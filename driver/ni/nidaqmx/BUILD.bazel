@@ -8,6 +8,7 @@ cc_library(
         "nidaqmx_api.h",
         "nidaqmx_prod.h",
     ],
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/xlib",

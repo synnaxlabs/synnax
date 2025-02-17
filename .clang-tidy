@@ -1,9 +1,11 @@
+UseColor: true
 Checks: '-*,
         bugprone-*,
         clang-analyzer-*,
         concurrency-*,
         cppcoreguidelines-*,
         hicpp-*,
+        misc-*,
         modernize-*,
         performance-*,
         portability-*,
@@ -16,7 +18,7 @@ Checks: '-*,
         -cppcoreguidelines-avoid-magic-numbers,
         -hicpp-special-member-functions,
         -cppcoreguidelines-special-member-functions,
-        -cppcoreguidelines-owning-memory'
+        -cppcoreguidelines-owning-memory,
+        -hicpp-braces-around-statements'
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*'
-FormatStyle: none
+HeaderFilterRegex: '^(?!.*(/driver/ni/nidaqmx/|/driver/ni/nisyscfg/)).*$'

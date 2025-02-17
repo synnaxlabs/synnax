@@ -3,7 +3,6 @@
 # Colors for output
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 # Function to process a single YAML file
@@ -11,26 +10,23 @@ process_yaml() {
     local file="$1"
     local source_file=$(basename "$file" .clang-tidy.yaml)
     
+    # Extract diagnostics using grep and sed
     while IFS= read -r line; do
         if [[ $line =~ "DiagnosticName:" ]]; then
             diagnostic_name=$(echo "$line" | sed 's/.*DiagnosticName: *\(.*\)/\1/')
         elif [[ $line =~ "Message:" ]]; then
             message=$(echo "$line" | sed "s/.*Message: *'\(.*\)'/\1/")
-        elif [[ $line =~ "FilePath:" ]]; then
-            filepath=$(echo "$line" | sed "s/.*FilePath: *'\(.*\)'/\1/")
-            filepath=$(basename "$filepath")
         elif [[ $line =~ "FileOffset:" ]]; then
-            offset=$(echo "$line" | sed 's/.*FileOffset: *\(.*\)/\1/')
+            file_offset=$(echo "$line" | grep -o '[0-9]\+')
         elif [[ $line =~ "Level:" ]]; then
             level=$(echo "$line" | sed 's/.*Level: *\(.*\)/\1/')
             # Print when we have all parts of a diagnostic
-            if [[ -n "$diagnostic_name" && -n "$message" && -n "$filepath" && -n "$level" ]]; then
-                printf "%-30s | %-30s | %-10s | %s\n" "$filepath" "$diagnostic_name" "$level" "$message"
+            if [[ -n "$diagnostic_name" && -n "$message" && -n "$file_offset" && -n "$level" ]]; then
+                printf "%-30s | %4s | %-10s | %s\n" "$source_file" "$file_offset" "$level" "$message"
                 # Reset variables
                 diagnostic_name=""
                 message=""
-                filepath=""
-                offset=""
+                file_offset=""
                 level=""
             fi
         fi
@@ -40,31 +36,14 @@ process_yaml() {
 # Print header
 print_header() {
     echo -e "${YELLOW}"
-    printf "%-30s | %-30s | %-10s | %s\n" "FILE" "CHECK" "LEVEL" "MESSAGE"
-    printf "%s\n" "$(printf '=%.0s' {1..120})"
+    printf "%-30s | %4s | %-10s | %s\n" "FILE" "LINE" "TYPE" "MESSAGE"
+    printf "%s\n" "$(printf '=%.0s' {1..100})"
     echo -e "${NC}"
-}
-
-# Function to run build if needed
-ensure_build() {
-    local dir="$1"
-    if [[ ! -d "$dir" ]] || [[ -z "$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)" ]]; then
-        echo -e "${YELLOW}No clang-tidy files found. Running build...${NC}"
-        bazel build //driver/... --config=clang-tidy
-        if [[ $? -ne 0 ]]; then
-            echo -e "${RED}Build failed!${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}Build completed successfully${NC}"
-    fi
 }
 
 # Main script
 main() {
     local dir="${1:-.}"  # Use current directory if none specified
-    
-    # Ensure build is done
-    ensure_build "$dir"
     
     # Find all clang-tidy YAML files
     local yaml_files=$(find "$dir" -name "*.clang-tidy.yaml" 2>/dev/null)
