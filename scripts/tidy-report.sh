@@ -77,7 +77,6 @@ main() {
     else
         target="//..."
     fi
-
     echo "Building target: $target"
     bazel build --config=clang-tidy "$target"
     
@@ -88,19 +87,34 @@ main() {
         echo -e "${RED}No tidy files generated!${NC}"
         exit 1
     fi
-
+    
     # Print header
     print_header
-
+    
     # Process each file
-    local count=0
+    local yaml_count=0
+    local issue_count=0
+    local error_count=0
+    local warning_count=0
+    
     while IFS= read -r file; do
         process_yaml "$file"
-        ((count++))
+        # Count issues in this file
+        local file_issues=$(grep -c "DiagnosticName:" "$file")
+        local file_errors=$(grep -c "Error" "$file")
+        local file_warnings=$(grep -c "Warning" "$file")
+        ((issue_count += file_issues))
+        ((error_count += file_errors))
+        ((warning_count += file_warnings))
+        ((yaml_count++))
     done <<< "$yaml_files"
-
+    
     # Print summary
-    echo -e "\n${YELLOW}Processed $count YAML files${NC}"
+    echo -e "\n${YELLOW}Summary:${NC}"
+    echo -e "Processed $yaml_count YAML files"
+    echo -e "Total issues: $issue_count"
+    echo -e "${RED}Errors: $error_count${NC}"
+    echo -e "${YELLOW}Warnings: $warning_count${NC}"
 }
 
 # Run the script

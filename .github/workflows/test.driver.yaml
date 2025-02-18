@@ -112,11 +112,13 @@ jobs:
           chmod +x scripts/tidy-report.sh
           ./scripts/tidy-report.sh bazel-bin/driver > tidy-report.txt
           if [ -s tidy-report.txt ]; then
+            # Force Bazel to build and check all files
+            bazel build --config=clang-tidy --build_tag_filters="-no_lint" //...
             ISSUE_COUNT=$(grep -v "^===" tidy-report.txt | grep -v "^FILE" | grep -v "^$" | wc -l)
-            echo "Found $ISSUE_COUNT clang-tidy issues:"
+            ERROR_COUNT=$(grep "Error" tidy-report.txt | wc -l)
+            WARNING_COUNT=$(grep "Warning" tidy-report.txt | wc -l)
+            echo "Found $ISSUE_COUNT clang-tidy issues ($ERROR_COUNT errors, $WARNING_COUNT warnings)"
             cat tidy-report.txt
-            echo "----------------------------------------"
-            echo "Total issues found: $ISSUE_COUNT"
             exit 1
           fi
 
