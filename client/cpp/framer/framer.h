@@ -113,6 +113,10 @@ public:
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
 
+    /// @brief returns the number of channel-series pairs that the frame can hold before
+    /// resizing.
+    [[nodiscard]] size_t capacity() const { return series->capacity(); }
+
     /// @brief clears the frame of all channels and series, making it empty for reuse.
     void clear() const;
 

@@ -17,15 +17,28 @@
 #include "freighter/cpp/freighter.h"
 
 namespace pipeline::mock {
+// Configuration for a mock Streamer that allows controlling its behavior in tests.
 struct StreamerConfig {
+    // A sequence of frames that the Streamer will return on each read() call.
+    // When all frames are consumed, the Streamer will block briefly and return empty frames.
     std::shared_ptr<std::vector<synnax::Frame> > reads;
+
+    // A sequence of errors to return alongside frames during read() calls.
+    // If provided, each read will return the corresponding error at the same index.
+    // If nullptr or index exceeds size, returns NIL error.
     std::shared_ptr<std::vector<xerrors::Error> > read_errors;
+
+    // Error to return when close() is called on the Streamer.
     xerrors::Error close_err;
 };
 
+// Mock implementation of pipeline::Streamer for testing.
 class Streamer final : public pipeline::Streamer {
 public:
+    // Configuration controlling this Streamer's behavior
     StreamerConfig config;
+    
+    // Tracks the current position in the reads sequence
     size_t current_read = 0;
 
     explicit Streamer(
@@ -53,11 +66,21 @@ public:
     };
 };
 
+// Factory for creating mock Streamers with configurable behavior.
 class StreamerFactory final : public pipeline::StreamerFactory {
 public:
+    // Sequence of errors to return when opening new Streamers.
+    // Each call to open_streamer consumes the next error.
     std::vector<xerrors::Error> open_errors;
+
+    // Sequence of configurations for created Streamers.
+    // Each new Streamer takes the next config, or the last config if exhausted.
     std::shared_ptr<std::vector<StreamerConfig> > configs;
+
+    // Stores the most recent streamer configuration passed to open_streamer
     synnax::StreamerConfig config;
+
+    // Counts how many times open_streamer has been called
     size_t streamer_opens = 0;
 
     StreamerFactory(
@@ -100,11 +123,17 @@ inline std::shared_ptr<pipeline::StreamerFactory> simple_streamer_factory(
     return factory;
 }
 
-
+// Mock implementation of pipeline::Writer for testing.
 class Writer final : public pipeline::Writer {
 public:
+    // Stores all frames written through this writer
     std::shared_ptr<std::vector<synnax::Frame> > writes;
+
+    // Error to return when close() is called
     xerrors::Error close_err;
+
+    // Index at which write() should return false to simulate failure
+    // -1 means never return false
     int return_false_ok_on;
 
     explicit Writer(
@@ -129,11 +158,28 @@ public:
 
 class WriterFactory final : public pipeline::WriterFactory {
 public:
+    // Stores all frames written through this factory's writers. Shared across all writers
+    // created by this factory to allow test verification of written data.
     std::shared_ptr<std::vector<synnax::Frame> > writes;
+
+    // A queue of errors to return when opening writers. Each call to open_writer will
+    // consume and return the next error in this vector. Empty vector means no errors.
     std::vector<xerrors::Error> open_errors;
+
+    // A queue of errors for writers to return when closed. Each new writer created will
+    // consume and use the next error in this vector for its close() method.
     std::vector<xerrors::Error> close_errors;
+
+    // A queue of indices at which writers should return false for write operations.
+    // Each new writer will consume the next value. When a writer's writes->size() equals
+    // this value, its write() method will return false, simulating a write failure.
+    // A value of -1 (default) means never return false.
     std::vector<int> return_false_ok_on;
+
+    // Stores the most recent writer configuration passed to open_writer
     WriterConfig config;
+
+    // Counts how many times open_writer has been called, useful for testing retry behavior
     size_t writer_opens;
 
     explicit WriterFactory(
@@ -177,10 +223,17 @@ public:
     }
 };
 
+// Mock implementation of pipeline::Sink for testing.
 class Sink : public pipeline::Sink {
 public:
+    // Stores all frames written through this sink
     std::shared_ptr<std::vector<synnax::Frame> > writes;
+
+    // Sequence of errors to return for write operations
+    // Each write consumes the next error in the sequence
     std::shared_ptr<std::vector<xerrors::Error> > write_errors;
+
+    // Stores the error passed to stopped_with_err
     xerrors::Error stop_err;
 
     Sink() : writes(std::make_shared<std::vector<synnax::Frame> >()),

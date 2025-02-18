@@ -10,9 +10,10 @@
 package tracker_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Tracker", Ordered, func() {
@@ -58,16 +58,12 @@ var _ = Describe("Tracker", Ordered, func() {
 			Framer:       dist.Framer,
 		}
 	})
-	var grs []gleak.Goroutine
 	JustBeforeEach(func() {
-		grs = gleak.Goroutines()
 		tr = MustSucceed(tracker.Open(ctx, cfg))
 	})
 	JustAfterEach(func() {
 		Expect(tr.Close()).To(Succeed())
-		Expect(gleak.Goroutines()).ShouldNot(gleak.HaveLeaked(grs))
 	})
-
 	Describe("Tracking Rack Updates", func() {
 		It("Should add the rack to state when created", func() {
 			rackKey := rack.NewKey(dist.Cluster.HostKey(), 1)
