@@ -1,0 +1,127 @@
+name: CPP Linter
+on:
+  push:
+    branches:
+      - main
+      - rc
+      - sy-2071-add-linter-in-ci
+    paths:
+      - 'driver/**/*.cpp'
+      - 'driver/**/*.cc'
+      - 'driver/**/*.h'
+      - 'driver/**/*.hpp'
+      - 'client/cpp/**/*.cpp'
+      - 'client/cpp/**/*.cc'
+      - 'client/cpp/**/*.h'
+      - 'client/cpp/**/*.hpp'
+      - '.github/workflows/test.cpp-linter.yaml'
+  pull_request:
+    branches:
+      - main
+      - rc
+      - sy-2071-add-linter-in-ci
+    paths:
+      - 'driver/**/*.cpp'
+      - 'driver/**/*.cc'
+      - 'driver/**/*.h'
+      - 'driver/**/*.hpp'
+      - 'client/cpp/**/*.cpp'
+      - 'client/cpp/**/*.cc'
+      - 'client/cpp/**/*.h'
+      - 'client/cpp/**/*.hpp'
+      - '.github/workflows/cpp-linter.yaml'
+  workflow_dispatch:
+
+jobs:
+  cpp-lint:
+    name: cpp-lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      # Add Hedron's Compile Commands Extractor for clang-tidy integration
+      - name: Add compile_commands.json extraction support
+        run: |
+          echo 'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+          http_archive(
+              name = "hedron_compile_commands",
+              url = "https://github.com/hedronvision/bazel-compile-commands-extractor/archive/ed994039a951b736091776d677f324b3903ef939.tar.gz",
+              strip_prefix = "bazel-compile-commands-extractor-ed994039a951b736091776d677f324b3903ef939",
+              sha256 = "085bde6c5212c8c1603595341ffe7133108034808d8c819f8978b2b303afc9e7",
+          )
+          load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
+          hedron_compile_commands_setup()' >> WORKSPACE
+
+      # Generate compile_commands.json
+      - name: Generate compile_commands.json
+        run: |
+          bazel run @hedron_compile_commands//:refresh_all
+
+      - name: Run CPP Linter for Driver
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter-driver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file'  # Use .clang-format file
+          tidy-checks: '' # Use .clang-tidy file
+          version: 16
+          files-changed-only: false 
+          lines-changed-only: false
+          ignore: |
+            vendor/
+            external/
+            third_party/
+            .*pb\\.h$
+            .*pb\\.cc$
+            driver/vendor/
+            driver/testutil/
+            driver/scripts/
+            driver/test/
+          database: 'compile_commands.json'
+          extra-args: -Wno-unknown-warning-option
+          thread-comments: ${{ github.event_name == 'pull_request' }}
+          step-summary: true
+          directories: |
+            driver
+
+      - name: Run CPP Linter for Client
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter-client
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file'  # Use .clang-format file
+          tidy-checks: '' # Use .clang-tidy file
+          version: 16
+          files-changed-only: false 
+          lines-changed-only: false
+          ignore: 'vendor/|external/|third_party/|.*pb\\.h$|.*pb\\.cc$'
+          database: 'compile_commands.json'
+          extra-args: -Wno-unknown-warning-option
+          thread-comments: ${{ github.event_name == 'pull_request' }}
+          step-summary: true
+          directories: |
+            client/cpp
+
+      - name: Fail if checks failed
+        if: steps.linter-driver.outputs.checks-failed > 0 || steps.linter-client.outputs.checks-failed > 0
+        run: |
+          echo "Linting checks failed!"
+          echo "Driver checks failed: ${{ steps.linter-driver.outputs.checks-failed }}"
+          echo "Client checks failed: ${{ steps.linter-client.outputs.checks-failed }}"
+          exit 1
