@@ -19,7 +19,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { Input } from "@/input";
+import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { List } from "@/list";
@@ -233,7 +233,7 @@ const AISelector = ({
   };
   return (
     <Align.Pack direction="y" className={CSS.B("ai-selector")}>
-      <Input.Text
+      <InputText
         value={value}
         onChange={handleChange}
         autoFocus
@@ -443,7 +443,7 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
         onChange={(next) => onChange(value.setSecond(next))}
       />
     </Align.Pack>
-    <Input.Numeric
+    <Numeric
       size="small"
       value={value.millisecond}
       onChange={(next) => onChange(value.setMillisecond(next))}

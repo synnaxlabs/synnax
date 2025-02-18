@@ -11,7 +11,7 @@ import "@/text/Text.css";
 
 import { type ReactElement, type ReactNode } from "react";
 
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type text } from "@/text/core";

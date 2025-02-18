@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect } from "react";
 
-import { useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks/ref";
 
 export interface UseClickOutsideProps {
   ref: RefObject<HTMLElement | null>;

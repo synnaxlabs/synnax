@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import { type Align } from "@/align";
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { type status } from "@/status/aether";

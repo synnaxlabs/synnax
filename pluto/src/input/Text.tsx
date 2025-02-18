@@ -12,7 +12,7 @@ import "@/input/Input.css";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
