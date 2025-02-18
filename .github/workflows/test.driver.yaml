@@ -109,7 +109,6 @@ jobs:
           BAZEL_CXXOPTS: "-I/usr/local/opt/llvm/include"
           BAZEL_LINKOPTS: "-L/usr/local/opt/llvm/lib"
         run: |
-          command -v clang-tidy
           clang-tidy --version
           chmod +x scripts/tidy-report.sh
           ./scripts/tidy-report.sh bazel-bin/driver > tidy-report.txt
