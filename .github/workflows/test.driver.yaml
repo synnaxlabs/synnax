@@ -112,10 +112,13 @@ jobs:
           chmod +x scripts/tidy-report.sh
           ./scripts/tidy-report.sh bazel-bin/driver > tidy-report.txt
           if [ -s tidy-report.txt ]; then
-            echo "Clang-tidy found issues:"
-            cat tidy-report.txt
-            exit 1
-          fi 
+          ISSUE_COUNT=$(grep -v "^===" tidy-report.txt | grep -v "^FILE" | grep -v "^$" | wc -l)
+          echo "Found $ISSUE_COUNT clang-tidy issues:"
+          cat tidy-report.txt
+          echo "----------------------------------------"
+          echo "Total issues found: $ISSUE_COUNT"
+          exit 1
+        fi
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
