@@ -28,7 +28,8 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "fix": "eslint --cache --fix",
+    "madge": "madge --circular src"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
@@ -44,6 +45,7 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^9.18.0",
     "eslint-config-synnaxlabs": "workspace:*",
+    "madge": "^8.0.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"

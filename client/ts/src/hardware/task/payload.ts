@@ -10,7 +10,7 @@
 import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type rack } from "@/hardware/rack";
+import type * as rack from "@/hardware/rack/payload";
 
 export const keyZ = z.union([
   z.string(),

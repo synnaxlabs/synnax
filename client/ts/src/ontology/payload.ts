@@ -10,27 +10,21 @@
 import { type change, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
-  ONTOLOGY_TYPE as POLICY_TYPE,
-} from "@/access/policy/ontology";
-import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
-import { ONTOLOGY_TYPE as FRAME_TYPE } from "@/framer/frame";
-import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
-import { ONTOLOGY_TYPE as RACK_TYPE } from "@/hardware/rack/payload";
-import { ONTOLOGY_TYPE as TASK_TYPE } from "@/hardware/task/payload";
-import { ONTOLOGY_TYPE as LABEL_TYPE } from "@/label/payload";
-import { ONTOLOGY_TYPE as GROUP_TYPE } from "@/ontology/group/payload";
-import {
-  ALIAS_ONTOLOGY_TYPE as RANGE_ALIAS_TYPE,
-  ONTOLOGY_TYPE as RANGE_TYPE,
-} from "@/ranger/payload";
-import { ONTOLOGY_TYPE as USER_TYPE } from "@/user/payload";
-import { ONTOLOGY_TYPE as LINEPLOT_TYPE } from "@/workspace/lineplot/payload";
-import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
-import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
-import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
-import { ONTOLOGY_TYPE as TABLE_TYPE } from "@/workspace/table/payload";
+import * as policy from "@/access/policy/ontology";
+import * as channel from "@/channel/payload";
+import * as framer from "@/framer/frame";
+import * as device from "@/hardware/device/payload";
+import * as rack from "@/hardware/rack/payload";
+import * as task from "@/hardware/task/payload";
+import * as label from "@/label/payload";
+import * as group from "@/ontology/group/payload";
+import * as ranger from "@/ranger/payload";
+import * as user from "@/user/payload";
+import * as linePlot from "@/workspace/lineplot/payload";
+import * as log from "@/workspace/log/payload";
+import * as workspace from "@/workspace/payload";
+import * as schematic from "@/workspace/schematic/payload";
+import * as table from "@/workspace/table/payload";
 
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
@@ -44,26 +38,26 @@ export const CLUSTER_TYPE = "cluster";
 export const NODE_TYPE = "node";
 
 export const resourceTypeZ = z.enum([
-  LABEL_TYPE,
-  LOG_TYPE,
-  ALLOW_ALL_TYPE,
+  label.ONTOLOGY_TYPE,
+  log.ONTOLOGY_TYPE,
+  policy.ALLOW_ALL_ONTOLOGY_TYPE,
   BUILTIN_TYPE,
   CLUSTER_TYPE,
-  CHANNEL_TYPE,
+  channel.ONTOLOGY_TYPE,
   NODE_TYPE,
-  GROUP_TYPE,
-  RANGE_TYPE,
-  FRAME_TYPE,
-  RANGE_ALIAS_TYPE,
-  USER_TYPE,
-  WORKSPACE_TYPE,
-  SCHEMATIC_TYPE,
-  LINEPLOT_TYPE,
-  RACK_TYPE,
-  DEVICE_TYPE,
-  TASK_TYPE,
-  POLICY_TYPE,
-  TABLE_TYPE,
+  group.ONTOLOGY_TYPE,
+  ranger.ONTOLOGY_TYPE,
+  framer.ONTOLOGY_TYPE,
+  ranger.ALIAS_ONTOLOGY_TYPE,
+  user.ONTOLOGY_TYPE,
+  workspace.ONTOLOGY_TYPE,
+  schematic.ONTOLOGY_TYPE,
+  linePlot.ONTOLOGY_TYPE,
+  rack.ONTOLOGY_TYPE,
+  device.ONTOLOGY_TYPE,
+  task.ONTOLOGY_TYPE,
+  policy.ONTOLOGY_TYPE,
+  table.ONTOLOGY_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

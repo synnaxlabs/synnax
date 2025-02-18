@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@/ontology";
 import { type Key, type Name, ONTOLOGY_TYPE } from "@/ontology/group/payload";
+import * as ontology from "@/ontology/payload";
 
 export class Group {
   key: Key;

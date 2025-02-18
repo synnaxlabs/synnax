@@ -10,7 +10,7 @@
 import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { rack } from "@/hardware/rack";
+import * as rack from "@/hardware/rack/payload";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
