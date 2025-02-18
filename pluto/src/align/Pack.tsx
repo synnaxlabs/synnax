@@ -50,7 +50,7 @@ export const Pack = <E extends SpaceElementType = "div">({
   shadow = false,
   borderWidth,
   style,
-  ...props
+  ...rest
 }: PackProps<E>): ReactElement => {
   const pStyle = {
     [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
@@ -76,7 +76,7 @@ export const Pack = <E extends SpaceElementType = "div">({
       style={pStyle}
       bordered={bordered}
       rounded={rounded}
-      {...props}
+      {...rest}
       empty
     />
   );

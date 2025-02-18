@@ -31,7 +31,7 @@ export const Viewport = ({
   children,
   initial = box.DECIMAL,
   onChange,
-  ...props
+  ...rest
 }: ViewportProps): ReactElement => {
   const { setViewport } = useContext("Viewport");
 
@@ -47,7 +47,7 @@ export const Viewport = ({
     [onChange, setViewport],
   );
 
-  const maskProps = Core.use({ onChange: handleChange, initial, ref, ...props });
+  const maskProps = Core.use({ onChange: handleChange, initial, ref, ...rest });
 
   return (
     <Core.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>

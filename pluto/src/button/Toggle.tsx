@@ -38,11 +38,11 @@ const toggleFactory =
     uncheckedVariant = "outlined",
     rightClickToggle = false,
     stopPropagation,
-    ...props
+    ...rest
   }) => (
     // @ts-expect-error - generic component issues
     <Base
-      {...props}
+      {...rest}
       checked={value}
       onClick={(e) => {
         if (stopPropagation) e.stopPropagation();
@@ -56,7 +56,7 @@ const toggleFactory =
         if (!rightClickToggle) return;
         onChange(!value);
       }}
-      className={CSS(CSS.B("btn-toggle"), props.className)}
+      className={CSS(CSS.B("btn-toggle"), rest.className)}
       variant={value ? checkedVariant : uncheckedVariant}
     />
   );

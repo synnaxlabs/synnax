@@ -142,7 +142,7 @@ export const AliasInput = ({
   value,
   shadow,
   className,
-  ...props
+  ...rest
 }: AliasInputProps): ReactElement => {
   const [loading, setLoading] = useState(false);
   const { setAlias } = useContext();
@@ -164,7 +164,7 @@ export const AliasInput = ({
 
   const handleSetValueToAlias = (): void => {
     if (alias == null) return;
-    props.onChange?.(alias);
+    rest.onChange?.(alias);
   };
 
   const SetAliasTooltip = (): ReactElement => {
@@ -192,7 +192,7 @@ export const AliasInput = ({
   };
 
   return (
-    <Input.Text value={value} {...props}>
+    <Input.Text value={value} {...rest}>
       {canSetAlias && (
         <Button.Icon
           onClick={handleSetValueToAlias}

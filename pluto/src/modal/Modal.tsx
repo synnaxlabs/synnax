@@ -35,7 +35,7 @@ export const Dialog = ({
   enabled = true,
   close,
   style,
-  ...props
+  ...rest
 }: ModalProps): ReactElement => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const visibleRef = useRef(visible);
@@ -76,7 +76,7 @@ export const Dialog = ({
         role="dialog"
         empty
         ref={dialogRef}
-        {...props}
+        {...rest}
         style={{ zIndex: enabled ? 11 : undefined, ...style }}
       >
         <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
@@ -87,5 +87,5 @@ export const Dialog = ({
   );
 };
 
-export const Modal = ({ root, ...props }: ModalProps): ReactElement =>
-  createPortal(<Dialog {...props} />, getRootElement(root));
+export const Modal = ({ root, ...rest }: ModalProps): ReactElement =>
+  createPortal(<Dialog {...rest} />, getRootElement(root));

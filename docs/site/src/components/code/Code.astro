@@ -3,7 +3,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, variant, wrap = false, ...props } = Astro.props;
+const { tabindex, variant, wrap = false, ...rest } = Astro.props;
 let className = "astro-code-wrapper";
 if (variant != null) className += ` ${variant}`;
 if (wrap) className += " wrap";
@@ -15,7 +15,7 @@ if (wrap) className += " wrap";
             <Icon.Copy className="copy" /><Icon.Check className="check" />
         </Fragment>
     </Button.Icon>
-    <pre {...props} class="styled-scrollbar"><slot /></pre>
+    <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 
 <style is:global>

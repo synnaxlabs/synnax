@@ -22,7 +22,7 @@ export const Keyboard = <L extends text.Level = "p">({
   level,
   children,
   style,
-  ...props
+  ...rest
 }: KeyboardProps<L>): ReactElement => {
   const iStyle: CSSProperties = {
     height: `calc(var(--pluto-${level}-size) * 1.7)`,
@@ -40,7 +40,7 @@ export const Keyboard = <L extends text.Level = "p">({
       className={CSS(className, CSS.BM("text", "keyboard"), rect && CSS.M("rect"))}
       level={level}
       style={{ ...style, ...iStyle }}
-      {...props}
+      {...rest}
     >
       {children}
     </Text>

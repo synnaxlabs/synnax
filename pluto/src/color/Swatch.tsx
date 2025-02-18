@@ -45,7 +45,7 @@ export const Swatch = ({
   draggable = true,
   style,
   onClick,
-  ...props
+  ...rest
 }: SwatchProps): ReactElement => {
   const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
 
@@ -95,7 +95,7 @@ export const Swatch = ({
         canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined
       }
       {...haulProps}
-      {...props}
+      {...rest}
     />
   );
 

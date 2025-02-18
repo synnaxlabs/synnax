@@ -137,7 +137,7 @@ export const Breadcrumb = <
   separator = ".",
   className,
   hideFirst = true,
-  ...props
+  ...rest
 }: BreadcrumbProps<E, L>): ReactElement => {
   if (url != null) segments = url;
   const content = getContent({ segments, separator, shade, level, weight });
@@ -150,7 +150,7 @@ export const Breadcrumb = <
       weight={weight}
       size={size}
       direction="x"
-      {...props}
+      {...rest}
     >
       {PIcon.resolve(icon)}
       {...content}

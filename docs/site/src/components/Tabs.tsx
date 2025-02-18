@@ -15,10 +15,10 @@ export interface TabsProps extends Record<string, ReactElement | any> {
   queryParamKey?: string;
 }
 
-export const Tabs = ({ tabs, queryParamKey, ...props }: TabsProps): ReactElement => {
+export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
   tabs = tabs.map((tab) => ({
     ...tab,
-    icon: tab.icon ?? props[`${tab.tabKey}-icon`],
+    icon: tab.icon ?? rest[`${tab.tabKey}-icon`],
   }));
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
 
@@ -53,6 +53,6 @@ export const Tabs = ({ tabs, queryParamKey, ...props }: TabsProps): ReactElement
   });
 
   return (
-    <Core.Tabs {...staticProps}>{(tab) => <div>{props[tab.tabKey]}</div>}</Core.Tabs>
+    <Core.Tabs {...staticProps}>{(tab) => <div>{rest[tab.tabKey]}</div>}</Core.Tabs>
   );
 };

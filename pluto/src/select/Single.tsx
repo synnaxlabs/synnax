@@ -103,7 +103,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   dropdownZIndex,
   filter,
   actions,
-  ...props
+  ...rest
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(null);
@@ -194,7 +194,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}
       extraDialogContent={dropdownVariant === "modal" ? searchInput : undefined}
       keepMounted={false}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -234,7 +234,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   disabled,
   dropdownVariant,
   children,
-  ...props
+  ...rest
 }: SelectInputProps<K, E>): ReactElement => {
   const { clear } = CoreList.useSelectionUtils();
   // We maintain our own value state for two reasons:
@@ -299,7 +299,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
       onClick={handleClick}
       placeholder={placeholder}
       disabled={disabled}
-      {...props}
+      {...rest}
     >
       {children}
       {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}

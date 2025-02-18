@@ -199,12 +199,12 @@ const NI: IconFC = (props) => (
   </svg>
 );
 
-const OPC: IconFC = ({ className, style, ...props }) => (
+const OPC: IconFC = ({ className, style, ...rest }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     version="1.1"
     className={clsx(className, "logo")}
-    {...props}
+    {...rest}
     stroke="currentColor"
     fill="currentColor"
     viewBox="0 0 512 325.74567"

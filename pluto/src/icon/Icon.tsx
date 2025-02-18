@@ -48,9 +48,9 @@ export const Icon = ({
   bottomRight,
   children,
   className,
-  ...props
+  ...rest
 }: IconProps) => (
-  <div className={CSS(className, CSS.B("icon"))} {...props}>
+  <div className={CSS(className, CSS.B("icon"))} {...rest}>
     {topRight && clone(topRight, "topRight")}
     {topLeft && clone(topLeft, "topLeft")}
     {bottomLeft && clone(bottomLeft, "bottomLeft")}
