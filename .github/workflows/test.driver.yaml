@@ -99,16 +99,15 @@ jobs:
             sudo apt-get install -y clang-tidy
           elif [ "$RUNNER_OS" == "macOS" ]; then
             brew install llvm
-            echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+            echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
           fi
 
       - name: Run Clang Tidy
         shell: bash
         env:
-          PATH: "/usr/local/opt/llvm/bin:$PATH"
-          BAZEL_CXXOPTS: "-I/usr/local/opt/llvm/include"
-          BAZEL_LINKOPTS: "-L/usr/local/opt/llvm/lib"
+          LLVM_PATH: "$(brew --prefix llvm)"
         run: |
+          export PATH="$LLVM_PATH/bin:$PATH"
           clang-tidy --version
           chmod +x scripts/tidy-report.sh
           ./scripts/tidy-report.sh bazel-bin/driver > tidy-report.txt
@@ -116,7 +115,7 @@ jobs:
             echo "Clang-tidy found issues:"
             cat tidy-report.txt
             exit 1
-          fi
+          fi 
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
