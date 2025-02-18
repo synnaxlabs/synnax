@@ -34,5 +34,6 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/rack",
         "@com_google_googletest//:gtest_main",
+        "@mbedtls_linux//:mbedtls_linux",
     ],
 )
