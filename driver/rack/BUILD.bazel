@@ -34,6 +34,9 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/rack",
         "@com_google_googletest//:gtest_main",
-        "@mbedtls_linux//:mbedtls_linux",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["@mbedtls_win//:mbedtls_win"],
+        "@platforms//os:macos": ["@mbedtls_macos//:mbedtls_macos"],
+        "//conditions:default": ["@mbedtls_linux//:mbedtls_linux"],
+    }),
 )
