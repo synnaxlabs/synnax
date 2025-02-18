@@ -41,11 +41,8 @@ cc_library(
         "//x/cpp/xargs",
         "//x/cpp/xlog",
         "//x/cpp/xshutdown",
+        "//driver/vendor/mbedtls",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",
-    ] + select({
-        "@platforms//os:windows": ["@mbedtls_win"],
-        "@platforms//os:linux": ["@mbedtls_linux"],
-        "@platforms//os:macos": ["@mbedtls_macos"],
-    }),
+    ] 
 )

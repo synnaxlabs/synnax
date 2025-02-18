@@ -35,3 +35,14 @@ cc_library(
     visibility = ["//visibility:public"],
     strip_include_prefix = "include",
 )
+
+cc_library(
+    name = "mbedtls",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@platforms//os:windows": ["@mbedtls_win//:mbedtls_win"],
+        "@platforms//os:macos": ["@mbedtls_macos//:mbedtls_macos"],
+        "//conditions:default": ["@mbedtls_linux//:mbedtls_linux"],
+    }),
+)
+

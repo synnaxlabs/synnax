@@ -33,10 +33,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
+        "//driver/vendor/mbedtls",
         "@com_google_googletest//:gtest_main",
-    ] + select({
-        "@platforms//os:windows": ["@mbedtls_win//:mbedtls_win"],
-        "@platforms//os:macos": ["@mbedtls_macos//:mbedtls_macos"],
-        "//conditions:default": ["@mbedtls_linux//:mbedtls_linux"],
-    }),
+    ]
 )

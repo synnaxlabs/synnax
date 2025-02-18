@@ -29,7 +29,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        ":mbedtls",
+        "//driver/vendor/mbedtls",
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//driver/task",
@@ -39,16 +39,6 @@ cc_library(
         "@nlohmann_json//:json",
         "@open62541",
     ],
-)
-
-cc_library(
-    name = "mbedtls",
-    visibility = ["//visibility:public"],
-    deps = select({
-        "@platforms//os:windows": ["@mbedtls_win"],
-        "@platforms//os:macos": ["@mbedtls_macos"],
-        "//conditions:default": ["@mbedtls_linux"],
-    }),
 )
 
 #cc_test(
