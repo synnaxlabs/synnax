@@ -110,8 +110,6 @@ jobs:
           export PATH="$LLVM_PATH/bin:$PATH"
           clang-tidy --version
           chmod +x scripts/tidy-report.sh
-          bazel clean
-          bazel build //driver/... --config=clang-tidy
           ./scripts/tidy-report.sh bazel-bin/driver >> tidy-report.txt
           if [ -s tidy-report.txt ]; then
             # Count errors and warnings separately
