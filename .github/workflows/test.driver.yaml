@@ -126,6 +126,9 @@ jobs:
           database: compile_commands.json
           version: 16
           extra-args: "-I./driver/include"
+          ignore: "vendor"
+          step-summary: true
+          thread-comments: true
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
