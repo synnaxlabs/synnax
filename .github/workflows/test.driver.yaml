@@ -93,6 +93,16 @@ jobs:
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
       
+      - name: Install Clang Tidy
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get install -y clang-tidy
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install llvm
+            echo 'export PATH="/usr/local/opt/llvm/bin:$PATH"' >> ~/.bash_profile
+            source ~/.bash_profile
+          fi
+
       - name: Run Clang Tidy
         run: |
           chmod +x scripts/tidy-report.sh
