@@ -35,11 +35,11 @@ jobs:
               - freighter/cpp/**
               - driver/**
 
-      - name: Run clang-format
-        run: |
-          find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --color=always | cat
-          git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+      # - name: Run clang-format
+      #   run: |
+      #     find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+      #     git diff --color=always | cat
+      #     git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
   test:
     name: Test Driver
@@ -80,7 +80,6 @@ jobs:
       - name: Update Submodules
         if: hashFiles('driver/vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
@@ -99,6 +98,34 @@ jobs:
                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
+      - name: Add Hedron's Compile Commands Extractor
+        run: |
+          echo 'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+          http_archive(
+              name = "hedron_compile_commands",
+              url = "https://github.com/hedronvision/bazel-compile-commands-extractor/archive/ed994039a951b736091776d677f324b3903ef939.tar.gz",
+              strip_prefix = "bazel-compile-commands-extractor-ed994039a951b736091776d677f324b3903ef939",
+              sha256 = "085bde6c5212c8c1603595341ffe7133108034808d8c819f8978b2b303afc9e7",
+          )
+          load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
+          hedron_compile_commands_setup()' >> WORKSPACE
+      
+      - name: Generate Compilation Database
+        run: bazel run @hedron_compile_commands//:refresh_all
+      
+      - name: Run cpp-linter
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          files-changed-only: false
+          lines-changed-only: false
+          database: compile_commands.json
+          version: 16
+          extra-args: "-I./driver/include"
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
