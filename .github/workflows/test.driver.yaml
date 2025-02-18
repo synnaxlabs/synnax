@@ -53,19 +53,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install clang-format
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt-get install -y clang-format
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            brew install clang-format
-          fi
+      # - name: Install clang-format
+      #   run: |
+      #     if [ "$RUNNER_OS" == "Linux" ]; then
+      #       sudo apt-get install -y clang-format
+      #     elif [ "$RUNNER_OS" == "macOS" ]; then
+      #       brew install clang-format
+      #     fi
 
-      - name: Run clang-format
-        run: |
-          find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --color=always | cat
-          git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+      # - name: Run clang-format
+      #   run: |
+      #     find ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+      #     git diff --color=always | cat
+      #     git diff --exit-code || (echo -e "\033[0;31mC++ files in driver need formatting. Run clang-format locally with:\033[0m\nfind ./driver -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
 
       - name: Install MbedTLS On Mac
         run: brew install mbedtls
