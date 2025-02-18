@@ -1222,8 +1222,6 @@ export class DataType extends String implements Stringer {
     return this.valueOf();
   }
 
-  shortString(): string {}
-
   get isVariable(): boolean {
     return this.equals(DataType.JSON) || this.equals(DataType.STRING);
   }
