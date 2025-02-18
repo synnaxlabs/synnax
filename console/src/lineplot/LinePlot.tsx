@@ -27,7 +27,6 @@ import {
 import {
   box,
   DataType,
-  deep,
   getEntries,
   location,
   primitiveIsZero,
@@ -38,7 +37,6 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -52,6 +50,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
+import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import {
   select,
   useSelect,
@@ -500,18 +499,6 @@ const buildLines = (
         }),
     ),
   );
-
-export const LAYOUT_TYPE = "lineplot";
-export type LayoutType = typeof LAYOUT_TYPE;
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
-  };
 
 export const LinePlot: Layout.Renderer = ({
   layoutKey,

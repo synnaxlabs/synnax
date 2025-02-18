@@ -302,6 +302,9 @@ importers:
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../configs/eslint
+      madge:
+        specifier: ^8.0.0
+        version: 8.0.0(typescript@5.7.3)
       stylelint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../configs/stylelint

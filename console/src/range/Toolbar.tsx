@@ -40,7 +40,7 @@ import { Layout } from "@/layout";
 import {
   create as createLinePlot,
   LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
-} from "@/lineplot/LinePlot";
+} from "@/lineplot/layout";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";

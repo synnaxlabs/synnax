@@ -15,14 +15,10 @@ import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { usePlacer, useRemover } from "@/layout/hooks";
+import { useRemover } from "@/layout/hooks";
 import { useSelectMosaic } from "@/layout/selectors";
-import {
-  createMosaicWindow,
-  moveMosaicTab,
-  setFocus,
-  splitMosaicNode,
-} from "@/layout/slice";
+import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
+import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 
 export interface FocusMenuItemProps {
   layoutKey: string;
@@ -41,17 +37,6 @@ export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
       Focus
     </Menu.Item>
   );
-};
-
-export const useOpenInNewWindow = () => {
-  const dispatch = useDispatch();
-  const place = usePlacer();
-  return (layoutKey: string) => {
-    const { key } = place(createMosaicWindow({}));
-    dispatch(
-      moveMosaicTab({ windowKey: key, key: 1, tabKey: layoutKey, loc: "center" }),
-    );
-  };
 };
 
 export const useMoveIntoMainWindow = () => {

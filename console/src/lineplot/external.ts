@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { ContextMenu, LAYOUT_TYPE, LinePlot, SELECTABLE } from "@/lineplot/LinePlot";
+import { LAYOUT_TYPE } from "@/lineplot/layout";
+import { ContextMenu, LinePlot, SELECTABLE } from "@/lineplot/LinePlot";
 
 export * from "@/lineplot/export";
+export * from "@/lineplot/layout";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
 export * from "@/lineplot/NavControls";

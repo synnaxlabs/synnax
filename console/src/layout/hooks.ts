@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, type UnknownAction } from "@reduxjs/toolkit";
-import { Drift, selectWindowKey } from "@synnaxlabs/drift";
+import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
   type Icon,
   type Nav,
-  Text,
   Theming,
-  Triggers,
   useAsyncEffect,
   useDebouncedCallback,
   useMemoCompare,
@@ -26,20 +24,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { useOpenInNewWindow } from "@/layout/Menu";
-import {
-  selectActiveMosaicTabKey,
-  selectFocused,
-  useSelectNavDrawer,
-  useSelectTheme,
-} from "@/layout/selectors";
+import { useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavDrawerLocation,
   place,
   remove,
   resizeNavDrawer,
   setActiveTheme,
-  setFocus,
   setNavDrawerVisible,
   type State,
   toggleActiveTheme,
@@ -233,57 +224,4 @@ export const useNavDrawer = (
     onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     onResize,
   };
-};
-
-export const useTriggers = () => {
-  const store = useStore<RootState>();
-  const remove = useRemover();
-  const openInNewWindow = useOpenInNewWindow();
-  Triggers.use({
-    triggers: [["Control", "L"]],
-    loose: true,
-    callback: ({ stage }) => {
-      if (stage !== "start") return;
-      const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
-      const windowKey = selectWindowKey(state);
-      const { focused } = selectFocused(state);
-      if (active == null || windowKey == null) return;
-      if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
-      else store.dispatch(setFocus({ key: active, windowKey }));
-    },
-  });
-  Triggers.use({
-    triggers: [["Control", "W"]],
-    loose: true,
-    callback: ({ stage }) => {
-      if (stage !== "start") return;
-      const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
-      if (active == null) return;
-      remove(active);
-    },
-  });
-  Triggers.use({
-    triggers: [["Control", "O"]],
-    loose: true,
-    callback: ({ stage }) => {
-      if (stage !== "start") return;
-      const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
-      if (active == null) return;
-      openInNewWindow(active);
-    },
-  });
-  Triggers.use({
-    triggers: [["Control", "E"]],
-    loose: true,
-    callback: ({ stage }) => {
-      if (stage !== "start") return;
-      const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
-      if (active == null) return;
-      Text.edit(`pluto-tab-${active}`);
-    },
-  });
 };

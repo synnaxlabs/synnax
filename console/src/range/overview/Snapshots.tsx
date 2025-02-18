@@ -28,7 +28,7 @@ import {
 import { type FC, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
-import { Hardware } from "@/hardware";
+import { retrieveAndPlaceLayout as retrieveAndPlaceTask } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
 
@@ -56,7 +56,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
   task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      Hardware.Task.retrieveAndPlaceLayout(client, key, placeLayout),
+      retrieveAndPlaceTask(client, key, placeLayout),
   },
 };
 
