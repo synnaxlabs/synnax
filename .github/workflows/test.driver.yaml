@@ -161,6 +161,16 @@ jobs:
           echo "Driver checks failed: ${{ steps.linter-driver.outputs.checks-failed }}"
           echo "Client checks failed: ${{ steps.linter-client.outputs.checks-failed }}"
           exit 1
-          
+
+      - name: Run Clang Tidy
+        run: |
+          chmod +x scripts/tidy-report.sh
+          ./scripts/tidy-report.sh bazel-bin/driver > tidy-report.txt
+          if [ -s tidy-report.txt ]; then
+            echo "Clang-tidy found issues:"
+            cat tidy-report.txt
+            exit 1
+          fi
+
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
