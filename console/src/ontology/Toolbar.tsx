@@ -12,15 +12,15 @@ import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar as Core } from "@/components";
 import { type Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
 const ResourcesTree = (): ReactElement => (
   <Align.Space empty style={{ height: "100%", position: "relative" }}>
-    <ToolbarHeader>
-      <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
-    </ToolbarHeader>
+    <Core.Header>
+      <Core.Title icon={<Icon.Resources />}>Resources</Core.Title>
+    </Core.Header>
     <Cluster.NoneConnectedBoundary>
       <Tree />
     </Cluster.NoneConnectedBoundary>

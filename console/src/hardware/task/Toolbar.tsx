@@ -30,7 +30,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar as Core } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -328,12 +328,12 @@ const Content = () => {
       {...menuProps}
     >
       <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
+        <Core.Header>
+          <Core.Title icon={<Icon.Task />}>Tasks</Core.Title>
           <Header.Actions>
             {[{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }]}
           </Header.Actions>
-        </ToolbarHeader>
+        </Core.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>

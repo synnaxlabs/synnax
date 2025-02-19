@@ -16,7 +16,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar as Core } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
@@ -86,8 +86,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           onSelect: handleTabSelect,
         }}
       >
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.LinePlot />}>{name}</ToolbarTitle>
+        <Core.Header>
+          <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
           <Align.Space direction="x" align="center" empty>
             <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
               <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
@@ -98,7 +98,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             </Align.Space>
             <Tabs.Selector style={{ borderBottom: "none" }} />
           </Align.Space>
-        </ToolbarHeader>
+        </Core.Header>
         <Tabs.Content />
       </Tabs.Provider>
     </Align.Space>

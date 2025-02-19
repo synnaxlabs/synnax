@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader } from "@/components";
+import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -123,7 +123,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         content,
       }}
     >
-      <ToolbarHeader>
+      <Core.Header>
         <Align.Space direction="x" empty>
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
@@ -137,7 +137,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           </Align.Space>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
         </Align.Space>
-      </ToolbarHeader>
+      </Core.Header>
       <Tabs.Content />
     </Tabs.Provider>
   );

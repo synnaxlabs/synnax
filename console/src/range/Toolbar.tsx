@@ -17,7 +17,7 @@ import {
   componentRenderProp,
   Header,
   Icon as PIcon,
-  List as Core,
+  List as CoreList,
   Menu as PMenu,
   Ranger,
   Status,
@@ -33,7 +33,7 @@ import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar as Core } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -370,26 +370,26 @@ const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <Core.List<string, StaticRange>
+      <CoreList.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
       >
-        <Core.Selector
+        <CoreList.Selector
           value={activeRange?.key ?? null}
           onChange={handleSelect}
           allowMultiple={false}
           allowNone={true}
         >
-          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+          <CoreList.Core style={{ height: "100%", overflowX: "hidden" }}>
             {componentRenderProp(ListItem)}
-          </Core.Core>
-        </Core.Selector>
-      </Core.List>
+          </CoreList.Core>
+        </CoreList.Selector>
+      </CoreList.List>
     </PMenu.ContextMenu>
   );
 };
 
-interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
+interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
@@ -412,7 +412,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       .catch((e) => handleException(e, "Failed to rename range"));
   };
   return (
-    <Core.ItemFrame
+    <CoreList.ItemFrame
       className={CSS.B("range-list-item")}
       direction="y"
       rightAligned
@@ -449,7 +449,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           ))}
         </Align.Space>
       )}
-    </Core.ItemFrame>
+    </CoreList.ItemFrame>
   );
 };
 
@@ -457,12 +457,12 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
+      <Core.Header>
+        <Core.Title icon={<Icon.Range />}>Ranges</Core.Title>
         <Header.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
-      </ToolbarHeader>
+      </Core.Header>
       <List />
     </Align.Space>
   );
