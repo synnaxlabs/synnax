@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - rc
-      # - sy-2071-add-linter-in-ci
+      - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
@@ -136,16 +136,52 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install clang-format
-        if: matrix.lint
-        run: sudo apt-get install -y clang-format
+      # - name: Install clang-format
+      #   if: matrix.lint
+      #   run: sudo apt-get install -y clang-format
 
-      - name: Run clang-format
+      # - name: Run clang-format
+      #   if: matrix.lint
+      #   run: |
+      #     find ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
+      #     git diff --color=always | cat
+      #     git diff --exit-code || (echo -e "\033[0;31mC++ files in x/cpp need formatting. Run clang-format locally with:\033[0m\nfind ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+
+      - name: Install Clang Tidy
         if: matrix.lint
         run: |
-          find ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
-          git diff --color=always | cat
-          git diff --exit-code || (echo -e "\033[0;31mC++ files in x/cpp need formatting. Run clang-format locally with:\033[0m\nfind ./x/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get install -y clang-tidy
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install llvm
+            echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
+          fi
+
+      - name: Run Clang Tidy
+        if: matrix.lint
+        shell: bash
+        env:
+          LLVM_PATH: "$(brew --prefix llvm)"
+        run: |
+          export PATH="$LLVM_PATH/bin:$PATH"
+          clang-tidy --version
+          chmod +x scripts/tidy-report.sh
+          ./scripts/tidy-report.sh bazel-bin/x/cpp >> tidy-report.txt
+          if [ -s tidy-report.txt ]; then
+            # Count errors and warnings separately
+            ERROR_COUNT=$(grep "Error" tidy-report.txt | sort -u | wc -l)
+            WARNING_COUNT=$(grep "Warning" tidy-report.txt | sort -u | wc -l)
+            TOTAL_ISSUES=$((ERROR_COUNT + WARNING_COUNT))
+            
+            echo "----------------------------------------"
+            echo "Summary:"
+            echo "Errors: $ERROR_COUNT"
+            echo "Warnings: $WARNING_COUNT"
+            echo "Total issues: $TOTAL_ISSUES"
+            echo "----------------------------------------"
+            cat tidy-report.txt
+            exit 1
+          fi
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
