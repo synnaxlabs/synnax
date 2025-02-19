@@ -13,10 +13,10 @@ import { Icon } from "@synnaxlabs/media";
 import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
+import { BetaTag } from "@/layout/BetaTag";
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
-import { Version } from "@/version";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
   width: "100%",
@@ -57,7 +57,7 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              {state.beta != null && <Version.BetaTag />}
+              {state.beta != null && <BetaTag />}
               <Button.Icon onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>

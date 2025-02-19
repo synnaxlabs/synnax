@@ -27,11 +27,11 @@ export interface ToolbarProps {
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const d = useSyncComponent(layoutKey);
+  const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
   const handleChannelChange = (v: channel.Key) =>
-    d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
+    dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();
   if (state == null) return null;
   return (

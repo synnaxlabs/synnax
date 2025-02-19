@@ -16,10 +16,10 @@ import { setViewportMode } from "@/schematic/slice";
 
 export const NavControls = (): ReactElement => {
   const mode = useSelectViewportMode();
-  const d = useDispatch();
+  const dispatch = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    d(setViewportMode({ mode }));
+    dispatch(setViewportMode({ mode }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);

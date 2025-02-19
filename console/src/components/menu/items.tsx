@@ -16,10 +16,10 @@ import { useDispatch } from "react-redux";
 export const HardReloadItem = (
   props: Omit<Menu.ItemProps, "itemKey">,
 ): ReactElement => {
-  const d = useDispatch();
+  const dispatch = useDispatch();
   return (
     <Menu.Item
-      onClick={() => d(reloadWindow({}))}
+      onClick={() => dispatch(reloadWindow({}))}
       startIcon={<Icon.Refresh />}
       size="small"
       itemKey="hardReload"
