@@ -28,7 +28,7 @@ std::string get_secure_input(const std::string &prompt, bool hide_input = false)
     std::getline(std::cin, input);
 
     if (hide_input) {
-        std::cout << std::endl;
+        std::cout << "\n";
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else

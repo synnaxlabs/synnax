@@ -99,7 +99,7 @@ TEST(read_tests, multiple_analog_channels) {
     auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
-    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << "\n";
     reader.start("");
 
     for (int i = 0; i < 2; i++) {
@@ -160,7 +160,7 @@ TEST(read_tests, analog_linear_scaling) {
     auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
-    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << "\n";
     reader.start("");
 
     std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
@@ -217,7 +217,7 @@ TEST(read_tests, analog_map_scaling) {
     auto reader = ni::AnalogReadSource(dmx, task_handle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
-    if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) std::cout << "Failed to initialize reader" << "\n";
     reader.start("");
     std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
@@ -289,7 +289,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config,
         });
 
     if (reader.init() != 0)
-        LOG(ERROR) << "Failed to initialize reader" << std::endl;
+        LOG(ERROR) << "Failed to initialize reader" << "\n";
     reader.start("");
 
     std::uint64_t initial_timestamp = (telem::TimeStamp::now()).value;
@@ -297,7 +297,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config,
     std::uint64_t final_timestamp = (telem::TimeStamp::now()).value;
 
     VLOG(1) << frame << "\n";
-    std::cout << frame << std::endl;
+    std::cout << frame << "\n";
 
     // check every series with the frame stays within the bounds
 

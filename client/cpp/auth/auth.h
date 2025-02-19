@@ -23,10 +23,9 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<
+using AuthLoginClient = freighter::UnaryClient<
     api::v1::LoginRequest,
-    api::v1::LoginResponse
-> AuthLoginClient;
+    api::v1::LoginResponse>;
 
 const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
@@ -47,6 +46,7 @@ struct ClusterInfo {
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use. Middleware is safe to use concurrently.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
+private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
     std::string token;
@@ -82,7 +82,7 @@ public:
     /// @brief authenticates with the credentials provided when construction the 
     /// Synnax client.
     xerrors::Error authenticate() {
-        std::lock_guard lock(mu);
+        const std::lock_guard lock(mu);
         api::v1::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);

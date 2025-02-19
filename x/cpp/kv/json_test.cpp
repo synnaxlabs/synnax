@@ -18,7 +18,7 @@ protected:
             std::filesystem::remove_all(std::filesystem::path(temp_path).parent_path());
         } catch (const std::filesystem::filesystem_error& e) {
             // Log error but don't fail the test
-            std::cerr << "Cleanup failed: " << e.what() << std::endl;
+            std::cerr << "Cleanup failed: " << e.what() << "\n";
         }
     }
 };

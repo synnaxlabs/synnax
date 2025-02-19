@@ -26,39 +26,33 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
-typedef std::string Key;
+using Key = std::string;
 
 namespace synnax {
 /// @brief type alias for the transport used to retrieve ranges.
-typedef freighter::UnaryClient<
+using RangeRetrieveClient = freighter::UnaryClient<
     api::v1::RangeRetrieveRequest,
-    api::v1::RangeRetrieveResponse
-> RangeRetrieveClient;
+    api::v1::RangeRetrieveResponse>;
 
 /// @brief type alias for the transport used to create ranges.
-typedef freighter::UnaryClient<
+using RangeCreateClient = freighter::UnaryClient<
     api::v1::RangeCreateRequest,
-    api::v1::RangeCreateResponse
-> RangeCreateClient;
-
+    api::v1::RangeCreateResponse>;
 
 /// @brief type alias for the transport used to get range-scoped key-values.
-typedef freighter::UnaryClient<
+using RangeKVGetClient = freighter::UnaryClient<
     api::v1::RangeKVGetRequest,
-    api::v1::RangeKVGetResponse
-> RangeKVGetClient;
+    api::v1::RangeKVGetResponse>;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-typedef freighter::UnaryClient<
+using RangeKVSetClient = freighter::UnaryClient<
     api::v1::RangeKVSetRequest,
-    google::protobuf::Empty
-> RangeKVSetClient;
+    google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
-typedef freighter::UnaryClient<
+using RangeKVDeleteClient = freighter::UnaryClient<
     api::v1::RangeKVDeleteRequest,
-    google::protobuf::Empty
-> RangeKVDeleteClient;
+    google::protobuf::Empty>;
 
 /// @brief a range-scoped key-value store for storing metadata and configuration about a
 /// range.

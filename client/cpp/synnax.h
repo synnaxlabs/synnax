@@ -26,11 +26,11 @@ namespace synnax {
 namespace priv {
 /// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
 inline void check_little_endian() {
-    int num = 1;
-    if (*reinterpret_cast<char *>(&num) == 1) return;
+    const std::uint32_t value = 1;
+    const auto bytes = reinterpret_cast<const unsigned char*>(&value);
+    if (bytes[0] == 1) return;
     std::cout
-            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
-            << std::endl;
+            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry.\n";
 }
 }
 
@@ -67,7 +67,8 @@ struct Config {
         this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
     }
 
-    json to_json() const {
+    /// @brief Converts the configuration to a JSON object.
+    [[nodiscard]] json to_json() const {
         return {
             {"host", this->host},
             {"port", this->port},

@@ -13,9 +13,9 @@
 #include "x/cpp/xerrors/errors.h"
 
 inline xerrors::Error unexpected_missing(const std::string &name) {
-    return xerrors::Error(
+    return {
         xerrors::UNEXPECTED_ERROR,
         "No " + name +
         " returned from server on create. Please report this error to the Synnax team."
-    );
+    };
 }

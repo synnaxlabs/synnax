@@ -24,69 +24,60 @@
 
 namespace synnax {
 /// @brief type alias for the transport used to create a rack.
-typedef freighter::UnaryClient<
+using HardwareCreateRackClient = freighter::UnaryClient<
     api::v1::HardwareCreateRackRequest,
-    api::v1::HardwareCreateRackResponse
-> HardwareCreateRackClient;
+    api::v1::HardwareCreateRackResponse>;
 
 /// @brief type alias for the transport used to retrieve a rack.
-typedef freighter::UnaryClient<
+using HardwareRetrieveRackClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveRackRequest,
-    api::v1::HardwareRetrieveRackResponse
-> HardwareRetrieveRackClient;
+    api::v1::HardwareRetrieveRackResponse>;
 
 /// @brief type alias for the transport used to delete a rack.
-typedef freighter::UnaryClient<
+using HardwareDeleteRackClient = freighter::UnaryClient<
     api::v1::HardwareDeleteRackRequest,
-    google::protobuf::Empty
-> HardwareDeleteRackClient;
+    google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to create a task.
-typedef freighter::UnaryClient<
+using HardwareCreateTaskClient = freighter::UnaryClient<
     api::v1::HardwareCreateTaskRequest,
-    api::v1::HardwareCreateTaskResponse
-> HardwareCreateTaskClient;
+    api::v1::HardwareCreateTaskResponse>;
 
 /// @brief type alias for the transport used to retrieve a task.
-typedef freighter::UnaryClient<
+using HardwareRetrieveTaskClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveTaskRequest,
-    api::v1::HardwareRetrieveTaskResponse
-> HardwareRetrieveTaskClient;
+    api::v1::HardwareRetrieveTaskResponse>;
 
 /// @brief type alias for the transport used to delete a task.
-typedef freighter::UnaryClient<
+using HardwareDeleteTaskClient = freighter::UnaryClient<
     api::v1::HardwareDeleteTaskRequest,
-    google::protobuf::Empty
-> HardwareDeleteTaskClient;
+    google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to create a device.
-typedef freighter::UnaryClient<
+using HardwareCreateDeviceClient = freighter::UnaryClient<
     api::v1::HardwareCreateDeviceRequest,
-    api::v1::HardwareCreateDeviceResponse
-> HardwareCreateDeviceClient;
+    api::v1::HardwareCreateDeviceResponse>;
 
 /// @brief type alias for the transport used to retrieve a device.
-typedef freighter::UnaryClient<
+using HardwareRetrieveDeviceClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveDeviceRequest,
-    api::v1::HardwareRetrieveDeviceResponse
-> HardwareRetrieveDeviceClient;
+    api::v1::HardwareRetrieveDeviceResponse>;
 
 /// @brief type alias for the transport used to delete a device.
-typedef freighter::UnaryClient<
+using HardwareDeleteDeviceClient = freighter::UnaryClient<
     api::v1::HardwareDeleteDeviceRequest,
-    google::protobuf::Empty
-> HardwareDeleteDeviceClient;
+    google::protobuf::Empty>;
 
-typedef std::uint32_t RackKey;
-typedef std::uint64_t TaskKey;
+using RackKey = std::uint32_t;
+using TaskKey = std::uint64_t;
 
 inline TaskKey createTaskKey(const RackKey rack, const TaskKey task) {
-    return static_cast<TaskKey>(rack) << 32 | task;
+    return static_cast<TaskKey>(rack) << 32U | task;
 }
 
-inline RackKey task_key_rack(const TaskKey key) { return key >> 32; }
+inline RackKey task_key_rack(const TaskKey key) { return key >> 32U; }
 
-inline std::uint32_t task_key_local(const TaskKey key) { return key & 0xFFFFFFFF; }
+inline std::uint32_t task_key_local(const TaskKey key) { return key & 0xFFFFFFFFU; }
 
 
 /// @brief a Task is a data structure used to configure and execute operations on a hardware device.
@@ -183,7 +174,7 @@ private:
     std::shared_ptr<HardwareDeleteTaskClient> task_delete_client;
 };
 
-inline std::uint16_t rack_key_node(const RackKey key) { return key >> 12; }
+inline std::uint16_t rack_key_node(const RackKey key) { return key >> 12U; }
 
 class Rack {
 public:

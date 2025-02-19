@@ -243,7 +243,7 @@ void fetchEndpointDiagnosticInfo(
     auto client_config = UA_Client_getConfig(client.get());
     for (size_t i = 0; i < endpointCount; i++) {
         auto ep = endpointArray[i];
-        LOG(INFO) << "[opc.scanner] Endpoint " << i << std::endl;
+        LOG(INFO) << "[opc.scanner] Endpoint " << i << "\n";
         // if the security policy uri is not null, then the endpoint is secure
         // get the client config
         // get config.userIdentityToken.content.decoded.type

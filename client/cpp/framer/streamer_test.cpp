@@ -28,17 +28,17 @@ TEST(FramerTests, testStreamBasic) {
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
-    std::vector channels = {data.key};
+    const std::vector channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        {synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        .channels = channels,
+        .start = now,
+        .authorities = {synnax::AUTH_ABSOLUTE},
+        .subject = synnax::ControlSubject{.name = "test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
+        .channels = channels,
     });
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
@@ -69,15 +69,15 @@ TEST(FramerTests, testStreamSetChannels) {
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
-        {data.key},
-        now,
-        {synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        .channels = {data.key},
+        .start = now,
+        .authorities = {synnax::AUTH_ABSOLUTE},
+        .subject = synnax::ControlSubject{.name = "test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        {},
+        .channels = {},
     });
 
     auto setErr = streamer.set_channels({data.key});
@@ -155,18 +155,18 @@ void test_downsample(
         1 * telem::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = telem::TimeStamp::now();
-    std::vector channels = {data.key};
+    const std::vector channels = {data.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        std::vector{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        .channels = channels,
+        .start = now,
+        .authorities = std::vector{synnax::AUTH_ABSOLUTE},
+        .subject = synnax::ControlSubject{.name = "test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-        downsample_factor
+        .channels = channels,
+        .downsample_factor = downsample_factor
     });
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
@@ -203,18 +203,18 @@ void test_downsample_string(
     ASSERT_FALSE(err) << err.message();
 
     auto now = telem::TimeStamp::now();
-    std::vector channels = {virtual_channel.key};
+    const std::vector channels = {virtual_channel.key};
     auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        std::vector{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"}
+        .channels = channels,
+        .start = now,
+        .authorities = std::vector{synnax::AUTH_ABSOLUTE},
+        .subject = synnax::ControlSubject{.name = "test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-        downsample_factor
+        .channels = channels,
+        .downsample_factor = downsample_factor
     });
     ASSERT_FALSE(sErr) << sErr.message();
 

@@ -12,7 +12,6 @@
 #include "driver/cmd/cmd.h"
 #include "glog/logging.h"
 
-namespace{
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
@@ -29,7 +28,7 @@ void print_usage() {
             << "  clear           Clear the persisted state\n";
 }
 
-int cmd::exec(int argc, char *argv[]) {
+int exec(int argc, char *argv[]) {
     FLAGS_logtostderr = true;
     FLAGS_colorlogtostderr = true;
     google::InitGoogleLogging(argv[0]);
@@ -38,7 +37,7 @@ int cmd::exec(int argc, char *argv[]) {
         print_usage();
         return 1;
     }
-
+    
     const std::string command = argv[1];
     if (command == "start") {
         bool standalone = false;
@@ -63,7 +62,4 @@ int cmd::exec(int argc, char *argv[]) {
     if (command == "clear") return cmd::sub::clear(argc, argv);
     print_usage();
     return 1;
-}
-
-
 }

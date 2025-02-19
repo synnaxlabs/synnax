@@ -25,7 +25,7 @@
 using json = nlohmann::json;
 
 TEST(NiTaskTests, test_NI_analog_writer_task) {
-    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << std::endl;
+    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << "\n";
     auto client_config = synnax::Config{
         "localhost",
         9090,
@@ -93,7 +93,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
         to_string(config)
     );
 
-    std::cout << "Analog Writer Task Config: " << config.dump(4) << std::endl;
+    std::cout << "Analog Writer Task Config: " << config.dump(4) << "\n";
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10)
@@ -113,7 +113,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 }
 
 TEST(NiTaskTests, test_NI_digital_writer_task) {
-    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << std::endl;
+    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << "\n";
     auto client_config = synnax::Config{
         "localhost",
         9090,
@@ -178,7 +178,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
         to_string(config)
     );
 
-    std::cout << "Digital Writer Task Config: " << config.dump(4) << std::endl;
+    std::cout << "Digital Writer Task Config: " << config.dump(4) << "\n";
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10)

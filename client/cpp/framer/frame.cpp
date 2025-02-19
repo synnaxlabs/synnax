@@ -98,9 +98,9 @@ void Frame::at(const ChannelKey &key, const int &index, std:: string &value) con
 }
 
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
-    os << "Frame{" << std::endl;
+    os << "Frame{" << "\n";
     for (size_t i = 0; i < f.channels->size(); i++)
-        os << " " << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
+        os << " " << f.channels->at(i) << ": " << f.series->at(i) << ", \n";
     os << "}";
     return os;
 }

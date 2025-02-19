@@ -29,30 +29,24 @@ using namespace synnax;
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<
+using StreamerStream = freighter::Stream<
     api::v1::FrameStreamerRequest,
-    api::v1::FrameStreamerResponse
-> StreamerStream;
+    api::v1::FrameStreamerResponse>;
 
 /// @brief type alias for frame writer network transport.
-typedef freighter::StreamClient<
+using StreamerClient = freighter::StreamClient<
     api::v1::FrameStreamerRequest,
-    api::v1::FrameStreamerResponse
-> StreamerClient;
+    api::v1::FrameStreamerResponse>;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<
+using WriterStream = freighter::Stream<
     api::v1::FrameWriterRequest,
-    api::v1::FrameWriterResponse
-> WriterStream;
+    api::v1::FrameWriterResponse>;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<
+using WriterClient = freighter::StreamClient<
     api::v1::FrameWriterRequest,
-    api::v1::FrameWriterResponse
-> WriterClient;
-
-
+    api::v1::FrameWriterResponse>;
 
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 struct Frame {

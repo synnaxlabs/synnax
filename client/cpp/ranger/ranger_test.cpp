@@ -15,7 +15,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "client/cpp/testutil/testutil.h"
 
-std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
+static std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {

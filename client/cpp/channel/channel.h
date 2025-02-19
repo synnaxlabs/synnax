@@ -24,20 +24,19 @@
 
 namespace synnax {
 /// @brief an alias for the type of a channel's key.
-typedef std::uint32_t ChannelKey;
+using ChannelKey = std::uint32_t;
 
 /// @brief freighter retrieve transport.
-typedef freighter::UnaryClient<
+using ChannelRetrieveClient = freighter::UnaryClient<
     api::v1::ChannelRetrieveRequest,
     api::v1::ChannelRetrieveResponse
-> ChannelRetrieveClient;
+>;
 
 /// @brief freighter create transport.
-typedef freighter::UnaryClient<
+using ChannelCreateClient = freighter::UnaryClient<
     api::v1::ChannelCreateRequest,
     api::v1::ChannelCreateResponse
-> ChannelCreateClient;
-
+>;
 
 class ChannelClient;
 

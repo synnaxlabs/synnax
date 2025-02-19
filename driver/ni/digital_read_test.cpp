@@ -80,7 +80,7 @@ void digital_channel_helper(json config, json channel_config) {
         });
 
     if (reader.init() != 0)
-        LOG(ERROR) << "Failed to initialize reader" << std::endl;
+        LOG(ERROR) << "Failed to initialize reader" << "\n";
     reader.start("");
 
     for (int i = 0; i < 15; i++) {
@@ -195,7 +195,7 @@ TEST(read_tests, multiple_digital_channels) {
     auto reader = ni::DigitalReadSource(dmx, taskHandle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * telem::SECOND, 1, 1});
 
-    if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << "\n";
     reader.start("");
 
     for (int i = 0; i < 15; i++) {

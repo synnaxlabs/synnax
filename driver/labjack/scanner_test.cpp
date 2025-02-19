@@ -22,7 +22,7 @@
 //                                          Functional Tests                                                    //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(LabjackScannerTests, test_valid_scan) {
-    std::cout << "Running test_valid_scan" << std::endl;
+    std::cout << "Running test_valid_scan" << "\n";
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto task = synnax::Task(
         "my_task",
@@ -37,5 +37,5 @@ TEST(LabjackScannerTests, test_valid_scan) {
 
     nlohmann::json devices = scanner.get_devices();
     // print json
-    std::cout << devices.dump(4) << std::endl;
+    std::cout << devices.dump(4) << "\n";
 }

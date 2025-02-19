@@ -200,7 +200,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve(
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
+    const std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
 
@@ -229,7 +229,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieveByType(
     req.mutable_types()->Add(types.begin(), types.end());
     auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
+    const std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
 
@@ -256,7 +256,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
     req.set_rack(rack);
     auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
+    const std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
 
