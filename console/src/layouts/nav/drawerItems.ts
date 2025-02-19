@@ -15,7 +15,7 @@ import { Vis } from "@/vis";
 
 export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
-  Ontology.Toolbar,
-  Range.Toolbar,
+  Ontology.TOOLBAR,
+  Range.TOOLBAR,
   Vis.Toolbar,
 ];

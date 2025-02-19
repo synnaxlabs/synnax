@@ -33,7 +33,7 @@ import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -457,18 +457,18 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <Core.Header>
-        <Core.Title icon={<Icon.Range />}>Ranges</Core.Title>
+      <Toolbar.Header>
+        <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Header.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
-      </Core.Header>
+      </Toolbar.Header>
       <List />
     </Align.Space>
   );
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

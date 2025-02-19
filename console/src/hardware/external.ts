@@ -25,7 +25,7 @@ export const LINK_HANDLERS: Record<string, Link.Handler> = {
   [task.ONTOLOGY_TYPE]: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS = [Task.Toolbar];
+export const NAV_DRAWER_ITEMS = [Task.TOOLBAR];
 
 export const NOTIFICATION_ADAPTERS = Device.NOTIFICATION_ADAPTERS;
 

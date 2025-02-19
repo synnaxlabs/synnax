@@ -144,7 +144,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
   };
 };
 
-export const canGroupSelection = (
+const canGroupSelection = (
   selection: Ontology.TreeContextMenuProps["selection"],
 ): boolean => getAllNodesOfMinDepth(selection.nodes).length > 1;
 
@@ -157,7 +157,7 @@ const getAllNodesOfMinDepth = (
   return nodes.filter(({ depth }) => depth === minDepth);
 };
 
-export const useCreateEmpty = (): ((
+const useCreateEmpty = (): ((
   props: Ontology.TreeContextMenuProps,
 ) => Promise<void>) => {
   const mut = useMutation<
