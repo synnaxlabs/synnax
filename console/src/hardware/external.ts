@@ -28,7 +28,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [task.ONTOLOGY_TYPE]: Task.linkHandler,
+  [task.ONTOLOGY_TYPE]: Task.handleLink,
 };
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Task.Toolbar];

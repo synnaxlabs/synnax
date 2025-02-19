@@ -10,7 +10,7 @@
 import { type Link } from "@/link";
 import { Table } from "@/table";
 
-export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const table = await client.workspaces.table.retrieve(key);
   placeLayout(Table.create({ ...table.data, ...table }));
 };

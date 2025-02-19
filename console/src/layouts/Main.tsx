@@ -26,6 +26,7 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
+import { ClusterServices } from "@/cluster/services";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
@@ -50,14 +51,14 @@ const NOTIFICATION_ADAPTERS = [
 ];
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [channel.ONTOLOGY_TYPE]: ChannelServices.linkHandler,
-  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.linkHandler,
-  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
-  [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
-  [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
-  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
+  [channel.ONTOLOGY_TYPE]: ChannelServices.handleLink,
+  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.handleLink,
+  [log.ONTOLOGY_TYPE]: LogServices.handleLink,
+  [ranger.ONTOLOGY_TYPE]: RangeServices.handleLink,
+  [schematic.ONTOLOGY_TYPE]: SchematicServices.handleLink,
+  [table.ONTOLOGY_TYPE]: TableServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
+  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.handleLink,
 };
 
 const SideEffect = (): null => {
@@ -70,7 +71,7 @@ const SideEffect = (): null => {
   Hardware.Device.useListenForChanges();
   Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
-  Link.useDeep(LINK_HANDLERS);
+  Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   Layout.useTriggers();
   Permissions.useFetchPermissions();
   Layout.useDropOutside();

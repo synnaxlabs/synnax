@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Link } from "@/link";
-import { Schematic } from "@/schematic";
+import { Synnax } from "@synnaxlabs/client";
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const schematic = await client.workspaces.schematic.retrieve(key);
-  placeLayout(Schematic.create({ ...schematic.data, ...schematic, editable: false }));
+import { Cluster } from "@/cluster";
+import { type Link } from "@/link";
+
+export const handleLink: Link.ClusterHandler = async ({ store, key }) => {
+  const cluster = Cluster.select(store.getState(), key);
+  if (cluster == null) throw new Error(`Cluster with key ${key} not found`);
+  store.dispatch(Cluster.setActive(key));
+  return new Synnax(cluster);
 };
