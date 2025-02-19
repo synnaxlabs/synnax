@@ -17,7 +17,7 @@
 #include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
-
+#include "driver/errors/errors.h"
 
 using json = nlohmann::json;
 
@@ -154,7 +154,7 @@ void ni::AnalogReadSource::acquire_data() {
                     data_packet.analog_data.data(),
                     data_packet.analog_data.size(),
                     &data_packet.samples_read_per_channel,
-                    NULL
+                    nullptr
                 ), "acquire_data.ReadAnalogF64"
             )) {
             this->log_error(

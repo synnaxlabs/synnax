@@ -16,10 +16,10 @@
 
 
 const synnax::Config test_client_config = {
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
+        .host = "localhost",
+        .port = 9090,
+        .username = "synnax",
+        .password = "seldon"
 };
 
 /// @brief instantiates a new client for testing purposes. The cluster

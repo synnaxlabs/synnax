@@ -11,22 +11,32 @@
 #include <chrono>
 #include <cstdio>
 #include <cassert>
+#include <string>
+#include <cstdint>
+#include <cmath>
 
 #include "x/cpp/telem/telem.h"
 #include "driver/ni/reader.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+#include "driver/ni/ni.h"  // For DAQmx constants
+#include "driver/errors/errors.h"  // For driver::TEMPORARY_HARDWARE_ERROR
 
 using json = nlohmann::json;
 
-static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+namespace ni {
+namespace {  // Anonymous namespace for static functions
+
+std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
     const auto port = std::to_string(p.required<std::uint64_t>("port"));
     const auto line = std::to_string(p.required<std::uint64_t>("line"));
     return dev + "/port" + port + "/line" + line;
 }
 
-void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
+} // namespace
+
+void DigitalReadSource::parse_channels(config::Parser &parser) {
     const auto dev_name = this->reader_config.device_name;
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
@@ -119,7 +129,7 @@ void ni::DigitalReadSource::acquire_data() {
                     data_packet.digital_data.size(),
                     &data_packet.samples_read_per_channel,
                     &numBytesPerSamp,
-                    NULL
+                    nullptr
                 ), "acquire_data.ReadDigitalLines"
             )) {
             this->log_error(
@@ -198,3 +208,5 @@ int ni::DigitalReadSource::validate_channels() {
     }
     return 0;
 }
+
+} // namespace ni

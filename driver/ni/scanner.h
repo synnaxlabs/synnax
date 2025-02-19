@@ -11,17 +11,10 @@
 
 #include <string>
 #include <vector>
-#include <map>
-#include <queue>
-#include <utility>
-#include <memory>
-#include <atomic>
 #include <thread>
 #include <set>
 #include <condition_variable>
 
-#include "nidaqmx/nidaqmx_api.h"
-#include "nidaqmx/nidaqmx.h"
 #include "nisyscfg/nisyscfg.h"
 #include "nisyscfg/nisyscfg_api.h"
 
@@ -29,16 +22,8 @@
 
 #include "client/cpp/synnax.h"
 
-#include "driver/ni/channels.h"
-#include "driver/ni/error.h"
-#include "driver/queue/ts_queue.h"
-#include "driver/pipeline/acquisition.h"
-#include "driver/pipeline/control.h"
-#include "driver/pipeline/middleware.h"
 #include "driver/task/task.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/config/config.h"
-#include "driver/errors/errors.h"
 #include "x/cpp/loop/loop.h"
 
 namespace ni {

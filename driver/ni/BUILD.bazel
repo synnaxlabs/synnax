@@ -36,6 +36,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/config",
         "//x/cpp/loop",
+        "//x/cpp/xerrors",
         "@nlohmann_json//:json",
     ],
 )

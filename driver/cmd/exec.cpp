@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iostream>
+#include <string>
 #include "driver/cmd/cmd.h"
+#include "glog/logging.h"
 
+namespace{
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
@@ -26,8 +30,8 @@ void print_usage() {
 }
 
 int cmd::exec(int argc, char *argv[]) {
-    FLAGS_logtostderr = 1;
-    FLAGS_colorlogtostderr = 1;
+    FLAGS_logtostderr = true;
+    FLAGS_colorlogtostderr = true;
     google::InitGoogleLogging(argv[0]);
 
     if (argc < 2) {
@@ -62,3 +66,4 @@ int cmd::exec(int argc, char *argv[]) {
 }
 
 
+}

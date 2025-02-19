@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/ni/ni.h"
-#include "driver/ni/reader.h"
-#include "driver/ni/scale.h"
-#include "driver/ni/util.h"
 #include <map>
 #include <regex>
-
+#include "driver/ni/reader.h"
+#include "driver/ni/util.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //

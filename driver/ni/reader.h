@@ -19,7 +19,6 @@
 
 
 #include "nidaqmx/nidaqmx_api.h"
-#include "driver/ni/ni.h"
 #include "driver/ni/channels.h"
 #include "driver/queue/ts_queue.h"
 #include "driver/pipeline/acquisition.h"

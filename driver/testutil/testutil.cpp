@@ -9,6 +9,8 @@
 
 /// std
 #include <random>
+#include <string>
+#include <iostream>
 
 //// internal
 #include "driver/testutil/testutil.h"
@@ -21,16 +23,16 @@ synnax::Synnax new_test_client() {
 std::mt19937 random_generator(const std::string &suite_name) {
     std::random_device rd;
     auto rand_seed = rd();
-    std::cout << "Random seed for " << suite_name << " - " << rand_seed << std::endl;
+    std::cout << "Random seed for " << suite_name << " - " << rand_seed << "\n";
     std::mt19937 mt(rand_seed);
-    std::uniform_real_distribution<double> dist(0, 1);
+    const std::uniform_real_distribution<double> dist(0, 1);
     return mt;
 }
 
 
 json add_DI_channel_JSON(
     json &config,
-    std::string name,
+    const std::string &name,
     int key,
     int port,
     int line
@@ -54,13 +56,13 @@ json add_DI_channel_JSON(
 
 json add_AI_channel_JSON(
     json &config,
-    std::string name,
+    const std::string &name,
     int key,
     int port,
     float min_val,
     float max_val,
-    std::string terminal_config,
-    json scale_config
+    const std::string &terminal_config,
+    json &&scale_config
 ) {
     // first construct the json object for the channel
     json channel;
@@ -89,7 +91,7 @@ json add_AI_channel_JSON(
 
 json add_DO_channel_JSON(
     json &config,
-    std::string name,
+    const std::string &name,
     int drive_cmd_key,
     int state_key,
     int port,
