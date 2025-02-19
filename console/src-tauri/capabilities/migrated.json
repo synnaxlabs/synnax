@@ -74,20 +74,39 @@
     "fs:default",
     "process:allow-restart",
     "process:allow-exit",
+    "shell:allow-execute",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "cmd": "$RESOURCE/binaries/lua-language-server/bin/lua-language-server",
+          "name": "lua-language-server",
+          "args": true
+        },
+        {
+          "cmd": "ls",
+          "name": "ls",
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-stdin-write",
+      "allow": [
+        {
+          "cmd": "$RESOURCE/binaries/lua-language-server/bin/lua-language-server",
+          "name": "lua-language-server",
+          "args": true
+        }
+      ]
+    },
     {
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "args": [
-            "start",
-            "-i",
-            "-l",
-            "localhost:9090",
-            "-d",
-            { "validator": "\\S+" }
-          ],
-          "cmd": "",
-          "name": "bin/sy"
+          "cmd": "$RESOURCE/binaries/lua-language-server/bin/lua-language-server",
+          "name": "lua-language-server",
+          "args": true
         }
       ]
     },

@@ -8,89 +8,143 @@
 // included in the file licenses/APL.txt.
 
 import "@/code/Editor.css";
+import "@codingame/monaco-vscode-lua-default-extension";
+import "@codingame/monaco-vscode-python-default-extension";
+import "@codingame/monaco-vscode-theme-defaults-default-extension";
+import "vscode/localExtensionHost";
 
-import { Align, type Input, Theming } from "@synnaxlabs/pluto";
+import { initialize } from "@codingame/monaco-vscode-api";
+import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
+import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
+import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-override";
+import { Align, type Input, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { useEffect, useRef } from "react";
+import { MonacoLanguageClient } from "monaco-languageclient";
+import { useRef } from "react";
+import {
+  CloseAction,
+  ErrorAction,
+  type MessageTransports,
+} from "vscode-languageclient/browser.js";
+import {
+  toSocket,
+  WebSocketMessageReader,
+  WebSocketMessageWriter,
+} from "vscode-ws-jsonrpc";
 
 import { CSS } from "@/css";
+
+const loggingWebsocketWrapper = (inSocket: IWebSocket): IWebSocket => ({
+  ...inSocket,
+  send: (message) => {
+    console.log("Sending message", message);
+    inSocket.send(message);
+  },
+  onMessage: (listener) => {
+    inSocket.onMessage((message) => {
+      console.log("Message received", message);
+      listener(message);
+    });
+  },
+});
+export const initWebSocketAndStartClient = async (url: string): Promise<WebSocket> => {
+  const webSocket = new WebSocket(url);
+  webSocket.onopen = () => {
+    // creating messageTransport
+    const socket = loggingWebsocketWrapper(toSocket(webSocket));
+    const reader = new WebSocketMessageReader(socket);
+    const writer = new WebSocketMessageWriter(socket);
+    // creating language client
+    const languageClient = createLanguageClient({
+      reader,
+      writer,
+    });
+    languageClient
+      .start()
+      .then(() => {
+        console.log("Language client started");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+    reader.onClose(() => languageClient.stop());
+  };
+  return webSocket;
+};
+const createLanguageClient = (
+  messageTransports: MessageTransports,
+): MonacoLanguageClient =>
+  new MonacoLanguageClient({
+    name: "Sample Language Client",
+    clientOptions: {
+      // use a language id as a document selector
+      documentSelector: ["lua"],
+      // disable the default error handler
+      errorHandler: {
+        error: () => ({ action: ErrorAction.Continue }),
+        closed: () => ({ action: CloseAction.DoNotRestart }),
+      },
+    },
+    // create a language client connection from the JSON RPC connection on demand
+    messageTransports,
+  });
 
 export interface EditorProps
   extends Input.Control<string>,
     Omit<Align.SpaceProps, "value" | "onChange"> {}
 
 export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => {
-  const editorRef = useRef<HTMLDivElement | null>(null); // A ref to store the editor DOM element
-  const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // A ref to store the Monaco editor instance
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const theme = Theming.use();
 
-  useEffect(() => {
-    if (editorRef.current === null) return;
-    self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
+  useAsyncEffect(async () => {
+    if (!editorRef.current) return;
 
-    const isDark = theme.key === "synnaxDark";
-
-    monaco.editor.defineTheme("vs-dark-custom", {
-      base: isDark ? "vs-dark" : "vs",
-      inherit: true,
-      rules: [
-        { foreground: "#cc255f", token: "keyword" },
-        {
-          token: "delimiter.bracket",
-          foreground: theme.colors.gray.l9.hex,
-          background: theme.colors.gray.l9.hex,
-        },
-        {
-          token: "delimiter.parenthesis",
-          foreground: "#cc255f",
-          background: "#cc255f",
-        },
-        {
-          token: "number",
-          foreground: theme.colors.secondary.m1.hex,
-          background: theme.colors.secondary.m1.hex,
-        },
-      ],
-      colors: {
-        "editor.background": theme.colors.gray.l1.hex,
-        "editor.foreground": theme.colors.gray.l9.hex,
-        "editor.selectionBackground": theme.colors.gray.l4.hex,
-        "editor.lineHighlightBackground": theme.colors.gray.l3.hex,
-        "editorCursor.foreground": theme.colors.primary.z.hex,
-        "editorWhitespace.foreground": theme.colors.gray.l2.hex,
-        "editorSuggestWidget.background": theme.colors.gray.l2.hex,
-        "editorSuggestWidget.foreground": theme.colors.gray.l9.hex,
-        "editorSuggestWidget.selectedBackground": theme.colors.gray.l3.hex,
-        "editorSuggestWidget.selectedForeground": theme.colors.gray.l9.hex,
-        "editorSuggestWidget.highlightForeground": theme.colors.primary.z.hex,
-        "editorSuggestWidget.border": theme.colors.gray.l4.hex,
+    // Configure Monaco web workers.
+    const workerLoaders: Partial<Record<string, () => Worker>> = {
+      TextEditorWorker: () =>
+        new Worker(
+          new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url),
+          { type: "module" },
+        ),
+      TextMateWorker: () =>
+        new Worker(
+          new URL(
+            "@codingame/monaco-vscode-textmate-service-override/worker",
+            import.meta.url,
+          ),
+          { type: "module" },
+        ),
+    };
+    self.MonacoEnvironment = {
+      getWorker: (_moduleId, label) => {
+        const workerFactory = workerLoaders[label];
+        if (workerFactory != null) return workerFactory();
+        throw new Error(`Worker ${label} not found`);
       },
+    };
+
+    // Initialize Monaco services.
+    await initialize({
+      ...getTextMateServiceOverride(),
+      ...getThemeServiceOverride(),
+      ...getLanguagesServiceOverride(),
     });
+
+    // Create the Monaco editor instance.
     monacoRef.current = monaco.editor.create(editorRef.current, {
       value,
       language: "lua",
-      theme: "vs-dark-custom",
+      theme: "vs-dark",
       automaticLayout: true,
-      minimap: { enabled: false },
-      bracketPairColorization: { enabled: false },
-      lineNumbersMinChars: 3,
-      folding: false,
-      links: false,
-      contextmenu: false,
-      quickSuggestions: false,
-      renderControlCharacters: false,
-      renderWhitespace: "none",
-      scrollBeyondLastLine: false,
-      wordWrap: "off",
-      renderLineHighlight: "none",
-      formatOnPaste: false,
-      formatOnType: false,
-      suggestOnTriggerCharacters: false,
     });
+
+    initWebSocketAndStartClient("ws://localhost:8080");
+
+    // Update external state when the model changes.
     const dispose = monacoRef.current.onDidChangeModelContent(() => {
-      if (monacoRef.current === null) return;
-      onChange(monacoRef.current.getValue());
+      if (monacoRef.current) onChange(monacoRef.current.getValue());
     });
 
     return () => {

@@ -11,6 +11,7 @@ import react from "@vitejs/plugin-react";
 import * as path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
 
 const isDev = process.env.TAURI_ENV_DEBUG === "true";
 
@@ -33,6 +34,11 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths()],
+  optimizeDeps: {
+    esbuildOptions: {
+      plugins: [importMetaUrlPlugin],
+    },
+  },
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
     minify: !isDev,

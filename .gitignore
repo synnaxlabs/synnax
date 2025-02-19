@@ -90,6 +90,7 @@ synnax/pkg/service/hardware/embedded/assets/**
 
 **/bin/**
 !**/bin/.gitkeep
+**/binaries/**
 
 # |||| DEPENDENCIES ||||
 

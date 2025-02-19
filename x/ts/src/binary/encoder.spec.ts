@@ -172,3 +172,71 @@ describe("JSON", () => {
     });
   });
 });
+
+describe("JSON-RPC Stream Decoder", () => {
+  it("should decode a single message", () => {
+    const messages: binary.JSONRPCMessage[] = [];
+    const decoder = binary.decodeJSONRPCStream((msg) => messages.push(msg));
+
+    const input = `Content-Length: 138
+
+{"jsonrpc":"2.0","method":"$/status/report","params":{"text":"😺Lua","tooltip":"Workspace   : \\nCached files: 0/0\\nMemory usage: 1M\\n"}}`;
+
+    decoder(new TextEncoder().encode(input));
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toEqual({
+      jsonrpc: "2.0",
+      method: "$/status/report",
+      params: {
+        text: "😺Lua",
+        tooltip: "Workspace   : \nCached files: 0/0\nMemory usage: 1M\n",
+      },
+    });
+  });
+
+  it("should handle multiple messages in a single chunk", () => {
+    const messages: binary.JSONRPCMessage[] = [];
+    const decoder = binary.decodeJSONRPCStream((msg) => messages.push(msg));
+
+    const input = `Content-Length: 42
+
+{"jsonrpc":"2.0","method":"$/status/show"}Content-Length: 82
+
+{"id":5,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}`;
+
+    decoder(new TextEncoder().encode(input));
+
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toEqual({
+      jsonrpc: "2.0",
+      method: "$/status/show",
+    });
+    expect(messages[1]).toEqual({
+      id: 5,
+      jsonrpc: "2.0",
+      method: "workspace/semanticTokens/refresh",
+      params: null,
+    });
+  });
+
+  it("should handle messages split across multiple chunks", () => {
+    const messages: binary.JSONRPCMessage[] = [];
+    const decoder = binary.decodeJSONRPCStream((msg) => messages.push(msg));
+
+    const chunk1 = `Content-Length: 42
+
+{"jsonrpc":"2.0",`;
+
+    const chunk2 = `"method":"$/status/show"}`;
+
+    decoder(new TextEncoder().encode(chunk1));
+    decoder(new TextEncoder().encode(chunk2));
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toEqual({
+      jsonrpc: "2.0",
+      method: "$/status/show",
+    });
+  });
+});
