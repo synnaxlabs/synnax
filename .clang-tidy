@@ -21,7 +21,12 @@ Checks: '-*,
         -hicpp-special-member-functions,
         -cppcoreguidelines-special-member-functions,
         -cppcoreguidelines-owning-memory,
-        -hicpp-braces-around-statements'
+        -hicpp-braces-around-statements,
+        -misc-include-cleaner,
+        -misc-use-internal-linkage,
+        -misc-non-private-member-variables-in-classes,
+        -misc-use-anonymous-namespace,
+        -misc-non-private-member-variables-in-classes'
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(?!.*(/driver/ni/nidaqmx/|/driver/ni/nisyscfg/)).*$'
 CheckOptions:
