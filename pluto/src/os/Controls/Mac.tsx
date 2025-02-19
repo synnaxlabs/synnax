@@ -83,7 +83,7 @@ export const MacOS = ({
   onMaximize,
   onFullscreen,
   onClose,
-  ...props
+  ...rest
 }: InternalControlsProps): ReactElement => (
   <Align.Space
     size={1.5}
@@ -93,7 +93,7 @@ export const MacOS = ({
       !focused && CSS.BM("macos-controls", "blurred"),
       className,
     )}
-    {...props}
+    {...rest}
   >
     <TrafficLight
       onClick={onClose}
@@ -125,13 +125,13 @@ const TrafficLight = ({
   className,
   disabled,
   color: _,
-  ...props
+  ...rest
 }: TrafficLightProps): ReactElement => (
   <button
     className={CSS(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
     disabled={disabled}
     size={"" as ComponentSize}
-    {...props}
+    {...rest}
   />
 );

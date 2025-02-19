@@ -182,7 +182,7 @@ export const Tabs = ({
   contextMenu,
   size = "medium",
   direction: dir = "y",
-  ...props
+  ...rest
 }: TabsProps): ReactElement => (
   <Align.Space
     id={id}
@@ -191,7 +191,7 @@ export const Tabs = ({
     onDragOver={onDragOver}
     onDrop={onDrop}
     direction={dir}
-    {...props}
+    {...rest}
   >
     <Provider
       value={{

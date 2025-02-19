@@ -98,7 +98,7 @@ export const Dialog = ({
   open,
   toggle,
   zIndex = 5,
-  ...props
+  ...rest
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
   const visibleRef = useSyncedRef(visible);
@@ -214,7 +214,7 @@ export const Dialog = ({
   return (
     <CoreDialog.Provider value={ctxValue}>
       <C
-        {...props}
+        {...rest}
         ref={combinedParentRef}
         borderShade={4}
         className={CSS(
@@ -228,7 +228,7 @@ export const Dialog = ({
         direction="y"
         reverse={dialogLoc.y === "top"}
         style={{
-          ...props.style,
+          ...rest.style,
           // @ts-expect-error - css variable
           [Z_INDEX_VARIABLE]: zIndex,
         }}

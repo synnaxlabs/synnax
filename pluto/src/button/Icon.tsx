@@ -52,7 +52,7 @@ export const Icon = Tooltip.wrap(
     loading = false,
     onClick,
     color: propColor,
-    ...props
+    ...rest
   }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
@@ -77,7 +77,7 @@ export const Icon = Tooltip.wrap(
           CSS.disabled(isDisabled),
         )}
         onClick={handleClick}
-        {...props}
+        {...rest}
       >
         {typeof children === "string"
           ? children

@@ -1,9 +1,9 @@
 ---
 import { Icon } from "@synnaxlabs/media";
-const { preview, variant, ...props } = Astro.props;
+const { preview, variant, ...rest } = Astro.props;
 ---
 
-<div class=`diagram ${preview ? 'preview' : ''} ${variant}` {...props}>
+<div class=`diagram ${preview ? 'preview' : ''} ${variant}` {...rest}>
     <div class="internal"></div>
     <slot />
 </div>

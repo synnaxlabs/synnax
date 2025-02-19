@@ -60,7 +60,7 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    const { onClick, key, ...props } = children;
+    const { onClick, key, ...rest } = children;
     content = (
       <Button.Icon
         key={key ?? index}
@@ -70,7 +70,7 @@ const Action = ({ index, level, children, divided }: ActionProps): ReactElement 
           onClick?.(e);
         }}
         size={Text.LevelComponentSizes[level]}
-        {...props}
+        {...rest}
       />
     );
   }

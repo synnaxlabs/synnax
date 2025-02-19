@@ -216,7 +216,6 @@ const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
 const Core = ({
   aetherKey,
-  children,
   onNodesChange,
   onEdgesChange,
   nodes,
@@ -229,7 +228,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
-  ...props
+  ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
   const [{ path }, , setState] = Aether.use({
@@ -470,13 +469,11 @@ const Core = ({
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
             deleteKeyCode={DELETE_KEY_CODES}
-            {...props}
-            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...props.style }}
+            {...rest}
+            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
             nodesDraggable={editable && !adjustable.held}
-          >
-            {children}
-          </ReactFlow>
+          />
         )}
       </Aether.Composite>
     </Context>
@@ -490,15 +487,13 @@ export const Background = (): ReactElement | null => {
 
 export interface ControlsProps extends Align.PackProps {}
 
-export const Controls = ({ children, ...props }: ControlsProps): ReactElement => (
+export const Controls = (props: ControlsProps): ReactElement => (
   <Align.Pack
     direction="y"
     borderShade={4}
     className={CSS.BE("diagram", "controls")}
     {...props}
-  >
-    {children}
-  </Align.Pack>
+  />
 );
 
 export interface ToggleEditControlProps
@@ -506,7 +501,7 @@ export interface ToggleEditControlProps
 
 export const ToggleEditControl = ({
   onClick,
-  ...props
+  ...rest
 }: ToggleEditControlProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
   return (
@@ -523,7 +518,7 @@ export const ToggleEditControl = ({
           <Text.Text level="small">Enable edit mode</Text.Text>
         )
       }
-      {...props}
+      {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
     </Button.ToggleIcon>
@@ -535,7 +530,7 @@ export interface FitViewControlProps
 
 export const FitViewControl = ({
   onClick,
-  ...props
+  ...rest
 }: FitViewControlProps): ReactElement => {
   const { fitView } = useReactFlow();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
@@ -552,7 +547,7 @@ export const FitViewControl = ({
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
       variant="outlined"
-      {...props}
+      {...rest}
     >
       <Icon.Expand />
     </Button.ToggleIcon>

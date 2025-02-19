@@ -20,7 +20,7 @@ export const Line = ({
   aetherKey,
   color,
   label = "",
-  ...props
+  ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
@@ -28,5 +28,5 @@ export const Line = ({
     setLine({ key: cKey, color, label });
     return () => removeLine(cKey);
   }, [label, color]);
-  return <Core.Line aetherKey={cKey} color={color} label={label} {...props} />;
+  return <Core.Line aetherKey={cKey} color={color} label={label} {...rest} />;
 };

@@ -98,7 +98,7 @@ export const Time = ({
   showDragHandle = true,
   className,
   children,
-  ...props
+  ...rest
 }: TimeProps) => {
   const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
   return (
@@ -109,7 +109,7 @@ export const Time = ({
       type="time"
       step="1"
       onChange={handleChange}
-      {...props}
+      {...rest}
     >
       {showDragHandle && (
         <DragButton

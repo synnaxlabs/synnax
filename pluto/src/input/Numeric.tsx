@@ -64,7 +64,7 @@ export const Numeric = ({
   disabled,
   onBlur,
   units,
-  ...props
+  ...rest
 }: NumericProps): ReactElement => {
   // We need to keep the actual value as a valid number, but we need to let the user
   // input an invalid value that may eventually be valid, so we need to keep the
@@ -149,7 +149,7 @@ export const Numeric = ({
         onBlur?.();
       }}
       onBlur={handleBlur}
-      {...props}
+      {...rest}
     >
       {showDragHandle && (
         <DragButton

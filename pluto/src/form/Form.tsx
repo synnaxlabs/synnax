@@ -747,6 +747,9 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 };
 
-export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => (
-  <Context value={props}>{props.children}</Context>
+export const Form = ({
+  children,
+  ...rest
+}: PropsWithChildren<ContextValue>): ReactElement => (
+  <Context value={rest}>{children}</Context>
 );

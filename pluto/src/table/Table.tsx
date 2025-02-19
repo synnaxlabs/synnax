@@ -37,7 +37,7 @@ export const Table = ({
   children,
   className,
   visible,
-  ...props
+  ...rest
 }: TableProps): ReactElement => {
   const [{ path }, , setState] = Aether.use({
     type: table.Table.TYPE,
@@ -63,7 +63,7 @@ export const Table = ({
           left: 6,
         }}
       />
-      <table className={CSS(CSS.B("table"), className)} {...props}>
+      <table className={CSS(CSS.B("table"), className)} {...rest}>
         <tbody>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </tbody>
@@ -89,9 +89,9 @@ export const Row = ({
   onResize,
   onSelect,
   position,
-  ...props
+  ...rest
 }: RowProps): ReactElement => (
-  <tr className={CSS(CSS.BE("table", "row"), className)} {...props}>
+  <tr className={CSS(CSS.BE("table", "row"), className)} {...rest}>
     {onResize != null && (
       <Indicator
         onSelect={onSelect}
@@ -115,11 +115,11 @@ export const Cell = ({
   children,
   className,
   selected = false,
-  ...props
+  ...rest
 }: CellProps): ReactElement => (
   <td
     ref={ref}
-    {...props}
+    {...rest}
     className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
   >
     {children}

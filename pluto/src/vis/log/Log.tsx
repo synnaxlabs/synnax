@@ -48,7 +48,7 @@ export const Log = ({
   ),
   color,
   telem,
-  ...props
+  ...rest
 }: LogProps): ReactElement | null => {
   const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
   const [, { scrolling, empty }, setState] = Aether.use({
@@ -82,7 +82,7 @@ export const Log = ({
           scrolling: s.scrolling ? s.scrolling : e.deltaY < 0,
         }));
       }}
-      {...props}
+      {...rest}
     >
       {empty ? (
         emptyContent

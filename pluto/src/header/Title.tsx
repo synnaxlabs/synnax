@@ -27,7 +27,7 @@ export interface TitleProps extends Omit<Text.WithIconProps, "divided" | "level"
 export const Title = ({
   className,
   level: propsLevel,
-  ...props
+  ...rest
 }: TitleProps): ReactElement => {
   const { level, divided } = useContext();
   return (
@@ -36,7 +36,7 @@ export const Title = ({
       level={propsLevel ?? level}
       divided={divided}
       size={1.5}
-      {...props}
+      {...rest}
     />
   );
 };

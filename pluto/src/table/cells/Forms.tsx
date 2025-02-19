@@ -54,11 +54,11 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 padHelpText={false}
                 path="color"
               >
-                {({ value, onChange, variant: _, ...props }) => (
+                {({ value, onChange, variant: _, ...rest }) => (
                   <Color.Swatch
                     value={value ?? Color.ZERO.setAlpha(1).rgba255}
                     onChange={(v) => onChange(v.rgba255)}
-                    {...props}
+                    {...rest}
                     bordered
                   />
                 )}

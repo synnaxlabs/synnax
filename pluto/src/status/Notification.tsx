@@ -39,14 +39,14 @@ export const Notification = ({
   actions,
   className,
   children,
-  ...props
+  ...rest
 }: NotificationProps): ReactElement => (
   <Align.Space
     className={CSS(CSS.B("notification"), className)}
     direction="y"
     key={time.toString()}
     empty
-    {...props}
+    {...rest}
   >
     <Align.Space direction="x" justify="spaceBetween" grow style={{ width: "100%" }}>
       <Align.Space direction="x" align="center" size="small">
