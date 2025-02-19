@@ -23,4 +23,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [TYPE]: Sequence,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];
+export const SELECTABLES = [SELECTABLE];

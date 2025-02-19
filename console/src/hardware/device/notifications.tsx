@@ -43,4 +43,4 @@ const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];
+export const NOTIFICATION_ADAPTERS = [notificationAdapter];

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { GET_STARTED_LAYOUT_TYPE } from "@/layout/slice";
 import { GetStarted } from "@/layouts/GetStarted";
 import { Main, MAIN_LAYOUT_TYPE } from "@/layouts/Main";
 import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/layouts/Mosaic";
@@ -20,6 +19,6 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [MAIN_LAYOUT_TYPE]: Main,
   [SELECTOR_LAYOUT_TYPE]: Selector,
   [MOSAIC_LAYOUT_TYPE]: Mosaic,
-  [GET_STARTED_LAYOUT_TYPE]: GetStarted,
+  [Layout.GET_STARTED_TYPE]: GetStarted,
   [Layout.MOSAIC_WINDOW_TYPE]: MosaicWindow,
 };

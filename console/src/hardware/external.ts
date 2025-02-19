@@ -11,29 +11,22 @@ import { task } from "@synnaxlabs/client";
 
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
-import { type Layout } from "@/layout";
 import { type Link } from "@/link";
-import { type Notifications } from "@/notifications";
-import { type Palette } from "@/palette";
 
 export * from "@/hardware/device";
 export * from "@/hardware/rack";
 export * from "@/hardware/task";
 
-export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
+export const COMMANDS = [...Device.COMMANDS, ...Task.COMMANDS];
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...Device.LAYOUTS,
-  ...Task.LAYOUTS,
-};
+export const LAYOUTS = { ...Device.LAYOUTS, ...Task.LAYOUTS };
 
 export const LINK_HANDLERS: Record<string, Link.Handler> = {
   [task.ONTOLOGY_TYPE]: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Task.Toolbar];
+export const NAV_DRAWER_ITEMS = [Task.Toolbar];
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] =
-  Device.NOTIFICATION_ADAPTERS;
+export const NOTIFICATION_ADAPTERS = Device.NOTIFICATION_ADAPTERS;
 
-export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
+export const SELECTABLES = Task.SELECTABLES;

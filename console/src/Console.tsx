@@ -47,7 +47,7 @@ import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
-const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
+const LAYOUT_RENDERERS = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
   ...Docs.LAYOUTS,
@@ -67,7 +67,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Workspace.LAYOUTS,
 };
 
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
+const CONTEXT_MENU_RENDERERS = {
   ...Schematic.CONTEXT_MENUS,
   ...LinePlot.CONTEXT_MENUS,
 };

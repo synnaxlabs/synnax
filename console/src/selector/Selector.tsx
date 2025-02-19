@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layout/Selector.css";
+import "@/selector/Selector.css";
 
 import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { type Renderer, type RendererProps } from "@/layout/slice";
-import { type PlacerArgs, usePlacer } from "@/layout/usePlacer";
+import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
 export interface SelectableCreateArgs {
@@ -25,16 +24,16 @@ export interface Selectable {
   key: string;
   title: string;
   icon: Icon.Element;
-  create: (props: SelectableCreateArgs) => Promise<PlacerArgs | null>;
+  create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
 }
 
-export interface SelectorProps extends RendererProps {
+export interface SelectorProps extends Layout.RendererProps {
   text: string;
   selectables: Selectable[];
 }
 
 export const Selector = ({ layoutKey, selectables, text, ...rest }: SelectorProps) => {
-  const place = usePlacer();
+  const place = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleException = Status.useExceptionHandler();
   return (
@@ -78,8 +77,11 @@ export const Selector = ({ layoutKey, selectables, text, ...rest }: SelectorProp
   );
 };
 
-export const createSelector = (selectables: Selectable[], text: string): Renderer => {
-  const C: Renderer = (props) => (
+export const createSelector = (
+  selectables: Selectable[],
+  text: string,
+): Layout.Renderer => {
+  const C: Layout.Renderer = (props) => (
     <Selector {...props} selectables={selectables} text={text} />
   );
   C.displayName = "LayoutSelector";

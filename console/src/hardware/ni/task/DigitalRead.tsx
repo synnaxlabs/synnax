@@ -30,7 +30,7 @@ import {
   type DigitalReadType,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,7 +39,7 @@ export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_READ_TYPE,
 };
 
-export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
+export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
   create: async ({ layoutKey }) => ({ ...DIGITAL_READ_LAYOUT, key: layoutKey }),
   icon: <Icon.Logo.NI />,
   key: DIGITAL_READ_TYPE,

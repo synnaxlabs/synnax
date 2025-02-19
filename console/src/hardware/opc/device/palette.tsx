@@ -19,4 +19,4 @@ const CONNECT_SERVER_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
 };
 
-export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];
+export const COMMANDS = [CONNECT_SERVER_COMMAND];

@@ -10,7 +10,8 @@
 import { useStore } from "react-redux";
 
 import { Hardware } from "@/hardware";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Vis } from "@/vis";
 
@@ -30,7 +31,7 @@ export const Selector: Layout.Renderer = (props) => {
     ...Hardware.SELECTABLES,
   ];
   return (
-    <Layout.Selector
+    <CoreSelector.Selector
       selectables={selectables}
       text="Select a Component Type"
       {...props}

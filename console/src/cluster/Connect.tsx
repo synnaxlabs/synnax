@@ -21,7 +21,8 @@ import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
@@ -121,7 +122,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Align.Space>
       </Form.Form>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connState != null ? (
             <Status.Text variant={statusVariants[connState.status]}>
@@ -151,7 +152,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             Done
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

@@ -38,6 +38,7 @@ import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { type Selector } from "@/selector";
 import {
   select,
   useSelectCell,
@@ -381,7 +382,7 @@ export const create =
     };
   };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,

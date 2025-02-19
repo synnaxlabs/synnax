@@ -13,7 +13,6 @@ import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
-import { type Palette } from "@/palette";
 
 export * from "@/hardware/task/layouts";
 export * from "@/hardware/task/link";
@@ -21,7 +20,7 @@ export * from "@/hardware/task/ontology";
 export * from "@/hardware/task/Selector";
 export * from "@/hardware/task/Toolbar";
 
-export const COMMANDS: Palette.Command[] = [
+export const COMMANDS = [
   ...LabJack.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,

@@ -33,6 +33,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -218,7 +219,7 @@ const CreateLayoutForm = ({
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
           <Button.Button
@@ -239,7 +240,7 @@ const CreateLayoutForm = ({
             Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

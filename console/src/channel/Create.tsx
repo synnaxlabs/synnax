@@ -24,7 +24,8 @@ import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
@@ -179,7 +180,7 @@ export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
@@ -197,7 +198,7 @@ export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

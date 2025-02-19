@@ -14,6 +14,7 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
@@ -77,7 +78,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
@@ -92,7 +93,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

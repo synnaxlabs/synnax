@@ -10,7 +10,6 @@
 import { Connect, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
 import { versionOutdatedAdapter } from "@/cluster/notification";
 import { type Layout } from "@/layout";
-import { type Notifications } from "@/notifications";
 
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
@@ -26,4 +25,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONNECT_LAYOUT_TYPE]: Connect,
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [versionOutdatedAdapter];
+export const NOTIFICATION_ADAPTERS = [versionOutdatedAdapter];

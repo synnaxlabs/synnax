@@ -36,7 +36,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [DIGITAL_WRITE_TYPE]: DigitalWrite,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [
+export const SELECTABLES = [
   ANALOG_READ_SELECTABLE,
   ANALOG_WRITE_SELECTABLE,
   DIGITAL_READ_SELECTABLE,

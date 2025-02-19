@@ -9,12 +9,68 @@
 
 import "@/layout/Modals.css";
 
-import { Nav } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { type CSSProperties } from "react";
 
-import { CSS } from "@/css";
-import { Modal } from "@/layout/Modal";
+import { BetaTag } from "@/layout/BetaTag";
+import { Content } from "@/layout/Content";
 import { useSelectModals } from "@/layout/selectors";
+import { type State, type WindowProps } from "@/layout/slice";
 import { useRemover } from "@/layout/useRemover";
+import { DefaultContextMenu } from "@/layout/Window";
+
+const layoutCSS = (window?: WindowProps): CSSProperties => ({
+  width: "100%",
+  height: "100%",
+  maxWidth: window?.size?.width,
+  maxHeight: window?.size?.height,
+  minWidth: window?.minSize?.width,
+  minHeight: window?.minSize?.height,
+});
+
+interface ModalProps {
+  state: State;
+  remove: (key: string) => void;
+  centered?: boolean;
+  root?: string;
+}
+
+const Modal = ({ state, remove, centered, root }: ModalProps) => {
+  const { key, name, window, icon } = state;
+  const menuProps = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+      <Core.Modal
+        key={key}
+        centered={centered}
+        visible
+        close={() => remove(key)}
+        style={layoutCSS(window)}
+        root={root}
+      >
+        {window?.navTop && (
+          <Nav.Bar location="top" size="6rem">
+            {(window?.showTitle ?? true) && (
+              <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+                <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
+                  {name}
+                </Breadcrumb.Breadcrumb>
+              </Nav.Bar.Start>
+            )}
+            <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+              {state.beta != null && <BetaTag />}
+              <Button.Icon onClick={() => remove(key)} size="small">
+                <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
+              </Button.Icon>
+            </Nav.Bar.End>
+          </Nav.Bar>
+        )}
+        <Content layoutKey={key} />
+      </Core.Modal>
+    </Menu.ContextMenu>
+  );
+};
 
 export const Modals = () => {
   const layouts = useSelectModals();
@@ -27,14 +83,3 @@ export const Modals = () => {
     </>
   );
 };
-
-export interface ModalBarProps extends Nav.BarProps {}
-
-export const BottomNavBar = ({ className, ...rest }: ModalBarProps) => (
-  <Nav.Bar
-    location="bottom"
-    size="8rem"
-    className={CSS(CSS.B("bottom-nav-bar"), className)}
-    {...rest}
-  />
-);

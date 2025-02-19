@@ -29,4 +29,4 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];
+export const SELECTABLES = [SELECTABLE];

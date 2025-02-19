@@ -11,9 +11,10 @@ import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Selector as CoreSelector } from "@/selector";
 
-export const SELECTABLES: Layout.Selectable[] = [
+export const SELECTABLES = [
   ...NI.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
@@ -29,4 +30,4 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   name: "New Task",
 };
 
-export const Selector = Layout.createSelector(SELECTABLES, "Select a Task Type");
+export const Selector = CoreSelector.createSelector(SELECTABLES, "Select a Task Type");

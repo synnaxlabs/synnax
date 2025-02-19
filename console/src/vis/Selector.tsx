@@ -9,14 +9,15 @@
 
 import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Table } from "@/table";
 
-const SELECTABLES: Layout.Selectable[] = [
+const SELECTABLES = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -32,7 +33,7 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   name: "New Visualization",
 };
 
-export const getSelectables = (storeState: RootState): Layout.Selectable[] => {
+export const getSelectables = (storeState: RootState) => {
   const canCreateSchematic = Schematic.selectHasPermission(storeState);
   return SELECTABLES.filter((s) =>
     s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
@@ -43,7 +44,7 @@ export const Selector: Layout.Renderer = (props) => {
   const store = useStore<RootState>();
   const selectables = getSelectables(store.getState());
   return (
-    <Layout.Selector
+    <CoreSelector.Selector
       selectables={selectables}
       text="Select a Visualization Type"
       {...props}

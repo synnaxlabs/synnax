@@ -24,8 +24,8 @@ import {
   type Type,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
-import { type Layout } from "@/layout";
 import { type Modals } from "@/modals";
+import { type Selector } from "@/selector";
 
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -47,7 +47,7 @@ export const createLayout = async ({
   return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,

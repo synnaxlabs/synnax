@@ -73,6 +73,7 @@ import {
   toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -439,7 +440,7 @@ export const Schematic: Layout.Renderer = ({
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,

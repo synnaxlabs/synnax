@@ -22,4 +22,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [WRITE_TYPE]: Write,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];
+export const SELECTABLES = [READ_SELECTABLE, WRITE_SELECTABLE];

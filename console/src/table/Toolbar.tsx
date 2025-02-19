@@ -29,7 +29,6 @@ import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { selectTheme } from "@/layout/selectors";
 import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
@@ -65,7 +64,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const store = useStore<RootState>();
   const handleVariantChange = (variant: TableCells.Variant, cellKey: string): void => {
     const storeState = store.getState();
-    const theme = selectTheme(storeState);
+    const theme = Layout.selectTheme(storeState);
     const cellState = selectCell(storeState, layoutKey, cellKey);
     if (variant === cellState.variant) return;
     if (theme == null) throw new Error("Theme is null");

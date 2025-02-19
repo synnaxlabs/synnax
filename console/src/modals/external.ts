@@ -11,6 +11,7 @@ import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
 
+export * from "@/modals/BottomNavBar";
 export {
   type PromptConfirm,
   type PromptConfirmLayoutArgs,

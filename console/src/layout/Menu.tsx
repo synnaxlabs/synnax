@@ -20,11 +20,11 @@ import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { useRemover } from "@/layout/useRemover";
 
-export interface FocusMenuItemProps {
+interface MenuItemProps {
   layoutKey: string;
 }
 
-export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement => {
+const FocusMenuItem = ({ layoutKey }: MenuItemProps) => {
   const dispatch = useDispatch();
   const windowKey = useSelectWindowKey() as string;
   return (
@@ -39,7 +39,7 @@ export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
   );
 };
 
-export const useMoveIntoMainWindow = () => {
+const useMoveIntoMainWindow = () => {
   const store = useStore();
   return (layoutKey: string) => {
     store.dispatch(
@@ -48,9 +48,7 @@ export const useMoveIntoMainWindow = () => {
   };
 };
 
-export const OpenInNewWindowMenuItem = ({
-  layoutKey,
-}: FocusMenuItemProps): ReactElement | null => {
+const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
   const openInNewWindow = useOpenInNewWindow();
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
@@ -66,9 +64,7 @@ export const OpenInNewWindowMenuItem = ({
   );
 };
 
-export const MoveToMainWindowMenuItem = ({
-  layoutKey,
-}: FocusMenuItemProps): ReactElement | null => {
+const MoveToMainWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
   const moveIntoMainWindow = useMoveIntoMainWindow();
   const windowKey = useSelectWindowKey();
   if (windowKey === MAIN_WINDOW) return null;
@@ -83,7 +79,7 @@ export const MoveToMainWindowMenuItem = ({
   );
 };
 
-export const CloseMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement => {
+const CloseMenuItem = ({ layoutKey }: MenuItemProps) => {
   const remove = useRemover();
   return (
     <Menu.Item
@@ -97,7 +93,7 @@ export const CloseMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
   );
 };
 
-export const RenameMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement => (
+const RenameMenuItem = ({ layoutKey }: MenuItemProps) => (
   <Menu.Item
     itemKey="rename"
     startIcon={<Icon.Rename />}
@@ -108,13 +104,14 @@ export const RenameMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement 
   </Menu.Item>
 );
 
+interface SplitMenuItemProps extends MenuItemProps {
+  children?: ReactElement;
+}
+
 const splitMenuItemFactory = (
   direction: direction.Direction,
-): FC<FocusMenuItemProps & { children?: ReactElement }> => {
-  const C = ({
-    layoutKey,
-    children,
-  }: FocusMenuItemProps & { children?: ReactElement }) => {
+): FC<SplitMenuItemProps> => {
+  const C = ({ layoutKey, children }: SplitMenuItemProps) => {
     const dispatch = useDispatch();
     const [windowKey, mosaic] = useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
@@ -138,14 +135,14 @@ const splitMenuItemFactory = (
   C.displayName = `Split${direction.toUpperCase()}MenuItem`;
   return C;
 };
-export const SplitXMenuItem = splitMenuItemFactory("x");
-export const SplitYMenuItem = splitMenuItemFactory("y");
+const SplitXMenuItem = splitMenuItemFactory("x");
+const SplitYMenuItem = splitMenuItemFactory("y");
 
-export interface MenuItems {
+export interface MenuItemsProps {
   layoutKey: string;
 }
 
-export const MenuItems = ({ layoutKey }: MenuItems): ReactElement => (
+export const MenuItems = ({ layoutKey }: MenuItemsProps) => (
   <>
     <RenameMenuItem layoutKey={layoutKey} />
     <CloseMenuItem layoutKey={layoutKey} />

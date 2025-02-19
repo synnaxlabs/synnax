@@ -16,7 +16,7 @@ export interface BaseArgs<V> {
   result?: V;
 }
 
-interface BaseProps<R, A extends BaseArgs<R>> {
+export interface BaseProps<R, A extends BaseArgs<R>> {
   value: A;
   onFinish: (value: R | null) => void;
 }

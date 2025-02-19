@@ -14,6 +14,7 @@ import { type ReactElement, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import {
   type ConsolePolicy,
   consolePolicyKeysZ,
@@ -162,13 +163,13 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar size="6rem">
+      <Modals.BottomNavBar size="6rem">
         <Nav.Bar.Start align="center" size="large">
           <Status.Text variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
           </Status.Text>
         </Nav.Bar.Start>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

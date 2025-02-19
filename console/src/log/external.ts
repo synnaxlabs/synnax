@@ -20,4 +20,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Log,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];
+export const SELECTABLES = [SELECTABLE];

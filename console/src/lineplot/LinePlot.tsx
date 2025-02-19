@@ -85,6 +85,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
+import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -519,7 +520,7 @@ export const LinePlot: Layout.Renderer = ({
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
   icon: <Icon.LinePlot />,

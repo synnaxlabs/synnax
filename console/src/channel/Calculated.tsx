@@ -32,7 +32,7 @@ import { Code } from "@/code";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
-import type { RendererProps } from "@/layout/slice";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export interface CalculatedLayoutArgs {
@@ -167,7 +167,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
   return <Internal onClose={onClose} initialValues={res.data} />;
 };
 
-interface InternalProps extends Pick<RendererProps, "onClose"> {
+interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
 
@@ -319,7 +319,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText action={initialValues.key !== 0 ? "Save" : "Create"} />
         <Nav.Bar.End align="center" size="large">
           {initialValues.key !== 0 && (
@@ -341,7 +341,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             </Button.Button>
           </Align.Space>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };
