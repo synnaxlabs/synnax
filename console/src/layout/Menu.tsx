@@ -15,10 +15,10 @@ import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { useRemover } from "@/layout/hooks";
 import { useSelectMosaic } from "@/layout/selectors";
 import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
+import { useRemover } from "@/layout/useRemover";
 
 export interface FocusMenuItemProps {
   layoutKey: string;

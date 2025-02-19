@@ -14,14 +14,14 @@ import {
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
-export const Controls = (props: ControlsProps): ReactElement | null => {
+export const Controls = (props: ControlsProps) => {
   const os = OS.use();
   const window = useSelectWindow();
   const dispatch = useDispatch();
@@ -32,33 +32,26 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   if (window.focus === false && os === "macOS")
     disabled.push("close", "minimize", "maximize");
   else if (maximizedDisabled) disabled.push("maximize");
-
-  const handleMinimize = (): void => {
-    dispatch(setWindowMinimized({ value: true }));
-  };
-
-  const handleMaximize = (): void => {
-    dispatch(setWindowMaximized({}));
-  };
-
-  const handleFullscreen = (): void => {
-    dispatch(setWindowFullscreen({}));
-  };
-
-  const handleClose = (): void => {
+  const handleClose = useCallback(() => {
     remove();
-  };
-
-  if (window.fullscreen === true) return null;
-
-  return (
+  }, [remove]);
+  const handleFullscreen = useCallback(() => {
+    dispatch(setWindowFullscreen({}));
+  }, [dispatch]);
+  const handleMaximize = useCallback(() => {
+    dispatch(setWindowMaximized({}));
+  }, [dispatch]);
+  const handleMinimize = useCallback(() => {
+    dispatch(setWindowMinimized({ value: true }));
+  }, [dispatch]);
+  return window.fullscreen === true ? null : (
     <OS.Controls
       disabled={disabled}
       focused={window.focus}
       onClose={handleClose}
-      onMinimize={handleMinimize}
-      onMaximize={handleMaximize}
       onFullscreen={handleFullscreen}
+      onMaximize={handleMaximize}
+      onMinimize={handleMinimize}
       {...props}
     />
   );

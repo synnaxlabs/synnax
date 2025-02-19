@@ -9,8 +9,8 @@
 
 import { useDispatch } from "react-redux";
 
-import { usePlacer } from "@/layout/hooks";
 import { createMosaicWindow, moveMosaicTab } from "@/layout/slice";
+import { usePlacer } from "@/layout/usePlacer";
 
 export const useOpenInNewWindow = () => {
   const dispatch = useDispatch();

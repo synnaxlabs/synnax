@@ -15,9 +15,9 @@ import { Window } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useId, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { usePlacer } from "@/layout/hooks";
 import { select } from "@/layout/selectors";
 import { createMosaicWindow, moveMosaicTab, type StoreState } from "@/layout/slice";
+import { usePlacer } from "@/layout/usePlacer";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
   const store = useStore<Drift.StoreState>();

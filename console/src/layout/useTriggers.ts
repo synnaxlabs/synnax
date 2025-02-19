@@ -11,10 +11,10 @@ import { selectWindowKey } from "@synnaxlabs/drift";
 import { Text, Triggers } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
-import { useRemover } from "@/layout/hooks";
 import { selectActiveMosaicTabKey, selectFocused } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
+import { useRemover } from "@/layout/useRemover";
 import { type RootState } from "@/store";
 
 export const useTriggers = () => {

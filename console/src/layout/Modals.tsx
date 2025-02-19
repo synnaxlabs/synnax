@@ -12,9 +12,9 @@ import "@/layout/Modals.css";
 import { Nav } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { useRemover } from "@/layout/hooks";
 import { Modal } from "@/layout/Modal";
 import { useSelectModals } from "@/layout/selectors";
+import { useRemover } from "@/layout/useRemover";
 
 export const Modals = () => {
   const layouts = useSelectModals();

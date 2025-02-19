@@ -12,8 +12,8 @@ import "@/layout/Selector.css";
 import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { type PlacerArgs, usePlacer } from "@/layout/hooks";
 import { type Renderer, type RendererProps } from "@/layout/slice";
+import { type PlacerArgs, usePlacer } from "@/layout/usePlacer";
 import { Modals } from "@/modals";
 
 export interface SelectableCreateArgs {

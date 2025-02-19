@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { memo, type ReactElement } from "react";
+import { memo } from "react";
 
 import { useOptionalRenderer } from "@/layout/context";
-import { useRemover } from "@/layout/hooks";
 import { useSelectFocused, useSelectType } from "@/layout/selectors";
+import { useRemover } from "@/layout/useRemover";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {
@@ -26,25 +26,23 @@ export interface ContentProps {
  * @param props.layoutKey - The key of the layout to render. The key must exist in the store,
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
-export const Content = memo(
-  ({ layoutKey, forceHidden }: ContentProps): ReactElement | null => {
-    const type = useSelectType(layoutKey) ?? "";
-    const handleClose = useRemover(layoutKey);
-    const Renderer = useOptionalRenderer(type);
-    const { focused } = useSelectFocused();
-    if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
-    const isFocused = focused === layoutKey;
-    let visible = focused == null || isFocused;
-    if (forceHidden) visible = false;
-    return (
-      <Renderer
-        key={layoutKey}
-        layoutKey={layoutKey}
-        onClose={handleClose}
-        visible={visible}
-        focused={isFocused}
-      />
-    );
-  },
-);
+export const Content = memo(({ layoutKey, forceHidden }: ContentProps) => {
+  const type = useSelectType(layoutKey) ?? "";
+  const handleClose = useRemover(layoutKey);
+  const Renderer = useOptionalRenderer(type);
+  const { focused } = useSelectFocused();
+  if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
+  const isFocused = focused === layoutKey;
+  let visible = focused == null || isFocused;
+  if (forceHidden) visible = false;
+  return (
+    <Renderer
+      key={layoutKey}
+      layoutKey={layoutKey}
+      onClose={handleClose}
+      visible={visible}
+      focused={isFocused}
+    />
+  );
+});
 Content.displayName = "LayoutContent";
