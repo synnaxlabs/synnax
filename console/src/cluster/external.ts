@@ -14,10 +14,12 @@ import { type Notifications } from "@/notifications";
 
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
+export * from "@/cluster/CopyLinkToolbarButton";
 export * from "@/cluster/Dropdown";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
+export * from "@/cluster/useCopyLinkToClipboard";
 export * from "@/cluster/useSyncClusterKey";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

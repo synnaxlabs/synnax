@@ -25,11 +25,11 @@ import { deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { selectTheme } from "@/layout/selectors";
-import { Link } from "@/link";
 import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
@@ -93,7 +93,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
         </Align.Space>
         <Align.Space direction="x" style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
-          <Link.CopyToolbarButton
+          <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}
           />

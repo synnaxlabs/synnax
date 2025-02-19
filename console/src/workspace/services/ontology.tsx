@@ -21,6 +21,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
@@ -251,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importPlot = LinePlotServices.useImport(selection.resources[0].id.key);
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
   const handleSelect = {
     delete: () => handleDelete(props),

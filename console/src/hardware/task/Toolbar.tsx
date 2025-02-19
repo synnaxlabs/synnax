@@ -29,6 +29,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
@@ -193,7 +194,7 @@ const Content = () => {
     },
   });
   const confirm = Modals.useConfirm();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -255,7 +256,7 @@ const Content = () => {
               rename: () => Text.edit(`text-${keys[0]}`),
               link: () =>
                 handleLink({
-                  name: tasks.find((t) => t.key === keys[0])?.name,
+                  name: tasks.find((t) => t.key === keys[0])?.name ?? "task",
                   ontologyID: task.ontologyID(keys[0]),
                 }),
               delete: () => handleDelete.mutate(keys),

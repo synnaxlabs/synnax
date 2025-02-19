@@ -10,27 +10,32 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { useCopyToClipboard } from "@/link/useCopyToClipboard";
+import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
-export interface CopyToolbarButtonProps extends Omit<Button.IconProps, "children"> {
+export interface CopyLinkToolbarButtonProps extends Omit<Button.IconProps, "children"> {
   name: string;
   ontologyID: ontology.IDPayload;
 }
 
-export const CopyToolbarButton = ({
+export const CopyLinkToolbarButton = ({
   name,
   ontologyID,
   ...rest
-}: CopyToolbarButtonProps) => {
-  const handleClick = useCopyToClipboard();
+}: CopyLinkToolbarButtonProps) => {
+  const copyLink = useCopyLinkToClipboard();
+  const handleClick = useCallback(
+    () => copyLink({ name, ontologyID }),
+    [copyLink, name, ontologyID],
+  );
   return (
     <Button.Icon
       tooltip="Copy link"
       sharp
       size="medium"
       style={{ height: "100%", width: "var(--pluto-height-medium)" }}
-      onClick={() => handleClick({ name, ontologyID })}
+      onClick={handleClick}
       {...rest}
     >
       <Icon.Link />

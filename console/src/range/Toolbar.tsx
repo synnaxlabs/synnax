@@ -32,6 +32,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
@@ -283,7 +284,7 @@ const List = (): ReactElement => {
     onError: (e) => handleException(e, "Failed to save range"),
   });
 
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
   const ContextMenu = ({
     keys: [key],

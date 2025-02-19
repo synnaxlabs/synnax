@@ -15,6 +15,7 @@ import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -226,7 +227,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     dispatch(setActive(null));
   };
   const groupFromSelection = Group.useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleAddChildRange = () => {
     placeLayout(createCreateLayout({ parent: resources[0].id.key }));
   };

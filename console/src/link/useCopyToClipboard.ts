@@ -8,46 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { Cluster } from "@/cluster";
+import { useCopyToClipboard as useCopy } from "@/hooks/useCopyToClipboard";
 import { PREFIX } from "@/link/types";
 
-export interface CopyToClipboardProps {
-  clusterKey?: string;
-  name?: string;
+export interface CopyToClipboardArgs {
+  clusterKey: string;
+  name: string;
   ontologyID?: ontology.IDPayload;
 }
 
-export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) => {
-  const activeClusterKey = Cluster.useSelectActiveKey();
-  const addStatus = Status.useAdder();
-  return ({ ontologyID, name, clusterKey }) => {
-    let url = PREFIX;
-    const key = clusterKey ?? activeClusterKey;
-    const linkMessage = name == null ? "" : `to ${name}`;
-    if (key == null) {
-      addStatus({
-        variant: "error",
-        message: `Failed to copy link ${linkMessage} to clipboard`,
-        description: "No active cluster found",
-      });
-      return;
-    }
-    url += key;
-    if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
-    navigator.clipboard.writeText(url).then(
-      () =>
-        addStatus({
-          variant: "success",
-          message: `Link ${linkMessage} copied to clipboard.`,
-        }),
-      () => {
-        addStatus({
-          variant: "error",
-          message: `Failed to copy link ${linkMessage} to clipboard.`,
-        });
-      },
-    );
-  };
+export const useCopyToClipboard = (): ((args: CopyToClipboardArgs) => void) => {
+  const copy = useCopy();
+  return useCallback(
+    ({ clusterKey, name, ontologyID }) => {
+      let url = `${PREFIX}${clusterKey}`;
+      if (ontologyID != null) url += `/${ontologyID.type}/${ontologyID.key}`;
+      return copy(url, `link to ${name}`);
+    },
+    [copy],
+  );
 };

@@ -13,10 +13,10 @@ import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
@@ -130,7 +130,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-            <Link.CopyToolbarButton
+            <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={schematic.ontologyID(state.key)}
             />

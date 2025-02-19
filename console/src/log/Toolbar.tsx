@@ -12,11 +12,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Export } from "@/export";
 import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
@@ -40,7 +40,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
         <Align.Space direction="x" style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-          <Link.CopyToolbarButton name={name} ontologyID={log.ontologyID(state.key)} />
+          <Cluster.CopyLinkToolbarButton
+            name={name}
+            ontologyID={log.ontologyID(state.key)}
+          />
         </Align.Space>
       </ToolbarHeader>
       <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">

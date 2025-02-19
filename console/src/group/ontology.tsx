@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
@@ -27,7 +28,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
   const createFromSelection = useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),

@@ -15,6 +15,7 @@ import { Align, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
@@ -27,7 +28,6 @@ import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
-import { Link } from "@/link";
 
 interface Tab {
   tabKey: ToolbarTab;
@@ -91,7 +91,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Align.Space direction="x" align="center" empty>
             <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
               <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-              <Link.CopyToolbarButton
+              <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={linePlot.ontologyID(state.key)}
               />

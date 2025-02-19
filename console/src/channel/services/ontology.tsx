@@ -22,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -223,7 +224,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),

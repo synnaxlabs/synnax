@@ -13,6 +13,7 @@ import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Export } from "@/export";
 import { Group } from "@/group";
@@ -57,7 +58,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { resources },
   } = props;
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = LinePlot.useExport();
   const group = Group.useCreateFromSelection();
   const onSelect = {
