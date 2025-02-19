@@ -7,4 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const NAV_SIZES = { side: "8rem", top: "6rem", bottom: "4.5rem" };
+import { Hardware } from "@/hardware";
+import { type Layout } from "@/layout";
+import { Ontology } from "@/ontology";
+import { Range } from "@/range";
+import { Vis } from "@/vis";
+
+export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+  ...Hardware.NAV_DRAWER_ITEMS,
+  Ontology.Toolbar,
+  Range.Toolbar,
+  Vis.Toolbar,
+];

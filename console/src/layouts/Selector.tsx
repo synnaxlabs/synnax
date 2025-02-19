@@ -20,7 +20,7 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
-  name: "New Layout",
+  name: "New Component",
 };
 
 export const Selector: Layout.Renderer = (props) => {

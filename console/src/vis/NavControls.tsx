@@ -8,26 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { Align } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { NavControls as LineNavControls } from "@/lineplot/NavControls";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { NavControls as SchematicNavControls } from "@/schematic/NavControls";
 import { Table } from "@/table";
 import { type LayoutType } from "@/vis/types";
 
 const REGISTRY: Record<LayoutType, FC> = {
-  [LinePlot.LAYOUT_TYPE]: LineNavControls,
+  [LinePlot.LAYOUT_TYPE]: LinePlot.NavControls,
   [Log.LAYOUT_TYPE]: () => null,
-  [Schematic.LAYOUT_TYPE]: SchematicNavControls,
+  [Schematic.LAYOUT_TYPE]: Schematic.NavControls,
   [Table.LAYOUT_TYPE]: () => null,
 };
 
-export const NavControls = (): ReactElement | null => {
+export const NavControls = () => {
   const layout = Layout.useSelectActiveMosaicLayout();
   if (layout == null) return null;
   const Controls = REGISTRY[layout.type as LayoutType];
