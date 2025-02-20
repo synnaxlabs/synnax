@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 import math
+import time
 
-from synnax.telem import TimeSpan, Rate, TimeStamp
+from synnax.telem import Rate, TimeSpan, TimeStamp
 
 RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 

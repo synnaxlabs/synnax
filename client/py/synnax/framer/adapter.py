@@ -18,7 +18,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.exceptions import ValidationError
-from synnax.framer.frame import Frame, CrudeFrame
+from synnax.framer.frame import CrudeFrame, Frame
 from synnax.telem.series import CrudeSeries, Series
 
 

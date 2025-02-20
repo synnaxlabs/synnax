@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from uuid import UUID
+
 from freighter import Payload
+
 from synnax.telem import TimeRange
 
 

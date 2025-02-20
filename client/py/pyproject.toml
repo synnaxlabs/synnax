@@ -1,77 +1,85 @@
-[tool.poetry]
+[project]
 name = "synnax"
 version = "0.39.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
-authors = ["emiliano bonilla <emilbon99@gmail.com>"]
-repository = "https://github.com/synnaxlabs/synnax"
-homepage = "https://synnaxlabs.com"
-packages = [{ include = "synnax/**/*.py" }]
+authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
+requires-python = ">=3.12,<4"
+dynamic = ["dependencies"]
+
+[project.scripts]
+sy = "synnax.cli.synnax:synnax"
+
+[project.urls]
+Homepage = "https://synnaxlabs.com"
+Repository = "https://github.com/synnaxlabs/synnax"
+
+
+[tool.poetry]
+packages = [{ include = "synnax" }]
+
+
+[tool.poetry.dependencies]
+alamos = { path = "../../alamos/py", develop = true }
+click = "^8.1.8"
+keyring = "^25.6.0"
+nptdms = "^1.10.0"
+numpy = "^2.2.3"
+pandas = "^2.2.3"
+pydantic = "^1.10.21"
+rich = "^13.9.4"
+synnax-freighter = { path = "../../freighter/py", develop = true }
+urllib3 = "^2.3.0"
+
 
 [tool.poetry.group.dev.dependencies]
-jupyterlab = "^4.0.7"
-matplotlib = "^3.9.2"
-mypy = "^1.11.2"
-pytest = "^8.2.2"
-pytest-asyncio = "^0.25.0"
-black = "^24.10.0"
-isort = "^5.10.1"
-scipy = "^1.14.1"
-pyserial = "^3.5"
+black = "^25.1.0"
+isort = "^6.0.0"
+matplotlib = "^3.10.0"
+mypy = "^1.15.0"
+poetry = "^2.1.1"
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.3"
+scipy = "^1.15.2"
 
 
 [tool.isort]
 profile = "black"
 
-[tool.poetry.dependencies]
-python = "^3.12"
-pandas = "^2.2.3"
-rich = "^13.9.4"
-pydantic = "^1.10.9"
-synnax-freighter = { path = "../../freighter/py", develop = true }
-alamos = { path = "../../alamos/py", develop = true }
-keyring = "^25.5.0"
-click = "^8.1.7"
-urllib3 = "^2.2.3"
-numpy = "^2.2.1"
-nptdms = "^1.9.0"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 
-[tool.poetry.scripts]
-sy = "synnax.cli.synnax:synnax"
 
 [tool.pytest.ini_options]
 markers = [
-    "channel: mark test as a channel test",
-    "framer: mark test as a framer test",
-    "writer: mark test as a writer test",
-    "iterator: mark test as a reader test",
-    "streamer: mark test as a streamer test",
-    "telem: mark test as a telem test",
-    "series: mark test as a series test",
-    "ranger: mark test as a ranger test",
-    "tdms: mark test as a tdms test",
-    "focus: focus on a set of tests",
-    "control: mark test as a control test",
-    "io: mark test as an io test",
-    "auth: mark test as an auth test",
-    "internal: mark test as an internal test",
-    "tsconvert: mark test as a tsconvert test",
     "access: mark test as an access test",
-    "ni: mark test as a ni test",
-    "task: mark test as a task test",
+    "auth: mark test as an auth test",
+    "channel: mark test as a channel test",
+    "cli: mark test as a cli test",
+    "control: mark test as a control test",
     "device: mark test as a device test",
-    "ontology: mark test as an ontology test",
-    "timing: mark test as a timing test",
-    "opcua: mark test as an opcua test",
+    "framer: mark test as a framer test",
+    "iterator: mark test as a reader test",
+    "internal: mark test as an internal test",
+    "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
+    "ni: mark test as a ni test",
+    "ontology: mark test as an ontology test",
+    "opcua: mark test as an opcua test",
     "rack: mark test as a rack test",
-    "cli",
+    "ranger: mark test as a ranger test",
+    "series: mark test as a series test",
+    "task: mark test as a task test",
+    "tdms: mark test as a tdms test",
+    "telem: mark test as a telem test",
+    "timing: mark test as a timing test",
+    "tsconvert: mark test as a tsconvert test",
+    "writer: mark test as a writer test",
 ]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

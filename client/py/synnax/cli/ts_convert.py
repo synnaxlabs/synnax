@@ -7,7 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from datetime import datetime
 from pathlib import Path
+
+import click
 from rich.progress import (
     BarColumn,
     Progress,
@@ -15,8 +18,6 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-import click
-from datetime import datetime
 
 from synnax.cli import default
 from synnax.cli.flow import Context

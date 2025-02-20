@@ -9,8 +9,8 @@
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
-from synnax import PolicyClient
 
+from synnax import PolicyClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -20,9 +20,11 @@ from synnax.control import Client as ControlClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
 from synnax.hardware.client import Client as HardwareClient
-from synnax.hardware.task import Client as TaskClient
 from synnax.hardware.device import Client as DeviceClient
 from synnax.hardware.rack import Client as RackClient
+from synnax.hardware.task import Client as TaskClient
+from synnax.ontology import Client as OntologyClient
+from synnax.ontology.group import Client as GroupClient
 from synnax.options import SynnaxOptions
 from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
@@ -30,8 +32,6 @@ from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.user.client import Client as UserClient
-from synnax.ontology import Client as OntologyClient
-from synnax.ontology.group import Client as GroupClient
 
 
 class Synnax(Client):

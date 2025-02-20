@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import overload, Iterator
+from typing import Iterator, overload
 
 from freighter import Payload
 from pandas import DataFrame
@@ -22,7 +22,7 @@ from synnax.channel.payload import (
     ChannelNames,
 )
 from synnax.exceptions import ValidationError
-from synnax.telem import Series, MultiSeries, TypedCrudeSeries, CrudeSeries
+from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
 class FramePayload(Payload):

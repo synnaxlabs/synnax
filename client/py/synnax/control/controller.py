@@ -9,15 +9,14 @@
 
 from __future__ import annotations
 
+from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
 from typing import Any, Protocol, overload
-from asyncio import Future
 
 import numpy as np
 
-from synnax.util.thread import AsyncThread
-from synnax import framer, ValidationError
+from synnax import ValidationError, framer
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -25,9 +24,10 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp, SampleValue
+from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
+from synnax.util.thread import AsyncThread
 
 
 class Processor(Protocol):

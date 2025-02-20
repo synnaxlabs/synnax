@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synnax.telem import DataType, Series, TimeStamp, MultiSeries, TimeRange, TimeSpan
+from synnax.telem import DataType, MultiSeries, Series, TimeRange, TimeSpan, TimeStamp
 
 
 @pytest.mark.telem

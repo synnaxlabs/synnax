@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-from datetime import datetime, timedelta, timezone, UTC
-import dateutil
+from datetime import UTC, datetime, timedelta, timezone
 
+import dateutil
 import numpy as np
 import pandas as pd
 import pytest

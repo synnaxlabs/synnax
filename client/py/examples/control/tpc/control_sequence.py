@@ -9,22 +9,24 @@
 
 import dataclasses
 import time
-import synnax as sy
-from synnax.control.controller import Controller
+
 import numpy as np
 from scipy.signal import find_peaks
+
+import synnax as sy
+from synnax.control.controller import Controller
 
 client = sy.Synnax()
 
 from examples.control.tpc.common import (
+    GAS_BOOSTER_ISO_CMD,
     OX_MPV_CMD,
     OX_PRESS_CMD,
-    GAS_BOOSTER_ISO_CMD,
-    OX_VENT_CMD,
-    OX_PT_1,
-    PRESS_PT_1,
-    PRESS_ISO_CMD,
     OX_PRESS_STATE,
+    OX_PT_1,
+    OX_VENT_CMD,
+    PRESS_ISO_CMD,
+    PRESS_PT_1,
 )
 
 

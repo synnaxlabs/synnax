@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, tzinfo, UTC
+from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
 

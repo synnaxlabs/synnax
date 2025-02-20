@@ -7,16 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import csv
 from pathlib import Path
 from typing import Iterator
-import csv
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
+from synnax.io.df_converter import convert_df
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
-from synnax.io.df_converter import convert_df
 
 CSVMatcher = new_extension_matcher(["csv"])
 

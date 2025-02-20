@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import pytest
-import synnax as sy
 from uuid import uuid4
+
+import pytest
+
+import synnax as sy
 
 
 def basic_device(rack: int, n: int) -> sy.Device:

@@ -19,8 +19,8 @@ directory. Run the `simulated_daq.py` file first, and then run this file.
 """
 
 import numpy as np
-import synnax as sy
 
+import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.

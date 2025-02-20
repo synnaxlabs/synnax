@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from threading import Thread
 from asyncio import events, tasks
+from threading import Thread
 
 
 def _cancel_all_tasks(loop):

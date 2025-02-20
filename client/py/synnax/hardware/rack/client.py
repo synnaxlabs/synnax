@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import NOOP, Instrumentation
-from freighter import Payload, UnaryClient, send_required, Empty
-from synnax.hardware.rack.payload import Rack
 from typing import overload
+
+from alamos import NOOP, Instrumentation
+from freighter import Empty, Payload, UnaryClient, send_required
+
+from synnax.hardware.rack.payload import Rack
 from synnax.util.normalize import check_for_none, override
 
 
