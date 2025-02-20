@@ -14,7 +14,7 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
@@ -107,6 +107,11 @@ interface SetAltKeyPayload {
   altKey: string;
 }
 
+interface SetUnsavedChangesPayload {
+  key: string;
+  unsavedChanges: boolean;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
@@ -165,6 +170,14 @@ const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State
     ),
   );
 
+const tabFromLayout = (layout: State): Tabs.Spec => ({
+  closable: true,
+  editable: layout.tab?.editable,
+  icon: layout.icon,
+  name: layout.name,
+  tabKey: layout.key,
+});
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -186,15 +199,7 @@ export const { actions, reducer } = createSlice({
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
         [mosaic.root] = Mosaic.removeTab(mosaic.root, key);
 
-      const mosaicTab = {
-        closable: true,
-        ...tab,
-        name,
-        icon: layout.icon,
-        tabKey: key,
-      };
-      delete mosaicTab.location;
-      delete mosaicTab.mosaicKey;
+      const mosaicTab = tabFromLayout(layout);
 
       let mosaicKey = tab?.mosaicKey;
       // If we didn't explicitly specify a mosaic node to put the new tab in, and
@@ -463,6 +468,20 @@ export const { actions, reducer } = createSlice({
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
       state.colorContext = Color.transformColorsToHex(payload.state);
     },
+    setUnsavedChanges: (
+      state,
+      { payload }: PayloadAction<SetUnsavedChangesPayload>,
+    ) => {
+      const layout = select(state, payload.key);
+      if (layout == null) return;
+      layout.unsavedChanges = payload.unsavedChanges;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+        ...tabFromLayout(layout),
+        unsavedChanges: payload.unsavedChanges,
+      }));
+      state.mosaics[layout.windowKey] = mosaic;
+    },
   },
 });
 
@@ -486,6 +505,7 @@ export const {
   setWorkspace,
   setColorContext,
   clearWorkspace,
+  setUnsavedChanges,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>

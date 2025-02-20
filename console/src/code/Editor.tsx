@@ -96,7 +96,6 @@ const use = ({
       ...ZERO_OPTIONS,
     });
 
-    console.log("RUN");
     // Trigger language features by making a temporary edit
     triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
 
@@ -125,15 +124,16 @@ export const Editor = ({
   language,
   ...rest
 }: EditorProps) => {
-  const editorRef = use({ value, onChange, language });
+  const editorContainerRef = use({ value, onChange, language });
   return (
     <Align.Space
       direction="y"
       grow
       {...rest}
       className={CSS(className, CSS.B("editor"))}
+      style={{ height: "100%", position: "relative", overflow: "hidden" }}
     >
-      <div ref={editorRef} style={{ height: "100%", position: "relative" }} />
+      <div ref={editorContainerRef} style={{ height: "100%" }} />
     </Align.Space>
   );
 };

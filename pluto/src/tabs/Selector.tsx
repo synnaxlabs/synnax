@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, type IconProps } from "@synnaxlabs/media";
 import {
   type DragEventHandler,
   type MouseEventHandler,
@@ -104,6 +104,22 @@ export const Selector = ({
   return content;
 };
 
+interface CloseIconProps extends IconProps {
+  unsavedChanges?: boolean;
+}
+
+const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement => {
+  const closeIcon = <Icon.Close className={CSS.BEM(CLS, "icon", "close")} {...props} />;
+  if (unsavedChanges)
+    return (
+      <>
+        <Icon.Circle className={CSS.BEM(CLS, "icon", "unsaved")} />
+        {closeIcon}
+      </>
+    );
+  return closeIcon;
+};
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -118,6 +134,7 @@ const SelectorButton = ({
   icon,
   size,
   editable = true,
+  unsavedChanges = false,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -185,8 +202,8 @@ const SelectorButton = ({
         level={Text.ComponentSizeLevels[size]}
       />
       {closable && onClose != null && (
-        <Button.Icon onClick={handleClose}>
-          <Icon.Close aria-label="pluto-tabs__close" />
+        <Button.Icon onClick={handleClose} className={CSS.BEM(CLS, "btn", "close")}>
+          <CloseIcon unsavedChanges={unsavedChanges} />
         </Button.Icon>
       )}
     </Align.Pack>

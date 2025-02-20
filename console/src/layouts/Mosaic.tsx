@@ -39,6 +39,7 @@ import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { SELECTOR_LAYOUT } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
+import { Modals } from "@/modals";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -143,7 +144,7 @@ Mosaic.displayName = "Mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
-  const store = useStore();
+  const store = useStore<RootState>();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -191,9 +192,25 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     toggle: [["H"]],
   });
 
+  const promptConfirm = Modals.useConfirm();
+
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(Layout.remove({ keys: [tabKey] }));
+      const layout = Layout.selectRequired(store.getState(), tabKey);
+      const { unsavedChanges, name } = layout;
+      if (unsavedChanges)
+        promptConfirm(
+          {
+            message: `${name} has unsaved changes. Are you sure you want to close it?`,
+            description: "Any unsaved changes will be lost.",
+          },
+          { icon: layout.icon, name: `${layout.name}.Lose Unsaved Changes` },
+        )
+          .then((res) => {
+            if (res) dispatch(Layout.remove({ keys: [tabKey] }));
+          })
+          .catch(console.error);
+      else dispatch(Layout.remove({ keys: [tabKey] }));
     },
     [dispatch],
   );
@@ -265,6 +282,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
     [],
   );
+
+  console.log(mosaic);
 
   return (
     <>

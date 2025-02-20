@@ -359,4 +359,118 @@ describe("Form", () => {
       expect(res.result.current.value).toEqual([{ name: "Jane Doe" }]);
     });
   });
+
+  describe("touched state", () => {
+    it("should mark a field as touched when its value changes", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "Jane Doe");
+      const field = result.current.get("name");
+      expect(field.touched).toBe(true);
+    });
+
+    it("should not mark a field as touched when setting it to its initial value", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "John Doe");
+      const field = result.current.get("name");
+      expect(field.touched).toBe(false);
+    });
+
+    it("should mark a field as untouched when resetting to initial value", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "Jane Doe");
+      expect(result.current.get("name").touched).toBe(true);
+      result.current.set("name", "John Doe");
+      expect(result.current.get("name").touched).toBe(false);
+    });
+
+    it("should clear all touched states when resetting the form", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "Jane Doe");
+      result.current.set("age", 25);
+      expect(result.current.get("name").touched).toBe(true);
+      expect(result.current.get("age").touched).toBe(true);
+      result.current.reset(deep.copy(initialFormValues));
+      expect(result.current.get("name").touched).toBe(false);
+      expect(result.current.get("age").touched).toBe(false);
+    });
+
+    it("should call onHasTouched when form touched state changes", () => {
+      const onHasTouched = vi.fn();
+      const { result } = renderHook(() =>
+        Form.use({
+          values: deep.copy(initialFormValues),
+          schema: basicFormSchema,
+          onHasTouched,
+        }),
+      );
+
+      // Should call with true when first field is touched
+      result.current.set("name", "Jane Doe");
+      expect(onHasTouched).toHaveBeenLastCalledWith(true);
+
+      // Should not call again when another field is touched
+      result.current.set("age", 25);
+      expect(onHasTouched).toHaveBeenCalledTimes(1);
+
+      // Should call with false when all fields return to initial values
+      result.current.set("name", "John Doe");
+      result.current.set("age", 42);
+      expect(onHasTouched).toHaveBeenLastCalledWith(false);
+    });
+
+    it("should snapshot touched state when requested", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+
+      // Change some values and verify they're marked as touched
+      result.current.set("name", "Jane Doe");
+      result.current.set("age", 25);
+      expect(result.current.get("name").touched).toBe(true);
+      expect(result.current.get("age").touched).toBe(true);
+
+      // Take a snapshot - this should become the new "initial" state
+      result.current.setCurrentStateAsInitialValues();
+
+      // Verify fields are now untouched
+      expect(result.current.get("name").touched).toBe(false);
+      expect(result.current.get("age").touched).toBe(false);
+
+      // Verify changing back to the old initial values now marks as touched
+      result.current.set("name", "John Doe");
+      expect(result.current.get("name").touched).toBe(true);
+    });
+
+    it("no fields should be touched when the form is reset to the initial values", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "Jane Doe");
+      expect(result.current.get("name").touched).toBe(true);
+      result.current.reset();
+      expect(result.current.get("name").touched).toBe(false);
+    });
+
+    it("no fields should be touched when the form is reset to the initial values", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+      );
+      result.current.set("name", "Jane Doe");
+      expect(result.current.get("name").touched).toBe(true);
+      result.current.setCurrentStateAsInitialValues();
+      expect(result.current.get("name").touched).toBe(false);
+      result.current.set("name", "John Doe");
+      expect(result.current.get("name").touched).toBe(true);
+      result.current.set("name", "Jane Doe");
+      expect(result.current.get("name").touched).toBe(false);
+    });
+  });
 });

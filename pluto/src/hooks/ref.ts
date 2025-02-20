@@ -51,6 +51,16 @@ export const useSyncedRef = <T>(value: T): RefObject<T> => {
   return ref;
 };
 
+export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
+  const initializedRef = useRef<boolean>(false);
+  const ref = useRef<T | null>(null);
+  if (!initializedRef.current) {
+    ref.current = initializer();
+    initializedRef.current = true;
+  }
+  return ref as RefObject<T>;
+};
+
 /**
  * Combines multiple refs into one. Note that the returned ref callback will not be
  * updated when the provided refs changes. These refs are only set once, and are assumed

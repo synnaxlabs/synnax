@@ -22,6 +22,7 @@ import {
 import { unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Code } from "@/code";
@@ -39,7 +40,8 @@ import {
   type Type,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
+import { setUnsavedChanges } from "@/layout/slice";
 import { type Modals } from "@/modals";
 
 export const LAYOUT: Common.Task.Layout = {
@@ -102,14 +104,7 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
       })
       .catch(console.error);
   }, [methods, globals]);
-  return (
-    <Code.Editor
-      style={{ height: "100%", width: "100%", flex: 1 }}
-      language={Lua.LANGUAGE}
-      value={value}
-      onChange={onChange}
-    />
-  );
+  return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
 };
 
 const schema = z.object({
@@ -124,24 +119,44 @@ const Internal = ({
   rackKey,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
+  const { name } = Layout.useSelectRequired(layoutKey);
   const handleException = Status.useExceptionHandler();
+  const dispatch = useDispatch();
+  const handleUnsavedChanges = useCallback(
+    (hasUnsavedChanges: boolean) => {
+      dispatch(
+        setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
   const methods = Form.use({
-    values: { rack: rackKey ?? task.getRackKey(base.key ?? "0"), config: base.config },
+    values: {
+      rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+      config: base.config,
+    },
     schema,
+    onHasTouched: handleUnsavedChanges,
   });
   const create = Common.Task.useCreate(layoutKey);
   const [state, setState] = Common.Task.useState(base?.key, base?.state ?? undefined);
+
+  useEffect(() => {
+    dispatch(setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
+  }, [layoutKey]);
 
   const configureMutation = useMutation({
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!(await methods.validateAsync())) return;
       const { config, rack } = methods.value();
-      await create({ key: base.key, name: base.name, type: TYPE, config }, rack);
+      await create({ key: base.key, name, type: TYPE, config }, rack);
+      methods.snapshotTouched();
       setState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure ${base.name}`),
   });
+
   const startOrStopMutation = useMutation({
     mutationFn: async () => {
       if (!configured) throw new Error("Sequence has not been configured");
@@ -181,15 +196,7 @@ const Internal = ({
           showLabel={false}
           showHelpText={false}
           padHelpText={false}
-          style={{
-            height: "100%",
-            width: "100%",
-            minHeight: 0,
-            display: "flex",
-            flex: 1,
-            flexShrink: 1,
-            overflow: "hidden",
-          }}
+          grow
         >
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
