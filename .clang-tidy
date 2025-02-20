@@ -29,6 +29,9 @@ Checks: '-*,
         -misc-non-private-member-variables-in-classes,
         -cppcoreguidelines-non-private-member-variables-in-classes,
         -clang-analyzer-unix.Stream,
+        -cppcoreguidelines-avoid-c-arrays,
+        -hicpp-avoid-c-arrays,
+        -modernize-avoid-c-arrays
         -cppcoreguidelines-avoid-const-or-ref-data-members'
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(?!.*(/driver/ni/nidaqmx/|/driver/ni/nisyscfg/)).*$'

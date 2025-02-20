@@ -35,13 +35,14 @@ void listen_stdin();
 
 /// @brief returns true if the shutdown condition has been signaled.
 inline bool should_shutdown() {
-    std::lock_guard lock(priv::shutdown_mutex);
+    const std::lock_guard lock(priv::shutdown_mutex);
     return priv::should_stop;
 }
 
 /// @brief signals the shutdown condition to all listeners.
-inline void signal_shutdown() { {
-        std::lock_guard lock(priv::shutdown_mutex);
+inline void signal_shutdown() { 
+    {
+        const std::lock_guard lock(priv::shutdown_mutex);
         priv::should_stop = true;
     }
     priv::shutdown_cv.notify_all();

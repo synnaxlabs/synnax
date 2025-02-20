@@ -86,7 +86,7 @@ TEST(TestSeries, testTimestampNowConstruction) {
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const telem::Series s{vals};
-    const auto s2 = new telem::PBSeries();
+    auto *const s2 = new telem::PBSeries();
     s.to_proto(s2);
     const telem::Series s3{*s2};
     const auto v = s3.values<std::uint16_t>();
@@ -98,7 +98,7 @@ TEST(TestSeries, testProto) {
 TEST(TestSeries, testProtoVariable) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const telem::Series s{vals};
-    const auto s2 = new telem::PBSeries();
+    auto *const s2 = new telem::PBSeries();
     s.to_proto(s2);
     const telem::Series s3{*s2};
     const auto v = s3.strings();
@@ -163,12 +163,12 @@ TEST(TestSeries, testWrite) {
 
 TEST(TestSeries, testWriteVector) {
     telem::Series s{telem::FLOAT32, 5};
-    const std::vector<float> values = {1.0, 2.0, 3.0, 4.0, 5.0};
+    const std::vector<float> values = {1.0F, 2.0F, 3.0F, 4.0F, 5.0F};
     ASSERT_EQ(s.write(values), 5);
     ASSERT_EQ(s.write(values), 0);
     ASSERT_EQ(s.size, 5);
     const auto v = s.values<float>();
-    ASSERT_EQ(s.at<float>(1), 2.0);
+    ASSERT_EQ(s.at<float>(1), 2.0F);
     for (size_t i = 0; i < values.size(); i++)
         ASSERT_EQ(v[i], values[i]);
 }
@@ -254,18 +254,18 @@ TEST(TestSeries, test_transform_inplace) {
 
     vals = std::vector<double>({2.0, 4.0, 6.0, 8.0, 10.0});
 
-    // now try a lienar transformation
-    s.transform_inplace<double>([](double x) { return (3*x + 1); });
+    // now try a linear transformation
+    s.transform_inplace<double>([](double x) { return (3 * x) + 1; });
     const auto v2 = s.values<double>();
     ASSERT_EQ(v2.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v2[i], 3*vals[i] + 1);
+        ASSERT_EQ(v2[i], (3 * vals[i]) + 1);
 }
 
 class SeriesAtTest : public ::testing::Test {
 protected:
     template<typename T>
-    void validateAt(const telem::Series& s, const std::vector<T>& vals, const telem::DataType expected_type) {
+    void validateAt(const telem::Series& s, const std::vector<T>& vals, const telem::DataType& expected_type) {
         ASSERT_EQ(s.data_type, expected_type) 
             << "Expected data type " << expected_type << " but got " << s.data_type;
             
@@ -323,29 +323,29 @@ TEST_F(SeriesAtTest, testAtFloat64) {
 
 TEST(TestSeries, testJSONValueConstruction) {
     // Test with a simple JSON object
-    json obj = {{"key", "value"}};
-    telem::Series s1(obj);
+    const json obj = {{"key", "value"}};
+    const telem::Series s1(obj);
     ASSERT_EQ(s1.data_type, telem::JSON);
     ASSERT_EQ(s1.size, 1);
     auto v1 = s1.strings();
     ASSERT_EQ(v1[0], obj.dump());
 
     // Test with a more complex JSON object
-    json complex_obj = {
+    const json complex_obj = {
         {"string", "hello"},
         {"number", 42},
         {"array", {1, 2, 3}},
         {"nested", {{"a", 1}, {"b", 2}}}
     };
-    telem::Series s2(complex_obj);
+    const telem::Series s2(complex_obj);
     ASSERT_EQ(s2.data_type, telem::JSON);
     ASSERT_EQ(s2.size, 1);
     auto v2 = s2.strings();
     ASSERT_EQ(v2[0], complex_obj.dump());
 
     // Test with a JSON array
-    json arr = json::array({1, 2, 3});
-    telem::Series s3(arr);
+    const json arr = json::array({1, 2, 3});
+    const telem::Series s3(arr);
     ASSERT_EQ(s3.data_type, telem::JSON);
     ASSERT_EQ(s3.size, 1);
     auto v3 = s3.strings();

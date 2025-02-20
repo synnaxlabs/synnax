@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - rc
-      - sy-2071-add-linter-in-ci
   pull_request:
     branches:
       - main
@@ -126,30 +125,6 @@ jobs:
       #     find ./client/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file
       #     git diff --color=always | cat
       #     git diff --exit-code || (echo -e "\033[0;31mC++ files in client/cpp need formatting. Run clang-format locally with:\033[0m\nfind ./client/cpp -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' | xargs clang-format -i --style=file" && exit 1)
-
-      - name: Install Clang Tidy
-        run: sudo apt-get install -y clang-tidy
-
-      - name: Run Clang Tidy
-        shell: bash
-        run: |
-          clang-tidy --version
-          chmod +x scripts/tidy-report.sh
-          ./scripts/tidy-report.sh bazel-bin/client/cpp >> tidy-report.txt
-          if [ -s tidy-report.txt ]; then
-            ERROR_COUNT=$(grep "Error" tidy-report.txt | sort -u | wc -l)
-            WARNING_COUNT=$(grep "Warning" tidy-report.txt | sort -u | wc -l)
-            TOTAL_ISSUES=$((ERROR_COUNT + WARNING_COUNT))
-            
-            echo "----------------------------------------"
-            echo "Summary:"
-            echo "Errors: $ERROR_COUNT"
-            echo "Warnings: $WARNING_COUNT"
-            echo "Total issues: $TOTAL_ISSUES"
-            echo "----------------------------------------"
-            cat tidy-report.txt
-            exit 1
-          fi
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

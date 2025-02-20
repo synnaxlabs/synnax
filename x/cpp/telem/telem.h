@@ -16,6 +16,7 @@
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
+#include <ranges>
 
 namespace telem {
 // private namespace for internal constants
@@ -33,8 +34,7 @@ constexpr uint64_t DAY = HOUR * 24;
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType() {
-    }
+    DataType() = default;
 
     /// @brief Holds the id of the data type
     std::string value;
