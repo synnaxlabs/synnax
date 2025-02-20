@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -37,7 +37,7 @@ const TABS = [
 
 interface NotEditableContentProps extends ToolbarProps {}
 
-const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
+const NotEditableContent = ({ layoutKey }: NotEditableContentProps) => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
   const hasEditingPermissions = useSelectHasPermission();
@@ -71,7 +71,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+export const Toolbar = ({ layoutKey }: ToolbarProps) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
@@ -79,7 +79,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
-    ({ tabKey }: Tabs.Tab): ReactElement => {
+    ({ tabKey }: Tabs.Tab) => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":

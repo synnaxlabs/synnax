@@ -22,7 +22,7 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep, type KeyedNamed } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -44,7 +44,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
+export const Toolbar = ({ layoutKey }: ToolbarProps) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const breadCrumbs: Breadcrumb.Segments = [
     { label: name, icon: <Icon.Table />, level: "h5", weight: 500, shade: 8 },
@@ -119,7 +119,7 @@ interface CellFormProps {
   onVariantChange: (variant: TableCells.Variant) => void;
 }
 
-const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElement => {
+const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps) => {
   const tableRef = useSyncedRef(tableKey);
   const cellRef = useSyncedRef(cell?.key);
   const dispatchSync = useSyncComponent(tableKey);

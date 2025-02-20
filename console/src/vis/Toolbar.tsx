@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Text } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Toolbar as Core } from "@/components";
 import { Layout } from "@/layout";
@@ -31,7 +31,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Table.LAYOUT_TYPE]: Table.Toolbar,
 };
 
-const NoVis = (): ReactElement => {
+const NoVis = () => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
@@ -50,7 +50,7 @@ const NoVis = (): ReactElement => {
   );
 };
 
-const Content = (): ReactElement => {
+const Content = () => {
   const layout = Layout.useSelectActiveMosaicLayout();
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];

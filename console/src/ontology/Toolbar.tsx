@@ -9,14 +9,13 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
-const ResourcesTree = (): ReactElement => (
+const ResourcesTree = () => (
   <Align.Space empty style={{ height: "100%", position: "relative" }}>
     <Toolbar.Header>
       <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>

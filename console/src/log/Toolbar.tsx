@@ -10,7 +10,6 @@
 import { type channel, log } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Input } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
@@ -26,7 +25,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+export const Toolbar = ({ layoutKey }: ToolbarProps) => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);

@@ -20,7 +20,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -82,7 +82,7 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   requires: [],
 };
 
-export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
+export const Create: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use<Schema>({
     schema: createFormSchema,

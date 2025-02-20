@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Input } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -19,7 +18,7 @@ export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
+export const Properties = ({ layoutKey }: PropertiesProps) => {
   const plot = useSelect(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();

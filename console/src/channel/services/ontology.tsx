@@ -19,7 +19,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -281,7 +280,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElement => {
+export const Item: Tree.Item = ({ entry, ...rest }) => {
   const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
   return <Tree.DefaultItem {...rest} entry={{ ...entry, name: alias ?? entry.name }} />;
 };

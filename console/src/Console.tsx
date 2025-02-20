@@ -20,7 +20,7 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
@@ -106,7 +106,7 @@ const useColorContextState: state.PureUse<Color.ContextState> = () => {
   return [colorContext, onColorContextChange];
 };
 
-const useBlockDefaultDropBehavior = (): void =>
+const useBlockDefaultDropBehavior = () =>
   useEffect(() => {
     const doc = document.documentElement;
     doc.addEventListener("dragover", (e) => e.preventDefault());
@@ -117,7 +117,7 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const MainUnderContext = (): ReactElement => {
+const MainUnderContext = () => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
@@ -147,7 +147,7 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-export const Console = (): ReactElement => (
+export const Console = () => (
   <Error.OverlayWithoutStore>
     <Provider store={store}>
       <Error.OverlayWithStore>

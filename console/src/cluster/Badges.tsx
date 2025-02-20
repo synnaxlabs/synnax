@@ -12,7 +12,6 @@ import "@/cluster/Badges.css";
 import { type connection } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
@@ -36,7 +35,7 @@ export const statusVariants: Record<connection.Status, Status.Variant> = {
  */
 export const ConnectionStatusBadge = ({
   state: { status },
-}: ConnectionStateBadgeProps): ReactElement => (
+}: ConnectionStateBadgeProps) => (
   <Status.Text
     className={CSS.B("connection-status-badge")}
     variant={statusVariants[status]}
@@ -49,7 +48,7 @@ export const ConnectionStatusBadge = ({
 /**
  * Displays the connection state of the cluster.
  */
-export const ConnectionBadge = (): ReactElement => {
+export const ConnectionBadge = () => {
   const state = Synnax.useConnectionState();
   return <ConnectionStatusBadge state={state} />;
 };

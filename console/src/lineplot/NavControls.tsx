@@ -19,7 +19,7 @@ import {
   Triggers,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -32,7 +32,7 @@ import {
   setViewportMode,
 } from "@/lineplot/slice";
 
-export const NavControls = (): ReactElement => {
+export const NavControls = () => {
   const control = useSelectControlState();
   const vis = Layout.useSelectActiveMosaicTabKey();
   const mode = useSelectViewportMode();

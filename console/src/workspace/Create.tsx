@@ -9,7 +9,6 @@
 
 import { Align, Button, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -34,7 +33,7 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "Workspace must have a name" }),
 });
 
-export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Create = ({ onClose }: Layout.RendererProps) => {
   const methods = Form.use({ values: { name: "" }, schema: formSchema });
 
   const client = Synnax.use();

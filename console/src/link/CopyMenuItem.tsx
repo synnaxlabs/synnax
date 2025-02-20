@@ -9,9 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
-export const CopyMenuItem = (): ReactElement => (
+export const CopyMenuItem = () => (
   <Menu.Item itemKey="link" size="small" startIcon={<Icon.Link />}>
     Copy link
   </Menu.Item>

@@ -9,15 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
-export const CreateIcon = (): ReactElement => (
+export const CreateIcon = () => (
   <PIcon.Create>
     <Icon.Schematic />
   </PIcon.Create>
 );
 
-export const ImportIcon = (): ReactElement => (
+export const ImportIcon = () => (
   <PIcon.Import>
     <Icon.Schematic />
   </PIcon.Import>

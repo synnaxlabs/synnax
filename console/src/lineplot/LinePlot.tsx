@@ -35,7 +35,7 @@ import {
   unique,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -116,7 +116,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placeLayout = Layout.usePlacer();
@@ -309,7 +309,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     layoutKey: string;
   }
 
-  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps) => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
@@ -501,10 +501,7 @@ const buildLines = (
     ),
   );
 
-export const LinePlot: Layout.Renderer = ({
-  layoutKey,
-  ...rest
-}): ReactElement | null => {
+export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const linePlot = useLoadRemote({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,

@@ -10,7 +10,6 @@
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -47,7 +46,7 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const Register = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Register = ({ onClose }: Layout.RendererProps) => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const handleException = Status.useExceptionHandler();

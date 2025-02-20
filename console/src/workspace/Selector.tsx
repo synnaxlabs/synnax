@@ -23,7 +23,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type MouseEventHandler, type ReactElement, useCallback } from "react";
+import { type MouseEventHandler, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -33,7 +33,7 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
-export const Selector = (): ReactElement => {
+export const Selector = () => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
@@ -147,7 +147,7 @@ export const Selector = (): ReactElement => {
 export const SelectorListItem = ({
   onSelect,
   ...rest
-}: List.ItemProps<string, workspace.Workspace>): ReactElement => {
+}: List.ItemProps<string, workspace.Workspace>) => {
   const { entry } = rest;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();

@@ -28,7 +28,7 @@ interface NotificationsProps {
   adapters: Adapter[];
 }
 
-export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
+export const Notifications = ({ adapters }: NotificationsProps) => {
   const { statuses, silence } = Status.useNotifications();
   const sugared = statuses.map((status) => {
     for (const adapter of adapters) {

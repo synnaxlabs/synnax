@@ -10,7 +10,6 @@
 import "@/range/overview/Overview.css";
 
 import { Align, Divider } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -20,7 +19,7 @@ import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
-export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
+export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Align.Space
     direction="y"
     style={{

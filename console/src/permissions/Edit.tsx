@@ -10,7 +10,7 @@
 import { user as clientUser } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
@@ -47,7 +47,7 @@ const initialPermissions = { schematic: false, admin: false, keys: {} };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
 
-export const Edit = (props: Layout.RendererProps): ReactElement => {
+export const Edit = (props: Layout.RendererProps) => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
   const handleException = Status.useExceptionHandler();

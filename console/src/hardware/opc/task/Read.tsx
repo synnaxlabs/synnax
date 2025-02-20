@@ -11,7 +11,7 @@ import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -50,7 +50,7 @@ interface IsIndexItemProps {
   snapshot?: boolean;
 }
 
-const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
+const IsIndexItem = ({ path }: IsIndexItemProps) => (
   <PForm.SwitchField
     path={`${path}.useAsIndex`}
     label="Use as Index"
@@ -62,7 +62,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   />
 );
 
-const Properties = (): ReactElement => {
+const Properties = () => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>

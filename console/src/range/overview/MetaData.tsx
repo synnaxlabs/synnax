@@ -20,7 +20,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -35,7 +35,7 @@ const metaDataFormSchema = z.object({
   pairs: kv.stringPairZ.array(),
 });
 
-const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement => {
+const ValueInput = ({ value, onChange }: Input.Control<string>) => {
   const isLink = link.is(value);
   const copyToClipboard = useCopyToClipboard();
   return (

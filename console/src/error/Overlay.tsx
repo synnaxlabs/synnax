@@ -22,7 +22,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type PropsWithChildren, type ReactElement, useEffect } from "react";
+import { type PropsWithChildren, useEffect } from "react";
 import {
   ErrorBoundary,
   type ErrorBoundaryProps,
@@ -73,7 +73,7 @@ const FallBackRenderContent = ({
   onTryAgain,
   onClear,
   error,
-}: FallbackRenderContentProps): ReactElement => {
+}: FallbackRenderContentProps) => {
   const os = OS.use();
   useEffect(() => {
     // grab the prefers-color-scheme media query
@@ -162,10 +162,10 @@ const FallBackRenderContent = ({
 const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
 const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const OverlayWithStore = ({ children }: OverlayProps): ReactElement => (
+export const OverlayWithStore = ({ children }: OverlayProps) => (
   <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
 );
 
-export const OverlayWithoutStore = ({ children }: OverlayProps): ReactElement => (
+export const OverlayWithoutStore = ({ children }: OverlayProps) => (
   <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
 );

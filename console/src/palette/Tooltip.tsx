@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Text, Triggers } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { type TriggerConfig } from "@/palette/types";
 
@@ -18,7 +17,7 @@ export interface TooltipContentProps {
   triggers: TriggerConfig;
 }
 
-export const TooltipContent = ({ triggers }: TooltipContentProps): ReactElement => (
+export const TooltipContent = ({ triggers }: TooltipContentProps) => (
   <Align.Space size="small">
     <Align.Space direction="x" justify="spaceBetween" align="center">
       <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>

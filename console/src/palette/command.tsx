@@ -17,9 +17,7 @@ import { type Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type RootState, type RootStore } from "@/store";
 
-export const CommandListItem = (
-  props: List.ItemProps<string, Command>,
-): ReactElement => {
+export const CommandListItem = (props: List.ItemProps<string, Command>) => {
   const {
     entry: { icon, name, endContent },
   } = props;

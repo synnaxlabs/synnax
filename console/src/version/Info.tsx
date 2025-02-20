@@ -13,7 +13,7 @@ import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { type Layout } from "@/layout";
 import { useSelectVersion } from "@/version/selectors";
@@ -62,7 +62,7 @@ export const Info: Layout.Renderer = () => {
     },
   });
 
-  let updateContent: ReactElement = (
+  let updateContent = (
     <Status.Text level="h4" weight={350} variant="loading" size="medium">
       Checking for updates
     </Status.Text>

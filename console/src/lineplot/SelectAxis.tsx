@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Input } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
 
@@ -32,7 +32,7 @@ export const SelectMultipleAxesInputItem = ({
   value,
   select,
   ...rest
-}: SelectMultipleAxesInputItemProps): ReactElement => (
+}: SelectMultipleAxesInputItemProps) => (
   <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
@@ -56,7 +56,7 @@ export const SelectAxisInputItem = ({
   value,
   select,
   ...rest
-}: SelectAxisInputItemProps): ReactElement => (
+}: SelectAxisInputItemProps) => (
   <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}

@@ -15,7 +15,7 @@ export interface ServicesContextValue extends Services {}
 
 const Context = createContext<ServicesContextValue | null>(null);
 
-export const useServices = (): ServicesContextValue => {
+export const useServices = () => {
   const services = use(Context);
   if (services == null)
     throw new Error("useServices must be used within a ServicesProvider");
@@ -26,9 +26,6 @@ export interface ServicesProviderProps extends PropsWithChildren {
   services: Services;
 }
 
-export const ServicesProvider = ({
-  services,
-  children,
-}: ServicesProviderProps): React.ReactElement => (
+export const ServicesProvider = ({ services, children }: ServicesProviderProps) => (
   <Context value={services}>{children}</Context>
 );

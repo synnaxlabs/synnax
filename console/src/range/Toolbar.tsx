@@ -29,7 +29,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -202,7 +202,7 @@ interface NoRangesProps {
   onLinkClick: (key?: string) => void;
 }
 
-const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
+const NoRanges = ({ onLinkClick }: NoRangesProps) => {
   const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
     e.stopPropagation();
     onLinkClick();
@@ -220,7 +220,7 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
   );
 };
 
-const List = (): ReactElement => {
+const List = () => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -285,9 +285,7 @@ const List = (): ReactElement => {
 
   const handleLink = Cluster.useCopyLinkToClipboard();
 
-  const ContextMenu = ({
-    keys: [key],
-  }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     const rng = ranges.find((r) => r.key === key);
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
@@ -390,7 +388,7 @@ const List = (): ReactElement => {
 
 interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
-const ListItem = (props: ListItemProps): ReactElement => {
+const ListItem = (props: ListItemProps) => {
   const { entry } = props;
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -452,7 +450,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
   );
 };
 
-const Content = (): ReactElement => {
+const Content = () => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>

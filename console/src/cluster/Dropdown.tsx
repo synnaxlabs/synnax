@@ -20,12 +20,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import {
-  type MouseEvent,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-} from "react";
+import { type MouseEvent, type PropsWithChildren, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
@@ -36,7 +31,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const List = (): ReactElement => {
+export const List = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
@@ -73,7 +68,7 @@ export const List = (): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
       if (key == null) return <Layout.DefaultContextMenu />;
 
       const handleSelect = (menuKey: string): void => {
@@ -182,7 +177,7 @@ interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
   validateName: (name: string) => boolean;
 }
 
-const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
+const ListItem = ({ validateName, ...rest }: ListItemProps) => {
   const dispatch = useDispatch();
   const handleChange = (value: string) => {
     if (!validateName(value)) return;
@@ -215,15 +210,13 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
 
 export interface NoneConnectedProps extends PropsWithChildren {}
 
-export const NoneConnectedBoundary = ({
-  children,
-}: NoneConnectedProps): ReactElement => {
+export const NoneConnectedBoundary = ({ children }: NoneConnectedProps) => {
   const client = Synnax.use();
   if (client != null) return <>{children}</>;
   return <NoneConnected />;
 };
 
-export const NoneConnected = (): ReactElement => {
+export const NoneConnected = () => {
   const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
@@ -243,7 +236,7 @@ export const NoneConnected = (): ReactElement => {
   );
 };
 
-export const Dropdown = (): ReactElement => {
+export const Dropdown = () => {
   const dropProps = Core.use();
   const cluster = useSelect();
   return (

@@ -12,7 +12,7 @@ import "@/cluster/Connect.css";
 import { type connection } from "@synnaxlabs/client";
 import { Align, Button, Form, Input, Nav, Status } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
@@ -49,7 +49,7 @@ const ZERO_VALUES: z.infer<typeof clusterZ> = {
  * Connect implements the LayoutRenderer component type to provide a form for connecting
  * to a cluster.
  */
-export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Connect = ({ onClose }: Layout.RendererProps) => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);

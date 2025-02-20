@@ -18,7 +18,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -239,7 +238,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
+const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
     selection: { resources },

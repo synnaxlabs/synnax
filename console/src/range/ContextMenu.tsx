@@ -9,7 +9,6 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { type Range } from "@/range/slice";
 
@@ -17,9 +16,7 @@ export interface SnapshotMenuItemProps {
   range?: Range | null;
 }
 
-export const SnapshotMenuItem = ({
-  range,
-}: SnapshotMenuItemProps): ReactElement | false =>
+export const SnapshotMenuItem = ({ range }: SnapshotMenuItemProps) =>
   range?.persisted === true && (
     <Menu.Item itemKey="rangeSnapshot" startIcon={<Icon.Snapshot />}>
       Snapshot to {range.name}

@@ -22,14 +22,7 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
-import {
-  isValidElement,
-  memo,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { isValidElement, memo, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -43,10 +36,8 @@ import {
 import { useServices } from "@/ontology/ServicesProvider";
 import { type RootAction, type RootState } from "@/store";
 
-export const toTreeNodes = (
-  services: Services,
-  resources: ontology.Resource[],
-): Core.Node[] => resources.map((res) => toTreeNode(services, res));
+export const toTreeNodes = (services: Services, resources: ontology.Resource[]) =>
+  resources.map((res) => toTreeNode(services, res));
 
 export const toTreeNode = (
   services: Services,
@@ -69,7 +60,7 @@ const updateResources = (
   p: ontology.Resource[],
   additions: ontology.Resource[] = [],
   removals: ontology.ID[] = [],
-): ontology.Resource[] => {
+) => {
   // If multiple additions have the same key, remove duplicates
   const uniqueAdditions = unique.by(
     additions,
@@ -205,7 +196,7 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
   return Core.defaultSort(a, b);
 };
 
-export const Tree = (): ReactElement => {
+export const Tree = () => {
   const client = Synnax.use();
   const services = useServices();
   const store = useStore<RootState, RootAction>();
@@ -471,7 +462,7 @@ export const Tree = (): ReactElement => {
   );
 
   const handleContextMenu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys }: Menu.ContextMenuMenuProps) => {
       if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !treeProps.selected.includes(v),
@@ -543,7 +534,7 @@ export const Tree = (): ReactElement => {
   );
 
   const item = useCallback(
-    (props: Core.ItemProps): ReactElement => (
+    (props: Core.ItemProps) => (
       <AdapterItem {...props} key={props.entry.path} services={services} />
     ),
     [services],
@@ -575,11 +566,9 @@ interface AdapterItemProps extends Core.ItemProps {
   services: Services;
 }
 
-const AdapterItem = memo<AdapterItemProps>(
-  ({ loading, services, ...rest }): ReactElement => {
-    const id = new ontology.ID(rest.entry.key);
-    const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
-    return <Item loading={loading} {...rest} />;
-  },
-);
+const AdapterItem = memo<AdapterItemProps>(({ loading, services, ...rest }) => {
+  const id = new ontology.ID(rest.entry.key);
+  const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
+  return <Item loading={loading} {...rest} />;
+});
 AdapterItem.displayName = "AdapterItem";

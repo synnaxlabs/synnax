@@ -14,7 +14,7 @@ import { Align, Button, type Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { type ReactElement, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
@@ -30,7 +30,7 @@ export const InputFilePath = ({
   onChange,
   filters,
   ...rest
-}: InputFilePathProps): ReactElement => {
+}: InputFilePathProps) => {
   const path = value;
   const handleClick = () => {
     void (async () => {
@@ -82,7 +82,7 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
   initialPath,
   schema,
   ...rest
-}: InputFileContentsProps<P>): ReactElement => {
+}: InputFileContentsProps<P>) => {
   const [path, setPath] = useState<string>("");
   useEffect(() => {
     if (initialPath == null || initialPath === path) return;

@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
@@ -26,7 +26,7 @@ export interface DataProps {
   layoutKey: string;
 }
 
-export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
+export const Data = ({ layoutKey }: DataProps) => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectMultiple();

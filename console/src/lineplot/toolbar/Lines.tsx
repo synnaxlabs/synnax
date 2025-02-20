@@ -17,7 +17,6 @@ import {
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
@@ -27,7 +26,7 @@ export interface LinesProps {
   layoutKey: string;
 }
 
-export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
+export const Lines = ({ layoutKey }: LinesProps) => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
 
@@ -78,7 +77,7 @@ interface LinePlotLineControlsProps extends List.ItemProps<string, LineState> {
   onChange: (line: LineState) => void;
 }
 
-const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
+const Line = ({ entry, onChange }: LinePlotLineControlsProps) => {
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
     onChange({ ...entry, label: value });
   };

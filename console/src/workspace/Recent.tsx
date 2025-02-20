@@ -9,13 +9,13 @@
 
 import { type workspace } from "@synnaxlabs/client";
 import { List, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { add } from "@/workspace/slice";
 
-export const Recent = (): ReactElement | null => {
+export const Recent = () => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const [data, setData] = useState<workspace.Workspace[]>([]);

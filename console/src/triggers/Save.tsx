@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Nav, Text, Triggers } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 export const SAVE: Triggers.Trigger = ["Control", "Enter"];
 
@@ -22,7 +21,7 @@ export const SaveHelpText = ({
   action = "Save",
   noBar = false,
   trigger = SAVE,
-}: SaveHelpTextProps): ReactElement => {
+}: SaveHelpTextProps) => {
   const content = (
     <>
       <Align.Space direction="x" empty>

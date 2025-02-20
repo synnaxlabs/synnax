@@ -30,14 +30,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -123,7 +116,7 @@ const SymbolRenderer = ({
   layoutKey,
   draggable,
   dispatch,
-}: SymbolRendererProps): ReactElement | null => {
+}: SymbolRendererProps) => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
   const key = props?.key;
   const handleChange = useCallback(
@@ -418,10 +411,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Schematic: Layout.Renderer = ({
-  layoutKey,
-  ...rest
-}): ReactElement | null => {
+export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const loaded = useLoadRemote({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,

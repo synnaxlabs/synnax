@@ -18,7 +18,6 @@ import {
   type Text,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { type AxisKey } from "@/lineplot/axis";
@@ -29,7 +28,7 @@ export interface AxesProps {
   layoutKey: string;
 }
 
-export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
+export const Axes = ({ layoutKey }: AxesProps) => {
   const vis = useSelect(layoutKey);
 
   const shouldShow = Object.values(vis.axes.axes)
@@ -72,7 +71,7 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
   enabled: boolean;
 }
 
-const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
+const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps) => (
   <Button.Icon
     {...rest}
     variant="outlined"
@@ -88,7 +87,7 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
 export const LinePlotAxisControls = ({
   axisKey,
   layoutKey,
-}: LinePlotAxisControlsProps): ReactElement => {
+}: LinePlotAxisControlsProps) => {
   const dispatch = useDispatch();
   const axis = useSelect(layoutKey).axes.axes[axisKey];
 

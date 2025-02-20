@@ -22,7 +22,6 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -93,7 +92,7 @@ const listItem = componentRenderProp(LabelListItem);
 
 const initialState = formSchema.parse({ labels: [] });
 
-export const Edit: Layout.Renderer = (): ReactElement => {
+export const Edit: Layout.Renderer = () => {
   const methods = Form.useSynced<
     typeof formSchema,
     change.Change<string, label.Label>[]

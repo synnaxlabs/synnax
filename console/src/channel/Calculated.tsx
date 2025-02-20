@@ -24,7 +24,7 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -109,7 +109,7 @@ const calculationStateZ = z.object({
 
 const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
-export const useListenForCalculationState = (): void => {
+export const useListenForCalculationState = () => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
@@ -171,7 +171,7 @@ interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
 
-const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
+const Internal = ({ onClose, initialValues }: InternalProps) => {
   const client = Synnax.use();
 
   const methods = Form.use<typeof schema>({
@@ -346,7 +346,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-const Editor = (props: Code.EditorProps): ReactElement => {
+const Editor = (props: Code.EditorProps) => {
   const client = Synnax.use();
   const ctx = Form.useContext();
 

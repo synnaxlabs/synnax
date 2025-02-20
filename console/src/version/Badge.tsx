@@ -10,14 +10,13 @@
 import "@/version/Badge.css";
 
 import { Button } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
 
-export const Badge = (): ReactElement => {
+export const Badge = () => {
   const version = useSelectVersion();
   const placeLayout = Layout.usePlacer();
   const updateAvailable = useCheckForUpdates();
