@@ -30,6 +30,7 @@ import { useOpenInNewWindow } from "@/layout/Menu";
 import {
   selectActiveMosaicTabKey,
   selectFocused,
+  selectRequired,
   useSelectNavDrawer,
   useSelectTheme,
 } from "@/layout/selectors";
@@ -44,6 +45,7 @@ import {
   type State,
   toggleActiveTheme,
 } from "@/layout/slice";
+import { Modals } from "@/modals";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface CreatorProps {
@@ -110,14 +112,48 @@ export const usePlacer = (): Placer => {
  */
 export const useRemover = (...baseKeys: string[]): Remover => {
   const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const promptConfirm = Modals.useConfirm();
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],
   );
+
   return useCallback(
-    (...keys) => dispatch(remove({ keys: [...keys, ...memoKeys] })),
-    [memoKeys],
+    (...keys): void => {
+      const allKeys = [...keys, ...memoKeys];
+      const confirmations: (() => Promise<boolean | null>)[] = [];
+      for (const key of allKeys) {
+        const layout = selectRequired(store.getState(), key);
+        const { unsavedChanges, name, icon } = layout;
+        console.log(unsavedChanges, name, icon);
+        if (unsavedChanges == true)
+          confirmations.push(
+            async () =>
+              await promptConfirm(
+                {
+                  message: `${name} has unsaved changes. Are you sure you want to close it?`,
+                  description: "Any unsaved changes will be lost.",
+                },
+                { icon, name: `${name}.Lose Unsaved Changes` },
+              ),
+          );
+      }
+      if (confirmations.length === 0) {
+        dispatch(remove({ keys: allKeys }));
+        return;
+      }
+      void (async () => {
+        const results: boolean[] = [];
+        for (const confirmation of confirmations) {
+          const result = await confirmation();
+          if (result != null) results.push(result);
+        }
+        dispatch(remove({ keys: allKeys.filter((_, i) => results[i] === true) }));
+      })();
+    },
+    [memoKeys, dispatch, store, promptConfirm],
   );
 };
 

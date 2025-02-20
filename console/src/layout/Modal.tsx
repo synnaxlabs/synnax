@@ -11,7 +11,7 @@ import "@/layout/Modals.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
-import { type CSSProperties } from "react";
+import { type CSSProperties, useRef } from "react";
 
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";

@@ -150,8 +150,12 @@ const Internal = ({
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!(await methods.validateAsync())) return;
       const { config, rack } = methods.value();
+      if (base.key != null) {
+        const prevRack = task.getRackKey(base.key);
+        if (prevRack !== rack) await client.hardware.tasks.delete(BigInt(base.key));
+      }
       await create({ key: base.key, name, type: TYPE, config }, rack);
-      methods.snapshotTouched();
+      methods.setCurrentStateAsInitialValues();
       setState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure ${base.name}`),

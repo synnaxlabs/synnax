@@ -192,28 +192,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     toggle: [["H"]],
   });
 
-  const promptConfirm = Modals.useConfirm();
-
-  const handleClose = useCallback(
-    (tabKey: string): void => {
-      const layout = Layout.selectRequired(store.getState(), tabKey);
-      const { unsavedChanges, name } = layout;
-      if (unsavedChanges)
-        promptConfirm(
-          {
-            message: `${name} has unsaved changes. Are you sure you want to close it?`,
-            description: "Any unsaved changes will be lost.",
-          },
-          { icon: layout.icon, name: `${layout.name}.Lose Unsaved Changes` },
-        )
-          .then((res) => {
-            if (res) dispatch(Layout.remove({ keys: [tabKey] }));
-          })
-          .catch(console.error);
-      else dispatch(Layout.remove({ keys: [tabKey] }));
-    },
-    [dispatch],
-  );
+  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
@@ -282,8 +261,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
     [],
   );
-
-  console.log(mosaic);
 
   return (
     <>

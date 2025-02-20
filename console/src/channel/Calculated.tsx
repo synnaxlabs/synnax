@@ -24,7 +24,7 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -223,15 +223,11 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             )}
           </Form.Field>
 
-          <Form.Field<string>
-            path="expression"
-            grow
-            onChange={(v, extra) => autoFillRequires.mutate({ value: v, extra })}
-          >
+          <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
               <Editor
                 value={value}
-                lang="python"
+                language="lua"
                 onChange={onChange}
                 bordered
                 rounded
