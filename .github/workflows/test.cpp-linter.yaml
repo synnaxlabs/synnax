@@ -106,6 +106,16 @@ jobs:
         run: |
           clang-tidy driver/ni/analog_read.cpp -p compile_commands.json || true
           echo "Exit code: $?"
+      
+      - name: Run clang-tidy directly with output
+        run: |
+          echo "Running clang-tidy checks..."
+          for file in $(find driver client/cpp -name "*.cpp" -o -name "*.h"); do
+            echo "Checking $file..."
+            clang-tidy "$file" -p compile_commands.json --extra-arg=-Wno-unknown-warning-option 2>&1 | tee -a clang-tidy-output.txt || true
+          done
+          echo "Complete clang-tidy output:"
+          cat clang-tidy-output.txt
 
       - name: Run CPP Linter for Driver
         uses: cpp-linter/cpp-linter-action@v2
@@ -131,7 +141,7 @@ jobs:
           extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
-          verbosity: 2
+          verbosity: 3
           file-annotations: true
           directories: |
             driver
@@ -153,7 +163,7 @@ jobs:
           thread-comments: true
           step-summary: true
           file-annotations: true
-          verbosity: 2
+          verbosity: 3
           directories: |
             client/cpp
 
