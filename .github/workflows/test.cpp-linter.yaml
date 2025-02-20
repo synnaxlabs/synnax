@@ -107,15 +107,15 @@ jobs:
           clang-tidy driver/ni/analog_read.cpp -p compile_commands.json || true
           echo "Exit code: $?"
       
-      - name: Run clang-tidy directly with output
-        run: |
-          echo "Running clang-tidy checks..."
-          for file in $(find driver client/cpp -name "*.cpp" -o -name "*.h"); do
-            echo "Checking $file..."
-            clang-tidy "$file" -p compile_commands.json --extra-arg=-Wno-unknown-warning-option 2>&1 | tee -a clang-tidy-output.txt || true
-          done
-          echo "Complete clang-tidy output:"
-          cat clang-tidy-output.txt
+      # - name: Run clang-tidy directly with output
+      #   run: |
+      #     echo "Running clang-tidy checks..."
+      #     for file in $(find driver client/cpp -name "*.cpp" -o -name "*.h"); do
+      #       echo "Checking $file..."
+      #       clang-tidy "$file" -p compile_commands.json --extra-arg=-Wno-unknown-warning-option 2>&1 | tee -a clang-tidy-output.txt || true
+      #     done
+      #     echo "Complete clang-tidy output:"
+      #     cat clang-tidy-output.txt
 
       - name: Run CPP Linter for Driver
         uses: cpp-linter/cpp-linter-action@v2
@@ -137,7 +137,7 @@ jobs:
             driver/vendor/
             driver/scripts/
             driver/test/
-          database: 'compile_commands.json'
+           database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
           extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
@@ -158,7 +158,7 @@ jobs:
           files-changed-only: false 
           lines-changed-only: false
           ignore: 'vendor/|external/|third_party/|.*pb\\.h$|.*pb\\.cc$'
-          database: 'compile_commands.json'
+           database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
           extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
