@@ -70,6 +70,19 @@ jobs:
       - name: Generate compile_commands.json
         run: |
           bazel run @hedron_compile_commands//:refresh_all
+      
+      - name: Debug Compilation Database
+        run: |
+          ls -la compile_commands.json
+          echo "First few lines of compile_commands.json:"
+          head -n 20 compile_commands.json
+      
+      - name: Debug clang-tidy command
+        run: |
+          echo "CLANG_TIDY_COMMAND=${{ steps.linter-driver.outputs.clang-tidy-command }}"
+          clang-tidy --version
+          ls -la .clang-tidy
+          cat .clang-tidy
 
       - name: Run CPP Linter for Driver
         uses: cpp-linter/cpp-linter-action@v2
@@ -89,13 +102,13 @@ jobs:
             .*pb\\.h$
             .*pb\\.cc$
             driver/vendor/
-            driver/testutil/
             driver/scripts/
             driver/test/
           database: 'compile_commands.json'
-          extra-args: -Wno-unknown-warning-option
+          extra-args: '-Wno-unknown-warning-option --warnings-as-errors=*'
           thread-comments: ${{ github.event_name == 'pull_request' }}
           step-summary: true
+          verbosity: 2
           directories: |
             driver
 
