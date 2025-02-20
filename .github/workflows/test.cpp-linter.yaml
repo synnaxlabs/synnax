@@ -40,7 +40,6 @@ jobs:
       contents: read
       pull-requests: write
       security-events: write
-      metadata: read
     
     steps:
       - name: Checkout
