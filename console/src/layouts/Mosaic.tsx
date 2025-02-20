@@ -28,7 +28,7 @@ import { type location } from "@synnaxlabs/x";
 import { memo, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";

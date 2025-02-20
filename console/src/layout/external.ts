@@ -10,6 +10,7 @@
 export * from "@/layout/BetaTag";
 export * from "@/layout/Content";
 export * from "@/layout/context";
+export * from "@/layout/Controls";
 export * from "@/layout/Menu";
 export * from "@/layout/middleware";
 export * from "@/layout/Modals";

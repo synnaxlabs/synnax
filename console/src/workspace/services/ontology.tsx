@@ -22,7 +22,7 @@ import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";

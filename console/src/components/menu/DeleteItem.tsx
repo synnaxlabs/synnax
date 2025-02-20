@@ -7,4 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/components/Controls/Controls";
+import { Icon } from "@synnaxlabs/media";
+import { Menu } from "@synnaxlabs/pluto";
+
+export const DeleteItem = () => (
+  <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
+    Delete
+  </Menu.Item>
+);

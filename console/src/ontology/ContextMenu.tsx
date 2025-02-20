@@ -9,7 +9,7 @@
 
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 

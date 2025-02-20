@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Menu,
+  Menu as PMenu,
   Table as Core,
   TableCells,
   Triggers,
@@ -34,7 +34,7 @@ import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuid } from "uuid";
 
-import { Menu as CMenu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -138,8 +138,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  const contextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => (
-    <Menu.Menu
+  const contextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => (
+    <PMenu.Menu
       onChange={{
         addRowBelow: () => {
           syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
@@ -159,41 +159,41 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     >
       {keys.length > 0 && (
         <>
-          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowBelow">
+          <PMenu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowBelow">
             Add Row Below
-          </Menu.Item>
-          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowAbove">
+          </PMenu.Item>
+          <PMenu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowAbove">
             Add Row Above
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColRight">
+          </PMenu.Item>
+          <PMenu.Divider />
+          <PMenu.Item size="small" startIcon={<Icon.Add />} itemKey="addColRight">
             Add Column Right
-          </Menu.Item>
-          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColLeft">
+          </PMenu.Item>
+          <PMenu.Item size="small" startIcon={<Icon.Add />} itemKey="addColLeft">
             Add Column Left
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteRow">
+          </PMenu.Item>
+          <PMenu.Divider />
+          <PMenu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteRow">
             Delete Row
-          </Menu.Item>
-          <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteCol">
+          </PMenu.Item>
+          <PMenu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteCol">
             Delete Column
-          </Menu.Item>
-          <Menu.Divider />
+          </PMenu.Item>
+          <PMenu.Divider />
         </>
       )}
-      <Menu.Item
+      <PMenu.Item
         itemKey="toggleEdit"
         startIcon={editable ? <Icon.EditOff /> : <Icon.Edit />}
       >
         {editable ? "Disable Edit Mode" : "Enable Edit Mode"}
-      </Menu.Item>
-      <Menu.Divider />
-      <CMenu.HardReloadItem />
-    </Menu.Menu>
+      </PMenu.Item>
+      <PMenu.Divider />
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 
-  const menuProps = Menu.useContextMenu();
+  const menuProps = PMenu.useContextMenu();
 
   const handleColResize = useCallback((size: number, index: number) => {
     syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
@@ -236,7 +236,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   let currPos = 3.5 * 6;
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
-      <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
         <Core.Table
           visible={visible}
           style={{
@@ -265,7 +265,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             );
           })}
         </Core.Table>
-      </Menu.ContextMenu>
+      </PMenu.ContextMenu>
       {editable && (
         <>
           <Button.Button

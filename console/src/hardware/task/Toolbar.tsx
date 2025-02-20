@@ -30,8 +30,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar } from "@/components";
-import { Menu } from "@/components/menu";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { createLayout } from "@/hardware/task/layouts";

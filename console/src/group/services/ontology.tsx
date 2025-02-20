@@ -14,7 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { createNewID } from "@/group/createNewID";
 import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";

@@ -17,7 +17,7 @@ import { OS } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
+import { useRemover } from "@/layout/useRemover";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
@@ -25,7 +25,7 @@ export const Controls = (props: ControlsProps) => {
   const os = OS.use();
   const window = useSelectWindow();
   const dispatch = useDispatch();
-  const remove = Layout.useRemover(window?.key ?? "");
+  const remove = useRemover(window?.key ?? "");
   if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: OS.ControlsAction[] = [];

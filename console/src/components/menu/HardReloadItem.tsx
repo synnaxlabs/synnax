@@ -10,34 +10,20 @@
 import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-export const HardReloadItem = (
-  props: Omit<Menu.ItemProps, "itemKey">,
-): ReactElement => {
+export const HardReloadItem = () => {
   const dispatch = useDispatch();
+  const handleClick = useCallback(() => dispatch(reloadWindow({})), [dispatch]);
   return (
     <Menu.Item
-      onClick={() => dispatch(reloadWindow({}))}
+      onClick={handleClick}
       startIcon={<Icon.Refresh />}
       size="small"
       itemKey="hardReload"
-      {...props}
     >
       Hard Reload
     </Menu.Item>
   );
 };
-
-export const RenameItem = (): ReactElement => (
-  <Menu.Item itemKey="rename" size="small" startIcon={<Icon.Rename />}>
-    Rename
-  </Menu.Item>
-);
-
-export const DeleteItem = (): ReactElement => (
-  <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
-    Delete
-  </Menu.Item>
-);

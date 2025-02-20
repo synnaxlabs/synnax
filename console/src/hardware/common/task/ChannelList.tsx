@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 
 export interface Channel {

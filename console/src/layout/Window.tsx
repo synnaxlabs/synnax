@@ -17,10 +17,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls } from "@/components";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
+import { Controls } from "@/layout/Controls";
 import { useSelect } from "@/layout/selectors";
 import { type WindowProps } from "@/layout/slice";
 

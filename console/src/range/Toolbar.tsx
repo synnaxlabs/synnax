@@ -33,8 +33,7 @@ import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar } from "@/components";
-import { Menu } from "@/components/menu";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";

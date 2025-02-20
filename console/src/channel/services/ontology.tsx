@@ -23,7 +23,7 @@ import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";

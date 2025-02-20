@@ -14,7 +14,7 @@ import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";

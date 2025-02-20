@@ -15,7 +15,6 @@ import { useCallback } from "react";
 
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
-import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
@@ -79,7 +78,7 @@ export const Top = () => {
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Controls className="console-controls--macos" visibleIfOS="macOS" />
+        <Layout.Controls className="console-controls--macos" visibleIfOS="macOS" />
         {os === "Windows" && (
           <Logo className="console-main-nav-top__logo" variant="icon" />
         )}
@@ -105,7 +104,7 @@ export const Top = () => {
         >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Controls className="console-controls--windows" visibleIfOS="Windows" />
+        <Layout.Controls className="console-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>
   );
