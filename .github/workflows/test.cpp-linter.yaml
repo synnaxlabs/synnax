@@ -137,7 +137,7 @@ jobs:
             driver/vendor/
             driver/scripts/
             driver/test/
-           database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
+          database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
           extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
@@ -158,12 +158,12 @@ jobs:
           files-changed-only: false 
           lines-changed-only: false
           ignore: 'vendor/|external/|third_party/|.*pb\\.h$|.*pb\\.cc$'
-           database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
+          database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
           extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
           file-annotations: true
-          verbosity: 3
+          verbosity: 3t 
           directories: |
             client/cpp
 
