@@ -13,5 +13,8 @@
         "tsx": {
             "skipTypeImports": true
         }
-    }
+    },
+    "excludeRegExp": [
+        ".*\\.d\\.ts$"
+    ]
 }
