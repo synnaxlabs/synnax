@@ -268,7 +268,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {showAddToActivePlot && addToActivePlotMenuItem}
       {addToNewPlotMenuItem}
       <PMenu.Divider />

@@ -243,7 +243,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {isCalc && (
         <>
           <PMenu.Divider />

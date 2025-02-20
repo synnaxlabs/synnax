@@ -29,7 +29,7 @@ import {
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
-import { Group } from "@/group";
+import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
@@ -51,7 +51,7 @@ export const SERVICES: Ontology.Services = {
   [user.ONTOLOGY_TYPE]: UserServices.ONTOLOGY_SERVICE,
   [ontology.BUILTIN_TYPE]: createEmptyService(ontology.BUILTIN_TYPE),
   [ontology.NODE_TYPE]: Node.ONTOLOGY_SERVICE,
-  [group.ONTOLOGY_TYPE]: Group.ONTOLOGY_SERVICE,
+  [group.ONTOLOGY_TYPE]: GroupServices.ONTOLOGY_SERVICE,
   [ranger.ONTOLOGY_TYPE]: RangeServices.ONTOLOGY_SERVICE,
   [workspace.ONTOLOGY_TYPE]: WorkspaceServices.ONTOLOGY_SERVICE,
   [linePlot.ONTOLOGY_TYPE]: LinePlotServices.ONTOLOGY_SERVICE,

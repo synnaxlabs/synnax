@@ -7,4 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Group from "@/group/external";
+import { Tree } from "@synnaxlabs/pluto";
+
+import { type Ontology } from "@/ontology";
+
+export const canGroupSelection = (
+  selection: Ontology.TreeContextMenuProps["selection"],
+) => Tree.getAllNodesOfMinDepth(selection.nodes).length > 1;

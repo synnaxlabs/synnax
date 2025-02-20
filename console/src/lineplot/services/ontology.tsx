@@ -78,7 +78,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>

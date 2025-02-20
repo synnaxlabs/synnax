@@ -75,7 +75,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Divider />
       {isSingle && (
         <>

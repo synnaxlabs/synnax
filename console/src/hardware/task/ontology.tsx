@@ -121,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {hasNoSnapshots && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

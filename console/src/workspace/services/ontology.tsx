@@ -279,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Divider />
       {singleResource && (
         <>
