@@ -13,7 +13,8 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input } from "@/input";
+import { type Input } from "@/input";
+import { Text as InputText } from "@/input/Text";
 import { useDataUtils } from "@/list/Data";
 import { useInfiniteUtils } from "@/list/Infinite";
 import { state } from "@/state";
@@ -172,7 +173,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 const searchInput = (props: Input.Control<string>): ReactElement => (
-  <Input.Text placeholder="Search" {...props} />
+  <InputText placeholder="Search" {...props} />
 );
 
 export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({

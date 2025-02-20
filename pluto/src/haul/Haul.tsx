@@ -225,11 +225,15 @@ export interface OnDropProps extends DraggingState {
   event?: DragEvent;
 }
 
+export interface OnDrop {
+  (props: OnDropProps): Item[];
+}
+
 export interface OnDragOverProps extends OnDropProps {}
 
 export interface UseDropProps extends Optional<Item, "key"> {
   canDrop: CanDrop;
-  onDrop: (props: OnDropProps) => Item[];
+  onDrop: OnDrop;
   onDragOver?: (props: OnDragOverProps) => void;
 }
 

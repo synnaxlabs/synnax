@@ -9,98 +9,54 @@
 
 import "@/color/Swatch.css";
 
-import { type ReactElement, useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
-import { Button } from "@/button";
-import { color } from "@/color/core";
-import { type Color, type Crude } from "@/color/core/color";
+import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { type UseProps } from "@/dropdown/Dropdown";
-import { Haul } from "@/haul";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 export interface SwatchProps
-  extends Omit<Button.ButtonProps, "onChange" | "value" | "size">,
+  extends BaseSwatchProps,
     UseProps,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
-  value: Crude;
-  onChange?: (c: Color) => void;
-  size?: Button.ButtonProps["size"] | "tiny";
 }
 
-const HAUL_TYPE = "color";
-
 export const Swatch = ({
-  value,
   onChange,
-  className,
-  size = "medium",
   onVisibleChange,
   initialVisible,
   allowChange = true,
-  draggable = true,
   style,
   onClick,
+  value,
   ...rest
-}: SwatchProps): ReactElement => {
+}: SwatchProps) => {
   const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
-
-  const bg = Theming.use().colors.gray.l0;
-
-  const d = new color.Color(value);
-
-  const dragging = Haul.useDraggingState();
-
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => {
-      const [k] = Haul.filterByType(HAUL_TYPE, items);
-      return k != null && k.key !== d.hex;
-    },
-    [d.hex],
-  );
-
-  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
-    type: "Color.Swatch",
-    onDrop: ({ items }) => {
-      const dropped = Haul.filterByType(HAUL_TYPE, items);
-      if (items.length > 0) onChange?.(new color.Color(dropped[0].key as string));
-      return dropped;
-    },
-    canDrop,
-  });
-
   const canPick = onChange != null && allowChange;
-
+  const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
+    (e) => (canPick ? open() : onClick?.(e)),
+    [canPick, open, onClick],
+  );
+  const tooltip = useMemo(
+    () =>
+      canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined,
+    [canPick],
+  );
   const swatch = (
-    <Button.Button
-      className={CSS(
-        CSS.B("color-swatch"),
-        CSS.M(size),
-        d.contrast(bg) > 1.5 && d.a > 0.5 && CSS.M("no-border"),
-        CSS.dropRegion(canDrop(dragging)),
-        className,
-      )}
+    <BaseSwatch
       disabled={!canPick && onClick == null}
-      size={size as Button.ButtonProps["size"]}
-      draggable={draggable}
-      onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
-      style={{ backgroundColor: color.cssString(value) }}
-      variant="text"
-      onClick={canPick ? open : onClick}
-      tooltip={
-        canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined
-      }
-      {...haulProps}
+      onClick={handleClick}
+      value={value}
+      style={style}
+      tooltip={tooltip}
       {...rest}
     />
   );
-
   if (!canPick) return swatch;
-
   return (
     <Dropdown.Dialog
       close={close}

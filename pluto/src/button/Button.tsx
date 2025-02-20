@@ -56,6 +56,7 @@ export type ButtonProps = Omit<
   Text.WithIconProps<"button">,
   "size" | "startIcon" | "endIcon" | "level"
 > &
+  Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
     startIcon?: PIcon.Element | PIcon.Element[];

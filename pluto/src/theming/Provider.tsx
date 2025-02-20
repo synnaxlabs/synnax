@@ -26,8 +26,7 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { Input } from "@/input";
-import { type SwitchProps } from "@/input/Switch";
+import { Switch as InputSwitch, type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
 
@@ -171,7 +170,7 @@ export const Switch = (
   const { toggleTheme } = useContext();
   const [checked, setChecked] = useState(false);
   return (
-    <Input.Switch
+    <InputSwitch
       value={checked}
       onChange={(v) => {
         toggleTheme();
