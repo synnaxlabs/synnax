@@ -9,13 +9,28 @@
 
 import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Channel, Form, Rack, Status, Synnax } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  type Input,
+  Rack,
+  Status,
+  Synnax,
+} from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
 import { z } from "zod";
 
-import { Editor } from "@/code/Editor";
+import { Code } from "@/code";
+import { Lua } from "@/code/lua";
+import { usePhantom as usePhantomGlobals, type UsePhantomReturn } from "@/code/phantom";
+import { useSuggestChannels } from "@/code/useSuggestChannels";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
+import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
   configZ,
@@ -55,6 +70,46 @@ export const SELECTABLE: Layout.Selectable = {
     const layout = await createLayout({ rename });
     return layout == null ? null : { ...layout, key: layoutKey };
   },
+};
+
+interface EditorProps extends Input.Control<string> {
+  globals: UsePhantomReturn;
+}
+
+const Editor = ({ value, onChange, globals }: EditorProps) => {
+  const methods = Form.useContext();
+  const onAccept = useCallback(
+    (channel: channel.Payload) => {
+      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      methods.set(
+        "config.read",
+        unique.unique([
+          ...methods.get<channel.Key[]>("config.read").value,
+          channel.key,
+        ]),
+      );
+    },
+    [methods, globals],
+  );
+  useSuggestChannels(onAccept);
+  const client = Synnax.use();
+  useEffect(() => {
+    const channels = methods.get<channel.Key[]>("config.read").value;
+    client?.channels
+      .retrieve(channels)
+      .then((chs) => {
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      })
+      .catch(console.error);
+  }, [methods, globals]);
+  return (
+    <Code.Editor
+      style={{ height: "100%", width: "100%", flex: 1 }}
+      language={Lua.LANGUAGE}
+      value={value}
+      onChange={onChange}
+    />
+  );
 };
 
 const schema = z.object({
@@ -108,6 +163,12 @@ const Internal = ({
   const isConfiguring = configureMutation.isPending;
   const isDisabled = isLoading || isConfiguring || isSnapshot;
 
+  const globals = usePhantomGlobals({
+    language: Lua.LANGUAGE,
+    stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
+  });
+
   return (
     <Align.Space
       style={{ padding: 0, height: "100%", minHeight: 0 }}
@@ -130,7 +191,7 @@ const Internal = ({
             overflow: "hidden",
           }}
         >
-          {(p) => <Editor style={{ height: "100%", width: "100%", flex: 1 }} {...p} />}
+          {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
         <Align.Pack
           direction="y"
@@ -143,7 +204,11 @@ const Internal = ({
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space
+            direction="y"
+            style={{ padding: "2rem", paddingBottom: "3rem" }}
+            size="medium"
+          >
             <Align.Space direction="x">
               <Form.Field<rack.Key>
                 path="rack"
@@ -169,6 +234,11 @@ const Internal = ({
               path="config.read"
               label="Read From"
               padHelpText={false}
+              onChange={(v, extra) => {
+                const prev = extra.get<channel.Key[]>("config.read").value;
+                const removed = prev.filter((ch) => !v.includes(ch));
+                removed.forEach((ch) => globals.del(ch.toString()));
+              }}
             >
               {({ value, onChange }) => (
                 <Channel.SelectMultiple

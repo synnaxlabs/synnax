@@ -8,151 +8,124 @@
 // included in the file licenses/APL.txt.
 
 import "@/code/Editor.css";
-import "@codingame/monaco-vscode-lua-default-extension";
-import "@codingame/monaco-vscode-python-default-extension";
-import "@codingame/monaco-vscode-theme-defaults-default-extension";
-import "vscode/localExtensionHost";
 
-import { initialize } from "@codingame/monaco-vscode-api";
-import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
-import getTextMateServiceOverride from "@codingame/monaco-vscode-textmate-service-override";
-import getThemeServiceOverride from "@codingame/monaco-vscode-theme-service-override";
-import { Align, type Input, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
-import * as monaco from "monaco-editor";
-import { MonacoLanguageClient } from "monaco-languageclient";
-import { useRef } from "react";
-import {
-  CloseAction,
-  ErrorAction,
-  type MessageTransports,
-} from "vscode-languageclient/browser.js";
-import {
-  toSocket,
-  WebSocketMessageReader,
-  WebSocketMessageWriter,
-} from "vscode-ws-jsonrpc";
+import { Align, type Input, Theming, TimeSpan } from "@synnaxlabs/pluto";
+import { type RefObject, useEffect, useRef } from "react";
 
+import { type Monaco, useMonaco } from "@/code/Provider";
 import { CSS } from "@/css";
 
-const loggingWebsocketWrapper = (inSocket: IWebSocket): IWebSocket => ({
-  ...inSocket,
-  send: (message) => {
-    console.log("Sending message", message);
-    inSocket.send(message);
-  },
-  onMessage: (listener) => {
-    inSocket.onMessage((message) => {
-      console.log("Message received", message);
-      listener(message);
-    });
-  },
-});
-export const initWebSocketAndStartClient = async (url: string): Promise<WebSocket> => {
-  const webSocket = new WebSocket(url);
-  webSocket.onopen = () => {
-    // creating messageTransport
-    const socket = loggingWebsocketWrapper(toSocket(webSocket));
-    const reader = new WebSocketMessageReader(socket);
-    const writer = new WebSocketMessageWriter(socket);
-    // creating language client
-    const languageClient = createLanguageClient({
-      reader,
-      writer,
-    });
-    languageClient
-      .start()
-      .then(() => {
-        console.log("Language client started");
-      })
-      .catch((err) => {
-        console.error(err);
-      });
-    reader.onClose(() => languageClient.stop());
-  };
-  return webSocket;
+const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
+  automaticLayout: true,
+  minimap: { enabled: false },
+  bracketPairColorization: { enabled: false },
+  lineNumbersMinChars: 3,
+  folding: false,
+  links: false,
+  contextmenu: false,
+  renderControlCharacters: false,
+  renderWhitespace: "none",
+  scrollBeyondLastLine: false,
+  wordWrap: "off",
+  renderLineHighlight: "none",
+  formatOnPaste: false,
+  formatOnType: true,
+  suggestOnTriggerCharacters: false,
+  showFoldingControls: "never",
 };
-const createLanguageClient = (
-  messageTransports: MessageTransports,
-): MonacoLanguageClient =>
-  new MonacoLanguageClient({
-    name: "Sample Language Client",
-    clientOptions: {
-      // use a language id as a document selector
-      documentSelector: ["lua"],
-      // disable the default error handler
-      errorHandler: {
-        error: () => ({ action: ErrorAction.Continue }),
-        closed: () => ({ action: CloseAction.DoNotRestart }),
-      },
-    },
-    // create a language client connection from the JSON RPC connection on demand
-    messageTransports,
+
+const disableCommandPalette = (
+  mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod">,
+) => {
+  const CMD_ID = "ctrl-p";
+  mon.editor.addCommand({ id: CMD_ID, run: () => {} });
+  mon.editor.addKeybindingRule({
+    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP,
+    command: CMD_ID,
   });
+  mon.editor.addKeybindingRule({
+    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP | mon.KeyMod.Shift,
+    command: CMD_ID,
+  });
+};
 
-export interface EditorProps
-  extends Input.Control<string>,
-    Omit<Align.SpaceProps, "value" | "onChange"> {}
+interface UseProps extends Input.Control<string> {
+  language: string;
+}
 
-export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => {
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+const useTheme = () => {
   const theme = Theming.use();
+  const prefersDark = theme.key.includes("Dark");
+  return prefersDark ? "vs-dark" : "vs";
+};
 
-  useAsyncEffect(async () => {
-    if (!editorRef.current) return;
+const TRIGGER_SMALL_DELAY = TimeSpan.milliseconds(100).milliseconds;
 
-    // Configure Monaco web workers.
-    const workerLoaders: Partial<Record<string, () => Worker>> = {
-      TextEditorWorker: () =>
-        new Worker(
-          new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url),
-          { type: "module" },
-        ),
-      TextMateWorker: () =>
-        new Worker(
-          new URL(
-            "@codingame/monaco-vscode-textmate-service-override/worker",
-            import.meta.url,
-          ),
-          { type: "module" },
-        ),
-    };
-    self.MonacoEnvironment = {
-      getWorker: (_moduleId, label) => {
-        const workerFactory = workerLoaders[label];
-        if (workerFactory != null) return workerFactory();
-        throw new Error(`Worker ${label} not found`);
-      },
-    };
+/** @brief triggers a small model change to the editor so that it activates any language server features. */
+const triggerSmallModelChangeToActiveLanguageServerFeatures = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+  value: string,
+) => {
+  setTimeout(() => {
+    const model = editor.getModel();
+    if (model != null)
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: value }],
+        () => null,
+      );
+  }, TRIGGER_SMALL_DELAY);
+};
 
-    // Initialize Monaco services.
-    await initialize({
-      ...getTextMateServiceOverride(),
-      ...getThemeServiceOverride(),
-      ...getLanguagesServiceOverride(),
-    });
+const use = ({
+  value,
+  onChange,
+  language,
+}: UseProps): RefObject<HTMLDivElement | null> => {
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const theme = useTheme();
+  const monaco = useMonaco();
 
-    // Create the Monaco editor instance.
-    monacoRef.current = monaco.editor.create(editorRef.current, {
+  useEffect(() => {
+    if (monaco == null || editorContainerRef.current == null) return;
+    editorRef.current = monaco.editor.create(editorContainerRef.current, {
       value,
-      language: "lua",
-      theme: "vs-dark",
-      automaticLayout: true,
+      language,
+      theme,
+      ...ZERO_OPTIONS,
     });
 
-    initWebSocketAndStartClient("ws://localhost:8080");
+    console.log("RUN");
+    // Trigger language features by making a temporary edit
+    triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
 
-    // Update external state when the model changes.
-    const dispose = monacoRef.current.onDidChangeModelContent(() => {
-      if (monacoRef.current) onChange(monacoRef.current.getValue());
+    disableCommandPalette(monaco);
+    const dispose = editorRef.current.onDidChangeModelContent(() => {
+      if (editorRef.current == null) return;
+      onChange(editorRef.current.getValue());
     });
-
     return () => {
       dispose.dispose();
-      if (monacoRef.current) monacoRef.current.dispose();
+      if (editorRef.current != null) editorRef.current.dispose();
     };
-  }, [theme.key]);
+  }, [theme, monaco]);
+  return editorContainerRef;
+};
+export interface EditorProps
+  extends Input.Control<string>,
+    Omit<Align.SpaceProps, "value" | "onChange"> {
+  language: string;
+}
 
+export const Editor = ({
+  value,
+  onChange,
+  className,
+  language,
+  ...rest
+}: EditorProps) => {
+  const editorRef = use({ value, onChange, language });
   return (
     <Align.Space
       direction="y"

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
-    "build": "tsc --noEmit && tauri build",
+    "build": "tauri build",
     "dev-vite": "vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",
@@ -19,9 +19,12 @@
   "dependencies": {
     "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",
     "@codingame/monaco-vscode-api": "^14.0.4",
+    "@codingame/monaco-vscode-configuration-service-override": "^14.0.4",
+    "@codingame/monaco-vscode-keybindings-service-override": "^14.0.4",
     "@codingame/monaco-vscode-languages-service-override": "^14.0.4",
     "@codingame/monaco-vscode-lua-default-extension": "^14.0.4",
     "@codingame/monaco-vscode-python-default-extension": "^14.0.4",
+    "@codingame/monaco-vscode-quickaccess-service-override": "^14.0.4",
     "@codingame/monaco-vscode-textmate-service-override": "^14.0.4",
     "@codingame/monaco-vscode-theme-defaults-default-extension": "^14.0.4",
     "@codingame/monaco-vscode-theme-service-override": "^14.0.4",

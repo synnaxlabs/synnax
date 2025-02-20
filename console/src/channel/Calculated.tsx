@@ -201,59 +201,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
   });
 
-  const checkRequires = useMutation({
-    mutationFn: async (fld: Form.FieldState<channel.Key[]>) => {
-      const v = fld.value;
-      if (client == null || v.length == 0) return;
-      const channels = await client.channels.retrieve(v);
-      const hyphenated = channels.filter((ch) => ch.name.includes("-"));
-      if (!hyphenated.length) return;
-      let base = "Channel ";
-      if (hyphenated.length > 1) base = "Channels ";
-      base += hyphenated.map((ch) => ch.name).join(", ");
-      base += " with hyphens must be accessed using ";
-      base += hyphenated.map((ch) => `get("${ch.name}")`).join(", ");
-      if (hyphenated.length > 1) base += " as they are not valid variable names.";
-      else base += " as it is not a valid variable name.";
-      methods.setStatus("expression", {
-        variant: "warning",
-        message: base,
-      });
-    },
-  });
-  Form.useFieldListener<channel.Key[], typeof schema>({
-    path: "requires",
-    onChange: useCallback((v) => checkRequires.mutate(v), [checkRequires]),
-    ctx: methods,
-  });
-
-  const autoFillRequires = useMutation({
-    mutationFn: async ({
-      value,
-      extra,
-    }: {
-      value: string;
-      extra: Form.ContextValue;
-    }) => {
-      if (client == null) return;
-      const channelRegex = /\b([a-zA-Z][a-zA-Z0-9_-]*)\b/g;
-      const requires = extra.get<channel.Key[]>("requires").value;
-      const channelNames: string[] = [];
-      let match: RegExpExecArray | null;
-      while ((match = channelRegex.exec(value)) !== null) {
-        const channelName = match[1];
-        if (channelName) channelNames.push(channelName);
-      }
-      const channels = unique.by(
-        await client.channels.retrieve(channelNames),
-        ({ name }) => name,
-      );
-      if (channels.length == 0) return;
-      const channelKeys = channels.map(({ key }) => key);
-      extra.set("requires", unique.unique([...requires, ...channelKeys]));
-    },
-  });
-
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
     "isIndex",
     false,

@@ -21,6 +21,7 @@ export * from "@/errors";
 export * from "@/id";
 export * from "@/identity";
 export * from "@/invert";
+export * from "@/jsonrpc";
 export * from "@/kv";
 export * from "@/link";
 export * from "@/math";

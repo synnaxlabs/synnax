@@ -61,7 +61,6 @@ const COMMANDS = [
   ...UserServices.COMMANDS,
   ...LogServices.COMMANDS,
   ...TableServices.COMMANDS,
-  ...Sequence.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (

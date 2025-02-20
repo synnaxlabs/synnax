@@ -9,6 +9,35 @@
  * included in the file licenses/APL.txt.
  */
 
+:root {
+    --editor-token-keyword: #cc255f;
+    --editor-token-delimiter-parenthesis: #cc255f;
+    .monaco-editor * {
+        /* font-family: "Geist Mono" !important; */
+    }
+    .mtk1 {
+        color: var(--pluto-gray-l9) !important;
+    }
+    .mtk5 {
+        color: var(--editor-token-keyword) !important;
+    }
+    .mtk6 {
+        color: var(--pluto-primary-p1) !important;
+    }
+    .mtk11 {
+        color: var(--pluto-secondary-m1) !important;
+    }
+    .monaco-editor-background {
+        background: var(--pluto-gray-l1) !important;
+    }
+    .monaco-editor .margin {
+        background: var(--pluto-gray-l1) !important;
+    }
+    .monaco-editor .line-numbers {
+        color: var(--pluto-gray-l7) !important;
+    }
+}
+
 .console-editor {
     height: 100%;
     background: var(--pluto-gray-l1);
