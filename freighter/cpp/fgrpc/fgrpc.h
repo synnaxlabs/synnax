@@ -39,13 +39,14 @@ inline std::string read_file(const std::string &path) {
     FILE *f = fopen(path.c_str(), "r");
     if (f == nullptr)
         throw std::runtime_error("failed to open " + path);
-    char buf[1024];
+    std::array<char, 1024> buf{};
     for (;;) {
-        const size_t n = fread(buf, 1, sizeof(buf), f);
+        const size_t n = fread(buf.data(), 1, buf.size(), f);
         if (n <= 0) break;
-        data.append(buf, n);
+        data.append(buf.data(), n);
     }
     if (ferror(f)) {
+        fclose(f);
         throw std::runtime_error("failed to read " + path);
     }
     fclose(f);
@@ -57,7 +58,7 @@ namespace fgrpc {
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
-    std::unordered_map<std::string, std::shared_ptr<grpc::Channel> > channels{};
+    std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<grpc::ChannelCredentials> credentials =
             grpc::InsecureChannelCredentials();
@@ -98,7 +99,7 @@ public:
     /// @param target The target to connect to.
     /// @returns A channel to the target.
     std::shared_ptr<grpc::Channel> get_channel(const std::string &target) {
-        std::lock_guard lock(this->mu);
+        const std::lock_guard lock(this->mu);
         const auto it = this->channels.find(target);
         if (it != this->channels.end()) {
             auto channel = it->second;
@@ -253,7 +254,7 @@ public:
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS> > > operator()(
         freighter::Context outbound,
-        std::nullptr_t &_
+        [[maybe_unused]] std::nullptr_t &_
     ) override {
         if (this->closed) return {outbound, this->close_err};
         const grpc::Status status = this->stream->Finish();
@@ -317,7 +318,7 @@ public:
     /// @brief the finalizer that opens the stream.
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS> > > operator()(
         freighter::Context req_ctx,
-        std::nullptr_t &_
+        [[maybe_unused]] std::nullptr_t &_
     ) override {
         auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = freighter::Context(

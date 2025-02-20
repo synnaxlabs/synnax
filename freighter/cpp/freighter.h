@@ -66,7 +66,7 @@ enum TransportVariant {
 class Context {
 public:
     /// @brief unique hash used to retreive sent data.
-    int id;
+    int id{0};
     /// @brief The protocol used to send the request. Should be set by the underlying transport implementation.
     std::string protocol;
     /// @brief The target passed to UnaryClient::send or StreamClient::stream along with any base target configured
@@ -81,9 +81,10 @@ public:
         std::string protocol,
         std::string target,
         const TransportVariant variant
-    ) : id(0),
+    ) :
         protocol(std::move(protocol)),
-        target(std::move(target)), variant(variant) {
+        target(std::move(target)), 
+        variant(variant) {
         params = std::unordered_map<std::string, std::string>();
     }
 
@@ -102,7 +103,7 @@ public:
         target = other.target;
         id = other.id;
         variant = other.variant;
-        for (auto &[k, v]: other.params) params[k] = v;
+        for (const auto &[k, v]: other.params) params[k] = v;
         return *this;
     }
 
@@ -170,7 +171,7 @@ struct FinalizerReturn {
 template<typename RQ, typename RS>
 class Finalizer {
 public:
-    virtual FinalizerReturn<RS> operator()(Context context, RQ &req) {
+    virtual FinalizerReturn<RS> operator()(Context context, [[maybe_unused]] RQ &req) {
         return {context, xerrors::NIL};
     }
 
@@ -211,9 +212,9 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            int index;
+            int index = 0;
             const MiddlewareCollector &collector;
-            RQ req;
+            RQ &req;
             freighter::Finalizer<RQ, RS> *finalizer;
         public:
             RS res;
@@ -222,8 +223,7 @@ public:
                 const MiddlewareCollector &collector,
                 freighter::Finalizer<RQ, RS> *finalizer,
                 RQ &req
-            ) : index(0), collector(collector), req(req), finalizer(finalizer) {
-            }
+            ) : collector(collector), finalizer(finalizer), req(req) {}
 
             std::pair<Context, xerrors::Error> operator()(
                 freighter::Context context
@@ -233,14 +233,15 @@ public:
                     this->res = std::move(f_res.response);
                     return {f_res.context, f_res.error};
                 }
-                auto mw = this->collector.middlewares[this->index].get();
+                const auto& mw = this->collector.middlewares[this->index];
                 ++this->index;
                 return mw->operator()(context, *this);
             }
         };
-        auto mw = std::make_unique<NextImpl>(*this, finalizer, req);
-        auto err = mw->operator()(context).second;
-        return {std::move(mw->res), err};
+        
+        auto next = std::make_unique<NextImpl>(*this, finalizer, req);
+        auto [_, err] = next->operator()(context);
+        return {std::move(next->res), err};
     }
 };
 

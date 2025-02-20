@@ -20,7 +20,7 @@ class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
-    std::vector<xerrors::Error> response_errors{};
+    std::vector<xerrors::Error> response_errors;
 
 
     MockUnaryClient(
@@ -51,7 +51,7 @@ public:
     }
 
     freighter::FinalizerReturn<RS>
-    operator()(freighter::Context outboundContext, RQ &req) override {
+    operator()(freighter::Context outboundContext, [[maybe_unused]] RQ &req) override {
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
         auto res = responses.front();

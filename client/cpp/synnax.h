@@ -27,7 +27,7 @@ namespace priv {
 /// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
 inline void check_little_endian() {
     const std::uint32_t value = 1;
-    const auto bytes = reinterpret_cast<const unsigned char*>(&value);
+    const auto *const bytes = reinterpret_cast<const unsigned char*>(&value);
     if (bytes[0] == 1) return;
     std::cout
             << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry.\n";

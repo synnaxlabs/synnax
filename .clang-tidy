@@ -26,7 +26,10 @@ Checks: '-*,
         -misc-use-internal-linkage,
         -misc-non-private-member-variables-in-classes,
         -misc-use-anonymous-namespace,
-        -misc-non-private-member-variables-in-classes'
+        -misc-non-private-member-variables-in-classes,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
+        -clang-analyzer-unix.Stream,
+        -cppcoreguidelines-avoid-const-or-ref-data-members'
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(?!.*(/driver/ni/nidaqmx/|/driver/ni/nisyscfg/)).*$'
 CheckOptions:

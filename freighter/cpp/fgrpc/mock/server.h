@@ -20,11 +20,24 @@
 #include <condition_variable>
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 
-/// @brief Used to awake main thread when we are
-/// done processing messages.
-std::mutex mut;
-std::condition_variable cond;
-bool end_session = false;
+/// @brief Class to manage server state
+class ServerState {
+public:
+    static ServerState& getInstance() {
+        static ServerState instance;
+        return instance;
+    }
+
+    std::mutex& getMutex() { return mut; }
+    std::condition_variable& getCondVar() { return cond; }
+    bool& getEndSession() { return end_session; }
+
+private:
+    ServerState() = default;
+    std::mutex mut;
+    std::condition_variable cond;
+    bool end_session{false};
+};
 
 /// @brief Implements .proto generated interface Unary.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
@@ -34,7 +47,7 @@ public:
                       test::Message *reply) override {
         // get the key 'test' from metadata
         auto test = context->client_metadata().find("test");
-        std::string rep("Read request: ");
+        const std::string rep("Read request: ");
         // if the test value exists, set the reply key back to the same value.
         if (test != context->client_metadata().end()) {
             context->AddInitialMetadata("test", "dog");
@@ -56,9 +69,9 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
         stream->SendInitialMetadata();
         test::Message request;
         while (stream->Read(&request)) {
-            std::unique_lock<std::mutex> lock(mut);
+            const std::unique_lock<std::mutex> lock(ServerState::getInstance().getMutex());
             test::Message res;
-            std::string rep("Read request: ");
+            const std::string rep("Read request: ");
             res.set_payload(rep + request.payload());
             stream->Write(res);
         }
@@ -70,9 +83,10 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
 
 /// @brief Meant to be call within a thread. Simple
 /// GRPCUnaryClient server.
-void server(std::string target) {
-    end_session = false;
-    std::string server_address(target);
+inline void server(std::string&& target) {
+    auto& state = ServerState::getInstance();
+    state.getEndSession() = false;
+    const std::string server_address(std::move(target));
     unaryServiceImpl u_service;
     myStreamServiceImpl s_service;
 
@@ -83,17 +97,18 @@ void server(std::string target) {
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-    std::unique_lock<std::mutex> lck(mut);
-    while (!end_session) {
-        cond.wait(lck);
+    std::unique_lock<std::mutex> lck(state.getMutex());
+    while (!state.getEndSession()) {
+        state.getCondVar().wait(lck);
     }
     lck.unlock();
     server->Shutdown();
-    end_session = false;
+    state.getEndSession() = false;
 }
 
 /// @brief Abstraction of stopping servers.
-void stopServers() {
-    end_session = true;
-    cond.notify_all();
+inline void stopServers() {
+    auto& state = ServerState::getInstance();
+    state.getEndSession() = true;
+    state.getCondVar().notify_all();
 }

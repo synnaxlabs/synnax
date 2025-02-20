@@ -28,7 +28,11 @@ class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
     freighter::FinalizerReturn<int>
     operator()(freighter::Context context, int &req) override {
-        return {context, xerrors::NIL, req + 1};
+        return {
+            .context = context,
+            .error = xerrors::NIL,
+            .response = req + 1
+        };
     }
 };
 
@@ -40,7 +44,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    auto ctx = freighter::Context("test", "1", freighter::UNARY);
+    auto ctx = freighter::Context("protocol", "test", freighter::UNARY);
     auto req = 1;
     auto [res, err] = collector.exec(ctx, &f, req);
     ASSERT_EQ(res, 2);

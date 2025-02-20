@@ -20,7 +20,7 @@ using RS = test::Message;
 using UNARY_RPC = test::UnaryMessageService;
 using STREAM_RPC = test::StreamMessageService;
 
-auto base_target = "localhost:8080";
+const auto base_target = "localhost:8080";
 
 /// @brief Test to make sure message proto works as expected.
 TEST(testGRPC, basicProto) {
@@ -96,8 +96,8 @@ TEST(testGRPC, testFailedUnary) {
 
 ///// @brief Test sending a message to multiple targets.
 TEST(testGRPC, testMultipleTargets) {
-    std::string target_one("localhost:8080");
-    std::string target_two("localhost:8081");
+    const std::string target_one("localhost:8080");
+    const std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -122,7 +122,7 @@ TEST(testGRPC, testMultipleTargets) {
 
 ///// @brief Test sending and receiving one message.
 TEST(testGRPC, testBasicStream) {
-    std::string target("localhost:8080");
+    const std::string target("localhost:8080");
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -147,8 +147,8 @@ TEST(testGRPC, testBasicStream) {
 
 ///// @brief Test making and sending with multiple stream objects.
 TEST(testGRPC, testMultipleStreamObjects) {
-    std::string target_one("localhost:8080");
-    std::string target_two("localhost:8081");
+    const std::string target_one("localhost:8080");
+    const std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -186,7 +186,7 @@ TEST(testGRPC, testMultipleStreamObjects) {
 
 ///// @brief Test sending and receiving one message.
 TEST(testGRPC, testSendMultipleMessages) {
-    std::string target("localhost:8080");
+    const std::string target("localhost:8080");
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -218,14 +218,14 @@ TEST(testGRPC, testSendMultipleMessages) {
 
 ///// @brief Test sending and receiving one message.
 TEST(testGRPC, testStreamError) {
-    std::string target("localhost:8080");
+    const std::string target("localhost:8080");
     auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
     auto [streamer, exc] = client.stream(target);
     ASSERT_FALSE(exc);
-    xerrors::Error err = streamer->send(mes);
+    const xerrors::Error err = streamer->send(mes);
     ASSERT_FALSE(err.ok());
 
     auto [res, err2] = streamer->receive();
@@ -234,7 +234,7 @@ TEST(testGRPC, testStreamError) {
 
 
 void
-client_send(int num, std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC> > client) {
+client_send(int num, const std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>>& client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [res, err] = client->send("", mes);
@@ -256,6 +256,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     auto mw = std::make_shared<myMiddleware>();
     global_unary_client->use(mw);
     std::vector<std::thread> threads;
+    threads.reserve(N_THREADS);  // Pre-allocate capacity
 
     // Time to boil all the cores.
     for (int i = 0; i < N_THREADS; i++) {
@@ -269,7 +270,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
 }
 
 void
-stream_send(int num, std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC> > client) {
+stream_send(int num, const std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC>>& client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [stream, err] = client->stream("");
@@ -297,6 +298,7 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     const auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
+    threads.reserve(N_THREADS);  // Pre-allocate capacity
 
     // Time to boil all the cores.
     for (int i = 0; i < N_THREADS; i++) {
