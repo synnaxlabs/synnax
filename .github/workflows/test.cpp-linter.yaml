@@ -128,10 +128,11 @@ jobs:
             driver/scripts/
             driver/test/
           database: 'compile_commands.json'
-          extra-args: '-Wno-unknown-warning-option --warnings-as-errors=*'
-          thread-comments: ${{ github.event_name == 'pull_request' }}
+          extra-args: -Wno-unknown-warning-option
+          thread-comments: true
           step-summary: true
           verbosity: 2
+          file-annotations: true
           directories: |
             driver
 
@@ -149,8 +150,10 @@ jobs:
           ignore: 'vendor/|external/|third_party/|.*pb\\.h$|.*pb\\.cc$'
           database: 'compile_commands.json'
           extra-args: -Wno-unknown-warning-option
-          thread-comments: ${{ github.event_name == 'pull_request' }}
+          thread-comments: true
           step-summary: true
+          file-annotations: true
+          verbosity: 2
           directories: |
             client/cpp
 
