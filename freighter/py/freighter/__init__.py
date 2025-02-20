@@ -13,8 +13,8 @@ from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
-from freighter.context import Context, Role
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
+from freighter.context import Context, Role
 from freighter.exceptions import (
     EOF,
     ExceptionPayload,
@@ -29,14 +29,14 @@ from freighter.transport import (
     AsyncFinalizer,
     AsyncMiddleware,
     AsyncNext,
+    Empty,
     Finalizer,
     Middleware,
     MiddlewareCollector,
     Next,
     Payload,
     Transport,
-    Empty,
 )
-from freighter.unary import UnaryClient, AsyncUnaryClient, send_required
+from freighter.unary import AsyncUnaryClient, UnaryClient, send_required
 from freighter.url import URL
 from freighter.websocket import AsyncWebsocketClient, WebsocketClient
