@@ -105,6 +105,17 @@ jobs:
           path: vendor/mbedtls/mbedtls-install
           key: mbedtls-windows-${{ hashFiles('vendor/mbedtls/**') }}
 
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: vendor/open62541/open62541/out
+          key: open62541-${{ matrix.os }}
+
+      - name: Update Submodules
+        if: hashFiles('vendor/open62541/open62541/out') == '' || hashFiles('vendor/mbedtls/mbedtls-install') == ''
+        run: git submodule update --init --recursive
+
       - name: Build MbedTLS On Windows
         if: matrix.os == 'windows-latest' && steps.cache-mbedtls-windows.outputs.cache-hit != 'true'
         shell: bash
@@ -127,16 +138,7 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}
 
-      - name: Update Submodules
-        if: hashFiles('vendor/open62541/open62541/out') == ''
-        run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
