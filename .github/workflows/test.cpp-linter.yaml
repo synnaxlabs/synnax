@@ -47,6 +47,37 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Install Dependencies first
+      - name: Install Deps On Ubuntu
+        run: |
+          sudo apt-get install -y libmbedtls-dev libsystemd-dev
+
+      # Cache Open62541 Build
+      - name: Cache Open62541 Build
+        id: cache-open62541
+        uses: actions/cache@v3
+        with:
+          path: driver/vendor/open62541/open62541/out
+          key: open62541-ubuntu-latest
+
+      # Update Submodules
+      - name: Update Submodules
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        run: git submodule update --init --recursive
+
+      # Build Open62541
+      - name: Build Open62541
+        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+               -DUA_NAMESPACE_ZERO=FULL \
+               -DCMAKE_INSTALL_PREFIX=../out \
+               -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
