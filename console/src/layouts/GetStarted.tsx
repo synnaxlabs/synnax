@@ -47,7 +47,7 @@ const NoCluster = () => {
       e.stopPropagation();
       placeLayout(Vis.SELECTOR_LAYOUT);
       dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
+        Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
       );
     },
     [placeLayout, dispatch, windowKey],

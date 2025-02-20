@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Text } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Toolbar as Core } from "@/components";
+import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -35,9 +35,9 @@ const NoVis = () => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
-      <Core.Header>
-        <Core.Title icon={<Icon.Visualize />}>Visualization</Core.Title>
-      </Core.Header>
+      <Toolbar.Header>
+        <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
+      </Toolbar.Header>
       <Align.Center direction="x" size="small">
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
@@ -57,7 +57,7 @@ const Content = () => {
   return Toolbar == null ? <NoVis /> : <Toolbar layoutKey={layout.key} />;
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

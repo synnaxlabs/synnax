@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Hardware } from "@/hardware";
-import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 
-export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+export const DRAWER_ITEMS = [
   ...Hardware.NAV_DRAWER_ITEMS,
   Ontology.TOOLBAR,
   Range.TOOLBAR,
-  Vis.Toolbar,
+  Vis.TOOLBAR,
 ];
