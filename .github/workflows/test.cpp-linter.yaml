@@ -85,7 +85,7 @@ jobs:
           cat .clang-tidy
       
       - name: Verify clang-tidy directly
-  run: |
+        run: |
           clang-tidy driver/ni/analog_read.cpp -p compile_commands.json || true
           echo "Exit code: $?"
 
