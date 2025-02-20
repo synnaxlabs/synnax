@@ -202,7 +202,11 @@ const SelectorButton = ({
         level={Text.ComponentSizeLevels[size]}
       />
       {closable && onClose != null && (
-        <Button.Icon onClick={handleClose} className={CSS.BEM(CLS, "btn", "close")}>
+        <Button.Icon
+          aria-label="pluto-tabs__close"
+          onClick={handleClose}
+          className={CSS.BEM(CLS, "btn", "close")}
+        >
           <CloseIcon unsavedChanges={unsavedChanges} />
         </Button.Icon>
       )}

@@ -29,7 +29,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/vendor/mbedtls",
+        "//vendor/mbedtls",
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//driver/task",

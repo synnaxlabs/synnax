@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@codingame/monaco-vscode-lua-default-extension";
-
 import { type AsyncDestructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
 

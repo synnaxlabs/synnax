@@ -21,10 +21,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import * as monaco from "monaco-editor";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -289,57 +288,4 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-const Editor = (props: Code.EditorProps): ReactElement => {
-  const client = Synnax.use();
-  const ctx = Form.useContext();
-
-  // Register Monaco editor commands and completion provider
-  useEffect(() => {
-    const disposables: monaco.IDisposable[] = [];
-    disposables.push(
-      monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
-        ctx.set(
-          "requires",
-          unique.unique([...ctx.get<channel.Key[]>("requires").value, channelKey]),
-        ),
-      ),
-    );
-    disposables.push(
-      monaco.languages.registerCompletionItemProvider("lua", {
-        triggerCharacters: ["."],
-        provideCompletionItems: async (
-          model: monaco.editor.ITextModel,
-          position: monaco.Position,
-        ): Promise<monaco.languages.CompletionList> => {
-          if (client == null) return { suggestions: [] };
-          const word = model.getWordUntilPosition(position);
-          const range: monaco.IRange = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-          const channels = await client.channels.search(word.word, { internal: false });
-          return {
-            suggestions: channels.map((channel) => ({
-              label: channel.name,
-              kind: monaco.languages.CompletionItemKind.Variable,
-              insertText: channel.name.includes("-")
-                ? `get("${channel.name}")`
-                : channel.name,
-              range,
-              command: {
-                id: "onSuggestionAccepted",
-                title: "Suggestion Accepted",
-                arguments: [channel.key],
-              },
-            })),
-          };
-        },
-      }),
-    );
-    return () => disposables.forEach((d) => d.dispose());
-  }, []);
-
-  return <Code.Editor {...props} />;
-};
+const Editor = (props: Code.EditorProps): ReactElement => <Code.Editor {...props} />;

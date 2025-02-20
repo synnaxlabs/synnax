@@ -96,11 +96,11 @@ jobs:
         id: cache-open62541
         uses: actions/cache@v3
         with:
-          path: driver/vendor/open62541/open62541/out
+          path: vendor/open62541/open62541/out
           key: open62541-${{ matrix.os }}
 
       - name: Update Submodules
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        if: hashFiles('vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
@@ -111,7 +111,7 @@ jobs:
           repository-cache: true
 
       - name: Build Open62541
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        if: hashFiles('vendor/open62541/open62541/out') == ''
         shell: bash
         run: |
           mkdir build && cd build
@@ -120,7 +120,7 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=../out \
                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
           cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
+        working-directory: vendor/open62541/open62541
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results

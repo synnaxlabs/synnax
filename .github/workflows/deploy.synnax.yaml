@@ -102,8 +102,8 @@ jobs:
         id: cache-mbedtls-windows
         uses: actions/cache@v3
         with:
-          path: driver/vendor/mbedtls/mbedtls-install
-          key: mbedtls-windows-${{ hashFiles('driver/vendor/mbedtls/**') }}
+          path: vendor/mbedtls/mbedtls-install
+          key: mbedtls-windows-${{ hashFiles('vendor/mbedtls/**') }}
 
       - name: Build MbedTLS On Windows
         if: matrix.os == 'windows-latest' && steps.cache-mbedtls-windows.outputs.cache-hit != 'true'
@@ -116,7 +116,7 @@ jobs:
           cmake --build mbedtls-build --config Release
           cmake --install mbedtls-build --config Release
           cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: driver/vendor/mbedtls
+        working-directory: vendor/mbedtls
 
       - name: Install MbedTLS On Mac
         if: matrix.os == 'macos-latest'
@@ -131,11 +131,11 @@ jobs:
         id: cache-open62541
         uses: actions/cache@v3
         with:
-          path: driver/vendor/open62541/open62541/out
+          path: vendor/open62541/open62541/out
           key: open62541-${{ matrix.os }}
 
       - name: Update Submodules
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        if: hashFiles('vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
@@ -146,7 +146,7 @@ jobs:
           repository-cache: true
 
       - name: Build Open62541
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
+        if: hashFiles('vendor/open62541/open62541/out') == ''
         shell: bash
         run: |
           mkdir build && cd build
@@ -167,7 +167,7 @@ jobs:
                  -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
           fi
           cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
+        working-directory: vendor/open62541/open62541
 
       - name: Build Driver
         if: matrix.os != 'windows-latest'

@@ -80,8 +80,8 @@ git_repository(
 
 new_local_repository(
     name = "labjack",
-    path = "driver/vendor/labjack",
-    build_file = "@//driver/vendor/labjack:BUILD.bazel",
+    path = "vendor/labjack",
+    build_file = "@//vendor/labjack:BUILD.bazel",
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -90,8 +90,8 @@ new_local_repository(
 
 new_local_repository(
     name = "open62541",
-    build_file = "@//driver/vendor/open62541:BUILD.bazel",
-    path = "./driver/vendor/open62541/open62541/out",
+    build_file = "@//vendor/open62541:BUILD.bazel",
+    path = "./vendor/open62541/open62541/out",
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -100,19 +100,19 @@ new_local_repository(
 
 new_local_repository(
     name = "mbedtls_win",
-    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
-    path = "./driver/vendor/mbedtls/mbedtls-install",
+    build_file = "@//vendor/mbedtls:BUILD.bazel",
+    path = "./vendor/mbedtls/mbedtls-install",
 )
 
 new_local_repository(
     name = "mbedtls_macos",
-    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
+    build_file = "@//vendor/mbedtls:BUILD.bazel",
     path = "/opt/homebrew/Cellar/mbedtls/3.6.2",
 )
 
 new_local_repository(
     name = "mbedtls_linux",
-    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
+    build_file = "@//vendor/mbedtls:BUILD.bazel",
     path = "/usr/lib/x86_64-linux-gnu/",
 )
 
@@ -135,5 +135,5 @@ http_archive(
     urls = ["https://www.lua.org/ftp/lua-5.4.6.tar.gz"],  # Replace with the latest version
     sha256 = "7d5ea1b9cb6aa0b59ca3dde1c6adcb57ef83a1ba8e5432c0ecd06bf439b3ad88",
     strip_prefix = "lua-5.4.6",
-    build_file = "@//driver/vendor/lua:BUILD.bazel",
+    build_file = "@//vendor/lua:BUILD.bazel",
 )
