@@ -2,18 +2,19 @@
 
 ## Python Version
 
-Synnax uses **Python 3.10 or greater**, although we highly recommend always using the **latest version of Python**.
+Synnax uses **Python 3.11 or greater**, although we highly recommend always using the
+**latest version of Python**.
 
 ## Monorepo Organization
 
 Synnax is organized as a monorepo. Our Python bases software consists of the following packageso
 
 - `alamos` - path `alamos/py` - A library for instrumenting python code with
-logs, traces, and metrics.
+  logs, traces, and metrics.
 - `synnax-freighter` - path `freighter/py` - A transport adapter protocol
-for communicating with the Synnax server.
+  for communicating with the Synnax server.
 - `synnax` - path `client/py` - The client library for communicating with
-a Synnax cluster.
+  a Synnax cluster.
 
 Each of these packages are developed built, and published independently.
 The current dependency hierarchy for these packages is as follows:
@@ -28,9 +29,9 @@ The current dependency hierarchy for these packages is as follows:
 We use [poetry](https://python-poetry.org/) as our package manager of choice. It helps
 us:
 
-* Correctly version all of our project dependencies.
-* Create virtual environments.
-* Publish packages to PyPI.
+- Correctly version all of our project dependencies.
+- Create virtual environments.
+- Publish packages to PyPI.
 
 While poetry can be considered a replacement for `pipenv`, it's not a replacement for `venv`.
 Poetry relies on the operating system level Python version to create virtual environments.
@@ -43,7 +44,7 @@ Once you've set up your development environment (see [setup macos](../setup-maco
 [setup windows](../setup-windows.md)), have an issue you're ready to work, and have
 checked out a [branch](../git.md), you're ready to start developing.
 
-### 1 -  Installing Dependencies
+### 1 - Installing Dependencies
 
 To install the Python deps, run the following command in `client/py`, `freighter/py`,
 and `alamos/py`:
@@ -75,6 +76,3 @@ files in each library's directory.
 Once you're ready to submit a pull request, do two things:
 
 1. Make sure you've bumped any changed libraries to their appropriate semantic version.
-
-
-

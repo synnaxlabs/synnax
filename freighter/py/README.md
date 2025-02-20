@@ -5,7 +5,7 @@ unary implementations in HTTP and a streaming implementation using WebSockets.
 
 ## Developing
 
-Freighter uses Python 3.10 and [Poetry](https://python-poetry.org/) for dependency
+Freighter uses Python 3.11 and [Poetry](https://python-poetry.org/) for dependency
 management. To install Poetry and the freighter dependencies, run:
 
 ```
