@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type AsyncDestructor, jsonRPC, runtime } from "@synnaxlabs/x";
-import { resourceDir } from "@tauri-apps/api/path";
 import { Command } from "@tauri-apps/plugin-shell";
 import { MonacoLanguageClient } from "monaco-languageclient";
 import { type MessageReader, type MessageWriter } from "vscode-jsonrpc";

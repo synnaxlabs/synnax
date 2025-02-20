@@ -183,7 +183,7 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
-      const { location, name, tab } = layout;
+      const { location, tab } = layout;
       let key = layout.key;
 
       const prev = select(state, key);

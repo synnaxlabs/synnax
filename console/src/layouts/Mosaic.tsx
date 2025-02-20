@@ -39,7 +39,6 @@ import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { SELECTOR_LAYOUT } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { Modals } from "@/modals";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
