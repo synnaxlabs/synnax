@@ -96,7 +96,7 @@ new_local_repository(
 new_local_repository(
     name = "mbedtls_win",
     build_file = "@//vendor/mbedtls:BUILD.bazel",
-    path = "./vendor/mbedtls/mbedtls-install",
+    path = "C:\\Program Files (x86)\\Mbed TLS",
 )
 
 new_local_repository(

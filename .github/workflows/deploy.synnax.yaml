@@ -105,15 +105,8 @@ jobs:
           path: vendor/mbedtls/mbedtls-install
           key: mbedtls-windows-${{ hashFiles('vendor/mbedtls/**') }}
 
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}
-
       - name: Update Submodules
-        if: hashFiles('vendor/open62541/open62541/out') == '' || hashFiles('vendor/mbedtls/mbedtls-install') == ''
+        if: hashFiles('vendor/mbedtls/mbedtls-install') == ''
         run: git submodule update --init --recursive
 
       - name: Build MbedTLS On Windows
@@ -138,38 +131,12 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
-
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
-
-      - name: Build Open62541
-        if: hashFiles('vendor/open62541/open62541/out') == ''
-        shell: bash
-        run: |
-          mkdir build && cd build
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                 -DUA_NAMESPACE_ZERO=FULL \
-                 -DCMAKE_INSTALL_PREFIX=../out \
-                 -DUA_ENABLE_ENCRYPTION=MBEDTLS \
-                 -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" \
-                 -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" \
-                 -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" \
-                 -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" \
-                 -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
-          else
-            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                 -DUA_NAMESPACE_ZERO=FULL \
-                 -DCMAKE_INSTALL_PREFIX=../out \
-                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          fi
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: vendor/open62541/open62541
 
       - name: Build Driver
         if: matrix.os != 'windows-latest'
