@@ -5,10 +5,10 @@ on:
     branches:
       - main
       - rc
+      - sy-2064-fix-sequence-control-acquisition
   pull_request:
     branches:
       - main
-      - rc
   workflow_dispatch:
 
 permissions:
