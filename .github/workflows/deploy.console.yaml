@@ -38,12 +38,13 @@ jobs:
         working-directory: console
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "VERSION=$(node -p \"require('./package.json').version\")-rc" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
           fi
+
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
@@ -62,7 +63,7 @@ jobs:
               - pluto/**
               - x/media/**
               - x/ts/**
-              
+
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -89,9 +90,9 @@ jobs:
             const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
-            })
-            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`)
-            if (release != null) return release.id
+            });
+            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`);
+            if (release != null) return release.id;
             const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -99,8 +100,8 @@ jobs:
               name: `Synnax Console v${process.env.VERSION}`,
               draft: false,
               prerelease: false,
-            })
-            return id
+            });
+            return id;
 
   build:
     name: Build (${{ matrix.os }})
@@ -124,7 +125,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -133,7 +134,7 @@ jobs:
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
-          
+
       - name: Verify Apple Developer Certificate
         if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
@@ -141,7 +142,7 @@ jobs:
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
-          
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -190,6 +191,22 @@ jobs:
       - name: Build (TypeScript)
         run: pnpm build:console-vite
 
+      # New step: Pre-sign the embedded lua-language-server binary from the repository
+      - name: Pre-sign Embedded lua-language-server (Before Build)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+        run: |
+          # Adjust this path to point to the embedded binary in your repository.
+          EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
+          if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
+            echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
+            exit 1
+          fi
+          echo "Pre-signing embedded binary at $EMBEDDED_BIN_REPO..."
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
+          codesign --verify --verbose "$EMBEDDED_BIN_REPO"
+
       - name: Build
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
@@ -202,25 +219,7 @@ jobs:
         working-directory: console
         run: pnpm build
 
-      - name: Sign Embedded lua-language-server
-        if: matrix.os == 'macos-latest'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
-        run: |
-          # Path to the embedded lua-language-server binary
-          EMBEDDED_BINARY="console/src-tauri/target/release/bundle/macos/Synnax.app/Contents/Resources/_up_/_up_/vendor/lua-language-server/bin/macOS/lua-language-server"
-          if [ -f "$EMBEDDED_BINARY" ]; then
-            echo "Found embedded lua-language-server at $EMBEDDED_BINARY. Signing it..."
-            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BINARY"
-          else
-            echo "Error: Embedded lua-language-server binary not found at $EMBEDDED_BINARY"
-            exit 1
-          fi
-          # Re-sign the main app bundle to incorporate the nested signature changes
-          MAIN_APP="console/src-tauri/target/release/bundle/macos/Synnax.app"
-          echo "Re-signing main app bundle at $MAIN_APP..."
-          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$MAIN_APP"
-          codesign --verify --verbose=4 "$MAIN_APP"
+      # (The following "Sign Embedded lua-language-server" step has been removed since we are pre-signing beforehand)
 
       - name: Upload macOS Release Asset
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
