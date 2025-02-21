@@ -225,6 +225,7 @@ func start(cmd *cobra.Command) {
 				HostProvider: dist.Cluster,
 				Signals:      dist.Signals,
 				Channel:      dist.Channel,
+				Framer:       dist.Framer,
 			})
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())

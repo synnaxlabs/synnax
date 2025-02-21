@@ -187,12 +187,12 @@ const PaletteDialog = ({
       store,
       placeLayout,
       confirm,
+      rename,
       client,
       addStatus,
       handleException,
       ingestors: INGESTORS,
       extractors: EXTRACTORS,
-      rename,
     }),
     [store, placeLayout, confirm, client, addStatus, handleException, rename],
   );

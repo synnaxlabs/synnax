@@ -72,8 +72,8 @@ func (r Retrieve) Limit(limit int) Retrieve {
 	return r
 }
 
-func (r Retrieve) WhereInternal(internal bool) Retrieve {
-	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Internal == internal })
+func (r Retrieve) WhereInternal(internal bool, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Internal == internal }, opts...)
 	return r
 }
 

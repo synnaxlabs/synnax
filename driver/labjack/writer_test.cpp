@@ -27,17 +27,17 @@ TEST(write_tests, labjack_t7) {
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [state_idx, tErr1] = client->channels.create("do_state_idx", telem::TIMESTAMP, 0, true);
+    auto [state_idx, tErr1] = client->channels.create("do_state_idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", telem::TIMESTAMP, 0, true);
+    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", telem::TIMESTAMP_T, 0, true);
     ASSERT_FALSE(tErr2) << tErr2.message();
 
     // TODO: test schematic using a float channel
-    auto [state, aErr] = client->channels.create("do_state", telem::SY_UINT8, state_idx.key, false);
+    auto [state, aErr] = client->channels.create("do_state", telem::UINT8_T, state_idx.key, false);
     ASSERT_FALSE(aErr) << aErr.message();
 
-    auto [cmd, cErr] = client->channels.create("do_cmd", telem::SY_UINT8, cmd_idx.key, false);
+    auto [cmd, cErr] = client->channels.create("do_cmd", telem::UINT8_T, cmd_idx.key, false);
     ASSERT_FALSE(cErr) << cErr.message();
 
 

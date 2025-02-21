@@ -21,7 +21,7 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/breaker/breaker.h"
 
 using json = nlohmann::json;
@@ -42,7 +42,7 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(config::Parser parser) :
+    explicit Command(xjson::Parser parser) :
         task(parser.required<TaskKey>("task")),
         type(parser.required<std::string>("type")),
         key(parser.optional<std::string>("key", "")),
@@ -78,7 +78,7 @@ struct State {
     json details = {};
 
     /// @brief parses a state from the provided configuration parser.
-    static State parse(config::Parser parser) {
+    static State parse(xjson::Parser parser) {
         return State{
             .task = parser.required<TaskKey>("task"),
             .key = parser.optional<std::string>("key", ""),

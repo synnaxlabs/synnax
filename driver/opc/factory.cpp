@@ -46,7 +46,7 @@ opc::Factory::configure_initial_tasks(
 
     auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
     if (err.matches(xerrors::NOT_FOUND)) {
-        LOG(INFO) << "[opc] Creating scanner task";
+        LOG(INFO) << "[opc] creating scanner task";
         auto sy_task = synnax::Task(
             rack.key,
             "opc Scanner",

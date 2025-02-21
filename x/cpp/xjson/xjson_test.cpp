@@ -11,7 +11,7 @@
 #include "gtest/gtest.h"
 
 /// local.
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 
 TEST(testConfig, testParserHappyPath) {
     struct MyConfig {
@@ -24,7 +24,7 @@ TEST(testConfig, testParserHappyPath) {
         {"name", "test"},
         {"dog", 1.0}
     };
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
     EXPECT_TRUE(parser.ok());
@@ -39,7 +39,7 @@ TEST(testConfig, testParserFieldDoesnNotExist) {
     };
     MyConfig v;
     json j = {};
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
@@ -59,7 +59,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
         {"name", "test"},
         {"dog", "1.0"}
     };
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
     EXPECT_FALSE(parser.ok());
@@ -88,7 +88,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
         }
     };
     MyConfig v;
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
     v.child.dog = child_parser.optional<float>("dog", 12);
@@ -109,7 +109,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
 
     json j = {};
     MyConfig v;
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
     v.child.dog = child_parser.optional<float>("dog", 12);
@@ -139,7 +139,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
         }
     };
     MyConfig v;
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto child_parser = parser.child("child");
     v.child.name = child_parser.required<std::string>("name");
     v.child.dog = child_parser.optional<float>("dog", 12);
@@ -176,8 +176,8 @@ TEST(testConfig, testIterHappyPath) {
     };
 
     MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
+    const xjson::Parser parser(j);
+    parser.iter("children", [&](xjson::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<float>("dog", 12);
@@ -201,8 +201,8 @@ TEST(testConfig, testIterFieldDoesNotExist) {
 
     const json j = {};
     MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
+    const xjson::Parser parser(j);
+    parser.iter("children", [&](xjson::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<float>("dog", 12);
@@ -234,8 +234,8 @@ TEST(testConfig, testIterFieldIsNotArray) {
         }
     };
     MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
+    const xjson::Parser parser(j);
+    parser.iter("children", [&](xjson::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<float>("dog", 12);
@@ -274,8 +274,8 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     };
 
     MyConfig v;
-    const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser &child_parser) {
+    const xjson::Parser parser(j);
+    parser.iter("children", [&](xjson::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<float>("dog", 12);
@@ -296,7 +296,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
         {"dog", "1.232"}
     };
     MyConfig v;
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     v.dog = parser.required<float>("dog");
     EXPECT_TRUE(parser.ok());
     // assert that the value is close to the expected value.
@@ -307,7 +307,7 @@ TEST(testConfig, testArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto values = parser.required_vector<int>("array");
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
@@ -320,7 +320,7 @@ TEST(testConfig, testArray) {
 
 TEST(testConfig, testArrayDoesNotExist) {
     json j = {};
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto values = parser.required_vector<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
@@ -333,7 +333,7 @@ TEST(testConfig, testArrayIsNotArray) {
     json j = {
         {"array", 1}
     };
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto values = parser.required_vector<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
@@ -346,7 +346,7 @@ TEST(testConfig, testOptionalArray) {
     json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto values = parser.optional_array<int>("array", {6, 7, 8});
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
@@ -359,7 +359,7 @@ TEST(testConfig, testOptionalArray) {
 
 TEST(testConfig, testNoError) {
     json j = {};
-    config::Parser parser(j);
+    xjson::Parser parser(j);
     auto err = parser.error();
     ASSERT_FALSE(err);
 }

@@ -11,7 +11,7 @@
 
 #include "opc.h"
 #include "util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
 #include "x/cpp/loop/loop.h"
@@ -34,7 +34,7 @@ struct ReaderChannelConfig {
     ReaderChannelConfig() = default;
 
     explicit ReaderChannelConfig(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
         node(parse_node_id("node_id", parser)),
         channel(parser.required<ChannelKey>("channel")),
@@ -62,7 +62,7 @@ struct ReaderConfig {
 
     ReaderConfig() = default;
 
-    explicit ReaderConfig(config::Parser &parser);
+    explicit ReaderConfig(xjson::Parser &parser);
 
     [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());

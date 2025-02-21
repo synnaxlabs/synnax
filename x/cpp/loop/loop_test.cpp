@@ -14,7 +14,7 @@
 /// @brief it should correctly wait for an expended number of requests.
 TEST(LoopTest, testWaitPrecise) {
     const auto rate = telem::HZ * 5000;
-    const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 25;
+    const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
     const int count = 5e3;

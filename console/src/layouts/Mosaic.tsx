@@ -143,7 +143,7 @@ Mosaic.displayName = "Mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
-  const store = useStore();
+  const store = useStore<RootState>();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -191,12 +191,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     toggle: [["H"]],
   });
 
-  const handleClose = useCallback(
-    (tabKey: string): void => {
-      dispatch(Layout.remove({ keys: [tabKey] }));
-    },
-    [dispatch],
-  );
+  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {

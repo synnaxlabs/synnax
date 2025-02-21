@@ -55,7 +55,7 @@ ni::Source::Source(
     breaker(breaker::default_config(task.name)) {
 }
 
-void ni::Source::parse_config(config::Parser &parser) {
+void ni::Source::parse_config(xjson::Parser &parser) {
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.optional<std::string>(
@@ -75,7 +75,7 @@ void ni::Source::parse_config(config::Parser &parser) {
 }
 
 int ni::Source::init() {
-    auto config_parser = config::Parser(this->task.config);
+    auto config_parser = xjson::Parser(this->task.config);
     this->reader_config.task_name = this->task.name;
     this->reader_config.task_key = this->task.key;
     this->parse_config(config_parser);

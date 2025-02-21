@@ -13,7 +13,7 @@
 
 #include "scanner.h"
 #include "glog/logging.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/labjack/util.h"
 
 

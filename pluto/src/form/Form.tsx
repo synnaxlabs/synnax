@@ -19,12 +19,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { z } from "zod";
 
-import { useSyncedRef } from "@/hooks/ref";
+import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
 import { type status } from "@/status/aether";
@@ -381,7 +380,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   mode: Mode;
   bind: BindFunc;
   set: SetFunc;
-  reset: (values: z.output<Z>) => void;
+  reset: (values?: z.output<Z>) => void;
   get: GetFunc;
   remove: RemoveFunc;
   value: () => z.output<Z>;
@@ -390,6 +389,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   has: (path: string) => boolean;
   setStatus: (path: string, status: status.CrudeSpec) => void;
   clearStatuses: () => void;
+  setCurrentStateAsInitialValues: () => void;
 }
 
 const Context = createContext<ContextValue>({
@@ -410,6 +410,7 @@ const Context = createContext<ContextValue>({
   has: () => false,
   setStatus: () => {},
   clearStatuses: () => {},
+  setCurrentStateAsInitialValues: () => {},
 });
 
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
@@ -449,10 +450,11 @@ export interface UseProps<Z extends z.ZodTypeAny> {
   mode?: Mode;
   sync?: boolean;
   onChange?: (props: OnChangeProps<Z>) => void;
+  onHasTouched?: (value: boolean) => void;
   schema?: Z;
 }
 
-export type UseReturn<Z extends z.ZodTypeAny> = ContextValue<Z>;
+export interface UseReturn<Z extends z.ZodTypeAny> extends ContextValue<Z> {}
 
 const getVariant = (issue: z.ZodIssue): status.Variant =>
   issue.code === z.ZodIssueCode.custom &&
@@ -462,21 +464,29 @@ const getVariant = (issue: z.ZodIssue): status.Variant =>
     : "error";
 
 export const use = <Z extends z.ZodTypeAny>({
-  values,
+  values: initialValues,
   sync = false,
   schema,
   mode = "normal",
   onChange,
+  onHasTouched,
 }: UseProps<Z>): UseReturn<Z> => {
-  const ref = useRef<UseRef<Z>>({
-    state: values,
+  const ref = useInitializerRef<UseRef<Z>>(() => ({
+    state: deep.copy(initialValues),
     statuses: new Map(),
     touched: new Set(),
     listeners: new Map(),
     parentListeners: new Map(),
-  });
+  }));
   const schemaRef = useSyncedRef(schema);
   const onChangeRef = useSyncedRef(onChange);
+  const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
+  const onHasTouchedRef = useSyncedRef(onHasTouched);
+
+  const setCurrentStateAsInitialValues = useCallback(() => {
+    initialValuesRef.current = deep.copy(ref.current.state);
+    clearTouched();
+  }, []);
 
   const bind: BindFunc = useCallback(
     <V extends any = unknown>({
@@ -517,21 +527,45 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   ) as GetFunc;
 
+  const addTouched = useCallback((path: string) => {
+    const { touched } = ref.current;
+    const prevEmpty = touched.size === 0;
+    touched.add(path);
+    const currEmpty = touched.size === 0;
+    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
+  }, []);
+
+  const removeTouched = useCallback((path: string) => {
+    const { touched } = ref.current;
+    const prevEmpty = touched.size === 0;
+    touched.delete(path);
+    const currEmpty = touched.size === 0;
+    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
+  }, []);
+
+  const clearTouched = useCallback(() => {
+    const { touched } = ref.current;
+    const prevEmpty = touched.size === 0;
+    touched.clear();
+    const currEmpty = touched.size === 0;
+    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
+  }, []);
+
   const remove = useCallback((path: string) => {
-    const { state, statuses, touched, listeners, parentListeners } = ref.current;
+    const { state, statuses, listeners, parentListeners } = ref.current;
     deep.remove(state, path);
     statuses.delete(path);
-    touched.delete(path);
+    removeTouched(path);
     listeners.delete(path);
     parentListeners.delete(path);
   }, []);
 
-  const reset = useCallback((values: z.output<Z>) => {
-    const { statuses, touched } = ref.current;
-    ref.current.state = values;
+  const reset = useCallback((values?: z.output<Z>) => {
+    const { statuses } = ref.current;
+    ref.current.state = values ?? deep.copy(initialValuesRef.current);
     updateFieldValues("");
     statuses.clear();
-    touched.clear();
+    clearTouched();
   }, []);
 
   const updateFieldState = useCallback((path: string) => {
@@ -592,7 +626,7 @@ export const use = <Z extends z.ZodTypeAny>({
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
-      const { statuses, listeners, touched } = ref.current;
+      const { statuses, listeners } = ref.current;
 
       // Parse was a complete success. No errors encountered.
       if (result.success) {
@@ -622,7 +656,7 @@ export const use = <Z extends z.ZodTypeAny>({
         if (variant !== "warning") success = false;
 
         statuses.set(issuePath, { key: issuePath, variant, message });
-        touched.add(issuePath);
+        addTouched(issuePath);
 
         let fs = get(issuePath, { optional: true });
         // If we can't find the field value, this means the user never set it, so
@@ -672,8 +706,12 @@ export const use = <Z extends z.ZodTypeAny>({
   const set: SetFunc = useCallback((path, value, opts = {}): void => {
     const prev = deep.get(ref.current.state, path, { optional: true });
     const { validateChildren = true } = opts;
-    const { state, touched } = ref.current;
-    touched.add(path);
+    const { state } = ref.current;
+    // check if the value is the same as the initial value provided
+    const initialValue = deep.get(initialValuesRef.current, path, { optional: true });
+    const equalsInitial = deep.equal(initialValue, value);
+    if (equalsInitial) removeTouched(path);
+    else addTouched(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
@@ -695,7 +733,7 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
     ref.current.statuses.set(path, status);
-    ref.current.touched.add(path);
+    addTouched(path);
     updateFieldState(path);
   }, []);
 
@@ -708,13 +746,13 @@ export const use = <Z extends z.ZodTypeAny>({
   useEffect(() => {
     if (!sync) return;
     const { listeners } = ref.current;
-    ref.current.state = values;
+    ref.current.state = initialValues;
     listeners.forEach((lis, p) => {
       const v = get(p, { optional: true });
       if (v == null) return;
       lis.forEach((l) => l(v));
     });
-  }, [sync, values]);
+  }, [sync, initialValues]);
 
   return useMemo(
     (): ContextValue<Z> => ({
@@ -730,6 +768,7 @@ export const use = <Z extends z.ZodTypeAny>({
       setStatus,
       clearStatuses,
       reset,
+      setCurrentStateAsInitialValues,
     }),
     [
       bind,
@@ -743,6 +782,7 @@ export const use = <Z extends z.ZodTypeAny>({
       clearStatuses,
       reset,
       mode,
+      setCurrentStateAsInitialValues,
     ],
   );
 };

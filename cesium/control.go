@@ -34,6 +34,10 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	if db.digests.inlet != nil {
+		db.L.DPanic("control update channel already configured")
+		return errors.New("control update channel already configured")
+	}
 	ch, err := db.retrieveChannel(ctx, key)
 	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key

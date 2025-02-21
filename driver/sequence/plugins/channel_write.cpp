@@ -14,64 +14,64 @@ telem::Series lua_to_series(
     const int index,
     const synnax::Channel &ch
 ) {
-    if (ch.data_type == telem::FLOAT32)
+    if (ch.data_type == telem::FLOAT32_T)
         return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::FLOAT64)
+    if (ch.data_type == telem::FLOAT64_T)
         return telem::Series(
             lua_tonumber(L, index),
             ch.data_type
         );
-    if (ch.data_type == telem::INT8)
+    if (ch.data_type == telem::INT8_T)
         return telem::Series(
             static_cast<int8_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT16)
+    if (ch.data_type == telem::INT16_T)
         return telem::Series(
             static_cast<int16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT32)
+    if (ch.data_type == telem::INT32_T)
         return telem::Series(
             static_cast<int32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::INT64)
+    if (ch.data_type == telem::INT64_T)
         return telem::Series(
             lua_tointeger(L, index),
             ch.data_type
         );
-    if (ch.data_type == telem::SY_UINT8)
+    if (ch.data_type == telem::UINT8_T)
         return telem::Series(
             static_cast<uint8_t>(lua_isnumber(L, index)
                                      ? lua_tonumber(L, index)
                                      : lua_toboolean(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::SY_UINT16)
+    if (ch.data_type == telem::UINT16_T)
         return telem::Series(
             static_cast<uint16_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::UINT32)
+    if (ch.data_type == telem::UINT32_T)
         return telem::Series(
             static_cast<uint32_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::UINT64)
+    if (ch.data_type == telem::UINT64_T)
         return telem::Series(
             static_cast<uint64_t>(lua_tonumber(L, index)),
             ch.data_type
         );
-    if (ch.data_type == telem::STRING)
+    if (ch.data_type == telem::STRING_T)
         return telem::Series(
             std::string(lua_tostring(L, index)),
-            telem::STRING
+            telem::STRING_T
         );
-    if (ch.data_type == telem::FLOAT32)
+    if (ch.data_type == telem::FLOAT32_T)
         return telem::Series(
             static_cast<float>(lua_tonumber(L, index)),
             ch.data_type
@@ -89,13 +89,17 @@ plugins::SynnaxFrameSink::SynnaxFrameSink(
     : client(client), cfg(std::move(cfg)) {
 }
 
-xerrors::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
+xerrors::Error plugins::SynnaxFrameSink::open() {
+    if (this->writer != nullptr)
+        throw std::runtime_error("sink already open");
+    auto [w, err] = this->client->telem.open_writer(this->cfg);
+    if (err) return err;
+    this->writer = std::make_unique<Writer>(std::move(w));
+    return xerrors::NIL;
+}
+
+xerrors::Error plugins::SynnaxFrameSink::write(const synnax::Frame &frame) {
     if (frame.empty()) return xerrors::NIL;
-    if (this->writer == nullptr) {
-        auto [w, err] = this->client->telem.open_writer(this->cfg);
-        if (err) return err;
-        this->writer = std::make_unique<Writer>(std::move(w));
-    }
     if (const bool ok = this->writer->write(frame); !ok)
         return this->writer->error();
     return xerrors::NIL;
@@ -103,7 +107,7 @@ xerrors::Error plugins::SynnaxFrameSink::write(synnax::Frame &frame) {
 
 xerrors::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::ChannelKey> &keys,
-    const std::vector<synnax::Authority> &authorities
+    const std::vector<telem::Authority> &authorities
 ) {
     if (const bool ok = this->writer->set_authority(keys, authorities); !ok)
         return this->writer->error();
@@ -111,7 +115,8 @@ xerrors::Error plugins::SynnaxFrameSink::set_authority(
 }
 
 xerrors::Error plugins::SynnaxFrameSink::close() {
-    if (this->writer == nullptr) return xerrors::NIL;
+    if (this->writer == nullptr)
+        throw std::runtime_error("sink already closed");
     const auto err = this->writer->close();
     this->writer = nullptr;
     return err;
@@ -145,6 +150,7 @@ std::pair<synnax::Channel, xerrors::Error> plugins::ChannelWrite::resolve(
 /// @brief implements sequence::Operator to bind channel set functions to the
 /// sequence on startup.
 xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
+    if (const auto err = this->sink->open()) return err;
     // Configuring the "set" closure used to set a channel value.
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {
@@ -171,12 +177,12 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
         );
 
         std::vector<synnax::ChannelKey> keys;
-        std::vector<synnax::Authority> authorities;
+        std::vector<telem::Authority> authorities;
 
         // Switching against the various possible overloads.
         if (lua_gettop(cL) == 1 && lua_isnumber(cL, 1)) {
             // set_authority(auth number)
-            auto auth = static_cast<synnax::Authority>(lua_tonumber(cL, 1));
+            auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 1));
             for (const auto &[key, _]: op->channels) {
                 keys.push_back(key);
                 authorities.push_back(auth);
@@ -188,7 +194,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
         ) {
             // set_authority(channel_name string, auth number)
             const char *channel_name = lua_tostring(cL, 1);
-            auto auth = static_cast<synnax::Authority>(lua_tonumber(cL, 2));
+            auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
             const auto [channel, err] = op->resolve(channel_name);
             if (err) {
                 luaL_error(cL, err.message().c_str());
@@ -202,7 +208,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             lua_isnumber(cL, 2)
         ) {
             // set_authority(channel_names table, auth number)
-            auto auth = static_cast<synnax::Authority>(lua_tonumber(cL, 2));
+            auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
 
             lua_pushnil(cL);
             while (lua_next(cL, 1) != 0) {
@@ -221,7 +227,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             lua_pushnil(cL);
             while (lua_next(cL, 1) != 0) {
                 const char *channel_name = lua_tostring(cL, -2);
-                auto auth = static_cast<synnax::Authority>(lua_tonumber(cL, -1));
+                auto auth = static_cast<telem::Authority>(lua_tonumber(cL, -1));
 
                 const auto [channel, err] = op->resolve(channel_name);
                 if (err) {
@@ -254,20 +260,21 @@ xerrors::Error plugins::ChannelWrite::after_all(lua_State *L) {
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-xerrors::Error plugins::ChannelWrite::before_next(lua_State *_) {
-    this->frame = synnax::Frame(channels.size());
+xerrors::Error plugins::ChannelWrite::before_next(lua_State *L) {
+    this->frame.clear();
+    this->frame.reserve(this->channels.size());
     return xerrors::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-xerrors::Error plugins::ChannelWrite::after_next(lua_State *_) {
+xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
     if (this->frame.empty()) return xerrors::NIL;
     const auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> index_keys;
     for (const auto key: *this->frame.channels) {
         auto it = this->channels.find(key);
         if (it == this->channels.end())
-            return xerrors::Error(xerrors::NOT_FOUND, "Channel not found");
+            return xerrors::Error(xerrors::NOT_FOUND, "channel not found");
         synnax::Channel ch = it->second;
         if (!ch.is_virtual) index_keys.push_back(ch.index);
     }

@@ -25,6 +25,8 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { Code } from "@/code";
+import { Lua } from "@/code/lua";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -139,9 +141,11 @@ const MainUnderContext = (): ReactElement => {
         color={{ useState: useColorContextState }}
         alamos={{ level: "debug", include: [] }}
       >
-        <Vis.Canvas>
-          <Layout.Window />
-        </Vis.Canvas>
+        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+          <Vis.Canvas>
+            <Layout.Window />
+          </Vis.Canvas>
+        </Code.Provider>
       </Pluto.Provider>
     </QueryClientProvider>
   );

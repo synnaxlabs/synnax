@@ -138,7 +138,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     ASSERT_EQ(f.size(), 1);
     std::string state_str;
     f.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
@@ -180,7 +180,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_EQ(f2.size(), 1);
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
     ASSERT_EQ(state.variant, "success");
@@ -199,8 +199,8 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
     auto [writer, w_err] = client->telem.open_writer(synnax::WriterConfig{
+        .channels = {sy_task_cmd.key},
         .start = telem::TimeStamp::now(),
-        .channels = {sy_task_cmd.key}
     });
     ASSERT_FALSE(w_err) << w_err;
     auto echo_task = synnax::Task(
@@ -232,7 +232,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_EQ(f2.size(), 1);
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto [task, key, variant, details] = task::State::parse(parser);
     ASSERT_EQ(task, echo_task.key);
     ASSERT_EQ(key, cmd.key);
@@ -321,7 +321,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 
     std::string state_str;
     f2.at(sy_task_state.key, 0, state_str);
-    auto parser = config::Parser(state_str);
+    auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
 
     ASSERT_EQ(state.task, echo_task.key);

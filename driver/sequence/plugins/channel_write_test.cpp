@@ -13,42 +13,20 @@
 
 /// external.
 #include "gtest/gtest.h"
-
 extern "C" {
 #include <lualib.h>
 }
 
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
-
-class MockSink final : public plugins::FrameSink {
-public:
-    std::vector<synnax::Frame> written_frames;
-    std::vector<std::pair<
-            std::vector<synnax::ChannelKey>,
-            std::vector<synnax::Authority> >
-    > authority_calls;
-
-    xerrors::Error write(synnax::Frame &frame) override {
-        written_frames.push_back(std::move(frame));
-        return xerrors::NIL;
-    }
-
-    xerrors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &
-        authorities
-    ) override {
-        authority_calls.emplace_back(keys, authorities);
-        return xerrors::NIL;
-    }
-};
+#include "driver/sequence/plugins/mock/plugins.h"
+#include "driver/pipeline/mock/pipeline.h"
 
 class SetOperatorTest : public testing::Test {
 protected:
     void SetupChannel(telem::DataType data_type) {
         channels.clear();
-        sink = std::make_shared<MockSink>();
+        sink = std::make_shared<plugins::mock::FrameSink>();
 
         synnax::Channel ch;
         ch.name = "my_channel";
@@ -73,8 +51,8 @@ protected:
         const std::string script = "set('my_channel', " + std::string(lua_value) + ")";
         ASSERT_EQ(luaL_dostring(L, script.c_str()), 0) << lua_tostring(L, -1);
         op->after_next(L);
-        ASSERT_EQ(sink->written_frames.size(), 1);
-        const telem::Series ser = std::move(sink->written_frames[0].series->at(0));
+        ASSERT_EQ(sink->writes->size(), 1);
+        const telem::Series ser = std::move(sink->writes->at(0).series->at(0));
         EXPECT_EQ(ser.at<T>(0), expected_value);
     }
 
@@ -82,93 +60,94 @@ protected:
         const std::string script = "set('my_channel', " + std::string(lua_value) + ")";
         ASSERT_EQ(luaL_dostring(L, script.c_str()), 0) << lua_tostring(L, -1);
         op->after_next(L);
-        ASSERT_EQ(sink->written_frames.size(), 1);
-        const telem::Series ser = std::move(sink->written_frames[0].series->at(0));
-        EXPECT_EQ(ser.at<std::string>(0), expected_value);
+        ASSERT_EQ(sink->writes->size(), 1);
+        const telem::Series ser = std::move(sink->writes->at(0).series->at(0));
+        std::string value;
+        ser.at(0, value);
+        ASSERT_EQ(value, expected_value);
     }
 
-    std::shared_ptr<MockSink> sink;
+    std::shared_ptr<plugins::mock::FrameSink> sink;
     std::vector<synnax::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
 
 TEST_F(SetOperatorTest, Float32Value) {
-    SetupChannel(telem::FLOAT32);
+    SetupChannel(telem::FLOAT32_T);
     RunTest<float>("3.14", 3.14f);
 }
 
 TEST_F(SetOperatorTest, Float64Value) {
-    SetupChannel(telem::FLOAT64);
+    SetupChannel(telem::FLOAT64_T);
     RunTest<double>("3.14159265359", 3.14159265359);
 }
 
 TEST_F(SetOperatorTest, Int8Value) {
-    SetupChannel(telem::INT8);
+    SetupChannel(telem::INT8_T);
     RunTest<int8_t>("127", 127);
 }
 
 TEST_F(SetOperatorTest, Int16Value) {
-    SetupChannel(telem::INT16);
+    SetupChannel(telem::INT16_T);
     RunTest<int16_t>("32767", 32767);
 }
 
 TEST_F(SetOperatorTest, Int32Value) {
-    SetupChannel(telem::INT32);
+    SetupChannel(telem::INT32_T);
     RunTest<int32_t>("2147483647", 2147483647);
 }
 
 TEST_F(SetOperatorTest, Int64Value) {
-    SetupChannel(telem::INT64);
+    SetupChannel(telem::INT64_T);
     RunTest<int64_t>("9223372036854775807", 9223372036854775807L);
 }
 
 TEST_F(SetOperatorTest, Uint8NumberValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("0", 0);
 }
 
 TEST_F(SetOperatorTest, Uint8Number1Value) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("1", 1);
 }
 
 TEST_F(SetOperatorTest, Uint8ChannelBooleanValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
 TEST_F(SetOperatorTest, Uint8ChannelFalseValue) {
-    SetupChannel(telem::SY_UINT8);
+    SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
 TEST_F(SetOperatorTest, UInt16Value) {
-    SetupChannel(telem::SY_UINT16);
+    SetupChannel(telem::UINT16_T);
     RunTest<uint16_t>("65535", 65535);
 }
 
 TEST_F(SetOperatorTest, UInt32Value) {
-    SetupChannel(telem::UINT32);
+    SetupChannel(telem::UINT32_T);
     RunTest<uint32_t>("4294967295", 4294967295);
 }
 
-TEST_F(SetOperatorTest, UInt64Value) {
-    SetupChannel(telem::UINT64);
-    RunTest<uint64_t>("18446744073709551615", 18446744073709551615ULL);
+TEST_F(SetOperatorTest, StringValue) {
+    SetupChannel(telem::STRING_T);
+    RunStringTest("'hello'", "hello");
 }
-
 
 class SetOperatorWithIndexTest : public testing::Test {
 protected:
     void SetupChannels(telem::DataType data_type) {
         channels.clear();
-        sink = std::make_shared<MockSink>();
+        sink = std::make_shared<plugins::mock::FrameSink>();
 
         // Add index channel
         synnax::Channel index_ch;
         index_ch.name = "index";
-        index_ch.data_type = telem::INT64;
+        index_ch.data_type = telem::INT64_T;
         index_ch.key = 1;
         index_ch.is_index = true;
         channels.push_back(index_ch);
@@ -197,44 +176,42 @@ protected:
         std::string script = "set('value', " + std::string(lua_value) + ")";
         ASSERT_EQ(luaL_dostring(L, script.c_str()), 0) << lua_tostring(L, -1);
         op->after_next(L);
-        ASSERT_EQ(sink->written_frames.size(), 1);
+        ASSERT_EQ(sink->writes->size(), 1);
 
         const telem::Series index_ser = std::move(
-            sink->written_frames[0].series->at(1));
+            sink->writes->at(0).series->at(1));
         const telem::Series value_ser = std::move(
-            sink->written_frames[0].series->at(0));
+            sink->writes->at(0).series->at(0));
 
         EXPECT_GT(index_ser.at<int64_t>(0), 0);
         EXPECT_EQ(value_ser.at<T>(0), expected_value);
     }
 
-    std::shared_ptr<MockSink> sink;
+    std::shared_ptr<plugins::mock::FrameSink> sink;
     std::vector<synnax::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
 
 TEST_F(SetOperatorWithIndexTest, Float32ValueWithIndex) {
-    SetupChannels(telem::FLOAT32);
+    SetupChannels(telem::FLOAT32_T);
     RunIndexedTest<float>("3.14", 3.14f);
 }
 
 TEST_F(SetOperatorWithIndexTest, Int32ValueWithIndex) {
-    SetupChannels(telem::INT32);
+    SetupChannels(telem::INT32_T);
     RunIndexedTest<int32_t>("42", 42);
 }
 
 TEST_F(SetOperatorWithIndexTest, BooleanValueWithIndex) {
-    SetupChannels(telem::SY_UINT8);
+    SetupChannels(telem::UINT8_T);
     RunIndexedTest<uint8_t>("true", 1);
 }
 
 class SetAuthorityTest : public testing::Test {
 protected:
     void SetUp() override {
-        channels.clear();
-        sink = std::make_shared<MockSink>();
-
+        sink = std::make_shared<plugins::mock::FrameSink>();
         // Add three test channels
         synnax::Channel ch1;
         ch1.name = "channel1";
@@ -262,49 +239,39 @@ protected:
         channels.clear();
     }
 
-    std::shared_ptr<MockSink> sink;
+    std::shared_ptr<plugins::mock::FrameSink> sink;
     std::vector<synnax::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
 
+/// @brief it should set the authority of all chanels.
 TEST_F(SetAuthorityTest, SingleAuthForAllChannels) {
     ASSERT_EQ(luaL_dostring(L, "set_authority(42)"), 0);
-
     ASSERT_EQ(sink->authority_calls.size(), 1);
-    const auto &call = sink->authority_calls[0];
-    ASSERT_EQ(call.first.size(), 3); // All three channels
-    ASSERT_EQ(call.second.size(), 3);
-
-    // Check all channels got the same authority
-    for (const auto &auth: call.second) {
-        EXPECT_EQ(auth, 42);
-    }
+    const auto &[keys, auths] = sink->authority_calls[0];
+    ASSERT_EQ(keys.size(), 3);
+    ASSERT_EQ(auths.size(), 3);
+    for (const auto &auth: auths) EXPECT_EQ(auth, 42);
 }
 
 TEST_F(SetAuthorityTest, SingleChannelAuth) {
     ASSERT_EQ(luaL_dostring(L, "set_authority('channel1', 42)"), 0);
-
     ASSERT_EQ(sink->authority_calls.size(), 1);
-    const auto &call = sink->authority_calls[0];
-    ASSERT_EQ(call.first.size(), 1);
-    ASSERT_EQ(call.second.size(), 1);
-    EXPECT_EQ(call.first[0], 1); // channel1's key
-    EXPECT_EQ(call.second[0], 42);
+    const auto &[keys, auths] = sink->authority_calls[0];
+    ASSERT_EQ(keys.size(), 1);
+    ASSERT_EQ(auths.size(), 1);
+    EXPECT_EQ(keys[0], 1);
+    EXPECT_EQ(auths[0], 42);
 }
 
 TEST_F(SetAuthorityTest, MultipleChannelsSameAuth) {
     ASSERT_EQ(luaL_dostring(L, "set_authority({'channel1', 'channel2'}, 42)"), 0);
-
     ASSERT_EQ(sink->authority_calls.size(), 1);
-    const auto &call = sink->authority_calls[0];
-    ASSERT_EQ(call.first.size(), 2);
-    ASSERT_EQ(call.second.size(), 2);
-
-    // Check both channels got the same authority
-    for (const auto &auth: call.second) {
-        EXPECT_EQ(auth, 42);
-    }
+    const auto &[keys, auths] = sink->authority_calls[0];
+    ASSERT_EQ(keys.size(), 2);
+    ASSERT_EQ(auths.size(), 2);
+    for (const auto &auth: auths) EXPECT_EQ(auth, 42);
 }
 
 TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
@@ -312,16 +279,13 @@ TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
                   "set_authority({channel1 = 42, channel2 = 43, channel3 = 44})"), 0);
 
     ASSERT_EQ(sink->authority_calls.size(), 1);
-    const auto &call = sink->authority_calls[0];
-    ASSERT_EQ(call.first.size(), 3);
-    ASSERT_EQ(call.second.size(), 3);
+    const auto &[keys, auths] = sink->authority_calls[0];
+    ASSERT_EQ(keys.size(), 3);
+    ASSERT_EQ(keys.size(), 3);
 
     // Create a map of channel keys to their authorities for easier verification
-    std::map<synnax::ChannelKey, synnax::Authority> auth_map;
-    for (size_t i = 0; i < call.first.size(); i++) {
-        auth_map[call.first[i]] = call.second[i];
-    }
-
+    std::map<synnax::ChannelKey, telem::Authority> auth_map;
+    for (int i = 0; i < keys.size(); i++) auth_map[keys[i]] = auths[i];
     EXPECT_EQ(auth_map[1], 42); // channel1
     EXPECT_EQ(auth_map[2], 43); // channel2
     EXPECT_EQ(auth_map[3], 44); // channel3

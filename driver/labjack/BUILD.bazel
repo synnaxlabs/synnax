@@ -14,11 +14,11 @@ cc_library(
 
 cc_library(
     name = "labjack_lib",
+    visibility = ["//visibility:public"],
     deps = select({
         "@platforms//os:windows": ["@labjack//:labjackm_lib"],
         "//conditions:default": [],
     }),
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -60,6 +60,7 @@ cc_library(
         "@platforms//os:windows": ["/DEFAULTLIB:ws2_32.lib"],
         "//conditions:default": [],
     }),
+    visibility = ["//visibility:public"],
     deps = select({
         "@platforms//os:windows": [
             ":labjack_headers",
@@ -70,12 +71,11 @@ cc_library(
             "//driver/queue",
             "//driver/task",
             "//x/cpp/breaker",
-            "//x/cpp/config",
             "//x/cpp/loop",
+            "//x/cpp/xjson",
             "@com_github_google_glog//:glog",
             "@nlohmann_json//:json",
         ],
         "//conditions:default": [],
     }),
-    visibility = ["//visibility:public"],
 )
