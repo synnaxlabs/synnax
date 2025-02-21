@@ -5,10 +5,10 @@ on:
     branches:
       - main
       - rc
-      - sy-2064-fix-sequence-control-acquisition
   pull_request:
     branches:
       - main
+      - rc
   workflow_dispatch:
 
 permissions:
@@ -38,11 +38,11 @@ jobs:
         working-directory: console
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+            echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(node -p \"require('./package.json').version\")-rc" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+            echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
 
       - name: Diff Changes
@@ -87,21 +87,21 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { data: releases } = await github.rest.repos.listReleases({
+            const  { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
-            });
-            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`);
-            if (release != null) return release.id;
-            const { data: { id } } = await github.rest.repos.createRelease({
+            })
+            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`)
+            if (release != null) return release.id
+            const { data: { id } }  = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `console-v${process.env.VERSION}`,
               name: `Synnax Console v${process.env.VERSION}`,
               draft: false,
               prerelease: false,
-            });
-            return id;
+            })
+            return id
 
   build:
     name: Build (${{ matrix.os }})
@@ -119,13 +119,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
+        # Only notarize on macOS and on push events, not on PRs. This prevents excessive
+        # notarization requests and long CI times on PRs.
         if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -136,6 +138,7 @@ jobs:
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Apple Developer Certificate
+        # Same as above - only notarize on macOS and on push events, not on PRs
         if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
@@ -145,9 +148,6 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -191,7 +191,9 @@ jobs:
       - name: Build (TypeScript)
         run: pnpm build:console-vite
 
-      # New step: Pre-sign the embedded lua-language-server binary from the repository
+      # We need to build the console separately WITHOUT turbo repo because of strange
+      # incompatibility issues with rust builds.
+
       - name: Pre-sign Embedded lua-language-server (Before Build)
         if: matrix.os == 'macos-latest'
         env:
@@ -218,8 +220,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         working-directory: console
         run: pnpm build
-
-      # (The following "Sign Embedded lua-language-server" step has been removed since we are pre-signing beforehand)
 
       - name: Upload macOS Release Asset
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
@@ -262,6 +262,7 @@ jobs:
                 draft: false,
                 prerelease: false,
             })
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
@@ -278,18 +279,22 @@ jobs:
         with:
           script: |
             const fs = await import("fs");
+
             const pureVersion = process.env.PURE_VERSION;
             const version = process.env.VERSION;
             const {
               repo: { repo, owner },
             } = context;
+
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${version}/`;
+
             const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
             const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
+
             const data = {
               version: `v${pureVersion}`,
               notes: "Synnax Update",
@@ -313,7 +318,9 @@ jobs:
                 },
               },
             };
+
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
+
       - name: Commit & Push Auto Update JSON File on RC
         if: github.ref == 'refs/heads/rc'
         uses: EndBug/add-and-commit@v9
