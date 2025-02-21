@@ -12,7 +12,7 @@
 :root {
     --editor-token-keyword: #cc255f;
     --editor-token-delimiter-parenthesis: #cc255f;
-    .monaco-editor * {
+    .monaco-editor *:not(.codicon) {
         font-family: "Geist Mono" !important;
     }
     .mtk1 {
