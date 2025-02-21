@@ -92,13 +92,6 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}
-
       - name: Update Submodules
         if: hashFiles('vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
@@ -109,18 +102,6 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
-
-      - name: Build Open62541
-        if: hashFiles('vendor/open62541/open62541/out') == ''
-        shell: bash
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                -DUA_NAMESPACE_ZERO=FULL \
-                -DCMAKE_INSTALL_PREFIX=../out \
-                -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: vendor/open62541/open62541
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
