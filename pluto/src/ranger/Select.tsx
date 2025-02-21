@@ -42,7 +42,7 @@ export const SelectMultiple = ({
   onChange,
   className,
   value,
-  ...props
+  ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const emptyContent =
@@ -111,7 +111,7 @@ export const SelectMultiple = ({
       emptyContent={emptyContent}
       entryRenderKey="name"
       {...dropProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -181,7 +181,7 @@ export const SelectSingle = ({
   value,
   className,
   data,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -193,7 +193,7 @@ export const SelectSingle = ({
       columns={rangeCols}
       entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -202,7 +202,7 @@ export const SelectButton = ({
   data,
   value,
   onChange,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -213,7 +213,7 @@ export const SelectButton = ({
       columns={rangeCols}
       entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };

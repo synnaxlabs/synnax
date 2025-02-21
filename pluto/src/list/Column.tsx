@@ -169,10 +169,10 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   entry,
   onSelect,
   className,
-  ...props
+  ...rest
 }: ItemProps<K, E> & ItemFrameProps<K, E>): ReactElement => {
   const { columns } = useColumnContext<K, E>();
-  const { index } = props;
+  const { index } = rest;
   return (
     <ItemFrame<K, E>
       key={entry.key.toString()}
@@ -185,7 +185,7 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       )}
       align="center"
       size="medium"
-      {...props}
+      {...rest}
     >
       {columns
         .filter(({ visible = true }) => visible)

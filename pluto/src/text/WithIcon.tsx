@@ -52,7 +52,7 @@ export const WithIcon = <
   noWrap = false,
   shade,
   weight,
-  ...props
+  ...rest
 }: WithIconProps<E, L>): ReactElement => {
   const color = evalColor(crudeColor, shade);
   const startIcons = Children.toArray(startIcon);
@@ -70,8 +70,8 @@ export const WithIcon = <
       direction="x"
       size="small"
       align="center"
-      {...props}
-      style={{ ...props.style, color }}
+      {...rest}
+      style={{ ...rest.style, color }}
     >
       {startIcons}
       {divided && startIcon != null && <Divider.Divider direction="y" />}

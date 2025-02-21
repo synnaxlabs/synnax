@@ -124,7 +124,7 @@ Task::Task(
     std::string type,
     std::string config,
     bool internal
-) : key(createTaskKey(0, 0)),
+) : key(create_task_key(0, 0)),
     name(std::move(name)),
     type(std::move(type)),
     config(std::move(config)),
@@ -137,7 +137,7 @@ Task::Task(
     std::string type,
     std::string config,
     bool internal
-) : key(createTaskKey(rack, 0)),
+) : key(create_task_key(rack, 0)),
     name(std::move(name)),
     type(std::move(type)),
     config(std::move(config)),

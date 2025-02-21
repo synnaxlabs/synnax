@@ -19,7 +19,7 @@
 #include "driver/task/task.h"
 
 /// module
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
 
@@ -97,8 +97,8 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
-            const auto &key = (*frame.channels)[i];
-            const auto &series = (*frame.series)[i];
+            const auto &key = frame.channels->at(i);
+            const auto &series = frame.series->at(i);
             if (key == this->channels.task_set.key) process_task_set(series);
             else if (key == this->channels.task_delete.key) process_task_delete(series);
             else if (key == this->channels.task_cmd.key) process_task_cmd(series);
@@ -139,15 +139,14 @@ void task::Manager::process_task_set(const telem::Series &series) {
 void task::Manager::process_task_cmd(const telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
-        auto parser = config::Parser(cmd_str);
+        auto parser = xjson::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
                     dump();
             continue;
         }
-        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
-                task;
+
         if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
@@ -155,7 +154,9 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
                     task;
             continue;
         }
-        it->second->exec(cmd);
+        const std::unique_ptr<Task> &tsk = it->second;
+        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->name() << " (" << cmd.task << ")";
+        tsk->exec(cmd);
     }
 }
 

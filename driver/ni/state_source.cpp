@@ -43,7 +43,7 @@ synnax::Frame StateSource<T>::get_state() {
     for (auto &index_key : this->state_index_keys) {
         auto timestamp_series = telem::Series(
             telem::TimeStamp::now().value,
-            telem::TIMESTAMP
+            telem::TIMESTAMP_T
         );
         state_frame.add(index_key, timestamp_series);
     }

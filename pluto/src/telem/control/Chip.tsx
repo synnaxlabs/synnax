@@ -72,12 +72,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
   }
 };
 
-export const Chip = ({
-  source,
-  sink,
-  className,
-  ...props
-}: ChipProps): ReactElement => {
+export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ source, sink });
   const [, { status }, setState] = Aether.use({
     type: control.Chip.TYPE,
@@ -113,7 +108,7 @@ export const Chip = ({
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}
       style={buttonStyle}
-      {...props}
+      {...rest}
     >
       <Icon.Circle color={chipColor} />
     </Button.Icon>

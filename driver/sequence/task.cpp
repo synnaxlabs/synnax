@@ -32,7 +32,7 @@ sequence::Task::Task(
 }
 
 void sequence::Task::run() {
-    if (const auto err = this->seq->start(); err) {
+    if (const auto err = this->seq->begin(); err) {
         this->state.variant = "error";
         this->state.details["running"] = false;
         this->state.details["message"] = err.message();
@@ -92,7 +92,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 ) {
     task::State cfg_state{.task = task.key};
 
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
         LOG(ERROR) << "[sequence] failed to parse task configuration: " << parser.
@@ -139,33 +139,29 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             };
             return nullptr;
         }
-        for (const auto &ch: write_channels) 
-            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(), ch.index) == cfg.write.end())
+        for (const auto &ch: write_channels)
+            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(),
+                                            ch.index) == cfg.write.end())
                 cfg.write.push_back(ch.index);
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
-            .authorities = {100},
-            .subject = synnax::ControlSubject{
+            .authorities = {cfg.authority},
+            .subject = telem::ControlSubject{
                 .name = task.name,
                 .key = std::to_string(task.key),
             }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
-        auto ch_write_plugin = std::make_shared<
-            plugins::ChannelWrite>(sink, write_channels);
+        auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
+            sink,
+            write_channels
+        );
         plugins_list.push_back(ch_write_plugin);
     }
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * telem::SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-
-
+    auto breaker_config = breaker::default_config("sequence (" + task.name + ")");
     auto seq = std::make_unique<sequence::Sequence>(
         std::make_shared<plugins::MultiPlugin>(plugins_list),
         cfg.script

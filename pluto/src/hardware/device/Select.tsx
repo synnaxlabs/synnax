@@ -41,7 +41,7 @@ export interface SelectSingleProps
 
 export const SelectSingle = ({
   searchOptions,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   let searcher: AsyncTermSearcher<string, device.Key, device.Device> | undefined =
@@ -53,7 +53,7 @@ export const SelectSingle = ({
       columns={deviceColumns}
       searcher={searcher}
       entryRenderKey="name"
-      {...props}
+      {...rest}
     />
   );
 };

@@ -36,11 +36,11 @@ export interface UseStateProps<D> extends UseListenerProps<D> {
 
 interface UseState {}
 
-export const useState = (<D>({ fetchInitialValue, ...props }: UseStateProps<D>) => {
+export const useState = (<D>({ fetchInitialValue, ...rest }: UseStateProps<D>) => {
   const [v, setV] = reactUseState<D | undefined>(undefined);
   useAsyncEffect(async () => {
     setV(await fetchInitialValue());
   }, [fetchInitialValue]);
-  useListener({ ...props, onChange: setV });
+  useListener({ ...rest, onChange: setV });
   return v;
 }) as UseState;

@@ -27,7 +27,7 @@ const CoreBar = ({
   className,
   style,
   bordered = true,
-  ...props
+  ...rest
 }: BarProps): ReactElement => {
   const loc = location.construct(location_);
   const dir = location.direction(loc);
@@ -48,7 +48,7 @@ const CoreBar = ({
       }}
       align="center"
       empty
-      {...props}
+      {...rest}
     />
   );
 };
@@ -63,7 +63,7 @@ const contentFactory =
     pos: spatial.Alignment | "" | "absolute-center",
   ): FunctionComponent<BarContentProps> =>
   // eslint-disable-next-line react/display-name
-  ({ bordered = false, className, ...props }: BarContentProps): ReactElement => (
+  ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
     <Align.Space
       className={CSS(
         CSS.BE("navbar", "content"),
@@ -72,7 +72,7 @@ const contentFactory =
         className,
       )}
       align="center"
-      {...props}
+      {...rest}
     />
   );
 

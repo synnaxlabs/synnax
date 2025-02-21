@@ -35,20 +35,32 @@ public:
 
     /// @brief called before the sequence starts. The caller can optionally override
     /// this method to perform any setup that is required before the sequence starts.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error before_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after the sequence ends. The caller can optionally override
     /// this method to perform any cleanup that is required after the sequence ends.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_all(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called before each iteration of the sequence. The caller can optionally
     /// override this method to bind any variables or functions that must be updated on
     /// every loop iteration.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error before_next(lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after each iteration of the sequence. The caller can optionally
     /// override this method to perform any cleanup that is required after each loop
     /// iteration.
+    ///
+    /// In no scenario should the called store the provided lua_State for later use,
+    /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_next(lua_State *L) { return xerrors::NIL; }
 };
 
@@ -61,24 +73,28 @@ public:
     MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops): plugins(std::move(ops)) {
     }
 
+    /// @brief implements Plugin::before_all.
     xerrors::Error before_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_all(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::after_all.
     xerrors::Error after_all(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_all(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::before_next.
     xerrors::Error before_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->before_next(L)) return err;
         return xerrors::NIL;
     }
 
+    /// @brief implements Plugin::after_next.
     xerrors::Error after_next(lua_State *L) override {
         for (const auto &op: plugins)
             if (auto err = op->after_next(L)) return err;
@@ -93,15 +109,16 @@ public:
     virtual ~FrameSink() = default;
 
     /// @brief writes the frame to the sink.
-    virtual xerrors::Error write(synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
 
     /// @brief sets the authority of the channels being written to.
     virtual xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) = 0;
 
     [[nodiscard]] virtual xerrors::Error close() { return xerrors::NIL; }
+    [[nodiscard]] virtual xerrors::Error open() { return xerrors::NIL; }
 };
 
 /// @brief a FrameSink implementation that writes frames to Synnax.
@@ -119,14 +136,15 @@ public:
         synnax::WriterConfig cfg
     );
 
-    xerrors::Error write(synnax::Frame &frame) override;
+    xerrors::Error write(const synnax::Frame &frame) override;
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<synnax::Authority> &authorities
+        const std::vector<telem::Authority> &authorities
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;
+    [[nodiscard]] xerrors::Error open() override;
 };
 
 /// @brief a plugin implementation that lets the sequence write to Synnax channels.
@@ -155,6 +173,11 @@ public:
     xerrors::Error after_next(lua_State *L) override;
 };
 
+struct LatestValue {
+    telem::SampleValue value;
+    bool changed;
+};
+
 /// @brief a plugin implementation that binds global variables containing channel
 /// values to the sequence.
 class ChannelReceive final : public Plugin {
@@ -164,7 +187,7 @@ class ChannelReceive final : public Plugin {
     /// @brief the pipeline used to manage the lifecycle of the receiver.
     pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> latest_values;
+    std::unordered_map<synnax::ChannelKey, LatestValue> latest_values;
     /// @brief maps channel keys to channels in order to bind variable names appropriately.
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
 
@@ -206,8 +229,6 @@ public:
     explicit JSON(json source_data);
 
     xerrors::Error before_all(lua_State *L) override;
-
-    static xerrors::Error push_value(lua_State *L, const json &value);
 };
 
 /// @brief a plugin that adds timing utilities to the sequence.
@@ -218,8 +239,9 @@ class Time final : public Plugin {
     telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
     telem::TimeSpan elapsed;
-    /// @brief the current iteration of the sequence.
-    uint64_t iteration;
+    /// @brief the current iteration of the sequence. We use an int64 as it's the
+    /// highest precision integer lua supports.
+    int64_t iteration;
 
 public:
     explicit Time(

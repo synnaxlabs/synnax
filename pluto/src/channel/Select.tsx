@@ -84,10 +84,10 @@ export const resolveIcon = (ch?: channel.Payload): FC<IconProps> => {
 
 const renderTag = ({
   key,
-  ...props
+  ...rest
 }: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => {
-  const Icon = resolveIcon(props.entry);
-  return <Select.MultipleTag key={key} icon={<Icon />} {...props} />;
+  const Icon = resolveIcon(rest.entry);
+  return <Select.MultipleTag key={key} icon={<Icon />} {...rest} />;
 };
 
 export const SelectMultiple = ({
@@ -96,7 +96,7 @@ export const SelectMultiple = ({
   className,
   value,
   searchOptions,
-  ...props
+  ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
@@ -184,7 +184,7 @@ export const SelectMultiple = ({
       entryRenderKey={entryRenderKey}
       renderTag={renderTag}
       {...dropProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -202,7 +202,7 @@ export const SelectSingle = ({
   className,
   data,
   searchOptions,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
@@ -277,7 +277,7 @@ export const SelectSingle = ({
       emptyContent={emptyContent}
       entryRenderKey={entryRenderKey}
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };

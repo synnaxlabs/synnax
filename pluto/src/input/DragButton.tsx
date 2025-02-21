@@ -76,7 +76,7 @@ export const DragButton = ({
   size,
   resetValue,
   onDragEnd,
-  ...props
+  ...rest
 }: DragButtonProps): ReactElement => {
   const vRef = useRef({
     dragging: false,
@@ -134,9 +134,9 @@ export const DragButton = ({
         vRef.current.dragging = false;
         Cursor.clearGlobalStyle();
         onDragEnd?.(value);
-        props.onBlur?.();
+        rest.onBlur?.();
       },
-      [props.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
+      [rest.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
     ),
   });
 
@@ -152,7 +152,7 @@ export const DragButton = ({
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       onDoubleClick={handleDoubleClick}
       onClick={(e) => e.preventDefault()}
-      {...props}
+      {...rest}
     >
       <Icon.Drag />
     </Button.Icon>

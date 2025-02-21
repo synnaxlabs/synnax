@@ -26,30 +26,30 @@ int exec_svc_cmd(
 }
 
 
-int cmd::sub::service_start(int argc, char** argv) {
+int cmd::sub::service_start(xargs::Parser &args) {
     return exec_svc_cmd(daemond::start_service, "start", "started");
 }
 
-int cmd::sub::service_stop(int argc, char** argv) {
+int cmd::sub::service_stop(xargs::Parser &args) {
     return exec_svc_cmd(daemond::stop_service, "stop", "stopped");
 }
 
-int cmd::sub::service_restart(int argc, char** argv) {
+int cmd::sub::service_restart(xargs::Parser &args) {
     return exec_svc_cmd(daemond::restart_service, "restart", "restarted");
 }
 
-int cmd::sub::service_install(int argc, char** argv) {
+int cmd::sub::service_install(xargs::Parser &args) {
     return exec_svc_cmd(daemond::install_service, "install", "installed");
 }
 
-int cmd::sub::service_uninstall(int argc, char** argv) {
+int cmd::sub::service_uninstall(xargs::Parser &args) {
     return exec_svc_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
 }
 
-int cmd::sub::service_view_logs(int argc, char** argv) {
+int cmd::sub::service_view_logs(xargs::Parser &args) {
     return exec_svc_cmd(daemond::view_logs, "view logs");
 }
 
-int cmd::sub::service_status(int argc, char** argv) {
+int cmd::sub::service_status(xargs::Parser &args) {
     return exec_svc_cmd(daemond::status, "status");
 }

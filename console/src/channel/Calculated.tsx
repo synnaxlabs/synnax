@@ -21,10 +21,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import * as monaco from "monaco-editor";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -201,59 +200,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
   });
 
-  const checkRequires = useMutation({
-    mutationFn: async (fld: Form.FieldState<channel.Key[]>) => {
-      const v = fld.value;
-      if (client == null || v.length == 0) return;
-      const channels = await client.channels.retrieve(v);
-      const hyphenated = channels.filter((ch) => ch.name.includes("-"));
-      if (!hyphenated.length) return;
-      let base = "Channel ";
-      if (hyphenated.length > 1) base = "Channels ";
-      base += hyphenated.map((ch) => ch.name).join(", ");
-      base += " with hyphens must be accessed using ";
-      base += hyphenated.map((ch) => `get("${ch.name}")`).join(", ");
-      if (hyphenated.length > 1) base += " as they are not valid variable names.";
-      else base += " as it is not a valid variable name.";
-      methods.setStatus("expression", {
-        variant: "warning",
-        message: base,
-      });
-    },
-  });
-  Form.useFieldListener<channel.Key[], typeof schema>({
-    path: "requires",
-    onChange: useCallback((v) => checkRequires.mutate(v), [checkRequires]),
-    ctx: methods,
-  });
-
-  const autoFillRequires = useMutation({
-    mutationFn: async ({
-      value,
-      extra,
-    }: {
-      value: string;
-      extra: Form.ContextValue;
-    }) => {
-      if (client == null) return;
-      const channelRegex = /\b([a-zA-Z][a-zA-Z0-9_-]*)\b/g;
-      const requires = extra.get<channel.Key[]>("requires").value;
-      const channelNames: string[] = [];
-      let match: RegExpExecArray | null;
-      while ((match = channelRegex.exec(value)) !== null) {
-        const channelName = match[1];
-        if (channelName) channelNames.push(channelName);
-      }
-      const channels = unique.by(
-        await client.channels.retrieve(channelNames),
-        ({ name }) => name,
-      );
-      if (channels.length == 0) return;
-      const channelKeys = channels.map(({ key }) => key);
-      extra.set("requires", unique.unique([...requires, ...channelKeys]));
-    },
-  });
-
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
     "isIndex",
     false,
@@ -276,15 +222,11 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             )}
           </Form.Field>
 
-          <Form.Field<string>
-            path="expression"
-            grow
-            onChange={(v, extra) => autoFillRequires.mutate({ value: v, extra })}
-          >
+          <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
               <Editor
                 value={value}
-                lang="python"
+                language="lua"
                 onChange={onChange}
                 bordered
                 rounded
@@ -346,57 +288,4 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-const Editor = (props: Code.EditorProps): ReactElement => {
-  const client = Synnax.use();
-  const ctx = Form.useContext();
-
-  // Register Monaco editor commands and completion provider
-  useEffect(() => {
-    const disposables: monaco.IDisposable[] = [];
-    disposables.push(
-      monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
-        ctx.set(
-          "requires",
-          unique.unique([...ctx.get<channel.Key[]>("requires").value, channelKey]),
-        ),
-      ),
-    );
-    disposables.push(
-      monaco.languages.registerCompletionItemProvider("lua", {
-        triggerCharacters: ["."],
-        provideCompletionItems: async (
-          model: monaco.editor.ITextModel,
-          position: monaco.Position,
-        ): Promise<monaco.languages.CompletionList> => {
-          if (client == null) return { suggestions: [] };
-          const word = model.getWordUntilPosition(position);
-          const range: monaco.IRange = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-          const channels = await client.channels.search(word.word, { internal: false });
-          return {
-            suggestions: channels.map((channel) => ({
-              label: channel.name,
-              kind: monaco.languages.CompletionItemKind.Variable,
-              insertText: channel.name.includes("-")
-                ? `get("${channel.name}")`
-                : channel.name,
-              range,
-              command: {
-                id: "onSuggestionAccepted",
-                title: "Suggestion Accepted",
-                arguments: [channel.key],
-              },
-            })),
-          };
-        },
-      }),
-    );
-    return () => disposables.forEach((d) => d.dispose());
-  }, []);
-
-  return <Code.Editor {...props} />;
-};
+const Editor = (props: Code.EditorProps): ReactElement => <Code.Editor {...props} />;

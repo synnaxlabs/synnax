@@ -51,7 +51,7 @@ const useLiveTheme = (): string => {
   return theme;
 };
 
-export const Video = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
+export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
   const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
   const ref = useRef<HTMLVideoElement>(null);
@@ -75,7 +75,7 @@ export const Video = ({ id, themed = true, ...props }: VideoProps): ReactElement
     };
   }, []);
 
-  return <Core.Video ref={ref} href={url} loop muted {...props} />;
+  return <Core.Video ref={ref} href={url} loop muted {...rest} />;
 };
 
 export interface ImageProps extends VideoProps {
@@ -87,7 +87,7 @@ export const Image = ({
   themed = true,
   className,
   extension = "png",
-  ...props
+  ...rest
 }: ImageProps): ReactElement => {
   const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
@@ -97,5 +97,5 @@ export const Image = ({
   useEffect(() => {
     if (ref.current) ref.current.src = url;
   }, []);
-  return <img src={url} {...props} />;
+  return <img src={url} {...rest} />;
 };

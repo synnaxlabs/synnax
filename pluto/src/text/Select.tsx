@@ -28,10 +28,8 @@ const DATA: LevelEntry[] = [
   { key: "small", label: "XS" },
 ];
 
-export const SelectLevel = ({ children, ...props }: SelectLevelProps): ReactElement => (
-  <Button {...props} data={DATA} entryRenderKey="label">
-    {children}
-  </Button>
+export const SelectLevel = (props: SelectLevelProps): ReactElement => (
+  <Button {...props} data={DATA} entryRenderKey="label" />
 );
 
 interface WeightEntry {
@@ -49,11 +47,6 @@ const WEIGHT_DATA: WeightEntry[] = [
 export interface SelectWeightProps
   extends Omit<ButtonProps<text.Weight, WeightEntry>, "data" | "entryRenderKey"> {}
 
-export const SelectWeight = ({
-  children,
-  ...props
-}: SelectWeightProps): ReactElement => (
-  <Button {...props} data={WEIGHT_DATA} entryRenderKey="label">
-    {children}
-  </Button>
+export const SelectWeight = (props: SelectWeightProps): ReactElement => (
+  <Button {...props} data={WEIGHT_DATA} entryRenderKey="label" />
 );

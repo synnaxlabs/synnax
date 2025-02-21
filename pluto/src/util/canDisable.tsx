@@ -16,8 +16,8 @@ export type CanDisabledProps<T extends object & { children?: ReactNode }> = T & 
 export const canDisable = <T extends object & { children?: ReactNode }>(
   C: FC<T>,
 ): FC<CanDisabledProps<T>> => {
-  const O: FC<CanDisabledProps<T>> = ({ disabled = false, ...props }) =>
-    disabled ? props.children : <C {...(props as T)} />;
+  const O: FC<CanDisabledProps<T>> = ({ disabled = false, ...rest }) =>
+    disabled ? rest.children : <C {...(rest as T)} />;
   O.displayName = C.displayName;
   return O;
 };

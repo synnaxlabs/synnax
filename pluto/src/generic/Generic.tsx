@@ -30,5 +30,5 @@ export type ElementProps<E extends JSXElementType> = ComponentPropsWithRef<E> & 
 export const Element = <E extends JSXElementType>({
   el,
   children,
-  ...props
-}: ElementProps<E>): ReactElement => createElement(el, props, children);
+  ...rest
+}: ElementProps<E>): ReactElement => createElement(el, rest, children);

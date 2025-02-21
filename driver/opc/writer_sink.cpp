@@ -15,17 +15,17 @@
 
 #include "driver/opc/writer.h"
 #include "driver/opc/util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/errors/errors.h"
 
-#include "include/open62541/types.h"
-#include "include/open62541/types_generated.h"
-#include "include/open62541/statuscodes.h"
-#include "include/open62541/client_highlevel.h"
-#include "include/open62541/common.h"
-#include "include/open62541/client_subscriptions.h"
+#include "open62541/types.h"
+#include "open62541/types_generated.h"
+#include "open62541/statuscodes.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/common.h"
+#include "open62541/client_subscriptions.h"
 
 opc::WriterSink::WriterSink(
     WriterConfig cfg,
@@ -50,34 +50,34 @@ inline void opc::WriterSink::set_variant(
     const uint32_t &series_index,
     const telem::DataType &type) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
-    if (type == telem::FLOAT64) {
+    if (type == telem::FLOAT64_T) {
         double data = frame.series->at(series_index).values<double>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
-    } else if (type == telem::FLOAT32) {
+    } else if (type == telem::FLOAT32_T) {
         float data = frame.series->at(series_index).values<float>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
-    } else if (type == telem::INT32) {
+    } else if (type == telem::INT32_T) {
         int32_t data = frame.series->at(series_index).values<int32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT32]);
-    } else if (type == telem::INT16) {
+    } else if (type == telem::INT16_T) {
         int16_t data = frame.series->at(series_index).values<int16_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT16]);
-    } else if (type == telem::INT8) {
+    } else if (type == telem::INT8_T) {
         int8_t data = frame.series->at(series_index).values<int8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
-    } else if (type == telem::UINT64) {
+    } else if (type == telem::UINT64_T) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
-    } else if (type == telem::UINT32) {
+    } else if (type == telem::UINT32_T) {
         uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
-    } else if (type == telem::SY_UINT16) {
+    } else if (type == telem::UINT16_T) {
         uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
-    } else if (type == telem::SY_UINT8) {
+    } else if (type == telem::UINT8_T) {
         uint8_t data = frame.series->at(series_index).values<uint8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_BYTE]);
-    } else if (type == telem::TIMESTAMP) {
+    } else if (type == telem::TIMESTAMP_T) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DATETIME]);
     }

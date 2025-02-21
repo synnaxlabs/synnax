@@ -44,14 +44,14 @@ interface FormWrapperProps extends Align.SpaceProps {}
 const FormWrapper: FC<FormWrapperProps> = ({
   className,
   direction,
-  ...props
+  ...rest
 }): ReactElement => (
   <Align.Space
     direction={direction}
     align="stretch"
     className={CSS(CSS.B("symbol-form"), className)}
     size={direction === "x" ? "large" : "medium"}
-    {...props}
+    {...rest}
   />
 );
 
@@ -68,11 +68,11 @@ interface ShowOrientationProps {
 const OrientationControl = ({
   hideOuter,
   hideInner,
-  ...props
+  ...rest
 }: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
   return (
-    <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
+    <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...rest}>
       {({ value, onChange }) => (
         <SelectOrientation
           value={{
@@ -145,11 +145,11 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
 
 const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
   <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
-    {({ value, onChange, variant: _, ...props }) => (
+    {({ value, onChange, variant: _, ...rest }) => (
       <Color.Swatch
         value={value ?? Color.ZERO.setAlpha(1).rgba255}
         onChange={(v) => onChange(v.rgba255)}
-        {...props}
+        {...rest}
         bordered
       />
     )}
@@ -336,9 +336,8 @@ export const TankForm = ({
           label="X Border Radius"
           grow
         >
-          {({ value, ...props }) => (
+          {(props) => (
             <Input.Numeric
-              value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={BORDER_RADIUS_BOUNDS}
               endContent="%"
@@ -353,9 +352,8 @@ export const TankForm = ({
           label="Y Border Radius"
           grow
         >
-          {({ value, ...props }) => (
+          {(props) => (
             <Input.Numeric
-              value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={BORDER_RADIUS_BOUNDS}
               endContent="%"
@@ -371,9 +369,8 @@ export const TankForm = ({
             label="Border Radius"
             grow
           >
-            {({ value, ...props }) => (
+            {(props) => (
               <Input.Numeric
-                value={value}
                 dragScale={DIMENSIONS_DRAG_SCALE}
                 bounds={DIMENSIONS_BOUNDS}
                 endContent="px"
@@ -383,24 +380,24 @@ export const TankForm = ({
           </Form.Field>
         )}
         <Form.Field<number> path="dimensions.width" label="Width" grow>
-          {({ value, ...props }) => (
+          {({ value, ...rest }) => (
             <Input.Numeric
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
-              {...props}
+              {...rest}
             />
           )}
         </Form.Field>
         <Form.Field<number> path="dimensions.height" label="Height" grow>
-          {({ value, ...props }) => (
+          {({ value, ...rest }) => (
             <Input.Numeric
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
-              {...props}
+              {...rest}
             />
           )}
         </Form.Field>
@@ -808,24 +805,24 @@ export const CylinderForm = (): ReactElement => (
         <ColorControl path="color" />
         <ColorControl path="backgroundColor" label="Background Color" />
         <Form.Field<number> path="dimensions.width" label="Width" grow>
-          {({ value, ...props }) => (
+          {({ value, ...rest }) => (
             <Input.Numeric
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
-              {...props}
+              {...rest}
             />
           )}
         </Form.Field>
         <Form.Field<number> path="dimensions.height" label="Height" grow>
-          {({ value, ...props }) => (
+          {({ value, ...rest }) => (
             <Input.Numeric
               value={value ?? 200}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
-              {...props}
+              {...rest}
             />
           )}
         </Form.Field>

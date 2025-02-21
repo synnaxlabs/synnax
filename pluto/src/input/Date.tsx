@@ -99,7 +99,7 @@ export const Date = ({
   className,
   showDragHandle = true,
   children,
-  ...props
+  ...rest
 }: DateProps): ReactElement => {
   const { value: inputValue, onChange: handleChange } = useDate({ value, onChange });
   return (
@@ -109,7 +109,7 @@ export const Date = ({
       className={CSS(CSS.B("input-date"), className)}
       onChange={handleChange}
       type="date"
-      {...props}
+      {...rest}
     >
       {showDragHandle && (
         <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />

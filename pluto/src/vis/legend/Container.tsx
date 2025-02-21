@@ -125,7 +125,7 @@ export const Container = memo(
     onChange,
     style,
     draggable = true,
-    ...props
+    ...rest
   }: ContainerProps): ReactElement | null => {
     const [position, setPosition] = state.usePurePassthrough<StickyXY>({
       value,
@@ -194,7 +194,7 @@ export const Container = memo(
         onDragStart={handleCursorDragStart}
         draggable={draggable}
         ref={ref}
-        {...props}
+        {...rest}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
         empty

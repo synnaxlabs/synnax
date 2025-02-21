@@ -11,7 +11,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//x/cpp/breaker",
-        "//x/cpp/config",
+        "//x/cpp/xjson",
         "//x/cpp/xlog",
         "//x/cpp/xos",
         "@com_github_google_glog//:glog",

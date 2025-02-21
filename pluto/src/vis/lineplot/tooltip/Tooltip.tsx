@@ -19,13 +19,13 @@ export interface TooltipProps
   extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
     Aether.CProps {}
 
-export const Tooltip = ({ aetherKey, ...props }: TooltipProps): ReactElement | null => {
+export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);
   const [, , setState] = Aether.use({
     aetherKey: cKey,
     type: tooltip.Tooltip.TYPE,
     schema: tooltip.tooltipStateZ,
-    initialState: { position: null, ...props },
+    initialState: { position: null, ...rest },
   });
 
   const ref = useRef<HTMLSpanElement>(null);

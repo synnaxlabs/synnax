@@ -177,5 +177,5 @@ const searchInput = (props: Input.Control<string>): ReactElement => (
 
 export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children = searchInput,
-  ...props
-}: SearchProps<K, E>): ReactElement | null => children(useSearch(props));
+  ...rest
+}: SearchProps<K, E>): ReactElement | null => children(useSearch(rest));

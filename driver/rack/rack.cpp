@@ -11,17 +11,14 @@
 
 bool rack::Rack::should_exit(const xerrors::Error &err) {
     this->run_err = err;
-    if (err) {
-        if (err.matches(freighter::UNREACHABLE) && breaker.wait(err))
-            return false;
-        return true;
-    }
-    return false;
+    if (!err) return false;
+    const auto breaker_ok = err.matches(freighter::UNREACHABLE) && breaker.wait(err);
+    return !breaker_ok;
 }
 
-void rack::Rack::run(const int argc, char **argv) {
+void rack::Rack::run(xargs::Parser &args) {
     while (this->breaker.running()) {
-        auto [cfg, err] = Config::load(argc, argv, this->breaker);
+        auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {
             if (this->should_exit(err)) return;
             continue;
@@ -35,12 +32,13 @@ void rack::Rack::run(const int argc, char **argv) {
         err = this->task_manager->run();
         if (err && this->should_exit(err)) return;
     }
+    this->run_err = xerrors::NIL;
 }
 
-void rack::Rack::start(int argc, char **argv) {
+void rack::Rack::start(xargs::Parser &args) {
     this->breaker.start();
-    this->run_thread = std::thread([this, argv, argc] {
-        this->run(argc, argv);
+    this->run_thread = std::thread([this, &args] {
+        this->run(args);
     });
 }
 

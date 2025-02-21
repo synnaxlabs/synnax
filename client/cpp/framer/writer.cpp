@@ -78,20 +78,20 @@ xerrors::Error Writer::error() {
     return xerrors::Error(res.error());
 }
 
-bool Writer::set_authority(const synnax::Authority &auth) {
+bool Writer::set_authority(const telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
 bool Writer::set_authority(
     const ChannelKey &key,
-    const synnax::Authority &authority
+    const telem::Authority &authority
 ) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
 bool Writer::set_authority(
     const std::vector<ChannelKey> &keys,
-    const std::vector<synnax::Authority> &authorities
+    const std::vector<telem::Authority> &authorities
 ) {
     this->assert_open();
     const WriterConfig config{.channels = keys, .authorities = authorities,};

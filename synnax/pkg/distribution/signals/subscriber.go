@@ -17,11 +17,13 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 type ObservableSubscriberConfig struct {
@@ -79,21 +81,21 @@ func decodeChanges(variant change.Variant, series []telem.Series) (changes []cha
 }
 
 func (s *Provider) Subscribe(
-	sCtx signal.Context,
+	ctx context.Context,
 	configs ...ObservableSubscriberConfig,
-) (observe.Observable[[]change.Change[[]byte, struct{}]], error) {
+) (observe.Observable[[]change.Change[[]byte, struct{}]], io.Closer, error) {
 	var err error
 	cfg, err := config.New(DefaultObservableSubscriberConfig, configs...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	cfg.SetChannelKey, err = resolveChannelKey(sCtx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
+	cfg.SetChannelKey, err = resolveChannelKey(ctx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	cfg.DeleteChannelKey, err = resolveChannelKey(sCtx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
+	cfg.DeleteChannelKey, err = resolveChannelKey(ctx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	keys := make([]channel.Key, 0, 2)
 	if cfg.SetChannelKey != 0 {
@@ -102,9 +104,9 @@ func (s *Provider) Subscribe(
 	if cfg.DeleteChannelKey != 0 {
 		keys = append(keys, cfg.DeleteChannelKey)
 	}
-	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{Keys: keys})
+	streamer, err := s.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: keys})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	obs := confluence.NewObservableTransformSubscriber(func(ctx context.Context, r framer.StreamerResponse) ([]change.Change[[]byte, struct{}], bool, error) {
 		var changes []change.Change[[]byte, struct{}]
@@ -116,7 +118,13 @@ func (s *Provider) Subscribe(
 	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
 	plumber.SetSink[framer.StreamerResponse](p, "observable", obs)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "observable", 10)
-	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
+	inlet := confluence.NewStream[framer.StreamerRequest]()
+	streamer.InFrom(inlet)
+	sCtx, cancel := signal.Isolated()
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
-	return obs, nil
+	return obs, xio.CloserFunc(func() error {
+		defer cancel()
+		inlet.Close()
+		return sCtx.Wait()
+	}), nil
 }

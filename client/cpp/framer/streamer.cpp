@@ -40,7 +40,8 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
 std::pair<Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
-    return {Frame(fr.frame()), exc};
+    auto api_frame = fr.frame();
+    return {std::move(Frame(fr.frame())), exc};
 }
 
 void Streamer::close_send() const { this->stream->close_send(); }

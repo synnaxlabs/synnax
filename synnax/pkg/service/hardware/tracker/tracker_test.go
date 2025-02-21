@@ -10,6 +10,8 @@
 package tracker_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -18,9 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Tracker", Ordered, func() {
@@ -34,7 +37,6 @@ var _ = Describe("Tracker", Ordered, func() {
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			HostProvider: dist.Cluster,
-			Channel:      dist.Channel,
 			Signals:      dist.Signals,
 		}))
 		taskSvc := MustSucceed(task.OpenService(ctx, task.Config{
@@ -53,15 +55,15 @@ var _ = Describe("Tracker", Ordered, func() {
 			Signals:      dist.Signals,
 			Channels:     dist.Channel,
 			HostProvider: dist.Cluster,
+			Framer:       dist.Framer,
 		}
 	})
-	BeforeEach(func() {
+	JustBeforeEach(func() {
 		tr = MustSucceed(tracker.Open(ctx, cfg))
 	})
-	AfterEach(func() {
+	JustAfterEach(func() {
 		Expect(tr.Close()).To(Succeed())
 	})
-
 	Describe("Tracking Rack Updates", func() {
 		It("Should add the rack to state when created", func() {
 			rackKey := rack.NewKey(dist.Cluster.HostKey(), 1)
@@ -120,24 +122,22 @@ var _ = Describe("Tracker", Ordered, func() {
 
 	Describe("Tracking Rack Heartbeats", func() {
 		It("Should update the rack heartbeat when received", func() {
-			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
-			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
+			rck := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 			var heartbeatCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_heartbeat").Entry(&heartbeatCh).Exec(ctx, nil)).To(Succeed())
-			time.Sleep(5 * time.Millisecond)
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{heartbeatCh.Key()},
 			}))
-			// Set the first 32 bits of the uint64 heartbeat as the rack key, second as "1"
-			key := uint64(rack.Key)<<32 | uint64(1)
+			key := rack.NewHeartbeat(rck.Key, 1)
 			Expect(w.Write(framer.Frame{
 				Keys:   []channel.Key{heartbeatCh.Key()},
-				Series: []telem.Series{telem.NewSeries([]uint64{key})},
+				Series: []telem.Series{telem.NewSeriesV(uint64(key))},
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				r, ok := tr.GetRack(ctx, rack.Key)
+				r, ok := tr.GetRack(ctx, rck.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(r.Heartbeat).To(Equal(key))
 			}).Should(Succeed())
@@ -158,7 +158,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
 			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
-				Variant: task.StatusError,
+				Variant: task.ErrorStateVariant,
 				Task:    taskKey,
 			}))
 			Expect(w.Write(framer.Frame{
@@ -172,7 +172,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				t, ok := tr.GetTask(ctx, taskKey)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(t.Variant).To(Equal(task.StatusError))
+				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
 			}).Should(Succeed())
 		})
 	})
@@ -190,28 +190,86 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
-				Variant: task.StatusError,
-				Task:    taskKey,
-			}))
 			Expect(w.Write(framer.Frame{
 				Keys: []channel.Key{taskStateCh.Key()},
-				Series: []telem.Series{{
-					DataType: telem.JSONT,
-					Data:     append(b, '\n'),
-				}},
+				Series: []telem.Series{telem.NewStaticJSONV(task.State{
+					Variant: task.ErrorStateVariant,
+					Task:    taskKey,
+				})},
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
 				t, ok := tr.GetTask(ctx, taskKey)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(t.Variant).To(Equal(task.StatusError))
+				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
 			}).Should(Succeed())
 			Expect(tr.Close()).To(Succeed())
 			tr = MustSucceed(tracker.Open(ctx, cfg))
 			state, ok := tr.GetTask(ctx, taskKey)
 			Expect(ok).To(BeTrue())
-			Expect(state.Variant).To(Equal(task.StatusError))
+			Expect(state.Variant).To(Equal(task.ErrorStateVariant))
+		})
+	})
+
+	Describe("Communicating Through Task State when a Rack Has Died", func() {
+		BeforeEach(func() {
+			cfg.RackStateAliveThreshold = 5 * telem.Millisecond
+		})
+		It("Should update the state of tasks when a rack dies", func() {
+			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
+			taskKey := task.NewKey(rack.Key, 1)
+
+			var taskStateCh channel.Channel
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+
+			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{taskStateCh.Key()},
+			}))
+			sCtx, sCancel := signal.Isolated()
+			requests, responses := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+			tsk := &task.Task{Key: taskKey, Name: "task1"}
+			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
+			Eventually(responses.Outlet()).Should(Receive())
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+			sCancel()
+		})
+		It("Should not update the state of tasks when a rack is alive", func() {
+			rck := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
+			taskKey := task.NewKey(rck.Key, 1)
+			var heartbeatCh channel.Channel
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_heartbeat").Entry(&heartbeatCh).Exec(ctx, nil)).To(Succeed())
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{heartbeatCh.Key()},
+			}))
+			key := rack.NewHeartbeat(rck.Key, 1)
+			Expect(w.Write(framer.Frame{
+				Keys:   []channel.Key{heartbeatCh.Key()},
+				Series: []telem.Series{telem.NewSeriesV(uint64(key))},
+			})).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			var taskStateCh channel.Channel
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+
+			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{taskStateCh.Key()},
+			}))
+			sCtx, sCancel := signal.Isolated()
+			requests, responses := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(1 * time.Millisecond)
+			tsk := &task.Task{Key: taskKey, Name: "task1"}
+			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
+			Consistently(responses.Outlet()).ShouldNot(Receive())
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+			sCancel()
 		})
 	})
 })

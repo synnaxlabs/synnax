@@ -13,17 +13,10 @@
 /// module
 #include "x/cpp/xos/xos.h"
 
-xerrors::Error rack::Config::load_config_file(const int argc, char **argv) {
-    std::string config_path;
-    for (int i = 2; i < argc; i++) {
-        const std::string arg = argv[i];
-        if (arg == "--config") {
-            config_path = argv[++i];
-            break;
-        }
-    }
+xerrors::Error rack::Config::load_config_file(xargs::Parser &args) {
+    std::string config_path = args.optional("--config", "");
     if (config_path.empty()) return xerrors::NIL;
-    auto p = config::Parser::from_file_path(config_path);
+    auto p = xjson::Parser::from_file_path(config_path);
     auto conn = p.optional_child("connection");
     this->connection.override(conn);
 

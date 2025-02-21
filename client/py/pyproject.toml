@@ -45,8 +45,6 @@ plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]
-synnax = "synnax.cli.synnax:synnax"
-synnaxkit = "synnax.cli.synnax:synnax"
 sy = "synnax.cli.synnax:synnax"
 
 [tool.pytest.ini_options]

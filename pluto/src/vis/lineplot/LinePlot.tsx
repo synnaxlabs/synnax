@@ -116,7 +116,7 @@ export const LinePlot = ({
   hold = false,
   onHold,
   visible,
-  ...props
+  ...rest
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
@@ -240,7 +240,7 @@ export const LinePlot = ({
       className={CSS.B("line-plot")}
       style={{ ...style, ...cssGrid }}
       ref={ref}
-      {...props}
+      {...rest}
     >
       <Context value={contextValue}>
         <Aether.Composite path={path}>{children}</Aether.Composite>

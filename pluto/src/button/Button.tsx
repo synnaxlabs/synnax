@@ -110,7 +110,7 @@ export const Button = Tooltip.wrap(
     endContent,
     onMouseDown,
     stopPropagation,
-    ...props
+    ...rest
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -198,7 +198,7 @@ export const Button = Tooltip.wrap(
         style={pStyle}
         startIcon={startIcon}
         color={color}
-        {...props}
+        {...rest}
       >
         {children}
         {endContent != null ? (

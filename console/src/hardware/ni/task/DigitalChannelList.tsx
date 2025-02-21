@@ -86,10 +86,10 @@ export interface DigitalChannelListProps<C extends DigitalChannel>
 
 export const DigitalChannelList = <C extends DigitalChannel>({
   NameComponent,
-  ...props
+  ...rest
 }: DigitalChannelListProps<C>) => (
   <Common.Task.Layouts.List<C>
-    {...props}
+    {...rest}
     ListItem={(p) => <ListItem {...p} NameComponent={NameComponent} />}
   />
 );

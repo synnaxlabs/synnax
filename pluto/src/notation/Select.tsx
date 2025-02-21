@@ -25,6 +25,6 @@ export interface SelectNotationProps
     "data" | "entryRenderKey"
   > {}
 
-export const Select = ({ ...props }: SelectNotationProps): ReactElement => (
+export const Select = (props: SelectNotationProps): ReactElement => (
   <Button {...props} entryRenderKey="name" data={DATA} />
 );

@@ -64,7 +64,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
  * @param props.entries - The entries to display in the accordion. See the
  * {@link Entry} interface for more details.
  */
-export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
+export const Accordion = ({ data, ...rest }: AccordionProps): ReactElement => {
   const {
     setSize,
     props: { sizeDistribution: sizes, ref, ...resizeProps },
@@ -88,7 +88,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
       className={CSS.B("accordion")}
       sizeDistribution={sizes}
       ref={ref}
-      {...props}
+      {...rest}
       {...resizeProps}
     >
       {data.map((entry, i) => (

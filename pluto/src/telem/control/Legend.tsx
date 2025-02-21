@@ -18,7 +18,7 @@ import { Legend as Core } from "@/vis/legend";
 
 export interface LegendProps extends Core.SimpleProps {}
 
-export const Legend = ({ ...props }: LegendProps): ReactElement => {
+export const Legend = (props: LegendProps): ReactElement => {
   const { needsControlOf } = useContext();
   const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,

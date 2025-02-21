@@ -184,16 +184,16 @@ const Handle = ({
   swap,
   top,
   style,
-  ...props
+  ...rest
 }: HandleProps): ReactElement => {
   const adjusted = adjustHandle(top, left, orientation, preventAutoAdjust);
   return (
     <RFHandle
       position={swapRF(smartPosition(location, orientation), !swap)}
-      {...props}
+      {...rest}
       type="source"
       onClick={(e) => e.stopPropagation()}
-      className={(CSS.B("handle"), CSS.BE("handle", props.id))}
+      className={(CSS.B("handle"), CSS.BE("handle", rest.id))}
       style={{
         left: `${adjusted.left}%`,
         top: `${adjusted.top}%`,
@@ -218,7 +218,7 @@ const Toggle = ({
   triggered = false,
   orientation = "left",
   color,
-  ...props
+  ...rest
 }: ToggleValveButtonProps): ReactElement => (
   <button
     className={CSS(
@@ -230,7 +230,7 @@ const Toggle = ({
       className,
     )}
     color={Color.cssString(color)}
-    {...props}
+    {...rest}
   />
 );
 
@@ -238,8 +238,8 @@ interface DivProps
   extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
     OrientableProps {}
 
-const Div = ({ className, ...props }: DivProps): ReactElement => (
-  <div className={CSS(CSS.B("symbol-primitive"), className)} {...props} />
+const Div = ({ className, ...rest }: DivProps): ReactElement => (
+  <div className={CSS(CSS.B("symbol-primitive"), className)} {...rest} />
 );
 
 interface SVGBasedPrimitiveProps extends OrientableProps {
@@ -266,7 +266,7 @@ const InternalSVG = ({
   color,
   style = {},
   scale = 1,
-  ...props
+  ...rest
 }: InternalSVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
@@ -288,7 +288,7 @@ const InternalSVG = ({
       className={CSS(CSS.loc(orientation), className)}
       fill={colorStr}
       stroke={colorStr}
-      {...props}
+      {...rest}
       style={{
         aspectRatio: `${dims.width} / ${dims.height}`,
         width: dimensions.scale(dims, scale * BASE_SCALE).width,
@@ -307,10 +307,10 @@ export const FourWayValve = ({
   orientation = "left",
   scale,
   color,
-  ...props
+  ...rest
 }: FourWayValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("four-way-valve"), className)}
   >
@@ -333,13 +333,9 @@ export const ThreeWayValve = ({
   color,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: ThreeWayValveProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("three-way-valve"))}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("three-way-valve"))} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="bottom"
@@ -381,9 +377,9 @@ export const Valve = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: ValveProps): ReactElement => (
-  <Toggle {...props}>
+  <Toggle {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
       <Handle
@@ -415,7 +411,7 @@ export const SolenoidValve = ({
   orientation = "left",
   normallyOpen = false,
   scale,
-  ...props
+  ...rest
 }: SolenoidValveProps): ReactElement => (
   <Toggle
     className={CSS(
@@ -423,7 +419,7 @@ export const SolenoidValve = ({
       normallyOpen && CSS.M("normally-open"),
       className,
     )}
-    {...props}
+    {...rest}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
@@ -480,13 +476,9 @@ export const ReliefValve = ({
   color,
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: ReliefValveProps): ReactElement => (
-  <Toggle
-    className={CSS(CSS.B("relief-valve"), className)}
-    enabled={enabled}
-    {...props}
-  >
+  <Toggle className={CSS(CSS.B("relief-valve"), className)} enabled={enabled} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -525,12 +517,12 @@ export const CheckValve = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: CheckValveProps): ReactElement => (
   <Div
     orientation={orientation}
     className={CSS(CSS.B("check-valve"), className)}
-    {...props}
+    {...rest}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
@@ -567,11 +559,11 @@ export const ISOCheckValve = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: ISOCheckValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div {...props} orientation={orientation}>
+    <Div {...rest} orientation={orientation}>
       <HandleBoundary orientation={orientation}>
         <Handle
           location="left"
@@ -611,10 +603,10 @@ export const AngledValve = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: AngledValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("angled-valve"), className)}
   >
@@ -654,10 +646,10 @@ export const BallValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: BallValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("ball-valve"), className)}
     enabled={enabled}
@@ -693,10 +685,10 @@ export const ThreeWayBallValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: ThreeWayBallValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("three-way-ball-valve"), className)}
     enabled={enabled}
@@ -740,10 +732,10 @@ export const GateValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: GateValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("gate-valve"), className)}
     enabled={enabled}
@@ -778,10 +770,10 @@ export const ButterflyValveOne = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: ButterflyValveOneProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("butterfly-valve-one"), className)}
     enabled={enabled}
@@ -817,10 +809,10 @@ export const ButterflyValveTwo = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: ButterflyValveTwoProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("butterfly-valve-two"), className)}
     enabled={enabled}
@@ -856,10 +848,10 @@ export const BreatherValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: BreatherValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("breather-valve"), className)}
     enabled={enabled}
@@ -894,13 +886,9 @@ export const Pump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: PumpProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
@@ -951,11 +939,11 @@ export const BurstDisc = ({
   color,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: BurstDiscProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div {...props} className={CSS(CSS.B("symbol"), className)}>
+    <Div {...rest} className={CSS(CSS.B("symbol"), className)}>
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={5} top={50} id="1" />
       </HandleBoundary>
@@ -985,9 +973,9 @@ export const ISOBurstDisc = ({
   color,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: ISOBurstDiscProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("symbol"), className)}>
+  <Div {...rest} className={CSS(CSS.B("symbol"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -1019,9 +1007,9 @@ export const Cap = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: CapProps): ReactElement => (
-  <Div className={CSS(CSS.B("cap"), className)} {...props}>
+  <Div className={CSS(CSS.B("cap"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={7.6923} top={50} id="1" />
     </HandleBoundary>
@@ -1043,9 +1031,9 @@ export const ISOCap = ({
   orientation = "left",
   color,
   scale = 1,
-  ...props
+  ...rest
 }: ISOCapProps): ReactElement => (
-  <Div className={CSS(CSS.B("cap"), className)} {...props}>
+  <Div className={CSS(CSS.B("cap"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={50} top={50} id="1" />
     </HandleBoundary>
@@ -1071,10 +1059,10 @@ export const ManualValve = ({
   color,
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: ManualValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("manual-valve"), className)}
     enabled={enabled}
@@ -1115,9 +1103,9 @@ export const OrificePlate = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: OrificePlateProps): ReactElement => (
-  <Div className={CSS(CSS.B("orifice_plate"), className)} {...props}>
+  <Div className={CSS(CSS.B("orifice_plate"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
@@ -1150,9 +1138,9 @@ export const Filter = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: FilterProps): ReactElement => (
-  <Div className={CSS(CSS.B("filter"), className)} {...props}>
+  <Div className={CSS(CSS.B("filter"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -1237,7 +1225,7 @@ export const Tank = ({
   boxBorderRadius,
   color,
   backgroundColor,
-  ...props
+  ...rest
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
@@ -1267,7 +1255,7 @@ export const Tank = ({
         borderColor: Color.cssString(color ?? t.colors.gray.l9),
         backgroundColor: Color.cssString(backgroundColor),
       }}
-      {...props}
+      {...rest}
     >
       <HandleBoundary refreshDeps={refreshDeps} orientation="left">
         <Handle location="top" orientation="left" left={50} top={topOffset} id="1" />
@@ -1334,9 +1322,9 @@ export const Regulator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: RegulatorProps): ReactElement => (
-  <Div className={CSS(className, CSS.B("regulator"))} {...props}>
+  <Div className={CSS(className, CSS.B("regulator"))} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -1381,9 +1369,9 @@ export const Orifice = ({
   orientation = "left",
   scale,
   color,
-  ...props
+  ...rest
 }: OrificeProps): ReactElement => (
-  <Div className={CSS(CSS.B("orifice"), className)} {...props}>
+  <Div className={CSS(CSS.B("orifice"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={2.8571} top={50} id="1" />
       <Handle
@@ -1414,10 +1402,10 @@ export const NeedleValve = ({
   color,
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: NeedleValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("needle-valve"), className)}
     enabled={enabled}
@@ -1461,10 +1449,10 @@ export const AngledReliefValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: AngledReliefValveProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("angled-relief-valve"), className)}
     enabled={enabled}
@@ -1518,7 +1506,7 @@ export const Value = ({
   unitsLevel = "small",
   children,
   inlineSize = 80,
-  ...props
+  ...rest
 }: ValueProps): ReactElement => {
   const borderColor = Color.cssString(color);
   const theme = Theming.use();
@@ -1534,7 +1522,7 @@ export const Value = ({
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
-      {...props}
+      {...rest}
       style={{
         borderColor,
         height: dimensions?.height,
@@ -1679,14 +1667,14 @@ export const Setpoint = ({
   onChange,
   size = "small",
   disabled,
-  ...props
+  ...rest
 }: SetpointProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
   return (
     <Div
       className={CSS(CSS.B("setpoint"), className)}
       orientation={orientation}
-      {...props}
+      {...rest}
     >
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={0.5} top={50} id="1" />
@@ -1739,10 +1727,10 @@ export const ScrewPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: ScrewPumpProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("screw-pump"), className)}
     orientation={orientation}
   >
@@ -1808,10 +1796,10 @@ export const VacuumPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: VacuumPumpProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("vacuum-pump"), className)}
     orientation={orientation}
   >
@@ -1851,10 +1839,10 @@ export const CavityPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: CavityPumpProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("cavity-pump"), className)}
     orientation={orientation}
   >
@@ -1914,10 +1902,10 @@ export const PistonPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: PistonPumpProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("piston-pump"), className)}
     orientation={orientation}
   >
@@ -1976,10 +1964,10 @@ export const StaticMixer = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: StaticMixerProps): ReactElement => (
   <Div
-    {...props}
+    {...rest}
     className={CSS(CSS.B("static-mixer"), className)}
     orientation={orientation}
   >
@@ -2021,10 +2009,10 @@ export const RotaryMixer = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: RotaryMixerProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("rotary-mixer"), className)}
     orientation={orientation}
   >
@@ -2083,10 +2071,10 @@ export const Light = ({
   orientation = "left",
   enabled,
   scale,
-  ...props
+  ...rest
 }: LightProps): ReactElement => (
   <Div
-    {...props}
+    {...rest}
     orientation={orientation}
     className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
   >
@@ -2126,9 +2114,9 @@ export const ElectricRegulator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: ElectricRegulatorProps): ReactElement => (
-  <Div className={CSS(className, CSS.B("regulator"))} {...props}>
+  <Div className={CSS(className, CSS.B("regulator"))} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -2183,9 +2171,9 @@ export const Agitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: AgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2214,9 +2202,9 @@ export const PropellerAgitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: PropellerAgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2245,9 +2233,9 @@ export const FlatBladeAgitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: FlatBladeAgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2277,9 +2265,9 @@ export const PaddleAgitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: PaddleAgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2333,9 +2321,9 @@ export const CrossBeamAgitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: CrossBeamAgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2369,9 +2357,9 @@ export const HelicalAgitator = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: HelicalAgitatorProps): ReactElement => (
-  <Toggle {...props} className={CSS(CSS.B("agitator"))}>
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="top"
@@ -2411,7 +2399,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   color = "black",
   level = "p",
   onLabelChange,
-  ...props
+  ...rest
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
   // add the orientation to the class list
@@ -2423,7 +2411,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
     <Div
       className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
       orientation={orientation}
-      {...props}
+      {...rest}
     >
       <div className="wrapper">
         <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
@@ -2488,9 +2476,9 @@ export const Vent = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: VentProps): ReactElement => (
-  <Div className={CSS(CSS.B("vent"), className)} {...props}>
+  <Div className={CSS(CSS.B("vent"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -2522,9 +2510,9 @@ export const ISOFilter = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: ISOFilterProps): ReactElement => (
-  <Div className={CSS(CSS.B("iso-filter"), className)} {...props}>
+  <Div className={CSS(CSS.B("iso-filter"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="right" orientation={orientation} left={95} top={50} id="1" />
       <Handle location="left" orientation={orientation} left={5} top={50} id="2" />
@@ -2559,7 +2547,7 @@ export const Cylinder = ({
   boxBorderRadius,
   color,
   backgroundColor,
-  ...props
+  ...rest
 }: CylinderProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
   const t = Theming.use();
@@ -2587,7 +2575,7 @@ export const Cylinder = ({
       style={{
         ...dimensions,
       }}
-      {...props}
+      {...rest}
     >
       <svg
         width="100%"
@@ -2635,12 +2623,12 @@ export const SpringLoadedReliefValve = ({
   color,
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: SpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
     <Toggle
-      {...props}
+      {...rest}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
       enabled={enabled}
@@ -2702,12 +2690,12 @@ export const AngledSpringLoadedReliefValve = ({
   color,
   scale,
   enabled = false,
-  ...props
+  ...rest
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
     <Toggle
-      {...props}
+      {...rest}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
       enabled={enabled}
@@ -2755,9 +2743,9 @@ export const TJunction = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: TJunctionProps): ReactElement => (
-  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+  <Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={20} id="1" />
       <Handle
@@ -2791,9 +2779,9 @@ export const CrossJunction = ({
   orientation = "left",
   color,
   scale,
-  ...props
+  ...rest
 }: CrossJunctionProps): ReactElement => (
-  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+  <Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={5} top={49} id="1" />
       <Handle location="right" orientation={orientation} left={95} top={49} id="2" />
@@ -2839,9 +2827,9 @@ export const FlowmeterGeneral = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterGeneralProps) => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-general"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-general"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -2882,9 +2870,9 @@ export const FlowmeterElectromagnetic = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterElectromagneticProps) => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Electromagnetic"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Electromagnetic"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -2937,9 +2925,9 @@ export const FlowmeterVariableArea = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterVariableAreaProps) => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -2982,9 +2970,9 @@ export const FlowmeterCoriolis = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterCoriolisProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3031,9 +3019,9 @@ export const FlowmeterNozzle = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterNozzleProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3076,9 +3064,9 @@ export const FlowmeterVenturi = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterVenturiProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3121,9 +3109,9 @@ export const FlowmeterRingPiston = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterRingPistonProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3166,9 +3154,9 @@ export const FlowmeterPositiveDisplacement = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterPositiveDisplacementProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3215,9 +3203,9 @@ export const FlowmeterTurbine = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterTurbineProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Turbine"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Turbine"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3269,9 +3257,9 @@ export const FlowmeterPulse = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterPulseProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-Pulse"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-Pulse"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3315,9 +3303,9 @@ export const FlowmeterFloatSensor = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: FlowmeterFloatSensorProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle
@@ -3352,9 +3340,9 @@ export const HeatExchangerGeneral = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: HeatExchangerGeneralProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("heat-exchanger-general"), className)}>
+  <Div {...rest} className={CSS(CSS.B("heat-exchanger-general"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.545} top={50} id="1" />
       <Handle
@@ -3393,9 +3381,9 @@ export const HeatExchangerM = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: HeatExchangerMProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("heat-exchanger-M"), className)}>
+  <Div {...rest} className={CSS(CSS.B("heat-exchanger-M"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="right" orientation={orientation} left={89} top={27.27} id="1" />
       <Handle location="right" orientation={orientation} left={89} top={72.73} id="2" />
@@ -3431,9 +3419,9 @@ export const HeatExchangerStraightTube = ({
   orientation = "right",
   color = "black",
   scale = 1,
-  ...props
+  ...rest
 }: HeatExchangerStraightTubeProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("heat-exchanger-M"), className)}>
+  <Div {...rest} className={CSS(CSS.B("heat-exchanger-M"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="top" orientation={orientation} left={9} top={6.25} id="1" />
       <Handle
@@ -3481,13 +3469,9 @@ export const DiaphragmPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: DiaphragmPumpProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
@@ -3531,13 +3515,9 @@ export const EjectionPump = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: EjectionPumpProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
@@ -3581,10 +3561,10 @@ export const Compressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: CompressorProps): ReactElement => (
   <Toggle
-    {...props}
+    {...rest}
     className={CSS(CSS.B("compressor"), className)}
     orientation={orientation}
   >
@@ -3621,13 +3601,9 @@ export const TurboCompressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: TurboCompressorProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={95.45} top={50} id="2" />
@@ -3661,13 +3637,9 @@ export const RollerVaneCompressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: RollerVaneCompressorProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={95.45} top={50} id="2" />
@@ -3703,13 +3675,9 @@ export const LiquidRingCompressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: LiquidRingCompressorProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={95.45} top={50} id="2" />
@@ -3747,13 +3715,9 @@ export const EjectorCompressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: EjectorCompressorProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={95.45} top={50} id="2" />
@@ -3787,13 +3751,9 @@ export const CentrifugalCompressor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: CentrifugalCompressorProps): ReactElement => (
-  <Toggle
-    {...props}
-    className={CSS(CSS.B("pump"), className)}
-    orientation={orientation}
-  >
+  <Toggle {...rest} className={CSS(CSS.B("pump"), className)} orientation={orientation}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={95.45} top={50} id="2" />
@@ -3825,9 +3785,9 @@ export const FlameArrestor = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: FlameArrestorProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={7.575} top={50} id="1" />
       <Handle
@@ -3861,9 +3821,9 @@ export const FlameArrestorDetonation = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: FlameArrestorDetonationProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
       <Handle
@@ -3898,9 +3858,9 @@ export const FlameArrestorExplosion = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: FlameArrestorExplosionProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
       <Handle
@@ -3934,9 +3894,9 @@ export const FlameArrestorFireRes = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: FlameArrestorFireResProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
       <Handle
@@ -3977,9 +3937,9 @@ export const FlameArrestorFireResDetonation = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: FlameArrestorFireResDetonationProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
       <Handle
@@ -4017,9 +3977,9 @@ export const Thruster = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: ThrusterProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("thruster"), className)}>
+  <Div {...rest} className={CSS(CSS.B("thruster"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
@@ -4061,9 +4021,9 @@ export const Strainer = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: StrainerProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("strainer"), className)}>
+  <Div {...rest} className={CSS(CSS.B("strainer"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={6.06} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={93.04} top={50} id="2" />
@@ -4087,9 +4047,9 @@ export const StrainerCone = ({
   className,
   orientation = "left",
   scale,
-  ...props
+  ...rest
 }: StrainerConeProps): ReactElement => (
-  <Div {...props} className={CSS(CSS.B("strainer"), className)}>
+  <Div {...rest} className={CSS(CSS.B("strainer"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={6.06} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={93.04} top={50} id="2" />

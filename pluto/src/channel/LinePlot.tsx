@@ -134,19 +134,19 @@ export const LinePlot = ({
   viewportTriggers,
   annotationProvider,
   onSelectRule,
-  ...props
+  ...rest
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
   const ref = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
-  const prevHold = usePrevious(props.hold);
+  const prevHold = usePrevious(rest.hold);
   if (
     (prevLinesLength === 0 && lines.length !== 0) ||
-    (prevHold === true && props.hold === false)
+    (prevHold === true && rest.hold === false)
   )
     ref.current?.reset();
   return (
-    <Core.LinePlot {...props}>
+    <Core.LinePlot {...rest}>
       {xAxes.map((a, i) => {
         const axisLines = lines.filter((l) => l.axes.x === a.key);
         const yAxes = axes.filter(({ location: l }) => loc.isX(l));
@@ -359,7 +359,7 @@ const DynamicLine = ({
     timeSpan,
     channels: { x, y },
     axes: _,
-    ...props
+    ...rest
   },
 }: {
   line: DynamicLineProps;
@@ -380,7 +380,7 @@ const DynamicLine = ({
     });
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };
 
 const StaticLine = ({
@@ -388,7 +388,7 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
-    ...props
+    ...rest
   },
 }: {
   line: StaticLineProps;
@@ -403,5 +403,5 @@ const StaticLine = ({
     });
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };

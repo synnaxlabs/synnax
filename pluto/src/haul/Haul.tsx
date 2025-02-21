@@ -291,12 +291,12 @@ export interface UseDragAndDropReturn extends UseDragReturn, UseDropReturn {}
 export const useDragAndDrop = ({
   type,
   key,
-  ...props
+  ...rest
 }: UseDragAndDropProps): UseDragAndDropReturn => {
   const key_ = key ?? useId();
   const sourceAndTarget: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const dragProps = useDrag(sourceAndTarget);
-  const dropProps = useDrop({ ...props, ...sourceAndTarget });
+  const dropProps = useDrop({ ...rest, ...sourceAndTarget });
   return { ...dragProps, ...dropProps };
 };
 

@@ -118,7 +118,7 @@ export const Space = <E extends SpaceElementType = "div">({
   rounded = false,
   el = "div",
   background,
-  ...props
+  ...rest
 }: SpaceProps<E>): ReactElement => {
   const dir = direction.construct(direction_);
   reverse = shouldReverse(direction_, reverse);
@@ -155,7 +155,7 @@ export const Space = <E extends SpaceElementType = "div">({
         className,
       )}
       style={style}
-      {...props}
+      {...rest}
     />
   );
 };

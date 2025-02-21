@@ -55,7 +55,7 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
   openObservable,
   applyChanges,
   applyObservable,
-  ...props
+  ...rest
 }: UseSyncedProps<Z, O>): UseReturn<Z> => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
@@ -63,7 +63,7 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
 
   const methods = use({
     values: initialValues,
-    ...props,
+    ...rest,
     sync: false,
     onChange: (props) => {
       if (client == null) return;

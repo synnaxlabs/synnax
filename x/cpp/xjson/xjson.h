@@ -11,7 +11,6 @@
 
 /// std
 #include <sstream>
-#include <type_traits>
 #include <string>
 #include <fstream>
 
@@ -24,11 +23,49 @@
 using json = nlohmann::json;
 
 /// @brief general utilities for parsing configurations.
-namespace config {
+namespace xjson {
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
 class Parser {
+    /// @brief the JSON configuration being parsed.
+    json config;
+    /// @brief used for tracking the path of a child parser.
+    std::string path_prefix;
+    /// @brief noop means the parser should fail fast.
+    bool noop = false;
+
+
+    Parser(
+        json config,
+        std::shared_ptr<std::vector<json> > errors,
+        std::string path_prefix
+    ) : errors(std::move(errors)),
+        config(std::move(config)),
+        path_prefix(std::move(path_prefix)) {
+    }
+
+    template<typename T>
+    T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
+        try {
+            return iter->get<T>();
+        } catch (const nlohmann::json::type_error &e) {
+            // slice the error message from index 32 to remove the library error prefix.
+            field_err(path, e.what() + 32);
+        }
+        return T();
+    }
+
+    /// @brief Helper method to parse JSON and handle errors
+    void parse_with_err_handling(const std::function<json()> &parser) {
+        try {
+            config = parser();
+        } catch (const json::parse_error &e) {
+            noop = true;
+            field_err("", e.what());
+        }
+    }
 public:
+    /// @brief the current list of accumulated errors.
     std::shared_ptr<std::vector<json> > errors;
 
     /// @brief constructs a parser for accessing values on the given JSON configuration.
@@ -237,42 +274,6 @@ public:
         return Parser(file);
     }
 
-private:
-    /// @brief the JSON configuration being parsed.
-    json config;
-    /// @brief used for tracking the path of a child parser.
-    std::string path_prefix;
-    /// @brief noop means the parser should fail fast.
-    bool noop = false;
 
-    Parser(
-        json config,
-        std::shared_ptr<std::vector<json> > errors,
-        std::string path_prefix
-    ) : errors(std::move(errors)),
-        config(std::move(config)),
-        path_prefix(std::move(path_prefix)) {
-    }
-
-    template<typename T>
-    T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
-        try {
-            return iter->get<T>();
-        } catch (const nlohmann::json::type_error &e) {
-            // slice the error message from index 32 to remove the library error prefix.
-            field_err(path, e.what() + 32);
-        }
-        return T();
-    }
-
-    /// @brief Helper method to parse JSON and handle errors
-    void parse_with_err_handling(const std::function<json()> &parser) {
-        try {
-            config = parser();
-        } catch (const json::parse_error &e) {
-            noop = true;
-            field_err("", e.what());
-        }
-    }
 };
 }

@@ -22,3 +22,15 @@ cc_library(
         "@nlohmann_json//:json",
     ],
 )
+
+cc_test(
+    name = "sequence_test",
+    srcs = ["sequence_test.cpp"],
+    deps = [
+        "//driver/pipeline/mock",
+        "//driver/sequence",
+        "//driver/sequence/plugins/mock",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

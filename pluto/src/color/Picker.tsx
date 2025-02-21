@@ -35,7 +35,7 @@ export const Picker = ({
   onChange,
   position,
   onDelete,
-  ...props
+  ...rest
 }: PickerProps): ReactElement => {
   const updateFreq = useFrequentUpdater();
   const updateFreqDebounced = useDebouncedCallback(updateFreq, 1000, [updateFreq]);
@@ -83,7 +83,7 @@ export const Picker = ({
         color={new color.Color(value).hex}
         onChange={pickerHandleChange}
         presetColors={[]}
-        {...props}
+        {...rest}
       />
       <Frequent onChange={baseHandleChange} />
     </Align.Space>

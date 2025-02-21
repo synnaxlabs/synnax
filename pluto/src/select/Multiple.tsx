@@ -85,7 +85,7 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   entryRenderKey,
   entry,
   loading,
-  ...props
+  ...rest
 }: MultipleTagProps<K, E>): ReactElement => {
   let v: RenderableValue = entryKey;
   if (entry != null)
@@ -101,7 +101,7 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
         entry == null && !loading && CSS.BEM("select-multiple", "tag", "invalid"),
       )}
       draggable
-      {...props}
+      {...rest}
       key={entryKey.toString()}
     >
       {convertRenderV(v)}
@@ -151,7 +151,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   dropdownVariant = "connected",
   actions,
-  ...props
+  ...rest
 }: MultipleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
   const [selected, setSelected] = useState<readonly E[]>([]);
@@ -289,7 +289,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       trigger={trigger}
       extraDialogContent={searchInput}
       variant={dropdownVariant}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -324,7 +324,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   className,
   children,
   dropdownVariant,
-  ...props
+  ...rest
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const { onSelect, clear } = CoreList.useSelectionUtils();
   const ref = useRef<HTMLInputElement>(null);
@@ -373,7 +373,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
       onClick={handleClick}
       endContent={endContent}
       variant="button"
-      {...props}
+      {...rest}
     >
       <Align.Space
         direction="x"

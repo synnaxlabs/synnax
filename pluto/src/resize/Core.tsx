@@ -34,7 +34,7 @@ export const Core = ({
   onDragStart,
   sizeUnits = "px",
   showHandle = true,
-  ...props
+  ...rest
 }: CoreProps): ReactElement => {
   const loc_ = location.construct(cloc);
   const dir = location.direction(loc_);
@@ -44,7 +44,7 @@ export const Core = ({
       className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}
-      {...props}
+      {...rest}
     >
       {children}
       {showHandle && (

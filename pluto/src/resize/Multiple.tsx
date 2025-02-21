@@ -150,7 +150,7 @@ export const Multiple = ({
   sizeDistribution,
   onDragHandle: onDrag,
   className,
-  ...props
+  ...rest
 }: MultipleProps) => {
   const dir = direction.construct(direction_);
   const children = Children.toArray(_children);
@@ -166,7 +166,7 @@ export const Multiple = ({
 
   return (
     <Align.Space
-      {...props}
+      {...rest}
       ref={ref}
       direction={dir}
       className={CSS(CSS.B("resize-multiple"), className)}

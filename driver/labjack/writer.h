@@ -28,14 +28,14 @@
 #include "driver/pipeline/control.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/labjack/util.h"
 
 namespace labjack {
 struct out_state {
     std::string location = "";
     double state = 0.0;
-    telem::DataType data_type = telem::FLOAT64;
+    telem::DataType data_type = telem::FLOAT64_T;
     synnax::ChannelKey state_key = 0;
 };
 
@@ -80,7 +80,7 @@ struct WriterChannelConfig {
 
     WriterChannelConfig() = default;
 
-    explicit WriterChannelConfig(config::Parser &parser)
+    explicit WriterChannelConfig(xjson::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
           data_type(parser.optional<std::string>("data_type", "uint8")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
@@ -111,7 +111,7 @@ struct WriterConfig {
     WriterConfig() = default;
 
     explicit WriterConfig(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::shared_ptr<task::Context> &ctx
     )
         : device_type(parser.optional<std::string>("type", "")),
@@ -124,7 +124,7 @@ struct WriterConfig {
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
 
-        parser.iter("channels", [this, ctx](config::Parser &channel_parser) {
+        parser.iter("channels", [this, ctx](xjson::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
 
             if (channel.enabled) channels.emplace_back(channel);

@@ -56,7 +56,7 @@ export interface SelectModeProps extends Omit<Select.ButtonProps<Mode>, "data"> 
 export const SelectMode = ({
   triggers,
   disable = ["zoomReset", "click"],
-  ...props
+  ...rest
 }: SelectModeProps): ReactElement => {
   const data = Object.entries(triggers)
     .filter(([key]) => !disable.includes(key as Mode) && MODES.includes(key as Mode))
@@ -68,12 +68,12 @@ export const SelectMode = ({
     .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key)) as Entry[];
 
   return (
-    <Select.Button<Mode, Entry> {...props} data={data} entryRenderKey="icon">
-      {({ title: _, entry, ...props }) => (
+    <Select.Button<Mode, Entry> {...rest} data={data} entryRenderKey="icon">
+      {({ title: _, entry, ...rest }) => (
         <Button.Icon
-          {...props}
+          {...rest}
           key={entry.key}
-          variant={props.selected ? "filled" : "text"}
+          variant={rest.selected ? "filled" : "text"}
           size="medium"
           tooltip={entry.tooltip}
           tooltipLocation={{ x: "right", y: "top" }}

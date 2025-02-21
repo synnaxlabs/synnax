@@ -28,7 +28,7 @@ public:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         timer.wait(breaker);
-        auto s = telem::Series(getUsage(), telem::UINT32);
+        auto s = telem::Series(getUsage(), telem::UINT32_T);
         return {Frame(key, std::move(s)), xerrors::NIL};
     }
 };
@@ -64,7 +64,7 @@ public:
         if (err.matches(xerrors::NOT_FOUND)) {
             ch = synnax::Channel(
                 ch_name,
-                telem::UINT32,
+                telem::UINT32_T,
                 true
             );
             auto new_err = ctx->client->channels.create(ch);

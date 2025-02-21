@@ -373,7 +373,7 @@ export const Tree = ({
   contract: _,
   emptyContent,
   loading,
-  ...props
+  ...rest
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
   return (
@@ -387,11 +387,11 @@ export const Tree = ({
         <Core<string, FlattenedNode>
           itemHeight={itemHeight}
           className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
-          {...props}
+          {...rest}
         >
-          {({ key, ...props }) =>
+          {({ key, ...rest }) =>
             children({
-              ...props,
+              ...rest,
               key,
               loading: loading === key,
               useMargin,

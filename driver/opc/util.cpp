@@ -13,9 +13,9 @@
 #include "driver/opc/opc.h"
 #include "driver/opc/util.h"
 
-#include "include/open62541/plugin/log_stdout.h"
-#include "include/open62541/client_config_default.h"
-#include "include/open62541/client_highlevel.h"
+#include "open62541/plugin/log_stdout.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
 
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pem.h"
@@ -25,20 +25,20 @@
 
 /// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, telem::DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN, telem::SY_UINT8},
-    {UA_NS0ID_SBYTE, telem::INT8},
-    {UA_NS0ID_BYTE, telem::SY_UINT8},
-    {UA_NS0ID_INT16, telem::INT16},
-    {UA_NS0ID_UINT16, telem::SY_UINT16},
-    {UA_NS0ID_INT32, telem::INT32},
-    {UA_NS0ID_UINT32, telem::UINT32},
-    {UA_NS0ID_INT64, telem::INT64},
-    {UA_NS0ID_UINT64, telem::UINT64},
-    {UA_NS0ID_FLOAT, telem::FLOAT32},
-    {UA_NS0ID_DOUBLE, telem::FLOAT64},
-    {UA_NS0ID_STRING, telem::STRING},
-    {UA_NS0ID_DATETIME, telem::TIMESTAMP},
-    {UA_NS0ID_GUID, telem::UINT128},
+    {UA_NS0ID_BOOLEAN, telem::UINT8_T},
+    {UA_NS0ID_SBYTE, telem::INT8_T},
+    {UA_NS0ID_BYTE, telem::UINT8_T},
+    {UA_NS0ID_INT16, telem::INT16_T},
+    {UA_NS0ID_UINT16, telem::UINT16_T},
+    {UA_NS0ID_INT32, telem::INT32_T},
+    {UA_NS0ID_UINT32, telem::UINT32_T},
+    {UA_NS0ID_INT64, telem::INT64_T},
+    {UA_NS0ID_UINT64, telem::UINT64_T},
+    {UA_NS0ID_FLOAT, telem::FLOAT32_T},
+    {UA_NS0ID_DOUBLE, telem::FLOAT64_T},
+    {UA_NS0ID_STRING, telem::STRING_T},
+    {UA_NS0ID_DATETIME, telem::TIMESTAMP_T},
+    {UA_NS0ID_GUID, telem::UINT128_T},
 };
 
 opc::ClientDeleter getDefaultClientDeleter() {

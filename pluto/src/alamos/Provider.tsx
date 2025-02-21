@@ -25,11 +25,11 @@ export interface ProviderProps extends PropsWithChildren, alamos.ProviderState {
 
 export const useInstrumentation = () => use(Context).instrumentation;
 
-export const Provider = ({ children, ...props }: ProviderProps): ReactElement => {
+export const Provider = ({ children, ...rest }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: alamos.Provider.TYPE,
     schema: alamos.providerStateZ,
-    state: props,
+    state: rest,
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };

@@ -29,7 +29,7 @@ const Core = ({
   level = "p",
   hideIcon = false,
   className,
-  ...props
+  ...rest
 }: TextProps): ReactElement => {
   let icon: PIcon.Element | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
@@ -39,16 +39,16 @@ const Core = ({
       className={CSS(className, CSS.B("status-text"))}
       level={level}
       startIcon={icon}
-      {...props}
+      {...rest}
     />
   );
 };
 
 export interface TextCenteredProps extends TextProps {}
 
-const Centered = ({ style, ...props }: TextCenteredProps): ReactElement => (
+const Centered = ({ style, ...rest }: TextCenteredProps): ReactElement => (
   <Align.Center style={style} grow>
-    <Core {...props} />
+    <Core {...rest} />
   </Align.Center>
 );
 

@@ -36,7 +36,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [ack_idx, tErr1] = client->channels.create(
         "ao_state_idx",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -44,7 +44,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [cmd_idx, tErr2] = client->channels.create(
         "ao_cmd_idx",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -52,7 +52,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [ack, aErr] = client->channels.create(
         "ao_state",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         ack_idx.key,
         false
     );
@@ -60,7 +60,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [cmd, cErr] = client->channels.create(
         "ao_cmd",
-        telem::FLOAT64,
+        telem::FLOAT64_T,
         cmd_idx.key,
         false
     );
@@ -124,7 +124,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [ack_idx, tErr1] = client->channels.create(
         "do_state_idx",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -132,7 +132,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [cmd_idx, tErr2] = client->channels.create(
         "do_cmd_idx",
-        telem::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
     );
@@ -140,7 +140,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [ack, aErr] = client->channels.create(
         "do_state",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         ack_idx.key,
         false
     );
@@ -148,7 +148,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [cmd, cErr] = client->channels.create(
         "do_cmd",
-        telem::SY_UINT8,
+        telem::UINT8_T,
         cmd_idx.key,
         false
     );

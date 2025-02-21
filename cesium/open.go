@@ -35,8 +35,6 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-
 	info, err := o.fs.List("")
 	if err != nil {
 		return nil, err
@@ -45,9 +43,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
-		relay:      newRelay(sCtx),
 		closed:     &atomic.Bool{},
-		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
 		if i.IsDir() {
@@ -72,8 +68,10 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
+	db.relay = openRelay(sCtx)
 	db.startGC(sCtx, o)
-
+	db.shutdown = signal.NewShutdown(sCtx, cancel)
 	return db, nil
 }
 

@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/code/Editor";
+export * from "@/code/Provider";

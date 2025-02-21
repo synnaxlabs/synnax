@@ -64,7 +64,7 @@ export const Simple = ({
   onEntryChange,
   position,
   onPositionChange,
-  ...props
+  ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState<boolean>(false);
 
@@ -72,7 +72,7 @@ export const Simple = ({
 
   return (
     <Container
-      {...props}
+      {...rest}
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}

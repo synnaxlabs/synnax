@@ -76,6 +76,7 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
+  unsavedChanges: z.boolean().default(false).optional(),
 });
 
 /**
@@ -132,6 +133,10 @@ export interface State<A = unknown> {
    * beta is a flag that indicates whether the layout should be marked with a beta tag.
    */
   beta?: boolean;
+  /**
+   * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
+   */
+  unsavedChanges?: boolean;
 }
 
 const themeZ = Theming.themeZ.transform(

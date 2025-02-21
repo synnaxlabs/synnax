@@ -97,16 +97,11 @@ jobs:
         with:
           sdk-version: 22000
 
-      - name: Cache MbedTLS Build (Windows)
-        if: matrix.os == 'windows-latest'
-        id: cache-mbedtls-windows
-        uses: actions/cache@v3
-        with:
-          path: driver/vendor/mbedtls/mbedtls-install
-          key: mbedtls-windows-${{ hashFiles('driver/vendor/mbedtls/**') }}
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest' && steps.cache-mbedtls-windows.outputs.cache-hit != 'true'
+        if: matrix.os == 'windows-latest' 
         shell: bash
         run: |
           curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
@@ -116,7 +111,7 @@ jobs:
           cmake --build mbedtls-build --config Release
           cmake --install mbedtls-build --config Release
           cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: driver/vendor/mbedtls
+        working-directory: vendor/mbedtls
 
       - name: Install MbedTLS On Mac
         if: matrix.os == 'macos-latest'
@@ -127,47 +122,12 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev libsystemd-dev
 
-      - name: Cache Open62541 Build
-        id: cache-open62541
-        uses: actions/cache@v3
-        with:
-          path: driver/vendor/open62541/open62541/out
-          key: open62541-${{ matrix.os }}
-
-      - name: Update Submodules
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
-        run: git submodule update --init --recursive
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
-
-      - name: Build Open62541
-        if: hashFiles('driver/vendor/open62541/open62541/out') == ''
-        shell: bash
-        run: |
-          mkdir build && cd build
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                 -DUA_NAMESPACE_ZERO=FULL \
-                 -DCMAKE_INSTALL_PREFIX=../out \
-                 -DUA_ENABLE_ENCRYPTION=MBEDTLS \
-                 -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" \
-                 -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" \
-                 -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" \
-                 -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" \
-                 -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
-          else
-            cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-                 -DUA_NAMESPACE_ZERO=FULL \
-                 -DCMAKE_INSTALL_PREFIX=../out \
-                 -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          fi
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver
         if: matrix.os != 'windows-latest'

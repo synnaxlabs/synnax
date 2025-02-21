@@ -18,7 +18,7 @@
 
 #include "driver/ni/util.h"
 #include "nidaqmx/nidaqmx.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
@@ -35,7 +35,7 @@ struct LinearScale {
 
     LinearScale() = default;
 
-    explicit LinearScale(config::Parser &parser)
+    explicit LinearScale(xjson::Parser &parser)
         : slope(parser.required<double>("slope")),
           offset(parser.required<double>("y_intercept")) {
         if (!parser.ok())
@@ -55,7 +55,7 @@ struct MapScale {
 
     MapScale() = default;
 
-    explicit MapScale(config::Parser &parser)
+    explicit MapScale(xjson::Parser &parser)
         : prescaled_min(parser.required<double>("pre_scaled_min")),
           prescaled_max(parser.required<double>("pre_scaled_max")),
           scaled_min(parser.required<double>("scaled_min")),
@@ -81,7 +81,7 @@ struct PolynomialScale {
     PolynomialScale() = default;
 
     explicit PolynomialScale(
-        config::Parser &parser
+        xjson::Parser &parser
     )
         : num_coeffs(parser.required<int>("num_coeffs")),
           min_x(parser.required<double>("min_x")),
@@ -133,7 +133,7 @@ struct TableScale {
 
     TableScale() = default;
 
-    explicit TableScale(config::Parser &parser) {
+    explicit TableScale(xjson::Parser &parser) {
         if (!parser.ok()) {
             LOG(ERROR) << "[ni.analog] failed to parse custom table configuration";
             return;
@@ -164,7 +164,7 @@ struct ScaleConfig {
 
     ScaleConfig() = default;
 
-    ScaleConfig(config::Parser &parser, const std::string &name)
+    ScaleConfig(xjson::Parser &parser, const std::string &name)
         : name(name),
           type(parser.required<std::string>("type")),
           prescaled_units(parser.optional<std::string>("pre_scaled_units", "Volts")),

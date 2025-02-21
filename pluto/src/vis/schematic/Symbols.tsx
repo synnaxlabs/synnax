@@ -589,7 +589,7 @@ export const Setpoint = ({
 
 export const SetpointPreview = ({
   className,
-  ...props
+  ...rest
 }: SetpointProps): ReactElement => (
   <Primitives.Setpoint
     value={12}
@@ -598,7 +598,7 @@ export const SetpointPreview = ({
     style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS(CSS.BM("setpoint", "preview"), className)}
     disabled
-    {...props}
+    {...rest}
   >
     <Text.Text level="p">10.0</Text.Text>
   </Primitives.Setpoint>
@@ -728,8 +728,8 @@ export const Button = ({
   );
 };
 
-export const ButtonPreview = ({ label: _, ...props }: ButtonProps): ReactElement => (
-  <Primitives.Button label="Button" {...props} />
+export const ButtonPreview = ({ label: _, ...rest }: ButtonProps): ReactElement => (
+  <Primitives.Button label="Button" {...rest} />
 );
 
 export interface LightProps
@@ -792,9 +792,9 @@ export const OffPageReference = ({
 
 export const OffPageReferencePreview = ({
   label: _,
-  ...props
+  ...rest
 }: OffPageReferenceProps) => (
-  <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
+  <Primitives.OffPageReference label="Off Page" {...rest} orientation="right" />
 );
 export const Cylinder = createLabeled<
   SymbolProps<Omit<Primitives.CylinderProps, "onChange">>

@@ -41,11 +41,10 @@ export const useContext = () => use(Context);
  * and each action. Default is false.
  */
 export const Header = ({
-  children,
   className,
   level = "h1",
   divided = false,
-  ...props
+  ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
     <Align.Space
@@ -58,9 +57,7 @@ export const Header = ({
         divided && CSS.BM("header", "divided"),
         className,
       )}
-      {...props}
-    >
-      {children}
-    </Align.Space>
+      {...rest}
+    />
   </Context>
 );

@@ -277,14 +277,14 @@ export class Series<T extends TelemValue = TelemValue> {
     };
   }
 
-  static alloc({ capacity: length, dataType, ...props }: SeriesAllocProps): Series {
+  static alloc({ capacity: length, dataType, ...rest }: SeriesAllocProps): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
     const arr = new Series({
       data: data.buffer,
       dataType,
-      ...props,
+      ...rest,
     });
     arr.writePos = 0;
     return arr;

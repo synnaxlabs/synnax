@@ -58,7 +58,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   overscan = 0,
   className,
-  ...props
+  ...rest
 }: VirtualCoreProps<K, E>): ReactElement => {
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
@@ -117,7 +117,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         CSS.BE("list", "container"),
         empty && CSS.BM("list", "empty"),
       )}
-      {...props}
+      {...rest}
     >
       {empty ? (
         emptyContent
@@ -151,7 +151,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight = 50,
   className,
-  ...props
+  ...rest
 }: Omit<Align.SpaceProps, "children"> & {
   children: ItemRenderProp<K, E>;
   itemHeight?: number;
@@ -183,7 +183,7 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       className={CSS(className, CSS.BE("list", "container"))}
       ref={ref}
       size={0}
-      {...props}
+      {...rest}
     >
       {data.length === 0 ? (
         emptyContent
@@ -193,7 +193,7 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             let sourceIndex = index;
             if (transformed)
               sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-            return props.children({
+            return rest.children({
               key: entry.key,
               index,
               sourceIndex,

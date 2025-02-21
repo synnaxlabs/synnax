@@ -60,7 +60,7 @@ void Control::start() {
     this->ensure_thread_joined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Control::run, this);
-    LOG(INFO) << "[control] started";
+    VLOG(1) << "[control] started";
 }
 
 void Control::stop() {
@@ -70,7 +70,7 @@ void Control::stop() {
     if (this->streamer) this->streamer->close_send();
     this->breaker.stop();
     this->ensure_thread_joined();
-    if (was_running) LOG(INFO) << "[control] stopped";
+    if (was_running) VLOG(1) << "[control] stopped";
 }
 
 void Control::run() {

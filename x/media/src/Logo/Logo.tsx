@@ -136,7 +136,7 @@ export const Logo = ({
   variant = "icon",
   color = "auto",
   className,
-  ...props
+  ...rest
 }: LogoProps): ReactElement => {
   const Internal = VARIANTS[variant];
   return (
@@ -147,7 +147,7 @@ export const Logo = ({
         `synnax-logo--${variant}`,
         className,
       )}
-      {...props}
+      {...rest}
     />
   );
 };

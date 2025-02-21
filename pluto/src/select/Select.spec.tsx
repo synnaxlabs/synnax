@@ -69,7 +69,7 @@ export interface SelectSingleProps
 const SelectSingle = ({
   onChange,
   value: propsValue,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const [value, setValue] = useState<string | null>(null);
 
@@ -89,7 +89,7 @@ const SelectSingle = ({
         entryRenderKey="name"
         value={propsValue ?? value}
         onChange={handleChange}
-        {...props}
+        {...rest}
       />
     </Triggers.Provider>
   );

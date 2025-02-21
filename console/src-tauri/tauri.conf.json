@@ -32,7 +32,7 @@
       "frameworks": [],
       "providerShortName": null
     },
-    "resources": [],
+    "resources": ["../../vendor/lua-language-server/**/*"],
     "shortDescription": "",
     "linux": { "deb": { "depends": [] } }
   },

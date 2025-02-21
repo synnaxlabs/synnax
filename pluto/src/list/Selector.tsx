@@ -63,11 +63,11 @@ const Base = memo(
   <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     value,
     children,
-    ...props
+    ...rest
   }: SelectorProps<K, E>): ReactElement => {
     const getData = useGetTransformedData<K, E>();
     const { onSelect, clear } = useSelect<K, E>({
-      ...props,
+      ...rest,
       value,
       data: getData,
     } as const as UseSelectProps<K, E>);

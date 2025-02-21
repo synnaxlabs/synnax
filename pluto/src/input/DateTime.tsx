@@ -42,7 +42,7 @@ export const DateTime = ({
   onBlur,
   onlyChangeOnBlur,
   variant,
-  ...props
+  ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
 
@@ -93,7 +93,7 @@ export const DateTime = ({
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
-        {...props}
+        {...rest}
       >
         <Button.Icon
           onClick={dProps.toggle}

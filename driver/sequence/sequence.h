@@ -54,14 +54,17 @@ struct TaskConfig {
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
     json globals;
+    /// @brief authority is the base authority level that the sequence will have;
+    telem::Authority authority;
 
-    explicit TaskConfig(config::Parser &parser):
+    explicit TaskConfig(xjson::Parser &parser):
         // this comment keeps the formatter happy
         rate(telem::Rate(parser.required<float>("rate"))),
         script(parser.required<std::string>("script")),
         read(parser.required_vector<synnax::ChannelKey>("read")),
         write(parser.required_vector<synnax::ChannelKey>("write")),
-        globals(parser.optional<json>("globals", json::object())) {
+        globals(parser.optional<json>("globals", json::object())),
+        authority(parser.optional<telem::Authority>("authority", 150)) {
     }
 };
 
@@ -86,13 +89,14 @@ public:
 
     /// @brief starts the sequence, initializing all plugins. Note that this function
     /// does not actually run the sequence, but prepares it for execution.
-    [[nodiscard]] xerrors::Error start();
+    [[nodiscard]] xerrors::Error begin();
 
     /// @brief executes the next iteration in the sequence.
     [[nodiscard]] xerrors::Error next() const;
 
     /// @brief ends the sequence, cleaning up any resources that were allocated.
     [[nodiscard]] xerrors::Error end() const;
+
 private:
     /// @brief source is used to bind relevant variables to the lua state.
     std::shared_ptr<plugins::Plugin> plugins;
