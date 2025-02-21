@@ -138,7 +138,6 @@ jobs:
             driver/scripts/
             driver/test/
           database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
-          extra-args: -Wno-unknown-warning-option
           thread-comments: true
           step-summary: true
           verbosity: 3
