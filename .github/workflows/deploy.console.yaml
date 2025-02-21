@@ -198,7 +198,7 @@ jobs:
       # incompatibility issues with rust builds.
 
       - name: Pre-sign Embedded lua-language-server (Before Build)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
