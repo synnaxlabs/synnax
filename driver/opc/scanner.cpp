@@ -14,11 +14,11 @@
 #include "scanner.h"
 #include "glog/logging.h"
 #include "x/cpp/xjson/xjson.h"
-#include "include/open62541/statuscodes.h"
-#include "include/open62541/types.h"
-#include "include/open62541/client_config_default.h"
-#include "include/open62541/client_highlevel.h"
-#include "include/open62541/client.h"
+#include "open62541/statuscodes.h"
+#include "open62541/types.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/client.h"
 #include "driver/opc/util.h"
 
 using namespace opc;

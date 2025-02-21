@@ -17,7 +17,7 @@
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
 #include "x/cpp/xjson/xjson.h"
-#include "include/open62541/types.h"
+#include "open62541/types.h"
 #include "driver/opc/util.h"
 
 using json = nlohmann::json;

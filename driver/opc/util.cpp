@@ -13,9 +13,9 @@
 #include "driver/opc/opc.h"
 #include "driver/opc/util.h"
 
-#include "include/open62541/plugin/log_stdout.h"
-#include "include/open62541/client_config_default.h"
-#include "include/open62541/client_highlevel.h"
+#include "open62541/plugin/log_stdout.h"
+#include "open62541/client_config_default.h"
+#include "open62541/client_highlevel.h"
 
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pem.h"

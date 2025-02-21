@@ -37,7 +37,7 @@ cc_library(
         "//x/cpp/loop",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
-        "@open62541",
+        "//vendor/open62541",
     ],
 )
 

@@ -18,11 +18,11 @@
 #include "driver/pipeline/control.h"
 #include "x/cpp/loop/loop.h"
 
-#include "include/open62541/types.h"
-#include "include/open62541/types_generated.h"
-#include "include/open62541/statuscodes.h"
-#include "include/open62541/client_highlevel.h"
-#include "include/open62541/common.h"
+#include "open62541/types.h"
+#include "open62541/types_generated.h"
+#include "open62541/statuscodes.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/common.h"
 
 
 namespace opc {

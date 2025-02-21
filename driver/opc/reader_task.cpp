@@ -19,11 +19,11 @@
 #include "x/cpp/loop/loop.h"
 #include "driver/pipeline/acquisition.h"
 
-#include "include/open62541/types.h"
-#include "include/open62541/types_generated.h"
-#include "include/open62541/statuscodes.h"
-#include "include/open62541/client_highlevel.h"
-#include "include/open62541/common.h"
+#include "open62541/types.h"
+#include "open62541/types_generated.h"
+#include "open62541/statuscodes.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/common.h"
 
 
 using namespace opc;
