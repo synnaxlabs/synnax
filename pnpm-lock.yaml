@@ -305,6 +305,9 @@ importers:
         specifier: ^3.24.1
         version: 3.24.1
     devDependencies:
+      '@codingame/esbuild-import-meta-url-plugin':
+        specifier: ^1.0.3
+        version: 1.0.3
       '@eslint/compat':
         specifier: ^1.2.5
         version: 1.2.5(eslint@9.18.0)
@@ -1055,6 +1058,9 @@ packages:
   '@babel/types@7.26.5':
     resolution: {integrity: sha512-L6mZmwFDK6Cjh1nRCLXpa6no13ZIioJDz7mdkzHv399pThrTa/k0nUlNaenOeh2kWu/iaOQYElEpKPUswUa9Vg==}
     engines: {node: '>=6.9.0'}
+
+  '@codingame/esbuild-import-meta-url-plugin@1.0.3':
+    resolution: {integrity: sha512-SAIOsWZteIWYAk04BCqQ+ugu8KiJm8EplQbMvxJl905uZv3r+21+XjtGg/zzrbxlVAY1cP+hGAG7z7sBPmy63w==}
 
   '@codingame/monaco-vscode-039b5553-0838-562a-97c2-30d6e54a7b42-common@14.0.4':
     resolution: {integrity: sha512-RdfVRJ4p4ZnYLpnDJCAqSXE7o+1v57lHmJ/ke1B8z2qldZNF2q8sqHleOWE2priHHx1pz/z5lUbok0rpLFswkw==}
@@ -7112,6 +7118,11 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.25.9
       '@babel/helper-validator-identifier': 7.25.9
+
+  '@codingame/esbuild-import-meta-url-plugin@1.0.3':
+    dependencies:
+      esbuild: 0.24.2
+      import-meta-resolve: 4.1.0
 
   '@codingame/monaco-vscode-039b5553-0838-562a-97c2-30d6e54a7b42-common@14.0.4': {}
 
