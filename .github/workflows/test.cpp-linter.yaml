@@ -124,7 +124,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: '' #'file'  # Use .clang-format file
-          tidy-checks: '' # Use .clang-tidy file
+          tidy-checks: 'bugprone-*,modernize-*,performance-*,readability-*,-modernize-use-trailing-return-type'
           version: 16
           files-changed-only: false 
           lines-changed-only: false
