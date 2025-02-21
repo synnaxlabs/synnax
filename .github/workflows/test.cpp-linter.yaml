@@ -124,7 +124,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: '' #'file'  # Use .clang-format file
-          tidy-checks: 'bugprone-*,modernize-*,performance-*,readability-*,-modernize-use-trailing-return-type'
+          tidy-checks: '*' # Use .clang-tidy file
           version: 16
           files-changed-only: false 
           lines-changed-only: false
@@ -143,34 +143,10 @@ jobs:
           step-summary: true
           verbosity: 3
           file-annotations: true
-          directories: |
-            driver
-
-      - name: Run CPP Linter for Client
-        uses: cpp-linter/cpp-linter-action@v2
-        id: linter-client
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          style: '' #'file'  # Use .clang-format file
-          tidy-checks: '' # Use .clang-tidy file
-          version: 16
-          files-changed-only: false 
-          lines-changed-only: false
-          ignore: 'vendor/|external/|third_party/|.*pb\\.h$|.*pb\\.cc$'
-          database: '${{ github.workspace }}/compile_commands.json'  # Full path to compile_commands.json
-          extra-args: -Wno-unknown-warning-option
-          thread-comments: true
-          step-summary: true
-          file-annotations: true
-          verbosity: 3t 
-          directories: |
-            client/cpp
 
       - name: Fail if checks failed
         if: steps.linter-driver.outputs.checks-failed > 0 || steps.linter-client.outputs.checks-failed > 0
         run: |
           echo "Linting checks failed!"
           echo "Driver checks failed: ${{ steps.linter-driver.outputs.checks-failed }}"
-          echo "Client checks failed: ${{ steps.linter-client.outputs.checks-failed }}"
           exit 1
