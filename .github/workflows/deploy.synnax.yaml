@@ -97,20 +97,11 @@ jobs:
         with:
           sdk-version: 22000
 
-      - name: Cache MbedTLS Build (Windows)
-        if: matrix.os == 'windows-latest'
-        id: cache-mbedtls-windows
-        uses: actions/cache@v3
-        with:
-          path: vendor/mbedtls/mbedtls-install
-          key: mbedtls-windows-${{ hashFiles('vendor/mbedtls/**') }}
-
       - name: Update Submodules
-        if: hashFiles('vendor/mbedtls/mbedtls-install') == ''
         run: git submodule update --init --recursive
 
       - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest' && steps.cache-mbedtls-windows.outputs.cache-hit != 'true'
+        if: matrix.os == 'windows-latest' 
         shell: bash
         run: |
           curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
