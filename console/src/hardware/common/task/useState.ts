@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { type Form, Observe, type Status, Synnax } from "@synnaxlabs/pluto";
+import { type Form, Observe, Status, Synnax } from "@synnaxlabs/pluto";
 import {
   type Dispatch,
   type SetStateAction,
@@ -48,13 +48,15 @@ export const useState = <D extends BaseStateDetails>(
   const [state, setState] = useReactState<ReturnState>({
     state: isRunning ? "running" : "paused",
     message: initialState?.details?.message,
-    variant: (initialState?.variant as Status.Variant) ?? undefined,
+    variant: Status.variantZ.safeParse(initialState?.variant).data ?? undefined,
   });
   const client = Synnax.use();
   Observe.useListener({
     key: [client?.key, key, setState],
     open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: ({ task, type }) => {
+    onChange: (rest) => {
+      console.log("commandObserver", rest);
+      const { task, type } = rest;
       if (task !== key) return;
       if (type === (isRunning ? "stop" : "start"))
         setState((s) => ({ ...s, state: "loading" }));
@@ -64,6 +66,7 @@ export const useState = <D extends BaseStateDetails>(
     key: [client?.key, setIsRunning, setState, key],
     open: async () => client?.hardware.tasks.openStateObserver<D>(),
     onChange: (state) => {
+      console.log("stateObserver", state);
       if (state.task !== key) return;
       const { details, variant } = state;
       const nowRunning = details?.running ?? false;
@@ -75,7 +78,6 @@ export const useState = <D extends BaseStateDetails>(
             message: e.message,
           }),
         );
-
       setState({
         state: nowRunning ? "running" : "paused",
         message: details?.message,
@@ -91,5 +93,6 @@ export const useState = <D extends BaseStateDetails>(
       })),
     [setState],
   );
+  console.log("useState", state, isRunning);
   return [state, setDesiredState];
 };

@@ -53,7 +53,7 @@ export const Browser = ({ device }: BrowserProps) => {
     queryKey: [client?.key],
     queryFn: async () => {
       if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(rack.DEFAULT_CHANNEL_NAME);
+      const rck = await client.hardware.racks.retrieve("Node 1 Embedded Driver");
       return await rck.retrieveTaskByName(SCAN_NAME);
     },
   });

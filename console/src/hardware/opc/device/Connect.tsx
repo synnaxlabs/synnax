@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack as clientRack, TimeSpan } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -86,9 +86,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
-      const rack = await client.hardware.racks.retrieve(
-        clientRack.DEFAULT_CHANNEL_NAME,
-      );
+      const rack = await client.hardware.racks.retrieve("Node 1 Embedded Driver");
+
       const task = await rack.retrieveTaskByName(SCAN_NAME);
       const state = await task.executeCommandSync<TestConnectionCommandResponse>(
         TEST_CONNECTION_COMMAND,
@@ -106,9 +105,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve(
-        clientRack.DEFAULT_CHANNEL_NAME,
-      );
+      const rack = await client.hardware.racks.retrieve("Node 1 Embedded Driver");
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,

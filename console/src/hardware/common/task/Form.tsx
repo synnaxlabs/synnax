@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -37,7 +37,7 @@ import { useCreate } from "@/hardware/common/task/useCreate";
 import { type BaseStateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
 
-type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
@@ -46,28 +46,18 @@ export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends BaseStateDetails = BaseStateDetails,
   Type extends string = string,
-> =
+> = { methods: PForm.ContextValue<Schema<Config>> } & (
   | {
-      methods: PForm.ContextValue<Schema<Config>>;
+      configured: false;
       task: task.Payload<Config, Details, Type>;
       isSnapshot: false;
       isRunning: false;
-      configured: false;
     }
-  | {
-      methods: PForm.ContextValue<Schema<Config>>;
-      task: task.Task<Config, Details, Type>;
-      isSnapshot: false;
-      isRunning: boolean;
-      configured: true;
-    }
-  | {
-      methods: PForm.ContextValue<Schema<Config>>;
-      task: task.Task<Config, Details, Type>;
-      isSnapshot: true;
-      isRunning: false;
-      configured: true;
-    };
+  | ({ configured: true; task: task.Task<Config, Details, Type> } & (
+      | { isSnapshot: false; isRunning: boolean }
+      | { isSnapshot: true; isRunning: false }
+    ))
+);
 
 export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
   (
@@ -125,26 +115,32 @@ export const wrapForm = <
         methods.set("config", newConfig);
         // current work around for Pluto form issues (Issue: SY-1465)
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
-        setState("paused");
       },
       onError: (e) => handleException(e, `Failed to configure ${values.name}`),
     });
-    const startOrStopMutation = useMutation({
-      mutationFn: async () => {
+    const startOrStopMutation = useMutation<void, Error, "start" | "stop">({
+      mutationFn: async (command) => {
+        console.log("executing start stop", command);
         if (!configured) throw new UnexpectedError("Task has not been configured");
-        if (state.state === "loading")
-          throw new Error("State is loading, should not be able to start or stop task");
-        await tsk.executeCommand(state.state === "running" ? "stop" : "start");
+        setState("loading");
+        const rk = await client?.hardware.racks.retrieve("Node 1 Embedded Driver");
+        console.log(await rk?.listTasks());
+        console.log(task.getRackKey(tsk.key));
+        console.log(task.getRackKey(tsk.key));
+        await tsk.executeCommand(command);
       },
-      onError: (e) =>
-        handleException(
-          e,
-          `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
-        ),
+      onError: (e, command) => handleException(e, `Failed to ${command} task`),
     });
-    const isSnapshot = tsk.snapshot ?? false;
+    const isSnapshot = configured ? tsk.snapshot : false;
+    const isRunning = configured && !isSnapshot ? state.state === "running" : false;
+    const formProps = {
+      methods,
+      configured,
+      task: tsk,
+      isSnapshot,
+      isRunning,
+    } as FormProps<Config, Details, Type>;
     return (
       <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
         <Align.Space grow>
@@ -159,7 +155,9 @@ export const wrapForm = <
                 taskKey={tsk.key}
               />
             </Align.Space>
-            {configured && <ParentRangeButton<Config, Details, Type> task={tsk} />}
+            {configured && isSnapshot && (
+              <ParentRangeButton<Config, Details, Type> task={tsk} />
+            )}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
@@ -171,13 +169,7 @@ export const wrapForm = <
               grow
               empty
             >
-              <Form
-                methods={methods}
-                task={tsk as task.Task<Config, Details, Type>}
-                isRunning={state.state === "running"}
-                isSnapshot={isSnapshot as false}
-                configured={configured as true}
-              />
+              <Form {...formProps} />
             </Align.Space>
           </PForm.Form>
           <Controls

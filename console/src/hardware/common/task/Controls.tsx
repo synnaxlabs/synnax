@@ -17,7 +17,7 @@ import { Layout } from "@/layout";
 export interface ControlsProps {
   layoutKey: string;
   state: ReturnState;
-  onStartStop: () => void;
+  onStartStop: (command: "start" | "stop") => void;
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
@@ -33,28 +33,26 @@ export const Controls = ({
   onConfigure,
   configured,
   isConfiguring,
-  isSnapshot = false,
+  isSnapshot,
 }: ControlsProps) => {
-  let stateContent = (
-    <Status.Text.Centered variant="disabled" hideIcon>
-      Task must be configured to start.
-    </Status.Text.Centered>
-  );
-  if (state.message != null)
-    stateContent = (
+  const stateContent =
+    state.message != null ? (
       <Status.Text variant={state.variant ?? "info"}>{state.message}</Status.Text>
-    );
-  else if (isSnapshot)
-    stateContent = (
+    ) : isSnapshot ? (
       <Status.Text.Centered hideIcon variant="disabled">
         This task is a snapshot and cannot be modified or started.
       </Status.Text.Centered>
+    ) : configured ? null : (
+      <Status.Text.Centered variant="disabled" hideIcon>
+        Task must be configured to start.
+      </Status.Text.Centered>
     );
-
-  const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   const isLoading = state.state === "loading";
-  const configureDisabled = isLoading || isConfiguring || isSnapshot;
-  const startStopDisabled = isLoading || isConfiguring || isSnapshot || !configured;
+  const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
+  const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
+  const hasTriggers =
+    Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
+  const isRunning = state.state === "running";
   return (
     <Align.Space
       className={CSS.B("task-controls")}
@@ -69,31 +67,33 @@ export const Controls = ({
       {!isSnapshot && (
         <Align.Space align="center" direction="x" justify="end">
           <Button.Button
-            disabled={configureDisabled}
+            disabled={!canConfigure}
             loading={isConfiguring}
             onClick={onConfigure}
             size="medium"
             tooltip={
-              <Align.Space direction="x" align="center" size="small">
-                <Triggers.Text level="small" shade={7} trigger={CONFIGURE_TRIGGER} />
-                <Text.Text level="small" shade={7}>
-                  To Configure
-                </Text.Text>
-              </Align.Space>
+              hasTriggers ? (
+                <Align.Space direction="x" align="center" size="small">
+                  <Triggers.Text level="small" shade={7} trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small" shade={7}>
+                    To Configure
+                  </Text.Text>
+                </Align.Space>
+              ) : undefined
             }
-            triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
+            triggers={hasTriggers ? [CONFIGURE_TRIGGER] : undefined}
             variant="outlined"
           >
             Configure
           </Button.Button>
           <Button.Icon
-            disabled={startStopDisabled}
+            disabled={!canStartOrStop}
             loading={isLoading}
-            onClick={onStartStop}
+            onClick={() => onStartStop(isRunning ? "stop" : "start")}
             size="medium"
             variant="filled"
           >
-            {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
+            {isRunning ? <Icon.Pause /> : <Icon.Play />}
           </Button.Icon>
         </Align.Space>
       )}
