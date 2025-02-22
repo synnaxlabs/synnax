@@ -10,7 +10,7 @@
 import "@/cluster/Badges.css";
 
 import { type connection } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -37,17 +37,20 @@ export const statusVariants: Record<connection.Status, Status.Variant> = {
 export const ConnectionStatusBadge = ({
   state: { status },
 }: ConnectionStateBadgeProps): ReactElement => (
-  <Status.Text
-    className={CSS.B("connection-status-badge")}
-    variant={statusVariants[status]}
-    justify="center"
-    style={{
-      backgroundColor: "var(--pluto-gray-l0)",
-      borderColor: "var(--pluto-gray-l4)",
-    }}
-  >
-    {caseconv.capitalize(status)}
-  </Status.Text>
+  <Tooltip.Dialog>
+    <Text.Text level="p" weight="bold" color="var(--pluto-gray-l10)">
+      {caseconv.capitalize(status)}
+    </Text.Text>
+    <Status.Text
+      variant={statusVariants[status]}
+      justify="center"
+      className={CSS.B("connection-status-badge")}
+      style={{
+        backgroundColor: "var(--pluto-gray-l0)",
+        borderColor: "var(--pluto-gray-l4)",
+      }}
+    />
+  </Tooltip.Dialog>
 );
 
 /**

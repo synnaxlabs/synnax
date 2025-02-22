@@ -14,6 +14,7 @@ import { cloneElement, type ReactElement, useCallback } from "react";
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
+import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
 interface ChildProps {
@@ -25,6 +26,7 @@ interface ChildProps {
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
+  shade?: Text.Shade;
 }
 
 /**
@@ -51,9 +53,11 @@ export const Icon = Tooltip.wrap(
     disabled = false,
     loading = false,
     onClick,
+    shade,
     color: propColor,
     ...rest
   }: IconProps): ReactElement => {
+    if (variant == "outlined") shade = 2;
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
     const handleClick = useCallback(
@@ -75,6 +79,7 @@ export const Icon = Tooltip.wrap(
           CSS.sharp(sharp),
           CSS.BM("btn", variant),
           CSS.disabled(isDisabled),
+          CSS.shade(shade),
         )}
         onClick={handleClick}
         {...rest}

@@ -14,16 +14,6 @@
     max-width: 800px;
 }
 
-.console-palette__btn {
-    width: 100%;
-
-    background-color: var(--pluto-gray-l0);
-
-    &:hover {
-        background-color: var(--pluto-gray-l1) !important;
-    }
-}
-
 .console-palette__content {
     width: 100%;
     max-width: 1200px;

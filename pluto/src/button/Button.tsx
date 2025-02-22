@@ -26,6 +26,7 @@ import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { type status } from "@/status/aether";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
@@ -110,6 +111,7 @@ export const Button = Tooltip.wrap(
     endContent,
     onMouseDown,
     stopPropagation,
+    shade = 2,
     ...rest
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -159,12 +161,13 @@ export const Button = Tooltip.wrap(
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
+      const theme = Theming.use();
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-color")] = res.data.rgbString;
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
-        "#000000",
-        "#ffffff",
+        theme.colors.text,
+        theme.colors.textInverted,
       ).rgbCSS;
     }
 
@@ -183,6 +186,7 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
+          CSS.shade(shade),
           variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),

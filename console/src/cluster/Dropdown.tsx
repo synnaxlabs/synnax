@@ -264,7 +264,8 @@ export const Dropdown = (): ReactElement => {
         variant="text"
         startIcon={<Icon.Cluster />}
         justify="center"
-        background={0}
+        N
+        shade={0}
         style={{
           height: 25,
           borderRadius: "0.5rem",
