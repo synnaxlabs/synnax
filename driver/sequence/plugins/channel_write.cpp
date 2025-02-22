@@ -215,3 +215,17 @@ xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
         frame.emplace(index, telem::Series(now));
     return this->sink->write(this->frame);
 }
+
+xerrors::Error plugins::ChannelWriteNoop::before_all(lua_State *L) {
+    lua_pushcclosure(L, [](lua_State *cL) -> int {
+        luaL_error(cL, "set() was called but no channels were passed to the write list in the sequence!");
+        return 0;
+    }, 0);
+    lua_setglobal(L, "set");
+    lua_pushcclosure(L, [](lua_State *cL) -> int {
+        luaL_error(cL, "set_authority() was called but no channels were passed to the write list in the sequence!");
+        return 0;
+    }, 0);
+    lua_setglobal(L, "set_authority");
+    return xerrors::NIL;
+}

@@ -173,6 +173,11 @@ public:
     xerrors::Error after_next(lua_State *L) override;
 };
 
+class ChannelWriteNoop final : public Plugin {
+public:
+    xerrors::Error before_all(lua_State *L) override;
+};
+
 struct LatestValue {
     telem::SampleValue value;
     bool changed;
