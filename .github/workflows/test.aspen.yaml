@@ -63,5 +63,5 @@ jobs:
         run: scripts/gofmt-check.sh aspen
 
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo ./..
         working-directory: aspen

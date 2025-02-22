@@ -74,7 +74,7 @@ jobs:
         run: scripts/gofmt-check.sh x/go
 
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo ./..
         working-directory: x/go
 
   ts:

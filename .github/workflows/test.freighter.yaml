@@ -117,7 +117,7 @@ jobs:
         run: scripts/gofmt-check.sh freighter/go
 
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo ./..
         working-directory: freighter/go
 
   integration:
