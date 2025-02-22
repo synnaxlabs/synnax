@@ -198,12 +198,16 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     };
 
     if (!data_type.is_variable() && !is_numeric && !is_boolean) {
+        std::string error_msg;
+        if (is_string) 
+            error_msg = "cannot convert string value '" + 
+            std::string(lua_tostring(L, index)) + "' to " + data_type.value;
+        else 
+            error_msg = "cannot convert Lua type '" + 
+            std::string(lua_typename(L, lua_type(L, index))) + "' to " + data_type.value;
         return {
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
-            xerrors::Error(
-                xerrors::VALIDATION_ERROR,
-                "unsupported data type: " + data_type.value
-            )
+            xerrors::Error(xerrors::VALIDATION_ERROR, error_msg)
         };
     }
 
@@ -229,7 +233,8 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
             xerrors::Error(
                 xerrors::VALIDATION_ERROR,
-                "expected string value but received different type"
+                "expected string value but received type '" + 
+                std::string(lua_typename(L, lua_type(L, index))) + "'"
             )
         };
     }
