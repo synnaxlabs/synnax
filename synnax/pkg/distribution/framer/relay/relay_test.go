@@ -54,7 +54,7 @@ var _ = Describe("Relay", func() {
 			var s scenario
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-			FSpecify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
+			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				reader := MustSucceed(s.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
 					Keys: s.keys,
 				}))
