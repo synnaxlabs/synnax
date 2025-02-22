@@ -63,9 +63,22 @@ const Properties = () => (
   </>
 );
 
+const getRenderedPort = (
+  port: string,
+  deviceModel: Device.Model,
+  type: InputChannelType,
+) => {
+  const portType = convertChannelTypeToPortType(type);
+  const portInfo = Device.DEVICES[deviceModel].ports[portType].find(
+    ({ key }) => key === port,
+  );
+  return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
+};
+
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<InputChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
+  device: Device.Device;
 }
 
 const ChannelListItem = ({
@@ -73,6 +86,7 @@ const ChannelListItem = ({
   isSnapshot,
   onTare,
   isRunning,
+  device,
   ...rest
 }: ChannelListItemProps) => {
   const {
@@ -80,10 +94,11 @@ const ChannelListItem = ({
   } = rest;
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
+  const renderedPort = getRenderedPort(port, device.model, type);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
-      port={port}
+      port={renderedPort}
       canTare={canTare}
       onTare={onTare}
       isSnapshot={isSnapshot}
@@ -202,7 +217,9 @@ const ChannelsForm = ({
   );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
-      ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
+      ListItem={(p) => (
+        <ChannelListItem {...p} onTare={tare} isRunning={isRunning} device={device} />
+      )}
       Details={(p) => <ChannelDetails {...p} device={device} />}
       generateChannel={generateChannel}
       isSnapshot={isSnapshot}
