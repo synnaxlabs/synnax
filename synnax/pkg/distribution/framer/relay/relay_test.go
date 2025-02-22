@@ -46,8 +46,8 @@ var _ = Describe("Relay", func() {
 
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
-			//peerOnlyScenario,
-			//mixedScenario,
+			peerOnlyScenario,
+			mixedScenario,
 		}
 		for i, sF := range scenarios {
 			_sF := sF

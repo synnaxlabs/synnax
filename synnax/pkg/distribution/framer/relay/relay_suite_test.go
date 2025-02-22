@@ -11,7 +11,6 @@ package relay_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/config"
 	"testing"
 
 	"github.com/synnaxlabs/alamos"
@@ -38,10 +37,6 @@ func TestRelay(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Relay Suite")
 }
-
-var _ = BeforeSuite(func() {
-	ins = Instrumentation("dev", InstrumentationConfig{Log: config.True()})
-})
 
 type serviceContainer struct {
 	channel   channel.Service
