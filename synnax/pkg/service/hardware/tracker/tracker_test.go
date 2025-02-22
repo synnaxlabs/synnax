@@ -103,8 +103,12 @@ var _ = Describe("Tracker", Ordered, func() {
 			}).Should(Succeed())
 		})
 		It("Should remove the task from state when deleted", func() {
-			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, ok := tr.GetRack(ctx, rack.Key)
+				g.Expect(ok).To(BeTrue())
+			})
 			taskKey := task.NewKey(rack.Key, 1)
 			task := &task.Task{Key: taskKey, Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, task)).To(Succeed())
@@ -122,7 +126,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 	Describe("Tracking Rack Heartbeats", func() {
 		It("Should update the rack heartbeat when received", func() {
-			rck := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			rck := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 			var heartbeatCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_heartbeat").Entry(&heartbeatCh).Exec(ctx, nil)).To(Succeed())
@@ -146,10 +150,9 @@ var _ = Describe("Tracker", Ordered, func() {
 
 	Describe("Tracking Task State", func() {
 		It("Should correctly update the state of a task", func() {
-			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
-			taskKey := task.NewKey(rack.Key, 1)
-			tsk := &task.Task{Key: taskKey, Name: "task1"}
+			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
@@ -159,7 +162,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}))
 			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
 				Variant: task.ErrorStateVariant,
-				Task:    taskKey,
+				Task:    tsk.Key,
 			}))
 			Expect(w.Write(framer.Frame{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -170,7 +173,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				t, ok := tr.GetTask(ctx, taskKey)
+				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
 			}).Should(Succeed())
@@ -179,10 +182,9 @@ var _ = Describe("Tracker", Ordered, func() {
 
 	Describe("Persisting state across restarts", func() {
 		It("Should persist the state of tasks even if the tracker service is closed and reopened", func() {
-			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
+			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
-			taskKey := task.NewKey(rack.Key, 1)
-			tsk := &task.Task{Key: taskKey, Name: "task1"}
+			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
@@ -194,18 +196,18 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys: []channel.Key{taskStateCh.Key()},
 				Series: []telem.Series{telem.NewStaticJSONV(task.State{
 					Variant: task.ErrorStateVariant,
-					Task:    taskKey,
+					Task:    tsk.Key,
 				})},
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				t, ok := tr.GetTask(ctx, taskKey)
+				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
 			}).Should(Succeed())
 			Expect(tr.Close()).To(Succeed())
 			tr = MustSucceed(tracker.Open(ctx, cfg))
-			state, ok := tr.GetTask(ctx, taskKey)
+			state, ok := tr.GetTask(ctx, tsk.Key)
 			Expect(ok).To(BeTrue())
 			Expect(state.Variant).To(Equal(task.ErrorStateVariant))
 		})

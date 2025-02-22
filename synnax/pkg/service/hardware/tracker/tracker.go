@@ -79,6 +79,11 @@ type Tracker struct {
 	taskStateWriter confluence.Inlet[framer.WriterRequest]
 	// taskStateChannelKey is the key of the channel used to set task state.
 	taskStateChannelKey channel.Key
+	opened              confluence.Stream[struct{}]
+}
+
+func (t *Tracker) Opened() <-chan struct{} {
+	return t.opened.Outlet()
 }
 
 // Config is the configuration for the Tracker service.
@@ -315,6 +320,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			rackState, rckOk := t.mu.Racks[rackKey]
 			if !rckOk {
 				rackState = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+				fmt.Println("new rack state")
 				t.mu.Racks[rackKey] = rackState
 			}
 			if _, taskOk := rackState.Tasks[c.Key]; !taskOk {
