@@ -99,6 +99,7 @@ public:
             throw std::runtime_error("failed to infer data type for " + std::string(typeid(T).name()));
         return DataType(TYPE_INDEXES[type_index]);
     }
+    
 
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }
@@ -134,6 +135,8 @@ public:
         for (const auto &other: others) if (matches(other)) return true;
         return false;
     }
+
+    
 
     /////////////////////////////////// COMPARISON ///////////////////////////////////
 
