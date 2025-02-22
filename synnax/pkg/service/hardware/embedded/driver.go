@@ -57,8 +57,10 @@ func (c Config) format() map[string]interface{} {
 			"max_retries":   40,
 			"scale":         1.1,
 		},
-		"rack_key":     c.RackKey,
-		"cluster_key":  c.ClusterKey.String(),
+		"remote_info": map[string]interface{}{
+			"rack_key":    c.RackKey,
+			"cluster_key": c.ClusterKey.String(),
+		},
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
 	}
