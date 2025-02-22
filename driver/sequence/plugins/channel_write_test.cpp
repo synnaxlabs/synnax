@@ -325,3 +325,32 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
     ASSERT_NE(luaL_dostring(L, "set_authority('channel1', 'not_a_number')"), 0);
     EXPECT_EQ(sink->authority_calls.size(), 0);
 }
+
+class ChannelWriteNoopTest : public testing::Test {
+protected:
+    void SetUp() override {
+        op = std::make_unique<plugins::ChannelWriteNoop>();
+        L = luaL_newstate();
+        luaL_openlibs(L);
+        op->before_all(L);
+    }
+
+    void TearDown() override {
+        lua_close(L);
+    }
+
+    std::unique_ptr<plugins::ChannelWriteNoop> op;
+    lua_State *L{};
+};
+
+TEST_F(ChannelWriteNoopTest, SetShouldError) {
+    ASSERT_NE(luaL_dostring(L, "set('channel', 42)"), 0);
+    const char* error_msg = lua_tostring(L, -1);
+    EXPECT_TRUE(std::string(error_msg).find("set() was called but no channels were passed to the write list in the sequence!") != std::string::npos);
+}
+
+TEST_F(ChannelWriteNoopTest, SetAuthorityShouldError) {
+    ASSERT_NE(luaL_dostring(L, "set_authority('channel', 42)"), 0);
+    const char* error_msg = lua_tostring(L, -1);
+    EXPECT_TRUE(std::string(error_msg).find("set_authority() was called but no channels were passed to the write list in the sequence!") != std::string::npos);
+}
