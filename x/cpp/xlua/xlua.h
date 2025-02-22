@@ -197,6 +197,11 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
         return lua_tonumber(L, idx);
     };
 
+    auto get_integer_value = [L, is_boolean](const int idx) -> lua_Integer {
+        if (is_boolean) return lua_toboolean(L, idx);
+        return lua_tointeger(L, idx);
+    };
+
     if (!data_type.is_variable() && !is_numeric && !is_boolean) {
         std::string error_msg;
         if (is_string) 
@@ -282,7 +287,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     if (data_type == telem::INT64_T)
         return {
             telem::Series(
-                static_cast<int64_t>(get_numeric_value(index)),
+                static_cast<int64_t>(get_integer_value(index)),
                 data_type
             ),
             xerrors::NIL

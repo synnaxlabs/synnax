@@ -49,7 +49,12 @@ void sequence::Task::run() {
             this->state.details["message"] = next_err.message();
             break;
         }
-        timer.wait(this->breaker);
+        auto [elapsed, ok] = timer.wait(this->breaker);
+        if (!ok) {
+            this->state.variant = "warning";
+            this->state.details["message"] = "Sequence script is executing too slowly for the configured loop rate. Last execution took " + elapsed.to_string();
+            this->ctx->set_state(this->state);
+        }
     }
     if (const auto end_err = this->seq->end()) {
         this->state.variant = "error";

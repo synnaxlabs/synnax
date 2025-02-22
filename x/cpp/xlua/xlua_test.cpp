@@ -811,3 +811,11 @@ TEST_F(XLuaTest, ToSeriesUnsupportedTypes) {
     EXPECT_EQ(err3, xerrors::VALIDATION_ERROR);
     lua_pop(L, 1);
 }
+
+TEST_F(XLuaTest, Int64Max) {
+    lua_pushinteger(L, 9223372036854775807);
+    auto [series1, err1] = xlua::to_series(L, -1, telem::INT64_T);
+    EXPECT_FALSE(err1) << err1;
+    EXPECT_EQ(series1.at<int64_t>(0), 9223372036854775807LL);
+
+}
