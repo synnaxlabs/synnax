@@ -77,7 +77,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
@@ -87,7 +87,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
@@ -115,7 +115,7 @@ func Open(configs ...Config) (*Service, error) {
 	}
 	freeWrites := confluence.NewStream[relay.Response](25)
 	s.Relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation.Child("Relay"),
+		Instrumentation: cfg.Instrumentation.Child("relay"),
 		ChannelReader:   cfg.ChannelReader,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,

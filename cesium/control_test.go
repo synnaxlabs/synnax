@@ -81,8 +81,10 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: config.False(),
 							SendAuthErrors:    config.True(),
 						}))
+						streamerOpenSignal := make(chan struct{})
 						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-							Channels: []cesium.ChannelKey{math.MaxUint32},
+							Channels:   []cesium.ChannelKey{math.MaxUint32},
+							OpenSignal: streamerOpenSignal,
 						}))
 						ctx, cancel := signal.Isolated()
 						defer cancel()
@@ -92,6 +94,7 @@ var _ = Describe("Control", func() {
 						w1.Flow(ctx)
 						w2.Flow(ctx)
 						streamer.Flow(ctx)
+						Eventually(streamerOpenSignal).Should(BeClosed())
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,

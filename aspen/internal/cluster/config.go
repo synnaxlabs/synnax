@@ -53,7 +53,7 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
 	cfg.Codec = override.Nil(cfg.Codec, other.Codec)
@@ -66,7 +66,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("Cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)

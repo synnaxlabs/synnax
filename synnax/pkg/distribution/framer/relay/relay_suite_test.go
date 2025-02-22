@@ -11,6 +11,7 @@ package relay_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/config"
 	"testing"
 
 	"github.com/synnaxlabs/alamos"
@@ -37,6 +38,10 @@ func TestRelay(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Relay Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ins = Instrumentation("dev", InstrumentationConfig{Log: config.True()})
+})
 
 type serviceContainer struct {
 	channel   channel.Service
@@ -71,7 +76,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		}))
 		freeWrites := confluence.NewStream[relay.Response](25)
 		container.relay = MustSucceed(relay.Open(relay.Config{
-			Instrumentation: ins,
+			Instrumentation: ins.Child("relay"),
 			TS:              c.Storage.TS,
 			Transport:       relayNet.New(c.Config.AdvertiseAddress),
 			HostResolver:    c.Cluster,
@@ -79,7 +84,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			FreeWrites:      freeWrites,
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
-			Instrumentation: ins,
+			Instrumentation: ins.Child("writer"),
 			TS:              c.Storage.TS,
 			ChannelReader:   container.channel,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress),

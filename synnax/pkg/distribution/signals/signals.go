@@ -52,7 +52,7 @@ var (
 	DefaultConfig = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("Signals")
 	validate.NotNil(v, "Channel", c.Channel)
@@ -60,7 +60,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)

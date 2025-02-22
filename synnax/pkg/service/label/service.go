@@ -49,7 +49,7 @@ var (
 	DefaultConfig = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("label")
 	validate.NotNil(v, "DB", c.DB)
@@ -58,7 +58,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)

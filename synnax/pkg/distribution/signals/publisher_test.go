@@ -64,7 +64,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
-		closeStreamer = signal.NewShutdown(sCtx, cancel)
+		closeStreamer = signal.NewHardShutdown(sCtx, cancel)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		// Adding this slight delay guarantees that the streamer has started up
 		// and is ready to receive requests.
