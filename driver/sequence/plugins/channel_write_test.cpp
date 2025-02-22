@@ -100,7 +100,7 @@ TEST_F(SetOperatorTest, Int32Value) {
 
 TEST_F(SetOperatorTest, Int64Value) {
     SetupChannel(telem::INT64_T);
-    RunTest<int64_t>("9223372036854775807", 9223372036854775807L);
+    RunTest<int64_t>("9223372036854775807", 9223372036854775807LL);
 }
 
 TEST_F(SetOperatorTest, Uint8NumberValue) {
