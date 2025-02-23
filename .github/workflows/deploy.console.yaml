@@ -157,6 +157,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           mkdir -p vendor/lua-language-server
+          touch vendor/lua-language-server/placeholder.txt
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -184,7 +185,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: console/src-tauri -> target
-          key: ${{ runner.os }}
+          shared-key: ${{ runner.os }}
 
       - name: Turbo Cache
         uses: actions/cache@v3
