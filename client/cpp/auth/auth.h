@@ -32,6 +32,7 @@ const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
 const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired-token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
+const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
 
 struct ClusterInfo {
     std::string cluster_key;
@@ -99,7 +100,7 @@ public:
             if (const auto err = this->authenticate()) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token);
         auto [res_ctx, err] = next(context);
-        if (err.matches(INVALID_TOKEN, EXPIRED_TOKEN)) {
+        if (err.matches(RETRY_ON_ERRORS)) {
             this->authenticated = false;
             return this->operator()(context, next);
         }
