@@ -159,15 +159,18 @@
 
 .pluto-btn--outlined,
 .pluto-btn--text {
+    --pluto-hover-bg: var(--pluto-gray-l2);
+    --pluto-active-bg: var(--pluto-gray-l2);
+
     &.pluto--shade-0 {
         --pluto-bg: var(--pluto-gray-l0);
-        --pluto-border-color: var(--pluto-gray-l1);
+        --pluto-border-color: var(--pluto-gray-l3);
 
         --pluto-hover-bg: var(--pluto-gray-l1);
-        --pluto-hover-border-color: var(--pluto-gray-l2);
+        --pluto-hover-border-color: var(--pluto-gray-l4);
 
-        --pluto-active-bg: var(--pluto-gray-l2);
-        --pluto-active-border-color: var(--pluto-gray-l3);
+        --pluto-active-bg: var(--pluto-gray-l1);
+        --pluto-active-border-color: var(--pluto-gray-l4);
     }
 
     &.pluto--shade-1 {
@@ -183,7 +186,7 @@
 
     &.pluto--shade-2 {
         --pluto-bg: var(--pluto-gray-l2);
-        --pluto-border-color: var(--pluto-gray-l3);
+        --pluto-border-color: var(--pluto-gray-l4);
 
         --pluto-hover-bg: var(--pluto-gray-l3);
         --pluto-hover-border-color: var(--pluto-gray-l4);

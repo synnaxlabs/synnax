@@ -111,9 +111,10 @@ export const Button = Tooltip.wrap(
     endContent,
     onMouseDown,
     stopPropagation,
-    shade = 2,
+    shade,
     ...rest
   }: ButtonProps): ReactElement => {
+    if (variant == "outlined" && shade == null) shade = 2;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
