@@ -16,17 +16,17 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
     auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
     if (
-        this->remote.cluster_key != client.auth->cluster_info.cluster_key
-        && this->remote.rack_key != 0
+        this->remote_info.cluster_key != client.auth->cluster_info.cluster_key
+        && this->remote_info.rack_key != 0
     ) {
-        this->remote.rack_key = 0;
-        this->remote.cluster_key = client.auth->cluster_info.cluster_key;
+        this->remote_info.rack_key = 0;
+        this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
     }
-    if (this->remote.rack_key != 0) {
+    if (this->remote_info.rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
         // configuration believes there's an existing rack in the cluster, and
         // we should use it as our task manager's rack.
-        res = client.hardware.retrieve_rack(this->remote.rack_key);
+        res = client.hardware.retrieve_rack(this->remote_info.rack_key);
         // If we tried to retrieve the rack and it doesn't exist, then we assume
         // that:
         //     1. Someone deleted the rack.
@@ -35,7 +35,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         // In either case, set the rack key to zero and call the instantiate_rack
         // recursively to create a new rack.
         if (res.second.matches(xerrors::NOT_FOUND)) {
-            this->remote.rack_key = 0;
+            this->remote_info.rack_key = 0;
             return this->load_remote(breaker);
         }
     } else {
@@ -49,8 +49,8 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         return this->load_remote(breaker);
 
     this->rack = res.first;
-    this->remote.rack_key = res.first.key;
-    this->remote.cluster_key = client.auth->cluster_info.cluster_key;
+    this->remote_info.rack_key = res.first.key;
+    this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
     return err;
 }
 

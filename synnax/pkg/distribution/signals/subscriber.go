@@ -104,11 +104,20 @@ func (s *Provider) Subscribe(
 	if cfg.DeleteChannelKey != 0 {
 		keys = append(keys, cfg.DeleteChannelKey)
 	}
-	streamer, err := s.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: keys})
+	streamer, err := s.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys:        keys,
+		SendOpenAck: true,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
+	openAckChannel := make(chan struct{})
+	opened := false
 	obs := confluence.NewObservableTransformSubscriber(func(ctx context.Context, r framer.StreamerResponse) ([]change.Change[[]byte, struct{}], bool, error) {
+		if !opened {
+			opened = true
+			close(openAckChannel)
+		}
 		var changes []change.Change[[]byte, struct{}]
 		changes = append(changes, decodeChanges(change.Delete, r.Frame.Get(cfg.DeleteChannelKey))...)
 		changes = append(changes, decodeChanges(change.Set, r.Frame.Get(cfg.SetChannelKey))...)
@@ -122,6 +131,7 @@ func (s *Provider) Subscribe(
 	streamer.InFrom(inlet)
 	sCtx, cancel := signal.Isolated()
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	<-openAckChannel
 	return obs, xio.CloserFunc(func() error {
 		defer cancel()
 		inlet.Close()

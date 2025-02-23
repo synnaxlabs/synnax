@@ -82,16 +82,19 @@ var _ = Describe("Control", func() {
 							SendAuthErrors:    config.True(),
 						}))
 						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-							Channels: []cesium.ChannelKey{math.MaxUint32},
+							Channels:    []cesium.ChannelKey{math.MaxUint32},
+							SendOpenAck: true,
 						}))
 						ctx, cancel := signal.Isolated()
 						defer cancel()
+						stIn, stOut := confluence.Attach(streamer, 2)
+						streamer.Flow(ctx)
+						Eventually(stOut.Outlet()).Should(Receive())
+
 						w1In, _ := confluence.Attach(w1, 2)
 						w2In, w2Out := confluence.Attach(w2, 2)
-						stIn, stOut := confluence.Attach(streamer, 2)
 						w1.Flow(ctx)
 						w2.Flow(ctx)
-						streamer.Flow(ctx)
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,
@@ -164,16 +167,15 @@ var _ = Describe("Control", func() {
 						start := telem.SecondTS * 10
 
 						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-							Channels: []cesium.ChannelKey{math.MaxUint32},
+							Channels:    []cesium.ChannelKey{math.MaxUint32},
+							SendOpenAck: true,
 						}))
 
 						stIn, stOut := confluence.Attach(streamer, 2)
-
 						ctx2, cancel2 := signal.Isolated()
 						defer cancel2()
 						streamer.Flow(ctx2, confluence.CloseOutputInletsOnExit())
-
-						runtime.Gosched()
+						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Opening the first writer")
 						w1 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{

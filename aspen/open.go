@@ -69,7 +69,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 		o.T.Transfer(ctx, context.Background()),
 		signal.WithInstrumentation(o.Instrumentation),
 	)
-	transportShutdown := signal.NewShutdown(sCtx, cancel)
+	transportShutdown := signal.NewHardShutdown(sCtx, cancel)
 	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}

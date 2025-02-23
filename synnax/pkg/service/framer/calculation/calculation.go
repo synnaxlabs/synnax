@@ -349,7 +349,7 @@ func (s *Service) startCalculation(
 		ch:          ch,
 		count:       initialCount,
 		calculation: streamerRequests,
-		shutdown:    signal.NewShutdown(sCtx, cancel),
+		shutdown:    signal.NewHardShutdown(sCtx, cancel),
 	}
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))

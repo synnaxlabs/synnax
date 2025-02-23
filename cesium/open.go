@@ -39,12 +39,9 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db := &DB{
-		options:    o,
-		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
-		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
-		closed:     &atomic.Bool{},
-	}
+	db := &DB{options: o, closed: &atomic.Bool{}}
+	db.mu.unaryDBs = make(map[core.ChannelKey]unary.DB, len(info))
+	db.mu.virtualDBs = make(map[core.ChannelKey]virtual.DB, len(info))
 	for _, i := range info {
 		if i.IsDir() {
 			key, err := strconv.Atoi(i.Name())
@@ -71,12 +68,12 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
 	db.relay = openRelay(sCtx)
 	db.startGC(sCtx, o)
-	db.shutdown = signal.NewShutdown(sCtx, cancel)
+	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	return db, nil
 }
 
 func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.virtualDBs[ch.Key]
+	_, isOpen := db.mu.virtualDBs[ch.Key]
 	if isOpen {
 		return nil
 	}
@@ -89,12 +86,12 @@ func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
 	if err != nil {
 		return err
 	}
-	db.virtualDBs[ch.Key] = *v
+	db.mu.virtualDBs[ch.Key] = *v
 	return nil
 }
 
 func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.unaryDBs[ch.Key]
+	_, isOpen := db.mu.unaryDBs[ch.Key]
 	if isOpen {
 		return nil
 	}
@@ -113,7 +110,7 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 	// need to set the index on the unary database. Otherwise, we assume the database
 	// is self-indexing.
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
-		idxDB, ok := db.unaryDBs[u.Channel().Index]
+		idxDB, ok := db.mu.unaryDBs[u.Channel().Index]
 		if ok {
 			u.SetIndex(idxDB.Index())
 		}
@@ -121,12 +118,12 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 		if err != nil {
 			return err
 		}
-		idxDB, ok = db.unaryDBs[u.Channel().Index]
+		idxDB, ok = db.mu.unaryDBs[u.Channel().Index]
 		if !ok {
 			return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
 		}
 	}
-	db.unaryDBs[ch.Key] = *u
+	db.mu.unaryDBs[ch.Key] = *u
 	return nil
 }
 

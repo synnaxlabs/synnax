@@ -68,7 +68,7 @@ xerrors::Error rack::Config::load_persisted_state(xargs::Parser &args) {
     const auto r_err = kv->get("remote_info", remote_info);
     if (r_err && !xerrors::NOT_FOUND.matches(r_err)) return r_err;
     auto remote_parser = xjson::Parser(remote_info);
-    this->remote.override(remote_parser);
+    this->remote_info.override(remote_parser);
 
     return xerrors::NIL;
 }

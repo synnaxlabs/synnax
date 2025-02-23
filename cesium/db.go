@@ -39,14 +39,17 @@ var (
 
 type DB struct {
 	*options
-	relay      *relay
-	mu         sync.RWMutex
-	unaryDBs   map[ChannelKey]unary.DB
-	virtualDBs map[ChannelKey]virtual.DB
-	digests    struct {
-		key    ChannelKey
-		inlet  confluence.Inlet[WriterRequest]
-		outlet confluence.Outlet[WriterResponse]
+	relay *relay
+	mu    struct {
+		sync.RWMutex
+		unaryDBs   map[ChannelKey]unary.DB
+		virtualDBs map[ChannelKey]virtual.DB
+		digests    struct {
+			key      ChannelKey
+			shutdown io.Closer
+			inlet    confluence.Inlet[WriterRequest]
+			outlet   confluence.Outlet[WriterResponse]
+		}
 	}
 	closed   *atomic.Bool
 	shutdown io.Closer
@@ -115,15 +118,14 @@ func (db *DB) Close() error {
 	//
 	// This function acquires the mutex lock internally, so there's no need to lock
 	// it here.
-	db.closeControlDigests()
+	c.Exec(db.closeControlDigests)
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.
 	c.Exec(db.shutdown.Close)
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, u := range db.unaryDBs {
+	for _, u := range db.mu.unaryDBs {
 		c.Exec(u.Close)
 	}
-
 	return c.Error()
 }

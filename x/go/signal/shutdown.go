@@ -11,19 +11,29 @@ package signal
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
 )
 
-func NewShutdown(
+func NewHardShutdown(
 	wg WaitGroup,
 	cancel context.CancelFunc,
 ) io.Closer {
 	return xio.CloserFunc(func() error {
 		cancel()
 		err := wg.Wait()
-		return lo.Ternary(errors.Is(err, context.Canceled), nil, err)
+		return errors.Skip(err, context.Canceled)
+	})
+}
+
+func NewGracefulShutdown(
+	wg WaitGroup,
+	cancel context.CancelFunc,
+) io.Closer {
+	return xio.CloserFunc(func() error {
+		err := wg.Wait()
+		cancel()
+		return err
 	})
 }

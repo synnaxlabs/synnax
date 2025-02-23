@@ -91,7 +91,7 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
     ASSERT_FALSE(err) << err;
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.rack.name, "abc rack");
-    ASSERT_EQ(cfg.remote.cluster_key, client.auth->cluster_info.cluster_key);
+    ASSERT_EQ(cfg.remote_info.cluster_key, client.auth->cluster_info.cluster_key);
 }
 
 TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
@@ -105,7 +105,7 @@ TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
     ASSERT_NE(cfg.rack.key, rack.key);
-    ASSERT_NE(cfg.remote.cluster_key, "abc");
+    ASSERT_NE(cfg.remote_info.cluster_key, "abc");
 }
 
 // We need to explicitly define a main function here instead of using gtest_main
