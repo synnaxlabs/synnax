@@ -30,6 +30,7 @@ export const Badge = (): ReactElement => {
       color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-gray-l7)"}
       style={{ marginTop: "0.25rem" }}
       weight={500}
+      shade={2}
     >
       {`v${version}`}
     </Button.Button>

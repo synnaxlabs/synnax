@@ -53,6 +53,7 @@ export const NavMenu = ({
         itemKey={key}
         size="large"
         tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
+        shade={2}
       >
         {icon}
       </PMenu.Item.Icon>
