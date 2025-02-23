@@ -27,7 +27,8 @@ TEST(TestAuth, testLoginHappyPath) {
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        3
+        3,
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
@@ -48,7 +49,8 @@ TEST(TestAuth, testLoginInvalidCredentials) {
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        3
+        3,
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
