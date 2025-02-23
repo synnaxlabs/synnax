@@ -132,16 +132,13 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
-          {(p) => {
-            console.log(p);
-            return (
-              <Device.SelectPort
-                {...p}
-                model={model}
-                portType={convertChannelTypeToPortType(channel.type)}
-              />
-            );
-          }}
+          {(p) => (
+            <Device.SelectPort
+              {...p}
+              model={model}
+              portType={convertChannelTypeToPortType(channel.type)}
+            />
+          )}
         </PForm.Field>
       </Align.Space>
       <Form deviceModel={device.model} path={path} />
