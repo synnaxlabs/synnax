@@ -40,7 +40,7 @@ func isExpiredError(err error) bool {
 	return strings.Contains(err.Error(), "expired")
 }
 
-type Config struct {
+type ServiceConfig struct {
 	// KeyProvider is the service used to generate and validate keys.
 	// [REQUIRED]
 	KeyProvider security.KeyProvider
@@ -58,7 +58,7 @@ type Config struct {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.KeyProvider = override.Nil(c.KeyProvider, other.KeyProvider)
 	c.Expiration = override.Numeric(c.Expiration, other.Expiration)
 	c.RefreshThreshold = override.Numeric(c.RefreshThreshold, other.RefreshThreshold)
@@ -67,7 +67,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("auth")
 	validate.NotNil(v, "key_provider", c.KeyProvider)
 	validate.Positive(v, "expiration", c.Expiration)
@@ -77,8 +77,8 @@ func (c Config) Validate() error {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{
 		Expiration:       time.Hour,
 		RefreshThreshold: time.Minute * 5,
 		Now:              time.Now,
@@ -86,9 +86,12 @@ var (
 )
 
 // Service is a service for generating and validating tokens with UUID issuers.
-type Service struct{ cfg Config }
+type Service struct{ cfg ServiceConfig }
 
-func New(cfgs ...Config) (*Service, error) {
+// NewService creates a new token service with the provided configuration. Returns a
+// validate.Error if the configuration is invalid. See token.ServiceConfig for
+// configuration details.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

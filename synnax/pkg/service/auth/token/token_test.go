@@ -34,13 +34,13 @@ func (m *mockKeyService) NodePrivate() crypto.PrivateKey {
 var _ = Describe("token", func() {
 	var (
 		svc *token.Service
-		cfg token.Config
+		cfg token.ServiceConfig
 	)
 	JustBeforeEach(func() {
 		k, err := rsa.GenerateKey(rand.Reader, 1024)
 		Expect(err).ToNot(HaveOccurred())
 		cfg.KeyProvider = &mockKeyService{key: k}
-		svc = MustSucceed(token.New(cfg))
+		svc = MustSucceed(token.NewService(cfg))
 	})
 	Describe("Nominal", func() {
 		BeforeEach(func() { cfg.Now = time.Now })
