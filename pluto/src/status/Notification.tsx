@@ -25,7 +25,7 @@ interface ActionProps {
 }
 
 const Action = ({ action }: ActionProps): ReactElement =>
-  isValidElement(action) ? action : <Button.Button {...action} />;
+  isValidElement(action) ? action : <Button.Button {...action} key={action.key} />;
 
 export interface NotificationProps extends Align.SpaceProps {
   status: NotificationSpec;

@@ -21,6 +21,7 @@ import {
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
@@ -153,13 +154,14 @@ export const AliasInput = ({
   else if (alias === value) icon = <Icon.Check />;
   const canSetAlias =
     setAlias != null && !loading && alias !== value && channelKey !== 0;
+  const handleException = Status.useExceptionHandler();
   const handleSetAlias = (): void => {
     if (!canSetAlias) return;
-    void (async () => {
+    handleException(async () => {
       setLoading(true);
       await setAlias(channelKey, value);
       setLoading(false);
-    })();
+    }, "Failed to set channel alias");
   };
 
   const handleSetValueToAlias = (): void => {

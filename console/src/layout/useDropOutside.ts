@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { box, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
@@ -47,10 +47,11 @@ const useDropOutsideMacOS = ({
   const target: Haul.Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const windowsContain = useWindowsContains();
   const store = useStore<StoreState & Drift.StoreState>();
+  const handleException = Status.useExceptionHandler();
   useAsyncEffect(
     async () =>
       listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
-        void (async () => {
+        handleException(async () => {
           if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
           const state = store.getState();
           const layout = select(state, dragging.current.items[0].key as string);
@@ -65,7 +66,7 @@ const useDropOutsideMacOS = ({
           if (windowsContain(cursor)) return;
           const dropped = onDrop(dragging.current, rawCursor);
           drop({ target, dropped });
-        })();
+        }, "Failed to drop outside");
       }),
     [target],
   );

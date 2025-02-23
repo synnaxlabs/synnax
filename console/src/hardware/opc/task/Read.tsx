@@ -9,7 +9,7 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -54,6 +54,11 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   <PForm.SwitchField
     path={`${path}.useAsIndex`}
     label="Use as Index"
+    hideIfNull
+    direction="x"
+    align="center"
+    showHelpText={false}
+    required={false}
     visible={(_, ctx) =>
       DataType.TIMESTAMP.equals(
         ctx.get<string>(`${path}.dataType`, { optional: true })?.value ?? "",
@@ -61,6 +66,8 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
     }
   />
 );
+
+const isIndexItem = componentRenderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
@@ -83,11 +90,8 @@ const Properties = (): ReactElement => {
 
 const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
   isSnapshot,
-}) => (
-  <Form isSnapshot={isSnapshot}>
-    {({ path, snapshot }) => <IsIndexItem path={path} snapshot={snapshot} />}
-  </Form>
-);
+}) => <Form isSnapshot={isSnapshot}>{isIndexItem}</Form>;
+
 const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
   ReadStateDetails,
@@ -231,9 +235,11 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(() => <Properties />, TaskForm, {
-  configSchema: readConfigZ,
+export const Read = Common.Task.wrapForm({
   type: READ_TYPE,
+  Properties,
+  Form: TaskForm,
+  configSchema: readConfigZ,
   getInitialPayload,
   onConfigure,
 });

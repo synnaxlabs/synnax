@@ -19,7 +19,6 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
-import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
 const StatusesContext = createContext<status.Spec[]>([]);
@@ -63,26 +62,38 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
 
 export const useAdder = () => use(AdderContext);
 
-export interface ExceptionHandler extends status.ExceptionHandler {}
+export interface ExceptionHandler extends status.ExceptionHandler {
+  (func: () => Promise<void>, message?: string): void;
+}
+
+const errorToStatus = (exc: unknown, message?: string): status.CrudeSpec => {
+  if (!(exc instanceof Error)) throw exc;
+  return {
+    variant: "error",
+    message: message ?? exc.message,
+    description: message != null ? exc.message : undefined,
+  };
+};
 
 export const useExceptionHandler = (): ExceptionHandler => {
   const add = useAdder();
   return useCallback(
-    (exc: unknown, message?: string): void => {
-      if (!(exc instanceof Error)) throw exc;
-      add({
-        variant: "error",
-        message: message ?? exc.message,
-        description: message != null ? exc.message : undefined,
-      });
+    (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
+      if (typeof excOrFunc === "function") {
+        void (async () => {
+          try {
+            await excOrFunc();
+          } catch (exc) {
+            add(errorToStatus(exc, message));
+          }
+        })();
+        return;
+      }
+      add(errorToStatus(excOrFunc, message));
     },
     [add],
   );
 };
-
-export interface UseNotificationsProps {
-  expiration?: TimeSpan;
-}
 
 export interface NotificationSpec extends status.Spec {
   count: number;
@@ -94,77 +105,58 @@ export interface UseNotificationsReturn {
 }
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
+const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
+
+interface UseNotificationsProps {
+  expiration?: TimeSpan;
+  poll?: TimeSpan;
+}
 
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
+  poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = use(StatusesContext);
-  const [threshold, setThreshold] = useState<TimeStamp>(TimeStamp.now());
-  const [silenced, setSilenced] = useState<Set<string>>(new Set());
-
-  const filtered = useMemo(() => {
-    const fresh = statuses.filter(
-      ({ key, time }) => time.after(threshold) && !silenced.has(key),
-    );
-    return filterDuplicates(fresh);
-  }, [statuses, threshold, silenced]);
+  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
+  const [now, setNow] = useState(() => TimeStamp.now());
 
   useEffect(() => {
-    if (filtered.length === 0) return;
-    const lastTime = filtered.reduce(
-      (latest, { time }) => (time.after(latest) ? time : latest),
-      threshold,
+    const interval = setInterval(() => setNow(TimeStamp.now()), poll.milliseconds);
+    return () => clearInterval(interval);
+  }, [poll.milliseconds]);
+
+  const { statuses: filtered } = useMemo(() => {
+    const threshold = now.sub(expiration);
+
+    const active = statuses.filter(
+      ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
     );
-    if (lastTime.beforeEq(threshold)) return;
-    const timeout = setTimeout(() => setThreshold(lastTime), expiration.milliseconds);
-    return () => clearTimeout(timeout);
-  }, [filtered, expiration, threshold]);
 
-  const statusesRef = useSyncedRef(statuses);
-
-  const silence: UseNotificationsReturn["silence"] = useCallback(
-    (key) => {
-      const status = statusesRef.current.find((s) => s.key === key);
-      if (status == null) return;
-      const duplicates = statusesRef.current
-        .filter(
-          ({ message, variant }) =>
-            message === status.message && variant === status.variant,
-        )
-        .map(({ key }) => key);
-      // create a new set to trigger a rerender
-      setSilenced((prev) => {
-        const next = new Set(prev);
-        let changed = false;
-        duplicates.forEach((key) => {
-          if (next.has(key)) return;
-          next.add(key);
-          changed = true;
-        });
-        return changed ? next : prev;
+    const grouped = active.reduce((acc, status) => {
+      const key = `${status.variant}:${status.message}`;
+      if (!acc.has(key)) {
+        acc.set(key, { ...status, count: 1 });
+        return acc;
+      }
+      const existing = acc.get(key)!;
+      acc.set(key, {
+        ...existing,
+        count: existing.count + 1,
+        time: status.time.after(existing.time) ? status.time : existing.time,
       });
-    },
-    [statusesRef, setSilenced],
-  );
+      return acc;
+    }, new Map<string, NotificationSpec>());
+
+    return { statuses: Array.from(grouped.values()) };
+  }, [statuses, expiration, silencedKeys, now]);
+
+  const silence = useCallback((key: string) => {
+    setSilencedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
 
   return { statuses: filtered, silence };
-};
-
-const filterDuplicates = (statuses: status.Spec[]): NotificationSpec[] => {
-  const map = new Map<string, NotificationSpec>();
-  statuses.forEach((status) => {
-    const { message, variant } = status;
-    const key = JSON.stringify({ message, variant });
-    const existing = map.get(key);
-    if (existing == null) {
-      map.set(key, { ...status, count: 1 });
-      return;
-    }
-    map.set(key, {
-      ...existing,
-      count: existing.count + 1,
-      time: status.time.after(existing.time) ? status.time : existing.time,
-    });
-  });
-  return Array.from(map.values());
 };

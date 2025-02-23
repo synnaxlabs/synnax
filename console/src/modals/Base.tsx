@@ -11,6 +11,7 @@ import { type FC } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { usePlacer } from "@/layout/hooks";
 
 export interface BaseArgs<V> {
   result?: V;
@@ -46,7 +47,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
     args: { ...args, result: undefined },
   });
   const useModal = (): Prompt<R, A> => {
-    const placeLayout = Layout.usePlacer();
+    const placeLayout = usePlacer();
     const store = useStore<Layout.StoreState>();
     return async (
       args: A,

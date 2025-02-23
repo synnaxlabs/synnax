@@ -1,0 +1,6 @@
+.console-task-configure--opc_read,
+.console-task-configure--opc_write {
+    .console-channel-list {
+        max-width: 100% !important;
+    }
+}

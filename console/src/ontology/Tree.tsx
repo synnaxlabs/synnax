@@ -270,7 +270,7 @@ export const Tree = (): ReactElement => {
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
-      void (async () => {
+      handleException(async () => {
         if (client == null) return;
         const id = new ontology.ID(clicked);
         try {
@@ -304,7 +304,7 @@ export const Tree = (): ReactElement => {
         } finally {
           setLoading(false);
         }
-      })();
+      }, "Failed to expand tree");
     },
     [client, services],
   );

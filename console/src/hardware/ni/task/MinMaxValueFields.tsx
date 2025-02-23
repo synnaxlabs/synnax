@@ -19,11 +19,11 @@ const MaxValueField = Form.buildNumericField({
   fieldProps: { label: "Maximum Value" },
 });
 
-export interface MinMaxValueFielsProps {
+export interface MinMaxValueFieldsProps {
   path: string;
 }
 
-export const MinMaxValueFields = ({ path }: MinMaxValueFielsProps) => (
+export const MinMaxValueFields = ({ path }: MinMaxValueFieldsProps) => (
   <Align.Space direction="x">
     <MinValueField path={path} grow />
     <MaxValueField path={path} grow />

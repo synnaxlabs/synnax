@@ -34,7 +34,7 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(m *Task) bool {
 		ok := lo.Contains(names, m.Name)
 		return ok
-	})
+	}, gorp.Required())
 	return r
 }
 

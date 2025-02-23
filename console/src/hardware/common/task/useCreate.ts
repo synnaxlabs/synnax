@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, type task } from "@synnaxlabs/client";
+import { type rack, type task } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -28,9 +28,7 @@ export const useCreate = <
   return useCallback(
     async (task: task.New<Config, Type>, rackKey: rack.Key) => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const rck = await client.hardware.racks.retrieve(
-        rackKey ?? rack.DEFAULT_CHANNEL_NAME,
-      );
+      const rck = await client.hardware.racks.retrieve(rackKey);
       const createdTask = await rck.createTask<Config, Details, Type>(task);
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: createdTask.key }));
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
