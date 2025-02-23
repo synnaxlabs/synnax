@@ -52,4 +52,8 @@ export default defineConfig({
   worker: {
     format: "es",
   },
+  test: {
+    globals: true,
+    environment: "jsdom",
+  },
 });

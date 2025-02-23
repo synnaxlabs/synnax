@@ -317,6 +317,9 @@ importers:
       '@tauri-apps/cli':
         specifier: ^2.2.4
         version: 2.2.4
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.1.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.6))(@types/react@19.0.6)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@types/react':
         specifier: ^19.0.6
         version: 19.0.6

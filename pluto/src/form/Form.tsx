@@ -26,6 +26,7 @@ import { z } from "zod";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
+import { Status } from "@/status";
 import { type status } from "@/status/aether";
 
 /** Props for the @link useField hook */
@@ -482,6 +483,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const onChangeRef = useSyncedRef(onChange);
   const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
   const onHasTouchedRef = useSyncedRef(onHasTouched);
+  const handleException = Status.useExceptionHandler();
 
   const setCurrentStateAsInitialValues = useCallback(() => {
     initialValuesRef.current = deep.copy(ref.current.state);
@@ -715,7 +717,7 @@ export const use = <Z extends z.ZodTypeAny>({
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
-    void (async () => {
+    handleException(async () => {
       let valid: boolean;
       try {
         valid = validate(path, validateChildren);
@@ -723,7 +725,7 @@ export const use = <Z extends z.ZodTypeAny>({
         valid = await validateAsync(path, validateChildren);
       }
       onChangeRef.current?.({ values: ref.current.state, path, prev, valid });
-    })();
+    }, "Failed to validate form");
   }, []);
 
   const has = useCallback(

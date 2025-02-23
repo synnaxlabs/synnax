@@ -57,14 +57,14 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     ({ name }) => !names.includes(name),
     ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
   );
-
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
     values: { ...ZERO_VALUES },
   });
 
-  const handleSubmit = (): void => {
-    void (async () => {
+  const handleSubmit = (): void =>
+    handleException(async () => {
       if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
@@ -75,19 +75,17 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       dispatch(set({ ...data, key: state.clusterKey }));
       dispatch(setActive(state.clusterKey));
       onClose();
-    })();
-  };
+    }, "Failed to connect to cluster");
 
-  const handleTestConnection = (): void => {
-    void (async () => {
+  const handleTestConnection = (): void =>
+    handleException(async () => {
       if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value());
       setConnState(state);
       setLoading(null);
-    })();
-  };
+    }, "Failed to test connection");
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>

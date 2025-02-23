@@ -67,13 +67,9 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
     sync: false,
     onChange: (props) => {
       if (client == null) return;
-      void (async () => {
-        try {
-          await applyChanges?.({ ...props, client });
-        } catch (e) {
-          handleException(e, `Failed to save ${name}`);
-        }
-      })();
+      handleException(async () => {
+        await applyChanges?.({ ...props, client });
+      }, `Failed to apply changes for ${name}`);
     },
   });
   useAsyncEffect(async () => {
