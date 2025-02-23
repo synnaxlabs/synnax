@@ -14,31 +14,31 @@
 #include "x/cpp/xerrors/errors.h"
 
 TEST(testXErrors, testErrorConstructionFromString) {
-    std::string error = "sy.validation---invalid key: 1000: validation error";
+    const std::string error = "sy.validation---invalid key: 1000: validation error";
     auto err = xerrors::Error(error);
 }
 
 TEST(testXErrors, testErrorEqualsExactlyEqual) {
-    auto err1 = xerrors::Error("test", "");
-    auto err2 = xerrors::Error("test", "");
+    const auto err1 = xerrors::Error("test", "");
+    const auto err2 = xerrors::Error("test", "");
     ASSERT_EQ(err1, err2);
 }
 
 TEST(testXErrors, testErrorHequalHasPrefix) {
-    auto err1 = xerrors::Error("test", "");
-    auto err2 = xerrors::Error("test-specific", "");
+    const auto err1 = xerrors::Error("test", "");
+    const auto err2 = xerrors::Error("test-specific", "");
     ASSERT_TRUE(err2.matches(err1));
 }
 
 TEST(testXErrors, testErrorMatchesVector) {
-    auto err = xerrors::Error("test.specific.error", "");
-    std::vector<xerrors::Error> errors = {
+    const auto err = xerrors::Error("test.specific.error", "");
+    const std::vector errors = {
         xerrors::Error("wrong", ""),
         xerrors::Error("test.specific", ""),
         xerrors::Error("another", "")
     };
     ASSERT_TRUE(err.matches(errors));
-    std::vector<xerrors::Error> no_matches = {
+    const std::vector no_matches = {
         xerrors::Error("wrong", ""),
         xerrors::Error("other", ""),
         xerrors::Error("another", "")
