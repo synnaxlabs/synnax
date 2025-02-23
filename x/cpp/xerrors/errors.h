@@ -110,6 +110,15 @@ public:
         });
     }
 
+    /// @brief Variadic template function to check if the error matches any of the provided errors
+    /// or error types.
+    template<typename First, typename... Rest>
+    [[nodiscard]] bool matches(First&& first, Rest&&... rest) const {
+        if (matches(std::forward<First>(first))) return true;
+        if constexpr (sizeof...(rest) > 0) return matches(std::forward<Rest>(rest)...);
+        return false;
+    }
+
     /// @brief if the error matches the provided error, 'skips' the error by returning
     /// nil, otherwise returns the error.
     [[nodiscard]] Error skip(const Error &other) const {

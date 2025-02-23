@@ -29,3 +29,30 @@ TEST(testXErrors, testErrorHequalHasPrefix) {
     auto err2 = xerrors::Error("test-specific", "");
     ASSERT_TRUE(err2.matches(err1));
 }
+
+TEST(testXErrors, testErrorMatchesVariadic) {
+    auto err = xerrors::Error("test.specific.error", "");
+    ASSERT_TRUE(err.matches("other", "test", "another"));
+    ASSERT_TRUE(err.matches(
+        xerrors::Error("wrong", ""),
+        "test.specific",
+        xerrors::Error("another", "")
+    ));
+    ASSERT_FALSE(err.matches("wrong", "other", "another"));
+}
+
+TEST(testXErrors, testErrorMatchesVector) {
+    auto err = xerrors::Error("test.specific.error", "");
+    std::vector<xerrors::Error> errors = {
+        xerrors::Error("wrong", ""),
+        xerrors::Error("test.specific", ""),
+        xerrors::Error("another", "")
+    };
+    ASSERT_TRUE(err.matches(errors));
+    std::vector<xerrors::Error> no_matches = {
+        xerrors::Error("wrong", ""),
+        xerrors::Error("other", ""),
+        xerrors::Error("another", "")
+    };
+    ASSERT_FALSE(err.matches(no_matches));
+}

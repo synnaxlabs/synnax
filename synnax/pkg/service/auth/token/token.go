@@ -13,13 +13,17 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"strings"
+	"time"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"strings"
-	"time"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func isVerificationError(err error) bool {
@@ -29,25 +33,78 @@ func isVerificationError(err error) bool {
 	return strings.Contains(err.Error(), "verification")
 }
 
-// Service is a service for generating and validating tokens with UUID issuers.
-type Service struct {
+func isExpiredError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "expired")
+}
+
+type Config struct {
 	// KeyProvider is the service used to generate and validate keys.
+	// [REQUIRED]
 	KeyProvider security.KeyProvider
 	// Expiration is the duration that the token will be valid for.
+	// [OPTIONAL] [DEFAULT: 1 hour]
 	Expiration time.Duration
 	// RefreshThreshold is the duration before the token expires that a new token will be
 	// issued.
+	// [OPTIONAL] [DEFAULT: 5 minutes]
 	RefreshThreshold time.Duration
+	// Now is a function that returns the current time. This can be used to override the
+	// current time.
+	// [OPTIONAL] [DEFAULT: time.Now]
+	Now func() time.Time
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.KeyProvider = override.Nil(c.KeyProvider, other.KeyProvider)
+	c.Expiration = override.Numeric(c.Expiration, other.Expiration)
+	c.RefreshThreshold = override.Numeric(c.RefreshThreshold, other.RefreshThreshold)
+	c.Now = override.Nil(c.Now, other.Now)
+	return c
+}
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("auth")
+	validate.NotNil(v, "key_provider", c.KeyProvider)
+	validate.Positive(v, "expiration", c.Expiration)
+	validate.Positive(v, "refresh_threshold", c.RefreshThreshold)
+	validate.NotNil(v, "now", c.Now)
+	return v.Error()
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{
+		Expiration:       time.Hour,
+		RefreshThreshold: time.Minute * 5,
+		Now:              time.Now,
+	}
+)
+
+// Service is a service for generating and validating tokens with UUID issuers.
+type Service struct{ cfg Config }
+
+func New(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
 }
 
 // New issues a new token for the given issuer. Returns the token as a string, and
 // any errors encountered during signing.
 func (s *Service) New(issuer uuid.UUID) (string, error) {
 	method, key := s.signingMethodAndKey()
+	now := s.cfg.Now().UTC()
 	claims := jwt.NewWithClaims(method, jwt.StandardClaims{
-		IssuedAt:  time.Now().Unix(),
+		IssuedAt:  now.Unix(),
 		Issuer:    issuer.String(),
-		ExpiresAt: time.Now().Add(s.Expiration).Unix(),
+		ExpiresAt: now.Add(s.cfg.Expiration).Unix(),
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
@@ -86,6 +143,9 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error)
 		if isVerificationError(err) {
 			return uuid.Nil, claims, auth.InvalidToken
 		}
+		if isExpiredError(err) {
+			return uuid.Nil, claims, auth.ExpiredToken
+		}
 		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
@@ -96,11 +156,16 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error)
 }
 
 func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {
-	return time.Unix(claims.ExpiresAt, 0).Sub(time.Now()) < s.RefreshThreshold
+	expiration := time.Unix(claims.ExpiresAt, 0).UTC()
+	currentTime := s.cfg.Now().UTC()
+	if expiration.Sub(currentTime) < 0 {
+		return false
+	}
+	return expiration.Sub(currentTime) < s.cfg.RefreshThreshold
 }
 
 func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
-	key := s.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.NodePrivate()
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS512, key
@@ -120,7 +185,7 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
 }
 
 func (s *Service) publicKey() interface{} {
-	key := s.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.NodePrivate()
 	switch key.(type) {
 	case *rsa.PrivateKey:
 		return key.(*rsa.PrivateKey).Public()
