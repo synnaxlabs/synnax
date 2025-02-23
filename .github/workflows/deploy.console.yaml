@@ -149,8 +149,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Update Submodules
+      - name: Update Submodules on Push
+        if: github.event_name == 'push'
         run: git submodule update --init --recursive
+
+      - name: Mock Resources on Pull Request
+        if: github.event_name == 'pull_request'
+        run: |
+          mkdir -p vendor/lua-language-server
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
