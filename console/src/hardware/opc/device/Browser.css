@@ -1,0 +1,5 @@
+.console-opc-browser {
+    height: 100%;
+    flex-basis: 300px;
+    border-right: var(--pluto-border);
+}

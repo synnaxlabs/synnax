@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -87,12 +87,15 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
+const channelDetails = componentRenderProp(ChannelDetails);
+const channelListItem = componentRenderProp(ChannelListItem);
+
 const Form: FC<
   Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
-    ListItem={ChannelListItem}
-    Details={ChannelDetails}
+    listItem={channelListItem}
+    details={channelDetails}
     generateChannel={generateAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
@@ -208,7 +211,9 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
   return [config, dev.rack];
 };
 
-export const AnalogWrite = Common.Task.wrapForm(Properties, Form, {
+export const AnalogWrite = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,

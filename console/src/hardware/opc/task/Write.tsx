@@ -111,8 +111,11 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm(
-  () => <Properties />,
-  ({ isSnapshot }) => <Form isSnapshot={isSnapshot} />,
-  { configSchema: writeConfigZ, type: WRITE_TYPE, getInitialPayload, onConfigure },
-);
+export const Write = Common.Task.wrapForm({
+  Properties,
+  Form,
+  configSchema: writeConfigZ,
+  type: WRITE_TYPE,
+  getInitialPayload,
+  onConfigure,
+});

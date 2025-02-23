@@ -174,11 +174,17 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
   );
+  const listItem = useCallback(
+    (p: Common.Task.ChannelListItemProps<OutputChannel>) => (
+      <ChannelListItem {...p} device={device} />
+    ),
+    [device.key],
+  );
   return (
     <Common.Task.Layouts.List<OutputChannel>
       isSnapshot={isSnapshot}
       generateChannel={generateChannel}
-      ListItem={(p) => <ChannelListItem {...p} device={device} />}
+      listItem={listItem}
     />
   );
 };
@@ -307,7 +313,9 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm(() => <Properties />, Form, {
+export const Write = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   getInitialPayload,
