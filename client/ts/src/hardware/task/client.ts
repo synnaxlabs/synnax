@@ -387,8 +387,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver<D extends {} = UnknownRecord>(): Promise<StateObservable<D>> {
-    return new framer.ObservableStreamer<State<D>>(
+  async openStateObserver(): Promise<StateObservable> {
+    return new framer.ObservableStreamer<State>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);

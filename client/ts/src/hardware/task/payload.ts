@@ -85,8 +85,7 @@ export interface Command<Args extends {} = UnknownRecord>
   args?: Args;
 }
 
-export interface StateObservable<Details extends {} = UnknownRecord>
-  extends observe.ObservableAsyncCloseable<State<Details>> {}
+export interface StateObservable extends observe.ObservableAsyncCloseable<State> {}
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
