@@ -288,9 +288,11 @@ export const getDescendants = (...node: Node[]): Node[] => {
   return descendants;
 };
 
-export const getAllNodesOfMinDepth = (nodes: NodeWithPosition[]) => {
+export const getAllNodesOfMinDepth = (
+  nodes: NodeWithPosition[],
+): NodeWithPosition[] => {
   if (nodes.length === 0) return [];
-  const depths = nodes.map(({ depth }) => depth).sort((a, b) => a - b);
-  const minDepth = depths[0];
+  let minDepth = Infinity;
+  for (const { depth } of nodes) if (depth < minDepth) minDepth = depth;
   return nodes.filter(({ depth }) => depth === minDepth);
 };
