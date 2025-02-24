@@ -168,12 +168,8 @@ public:
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    TableScale                                 //
-///////////////////////////////////////////////////////////////////////////////////
 class TableScale final : public BaseScale {
     std::vector<double> pre_scaled, scaled;
-
 public:
     explicit TableScale(xjson::Parser &cfg):
         BaseScale(cfg),

@@ -38,12 +38,14 @@ struct BaseReadTaskConfig {
     const std::size_t samples_per_channel;
     std::size_t buffer_size = 0;
     std::set<synnax::ChannelKey> indexes;
+    const bool data_saving;
 
     explicit BaseReadTaskConfig(xjson::Parser &cfg):
         device_key(cfg.required<std::string>("device_key")),
         sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
         stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
         timing_source(cfg.required<std::string>("timing_source")),
+        data_saving(cfg.optional<bool>("data_saving", false)),
         samples_per_channel(std::floor(sample_rate.value / stream_rate.value)) {
     }
 };
@@ -105,7 +107,7 @@ struct AnalogReadTaskConfig : BaseReadTaskConfig {
 
     xerrors::Error bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle handle
+        TaskHandle handle
     ) const {
         dmx->CfgSampClkTiming(
             handle,
@@ -121,6 +123,17 @@ struct AnalogReadTaskConfig : BaseReadTaskConfig {
                     "failed to bind channel " + std::to_string(ch->ch.key));
         }
         return xerrors::NIL;
+    }
+
+    [[nodiscard]] synnax::WriterConfig writer_config() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size() + this->indexes.size());
+        for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
+        for (const auto &idx: this->indexes) keys.push_back(idx);
+        return synnax::WriterConfig{
+            .channels = keys,
+            .mode = synnax::data_saving_writer_mode(this->data_saving)
+        };
     }
 };
 
@@ -173,6 +186,17 @@ struct DigitalReadTaskConfig : BaseReadTaskConfig {
         this->buffer_size = this->channels.size() * this->samples_per_channel;
         return xerrors::NIL;
     }
+
+    [[nodiscard]] synnax::WriterConfig writer_config() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size() + this->indexes.size());
+        for (const auto &ch: this->channels) keys.push_back(ch.ch.key);
+        for (const auto &idx: this->indexes) keys.push_back(idx);
+        return synnax::WriterConfig{
+            .channels = keys,
+            .mode = synnax::data_saving_writer_mode(this->data_saving)
+        };
+    }
 };
 
 class Source : public pipeline::Source {
@@ -214,13 +238,14 @@ public:
 
 class AnalogReadSource final : public Source {
     AnalogReadTaskConfig cfg;
+
 public:
     explicit AnalogReadSource(
         const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
-        AnalogReadTaskConfig &cfg
+        AnalogReadTaskConfig cfg
     ) : Source(dmx, task_handle, ctx, task),
         cfg(std::move(cfg)) {
     }
@@ -252,7 +277,7 @@ public:
     void acquire_data() override;
 };
 
-class ReaderTask final : public task::Task {
+class ReadTask final : public task::Task {
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     pipeline::Acquisition daq_read_pipe;
@@ -260,12 +285,11 @@ class ReaderTask final : public task::Task {
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
 
 public:
-    explicit ReaderTask(
-        const std::shared_ptr<DAQmx> &dmx,
+    explicit ReadTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         const std::shared_ptr<pipeline::Source> &source,
-        const synnax::WriterConfig& writer_config,
+        const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
     ): ctx(ctx),
        task(std::move(task)),
@@ -296,6 +320,37 @@ public:
         const std::shared_ptr<DAQmx> &dmx,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    );
-}; // class ReaderTask
-} // namespace ni
+    ) {
+        auto parser = xjson::Parser(task.config);
+        if (parser.error()) return nullptr;
+
+        std::shared_ptr<pipeline::Source> source;
+        synnax::WriterConfig writer_config;
+
+        if (task.type == "ni_analog_read") {
+            auto cfg = AnalogReadTaskConfig(ctx->client, parser);
+            if (parser.error()) return nullptr;
+            TaskHandle task_handle;
+            dmx->CreateTask("", &task_handle);
+            if (const auto err = cfg.bind(dmx, task_handle))
+                return nullptr;
+            writer_config = cfg.writer_config();
+            source = std::make_shared<AnalogReadSource>(
+                dmx, task_handle, ctx, task, std::move(cfg));
+        } else {
+            auto cfg = DigitalReadTaskConfig(ctx->client, parser);
+            if (parser.error()) return nullptr;
+            TaskHandle task_handle;
+            dmx->CreateTask("", &task_handle);
+            if (const auto err = cfg.bind(dmx, task_handle))
+                return nullptr;
+            writer_config = cfg.writer_config();
+            source = std::make_shared<DigitalReadSource>(
+                dmx, task_handle, ctx, task, std::move(cfg));
+        }
+        return std::make_unique<ReadTask>(
+            ctx, task, source, writer_config, breaker::default_config(task.name)
+        );
+    }
+};
+}

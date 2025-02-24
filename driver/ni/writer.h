@@ -199,14 +199,14 @@ public:
     xerrors::Error write_ni(double *data) const override;
 };
 
-class WriterTask final : public task::Task {
+class WriteTask final : public task::Task {
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     pipeline::Control cmd_write_pipe;
     pipeline::Acquisition state_write_pipe;
 
 public:
-    explicit WriterTask(
+    explicit WriteTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         std::shared_ptr<pipeline::Sink> sink,
@@ -281,7 +281,7 @@ public:
             source = source_sink;
         }
 
-        return std::make_unique<WriterTask>(
+        return std::make_unique<WriteTask>(
             ctx,
             task,
             sink,

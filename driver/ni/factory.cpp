@@ -64,9 +64,9 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == "ni_scanner")
         return {ni::ScannerTask::configure(this->syscfg, ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
-        return {ni::ReaderTask::configure(this->dmx, ctx, task), true};
+        return {ni::ReadTask::configure(this->dmx, ctx, task), true};
     if (task.type == "ni_analog_write" || task.type == "ni_digital_write")
-        return {ni::WriterTask::configure(this->dmx, ctx, task), true};
+        return {ni::WriteTask::configure(this->dmx, ctx, task), true};
     return {nullptr, false};
 }
 
