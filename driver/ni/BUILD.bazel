@@ -1,12 +1,9 @@
 cc_library(
     name = "ni",
     srcs = [
-        "analog_read.cpp",
-        "digital_read.cpp",
         "factory.cpp",
-        "ni.cpp",
+        "read.cpp",
         "scanner.cpp",
-        "state_source.cpp",
         "task.cpp",
         "writer.cpp",
     ],
@@ -31,8 +28,8 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/errors",
-        "//driver/ni/nidaqmx",
-        "//driver/ni/nisyscfg",
+        "//driver/ni/daqmx",
+        "//driver/ni/syscfg",
         "//driver/pipeline",
         "//driver/queue",
         "//driver/task",

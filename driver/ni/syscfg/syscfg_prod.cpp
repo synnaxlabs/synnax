@@ -16,9 +16,9 @@
 #include <cstdarg>
 
 /// internal.
-#include "driver/ni/nisyscfg/nisyscfg.h"
-#include "driver/ni/nisyscfg/nisyscfg_prod.h"
-#include "driver/ni/nisyscfg/nisyscfg_errors.h"
+#include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/syscfg_prod.h"
+#include "driver/ni/syscfg/syscfg_errors.h"
 #include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32

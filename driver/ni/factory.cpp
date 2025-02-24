@@ -12,15 +12,15 @@
 
 /// external.
 #include "glog/logging.h"
+#include "nlohmann/json.hpp"
+
+/// internal
+#include "driver/ni/daqmx/daqmx_prod.h"
+#include "driver/ni/syscfg/syscfg_prod.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/writer.h"
 #include "driver/ni/reader.h"
 #include "driver/ni/scanner.h"
-#include "nlohmann/json.hpp"
-
-/// internal
-#include "nidaqmx/nidaqmx_prod.h"
-#include "nisyscfg/nisyscfg_prod.h"
 
 ni::Factory::Factory(
     const std::shared_ptr<DAQmx> &dmx,
@@ -36,9 +36,11 @@ bool ni::Factory::check_health(
     ctx->set_state({
         .task = task.key,
         .variant = "error",
-        .details = {
-            "message",
-            "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system."
+        .details = json{
+            {
+                "message",
+                "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system."
+            }
         }
     });
     return false;

@@ -13,8 +13,8 @@
 #include <memory>
 
 /// internal
-#include "driver/ni/nidaqmx/nidaqmx_api.h"
-#include "driver/ni/nidaqmx/nidaqmx.h"
+#include "driver/ni/daqmx/daqmx.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 #include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xerrors/errors.h"
 

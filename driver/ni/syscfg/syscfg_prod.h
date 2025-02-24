@@ -1,7 +1,7 @@
 #pragma once
 
-#include "driver/ni/nisyscfg/nisyscfg.h"
-#include "driver/ni/nisyscfg/nisyscfg_api.h"
+#include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/syscfg.h"
 #include "x/cpp/xlib/xlib.h"
 
 class SysCfgProd : public SysCfg {

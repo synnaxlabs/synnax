@@ -11,24 +11,15 @@
 
 #include <string>
 #include <vector>
-#include <utility>
-#include <memory>
 #include <thread>
 
-#include "nidaqmx/nidaqmx_api.h"
-#include "nidaqmx/nidaqmx.h"
-#include "nisyscfg/nisyscfg.h"
-#include "nisyscfg/nisyscfg_api.h"
-
-#include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
 
+#include "driver/ni/syscfg/syscfg.h"
+#include "driver/ni/daqmx/daqmx.h"
+
 #include "driver/task/task.h"
-#include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
-#include "driver/errors/errors.h"
-#include "x/cpp/loop/loop.h"
 
 namespace ni {
 class Factory final : public task::Factory {
@@ -38,13 +29,12 @@ public:
         const std::shared_ptr<SysCfg> &syscfg
     );
 
+    static std::unique_ptr<Factory> create();
+
     bool check_health(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) const;
-
-
-    static std::unique_ptr<ni::Factory> create();
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

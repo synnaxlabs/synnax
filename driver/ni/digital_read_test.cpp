@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 #include "glog/logging.h"
-#include "nidaqmx/nidaqmx_prod.h"
+#include "daqmx/daqmx_prod.h"
 
 #include "nlohmann/json.hpp"
 

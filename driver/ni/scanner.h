@@ -9,42 +9,26 @@
 
 #pragma once
 
+/// std
 #include <string>
 #include <vector>
-#include <map>
-#include <queue>
-#include <utility>
-#include <memory>
-#include <atomic>
 #include <thread>
 #include <set>
 #include <condition_variable>
 
-#include "nidaqmx/nidaqmx_api.h"
-#include "nidaqmx/nidaqmx.h"
-#include "nisyscfg/nisyscfg.h"
-#include "nisyscfg/nisyscfg_api.h"
-
+/// external
 #include "nlohmann/json.hpp"
 
+/// module
 #include "client/cpp/synnax.h"
-
-#include "driver/ni/channels.h"
-#include "driver/ni/error.h"
-#include "driver/queue/ts_queue.h"
-#include "driver/pipeline/acquisition.h"
-#include "driver/pipeline/control.h"
-#include "driver/pipeline/middleware.h"
-#include "driver/task/task.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
-#include "driver/errors/errors.h"
-#include "x/cpp/loop/loop.h"
+
+/// internal
+#include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/syscfg.h"
+#include "driver/task/task.h"
 
 namespace ni {
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Scanner                                    //
-///////////////////////////////////////////////////////////////////////////////////
 class Scanner final {
 public:
     explicit Scanner() = default;
@@ -90,9 +74,6 @@ private:
     //optional scan thread a task could be running
 }; // class Scanner
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    ScannerTask                                //
-///////////////////////////////////////////////////////////////////////////////////
 class ScannerTask final : public task::Task {
 public:
     explicit ScannerTask(

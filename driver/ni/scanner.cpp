@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #include "driver/ni/scanner.h"
-#include "nisyscfg/nisyscfg_api.h"
+#include "syscfg/syscfg.h"
 
 #include "nlohmann/json.hpp"
 

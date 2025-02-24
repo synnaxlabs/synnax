@@ -9,402 +9,233 @@
 
 #pragma once
 
+/// std
 #include <string>
-#include <vector>
 #include <map>
-#include <queue>
-#include <utility>
-#include <memory>
-#include <atomic>
-#include <thread>
 #include <set>
-#include <condition_variable>
 
-#include "nidaqmx/nidaqmx_api.h"
+/// external
 #include "nlohmann/json.hpp"
+
+/// module
 #include "client/cpp/synnax.h"
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/xjson/xjson.h"
+
+/// internal
 #include "driver/ni/channels.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
-#include "x/cpp/breaker/breaker.h"
-#include "x/cpp/loop/loop.h"
-#include "x/cpp/xjson/xjson.h"
 #include "driver/ni/ni.h"
 
 namespace ni {
-// Forward declarations
-class Analog;
+struct WriteTaskConfig {
+    std::set<synnax::ChannelKey> state_indexes;
+    /// @brief the key of the device to retrieve from Synnax Server
+    const std::string device_key;
+    /// @brief the rate at which the state channel is written to
+    const telem::Rate state_rate;
+    /// @brief whether data saving is enabled for the task.
+    const bool data_saving;
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                   WriterChannelConfig                         //
-///////////////////////////////////////////////////////////////////////////////////
-///@brief defines the configuration for a channel in a writer task.
-struct WriterChannelConfig {
-    ///@brief the name of the channel in the format <device_name>/<port>/<line> for
-    /// digital channels or <device_name>/<port> for analog channels
-    std::string name;
-    ///@brief whether the channel is enabled
-    bool enabled = true;
-    ///@brief the data type of the channel
-    telem::DataType data_type;
-    ///@brief the key of the channel
-    uint32_t channel_key;
-    ///@brief the key of the state channel
-    uint32_t state_channel_key;
-    ///@brief the port of the channel on NI device
-    std::string port;
-    ///@brief the line of the channel on NI device (for digital channels)
-    std::string line;
-    ///@brief the NI channel object (for analog channels)
-    std::shared_ptr<ni::Analog> ni_channel;
-    ///@brief the type of the channel (for analog channels)
-    std::string channel_type;
-
-    WriterChannelConfig() = default;
-
-    explicit WriterChannelConfig(
-        xjson::Parser &parser,
-        std::string device_name,
-        bool is_digital,
-        TaskHandle task_handle,
-        synnax::TaskKey task_key,
-        std::shared_ptr<task::Context> ctx
-    ) {
-        enabled = parser.optional<bool>("enabled", true);
-        channel_key = parser.required<uint32_t>("cmd_channel");
-        state_channel_key = parser.required<uint32_t>("state_channel");
-        channel_type = parser.optional<std::string>("type", "");
-
-        auto port_num = parser.required<std::uint64_t>("port");
-        if (is_digital) {
-            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-            auto line_num = parser.required<std::uint64_t>("line");
-            port = "port" + std::to_string(port_num);
-            line = "line" + std::to_string(line_num);
-            name = device_name + "/" + port + "/" + line;
-        } else {
-            // analog channel names are formatted: <device_name>/ao<port_number>
-            port = "ao" + std::to_string(port_num);
-            name = device_name + "/" + port;
-
-            ni_channel = AnalogOutputChannelFactory::create_channel(
-                channel_type, parser, name);
-            if (ni_channel == nullptr) {
-                std::string msg = "Channel " + name + " has an unrecognized type: " +
-                                  channel_type;
-                ctx->set_state({
-                    .task = task_key,
-                    .variant = "error",
-                    .details = {
-                        {"running", false},
-                        {"message", msg}
-                    }
-                });
-                LOG(ERROR) << "[ni.writer] " << msg;
-            }
-        }
+    WriteTaskConfig(WriteTaskConfig&& other) noexcept:
+        state_indexes(std::move(other.state_indexes)),
+        device_key(other.device_key),
+        state_rate(other.state_rate),
+        data_saving(other.data_saving),
+        channels(std::move(other.channels)),
+        cmd_to_state(other.cmd_to_state) {
     }
-};
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                   WriterConfig                                //
-///////////////////////////////////////////////////////////////////////////////////
-///@brief defines the configuration for a writer task.
-struct WriterConfig {
-    ///@brief the type of the device
-    std::string device_type;
-    ///@brief the name of the device. 
-    std::string device_name;
-    ///@brief the key of the device to retrieve from Synnax Server
-    std::string device_key;
-    ///@brief the name of the task
-    std::string task_name;
-    ///@brief the rate at which the state channel is written to
-    float state_rate = 0;
-    ///@brief the key of the task
-    synnax::ChannelKey task_key;
-    ///@brief the channels in the task
-    std::vector<WriterChannelConfig> channels;
-    ///@brief the keys of the state channels
-    std::vector<synnax::ChannelKey> state_channel_keys;
-    ///@brief the keys of the drive command channels
-    std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
-    ///@brief the keys of the state index channels
-    std::vector<synnax::ChannelKey> state_index_keys;
+    WriteTaskConfig(const WriteTaskConfig&) = delete;
+    const WriteTaskConfig& operator=(const WriteTaskConfig&) = delete;
 
-    ///@brief queues to maintain changes to state channels
-    std::queue<synnax::ChannelKey> modified_state_keys;
-    std::queue<std::uint8_t> digital_modified_state_values;
-    std::queue<double> analog_modified_state_values;
+    std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan> > channels;
+    std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> cmd_to_state;
 
-    ///@brief maps NI channel names to configuration paths for error reporting
-    std::map<std::string, std::string> channel_map;
+    // implement move
 
-    WriterConfig() = default;
-
-    explicit WriterConfig(
-        xjson::Parser &parser,
-        const std::shared_ptr<task::Context> &ctx,
-        bool is_digital,
-        TaskHandle task_handle,
-        synnax::TaskKey task_key
-    ) {
-        device_key = parser.required<std::string>("device");
-        state_rate = parser.required<float>("state_rate");
-        task_name = parser.optional<std::string>("task_name", "");
-
-        auto [dev, err] = ctx->client->hardware.retrieve_device(device_key);
-        if (err != xerrors::NIL) {
-            LOG(ERROR) << "Failed to retrieve device with key " << device_key;
-            return;
-        }
-        device_name = dev.location;
-
-        int channel_index = 0;
-        parser.iter("channels", [&](xjson::Parser &channel_parser) {
-            auto channel = WriterChannelConfig(
-                channel_parser,
-                device_name,
-                is_digital,
-                task_handle,
-                task_key,
-                ctx
-            );
-
-            if (!channel.enabled) return;
-            if (!channel_parser.ok()) {
-                LOG(ERROR) << "Failed to parse channel config: " << channel_parser.
-                        error_json().dump(4);
-                return;
-            }
-            // Build the channel map for error reporting - using dot notation
-            std::string path = "channels." + std::to_string(channel_index);
-            channel_map[channel.name] = path;
-            channel_index++;
-
-            channels.push_back(channel);
-            drive_cmd_channel_keys.push_back(channel.channel_key);
-            state_channel_keys.push_back(channel.state_channel_key);
+    explicit WriteTaskConfig(
+        std::shared_ptr<synnax::Synnax> &client,
+        xjson::Parser &cfg,
+        std::function<std::pair<std::pair<synnax::ChannelKey, std::unique_ptr<OutputChan> >, bool>(xjson::Parser &)> parse_chan
+    ):
+        device_key(cfg.required<std::string>("device")),
+        state_rate(telem::Rate(cfg.required<float>("state_rate"))),
+        data_saving(cfg.optional<bool>("data_saving", false)) {
+        cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
+            auto [ch, enabled] = parse_chan(ch_cfg);
+            if (enabled) channels.insert(std::move(ch));
         });
-
-        // Add debug print here
-        LOG(INFO) << "Writer channel map contents:";
-        for (const auto &[channel_name, path]: channel_map) {
-            LOG(INFO) << "Channel: " << channel_name << " -> Path: " << path;
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(channels.size() * 2);
+        for (const auto &[_, ch]: channels) {
+            keys.push_back(ch->state_ch_key);
+            cmd_to_state[ch->cmd_ch_key] = ch->state_ch_key;
         }
+        auto [channels_vec, err] = client->channels.retrieve(keys);
+        for (const auto &ch: channels_vec)
+            if (ch.index != 0)
+                state_indexes.insert(ch.key);
+    }
 
-        if (!parser.ok()) {
-            ctx->set_state({
-                .task = task_key,
-                .variant = "error",
-                .details = {
-                    {"running", false},
-                    {"message", parser.error_json().dump(4)}
-                }
-            });
-            LOG(ERROR) << "Failed to parse channel config: " << parser.error_json().
-                    dump(4);
-        }
+    [[nodiscard]] synnax::WriterConfig writer_config() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(channels.size() + state_indexes.size());
+        for (const auto &[_, ch]: channels) keys.push_back(ch->state_ch_key);
+        for (const auto &idx: state_indexes) keys.push_back(idx);
+        return synnax::WriterConfig{
+            .channels = keys,
+            .start = telem::TimeStamp::now(),
+            .enable_auto_commit = true,
+            .mode = synnax::data_saving_writer_mode(this->data_saving)
+
+        };
+    }
+
+    [[nodiscard]] synnax::StreamerConfig streamer_config() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(channels.size());
+        for (const auto &[_, ch]: channels) keys.push_back(ch->cmd_ch_key);
+        return synnax::StreamerConfig{.channels = keys};
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    StateSource                                //
-///////////////////////////////////////////////////////////////////////////////////
-///@brief a source that maintains the state of write task ports and writes them back to
-/// the Synnax server. Templated to support both digital and analog state channels.
+inline WriteTaskConfig digital_write_task_config(
+    std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg) {
+    return WriteTaskConfig(
+        client,
+        cfg,
+        [](xjson::Parser &ch_cfg) {
+            auto ch = std::make_unique<DOChan>(ch_cfg);
+            return std::make_pair(
+                std::move(std::make_pair(ch->cmd_ch_key, std::move(ch))),
+                ch->enabled
+            );
+        }
+    );
+}
+
+inline WriteTaskConfig analog_write_task_config(std::shared_ptr<synnax::Synnax> &client,
+                                                xjson::Parser &cfg) {
+    return WriteTaskConfig(
+        client,
+        cfg,
+        [&](xjson::Parser &ch_cfg) {
+            auto ch = parse_ao_chan(ch_cfg);
+            return std::make_pair(
+                std::move(std::make_pair(ch->cmd_ch_key, std::move(ch))),
+                ch->enabled
+            );
+        });
+}
+
+
 template<typename T>
-class StateSource final : public pipeline::Source {
+class WriteSinkStateSource : public pipeline::Sink, public pipeline::Source {
+    WriteTaskConfig cfg;
+    std::set<synnax::ChannelKey> state_indexes;
+    std::unique_ptr<T> write_buffer = nullptr;
+    loop::Timer state_timer;
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+
 public:
-    explicit StateSource() = default;
+    const std::shared_ptr<DAQmx> dmx;
+    TaskHandle task_handle;
 
-    explicit StateSource(
-        float state_rate,
-        std::vector<synnax::ChannelKey> &state_index_keys,
-        std::vector<synnax::ChannelKey> &state_channel_keys
-    );
+    std::unordered_map<synnax::ChannelKey, telem::SampleValue> state;
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override;
-
-    synnax::Frame get_state();
-
-    void update_state(
-        std::queue<synnax::ChannelKey> &modified_state_keys,
-        std::queue<T> &modified_state_values
-    );
-
-private:
-    std::mutex state_mutex;
-    std::condition_variable waiting_reader;
-    telem::Rate state_rate = telem::Rate(1);
-    std::map<synnax::ChannelKey, T> state_map;
-    std::vector<synnax::ChannelKey> state_index_keys;
-    loop::Timer timer;
-};
-
-// Type aliases
-using DigitalStateSource = StateSource<uint8_t>;
-using AnalogStateSource = StateSource<double>;
-
-
-///////////////////////////////////////////////////////////////////////////////////
-//                                    WriteSink                                  //
-///////////////////////////////////////////////////////////////////////////////////
-// Base class for common functionality
-class WriteSink : public pipeline::Sink {
-public:
-    WriteSink(
+    WriteSinkStateSource(
         const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    ) : dmx(dmx),
-        task_handle(task_handle),
+        synnax::Task task,
+        WriteTaskConfig cfg
+    ) : cfg(std::move(cfg)),
         ctx(ctx),
-        task(task),
-        err_info({}),
-        breaker(breaker::default_config(task.name)) {
+        task(std::move(task)),
+        dmx(dmx),
+        task_handle(task_handle) {
     }
 
-    virtual ~WriteSink() {
-        clear_task();
-    }
+    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override;
 
-    xerrors::Error cycle();
+    xerrors::Error write(const synnax::Frame &frame) override;
 
-    xerrors::Error start(const std::string &cmd_key);
+    virtual xerrors::Error write_ni(T *data) const = 0;
 
-    xerrors::Error stop(const std::string &cmd_key);
-
-    std::vector<synnax::ChannelKey> get_cmd_channel_keys();
-
-    std::vector<synnax::ChannelKey> get_state_channel_keys();
-
-    bool ok();
-
-protected:
-    // Keep implementation-specific methods protected
-    void get_index_keys();
-
-    int check_err(int32 error, std::string caller, std::string channel_name = "");
-
-    void jsonify_error(std::string s, std::string channel_name = "");
-
-    void stopped_with_err(const xerrors::Error &err) override;
-
-    void log_error(std::string err_msg);
-
-    void clear_task();
-
-    // Pure virtual methods that derived classes must implement
-    virtual xerrors::Error start_ni() = 0;
-
-    virtual xerrors::Error stop_ni() = 0;
-
-    virtual int init() = 0;
-
-    virtual xerrors::Error format_data(const synnax::Frame &frame) = 0;
-
-    // Protected members accessible to derived classes
-    const std::shared_ptr<DAQmx> dmx;
-    TaskHandle task_handle = 0;
-    int buffer_size = 0;
-    int num_samples_per_channel = 0;
-    uint64_t num_channels = 0;
-    json err_info;
-    bool ok_state = true;
-    std::shared_ptr<task::Context> ctx;
-    WriterConfig writer_config;
-    breaker::Breaker breaker;
-    synnax::Task task;
+    T *format_data(const synnax::Frame &frame);
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    DigitalWriteSink                           //
-///////////////////////////////////////////////////////////////////////////////////
-class DigitalWriteSink final : public WriteSink {
+
+class DigitalWriteSink final : public WriteSinkStateSource<uint8_t> {
 public:
     explicit DigitalWriteSink(
         const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+        const synnax::Task &task,
+        WriteTaskConfig cfg
+    ): WriteSinkStateSource(dmx, task_handle, ctx, task, std::move(cfg)) {
+    }
 
-    ~DigitalWriteSink();
-
-    xerrors::Error write(const synnax::Frame &frame) override;
-
-    std::shared_ptr<ni::DigitalStateSource> writer_state_source;
-
-private:
-    xerrors::Error start_ni() override;
-
-    xerrors::Error stop_ni() override;
-
-    int init() override;
-
-    xerrors::Error format_data(const synnax::Frame &frame) override;
-
-    uint8_t *write_buffer = nullptr;
+    xerrors::Error write_ni(unsigned char *data) const override;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                 AnalogWriteSink                               //
-///////////////////////////////////////////////////////////////////////////////////
-class AnalogWriteSink final : public WriteSink {
+class AnalogWriteSink final : public WriteSinkStateSource<double> {
 public:
     explicit AnalogWriteSink(
         const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+        const synnax::Task &task,
+        WriteTaskConfig cfg
+    ): WriteSinkStateSource(dmx, task_handle, ctx, task, std::move(cfg)) {
+    }
 
-    ~AnalogWriteSink();
-
-    xerrors::Error write(const synnax::Frame &frame) override;
-
-    std::shared_ptr<ni::AnalogStateSource> writer_state_source;
-
-private:
-    xerrors::Error start_ni() override;
-
-    xerrors::Error stop_ni() override;
-
-    int init() override;
-
-    xerrors::Error format_data(const synnax::Frame &frame) override;
-
-    double *write_buffer = nullptr;
+    xerrors::Error write_ni(double *data) const override;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    WriterTask                                 //
-///////////////////////////////////////////////////////////////////////////////////
 class WriterTask final : public task::Task {
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+    pipeline::Control cmd_write_pipe;
+    pipeline::Acquisition state_write_pipe;
+
 public:
     explicit WriterTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         std::shared_ptr<pipeline::Sink> sink,
-        std::shared_ptr<WriteSink> ni_sink,
-        std::shared_ptr<pipeline::Source> state_source,
-        synnax::WriterConfig state_writer_config,
-        synnax::StreamerConfig cmd_streamer_config,
-        const breaker::Config breaker_config
-    );
+        std::shared_ptr<pipeline::Source> source,
+        synnax::WriterConfig writer_cfg,
+        synnax::StreamerConfig streamer_cfg,
+        const breaker::Config& breaker_cfg
+    ): ctx(ctx),
+       task(std::move(task)),
+       cmd_write_pipe(ctx->client, std::move(streamer_cfg), std::move(sink), breaker_cfg),
+       state_write_pipe(ctx->client, std::move(writer_cfg), std::move(source), breaker_cfg) {
+    }
 
-    void exec(task::Command &cmd) override;
+    void exec(task::Command &cmd) override {
+        if (cmd.type == "start") this->start(cmd.key);
+        else if (cmd.type == "stop") this->stop(cmd.key);
+    }
 
-    void stop() override;
+    void stop() override { this->stop(""); }
 
-    void stop(const std::string &cmd_key);
+    void stop(const std::string &cmd_key) {
+        this->cmd_write_pipe.stop();
+        this->state_write_pipe.stop();
+    }
 
-    void start(const std::string &key);
-
-    bool ok();
+    void start(const std::string &key) {
+        this->cmd_write_pipe.start();
+        this->state_write_pipe.start();
+    }
 
     std::string name() override { return task.name; }
 
@@ -412,15 +243,53 @@ public:
         const std::shared_ptr<DAQmx> &dmx,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    );
+    ) {
+        auto parser = xjson::Parser(task.config);
 
-private:
-    std::atomic<bool> running = false;
-    std::shared_ptr<task::Context> ctx;
-    synnax::Task task;
-    pipeline::Control cmd_write_pipe;
-    pipeline::Acquisition state_write_pipe;
-    bool ok_state = true;
-    std::shared_ptr<WriteSink> sink;
+        auto cfg = task.type == "digital_write"
+                       ? digital_write_task_config(ctx->client, parser)
+                       : analog_write_task_config(ctx->client, parser);
+
+        auto writer_cfg = cfg.writer_config();
+        auto streamer_cfg = cfg.streamer_config();
+
+        TaskHandle task_handle;
+        dmx->CreateTask("", &task_handle);
+
+        std::shared_ptr<pipeline::Source> source;
+        std::shared_ptr<pipeline::Sink> sink;
+
+        if (task.type == "digital_read") {
+            auto source_sink = std::make_shared<DigitalWriteSink>(
+                dmx,
+                task_handle,
+                ctx,
+                task,
+                std::move(cfg)
+            );
+            sink = source_sink;
+            source = source_sink;
+        } else {
+            auto source_sink = std::make_shared<AnalogWriteSink>(
+                dmx,
+                task_handle,
+                ctx,
+                task,
+                std::move(cfg)
+            );
+            sink = source_sink;
+            source = source_sink;
+        }
+
+        return std::make_unique<WriterTask>(
+            ctx,
+            task,
+            sink,
+            source,
+            writer_cfg,
+            streamer_cfg,
+            breaker::default_config(task.name)
+        );
+    }
 };
 }

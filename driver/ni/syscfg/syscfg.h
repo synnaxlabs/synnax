@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "driver/ni/nisyscfg/nisyscfg.h"
-#include "driver/ni/nisyscfg/nisyscfg_errors.h"
+#include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/syscfg_errors.h"
 
 class SysCfg {
 public:

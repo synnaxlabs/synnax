@@ -1,0 +1,24 @@
+cc_library(
+    name = "daqmx",
+    srcs = [
+        "daqmx_prod.cpp",
+    ],
+    hdrs = [
+        "daqmx.h",
+        "daqmx_prod.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ni/daqmx:nidaqmx_official",
+        "//x/cpp/xlib",
+        "//x/cpp/xos",
+    ],
+)
+
+cc_library(
+    name = "nidaqmx_official",
+    hdrs = [
+        "nidaqmx.h",
+    ],
+    deps = [],
+)

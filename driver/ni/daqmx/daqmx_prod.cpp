@@ -13,7 +13,7 @@
 #include <cstring>
 
 #include "x/cpp/xlib/xlib.h"
-#include "driver/ni/nidaqmx/nidaqmx_prod.h"
+#include "driver/ni/daqmx/daqmx_prod.h"
 
 #include "x/cpp/xos/xos.h"
 

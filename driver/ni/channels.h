@@ -9,102 +9,72 @@
 
 #pragma once
 
-#include <string>
+/// std
 #include <map>
-#include <utility>
+#include <string>
 
-#include "nidaqmx/nidaqmx.h"
-#include "nidaqmx/nidaqmx_api.h"
+/// module
 #include "x/cpp/xjson/xjson.h"
+
+/// internal
+#include "driver/ni/daqmx/daqmx.h"
 #include "driver/ni/scale.h"
 #include "driver/ni/util.h"
-#include "driver/task/task.h"
 
-#include "glog/logging.h"
-#include "nlohmann/json.hpp"
-
+using string = std::string;
 
 namespace ni {
-static int32_t get_terminal_config(const std::string &terminal_config) {
-    if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
-    if (terminal_config == "Diff") return DAQmx_Val_Diff;
-    if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
-    if (terminal_config == "RSE") return DAQmx_Val_RSE;
+static int32_t parse_terminal_config(xjson::Parser &p) {
+    const auto s = p.required<string>("terminal_config");
+    if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
+    if (s == "Diff") return DAQmx_Val_Diff;
+    if (s == "NRSE") return DAQmx_Val_NRSE;
+    if (s == "RSE") return DAQmx_Val_RSE;
     return DAQmx_Val_Cfg_Default;
 }
 
-static int32_t get_bridge_config(const std::string &s) {
+static int32_t parse_bridge_config(xjson::Parser &p) {
+    const auto s = p.required<string>("bridge_config");
     if (s == "FullBridge") return DAQmx_Val_FullBridge;
     if (s == "HalfBridge") return DAQmx_Val_HalfBridge;
     if (s == "QuarterBridge") return DAQmx_Val_QuarterBridge;
     return DAQmx_Val_FullBridge;
 }
 
-static int32_t get_resistance_config(const std::string &s) {
+static int32_t parse_resistance_config(xjson::Parser &p) {
+    const auto s = p.required<string>("resistance_config");
     if (s == "2Wire") return DAQmx_Val_2Wire;
     if (s == "3Wire") return DAQmx_Val_3Wire;
     if (s == "4Wire") return DAQmx_Val_4Wire;
     return DAQmx_Val_2Wire;
 }
 
-static int32_t get_excitation_src(const std::string &s) {
+static int32_t get_excitation_src(const string &s) {
     if (s == "Internal") return DAQmx_Val_Internal;
     if (s == "External") return DAQmx_Val_External;
     if (s == "None") return DAQmx_Val_None;
     return DAQmx_Val_None;
 }
 
-struct VoltageExcitationConfig {
+struct ExcitationConfig {
     int32_t excit_source;
     double excit_val;
     double min_val_for_excitation; // optional
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
 
-    explicit VoltageExcitationConfig(xjson::Parser &parser)
+    explicit ExcitationConfig(xjson::Parser &cfg, const string &prefix)
         : excit_source(
-              get_excitation_src(
-                  parser.required<std::string>("voltage_excit_source")
-              )
-          ),
-          excit_val(
-              parser.required<double>("voltage_excit_val")
-          ),
-          min_val_for_excitation(
-              parser.optional<double>("min_val_for_excitation", 0)
-          ),
-          max_val_for_excitation(
-              parser.optional<double>("max_val_for_excitation", 0)
-          ),
-          use_excit_for_scaling(
-              parser.optional<bool32>("use_excit_for_scaling", 0)
-          ) {
+              get_excitation_src(cfg.required<string>(prefix + "_excit_source"))),
+          excit_val(cfg.required<double>(prefix + "_excit_val")),
+          min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
+          max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
+          use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {
     }
 };
 
-struct CurrentExcitationConfig {
-    int32_t excit_source;
-    double excit_val;
-    double min_val_for_excitation; // optional
-    double max_val_for_excitation; //optional
-    bool32 use_excit_for_scaling; //optional
-
-    explicit CurrentExcitationConfig(xjson::Parser &parser)
-        : excit_source(
-              get_excitation_src(
-                  parser.required<std::string>("current_excit_source")
-              )
-          ),
-          excit_val(parser.required<double>("current_excit_val")),
-          min_val_for_excitation(
-              parser.optional<double>("min_val_for_excitation", 0)),
-          max_val_for_excitation(
-              parser.optional<double>("max_val_for_excitation", 0)),
-          use_excit_for_scaling(
-              parser.optional<bool32>("use_excit_for_scaling", 0)) {
-    }
-};
-
+const string CURR_EXCIT_PREFIX = "current";
+const string VOLT_EXCIT_PREFIX = "voltage";
 
 struct BridgeConfig {
     int32_t ni_bridge_config;
@@ -114,22 +84,12 @@ struct BridgeConfig {
 
     BridgeConfig() = default;
 
-    explicit BridgeConfig(xjson::Parser &parser)
-        : ni_bridge_config(
-              get_bridge_config(parser.required<std::string>("bridge_config")
-              )
-          ),
+    explicit BridgeConfig(xjson::Parser &cfg)
+        : ni_bridge_config(parse_bridge_config(cfg)),
           voltage_excit_source(
-              get_excitation_src(parser.required<std::string>(
-                      "voltage_excit_source")
-              )
-          ),
-          voltage_excit_val(
-              parser.required<double>("voltage_excit_val")
-          ),
-          nominal_bridge_resistance(
-              parser.required<double>("nominal_bridge_resistance")
-          ) {
+              get_excitation_src(cfg.required<string>("voltage_excit_source"))),
+          voltage_excit_val(cfg.required<double>("voltage_excit_val")),
+          nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {
     }
 };
 
@@ -143,38 +103,36 @@ struct PolynomialConfig {
 
     PolynomialConfig() = default;
 
-    explicit PolynomialConfig(xjson::Parser &parser)
-        : num_forward_coeffs(parser.required<uint32_t>("num_forward_coeffs")),
-          num_reverse_coeffs(parser.required<uint32_t>("num_reverse_coeffs")) {
-        const auto eu = parser.required<std::string>("electrical_units");
-        const auto pu = parser.required<std::string>("physical_units");
+    explicit PolynomialConfig(xjson::Parser &cfg)
+        : num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
+          num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
+        const auto eu = cfg.required<string>("electrical_units");
+        const auto pu = cfg.required<string>("physical_units");
 
-        if (ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end()) {
-            LOG(WARNING) << "Invalid units: " << eu << ". Defaulting to Volts.";
+        if (ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end())
             electrical_units = DAQmx_Val_Volts;
-        } else electrical_units = ni::UNITS_MAP.at(eu);
+        else electrical_units = ni::UNITS_MAP.at(eu);
 
-        if (ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end()) {
-            LOG(WARNING) << "Invalid units: " << pu << ". Defaulting to Volts.";
+        if (ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end())
             physical_units = DAQmx_Val_Volts;
-        } else physical_units = ni::UNITS_MAP.at(pu);
+        else physical_units = ni::UNITS_MAP.at(pu);
 
-        json j = parser.get_json();
+        json j = cfg.get_json();
 
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
 
-        const auto f = parser.required_vector<double>("forward_coeffs");
+        const auto f = cfg.required_vec<double>("forward_coeffs");
 
         //get forward coeffs (prescale -> scale)
         for (uint32_t i = 0; i < num_forward_coeffs; i++)
             forward_coeffs[i] = f[i];
 
-        // dmx->CalculateReversePolyCoeff(
+        // dmx->CalculateReversePolyCo eff(
         //     forward_coeffs,
         //     num_forward_coeffs,
-        //     -1000, //FIXME dont hard code
-        //     1000, //FIXME dont hard code
+        //     -1000, //FIXME don't hard code
+        //     1000, //FIXME don't hard code
         //     num_reverse_coeffs,
         //     -1,
         //     reverse_coeffs
@@ -189,7 +147,7 @@ struct PolynomialConfig {
 
 struct TableConfig {
     float64 *electrical_vals;
-    uint32_t num_eletrical_vals;
+    uint32_t num_electrical_vals;
     float64 *physical_vals;
     uint32_t num_physical_vals;
     int32_t electrical_units;
@@ -197,29 +155,26 @@ struct TableConfig {
 
     TableConfig() = default;
 
-    explicit TableConfig(xjson::Parser &parser)
-        : num_eletrical_vals(
-              parser.required<uint32_t>("num_electrical_vals")
-          ), num_physical_vals(
-              parser.required<uint32_t>("num_physical_vals")
-          ) {
-        const auto eu = parser.required<std::string>("electrical_units");
-        const auto pu = parser.required<std::string>("physical_units");
+    explicit TableConfig(xjson::Parser &cfg)
+        : num_electrical_vals(cfg.required<uint32_t>("num_electrical_vals")),
+          num_physical_vals(cfg.required<uint32_t>("num_physical_vals")) {
+        const auto eu = cfg.required<string>("electrical_units");
+        const auto pu = cfg.required<string>("physical_units");
 
         electrical_units = ni::UNITS_MAP.at(eu);
         physical_units = ni::UNITS_MAP.at(pu);
 
         // TODO: figure out why using vector and .data() throws exception when passed to
         // NI function
-        electrical_vals = new double[num_eletrical_vals];
-        const auto e = parser.required_vector<double>("electrical_vals");
-        for (uint32_t i = 0; i < num_eletrical_vals; i++)
-            electrical_vals[i] = e[i];
+        electrical_vals = new double[num_electrical_vals];
+        const auto ev = cfg.required_vec<double>("electrical_vals");
+        for (uint32_t i = 0; i < num_electrical_vals; i++)
+            electrical_vals[i] = ev[i];
 
         physical_vals = new double[num_physical_vals];
-        const auto p = parser.required_vector<double>("physical_vals");
+        const auto pv = cfg.required_vec<double>("physical_vals");
         for (uint32_t i = 0; i < num_physical_vals; i++)
-            physical_vals[i] = p[i];
+            physical_vals[i] = pv[i];
     }
 
     ~TableConfig() {
@@ -238,199 +193,290 @@ struct TwoPointLinConfig {
 
     TwoPointLinConfig() = default;
 
-    explicit TwoPointLinConfig(xjson::Parser &parser)
-        : first_electrical_val(
-              parser.required<double>("first_electrical_val")
-          ),
-          second_electrical_val(
-              parser.required<double>("second_electrical_val")
-          ),
-          first_physical_val(
-              parser.required<double>("first_physical_val")
-          ),
-          second_physical_val(
-              parser.required<double>("second_physical_val")
-          ) {
-        const auto eu = parser.required<std::string>("electrical_units");
-        const auto pu = parser.required<std::string>("physical_units");
-        electrical_units = ni::UNITS_MAP.at(eu);
-        physical_units = ni::UNITS_MAP.at(pu);
+    explicit TwoPointLinConfig(xjson::Parser &cfg)
+        : first_electrical_val(cfg.required<double>("first_electrical_val")),
+          second_electrical_val(cfg.required<double>("second_electrical_val")),
+          electrical_units(UNITS_MAP.at(cfg.required<string>("electrical_units"))),
+          first_physical_val(cfg.required<double>("first_physical_val")),
+          second_physical_val(cfg.required<double>("second_physical_val")),
+          physical_units(UNITS_MAP.at(cfg.required<string>("physical_units"))) {
+        const auto eu = cfg.required<string>("electrical_units");
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                     ANALOG                                    //
-///////////////////////////////////////////////////////////////////////////////////
-/// @brief an object that represents and is responsible for the configuration of
-/// a single analog channel on National Instruments hardware.
-/// base class for all special analog channel types.
-class Analog {
-public:
-    Analog() = default;
+struct Chan {
+    const bool enabled;
+    const std::string dev_key;
+    const std::string cfg_path;
+    std::string dev;
 
-    virtual ~Analog() = default;
+    virtual ~Chan() = default;
+
+    explicit Chan(xjson::Parser &cfg):
+        enabled(cfg.optional<bool>("enabled", true)),
+        dev_key(cfg.required<std::string>("device")),
+        cfg_path(cfg.path_prefix) {
+    }
+
+    virtual int32 bind_task(
+        const std::shared_ptr<DAQmx> &dmx,
+        TaskHandle task_handle
+    ) const = 0;
+};
+
+struct InputChan : virtual Chan {
+    const synnax::ChannelKey synnax_key;
+    synnax::Channel ch;
+
+    explicit InputChan(xjson::Parser &cfg):
+        Chan(cfg),
+        synnax_key(cfg.required<synnax::ChannelKey>("channel")) {
+    }
+};
+
+struct OutputChan : virtual Chan {
+    const synnax::ChannelKey cmd_ch_key;
+    const synnax::ChannelKey state_ch_key;
+    const size_t index = 0;
+    synnax::Channel state_ch;
+
+    explicit OutputChan(xjson::Parser &cfg):
+        Chan(cfg),
+        cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
+        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {
+    }
+};
+
+struct DigitalChan : virtual Chan {
+    const int port;
+    const int line;
+
+    explicit DigitalChan(xjson::Parser &cfg):
+        port(cfg.required<int>("port")),
+        line(cfg.required<int>("line")) {
+    }
+
+    [[nodiscard]] std::string loc() const {
+        return this->dev + "/port" + std::to_string(this->port) + "/line" +
+               std::to_string(this->line);
+    }
+};
+
+struct DIChan final : DigitalChan, InputChan {
+    explicit DIChan(xjson::Parser &cfg):
+        Chan(cfg),
+        DigitalChan(cfg),
+        InputChan(cfg) {
+    }
+
+    void bind_remote_info(const synnax::Channel &ch, const std::string &dev) {
+        this->ch = ch;
+        this->dev = dev;
+    }
+
+    int32 bind_task(
+        const std::shared_ptr<DAQmx> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateDIChan(
+            task_handle,
+            this->loc().c_str(),
+            "",
+            DAQmx_Val_ChanPerLine
+        );
+    }
+};
+
+struct DOChan final : DigitalChan, OutputChan {
+    explicit DOChan(xjson::Parser &cfg): Chan(cfg), DigitalChan(cfg), OutputChan(cfg) {
+    }
+
+    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev) {
+        this->state_ch = state_ch;
+        this->dev = dev;
+    }
+
+    int32 bind_task(
+        const std::shared_ptr<DAQmx> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        return dmx->CreateDOChan(
+            task_handle,
+            this->loc().c_str(),
+            "",
+            DAQmx_Val_ChanPerLine
+        );
+    }
+};
+
+class AnalogChan : virtual Chan {
+public:
+    const int port;
+    const double min_val;
+    const double max_val;
+    int32_t units;
+
+    int32_t static parse_units(xjson::Parser &cfg, const std::string &path) {
+        const auto str_units = cfg.optional<string>(path, "Volts");
+        const auto units = UNITS_MAP.find(str_units);
+        if (units == UNITS_MAP.end())
+            cfg.field_err(path, "invalid units: " + str_units);
+        return units->second;
+    }
+
+    explicit AnalogChan(xjson::Parser &cfg):
+        port(cfg.required<int>("port")),
+        min_val(cfg.optional<float>("min_val", 0)),
+        max_val(cfg.optional<float>("max_val", 0)),
+        units(ni::AnalogChan::parse_units(cfg, "units")) {
+    }
+};
+
+struct AnalogChanCustomScale : virtual AnalogChan {
+    std::unique_ptr<Scale> scale;
+
+    explicit AnalogChanCustomScale(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        scale(parse_scale(cfg, "custom_scale")) {
+        if (this->scale != nullptr) units = DAQmx_Val_FromCustomScale;
+    }
+
+    int32 bind_task(
+        const std::shared_ptr<DAQmx> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        auto [scale_key, err] = this->scale->apply(dmx);
+        if (err) return err;
+        return this->bind(
+            dmx,
+            task_handle,
+            scale_key.empty() ? nullptr : scale_key.c_str()
+        );
+    }
 
     virtual int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) {
-        return 0;
-    }
-
-    std::unique_ptr<ScaleConfig> getScaleConfig(xjson::Parser &parser) {
-        if (!parser.get_json().contains("custom_scale")) return nullptr;
-        const std::string c = std::to_string(
-            parser.optional<uint32_t>(
-                "channel",
-                parser.optional<uint32_t>("cmd_channel", 0)
-            )
-        );
-        auto scale_parser = parser.child("custom_scale");
-        if (scale_parser.required<std::string>("type") == "none") return nullptr;
-        this->scale_name = c + "_scale";
-        return std::make_unique<ScaleConfig>(scale_parser, this->scale_name);
-    }
-
-    [[nodiscard]] int32 create_ni_scale(const std::shared_ptr<DAQmx> &dmx) const {
-        if (this->scale_name.empty()) return 0;
-        return this->scale_config->create_ni_scale(dmx);
-    }
-
-    static int32_t get_units(const std::string &s) {
-        if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
-            LOG(WARNING) << "Invalid units: " << s << ". Defaulting to Volts.";
-            return DAQmx_Val_Volts;
-        }
-        return ni::UNITS_MAP.at(s);
-    }
-
-    explicit Analog(
-        xjson::Parser &parser,
-        const std::string &name
-    )
-        : min_val(
-              parser.optional<float>("min_val", 0)
-          ),
-          max_val(
-              parser.optional<float>("max_val", 0)
-          ),
-          units(
-              get_units(
-                  parser.optional<std::string>("units", "Volts")
-              )
-          ),
-          name(name),
-          type(
-              parser.required<std::string>("type")
-          ),
-          scale_config(
-              getScaleConfig(parser)
-          ) {
-        if (this->scale_name != "") this->units = DAQmx_Val_FromCustomScale;
-    }
-
-    double min_val = 0;
-    double max_val = 0;
-    int32_t units = DAQmx_Val_Volts;
-    std::string name;
-    std::string type;
-    std::string scale_name;
-
-    std::unique_ptr<ScaleConfig> scale_config;
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const = 0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Voltage                                  //
-///////////////////////////////////////////////////////////////////////////////////
-/// @brief voltage channel.
-class AIVoltageChan : public Analog {
-public:
-    explicit AIVoltageChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+struct AIChan : virtual AnalogChan, InputChan {
+    explicit AIChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        InputChan(cfg) {
     }
 
-    ~AIVoltageChan() override = default;
+    [[nodiscard]] std::string physical_channel() const {
+        return this->dev + "/ai" + std::to_string(this->port);
+    }
+
+    void bind_remote_info(const synnax::Channel &ch, const std::string &dev) {
+        this->ch = ch;
+        this->dev = dev;
+    }
+};
+
+struct AOChan : virtual AnalogChan, OutputChan {
+    explicit AOChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        OutputChan(cfg) {
+    }
+
+    [[nodiscard]] std::string loc() const {
+        return this->dev + "/ao" + std::to_string(this->port);
+    }
+};
+
+struct AIChanCustomScale : AIChan, AnalogChanCustomScale {
+    explicit AIChanCustomScale(xjson::Parser &cfg):
+        AIChan(cfg),
+        AnalogChanCustomScale(cfg) {
+    }
+};
+
+struct AOChanCustomScale : AOChan, AnalogChanCustomScale {
+    explicit AOChanCustomScale(xjson::Parser &cfg):
+        AOChan(cfg),
+        AnalogChanCustomScale(cfg) {
+    }
+};
+
+struct AIVoltageChan : AIChanCustomScale {
+    explicit AIVoltageChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        terminal_config(parse_terminal_config(cfg)) {
+    }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIVoltageChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "", // name to assign channel
             this->terminal_config,
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
-    int32_t terminal_config = 0;
+    const int32_t terminal_config = 0;
 };
 
-/// @brief RMS voltage Channel
-class AIVoltageRMSChan final : public AIVoltageChan {
-public:
-    explicit AIVoltageRMSChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : AIVoltageChan(parser, name) {
+struct AIVoltageRMSChan final : AIVoltageChan {
+    explicit AIVoltageRMSChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIVoltageChan(cfg) {
     }
-
-    ~AIVoltageRMSChan() override;
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIVoltageRMSChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-/// @brief voltage Channel with excitation reference
-struct AIVoltageWithExcitChan final : public AIVoltageChan {
+struct AIVoltageWithExcitChan final : AIVoltageChan {
     int32_t bridge_config = 0;
-    VoltageExcitationConfig excitation_config;
+    ExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcitChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : AIVoltageChan(parser, name),
-        bridge_config(
-            get_bridge_config(
-                parser.required<std::string>("bridge_config")
-            )
-        ),
-        excitation_config(parser) {
+    explicit AIVoltageWithExcitChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIVoltageChan(cfg),
+        bridge_config(parse_bridge_config(cfg)),
+        excitation_config(cfg, VOLT_EXCIT_PREFIX) {
     }
 
     ~AIVoltageWithExcitChan() override = default;
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIVoltageChanWithExcit(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -440,48 +486,36 @@ struct AIVoltageWithExcitChan final : public AIVoltageChan {
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
             this->excitation_config.min_val_for_excitation,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Current                                  //
-///////////////////////////////////////////////////////////////////////////////////
-class AICurrentChan : public Analog {
-public:
-    static int32_t getShuntResistorLocation(const std::string &loc) {
+struct AICurrentChan : AIChanCustomScale {
+    static int32_t get_shunt_resistor_loc(const string &loc) {
         if (loc == "External") return DAQmx_Val_External;
         if (loc == "Internal") return DAQmx_Val_Internal;
         return DAQmx_Val_Default;
     }
 
-    explicit AICurrentChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
+    explicit AICurrentChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
         shunt_resistor_loc(
-            getShuntResistorLocation(
-                parser.required<std::string>("shunt_resistor_loc")
-            )
-        ),
-        ext_shunt_resistor_val(
-            parser.required<double>("ext_shunt_resistor_val")
-        ),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+            get_shunt_resistor_loc(cfg.required<string>("shunt_resistor_loc"))),
+        ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAICurrentChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -489,7 +523,7 @@ public:
             this->units,
             this->shunt_resistor_loc,
             this->ext_shunt_resistor_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
@@ -498,21 +532,19 @@ public:
     int32 terminal_config = 0;
 };
 
-class AICurrentRMSChan final : public AICurrentChan {
-public:
-    explicit AICurrentRMSChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : AICurrentChan(parser, name) {
+struct AICurrentRMSChan final : AICurrentChan {
+    explicit AICurrentRMSChan(xjson::Parser &cfg) : AnalogChan(cfg), Chan(cfg),
+                                                    AICurrentChan(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAICurrentRMSChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -520,17 +552,18 @@ public:
             this->units,
             this->shunt_resistor_loc,
             this->ext_shunt_resistor_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                       RTD                                     //
-///////////////////////////////////////////////////////////////////////////////////
-class AIRTDChan final : public Analog {
-public:
-    static int32_t get_rtd_type(const std::string &type) {
+class AIRTDChan final : public AIChan {
+    int32_t rtd_type;
+    int32_t resistance_config;
+    ExcitationConfig excitation_config;
+    double r0;
+
+    static int32_t get_rtd_type(const string &type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
         if (type == "PT3851") return DAQmx_Val_Pt3851;
         if (type == "PT3911") return DAQmx_Val_Pt3911;
@@ -541,33 +574,26 @@ public:
         return DAQmx_Val_Pt3750;
     }
 
-    explicit AIRTDChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        rtd_type(
-            get_rtd_type(
-                parser.required<std::string>("rtd_type")
-            )
-        ),
+public:
+    explicit AIRTDChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg),
+        rtd_type(get_rtd_type(
+            cfg.required<string>("rtd_type"))),
         resistance_config(
-            get_resistance_config(
-                parser.required<std::string>("resistance_config")
-            )
-        ),
-        excitation_config(parser),
-        r0(
-            parser.required<double>("r0")
-        ) {
+            parse_resistance_config(cfg)),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        r0(cfg.required<double>("r0")) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAIRTDChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -579,23 +605,17 @@ public:
             this->r0
         );
     }
-
-private:
-    int32_t rtd_type;
-    int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
-    double r0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Temperature                              //
-///////////////////////////////////////////////////////////////////////////////////
-class AIThermocoupleChan final : public Analog {
+struct AIThermocoupleChan final : public AIChan {
+    int32_t thermocouple_type;
+    int32_t cjc_source;
+    string cjc_port;
+    double cjc_val;
+
 public:
-    [[nodiscard]] int32_t get_type(
-        const std::string &type,
-        const xjson::Parser &parser
-    ) const {
+    [[nodiscard]] int32_t static parse_type(xjson::Parser &cfg) {
+        const auto type = cfg.required<string>("thermocouple_type");
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -604,55 +624,40 @@ public:
         if (type == "T") return DAQmx_Val_T_Type_TC;
         if (type == "B") return DAQmx_Val_B_Type_TC;
         if (type == "E") return DAQmx_Val_E_Type_TC;
-        parser.field_err("channels." + name,
-                         "Invalid thermocouple type:" + type +
-                         ". Defaulting to J Type.");
+        cfg.field_err("thermocouple_type", "invalid thermocouple type:" + type);
         return DAQmx_Val_J_Type_TC;
     }
 
-    [[nodiscard]] int32_t get_cjc_source(
-        const std::string &source,
-        const xjson::Parser &parser
-    ) const {
+    [[nodiscard]] int32_t static parse_cjc_source(xjson::Parser &cfg) {
+        const auto source = cfg.required<string>("cjc_source");
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
-        parser.field_err("channels." + this->name,
-                         "Invalid thermocouple cjc source:" + source +
-                         ". Defaulting to BuiltIn.");
+        cfg.field_err("cjc_source", "invalid thermocouple cjc source: " + source);
         return DAQmx_Val_BuiltIn;
     }
 
     explicit AIThermocoupleChan(
-        xjson::Parser &parser,
-        const std::string &name,
-        const std::map<std::int32_t, std::string> &cjc_sources
-    ) : Analog(parser, name),
-        thermocouple_type(
-            get_type(
-                parser.required<std::string>("thermocouple_type"), parser
-            )
-        ),
-        cjc_source(get_cjc_source(
-                parser.required<std::string>("cjc_source"),
-                parser
-            )
-        ),
-        cjc_val(
-            parser.optional<double>("cjc_val", 0)
-        ) {
-        const auto source = parser.required<std::int32_t>("cjc_port");
-        if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = "";
-        else this->cjcPort = cjc_sources.at(source);
+        xjson::Parser &cfg,
+        const std::map<std::int32_t, string> &cjc_sources
+    ) : AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg),
+        thermocouple_type(parse_type(cfg)),
+        cjc_source(parse_cjc_source(cfg)),
+        cjc_val(cfg.optional<double>("cjc_val", 0)) {
+        const auto cjc_port = cfg.required<std::int32_t>("cjc_port");
+        if (cjc_sources.find(cjc_port) == cjc_sources.end()) this->cjc_port = "";
+        else this->cjc_port = cjc_sources.at(cjc_port);
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAIThrmcplChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -660,65 +665,58 @@ public:
             this->thermocouple_type,
             this->cjc_source,
             this->cjc_val,
-            this->cjcPort.c_str()
+            this->cjc_port.c_str()
         );
     }
-
-private:
-    int32_t thermocouple_type;
-    int32_t cjc_source;
-    std::string cjcPort;
-    double cjc_val;
 };
 
-class AITempBuiltInChan final : public Analog {
-public:
-    explicit AITempBuiltInChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ): Analog(parser, name) {
-        this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
-        const size_t pos = name.find('/');
-        this->name = name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
+struct AITempBuiltInChan final : public AIChan {
+    explicit AITempBuiltInChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
+        const auto i_name = this->dev + "/_boardTempSensor_vs_aignd";
         return dmx->CreateAITempBuiltInSensorChan(
             task_handle,
-            this->name.c_str(),
+            i_name.c_str(),
             "",
             this->units
         );
     }
 };
 
-class AIThermistorIEXChan final : public Analog {
+class AIThermistorIEXChan final : public AIChan {
+    int32_t resistance_config;
+    ExcitationConfig excitation_config;
+    double a;
+    double b;
+    double c;
+
 public:
-    explicit AIThermistorIEXChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ): Analog(parser, name),
-       resistance_config(
-           get_resistance_config(
-               parser.required<std::string>("resistance_config")
-           )
-       ),
-       excitation_config(parser),
-       a(parser.required<double>("a")),
-       b(parser.required<double>("b")),
-       c(parser.required<double>("c")) {
+    explicit AIThermistorIEXChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg),
+        resistance_config(parse_resistance_config(cfg)),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        a(cfg.required<double>("a")),
+        b(cfg.required<double>("b")),
+        c(cfg.required<double>("c")) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAIThrmstrChanIex(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -731,40 +729,36 @@ public:
             this->c
         );
     }
+};
 
-private:
+class AIThermistorVexChan final : public AIChan {
     int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
+    ExcitationConfig excitation_config;
     double a;
     double b;
     double c;
-};
+    double r1;
 
-class AIThermistorVexChan final : public Analog {
 public:
-    explicit AIThermistorVexChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        resistance_config(
-            get_resistance_config(
-                parser.required<std::string>("resistance_config")
-            )
-        ),
-        excitation_config(parser),
-        a(parser.required<double>("a")),
-        b(parser.required<double>("b")),
-        c(parser.required<double>("c")),
-        r1(parser.required<double>("r1")) {
+    explicit AIThermistorVexChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg),
+        resistance_config(parse_resistance_config(cfg)),
+        excitation_config(cfg, VOLT_EXCIT_PREFIX),
+        a(cfg.required<double>("a")),
+        b(cfg.required<double>("b")),
+        c(cfg.required<double>("c")),
+        r1(cfg.required<double>("r1")) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAIThrmstrChanVex(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -778,45 +772,33 @@ public:
             this->r1
         );
     }
-
-private:
-    int32_t resistance_config;
-    VoltageExcitationConfig excitation_config;
-    double a;
-    double b;
-    double c;
-    double r1;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Acceleration                               //
-///////////////////////////////////////////////////////////////////////////////////
-/// @brief acceleration channel
-class AIAccelChan : public Analog {
-public:
-    explicit AIAccelChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        sensitivity(parser.required<double>("sensitivity")),
-        excitation_config(parser),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
-        const auto su = parser.optional<
-            std::string>("sensitivity_units", "mVoltsPerG");
+struct AIAccelChan : public AIChanCustomScale {
+    double sensitivity;
+    int32_t sensitivity_units;
+    ExcitationConfig excitation_config;
+    int32 terminal_config = 0;
+
+    explicit AIAccelChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        sensitivity(cfg.required<double>("sensitivity")),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        terminal_config(parse_terminal_config(cfg)) {
+        const auto su = cfg.optional<string>("sensitivity_units", "mVoltsPerG");
         this->sensitivity_units = ni::UNITS_MAP.at(su);
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIAccelChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -826,32 +808,26 @@ public:
             this->sensitivity_units,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-    double sensitivity;
-    int32_t sensitivity_units;
-    CurrentExcitationConfig excitation_config;
-    int32 terminal_config = 0;
 };
 
-/// @brief acceleration channel with 4 wire DC voltage
-class AIAccel4WireDCVoltageChan final : public AIAccelChan {
-public:
-    explicit AIAccel4WireDCVoltageChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : AIAccelChan(parser, name) {
+struct AIAccel4WireDCVoltageChan final : public AIAccelChan {
+    explicit AIAccel4WireDCVoltageChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIAccelChan(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIAccel4WireDCVoltageChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -862,33 +838,33 @@ public:
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
             this->excitation_config.use_excit_for_scaling,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-/// @brief acceleration channel with charge
-class AIAccelChargeChan final : public Analog {
+class AIAccelChargeChan final : public AIChanCustomScale {
+    double sensitivity;
+    int32_t sensitivity_units = 0;
+    int32 terminal_config = 0;
+
 public:
-    explicit AIAccelChargeChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        sensitivity(parser.required<double>("sensitivity")),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+    explicit AIAccelChargeChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        sensitivity(cfg.required<double>("sensitivity")),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIAccelChargeChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -896,40 +872,32 @@ public:
             this->units,
             this->sensitivity,
             this->sensitivity_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    double sensitivity;
-    int32_t sensitivity_units = 0;
-    int32 terminal_config = 0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Resistance                               //
-///////////////////////////////////////////////////////////////////////////////////
-class AIResistanceChan final : public Analog {
+class AIResistanceChan final : public AIChanCustomScale {
+    int32_t resistance_config;
+    ExcitationConfig excitation_config;
+
 public:
-    explicit AIResistanceChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        resistance_config(
-            get_resistance_config(
-                parser.required<std::string>("resistance_config")
-            )
-        ),
-        excitation_config(parser) {
+    explicit AIResistanceChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        resistance_config(parse_resistance_config(cfg)),
+        excitation_config(cfg, CURR_EXCIT_PREFIX) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIResistanceChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -937,34 +905,30 @@ public:
             this->resistance_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    int32_t resistance_config;
-    CurrentExcitationConfig excitation_config;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Bridge                                   //
-///////////////////////////////////////////////////////////////////////////////////
-class AIBridgeChan final : public Analog {
+class AIBridgeChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+
 public:
-    explicit AIBridgeChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser) {
+    explicit AIBridgeChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIBridgeChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -973,20 +937,22 @@ public:
             this->bridge_config.voltage_excit_source,
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                              Strain Gage                                      //
-///////////////////////////////////////////////////////////////////////////////////
-class AIStrainGaugeChan final : public Analog {
+class AIStrainGaugeChan final : public AIChanCustomScale {
+    int32_t strain_config;
+    ExcitationConfig excitation_config;
+    double gage_factor;
+    double initial_bridge_voltage;
+    double nominal_gage_resistance;
+    double poisson_ratio;
+    double lead_wire_resistance;
+
 public:
-    static int32_t get_strain_config(const std::string &s) {
+    static int32_t get_strain_config(const string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
         if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
@@ -997,40 +963,27 @@ public:
         return DAQmx_Val_FullBridgeI;
     }
 
-    explicit AIStrainGaugeChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        strain_config(
-            get_strain_config(
-                parser.required<std::string>("strain_config")
-            )
-        ),
-        excitation_config(parser),
-        gage_factor(
-            parser.required<double>("gage_factor")
-        ),
-        initial_bridge_voltage(
-            parser.required<double>("initial_bridge_voltage")
-        ),
-        nominal_gage_resistance(
-            parser.required<double>("nominal_gage_resistance")
-        ),
-        poisson_ratio(
-            parser.required<double>("poisson_ratio")
-        ),
-        lead_wire_resistance(
-            parser.required<double>("lead_wire_resistance")
-        ) {
+    explicit AIStrainGaugeChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        strain_config(get_strain_config(cfg.required<string>("strain_config"))),
+        excitation_config(cfg, VOLT_EXCIT_PREFIX),
+        gage_factor(cfg.required<double>("gage_factor")),
+        initial_bridge_voltage(cfg.required<double>("initial_bridge_voltage")),
+        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.required<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIStrainGageChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1043,26 +996,24 @@ public:
             this->nominal_gage_resistance,
             this->poisson_ratio,
             this->lead_wire_resistance,
-            this->scale_name.c_str()
+            scale_key
         );
     }
+};
 
-private:
-    int32_t strain_config;
-    VoltageExcitationConfig excitation_config;
+class AIRosetteStrainGaugeChan final : public AIChan {
+    int32_t rosette_type;
+    double gage_orientation;
+    int32 rosette_meas_type;
+    int32 strain_config;
+    ExcitationConfig excitation_config;
     double gage_factor;
-    double initial_bridge_voltage;
     double nominal_gage_resistance;
     double poisson_ratio;
     double lead_wire_resistance;
-};
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Rosette Strain Gage                      //
-///////////////////////////////////////////////////////////////////////////////////
-class AIRosetteStrainGaugeChan final : public Analog {
 public:
-    static int32_t get_strain_config(const std::string &s) {
+    static int32_t get_strain_config(const string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
         if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
@@ -1073,14 +1024,14 @@ public:
         return DAQmx_Val_FullBridgeI;
     }
 
-    static int32_t get_rosette_type(const std::string &s) {
+    static int32_t get_rosette_type(const string &s) {
         if (s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
         if (s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
         if (s == "TeeRosette") return DAQmx_Val_TeeRosette;
         return DAQmx_Val_RectangularRosette;
     }
 
-    static int32_t get_rosette_meas_type(const std::string &s) {
+    static int32_t get_rosette_meas_type(const string &s) {
         if (s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
         if (s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
         if (s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
@@ -1092,42 +1043,37 @@ public:
         return DAQmx_Val_PrincipalStrain1;
     }
 
-    explicit AIRosetteStrainGaugeChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
+    explicit AIRosetteStrainGaugeChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChan(cfg),
         rosette_type(get_rosette_type(
-            parser.required<std::string>("rosette_type"))),
-        gage_orientation(parser.required<double>("gage_orientation")),
+            cfg.required<string>("rosette_type"))),
+        gage_orientation(cfg.required<double>("gage_orientation")),
         rosette_meas_type(
-            get_rosette_meas_type(
-                parser.required<std::string>("rosette_meas_type"))),
-        strain_config(
-            get_strain_config(
-                parser.required<std::string>("strain_config"))),
-        excitation_config(parser),
-        gage_factor(parser.required<double>("gage_factor")),
-        nominal_gage_resistance(
-            parser.required<double>("nominal_gage_resistance")),
-        poisson_ratio(parser.required<double>("poisson_ratio")),
-        lead_wire_resistance(
-            parser.required<double>("lead_wire_resistance")) {
+            get_rosette_meas_type(cfg.required<string>("rosette_meas_type"))),
+        strain_config(get_strain_config(cfg.required<string>("strain_config"))),
+        excitation_config(cfg, VOLT_EXCIT_PREFIX),
+        gage_factor(cfg.required<double>("gage_factor")),
+        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.required<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAIRosetteStrainGageChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
             this->rosette_type,
             this->gage_orientation,
             &this->rosette_meas_type,
-            1, // bynRosseteMeasTypes
+            1, // bynRosetteMeasTypes
             this->strain_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
@@ -1137,49 +1083,33 @@ public:
             this->lead_wire_resistance
         );
     }
-
-private:
-    int32_t rosette_type;
-    double gage_orientation;
-    int32 rosette_meas_type;
-    int32 strain_config;
-    VoltageExcitationConfig excitation_config;
-    double gage_factor;
-    double nominal_gage_resistance;
-    double poisson_ratio;
-    double lead_wire_resistance;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Microphone                               //
-///////////////////////////////////////////////////////////////////////////////////
-class AIMicrophoneChan final : public Analog {
+class AIMicrophoneChan final : public AIChanCustomScale {
+    double mic_sensitivity;
+    double max_snd_press_level;
+    ExcitationConfig excitation_config;
+    int32 terminal_config = 0;
+
 public:
-    explicit AIMicrophoneChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        mic_sensitivity(
-            parser.required<double>("mic_sensitivity")
-        ),
-        max_snd_press_level(
-            parser.required<double>("max_snd_press_level")
-        ),
-        excitation_config(parser),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+    explicit AIMicrophoneChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        mic_sensitivity(cfg.required<double>("mic_sensitivity")),
+        max_snd_press_level(cfg.required<double>("max_snd_press_level")),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIMicrophoneChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->units,
@@ -1187,80 +1117,62 @@ public:
             this->max_snd_press_level,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    double mic_sensitivity;
-    double max_snd_press_level;
-    CurrentExcitationConfig excitation_config;
-    int32 terminal_config = 0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Frequency                                //
-///////////////////////////////////////////////////////////////////////////////////
-class AIFrequencyVoltageChan final : public Analog {
+class AIFrequencyVoltageChan final : public AIChanCustomScale {
+    double threshold_level;
+    double hysteresis;
+
 public:
-    explicit AIFrequencyVoltageChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        threshold_level(
-            parser.required<double>("threshold_level")
-        ),
-        hysteresis(
-            parser.required<double>("hysteresis")
-        ) {
-        // get the device name by reading up to delimiter
-        const size_t pos = name.find('/');
-        this->name = name.substr(0, pos) + "/ctr" + std::to_string(
-                         parser.required<std::uint64_t>("port"));
+    explicit AIFrequencyVoltageChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        threshold_level(cfg.required<double>("threshold_level")),
+        hysteresis(cfg.required<double>("hysteresis")) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        const auto port = this->dev + "ctr" + std::to_string(this->port);
         return dmx->CreateAIFreqVoltageChan(
             task_handle,
-            this->name.c_str(),
+            port.c_str(),
             "",
             this->min_val,
             this->max_val,
             this->units,
             this->threshold_level,
             this->hysteresis,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    double threshold_level;
-    double hysteresis;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Pressure                                 //
-///////////////////////////////////////////////////////////////////////////////////
-class AIPressureBridgeTwoPointLinChan final : public Analog {
+class AIPressureBridgeTwoPointLinChan final : public AIChanCustomScale {
 public:
-    explicit AIPressureBridgeTwoPointLinChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        two_point_lin_config(parser) {
+    explicit AIPressureBridgeTwoPointLinChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        two_point_lin_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIPressureBridgeTwoPointLinChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1275,7 +1187,7 @@ public:
             this->two_point_lin_config.first_physical_val,
             this->two_point_lin_config.second_physical_val,
             this->two_point_lin_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
@@ -1284,23 +1196,27 @@ private:
     TwoPointLinConfig two_point_lin_config;
 };
 
-class AIPressureBridgeTableChan final : public Analog {
+class AIPressureBridgeTableChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    TableConfig table_config;
+
 public:
-    explicit AIPressureBridgeTableChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        table_config(parser) {
+    explicit AIPressureBridgeTableChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        table_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIPressureBridgeTableChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1310,37 +1226,37 @@ public:
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
             this->table_config.electrical_vals,
-            this->table_config.num_eletrical_vals,
+            this->table_config.num_electrical_vals,
             this->table_config.electrical_units,
             this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
 };
 
-class AIPressureBridgePolynomialChan final : public Analog {
+class AIPressureBridgePolynomialChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 public:
-    explicit AIPressureBridgePolynomialChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ): Analog(parser, name),
-       bridge_config(parser),
-       polynomial_config(parser) {
+    explicit AIPressureBridgePolynomialChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        polynomial_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIPressureBridgePolynomialChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1355,35 +1271,32 @@ public:
             this->polynomial_config.num_reverse_coeffs,
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Force                                    //
-///////////////////////////////////////////////////////////////////////////////////
-class AIForceBridgePolynomialChan final : public Analog {
+class AIForceBridgePolynomialChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 public:
-    explicit AIForceBridgePolynomialChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ): Analog(parser, name),
-       bridge_config(parser),
-       polynomial_config(parser) {
+    explicit AIForceBridgePolynomialChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        polynomial_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIForceBridgePolynomialChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1398,32 +1311,32 @@ public:
             this->polynomial_config.num_reverse_coeffs,
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
 };
 
-class AIForceBridgeTableChan final : public Analog {
+class AIForceBridgeTableChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    TableConfig table_config;
+
 public:
-    explicit AIForceBridgeTableChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        table_config(parser) {
+    explicit AIForceBridgeTableChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        table_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIForceBridgeTableChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1433,37 +1346,34 @@ public:
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
             this->table_config.electrical_vals,
-            this->table_config.num_eletrical_vals,
+            this->table_config.num_electrical_vals,
             this->table_config.electrical_units,
             this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
 };
 
-class AIForceBridgeTwoPointLinChan final : public Analog {
-public:
-    explicit AIForceBridgeTwoPointLinChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        two_point_lin_config(parser) {
+struct AIForceBridgeTwoPointLinChan final : public AIChanCustomScale {
+    explicit AIForceBridgeTwoPointLinChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        two_point_lin_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIForceBridgeTwoPointLinChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1478,7 +1388,7 @@ public:
             this->two_point_lin_config.first_physical_val,
             this->two_point_lin_config.second_physical_val,
             this->two_point_lin_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
@@ -1487,36 +1397,35 @@ private:
     TwoPointLinConfig two_point_lin_config;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Velocity                                 //
-///////////////////////////////////////////////////////////////////////////////////
-class AIVelocityIEPEChan final : public Analog {
+class AIVelocityIEPEChan final : public AIChanCustomScale {
+    int32_t sensitivity_units;
+    double sensitivity;
+    ExcitationConfig excitation_config;
+    int32_t terminal_config = 0;
+
 public:
-    explicit AIVelocityIEPEChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        sensitivity_units(
-            get_units(
-                parser.required<std::string>("sensitivity_units")
-            )
-        ),
-        sensitivity(parser.required<double>("sensitivity")),
-        excitation_config(parser),
+    explicit AIVelocityIEPEChan(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        sensitivity_units(ni::AIVelocityIEPEChan::parse_units(cfg, "sensitivity_units")),
+        sensitivity(
+            cfg.required<double>(
+                "sensitivity")),
+        excitation_config(
+            cfg, CURR_EXCIT_PREFIX),
         terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+            parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIVelocityIEPEChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -1526,37 +1435,32 @@ public:
             this->sensitivity_units,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    int32_t sensitivity_units;
-    double sensitivity;
-    CurrentExcitationConfig excitation_config;
-    int32_t terminal_config = 0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Torque                                   //
-///////////////////////////////////////////////////////////////////////////////////
-class AITorqueBridgeTwoPointLinChan final : public Analog {
+class AITorqueBridgeTwoPointLinChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    TwoPointLinConfig two_point_lin_config;
+
 public:
-    explicit AITorqueBridgeTwoPointLinChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        two_point_lin_config(parser) {
+    explicit AITorqueBridgeTwoPointLinChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        two_point_lin_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAITorqueBridgeTwoPointLinChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1571,32 +1475,32 @@ public:
             this->two_point_lin_config.first_physical_val,
             this->two_point_lin_config.second_physical_val,
             this->two_point_lin_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
 };
 
-class AITorqueBridgePolynomialChan final : public Analog {
+class AITorqueBridgePolynomialChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    PolynomialConfig polynomial_config;
+
 public:
-    explicit AITorqueBridgePolynomialChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        polynomial_config(parser) {
+    explicit AITorqueBridgePolynomialChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        polynomial_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAITorqueBridgePolynomialChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1611,32 +1515,32 @@ public:
             this->polynomial_config.num_reverse_coeffs,
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
 };
 
-class AITorqueBridgeTableChan final : public Analog {
+class AITorqueBridgeTableChan final : public AIChanCustomScale {
+    BridgeConfig bridge_config;
+    TableConfig table_config;
+
 public:
-    explicit AITorqueBridgeTableChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        bridge_config(parser),
-        table_config(parser) {
+    explicit AITorqueBridgeTableChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        bridge_config(cfg),
+        table_config(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAITorqueBridgeTableChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->min_val,
             this->max_val,
@@ -1646,46 +1550,36 @@ public:
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
             this->table_config.electrical_vals,
-            this->table_config.num_eletrical_vals,
+            this->table_config.num_electrical_vals,
             this->table_config.electrical_units,
             this->table_config.physical_vals,
             this->table_config.num_physical_vals,
             this->table_config.physical_units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TableConfig table_config;
 };
 
-class AIForceIEPEChan final : public Analog {
+class AIForceIEPEChan final : public AIChanCustomScale {
 public:
-    explicit AIForceIEPEChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        sensitivity_units(
-            get_units(parser.required<std::string>("sensitivity_units")
-            )
-        ),
-        sensitivity(parser.required<double>("sensitivity")),
-        excitation_config(parser),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+    explicit AIForceIEPEChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        sensitivity_units(ni::AIForceIEPEChan::parse_units(cfg, "sensitivity_units")),
+        sensitivity(cfg.required<double>("sensitivity")),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIForceIEPEChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -1695,46 +1589,40 @@ public:
             this->sensitivity_units,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
 private:
     int32_t sensitivity_units;
     double sensitivity;
-    CurrentExcitationConfig excitation_config;
+    ExcitationConfig excitation_config;
     int32 terminal_config = 0;
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Charge                                   //
-///////////////////////////////////////////////////////////////////////////////////
-class AIChargeChan final : public Analog {
+class AIChargeChan final : public AIChanCustomScale {
 public:
-    explicit AIChargeChan(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        terminal_config(
-            ni::get_terminal_config(
-                parser.required<std::string>("terminal_config")
-            )
-        ) {
+    explicit AIChargeChan(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AIChanCustomScale(cfg),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAIChargeChan(
             task_handle,
-            this->name.c_str(),
+            this->physical_channel().c_str(),
             "",
             this->terminal_config,
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 
@@ -1742,102 +1630,83 @@ private:
     int32 terminal_config = 0;
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////
-//                                  Output Channels                                       //
-//                                                                                        //
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////
-//                                      Voltage                                  //
-///////////////////////////////////////////////////////////////////////////////////
-
-class VoltageOut final : public Analog {
-public:
-    explicit VoltageOut(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name) {
+struct AOVoltage final : AOChanCustomScale {
+    explicit AOVoltage(xjson::Parser &cfg):
+        AnalogChan(cfg),
+        Chan(cfg),
+        AOChanCustomScale(cfg) {
     }
-
-    ~VoltageOut() = default;
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAOVoltageChan(
             task_handle,
-            this->name.c_str(),
+            this->loc().c_str(),
             "", // name to assign to the virtual channel
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                      CurrentOut                               //
-///////////////////////////////////////////////////////////////////////////////////
-class CurrentOut final : public Analog {
-public:
-    explicit CurrentOut(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name) {
+struct AOCurrent final : AOChanCustomScale {
+    explicit AOCurrent(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AOChanCustomScale(cfg) {
     }
 
     int32 bind(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
         return dmx->CreateAOCurrentChan(
             task_handle,
-            this->name.c_str(),
+            this->loc().c_str(),
             "",
             this->min_val,
             this->max_val,
             this->units,
-            this->scale_name.c_str()
+            scale_key
         );
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                               FunctionGeneratorOut                            //
-///////////////////////////////////////////////////////////////////////////////////
-class FunctionGeneratorOut final : public Analog {
+class AOFunctionGenerator final : public AOChan {
 public:
-    int32_t get_type(const std::string &type, xjson::Parser &parser) {
+    int32_t static get_type(const string &type, const xjson::Parser &cfg) {
         if (type == "Sine") return DAQmx_Val_Sine;
         if (type == "Triangle") return DAQmx_Val_Triangle;
         if (type == "Square") return DAQmx_Val_Square;
         if (type == "Sawtooth") return DAQmx_Val_Sawtooth;
-        parser.field_err(
-            "channel" + this->name,
-            "Invalid wave type:" + type +
-            ". Defaulting to Sine.");
+        cfg.field_err("", "invalid wave type: " + type);
         return DAQmx_Val_Sine;
     }
 
 
-    explicit FunctionGeneratorOut(
-        xjson::Parser &parser,
-        const std::string &name
-    ) : Analog(parser, name),
-        frequency(parser.required<double>("frequency")),
-        amplitude(parser.required<double>("amplitude")),
-        offset(parser.required<double>("offset")),
-        wave_type(get_type(parser.required<std::string>("wave_type"), parser)) {
+    explicit AOFunctionGenerator(xjson::Parser &cfg) :
+        AnalogChan(cfg),
+        Chan(cfg),
+        AOChan(cfg),
+        frequency(cfg.required<double>("frequency")),
+        amplitude(cfg.required<double>("amplitude")),
+        offset(cfg.required<double>("offset")),
+        wave_type(get_type(cfg.required<string>("wave_type"), cfg)) {
     }
 
-    int32 bind(
+    int32 bind_task(
         const std::shared_ptr<DAQmx> &dmx,
-        const TaskHandle task_handle
-    ) override {
+        TaskHandle task_handle
+    ) const override {
         return dmx->CreateAOFuncGenChan(
             task_handle,
-            this->name.c_str(),
+            this->loc().c_str(),
             "",
             this->wave_type,
             this->frequency,
@@ -1853,82 +1722,72 @@ private:
     int32 wave_type;
 };
 
-class AnalogOutputChannelFactory {
-public:
-    static std::shared_ptr<Analog> create_channel(
-        const std::string &channel_type,
-        xjson::Parser &parser,
-        const std::string &name
-    ) {
-        if (channel_type == "ao_current")
-            return std::make_shared<CurrentOut>(parser, name);
-        else if (channel_type == "ao_voltage")
-            return std::make_shared<VoltageOut>(parser, name);
-        else if (channel_type == "ao_func_gen")
-            return std::make_shared<FunctionGeneratorOut>(parser, name);
+using AIChanFactory = std::function<std::unique_ptr<AIChan>(
+        xjson::Parser &cfg,
+        const std::map<int32_t, string> &port_to_channel)
+>;
+using AOChanFactory = std::function<std::unique_ptr<AOChan>(xjson::Parser &cfg)>;
 
-        LOG(ERROR) << "[ni.writer] Unrecognized analog output channel type: " << channel_type;
-        return nullptr;
-    }
+#define AO_CHAN_FACTORY(type, class) \
+    {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
+
+#define AI_CHAN_FACTORY(type, class) \
+    {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg); }}
+
+#define AI_CHAN_ENTRY_WITH_PORT(type, class) \
+    {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg, ptc); }}
+
+static const std::map<string, AOChanFactory> AO_CHANS = {
+    AO_CHAN_FACTORY("ao_current", AOCurrent),
+    AO_CHAN_FACTORY("ao_voltage", AOVoltage),
+    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator)
 };
 
-class AnalogInputChannelFactory {
-public:
-    static std::shared_ptr<Analog> create_channel(
-        const std::string &channel_type,
-        xjson::Parser &parser,
-        const std::string &name,
-        const std::map<int32_t, std::string> &port_to_channel = {}
-    ) {
-        if (channel_type == "ai_accel")
-            return std::make_shared<AIAccelChan>(parser, name);
-        if (channel_type == "ai_accel_4_wire_dc_voltage")
-            return std::make_shared<AIAccel4WireDCVoltageChan>(parser, name);
-        if (channel_type == "ai_bridge")
-            return std::make_shared<AIBridgeChan>(parser, name);
-        if (channel_type == "ai_charge")
-            return std::make_shared<AIChargeChan>(parser, name);
-        if (channel_type == "ai_current")
-            return std::make_shared<AICurrentChan>(parser, name);
-        if (channel_type == "ai_force_bridge_polynomial")
-            return std::make_shared<AIForceBridgePolynomialChan>(parser, name);
-        if (channel_type == "ai_force_bridge_table")
-            return std::make_shared<AIForceBridgeTableChan>(parser, name);
-        if (channel_type == "ai_force_bridge_two_point_lin")
-            return std::make_shared<AIForceBridgeTwoPointLinChan>(parser, name);
-        if (channel_type == "ai_force_iepe")
-            return std::make_shared<AIForceIEPEChan>(parser, name);
-        if (channel_type == "ai_microphone")
-            return std::make_shared<AIMicrophoneChan>(parser, name);
-        if (channel_type == "ai_pressure_bridge_polynomial")
-            return std::make_shared<AIPressureBridgePolynomialChan>(parser, name);
-        if (channel_type == "ai_pressure_bridge_table")
-            return std::make_shared<AIPressureBridgeTableChan>(parser, name);
-        if (channel_type == "ai_pressure_bridge_two_point_lin")
-            return std::make_shared<AIPressureBridgeTwoPointLinChan>(parser, name);
-        if (channel_type == "ai_resistance")
-            return std::make_shared<AIResistanceChan>(parser, name);
-        if (channel_type == "ai_rtd")
-            return std::make_shared<AIRTDChan>(parser, name);
-        if (channel_type == "ai_strain_gauge")
-            return std::make_shared<AIStrainGaugeChan>(parser, name);
-        if (channel_type == "ai_temp_builtin")
-            return std::make_shared<AITempBuiltInChan>(parser, name);
-        if (channel_type == "ai_thermocouple")
-            return std::make_shared<AIThermocoupleChan>(parser, name, port_to_channel);
-        if (channel_type == "ai_torque_bridge_polynomial")
-            return std::make_shared<AITorqueBridgePolynomialChan>(parser, name);
-        if (channel_type == "ai_torque_bridge_table")
-            return std::make_shared<AITorqueBridgeTableChan>(parser, name);
-        if (channel_type == "ai_torque_bridge_two_point_lin")
-            return std::make_shared<AITorqueBridgeTwoPointLinChan>(parser, name);
-        if (channel_type == "ai_velocity_iepe")
-            return std::make_shared<AIVelocityIEPEChan>(parser, name);
-        if (channel_type == "ai_voltage")
-            return std::make_shared<AIVoltageChan>(parser, name);
-
-        LOG(ERROR) << "[ni.reader] Unrecognized analog input channel type: " << channel_type;
-        return nullptr;
-    }
+static const std::map<string, AIChanFactory> AI_CHANS = {
+    AI_CHAN_FACTORY("ai_accel", AIAccelChan),
+    AI_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltageChan),
+    AI_CHAN_FACTORY("ai_bridge", AIBridgeChan),
+    AI_CHAN_FACTORY("ai_charge", AIChargeChan),
+    AI_CHAN_FACTORY("ai_current", AICurrentChan),
+    AI_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomialChan),
+    AI_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTableChan),
+    AI_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLinChan),
+    AI_CHAN_FACTORY("ai_force_iepe", AIForceIEPEChan),
+    AI_CHAN_FACTORY("ai_microphone", AIMicrophoneChan),
+    AI_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomialChan),
+    AI_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTableChan),
+    AI_CHAN_FACTORY("ai_pressure_bridge_two_point_lin",
+                    AIPressureBridgeTwoPointLinChan),
+    AI_CHAN_FACTORY("ai_resistance", AIResistanceChan),
+    AI_CHAN_FACTORY("ai_rtd", AIRTDChan),
+    AI_CHAN_FACTORY("ai_strain_gauge", AIStrainGaugeChan),
+    AI_CHAN_FACTORY("ai_temp_builtin", AITempBuiltInChan),
+    AI_CHAN_ENTRY_WITH_PORT("ai_thermocouple", AIThermocoupleChan),
+    AI_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomialChan),
+    AI_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTableChan),
+    AI_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLinChan),
+    AI_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPEChan),
+    AI_CHAN_FACTORY("ai_voltage", AIVoltageChan)
 };
-} // namespace ni
+
+inline std::unique_ptr<AIChan> parse_ai_chan(
+    xjson::Parser &cfg,
+    const std::map<int32_t, string> &port_to_channel
+) {
+    const auto type = cfg.required<string>("type");
+    if (AI_CHANS.count(type) == 0)
+        cfg.field_err("type", "invalid analog input channel type: " + type);
+    return AI_CHANS.at(type)(cfg, port_to_channel);
+}
+
+inline std::unique_ptr<OutputChan> parse_ao_chan(xjson::Parser &cfg) {
+    const auto type = cfg.required<string>("type");
+    if (AO_CHANS.count(type) == 0)
+        cfg.field_err("type", "invalid analog output channel type: " + type);
+    return AO_CHANS.at(type)(cfg);
+}
+
+#undef AO_CHAN_FACTORY
+#undef AI_CHAN_FACTORY
+#undef AI_CHAN_ENTRY_WITH_PORT
+};

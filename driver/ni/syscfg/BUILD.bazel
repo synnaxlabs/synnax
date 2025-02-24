@@ -1,0 +1,21 @@
+cc_library(
+    name = "syscfg",
+    srcs = ["syscfg_prod.cpp"],
+    hdrs = [
+        "syscfg.h",
+        "syscfg_errors.h",
+        "syscfg_prod.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ni/syscfg:syscfg_official",
+        "//x/cpp/xlib",
+        "//x/cpp/xos",
+    ],
+)
+
+cc_library(
+    name = "syscfg_official",
+    srcs = ["nisyscfg.h"],
+    deps = [],
+)

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "driver/ni/nidaqmx/nidaqmx.h"
+#include "driver/ni/daqmx/nidaqmx.h"
 
 class DAQmx {
  public:
