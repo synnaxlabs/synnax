@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layout/BetaTag.css";
+import "@/components/beta/Tag.css";
 
-import { Tag, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Tag as PTag, Text, Tooltip } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 
-export const BetaTag = () => (
+export const Tag = () => (
   <Tooltip.Dialog>
     <Text.Text level="small" shade={8} style={{ width: 100, whiteSpace: "wrap" }}>
       This feature is still in development and may not always work as expected.
     </Text.Text>
-    <Tag.Tag className={CSS.B("beta-tag")} variant="filled">
+    <PTag.Tag className={CSS.B("beta-tag")} variant="filled">
       Beta
-    </Tag.Tag>
+    </PTag.Tag>
   </Tooltip.Dialog>
 );

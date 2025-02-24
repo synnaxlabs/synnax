@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
-import { BetaTag } from "@/layout/BetaTag";
+import { Beta } from "@/components";
 import { Content } from "@/layout/Content";
 import { useSelectModals } from "@/layout/selectors";
 import { type State, type WindowProps } from "@/layout/slice";
@@ -59,7 +59,7 @@ const Modal = ({ state, remove, centered, root }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              {state.beta != null && <BetaTag />}
+              {state.beta != null && <Beta.Tag />}
               <Button.Icon onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>

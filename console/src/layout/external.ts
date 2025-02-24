@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/layout/BetaTag";
 export * from "@/layout/Content";
 export * from "@/layout/context";
 export * from "@/layout/Controls";
