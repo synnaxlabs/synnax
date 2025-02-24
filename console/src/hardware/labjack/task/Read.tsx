@@ -116,14 +116,19 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<InputChannel>(parentPath).value;
             const schema = INPUT_CHANNEL_SCHEMAS[value];
-            const port =
-              Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
+            const nextParent = deep.overrideValidItems(next, prevParent, schema);
+            const prevPortType = convertChannelTypeToPortType(prevType);
+            const nextPortType = convertChannelTypeToPortType(value);
+            let nextPort = nextParent.port;
+            if (prevPortType !== nextPortType)
+              nextPort =
+                Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
             set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
+              ...nextParent,
               type: next.type,
             });
             // Need to explicitly set port to cause select port field to rerender
-            set(`${parentPath}.port`, port);
+            set(`${parentPath}.port`, nextPort);
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
