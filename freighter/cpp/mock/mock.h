@@ -22,6 +22,7 @@ public:
     std::vector<RS> responses{};
     std::vector<xerrors::Error> response_errors{};
 
+    MockUnaryClient() = default;
 
     MockUnaryClient(
         std::vector<RS> responses,
