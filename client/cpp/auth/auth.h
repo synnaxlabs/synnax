@@ -30,7 +30,9 @@ typedef freighter::UnaryClient<
 
 const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
+const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired-token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
+const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
 
 struct ClusterInfo {
     std::string cluster_key;
@@ -58,10 +60,6 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::string username;
     /// Password to be used for authentication.
     std::string password;
-    /// The maximum number of times to retry authentication.
-    std::uint32_t max_retries;
-    /// Number of times authentication has been retried.
-    std::uint32_t retry_count = 0;
     /// @brief
     std::mutex mu;
 public:
@@ -71,12 +69,10 @@ public:
     AuthMiddleware(
         std::unique_ptr<AuthLoginClient> login_client,
         std::string username,
-        std::string password,
-        const std::uint32_t max_retries
+        std::string password
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
-        password(std::move(password)),
-        max_retries(max_retries) {
+        password(std::move(password)) {
     }
 
     /// @brief authenticates with the credentials provided when construction the 
@@ -91,7 +87,6 @@ public:
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());
         this->authenticated = true;
-        this->retry_count = 0;
         return xerrors::NIL;
     }
 
@@ -105,9 +100,8 @@ public:
             if (const auto err = this->authenticate()) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token);
         auto [res_ctx, err] = next(context);
-        if (err.matches(INVALID_TOKEN) && this->retry_count < this->max_retries) {
+        if (err.matches(RETRY_ON_ERRORS)) {
             this->authenticated = false;
-            this->retry_count++;
             return this->operator()(context, next);
         }
         return {res_ctx, err};
