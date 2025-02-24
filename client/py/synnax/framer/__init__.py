@@ -9,6 +9,6 @@
 
 from synnax.framer.client import Client
 from synnax.framer.frame import Frame
-from synnax.framer.iterator import Iterator, AUTO_SPAN
+from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import BufferedWriter, Writer, WriterMode

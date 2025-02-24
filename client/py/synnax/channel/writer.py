@@ -8,13 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import Payload, UnaryClient, send_required, Empty
+from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,
-    ChannelPayload,
     ChannelParams,
+    ChannelPayload,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import CacheChannelRetriever

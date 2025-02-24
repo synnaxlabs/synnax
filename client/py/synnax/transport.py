@@ -12,6 +12,7 @@ from freighter import (
     URL,
     AsyncMiddleware,
     AsyncStreamClient,
+    AsyncWebsocketClient,
     HTTPClient,
     JSONCodec,
     Middleware,
@@ -19,7 +20,6 @@ from freighter import (
     StreamClient,
     UnaryClient,
     WebsocketClient,
-    AsyncWebsocketClient,
     async_instrumentation_middleware,
     instrumentation_middleware,
 )

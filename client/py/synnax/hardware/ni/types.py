@@ -7,19 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from pydantic import BaseModel, conint, confloat, validator
-from typing import List, Literal, Union, Optional, Dict
+import json
+from typing import Dict, List, Literal, Optional, Union
 from uuid import uuid4
+
+from pydantic import BaseModel, confloat, conint, validator
 
 from synnax import ValidationError
 from synnax.hardware.task import (
-    Task,
+    JSONConfigMixin,
     MetaTask,
     StarterStopperMixin,
-    JSONConfigMixin,
+    Task,
 )
 from synnax.telem import CrudeRate
-import json
 
 UnitsVolts = Literal["Volts"]
 UnitsAmps = Literal["Amps"]
