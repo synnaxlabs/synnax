@@ -15,7 +15,7 @@ import {
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
-import { ONTOLOGY_TYPE as FRAME_TYPE } from "@/framer/frame";
+import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
 import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
 import { ONTOLOGY_TYPE as RACK_TYPE } from "@/hardware/rack/payload";
 import { ONTOLOGY_TYPE as TASK_TYPE } from "@/hardware/task/payload";
@@ -26,7 +26,7 @@ import {
   ONTOLOGY_TYPE as RANGE_TYPE,
 } from "@/ranger/payload";
 import { ONTOLOGY_TYPE as USER_TYPE } from "@/user/payload";
-import { ONTOLOGY_TYPE as LINEPLOT_TYPE } from "@/workspace/lineplot/payload";
+import { ONTOLOGY_TYPE as LINE_PLOT_TYPE } from "@/workspace/lineplot/payload";
 import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
 import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
 import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
@@ -53,12 +53,12 @@ export const resourceTypeZ = z.enum([
   NODE_TYPE,
   GROUP_TYPE,
   RANGE_TYPE,
-  FRAME_TYPE,
+  FRAMER_TYPE,
   RANGE_ALIAS_TYPE,
   USER_TYPE,
   WORKSPACE_TYPE,
   SCHEMATIC_TYPE,
-  LINEPLOT_TYPE,
+  LINE_PLOT_TYPE,
   RACK_TYPE,
   DEVICE_TYPE,
   TASK_TYPE,

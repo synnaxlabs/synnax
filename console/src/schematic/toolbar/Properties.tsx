@@ -166,13 +166,15 @@ export const PropertiesControls = memo(
 );
 PropertiesControls.displayName = "PropertiesControls";
 
+interface IndividualPropertiesProps {
+  element: NodeElementInfo;
+  onChange: (key: string, props: any) => void;
+}
+
 const IndividualProperties = ({
   element: selected,
   onChange,
-}: {
-  element: NodeElementInfo;
-  onChange: (key: string, props: any) => void;
-}): ReactElement => {
+}: IndividualPropertiesProps): ReactElement => {
   const C = Schematic.SYMBOLS[selected.props.key];
 
   const formMethods = Form.use({

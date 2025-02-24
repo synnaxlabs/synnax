@@ -30,7 +30,7 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,7 +39,7 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
+export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,

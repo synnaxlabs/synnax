@@ -15,7 +15,8 @@ import { Align, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
@@ -27,7 +28,6 @@ import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
-import { Link } from "@/link";
 
 interface Tab {
   tabKey: ToolbarTab;
@@ -53,7 +53,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelect(layoutKey);
   const handleExport = useExport();
   const content = useCallback(
-    ({ tabKey }: Tabs.Tab): ReactElement => {
+    ({ tabKey }: Tabs.Tab) => {
       switch (tabKey) {
         case "lines":
           return <Lines layoutKey={layoutKey} />;
@@ -86,19 +86,19 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           onSelect: handleTabSelect,
         }}
       >
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.LinePlot />}>{name}</ToolbarTitle>
+        <Core.Header>
+          <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
           <Align.Space direction="x" align="center" empty>
             <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
               <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-              <Link.CopyToolbarButton
+              <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={linePlot.ontologyID(state.key)}
               />
             </Align.Space>
             <Tabs.Selector style={{ borderBottom: "none" }} />
           </Align.Space>
-        </ToolbarHeader>
+        </Core.Header>
         <Tabs.Content />
       </Tabs.Provider>
     </Align.Space>

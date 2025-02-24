@@ -15,7 +15,7 @@ import {
   Input,
   Select,
   Tabs,
-  Text,
+  type Text,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -202,7 +202,10 @@ export const LinePlotAxisControls = ({
           </Input.Item>
         )}
         <Input.Item label="Label Size">
-          <Text.SelectLevel value={axis.labelLevel} onChange={handleLabelLevelChange} />
+          <Select.Text.Level
+            value={axis.labelLevel}
+            onChange={handleLabelLevelChange}
+          />
         </Input.Item>
       </Align.Space>
     </Align.Space>

@@ -9,6 +9,7 @@
 
 import { type Layout } from "@/layout";
 import { ContextMenu, LAYOUT_TYPE, Schematic, SELECTABLE } from "@/schematic/Schematic";
+import { type Selector } from "@/selector";
 
 export * from "@/schematic/export";
 export * from "@/schematic/middleware";
@@ -27,4 +28,4 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

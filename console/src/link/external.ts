@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/link/CopyMenuItem";
-export * from "@/link/CopyToolbarButton";
 export * from "@/link/types";
 export * from "@/link/useCopyToClipboard";
 export * from "@/link/useDeep";

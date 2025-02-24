@@ -10,6 +10,7 @@
 import { SELECTABLE, Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/task/sequence/palette";
 export {
@@ -23,4 +24,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [TYPE]: Sequence,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

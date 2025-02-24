@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { Channel } from "@/channel";
+import { Beta } from "@/components";
 import { type Palette } from "@/palette";
-import { Version } from "@/version";
 
 const CREATE_COMMAND: Palette.Command = {
   icon: <Icon.Channel />,
@@ -25,7 +25,7 @@ const CREATE_CALCULATED_COMMAND: Palette.Command = {
   name: "Create Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
-  endContent: [<Version.BetaTag key="beta-tag" />],
+  endContent: [<Beta.Tag key="beta-tag" />],
 };
 
 export const COMMANDS = [CREATE_COMMAND, CREATE_CALCULATED_COMMAND];

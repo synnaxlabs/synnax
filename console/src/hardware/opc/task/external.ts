@@ -11,6 +11,7 @@ import { Read, READ_SELECTABLE } from "@/hardware/opc/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
 import { Write, WRITE_SELECTABLE } from "@/hardware/opc/task/Write";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/opc/task/palette";
 export * from "@/hardware/opc/task/Read";
@@ -22,4 +23,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [WRITE_TYPE]: Write,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];
