@@ -115,14 +115,25 @@ type IteratorResponse struct {
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal []*unary.Iterator
-	seqNum   int
+	internal   []*unary.Iterator
+	seqNum     int
+	openSignal chan struct{}
 }
 
+// IteratorConfig is the configuration for opening an iterator :). See the fields for
+// more information.
 type IteratorConfig struct {
-	Bounds        telem.TimeRange
-	Channels      []core.ChannelKey
+	// Bounds sets the time range to iterator over. The lower bound is inclusive, while
+	// the upper bound is exclusive.
+	Bounds telem.TimeRange
+	// Channels is a list of channels to iterate over.
+	Channels []core.ChannelKey
+	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
+	// or Prev() request it IteratorAutoSpan as the span.
 	AutoChunkSize int64
+	// OpenSignal is a channel that will be closed once the iterator is successfully
+	// opened.
+	OpenSignal chan struct{}
 }
 
 // Flow implements the confluence.Segment interface.
@@ -130,6 +141,9 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	sCtx.Go(func(ctx context.Context) error {
+		if s.openSignal != nil {
+			close(s.openSignal)
+		}
 		for {
 			select {
 			case <-ctx.Done():

@@ -80,7 +80,7 @@ var (
 	}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
 	validate.NotNil(v, "cesium", c.DB)
@@ -88,7 +88,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -118,7 +118,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		o.search.Index, err = search.New(search.Config{Instrumentation: cfg.Instrumentation})
 		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 		o.search.Go = sCtx
-		o.search.Closer = signal.NewShutdown(sCtx, cancel)
+		o.search.Closer = signal.NewHardShutdown(sCtx, cancel)
 	}
 
 	return o, err

@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// All included pebble code is copyrighted by the cockroachdb team, and is licensed under
+// the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for more
+// information.
+
 package aspen
 
 import (
@@ -69,7 +73,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 		o.T.Transfer(ctx, context.Background()),
 		signal.WithInstrumentation(o.Instrumentation),
 	)
-	transportShutdown := signal.NewShutdown(sCtx, cancel)
+	transportShutdown := signal.NewHardShutdown(sCtx, cancel)
 	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}

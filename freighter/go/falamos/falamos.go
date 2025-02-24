@@ -39,14 +39,14 @@ type Config struct {
 	Level alamos.Environment
 }
 
-// Validate implements config.Properties
+// Validate implements config.Config
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.Properties")
 	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 
-// Override implements config.Properties
+// Override implements config.Config
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)

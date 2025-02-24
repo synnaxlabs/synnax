@@ -16,40 +16,40 @@ int exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "[driver] " << xlog::RED << "Failed to " << action << ": "<< err << xlog::RESET;
+        LOG(ERROR) << "[driver] " << xlog::RED() << "Failed to " << action << ": "<< err << xlog::RESET();
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "[driver] " << xlog::GREEN << past_tense << " successfully" << xlog::RESET;
+        LOG(INFO) << "[driver] " << xlog::GREEN() << past_tense << " successfully" << xlog::RESET();
     }
     return 0;
 }
 
 
-int cmd::sub::service_start(int argc, char** argv) {
+int cmd::sub::service_start(xargs::Parser &args) {
     return exec_svc_cmd(daemond::start_service, "start", "started");
 }
 
-int cmd::sub::service_stop(int argc, char** argv) {
+int cmd::sub::service_stop(xargs::Parser &args) {
     return exec_svc_cmd(daemond::stop_service, "stop", "stopped");
 }
 
-int cmd::sub::service_restart(int argc, char** argv) {
+int cmd::sub::service_restart(xargs::Parser &args) {
     return exec_svc_cmd(daemond::restart_service, "restart", "restarted");
 }
 
-int cmd::sub::service_install(int argc, char** argv) {
+int cmd::sub::service_install(xargs::Parser &args) {
     return exec_svc_cmd(daemond::install_service, "install", "installed");
 }
 
-int cmd::sub::service_uninstall(int argc, char** argv) {
+int cmd::sub::service_uninstall(xargs::Parser &args) {
     return exec_svc_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
 }
 
-int cmd::sub::service_view_logs(int argc, char** argv) {
+int cmd::sub::service_view_logs(xargs::Parser &args) {
     return exec_svc_cmd(daemond::view_logs, "view logs");
 }
 
-int cmd::sub::service_status(int argc, char** argv) {
+int cmd::sub::service_status(xargs::Parser &args) {
     return exec_svc_cmd(daemond::status, "status");
 }

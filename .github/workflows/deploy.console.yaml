@@ -149,6 +149,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Update Submodules on Push
+        if: github.event_name == 'push'
+        run: git submodule update --init --recursive
+
+      - name: Mock Resources on Pull Request
+        if: github.event_name == 'pull_request'
+        run: |
+          mkdir -p vendor/lua-language-server
+          touch vendor/lua-language-server/placeholder.txt
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
@@ -175,7 +185,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: console/src-tauri -> target
-          key: ${{ runner.os }}
+          shared-key: ${{ runner.os }}
 
       - name: Turbo Cache
         uses: actions/cache@v3
@@ -193,6 +203,21 @@ jobs:
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
+
+      - name: Pre-sign Embedded lua-language-server (Before Build)
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+        run: |
+          # Adjust this path to point to the embedded binary in your repository.
+          EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
+          if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
+            echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
+            exit 1
+          fi
+          echo "Pre-signing embedded binary at $EMBEDDED_BIN_REPO..."
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
+          codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
       - name: Build
         env:

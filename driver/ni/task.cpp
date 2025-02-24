@@ -28,7 +28,7 @@ ni::ScannerTask::ScannerTask(
     ctx(ctx),
     task(task),
     breaker(breaker::default_config(task.name)) {
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     bool enabled = parser.optional<bool>("enabled", true);
 
     if (!scanner.ok() || !enabled) {
@@ -120,7 +120,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 ) {
     VLOG(2) << "[ni.task] configuring task " << task.name;
 
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
 
     TaskHandle task_handle;
@@ -258,7 +258,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
 
     TaskHandle task_handle;

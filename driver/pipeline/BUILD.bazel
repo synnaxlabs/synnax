@@ -16,9 +16,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
-        "//x/cpp/breaker",
         "//driver/errors",
         "//driver/task",
+        "//x/cpp/breaker",
         "@nlohmann_json//:json",
     ],
 )
@@ -30,6 +30,7 @@ cc_test(
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//driver/testutil",
+        "//x/cpp/xtest",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
     ],
@@ -42,6 +43,7 @@ cc_test(
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//driver/testutil",
+        "//x/cpp/xtest",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
     ],

@@ -200,7 +200,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Signals, err = signals.New(cfg.Signals, signals.Config{
 		Channel:         d.Channel,
 		Framer:          d.Framer,
-		Instrumentation: cfg.Instrumentation.Child("cdc"),
+		Instrumentation: cfg.Instrumentation.Child("signals"),
 	})
 	if err != nil {
 		return d, err

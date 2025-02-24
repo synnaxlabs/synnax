@@ -9,6 +9,7 @@
 
 /// external.
 #include "gtest/gtest.h"
+#include "x/cpp/xtest/xtest.h"
 
 extern "C" {
 #include <lualib.h>
@@ -22,33 +23,21 @@ TEST(ChannelReceive, Basic) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
+    ch.data_type = telem::FLOAT64_T;
     auto fr_1 = synnax::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0));
+    fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<synnax::Frame> >();
     reads->push_back(std::move(fr_1));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{
-            xerrors::NIL,
-            xerrors::NIL,
-        });
-    const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<MockStreamerFactory>(
-        std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<MockStreamerConfig> >(
-            std::vector{
-                MockStreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL
-                }
-            })
-    );
-    auto plugin = plugins::ChannelReceive(streamer_factory, std::vector{ch});
-    auto L = luaL_newstate();
+    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
+    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
-    plugin.before_next(L);
-    ASSERT_EQ(lua_getglobal(L, "my_channel"), LUA_TNUMBER);
+    auto check_writes = [&]() {
+        plugin.before_next(L);
+        return lua_getglobal(L, "my_channel");
+    };
+    ASSERT_EVENTUALLY_EQ_F(check_writes, LUA_TNUMBER);
     ASSERT_EQ(lua_tonumber(L, -1), 1.0);
     lua_close(L);
     plugin.after_all(L);

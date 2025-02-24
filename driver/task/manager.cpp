@@ -19,7 +19,7 @@
 #include "driver/task/task.h"
 
 /// module
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
 
@@ -80,7 +80,7 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
-        LOG(INFO) << "[driver] received task for foreign rack: " << task_key << ", skipping";
+        VLOG(1) << "[driver] received task for foreign rack: " << task_key << ", skipping";
         return true;
     }
     return false;
@@ -89,7 +89,7 @@ bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
 xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
     if (const auto err = this->configure_initial_tasks()) return err;
     if (const auto err = this->open_streamer()) return err;
-    LOG(INFO) << xlog::GREEN << "[driver] started successfully" << xlog::RESET;
+    LOG(INFO) << xlog::GREEN() << "[driver] started successfully" << xlog::RESET();
     if (started_promise != nullptr) started_promise->set_value();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()
@@ -97,8 +97,8 @@ xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
-            const auto &key = (*frame.channels)[i];
-            const auto &series = (*frame.series)[i];
+            const auto &key = frame.channels->at(i);
+            const auto &series = frame.series->at(i);
             if (key == this->channels.task_set.key) process_task_set(series);
             else if (key == this->channels.task_delete.key) process_task_delete(series);
             else if (key == this->channels.task_cmd.key) process_task_cmd(series);
@@ -139,15 +139,14 @@ void task::Manager::process_task_set(const telem::Series &series) {
 void task::Manager::process_task_cmd(const telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
-        auto parser = config::Parser(cmd_str);
+        auto parser = xjson::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
                     dump();
             continue;
         }
-        LOG(INFO) << "[driver] processing command " << cmd.type << " for task " << cmd.
-                task;
+
         if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
@@ -155,7 +154,9 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
                     task;
             continue;
         }
-        it->second->exec(cmd);
+        const std::unique_ptr<Task> &tsk = it->second;
+        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->name() << " (" << cmd.task << ")";
+        tsk->exec(cmd);
     }
 }
 

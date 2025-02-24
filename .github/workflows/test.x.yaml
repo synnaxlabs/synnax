@@ -73,8 +73,11 @@ jobs:
         if: matrix.format
         run: scripts/gofmt-check.sh x/go
 
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
+
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo ./...
         working-directory: x/go
 
   ts:
@@ -131,6 +134,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

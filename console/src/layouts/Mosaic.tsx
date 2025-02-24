@@ -25,7 +25,7 @@ import {
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { memo, useCallback, useLayoutEffect } from "react";
+import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components";
@@ -36,7 +36,7 @@ import { Nav } from "@/layouts/nav";
 import { SELECTOR_LAYOUT } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
-import { type RootStore } from "@/store";
+import { type RootState, type RootStore } from "@/store";
 import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = () => (
@@ -135,8 +135,8 @@ export const Mosaic = memo(() => {
 Mosaic.displayName = "Mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
-const Internal = ({ windowKey, mosaic }: MosaicProps) => {
-  const store = useStore();
+const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
+  const store = useStore<RootState>();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -181,12 +181,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps) => {
 
   LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
 
-  const handleClose = useCallback(
-    (tabKey: string): void => {
-      dispatch(Layout.remove({ keys: [tabKey] }));
-    },
-    [dispatch],
-  );
+  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {

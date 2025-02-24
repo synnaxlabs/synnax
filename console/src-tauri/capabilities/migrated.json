@@ -74,20 +74,51 @@
     "fs:default",
     "process:allow-restart",
     "process:allow-exit",
+    "shell:allow-execute",
+    "dialog:allow-confirm",
+    "dialog:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/macOS/lua-language-server",
+          "name": "lua-language-server-macOS",
+          "args": true
+        },
+        {
+          "name": "lua-language-server-Windows",
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/Windows/lua-language-server.exe",
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-stdin-write",
+      "allow": [
+        {
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/macOS/lua-language-server",
+          "name": "lua-language-server-macOS",
+          "args": true
+        },
+        {
+          "name": "lua-language-server-Windows",
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/Windows/lua-language-server.exe",
+          "args": true
+        }
+      ]
+    },
     {
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "args": [
-            "start",
-            "-i",
-            "-l",
-            "localhost:9090",
-            "-d",
-            { "validator": "\\S+" }
-          ],
-          "cmd": "",
-          "name": "bin/sy"
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/macOS/lua-language-server",
+          "name": "lua-language-server-macOS",
+          "args": true
+        },
+        {
+          "name": "lua-language-server-Windows",
+          "cmd": "$RESOURCE/_up_/_up_/vendor/lua-language-server/bin/Windows/lua-language-server.exe",
+          "args": true
         }
       ]
     },

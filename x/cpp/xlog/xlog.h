@@ -10,10 +10,18 @@
 #pragma once
 
 #include <string>
+#include <glog/logging.h>
 
 namespace xlog {
-const std::string RED = "\033[1;31m";
-const std::string GREEN = "\033[1;32m";
-const std::string RESET = "\033[0m";
-const std::string BLUE = "\033[1;34m";
+
+inline std::string get_color(const std::string& color) {
+    return FLAGS_colorlogtostderr ? color : "";
+}
+
+inline std::string RED() { return get_color("\033[1;31m"); }
+inline std::string GREEN() { return get_color("\033[1;32m"); }
+inline std::string RESET() { return get_color("\033[0m"); }
+inline std::string BLUE() { return get_color("\033[1;34m"); }
+inline std::string SHALE() { return get_color("\033[1;38;2;112;128;144m"); }
+
 }

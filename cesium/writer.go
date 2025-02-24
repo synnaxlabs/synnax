@@ -118,7 +118,6 @@ func (w *Writer) Close() (err error) {
 	}
 	w.closed = true
 	w.requests.Close()
-	for range w.responses.Outlet() {
-	}
+	confluence.Drain(w.responses)
 	return w.wg.Wait()
 }

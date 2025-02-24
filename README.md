@@ -72,3 +72,11 @@ in this monorepo. The following is an alphabetically sorted summary of each:
     Assemble and run concurrent data processing and message passing pipelines.
   - [Gorp](x/go/gorp) - Efficient querying of go-types to and from a key-value store.
   - [Signal](x/go/signal) - A library for controlling goroutine lifecycle.
+
+# Attributions
+
+This project includes components from other open-source projects.
+
+- [cockroachdb/pebble](github.com/cockroachdb/pebble) - A RocksDB inspired key-value store
+  in Go.
+  - License: [BSD-3-Clause](https://github.com/cockroachdb/pebble/blob/master/LICENSE)

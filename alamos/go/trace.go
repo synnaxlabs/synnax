@@ -57,7 +57,7 @@ var (
 	}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c TracingConfig) Validate() error {
 	v := validate.New("alamos.TracingConfig")
 	validate.NotNil(v, "OtelProvider", c.OtelProvider)
@@ -66,7 +66,7 @@ func (c TracingConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 	c.OtelProvider = override.Nil(c.OtelProvider, other.OtelProvider)
 	c.OtelPropagator = override.Nil(c.OtelPropagator, other.OtelPropagator)

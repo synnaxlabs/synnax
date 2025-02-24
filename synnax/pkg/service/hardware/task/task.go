@@ -12,6 +12,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"strconv"
 
@@ -85,14 +86,24 @@ func (t Task) String() string {
 type Status string
 
 const (
-	StatusInfo    Status = "info"
-	StatusSuccess Status = "success"
-	StatusError   Status = "error"
-	StatusWarning Status = "warning"
+	InfoStateVariant    Status = "info"
+	SuccessStateVariant Status = "success"
+	ErrorStateVariant   Status = "error"
+	WarningStateVariant Status = "warning"
 )
 
 // Details is a custom type based on string
 type Details string
+
+var detailsCodec = &binary.JSONCodec{}
+
+func NewStaticDetails(data interface{}) Details {
+	b, err := detailsCodec.Encode(nil, data)
+	if err != nil {
+		panic(err)
+	}
+	return Details(b)
+}
 
 // UnmarshalJSON implements the json.Unmarshaler interface for Details.
 // It should correctly handle a raw JSON string or a JSON object/array.

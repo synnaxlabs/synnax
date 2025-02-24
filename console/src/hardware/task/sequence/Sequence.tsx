@@ -9,13 +9,29 @@
 
 import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Channel, Form, Rack, Status, Synnax } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  type Input,
+  Rack,
+  Status,
+  Synnax,
+} from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { Editor } from "@/code/Editor";
+import { Code } from "@/code";
+import { Lua } from "@/code/lua";
+import { usePhantom as usePhantomGlobals, type UsePhantomReturn } from "@/code/phantom";
+import { useSuggestChannels } from "@/code/useSuggestChannels";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
+import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
   configZ,
@@ -24,6 +40,7 @@ import {
   type Type,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
+import { Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type Selector } from "@/selector";
 
@@ -57,8 +74,41 @@ export const SELECTABLE: Selector.Selectable = {
   },
 };
 
+interface EditorProps extends Input.Control<string> {
+  globals: UsePhantomReturn;
+}
+
+const Editor = ({ value, onChange, globals }: EditorProps) => {
+  const methods = Form.useContext();
+  const onAccept = useCallback(
+    (channel: channel.Payload) => {
+      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      methods.set(
+        "config.read",
+        unique.unique([
+          ...methods.get<channel.Key[]>("config.read").value,
+          channel.key,
+        ]),
+      );
+    },
+    [methods, globals],
+  );
+  useSuggestChannels(onAccept);
+  const client = Synnax.use();
+  useEffect(() => {
+    const channels = methods.get<channel.Key[]>("config.read").value;
+    client?.channels
+      .retrieve(channels)
+      .then((chs) => {
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      })
+      .catch(console.error);
+  }, [methods, globals]);
+  return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
+};
+
 const schema = z.object({
-  rack: rack.keyZ.min(1, "Rack is required"),
+  rack: rack.keyZ.min(1, "Location is required"),
   config: configZ,
 });
 
@@ -69,24 +119,48 @@ const Internal = ({
   rackKey,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
+  const { name } = Layout.useSelectRequired(layoutKey);
   const handleException = Status.useExceptionHandler();
+  const dispatch = useDispatch();
+  const handleUnsavedChanges = useCallback(
+    (hasUnsavedChanges: boolean) => {
+      dispatch(
+        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
   const methods = Form.use({
-    values: { rack: rackKey ?? task.getRackKey(base.key ?? "0"), config: base.config },
+    values: {
+      rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+      config: base.config,
+    },
     schema,
+    onHasTouched: handleUnsavedChanges,
   });
   const create = Common.Task.useCreate(layoutKey);
   const [state, setState] = Common.Task.useState(base?.key, base?.state ?? undefined);
+
+  useEffect(() => {
+    dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
+  }, [layoutKey]);
 
   const configureMutation = useMutation({
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!(await methods.validateAsync())) return;
       const { config, rack } = methods.value();
-      await create({ key: base.key, name: base.name, type: TYPE, config }, rack);
+      if (base.key != null) {
+        const prevRack = task.getRackKey(base.key);
+        if (prevRack !== rack) await client.hardware.tasks.delete(BigInt(base.key));
+      }
+      await create({ key: base.key, name, type: TYPE, config }, rack);
+      methods.setCurrentStateAsInitialValues();
       setState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure ${base.name}`),
   });
+
   const startOrStopMutation = useMutation({
     mutationFn: async () => {
       if (!configured) throw new Error("Sequence has not been configured");
@@ -108,6 +182,12 @@ const Internal = ({
   const isConfiguring = configureMutation.isPending;
   const isDisabled = isLoading || isConfiguring || isSnapshot;
 
+  const globals = usePhantomGlobals({
+    language: Lua.LANGUAGE,
+    stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
+  });
+
   return (
     <Align.Space
       style={{ padding: 0, height: "100%", minHeight: 0 }}
@@ -120,17 +200,9 @@ const Internal = ({
           showLabel={false}
           showHelpText={false}
           padHelpText={false}
-          style={{
-            height: "100%",
-            width: "100%",
-            minHeight: 0,
-            display: "flex",
-            flex: 1,
-            flexShrink: 1,
-            overflow: "hidden",
-          }}
+          grow
         >
-          {(p) => <Editor style={{ height: "100%", width: "100%", flex: 1 }} {...p} />}
+          {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
         <Align.Pack
           direction="y"
@@ -143,7 +215,11 @@ const Internal = ({
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space
+            direction="y"
+            style={{ padding: "2rem", paddingBottom: "3rem" }}
+            size="medium"
+          >
             <Align.Space direction="x">
               <Form.Field<rack.Key>
                 path="rack"
@@ -169,9 +245,18 @@ const Internal = ({
               path="config.read"
               label="Read From"
               padHelpText={false}
+              onChange={(v, extra) => {
+                const prev = extra.get<channel.Key[]>("config.read").value;
+                const removed = prev.filter((ch) => !v.includes(ch));
+                removed.forEach((ch) => globals.del(ch.toString()));
+              }}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
             <Form.Field<channel.Key[]>
@@ -180,7 +265,11 @@ const Internal = ({
               padHelpText={false}
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple value={value} onChange={onChange} />
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  location="top"
+                />
               )}
             </Form.Field>
           </Align.Space>

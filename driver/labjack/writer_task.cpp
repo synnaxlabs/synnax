@@ -47,7 +47,7 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
     const synnax::Task &task,
     std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    auto parser = config::Parser(task.config);
+    auto parser = xjson::Parser(task.config);
     WriterConfig writer_config(parser, ctx);
 
     auto sink = std::make_shared<labjack::WriteSink>(

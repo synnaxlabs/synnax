@@ -13,16 +13,16 @@
 
 #include "opc.h"
 #include "util.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/control.h"
 #include "x/cpp/loop/loop.h"
 
-#include "include/open62541/types.h"
-#include "include/open62541/types_generated.h"
-#include "include/open62541/statuscodes.h"
-#include "include/open62541/client_highlevel.h"
-#include "include/open62541/common.h"
+#include "open62541/types.h"
+#include "open62541/types_generated.h"
+#include "open62541/statuscodes.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/common.h"
 
 
 namespace opc {
@@ -43,7 +43,7 @@ struct WriterChannelConfig {
     WriterChannelConfig() = default;
 
     explicit WriterChannelConfig(
-        config::Parser &parser
+        xjson::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
         node(parse_node_id("node_id", parser)),
         cmd_channel(parser.required<ChannelKey>("channel")),
@@ -66,7 +66,7 @@ struct WriterConfig {
 
     WriterConfig() = default;
 
-    explicit WriterConfig(config::Parser &parser);
+    explicit WriterConfig(xjson::Parser &parser);
 
     [[nodiscard]] std::vector<ChannelKey> cmd_keys() const {
         std::vector<ChannelKey> keys;

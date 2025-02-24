@@ -20,19 +20,19 @@
 
 using json = nlohmann::json;
 
-static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+static std::string parse_digital_loc(xjson::Parser &p, const std::string &dev) {
     const auto port = std::to_string(p.required<std::uint64_t>("port"));
     const auto line = std::to_string(p.required<std::uint64_t>("line"));
     return dev + "/port" + port + "/line" + line;
 }
 
-void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
+void ni::DigitalReadSource::parse_channels(xjson::Parser &parser) {
     const auto dev_name = this->reader_config.device_name;
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
     parser.iter(
         "channels",
-        [&](config::Parser &channel_builder) {
+        [&](xjson::Parser &channel_builder) {
             const auto channel_key = channel_builder.required<uint32_t>("channel");
             const auto enabled = channel_builder.optional<bool>("enabled", true);
             this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{
@@ -152,13 +152,13 @@ std::pair<synnax::Frame, xerrors::Error> ni::DigitalReadSource::read(
     for (int i = 0; i < num_channels; i++) {
         if (!this->reader_config.channels[i].enabled) continue;
         if (this->reader_config.channels[i].channel_type == "index") {
-            auto t = telem::Series(telem::TIMESTAMP, this->num_samples_per_channel);
+            auto t = telem::Series(telem::TIMESTAMP_T, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
             f.emplace(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
-        auto series = telem::Series(telem::SY_UINT8, d.samples_read_per_channel);
+        auto series = telem::Series(telem::UINT8_T, d.samples_read_per_channel);
 
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write(d.digital_data[data_index + j]);
@@ -180,7 +180,7 @@ int ni::DigitalReadSource::validate_channels() {
         }
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != telem::SY_UINT8) {
+        if (channel_info.data_type != telem::UINT8_T) {
             this->log_error("Channel " + channel.name + " is not of type SY_UINT8");
             this->ctx->set_state({
                 .task = task.key,

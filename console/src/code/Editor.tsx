@@ -9,104 +9,131 @@
 
 import "@/code/Editor.css";
 
-import { Align, type Input, Theming } from "@synnaxlabs/pluto";
-import * as monaco from "monaco-editor";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { useEffect, useRef } from "react";
+import { Align, type Input, Theming, TimeSpan } from "@synnaxlabs/pluto";
+import { type RefObject, useEffect, useRef } from "react";
 
+import { type Monaco, useMonaco } from "@/code/Provider";
 import { CSS } from "@/css";
 
-export interface EditorProps
-  extends Input.Control<string>,
-    Omit<Align.SpaceProps, "value" | "onChange"> {}
+const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
+  automaticLayout: true,
+  minimap: { enabled: false },
+  bracketPairColorization: { enabled: false },
+  lineNumbersMinChars: 3,
+  folding: false,
+  links: false,
+  contextmenu: false,
+  renderControlCharacters: false,
+  renderWhitespace: "none",
+  scrollBeyondLastLine: false,
+  wordWrap: "off",
+  renderLineHighlight: "none",
+  formatOnPaste: false,
+  formatOnType: true,
+  suggestOnTriggerCharacters: false,
+  showFoldingControls: "never",
+};
 
-export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => {
-  const editorRef = useRef<HTMLDivElement | null>(null); // A ref to store the editor DOM element
-  const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // A ref to store the Monaco editor instance
+const disableCommandPalette = (
+  mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod">,
+) => {
+  const CMD_ID = "ctrl-p";
+  mon.editor.addCommand({ id: CMD_ID, run: () => {} });
+  mon.editor.addKeybindingRule({
+    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP,
+    command: CMD_ID,
+  });
+  mon.editor.addKeybindingRule({
+    keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP | mon.KeyMod.Shift,
+    command: CMD_ID,
+  });
+};
+
+interface UseProps extends Input.Control<string> {
+  language: string;
+}
+
+const useTheme = () => {
   const theme = Theming.use();
+  const prefersDark = theme.key.includes("Dark");
+  return prefersDark ? "vs-dark" : "vs";
+};
+
+const TRIGGER_SMALL_DELAY = TimeSpan.milliseconds(100).milliseconds;
+
+/** @brief triggers a small model change to the editor so that it activates any language server features. */
+const triggerSmallModelChangeToActiveLanguageServerFeatures = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+  value: string,
+) => {
+  setTimeout(() => {
+    const model = editor.getModel();
+    if (model != null)
+      model.pushEditOperations(
+        [],
+        [{ range: model.getFullModelRange(), text: value }],
+        () => null,
+      );
+  }, TRIGGER_SMALL_DELAY);
+};
+
+const use = ({
+  value,
+  onChange,
+  language,
+}: UseProps): RefObject<HTMLDivElement | null> => {
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const theme = useTheme();
+  const monaco = useMonaco();
 
   useEffect(() => {
-    if (editorRef.current === null) return;
-    self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
-
-    const isDark = theme.key === "synnaxDark";
-
-    monaco.editor.defineTheme("vs-dark-custom", {
-      base: isDark ? "vs-dark" : "vs",
-      inherit: true,
-      rules: [
-        { foreground: "#cc255f", token: "keyword" },
-        {
-          token: "delimiter.bracket",
-          foreground: theme.colors.gray.l9.hex,
-          background: theme.colors.gray.l9.hex,
-        },
-        {
-          token: "delimiter.parenthesis",
-          foreground: "#cc255f",
-          background: "#cc255f",
-        },
-        {
-          token: "number",
-          foreground: theme.colors.secondary.m1.hex,
-          background: theme.colors.secondary.m1.hex,
-        },
-      ],
-      colors: {
-        "editor.background": theme.colors.gray.l1.hex,
-        "editor.foreground": theme.colors.gray.l9.hex,
-        "editor.selectionBackground": theme.colors.gray.l4.hex,
-        "editor.lineHighlightBackground": theme.colors.gray.l3.hex,
-        "editorCursor.foreground": theme.colors.primary.z.hex,
-        "editorWhitespace.foreground": theme.colors.gray.l2.hex,
-        "editorSuggestWidget.background": theme.colors.gray.l2.hex,
-        "editorSuggestWidget.foreground": theme.colors.gray.l9.hex,
-        "editorSuggestWidget.selectedBackground": theme.colors.gray.l3.hex,
-        "editorSuggestWidget.selectedForeground": theme.colors.gray.l9.hex,
-        "editorSuggestWidget.highlightForeground": theme.colors.primary.z.hex,
-        "editorSuggestWidget.border": theme.colors.gray.l4.hex,
-      },
-    });
-    monacoRef.current = monaco.editor.create(editorRef.current, {
+    if (monaco == null || editorContainerRef.current == null) return;
+    editorRef.current = monaco.editor.create(editorContainerRef.current, {
       value,
-      language: "lua",
-      theme: "vs-dark-custom",
-      automaticLayout: true,
-      minimap: { enabled: false },
-      bracketPairColorization: { enabled: false },
-      lineNumbersMinChars: 3,
-      folding: false,
-      links: false,
-      contextmenu: false,
-      quickSuggestions: false,
-      renderControlCharacters: false,
-      renderWhitespace: "none",
-      scrollBeyondLastLine: false,
-      wordWrap: "off",
-      renderLineHighlight: "none",
-      formatOnPaste: false,
-      formatOnType: false,
-      suggestOnTriggerCharacters: false,
-    });
-    const dispose = monacoRef.current.onDidChangeModelContent(() => {
-      if (monacoRef.current === null) return;
-      onChange(monacoRef.current.getValue());
+      language,
+      theme,
+      ...ZERO_OPTIONS,
     });
 
+    // Trigger language features by making a temporary edit
+    triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
+
+    disableCommandPalette(monaco);
+    const dispose = editorRef.current.onDidChangeModelContent(() => {
+      if (editorRef.current == null) return;
+      onChange(editorRef.current.getValue());
+    });
     return () => {
       dispose.dispose();
-      if (monacoRef.current) monacoRef.current.dispose();
+      if (editorRef.current != null) editorRef.current.dispose();
     };
-  }, [theme.key]);
+  }, [theme, monaco]);
+  return editorContainerRef;
+};
+export interface EditorProps
+  extends Input.Control<string>,
+    Omit<Align.SpaceProps, "value" | "onChange"> {
+  language: string;
+}
 
+export const Editor = ({
+  value,
+  onChange,
+  className,
+  language,
+  ...rest
+}: EditorProps) => {
+  const editorContainerRef = use({ value, onChange, language });
   return (
     <Align.Space
       direction="y"
       grow
       {...rest}
       className={CSS(className, CSS.B("editor"))}
+      style={{ height: "100%", position: "relative", overflow: "hidden" }}
     >
-      <div ref={editorRef} style={{ height: "100%", position: "relative" }} />
+      <div ref={editorContainerRef} style={{ height: "100%" }} />
     </Align.Space>
   );
 };

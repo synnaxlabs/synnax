@@ -15,7 +15,7 @@
 
 #include "nidaqmx/nidaqmx.h"
 #include "nidaqmx/nidaqmx_api.h"
-#include "x/cpp/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/ni/scale.h"
 #include "driver/ni/util.h"
 #include "driver/task/task.h"
@@ -61,7 +61,7 @@ struct VoltageExcitationConfig {
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
 
-    explicit VoltageExcitationConfig(config::Parser &parser)
+    explicit VoltageExcitationConfig(xjson::Parser &parser)
         : excit_source(
               get_excitation_src(
                   parser.required<std::string>("voltage_excit_source")
@@ -89,7 +89,7 @@ struct CurrentExcitationConfig {
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
 
-    explicit CurrentExcitationConfig(config::Parser &parser)
+    explicit CurrentExcitationConfig(xjson::Parser &parser)
         : excit_source(
               get_excitation_src(
                   parser.required<std::string>("current_excit_source")
@@ -114,7 +114,7 @@ struct BridgeConfig {
 
     BridgeConfig() = default;
 
-    explicit BridgeConfig(config::Parser &parser)
+    explicit BridgeConfig(xjson::Parser &parser)
         : ni_bridge_config(
               get_bridge_config(parser.required<std::string>("bridge_config")
               )
@@ -143,7 +143,7 @@ struct PolynomialConfig {
 
     PolynomialConfig() = default;
 
-    explicit PolynomialConfig(config::Parser &parser)
+    explicit PolynomialConfig(xjson::Parser &parser)
         : num_forward_coeffs(parser.required<uint32_t>("num_forward_coeffs")),
           num_reverse_coeffs(parser.required<uint32_t>("num_reverse_coeffs")) {
         const auto eu = parser.required<std::string>("electrical_units");
@@ -197,7 +197,7 @@ struct TableConfig {
 
     TableConfig() = default;
 
-    explicit TableConfig(config::Parser &parser)
+    explicit TableConfig(xjson::Parser &parser)
         : num_eletrical_vals(
               parser.required<uint32_t>("num_electrical_vals")
           ), num_physical_vals(
@@ -238,7 +238,7 @@ struct TwoPointLinConfig {
 
     TwoPointLinConfig() = default;
 
-    explicit TwoPointLinConfig(config::Parser &parser)
+    explicit TwoPointLinConfig(xjson::Parser &parser)
         : first_electrical_val(
               parser.required<double>("first_electrical_val")
           ),
@@ -277,7 +277,7 @@ public:
         return 0;
     }
 
-    std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
+    std::unique_ptr<ScaleConfig> getScaleConfig(xjson::Parser &parser) {
         if (!parser.get_json().contains("custom_scale")) return nullptr;
         const std::string c = std::to_string(
             parser.optional<uint32_t>(
@@ -305,7 +305,7 @@ public:
     }
 
     explicit Analog(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     )
         : min_val(
@@ -346,7 +346,7 @@ public:
 class AIVoltageChan : public Analog {
 public:
     explicit AIVoltageChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         terminal_config(
@@ -381,7 +381,7 @@ public:
 class AIVoltageRMSChan final : public AIVoltageChan {
 public:
     explicit AIVoltageRMSChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : AIVoltageChan(parser, name) {
     }
@@ -411,7 +411,7 @@ struct AIVoltageWithExcitChan final : public AIVoltageChan {
     VoltageExcitationConfig excitation_config;
 
     explicit AIVoltageWithExcitChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : AIVoltageChan(parser, name),
         bridge_config(
@@ -457,7 +457,7 @@ public:
     }
 
     explicit AICurrentChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         shunt_resistor_loc(
@@ -501,7 +501,7 @@ public:
 class AICurrentRMSChan final : public AICurrentChan {
 public:
     explicit AICurrentRMSChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : AICurrentChan(parser, name) {
     }
@@ -542,7 +542,7 @@ public:
     }
 
     explicit AIRTDChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         rtd_type(
@@ -594,7 +594,7 @@ class AIThermocoupleChan final : public Analog {
 public:
     [[nodiscard]] int32_t get_type(
         const std::string &type,
-        const config::Parser &parser
+        const xjson::Parser &parser
     ) const {
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
@@ -612,7 +612,7 @@ public:
 
     [[nodiscard]] int32_t get_cjc_source(
         const std::string &source,
-        const config::Parser &parser
+        const xjson::Parser &parser
     ) const {
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
@@ -624,7 +624,7 @@ public:
     }
 
     explicit AIThermocoupleChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name,
         const std::map<std::int32_t, std::string> &cjc_sources
     ) : Analog(parser, name),
@@ -674,7 +674,7 @@ private:
 class AITempBuiltInChan final : public Analog {
 public:
     explicit AITempBuiltInChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ): Analog(parser, name) {
         this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
@@ -698,7 +698,7 @@ public:
 class AIThermistorIEXChan final : public Analog {
 public:
     explicit AIThermistorIEXChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ): Analog(parser, name),
        resistance_config(
@@ -743,7 +743,7 @@ private:
 class AIThermistorVexChan final : public Analog {
 public:
     explicit AIThermistorVexChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         resistance_config(
@@ -795,7 +795,7 @@ private:
 class AIAccelChan : public Analog {
 public:
     explicit AIAccelChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         sensitivity(parser.required<double>("sensitivity")),
@@ -840,7 +840,7 @@ public:
 class AIAccel4WireDCVoltageChan final : public AIAccelChan {
 public:
     explicit AIAccel4WireDCVoltageChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : AIAccelChan(parser, name) {
     }
@@ -871,7 +871,7 @@ public:
 class AIAccelChargeChan final : public Analog {
 public:
     explicit AIAccelChargeChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         sensitivity(parser.required<double>("sensitivity")),
@@ -912,7 +912,7 @@ private:
 class AIResistanceChan final : public Analog {
 public:
     explicit AIResistanceChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         resistance_config(
@@ -952,7 +952,7 @@ private:
 class AIBridgeChan final : public Analog {
 public:
     explicit AIBridgeChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser) {
@@ -998,7 +998,7 @@ public:
     }
 
     explicit AIStrainGaugeChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         strain_config(
@@ -1093,7 +1093,7 @@ public:
     }
 
     explicit AIRosetteStrainGaugeChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         rosette_type(get_rosette_type(
@@ -1156,7 +1156,7 @@ private:
 class AIMicrophoneChan final : public Analog {
 public:
     explicit AIMicrophoneChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         mic_sensitivity(
@@ -1204,7 +1204,7 @@ private:
 class AIFrequencyVoltageChan final : public Analog {
 public:
     explicit AIFrequencyVoltageChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         threshold_level(
@@ -1247,7 +1247,7 @@ private:
 class AIPressureBridgeTwoPointLinChan final : public Analog {
 public:
     explicit AIPressureBridgeTwoPointLinChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1287,7 +1287,7 @@ private:
 class AIPressureBridgeTableChan final : public Analog {
 public:
     explicit AIPressureBridgeTableChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1327,7 +1327,7 @@ private:
 class AIPressureBridgePolynomialChan final : public Analog {
 public:
     explicit AIPressureBridgePolynomialChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ): Analog(parser, name),
        bridge_config(parser),
@@ -1370,7 +1370,7 @@ private:
 class AIForceBridgePolynomialChan final : public Analog {
 public:
     explicit AIForceBridgePolynomialChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ): Analog(parser, name),
        bridge_config(parser),
@@ -1410,7 +1410,7 @@ private:
 class AIForceBridgeTableChan final : public Analog {
 public:
     explicit AIForceBridgeTableChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1450,7 +1450,7 @@ private:
 class AIForceBridgeTwoPointLinChan final : public Analog {
 public:
     explicit AIForceBridgeTwoPointLinChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1493,7 +1493,7 @@ private:
 class AIVelocityIEPEChan final : public Analog {
 public:
     explicit AIVelocityIEPEChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         sensitivity_units(
@@ -1543,7 +1543,7 @@ private:
 class AITorqueBridgeTwoPointLinChan final : public Analog {
 public:
     explicit AITorqueBridgeTwoPointLinChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1583,7 +1583,7 @@ private:
 class AITorqueBridgePolynomialChan final : public Analog {
 public:
     explicit AITorqueBridgePolynomialChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1623,7 +1623,7 @@ private:
 class AITorqueBridgeTableChan final : public Analog {
 public:
     explicit AITorqueBridgeTableChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         bridge_config(parser),
@@ -1663,7 +1663,7 @@ private:
 class AIForceIEPEChan final : public Analog {
 public:
     explicit AIForceIEPEChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         sensitivity_units(
@@ -1712,7 +1712,7 @@ private:
 class AIChargeChan final : public Analog {
 public:
     explicit AIChargeChan(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         terminal_config(
@@ -1753,7 +1753,7 @@ private:
 class VoltageOut final : public Analog {
 public:
     explicit VoltageOut(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name) {
     }
@@ -1782,7 +1782,7 @@ public:
 class CurrentOut final : public Analog {
 public:
     explicit CurrentOut(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name) {
     }
@@ -1808,7 +1808,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 class FunctionGeneratorOut final : public Analog {
 public:
-    int32_t get_type(const std::string &type, config::Parser &parser) {
+    int32_t get_type(const std::string &type, xjson::Parser &parser) {
         if (type == "Sine") return DAQmx_Val_Sine;
         if (type == "Triangle") return DAQmx_Val_Triangle;
         if (type == "Square") return DAQmx_Val_Square;
@@ -1822,7 +1822,7 @@ public:
 
 
     explicit FunctionGeneratorOut(
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) : Analog(parser, name),
         frequency(parser.required<double>("frequency")),
@@ -1857,7 +1857,7 @@ class AnalogOutputChannelFactory {
 public:
     static std::shared_ptr<Analog> create_channel(
         const std::string &channel_type,
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name
     ) {
         if (channel_type == "ao_current")
@@ -1876,7 +1876,7 @@ class AnalogInputChannelFactory {
 public:
     static std::shared_ptr<Analog> create_channel(
         const std::string &channel_type,
-        config::Parser &parser,
+        xjson::Parser &parser,
         const std::string &name,
         const std::map<int32_t, std::string> &port_to_channel = {}
     ) {

@@ -20,6 +20,7 @@ export const specZ = z.object({
   icon: z.unknown().optional(),
   editable: z.boolean().optional(),
   visible: z.boolean().optional(),
+  unsavedChanges: z.boolean().optional(),
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {

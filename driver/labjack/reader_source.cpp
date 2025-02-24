@@ -288,7 +288,7 @@ std::pair<Frame, xerrors::Error> labjack::ReaderSource::read_cmd_response(breake
     }
 
     for (auto index_key: this->reader_config.index_keys) {
-        auto t = telem::Series(telem::TIMESTAMP, 1);
+        auto t = telem::Series(telem::TIMESTAMP_T, 1);
         t.write(telem::TimeStamp::now().value);
         f.emplace(index_key, std::move(t));
     }
@@ -334,7 +334,7 @@ std::pair<Frame, xerrors::Error> labjack::ReaderSource::read_stream(breaker::Bre
     }
 
     for (auto index_key: this->reader_config.index_keys) {
-        auto t = telem::Series(telem::TIMESTAMP, SCANS_PER_READ);
+        auto t = telem::Series(telem::TIMESTAMP_T, SCANS_PER_READ);
         for (uint64_t i = 0; i < SCANS_PER_READ; i++) {
             t.write(d.t0 + incr * i);
         }
@@ -363,15 +363,15 @@ void labjack::ReaderSource::write_to_series(
     telem::Series &series,
     double &data,
     telem::DataType data_type) {
-    if (data_type == telem::FLOAT32) series.write(static_cast<float>(data));
-    else if (data_type == telem::FLOAT64) series.write(static_cast<double>(data));
-    else if (data_type == telem::SY_UINT8) series.write(static_cast<uint8_t>(data));
-    else if (data_type == telem::SY_UINT16) series.write(static_cast<uint16_t>(data));
-    else if (data_type == telem::INT16) series.write(static_cast<int16_t>(data));
-    else if (data_type == telem::UINT32) series.write(static_cast<uint32_t>(data));
-    else if (data_type == telem::INT32) series.write(static_cast<int32_t>(data));
-    else if (data_type == telem::UINT64) series.write(static_cast<uint64_t>(data));
-    else if (data_type == telem::INT64) series.write(static_cast<int64_t>(data));
+    if (data_type == telem::FLOAT32_T) series.write(static_cast<float>(data));
+    else if (data_type == telem::FLOAT64_T) series.write(static_cast<double>(data));
+    else if (data_type == telem::UINT8_T) series.write(static_cast<uint8_t>(data));
+    else if (data_type == telem::UINT16_T) series.write(static_cast<uint16_t>(data));
+    else if (data_type == telem::INT16_T) series.write(static_cast<int16_t>(data));
+    else if (data_type == telem::UINT32_T) series.write(static_cast<uint32_t>(data));
+    else if (data_type == telem::INT32_T) series.write(static_cast<int32_t>(data));
+    else if (data_type == telem::UINT64_T) series.write(static_cast<uint64_t>(data));
+    else if (data_type == telem::INT64_T) series.write(static_cast<int64_t>(data));
     else {
         LOG(ERROR) << "Unsupported data type: " << data_type.value;
     }

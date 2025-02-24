@@ -36,7 +36,7 @@ var (
 	DefaultReporterConfig = ReporterConfig{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
 	v := validate.New("alamos.ReporterConfig")
 	validate.NotNil(v, "Filter", r.Filter)
