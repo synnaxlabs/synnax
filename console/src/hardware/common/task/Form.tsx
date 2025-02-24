@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC } from "react";
+import { type FC, useRef } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -34,7 +34,7 @@ import {
   type WrapOptions,
 } from "@/hardware/common/task/Task";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { type BaseStateDetails, useState } from "@/hardware/common/task/useState";
+import { type StateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
 
 export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
@@ -44,7 +44,7 @@ export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
 
 export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
 > = { methods: PForm.ContextValue<Schema<Config>> } & (
   | {
@@ -70,7 +70,7 @@ export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
 
 export interface WrapFormOptions<
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends WrapOptions<Config, Details, Type> {
   type: Type;
@@ -81,7 +81,7 @@ const nameZ = z.string().min(1, "Name is required");
 
 export const wrapForm = <
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
 >(
   Properties: FC,
@@ -99,12 +99,13 @@ export const wrapForm = <
     task: tsk,
     configured,
   }: TaskProps<Config, Details, Type>) => {
+    console.log("Rendering Form.tsx");
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
-    const [state, setState] = useState(tsk.key, tsk.state ?? undefined);
+    const [state, setLoading] = useState(tsk.key, tsk.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
@@ -123,17 +124,13 @@ export const wrapForm = <
       mutationFn: async (command) => {
         console.log("executing start stop", command);
         if (!configured) throw new UnexpectedError("Task has not been configured");
-        setState("loading");
-        const rk = await client?.hardware.racks.retrieve("Node 1 Embedded Driver");
-        console.log(await rk?.listTasks());
-        console.log(task.getRackKey(tsk.key));
-        console.log(task.getRackKey(tsk.key));
+        setLoading();
         await tsk.executeCommand(command);
       },
       onError: (e, command) => handleException(e, `Failed to ${command} task`),
     });
     const isSnapshot = configured ? tsk.snapshot : false;
-    const isRunning = configured && !isSnapshot ? state.state === "running" : false;
+    const isRunning = configured && !isSnapshot ? state.status === "running" : false;
     const formProps = {
       methods,
       configured,
@@ -141,6 +138,11 @@ export const wrapForm = <
       isSnapshot,
       isRunning,
     } as FormProps<Config, Details, Type>;
+    const stateRef = useRef(state);
+    if (stateRef.current !== state) {
+      console.log("state changed", state, stateRef.current);
+      stateRef.current = state;
+    }
     return (
       <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
         <Align.Space grow>

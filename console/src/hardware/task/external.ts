@@ -12,6 +12,7 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { Sequence } from "@/hardware/task/sequence";
+import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -35,3 +36,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,
   ...Sequence.LAYOUTS,
 };
+
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];

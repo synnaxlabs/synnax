@@ -8,91 +8,85 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { type Form, Observe, Status, Synnax } from "@synnaxlabs/pluto";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useState as useReactState,
-} from "react";
+import { Observe, Status as PStatus, Synnax } from "@synnaxlabs/pluto";
+import { useCallback, useState as useReactState } from "react";
 
-export interface BaseStateDetails {
+export interface StateDetails {
   running: boolean;
   message?: string;
-  errors?: FieldError[];
 }
 
-export type State = "loading" | "running" | "paused";
+export type Status = "loading" | "running" | "paused";
 
-export interface ReturnState {
-  state: State;
+export interface State {
+  status: Status;
   message?: string;
-  variant?: Status.Variant;
+  variant?: PStatus.Variant;
 }
 
-interface FieldError {
-  path: string;
-  message: string;
-}
+/**
+ * Explicit return type for the useState hook.
+ * The tuple consists of:
+ *  - state: The current state of the task.
+ *  - triggerLoading: A function to set the state to "loading".
+ */
+export type useStateReturn = [state: State, triggerLoading: () => void];
 
-export const useState = <D extends BaseStateDetails>(
+/**
+ * useState takes in a task key and an optional initial state.
+ *
+ * @param key - The unique identifier for the task.
+ * @param initialState - The optional initial state of the task.
+ *
+ * @returns A tuple containing:
+ *   - state: The current state of the task, which includes:
+ *     - status: A string that can be "loading", "running", or "paused".
+ *     - message: An optional message string.
+ *     - variant: An optional variant of type PStatus.Variant.
+ *   - triggerLoading: A function to set the state to "loading".
+ */
+export const useState = <D extends StateDetails>(
   key: task.Key,
   initialState?: task.State<D>,
-  formMethods?: Form.ContextValue<any>,
-): [ReturnState, Dispatch<SetStateAction<State>>] => {
-  // isRunning tracks if the task is actually running, based off of the state observer
-  // on the driver.
-  const [isRunning, setIsRunning] = useReactState(
-    initialState?.details?.running ?? false,
-  );
-  const [state, setState] = useReactState<ReturnState>({
-    state: isRunning ? "running" : "paused",
+): useStateReturn => {
+  const [state, setState] = useReactState<State>({
+    status: initialState?.details?.running ? "running" : "paused",
     message: initialState?.details?.message,
-    variant: Status.variantZ.safeParse(initialState?.variant).data ?? undefined,
+    variant: parseVariant(initialState?.variant),
   });
   const client = Synnax.use();
+  const status = state.status;
   Observe.useListener({
-    key: [client?.key, key, setState],
+    key: [client?.key, key, status],
     open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: (rest) => {
-      console.log("commandObserver", rest);
-      const { task, type } = rest;
+    onChange: ({ task, type }) => {
       if (task !== key) return;
-      if (type === (isRunning ? "stop" : "start"))
-        setState((s) => ({ ...s, state: "loading" }));
+      if (status === "loading") return;
+      if (
+        (status === "running" && type === "stop") ||
+        (status === "paused" && type === "start")
+      )
+        setState(LOADING_STATE);
     },
   });
   Observe.useListener({
-    key: [client?.key, setIsRunning, setState, key],
-    open: async () => client?.hardware.tasks.openStateObserver<D>(),
+    key: [client?.key, key],
+    open: async () => client?.hardware.tasks.openStateObserver(),
     onChange: (state) => {
-      console.log("stateObserver", state);
       if (state.task !== key) return;
-      const { details, variant } = state;
-      const nowRunning = details?.running ?? false;
-      setIsRunning(nowRunning);
-      if (details?.errors != null && formMethods != null)
-        details.errors.forEach((e) =>
-          formMethods.setStatus(e.path, {
-            variant: "error",
-            message: e.message,
-          }),
-        );
+      const { details, variant } = state as task.State<D>;
       setState({
-        state: nowRunning ? "running" : "paused",
+        status: details?.running ? "running" : "paused",
         message: details?.message,
-        variant: (variant as Status.Variant) ?? undefined,
+        variant: parseVariant(variant),
       });
     },
   });
-  const setDesiredState: Dispatch<SetStateAction<State>> = useCallback(
-    (s) =>
-      setState(({ state, ...rest }) => ({
-        ...rest,
-        state: typeof s === "string" ? s : s(state),
-      })),
-    [setState],
-  );
-  console.log("useState", state, isRunning);
-  return [state, setDesiredState];
+  const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
+  return [state, triggerLoading];
 };
+
+const parseVariant = (variant?: string): PStatus.Variant | undefined =>
+  PStatus.variantZ.safeParse(variant).data ?? undefined;
+
+const LOADING_STATE: State = { status: "loading", variant: "loading" };

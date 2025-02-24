@@ -156,7 +156,7 @@ const Internal = ({
       }
       await create({ key: base.key, name, type: TYPE, config }, rack);
       methods.setCurrentStateAsInitialValues();
-      setState("paused");
+      setState();
     },
     onError: (e) => handleException(e, `Failed to configure ${base.name}`),
   });
@@ -164,21 +164,21 @@ const Internal = ({
   const startOrStopMutation = useMutation({
     mutationFn: async () => {
       if (!configured) throw new Error("Sequence has not been configured");
-      if (state.state === "loading")
+      if (state.status === "loading")
         throw new Error(
           "State is loading, should not be able to start or stop sequence",
         );
-      await base.executeCommand(state.state === "running" ? "stop" : "start");
+      await base.executeCommand(state.status === "running" ? "stop" : "start");
     },
     onError: (e) =>
       handleException(
         e,
-        `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
+        `Failed to ${state.status === "running" ? "stop" : state.status === "paused" ? "start" : "start or stop"} task`,
       ),
   });
   const isSnapshot = base?.snapshot ?? false;
 
-  const isLoading = state.state === "loading";
+  const isLoading = state.status === "loading";
   const isConfiguring = configureMutation.isPending;
   const isDisabled = isLoading || isConfiguring || isSnapshot;
 
@@ -299,7 +299,7 @@ const Internal = ({
               onClick={() => startOrStopMutation.mutate()}
               variant="outlined"
             >
-              {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
+              {state.status === "running" ? <Icon.Pause /> : <Icon.Play />}
             </Button.Icon>
           </Align.Space>
         </Align.Pack>

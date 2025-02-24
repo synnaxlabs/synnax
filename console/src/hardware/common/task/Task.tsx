@@ -83,6 +83,7 @@ export const wrap = <
   options: WrapOptions<Config, Details, Type>,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
+    console.log("Rendering Task.tsx");
     const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
     const client = Synnax.use();
     const { data, error, isError, isPending } = useQuery<

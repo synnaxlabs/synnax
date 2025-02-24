@@ -31,7 +31,7 @@ export const LINK_HANDLERS: Record<string, Link.Handler> = {
   [task.ONTOLOGY_TYPE]: Task.linkHandler,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Task.Toolbar];
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = Task.NAV_DRAWER_ITEMS;
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] =
   Device.NOTIFICATION_ADAPTERS;
