@@ -23,6 +23,7 @@ import { id } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type PropsWithChildren,
+  type ReactElement,
   useCallback,
 } from "react";
 import { useDispatch } from "react-redux";
@@ -32,7 +33,11 @@ import { addElement } from "@/schematic/slice";
 
 const LIST_DATA = Object.values(Schematic.SYMBOLS);
 
-export const Symbols = ({ layoutKey }: { layoutKey: string }) => {
+export interface SymbolsProps {
+  layoutKey: string;
+}
+
+export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
@@ -98,7 +103,7 @@ const SymbolsButton = ({
   el: { name, key, Preview, defaultProps },
   theme,
   ...rest
-}: SymbolsButtonProps) => {
+}: SymbolsButtonProps): ReactElement => {
   const { startDrag, ...dragProps } = Haul.useDrag({
     type: "Diagram-Elements",
     key: name,

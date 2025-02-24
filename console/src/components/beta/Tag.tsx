@@ -10,10 +10,11 @@
 import "@/components/beta/Tag.css";
 
 import { Tag as PTag, Text, Tooltip } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-export const Tag = () => (
+export const Tag = (): ReactElement => (
   <Tooltip.Dialog>
     <Text.Text level="small" shade={8} style={{ width: 100, whiteSpace: "wrap" }}>
       This feature is still in development and may not always work as expected.

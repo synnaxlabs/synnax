@@ -102,7 +102,7 @@ const canDrop: Haul.CanDrop = ({ items }) =>
 export const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
-export const useDropOutside = () => {
+export const useDropOutside = (): void => {
   const place = usePlacer();
   const dispatch = useDispatch();
   const handleDrop = useCallback(

@@ -14,7 +14,7 @@ import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { memo, useEffect } from "react";
+import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -28,7 +28,11 @@ interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
 }
 
-const NavTop = ({ title, showTitle = true, navTop }: NavTopProps) => {
+const NavTop = ({
+  title,
+  showTitle = true,
+  navTop,
+}: NavTopProps): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
   return !navTop ? null : (
@@ -72,13 +76,13 @@ const NavTop = ({ title, showTitle = true, navTop }: NavTopProps) => {
   );
 };
 
-export const DefaultContextMenu = () => (
+export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
     <Menu.HardReloadItem />
   </PMenu.Menu>
 );
 
-const WindowInternal = () => {
+const WindowInternal = (): ReactElement | null => {
   const currLabel = getCurrentWindow().label;
   const isMain = currLabel === MAIN_WINDOW;
   let win = useSelectWindowKey(currLabel) ?? "";

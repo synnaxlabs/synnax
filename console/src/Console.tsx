@@ -20,7 +20,7 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
@@ -49,7 +49,7 @@ import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
-const LAYOUT_RENDERERS = {
+const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
   ...Docs.LAYOUTS,
@@ -69,7 +69,7 @@ const LAYOUT_RENDERERS = {
   ...Workspace.LAYOUTS,
 };
 
-const CONTEXT_MENU_RENDERERS = {
+const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
   ...Schematic.CONTEXT_MENUS,
   ...LinePlot.CONTEXT_MENUS,
 };
@@ -108,7 +108,7 @@ const useColorContextState: state.PureUse<Color.ContextState> = () => {
   return [colorContext, onColorContextChange];
 };
 
-const useBlockDefaultDropBehavior = () =>
+const useBlockDefaultDropBehavior = (): void =>
   useEffect(() => {
     const doc = document.documentElement;
     doc.addEventListener("dragover", (e) => e.preventDefault());
@@ -119,7 +119,7 @@ const useBlockDefaultDropBehavior = () =>
     };
   }, []);
 
-const MainUnderContext = () => {
+const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
@@ -151,7 +151,7 @@ const MainUnderContext = () => {
   );
 };
 
-export const Console = () => (
+export const Console = (): ReactElement => (
   <Error.OverlayWithoutStore>
     <Provider store={store}>
       <Error.OverlayWithStore>

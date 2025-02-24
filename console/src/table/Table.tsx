@@ -30,7 +30,7 @@ import {
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
-import { memo, useCallback, useEffect, useRef } from "react";
+import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuid } from "uuid";
 
@@ -412,7 +412,7 @@ const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
   );
 };
 
-const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps) => {
+const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement => {
   const state = useSelectCell(tableKey, cellKey);
   const dispatch = useDispatch();
   const handleSelect = (
@@ -440,7 +440,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps) => {
 });
 Cell.displayName = "Cell";
 
-export const Table: Layout.Renderer = ({ layoutKey, ...rest }) => {
+export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
   const table = useLoadRemote({
     name: "Table",
     targetVersion: ZERO_STATE.version,

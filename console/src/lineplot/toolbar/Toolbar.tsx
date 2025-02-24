@@ -12,7 +12,7 @@ import "@/lineplot/toolbar/Toolbar.css";
 import { linePlot } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Tabs } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -46,7 +46,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps) => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();

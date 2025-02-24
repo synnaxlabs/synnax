@@ -11,17 +11,18 @@ import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 
 export interface DrawerProps {
   location: Layout.NavDrawerLocation;
 }
 
-export const Drawer = ({ location: loc }: DrawerProps) => {
-  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(loc, DRAWER_ITEMS);
+export const Drawer = ({ location: loc }: DrawerProps): ReactElement => {
+  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(loc, NAV_DRAWER_ITEMS);
   return (
     <Nav.Drawer
       location={loc}

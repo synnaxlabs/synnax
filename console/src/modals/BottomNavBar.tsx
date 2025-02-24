@@ -10,12 +10,16 @@
 import "@/modals/BottomNavBar.css";
 
 import { Nav } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
 export interface BottomNavBarProps extends Nav.BarProps {}
 
-export const BottomNavBar = ({ className, ...rest }: BottomNavBarProps) => (
+export const BottomNavBar = ({
+  className,
+  ...rest
+}: BottomNavBarProps): ReactElement => (
   <Nav.Bar
     location="bottom"
     size="8rem"

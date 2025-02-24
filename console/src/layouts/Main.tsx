@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Align } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
@@ -43,7 +43,7 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
-const NOTIFICATION_ADAPTERS = [
+const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,
   ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
@@ -60,7 +60,7 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   [workspace.ONTOLOGY_TYPE]: WorkspaceServices.handleLink,
 };
 
-const SideEffect = () => {
+const SideEffect = (): null => {
   const dispatch = useDispatch();
   useEffect(() => {
     dispatch(Layout.maybeCreateGetStartedTab());
@@ -83,7 +83,7 @@ export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigable as possible.
  */
-export const Main = () => (
+export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
     <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />

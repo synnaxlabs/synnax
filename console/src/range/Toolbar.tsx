@@ -29,7 +29,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -202,7 +202,7 @@ interface NoRangesProps {
   onLinkClick: (key?: string) => void;
 }
 
-const NoRanges = ({ onLinkClick }: NoRangesProps) => {
+const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
   const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
     e.stopPropagation();
     onLinkClick();
@@ -220,7 +220,7 @@ const NoRanges = ({ onLinkClick }: NoRangesProps) => {
   );
 };
 
-const List = () => {
+const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -388,7 +388,7 @@ const List = () => {
 
 interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
-const ListItem = (props: ListItemProps) => {
+const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -450,7 +450,7 @@ const ListItem = (props: ListItemProps) => {
   );
 };
 
-const Content = () => {
+const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>

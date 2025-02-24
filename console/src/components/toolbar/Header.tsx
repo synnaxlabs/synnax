@@ -10,12 +10,13 @@
 import "@/components/toolbar/Header.css";
 
 import { Header as PHeader } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
 export interface HeaderProps extends Omit<PHeader.HeaderProps, "level" | "divided"> {}
 
-export const Header = (props: HeaderProps) => (
+export const Header = (props: HeaderProps): ReactElement => (
   <PHeader.Header
     className={CSS.B("toolbar-header")}
     level="h5"

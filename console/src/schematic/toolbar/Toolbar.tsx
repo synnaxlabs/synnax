@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -37,7 +37,7 @@ const TABS = [
 
 interface NotEditableContentProps extends ToolbarProps {}
 
-const NotEditableContent = ({ layoutKey }: NotEditableContentProps) => {
+const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
   const hasEditingPermissions = useSelectHasPermission();
@@ -71,7 +71,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps) => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();

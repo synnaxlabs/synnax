@@ -10,10 +10,10 @@
 import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-export const HardReloadItem = () => {
+export const HardReloadItem = (): ReactElement => {
   const dispatch = useDispatch();
   const handleClick = useCallback(() => dispatch(reloadWindow({})), [dispatch]);
   return (

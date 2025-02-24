@@ -21,6 +21,7 @@ import {
   DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/AnalogWrite";
@@ -36,7 +37,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [DIGITAL_WRITE_TYPE]: DigitalWrite,
 };
 
-export const SELECTABLES = [
+export const SELECTABLES: Selector.Selectable[] = [
   ANALOG_READ_SELECTABLE,
   ANALOG_WRITE_SELECTABLE,
   DIGITAL_READ_SELECTABLE,

@@ -10,6 +10,7 @@
 import "@/layouts/nav/Nav.css";
 
 import { CSS as PCSS, Menu as PMenu, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -19,7 +20,7 @@ export interface MenuProps extends Omit<PMenu.MenuProps, "children"> {
   activeItem?: Layout.NavDrawerItem;
 }
 
-export const Menu = ({ children, activeItem, ...rest }: MenuProps) => (
+export const Menu = ({ children, activeItem, ...rest }: MenuProps): ReactElement => (
   <PMenu.Menu {...rest}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon

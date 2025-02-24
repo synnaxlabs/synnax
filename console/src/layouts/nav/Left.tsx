@@ -11,15 +11,19 @@ import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { Menu } from "@/layouts/nav/Menu";
 import { SIZES } from "@/layouts/nav/sizes";
 
-export const Left = () => {
-  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer("left", DRAWER_ITEMS);
+export const Left = (): ReactElement => {
+  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer(
+    "left",
+    NAV_DRAWER_ITEMS,
+  );
   const os = OS.use();
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="left" size={SIZES.side}>

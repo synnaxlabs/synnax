@@ -11,7 +11,7 @@ import "@/layouts/nav/Nav.css";
 
 import { Divider, Nav, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
@@ -33,7 +33,7 @@ interface PerformanceAPI {
   memory: MemoryInfo;
 }
 
-const MemoryBadge = () => {
+const MemoryBadge = (): ReactElement | null => {
   const [memory, setMemory] = useState<MemoryUsage>({
     used: Size.ZERO,
     total: Size.ZERO,
@@ -62,7 +62,7 @@ const MemoryBadge = () => {
   );
 };
 
-export const Bottom = () => (
+export const Bottom = (): ReactElement => (
   <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={SIZES.bottom}>
     <Nav.Bar.Start>
       <Vis.NavControls />

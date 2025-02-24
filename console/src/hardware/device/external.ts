@@ -10,14 +10,16 @@
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { type Layout } from "@/layout";
+import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/notifications";
 export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/useListenForChanges";
 
-export const COMMANDS = OPC.Device.COMMANDS;
+export const COMMANDS: Palette.Command[] = OPC.Device.COMMANDS;
 
-export const LAYOUTS = {
+export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,

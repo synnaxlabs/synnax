@@ -17,7 +17,7 @@ import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { useRemover } from "@/layout/useRemover";
 import { type RootState } from "@/store";
 
-export const useTriggers = () => {
+export const useTriggers = (): void => {
   const store = useStore<RootState>();
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();

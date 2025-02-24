@@ -11,7 +11,7 @@ import "@/layouts/nav/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
@@ -39,7 +39,7 @@ const DEFAULT_TRIGGER: Palette.TriggerConfig = {
   resource: [["Control", "P"]],
 };
 
-const COMMANDS = [
+const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...Docs.COMMANDS,
@@ -56,7 +56,7 @@ const COMMANDS = [
   ...WorkspaceServices.COMMANDS,
 ];
 
-const TopPalette = () => (
+const TopPalette = (): ReactElement => (
   <Palette.Palette
     commands={COMMANDS}
     commandSymbol=">"
@@ -65,7 +65,7 @@ const TopPalette = () => (
   />
 );
 
-export const Top = () => {
+export const Top = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const os = OS.use();
   const handleDocs = useCallback(() => {

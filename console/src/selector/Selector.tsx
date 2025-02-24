@@ -10,6 +10,7 @@
 import "@/selector/Selector.css";
 
 import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -32,7 +33,12 @@ export interface SelectorProps extends Layout.RendererProps {
   selectables: Selectable[];
 }
 
-export const Selector = ({ layoutKey, selectables, text, ...rest }: SelectorProps) => {
+export const Selector = ({
+  layoutKey,
+  selectables,
+  text,
+  ...rest
+}: SelectorProps): ReactElement => {
   const place = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleException = Status.useExceptionHandler();

@@ -108,7 +108,7 @@ const calculationStateZ = z.object({
 
 const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
-export const useListenForCalculationState = () => {
+export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();
@@ -170,7 +170,7 @@ interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
 
-const Internal = ({ onClose, initialValues }: InternalProps) => {
+const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
 
   const methods = Form.use<typeof schema>({

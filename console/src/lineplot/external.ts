@@ -10,6 +10,7 @@
 import { type Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { ContextMenu, LinePlot, SELECTABLE } from "@/lineplot/LinePlot";
+import { type Selector } from "@/selector";
 
 export * from "@/lineplot/export";
 export * from "@/lineplot/layout";
@@ -29,4 +30,4 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
 
-export const SELECTABLES = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

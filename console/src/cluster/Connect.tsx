@@ -49,7 +49,7 @@ const ZERO_VALUES: z.infer<typeof clusterZ> = {
  * Connect implements the LayoutRenderer component type to provide a form for connecting
  * to a cluster.
  */
-export const Connect = ({ onClose }: Layout.RendererProps) => {
+export const Connect: Layout.Renderer = ({ onClose }) => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);

@@ -39,7 +39,7 @@ import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { WorkspaceServices } from "@/workspace/services";
 
-const EmptyContent = () => (
+const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
     <Logo.Watermark />;
   </Eraser.Eraser>
@@ -49,7 +49,7 @@ const EMPTY_CONTENT = <EmptyContent />;
 
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
-const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps) => {
+const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
     return (
       <PMenu.Menu level="small" iconSpacing="small">
@@ -73,7 +73,7 @@ interface ModalContentProps extends Tabs.Tab {
   node: Portal.Node;
 }
 
-const ModalContent = ({ node, tabKey }: ModalContentProps) => {
+const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
   const dispatch = useDispatch();
   const layout = Layout.useSelectRequired(tabKey);
   const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
@@ -126,7 +126,7 @@ interface MosaicProps {
   mosaic: Core.Node;
 }
 
-export const Mosaic = memo(() => {
+export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
     <Internal windowKey={windowKey} mosaic={mosaic} />
@@ -273,36 +273,38 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-export const MosaicWindow = memo(({ layoutKey }: Layout.RendererProps) => {
-  const { menuItems, onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
-  const dispatch = useDispatch();
-  const [windowKey, mosaic] = Layout.useSelectMosaic();
-  useLayoutEffect(() => {
-    dispatch(
-      Layout.setNavDrawer({
-        windowKey: layoutKey,
-        location: "bottom",
-        menuItems: ["visualization"],
-        activeItem: "visualization",
-      }),
+export const MosaicWindow = memo<Layout.Renderer>(
+  ({ layoutKey }: Layout.RendererProps) => {
+    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", Nav.NAV_DRAWER_ITEMS);
+    const dispatch = useDispatch();
+    const [windowKey, mosaic] = Layout.useSelectMosaic();
+    useLayoutEffect(() => {
+      dispatch(
+        Layout.setNavDrawer({
+          windowKey: layoutKey,
+          location: "bottom",
+          menuItems: ["visualization"],
+          activeItem: "visualization",
+        }),
+      );
+    }, [layoutKey]);
+    return windowKey == null || mosaic == null ? null : (
+      <>
+        <Nav.Top />
+        <Internal windowKey={windowKey} mosaic={mosaic} />
+        <Nav.Drawer location="bottom" />
+        <PNav.Bar
+          className="console-main-nav"
+          location="bottom"
+          style={{ paddingRight: "1.5rem", zIndex: 8 }}
+          size="6rem"
+        >
+          <PNav.Bar.End>
+            <Nav.Menu onChange={onSelect}>{menuItems}</Nav.Menu>
+          </PNav.Bar.End>
+        </PNav.Bar>
+      </>
     );
-  }, [layoutKey]);
-  return windowKey == null || mosaic == null ? null : (
-    <>
-      <Nav.Top />
-      <Internal windowKey={windowKey} mosaic={mosaic} />
-      <Nav.Drawer location="bottom" />
-      <PNav.Bar
-        className="console-main-nav"
-        location="bottom"
-        style={{ paddingRight: "1.5rem", zIndex: 8 }}
-        size="6rem"
-      >
-        <PNav.Bar.End>
-          <Nav.Menu onChange={onSelect}>{menuItems}</Nav.Menu>
-        </PNav.Bar.End>
-      </PNav.Bar>
-    </>
-  );
-});
+  },
+);
 MosaicWindow.displayName = "MosaicWindow";

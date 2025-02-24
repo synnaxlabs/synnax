@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Align } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -25,7 +25,7 @@ const REGISTRY: Record<LayoutType, FC> = {
   [Table.LAYOUT_TYPE]: () => null,
 };
 
-export const NavControls = () => {
+export const NavControls = (): ReactElement | null => {
   const layout = Layout.useSelectActiveMosaicLayout();
   if (layout == null) return null;
   const Controls = REGISTRY[layout.type as LayoutType];

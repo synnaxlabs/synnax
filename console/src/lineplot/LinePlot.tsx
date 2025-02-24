@@ -35,7 +35,7 @@ import {
   unique,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -309,7 +309,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     layoutKey: string;
   }
 
-  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps) => {
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);

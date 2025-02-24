@@ -11,7 +11,7 @@ import "@/layout/Modals.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Beta } from "@/components";
 import { Content } from "@/layout/Content";
@@ -36,7 +36,7 @@ interface ModalProps {
   root?: string;
 }
 
-const Modal = ({ state, remove, centered, root }: ModalProps) => {
+const Modal = ({ state, remove, centered, root }: ModalProps): ReactElement => {
   const { key, name, window, icon } = state;
   const menuProps = Menu.useContextMenu();
   return (
@@ -72,7 +72,7 @@ const Modal = ({ state, remove, centered, root }: ModalProps) => {
   );
 };
 
-export const Modals = () => {
+export const Modals = (): ReactElement => {
   const layouts = useSelectModals();
   const remove = useRemover();
   return (

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Align } from "@synnaxlabs/pluto";
-import { type PropsWithChildren } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { BottomNavBar } from "@/modals/BottomNavBar";
 
@@ -16,7 +16,10 @@ export interface ModalContentLayoutProps extends PropsWithChildren {
   footer: React.ReactNode;
 }
 
-export const ModalContentLayout = ({ children, footer }: ModalContentLayoutProps) => (
+export const ModalContentLayout = ({
+  children,
+  footer,
+}: ModalContentLayoutProps): ReactElement => (
   <Align.Space direction="y" grow justify="center">
     <Align.Space
       direction="y"

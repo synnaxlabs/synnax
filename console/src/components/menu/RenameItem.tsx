@@ -9,8 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const RenameItem = () => (
+export const RenameItem = (): ReactElement => (
   <Menu.Item itemKey="rename" size="small" startIcon={<Icon.Rename />}>
     Rename
   </Menu.Item>

@@ -24,7 +24,14 @@ import {
   Tooltip,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { type FC, useCallback, useLayoutEffect, useMemo, useState } from "react";
+import {
+  type FC,
+  type ReactElement,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
@@ -58,7 +65,7 @@ export const Palette = ({
   services,
   triggers: triggerConfig,
   commandSymbol,
-}: PaletteProps) => {
+}: PaletteProps): ReactElement => {
   const dropdown = Dropdown.use();
 
   const [value, setValue] = useState("");
@@ -127,7 +134,11 @@ interface PaletteListProps {
   commandSelectionContext: CommandSelectionContext;
 }
 
-const PaletteList = ({ mode, services, commandSelectionContext }: PaletteListProps) => {
+const PaletteList = ({
+  mode,
+  services,
+  commandSelectionContext,
+}: PaletteListProps): ReactElement => {
   const item = useMemo(() => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(services)
@@ -155,7 +166,7 @@ const PaletteDialog = ({
   services,
   commandSymbol,
   close,
-}: PaletteDialogProps) => {
+}: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtils<Key, Entry>();
   const addStatus = Status.useAdder();
   const handleException = Status.useExceptionHandler();

@@ -9,8 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const DeleteItem = () => (
+export const DeleteItem = (): ReactElement => (
   <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
     Delete
   </Menu.Item>

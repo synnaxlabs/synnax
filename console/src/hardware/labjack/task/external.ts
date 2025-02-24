@@ -11,6 +11,7 @@ import { Read, READ_SELECTABLE } from "@/hardware/labjack/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/labjack/task/types";
 import { Write, WRITE_SELECTABLE } from "@/hardware/labjack/task/Write";
 import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/labjack/task/palette";
 export * from "@/hardware/labjack/task/Read";
@@ -24,4 +25,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [WRITE_TYPE]: Write,
 };
 
-export const SELECTABLES = [READ_SELECTABLE, WRITE_SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];

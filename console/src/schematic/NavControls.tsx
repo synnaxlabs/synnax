@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Viewport } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelectViewportMode } from "@/schematic/selectors";
 import { setViewportMode } from "@/schematic/slice";
 
-export const NavControls = () => {
+export const NavControls = (): ReactElement => {
   const mode = useSelectViewportMode();
   const dispatch = useDispatch();
 

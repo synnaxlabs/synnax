@@ -9,13 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Dialog, Label, Status, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { EDIT_LAYOUT } from "@/label/Edit";
 import { Layout } from "@/layout";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
 
-const useAdd = () => {
+const useAdd = (): (() => void) => {
   const placeLayout = Layout.usePlacer();
   const { close } = Dialog.useContext();
   return () => {
@@ -24,7 +25,7 @@ const useAdd = () => {
   };
 };
 
-const SelectEmptyContent = () => {
+const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
     <Align.Center style={{ height: 150 }} direction="y">

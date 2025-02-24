@@ -21,6 +21,7 @@ import {
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
@@ -50,7 +51,10 @@ const listColumns: Array<List.ColumnSpec<string, Range>> = [
   },
 ];
 
-const RenderTag = ({ entry, onClose }: Select.MultipleTagProps<string, Range>) => (
+const RenderTag = ({
+  entry,
+  onClose,
+}: Select.MultipleTagProps<string, Range>): ReactElement => (
   <Tag.Tag
     icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
     onClose={onClose}
@@ -63,7 +67,7 @@ const RenderTag = ({ entry, onClose }: Select.MultipleTagProps<string, Range>) =
 
 const renderTag = componentRenderProp(RenderTag);
 
-const SelectMultipleRanges = (props: SelectMultipleRangesProps) => (
+const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
   <Select.Multiple
     columns={listColumns}
     entryRenderKey="name"
@@ -74,7 +78,7 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps) => (
 
 interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 
-const SelectRange = (props: SelectSingleRangeProps) => (
+const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
   <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
 );
 
@@ -85,7 +89,7 @@ interface SelectMultipleInputItemProps
   onChange: (value: string[]) => void;
 }
 
-const SelectEmptyContent = () => {
+const SelectEmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} direction="x">
@@ -104,7 +108,7 @@ export const SelectMultipleInputItem = ({
   onChange,
   data,
   ...rest
-}: SelectMultipleInputItemProps) => (
+}: SelectMultipleInputItemProps): ReactElement => (
   <Input.Item direction="x" label="Ranges" {...rest}>
     <SelectMultipleRanges
       data={data}
@@ -125,7 +129,7 @@ export const SelectInputItem = ({
   onChange,
   data,
   ...rest
-}: SelectInputItemProps) => (
+}: SelectInputItemProps): ReactElement => (
   <Input.Item label="Range:" {...rest}>
     <SelectRange
       value={value}

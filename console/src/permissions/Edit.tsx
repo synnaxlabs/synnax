@@ -47,7 +47,7 @@ const initialPermissions = { schematic: false, admin: false, keys: {} };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
 
-export const Edit = (props: Layout.RendererProps) => {
+export const Edit: Layout.Renderer = (props) => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
   const handleException = Status.useExceptionHandler();

@@ -19,7 +19,11 @@ export interface CopyLinkToClipboardArgs {
   ontologyID: ontology.IDPayload;
 }
 
-export const useCopyLinkToClipboard = (): ((args: CopyLinkToClipboardArgs) => void) => {
+export interface CopyLinkToClipboard {
+  (args: CopyLinkToClipboardArgs): void;
+}
+
+export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
   const copyLink = Link.useCopyToClipboard();
   const clusterKey = useSelectActiveKey();
   const addStatus = Status.useAdder();

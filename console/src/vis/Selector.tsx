@@ -17,7 +17,7 @@ import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Table } from "@/table";
 
-const SELECTABLES = [
+const SELECTABLES: CoreSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -33,7 +33,7 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   name: "New Visualization",
 };
 
-export const getSelectables = (storeState: RootState) => {
+export const getSelectables = (storeState: RootState): CoreSelector.Selectable[] => {
   const canCreateSchematic = Schematic.selectHasPermission(storeState);
   return SELECTABLES.filter((s) =>
     s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,

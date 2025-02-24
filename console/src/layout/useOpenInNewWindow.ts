@@ -7,18 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { createMosaicWindow, moveMosaicTab } from "@/layout/slice";
 import { usePlacer } from "@/layout/usePlacer";
 
-export const useOpenInNewWindow = () => {
+interface OpenInNewWindow {
+  (layoutKey: string): void;
+}
+
+export const useOpenInNewWindow = (): OpenInNewWindow => {
   const dispatch = useDispatch();
   const place = usePlacer();
-  return (layoutKey: string) => {
-    const { key } = place(createMosaicWindow({}));
-    dispatch(
-      moveMosaicTab({ windowKey: key, key: 1, tabKey: layoutKey, loc: "center" }),
-    );
-  };
+  return useCallback(
+    (layoutKey) => {
+      const { key } = place(createMosaicWindow({}));
+      dispatch(
+        moveMosaicTab({ windowKey: key, key: 1, tabKey: layoutKey, loc: "center" }),
+      );
+    },
+    [dispatch, place],
+  );
 };

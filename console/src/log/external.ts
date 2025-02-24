@@ -9,6 +9,7 @@
 
 import { type Layout } from "@/layout";
 import { LAYOUT_TYPE, Log, SELECTABLE } from "@/log/Log";
+import { type Selector } from "@/selector";
 
 export * from "@/log/export";
 export * from "@/log/Log";
@@ -20,4 +21,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Log,
 };
 
-export const SELECTABLES = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

@@ -46,7 +46,7 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const Register = ({ onClose }: Layout.RendererProps) => {
+export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const handleException = Status.useExceptionHandler();

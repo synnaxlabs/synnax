@@ -25,7 +25,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -77,7 +77,7 @@ const parentRangeIcon = (
   </PIcon.Icon>
 );
 
-export const Create = (props: Layout.RendererProps) => {
+export const Create: Layout.Renderer = (props) => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
@@ -97,7 +97,10 @@ interface CreateLayoutFormProps extends Layout.RendererProps {
   onClose: () => void;
 }
 
-const CreateLayoutForm = ({ initialValues, onClose }: CreateLayoutFormProps) => {
+const CreateLayoutForm = ({
+  initialValues,
+  onClose,
+}: CreateLayoutFormProps): ReactElement => {
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const dispatch = useDispatch();
   const client = Synnax.use();

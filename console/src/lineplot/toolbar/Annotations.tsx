@@ -21,6 +21,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { bounds, id, type KeyedNamed } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -33,7 +34,7 @@ interface EmptyContentProps {
   onCreateRule: () => void;
 }
 
-const EmptyContent = ({ onCreateRule }: EmptyContentProps) => (
+const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   <Align.Center direction="x" size="small">
     <Status.Text level="p" variant="disabled" hideIcon>
       No annotations added.
@@ -48,7 +49,7 @@ interface ListItemProps extends PList.ItemProps<string, RuleState> {
   onChangeLabel: (label: string) => void;
 }
 
-const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps) => (
+const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElement => (
   <PList.ItemFrame
     entry={entry}
     {...rest}
@@ -83,7 +84,7 @@ const List = ({
   onCreate,
   onRemoveAnnotations,
   onLabelChange,
-}: ListProps) => {
+}: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   return (
     <Align.Space direction="x" empty style={{ width: "20%" }}>
@@ -155,7 +156,7 @@ const RuleContent = ({
   onChangeAxis,
   onChangeLineWidth,
   onChangeLineDash,
-}: RuleContentProps) => (
+}: RuleContentProps): ReactElement => (
   <Align.Space direction="y" grow style={{ padding: "1.5rem 2rem" }}>
     <Align.Space direction="x" wrap>
       <Input.Item label="Label" grow>
@@ -208,7 +209,7 @@ export interface AnnotationsProps {
   linePlotKey: string;
 }
 
-export const Annotations = ({ linePlotKey }: AnnotationsProps) => {
+export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => {
   const axes = useSelectAxes(linePlotKey);
   const rules = useSelectRules(linePlotKey);
   const theme = Layout.useSelectTheme();

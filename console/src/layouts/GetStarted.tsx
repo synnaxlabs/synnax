@@ -12,7 +12,7 @@ import "@/layouts/GetStarted.css";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Button, Eraser, Synnax, Text } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -21,12 +21,12 @@ import { Layout } from "@/layout";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-export const GetStarted = () => {
+export const GetStarted = (): ReactElement => {
   const client = Synnax.use();
   return client == null ? <NoCluster /> : <Overview />;
 };
 
-const NoCluster = () => {
+const NoCluster = (): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
@@ -88,7 +88,7 @@ const NoCluster = () => {
   );
 };
 
-const Overview = () => {
+const Overview = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const handleWorkspace = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     () => placeLayout(Workspace.CREATE_LAYOUT),

@@ -24,7 +24,7 @@ interface MenuItemProps {
   layoutKey: string;
 }
 
-const FocusMenuItem = ({ layoutKey }: MenuItemProps) => {
+const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   const dispatch = useDispatch();
   const windowKey = useSelectWindowKey() as string;
   return (
@@ -48,7 +48,7 @@ const useMoveIntoMainWindow = () => {
   };
 };
 
-const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
+const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
   const openInNewWindow = useOpenInNewWindow();
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
@@ -64,7 +64,9 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
   );
 };
 
-const MoveToMainWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
+const MoveToMainWindowMenuItem = ({
+  layoutKey,
+}: MenuItemProps): ReactElement | null => {
   const moveIntoMainWindow = useMoveIntoMainWindow();
   const windowKey = useSelectWindowKey();
   if (windowKey === MAIN_WINDOW) return null;
@@ -79,7 +81,7 @@ const MoveToMainWindowMenuItem = ({ layoutKey }: MenuItemProps) => {
   );
 };
 
-const CloseMenuItem = ({ layoutKey }: MenuItemProps) => {
+const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   const remove = useRemover();
   return (
     <Menu.Item
@@ -93,7 +95,7 @@ const CloseMenuItem = ({ layoutKey }: MenuItemProps) => {
   );
 };
 
-const RenameMenuItem = ({ layoutKey }: MenuItemProps) => (
+const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
   <Menu.Item
     itemKey="rename"
     startIcon={<Icon.Rename />}
@@ -142,7 +144,7 @@ export interface MenuItemsProps {
   layoutKey: string;
 }
 
-export const MenuItems = ({ layoutKey }: MenuItemsProps) => (
+export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
   <>
     <RenameMenuItem layoutKey={layoutKey} />
     <CloseMenuItem layoutKey={layoutKey} />

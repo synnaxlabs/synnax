@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Header, type Icon } from "@synnaxlabs/pluto";
-
+import { type ReactElement } from "react";
 export interface TitleProps extends Pick<Header.TitleProps, "children"> {
   icon: Icon.Element;
 }
 
-export const Title = ({ icon, children }: TitleProps) => (
+export const Title = ({ icon, children }: TitleProps): ReactElement => (
   <Header.Title shade={8} startIcon={icon} weight={500}>
     {children}
   </Header.Title>

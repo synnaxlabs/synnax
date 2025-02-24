@@ -30,7 +30,14 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -116,7 +123,7 @@ const SymbolRenderer = ({
   layoutKey,
   draggable,
   dispatch,
-}: SymbolRendererProps) => {
+}: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
   const key = props?.key;
   const handleChange = useCallback(

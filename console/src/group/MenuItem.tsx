@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { canGroupSelection } from "@/group/canGroupSelection";
 import { type Ontology } from "@/ontology";
@@ -17,7 +18,7 @@ export interface MenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];
 }
 
-export const MenuItem = ({ selection }: MenuItemProps) =>
+export const MenuItem = ({ selection }: MenuItemProps): ReactElement | null =>
   canGroupSelection(selection) ? (
     <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
       Group

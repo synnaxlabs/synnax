@@ -17,7 +17,11 @@ import { createNewID } from "@/group/createNewID";
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";
 import { type Ontology } from "@/ontology";
 
-export const useCreateFromSelection = () => {
+export interface CreateFromSelection {
+  (props: Ontology.TreeContextMenuProps): void;
+}
+
+export const useCreateFromSelection = (): CreateFromSelection => {
   const mut = useMutation<
     void,
     Error,
@@ -67,6 +71,5 @@ export const useCreateFromSelection = () => {
       handleException(e, "Failed to group resources");
     },
   });
-  return (props: Ontology.TreeContextMenuProps) =>
-    mut.mutate({ ...props, newID: createNewID() });
+  return (props) => mut.mutate({ ...props, newID: createNewID() });
 };

@@ -14,7 +14,7 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 
-export const SELECTABLES = [
+export const SELECTABLES: CoreSelector.Selectable[] = [
   ...NI.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,

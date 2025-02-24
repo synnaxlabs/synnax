@@ -10,23 +10,24 @@
 import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { Menu } from "@/layouts/nav/Menu";
 import { SIZES } from "@/layouts/nav/sizes";
 
-export const Right = () => {
+export const Right = (): ReactElement => {
   const { activeItem, menuItems, onSelect } = Layout.useNavDrawer(
     "right",
-    DRAWER_ITEMS,
+    NAV_DRAWER_ITEMS,
   );
   const {
     menuItems: bottomMenuItems,
     activeItem: bottomActiveItem,
     onSelect: onBottomSelect,
-  } = Layout.useNavDrawer("bottom", DRAWER_ITEMS);
+  } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">

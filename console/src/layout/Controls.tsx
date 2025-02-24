@@ -14,14 +14,14 @@ import {
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useRemover } from "@/layout/useRemover";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
-export const Controls = (props: ControlsProps) => {
+export const Controls = (props: ControlsProps): ReactElement | null => {
   const os = OS.use();
   const window = useSelectWindow();
   const dispatch = useDispatch();

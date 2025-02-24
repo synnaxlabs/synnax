@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
@@ -23,7 +23,7 @@ export const CopyLinkToolbarButton = ({
   name,
   ontologyID,
   ...rest
-}: CopyLinkToolbarButtonProps) => {
+}: CopyLinkToolbarButtonProps): ReactElement => {
   const copyLink = useCopyLinkToClipboard();
   const handleClick = useCallback(
     () => copyLink({ name, ontologyID }),

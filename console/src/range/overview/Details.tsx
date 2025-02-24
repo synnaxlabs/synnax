@@ -22,7 +22,7 @@ import {
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { type change, deep } from "@synnaxlabs/x";
-import { type FC, useEffect, useState } from "react";
+import { type FC, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -39,7 +39,9 @@ interface ParentRangeButtonProps {
   rangeKey: string;
 }
 
-const ParentRangeButton = ({ rangeKey }: ParentRangeButtonProps) => {
+const ParentRangeButton = ({
+  rangeKey,
+}: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ranger.Range | null>();
