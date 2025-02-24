@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Key, type Name, ONTOLOGY_TYPE } from "@/ontology/group/payload";
-import * as ontology from "@/ontology/payload";
+import { ID as OntologyID } from "@/ontology/payload";
 
 export class Group {
   key: Key;
@@ -19,10 +19,10 @@ export class Group {
     this.name = name;
   }
 
-  get ontologyID(): ontology.ID {
+  get ontologyID(): OntologyID {
     return ontologyID(this.key);
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): OntologyID =>
+  new OntologyID({ type: ONTOLOGY_TYPE, key });

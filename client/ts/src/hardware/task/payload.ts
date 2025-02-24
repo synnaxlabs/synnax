@@ -10,7 +10,7 @@
 import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import type * as rack from "@/hardware/rack/payload";
+import { type Key as RackKey } from "@/hardware/rack/payload";
 
 export const keyZ = z.union([
   z.string(),
@@ -93,4 +93,4 @@ export interface CommandObservable extends observe.ObservableAsyncCloseable<Comm
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const getRackKey = (key: Key): rack.Key => Number(BigInt(key) >> BigInt(32));
+export const getRackKey = (key: Key): RackKey => Number(BigInt(key) >> BigInt(32));
