@@ -145,6 +145,9 @@ public:
         const breaker::Config &breaker_config
     );
 
+    /// @brief returns the name of the task for logging.
+    std::string name() override { return this->task.name; }
+
     /// @brief main run loop that will execute in a separate thread.
     void run();
 

@@ -100,7 +100,7 @@ TEST_F(SetOperatorTest, Int32Value) {
 
 TEST_F(SetOperatorTest, Int64Value) {
     SetupChannel(telem::INT64_T);
-    RunTest<int64_t>("9223372036854775807", 9223372036854775807L);
+    RunTest<int64_t>("9223372036854775807", 9223372036854775807LL);
 }
 
 TEST_F(SetOperatorTest, Uint8NumberValue) {
@@ -136,6 +136,29 @@ TEST_F(SetOperatorTest, UInt32Value) {
 TEST_F(SetOperatorTest, StringValue) {
     SetupChannel(telem::STRING_T);
     RunStringTest("'hello'", "hello");
+}
+
+TEST_F(SetOperatorTest, StringTypeMismatch) {
+    SetupChannel(telem::STRING_T);
+    RunStringTest("123", "123.000000");
+}
+
+TEST_F(SetOperatorTest, Float32TypeMismatch) {
+    SetupChannel(telem::FLOAT32_T);
+    ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not a number')"), 0);
+    EXPECT_EQ(sink->writes->size(), 0);
+}
+
+TEST_F(SetOperatorTest, Int32TypeMismatch) {
+    SetupChannel(telem::INT32_T);
+    ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not an integer')"), 0);
+    EXPECT_EQ(sink->writes->size(), 0);
+}
+
+TEST_F(SetOperatorTest, BooleanTypeMismatch) {
+    SetupChannel(telem::UINT8_T);
+    ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not a boolean')"), 0);
+    EXPECT_EQ(sink->writes->size(), 0);
 }
 
 class SetOperatorWithIndexTest : public testing::Test {
