@@ -11,7 +11,7 @@ import { type change, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  ALLOW_ALL_ONTOLOGY_TYPE as POLICY_ALLOW_ALL_TYPE,
+  ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
@@ -46,7 +46,7 @@ export const NODE_TYPE = "node";
 export const resourceTypeZ = z.enum([
   LABEL_TYPE,
   LOG_TYPE,
-  POLICY_ALLOW_ALL_TYPE,
+  ALLOW_ALL_TYPE,
   BUILTIN_TYPE,
   CLUSTER_TYPE,
   CHANNEL_TYPE,
