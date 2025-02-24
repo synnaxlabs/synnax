@@ -10,7 +10,7 @@
 import "@/color/Picker.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type ComponentPropsWithoutRef, useCallback } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
 import { Align } from "@/align";
@@ -36,7 +36,7 @@ export const Picker = ({
   position,
   onDelete,
   ...rest
-}: PickerProps) => {
+}: PickerProps): ReactElement => {
   const updateFreq = useFrequentUpdater();
   const updateFreqDebounced = useDebouncedCallback(updateFreq, 1000, [updateFreq]);
 

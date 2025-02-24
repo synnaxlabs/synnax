@@ -9,7 +9,7 @@
 
 import "@/color/Swatch.css";
 
-import { useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { color } from "@/color/core";
@@ -35,7 +35,7 @@ export const BaseSwatch = ({
   draggable = true,
   style,
   ...rest
-}: BaseSwatchProps) => {
+}: BaseSwatchProps): ReactElement => {
   const background = Theming.use().colors.gray.l0;
   const clr = new color.Color(value);
   const dragging = Haul.useDraggingState();

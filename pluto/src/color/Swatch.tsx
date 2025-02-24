@@ -9,7 +9,7 @@
 
 import "@/color/Swatch.css";
 
-import { useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
@@ -34,7 +34,7 @@ export const Swatch = ({
   onClick,
   value,
   ...rest
-}: SwatchProps) => {
+}: SwatchProps): ReactElement => {
   const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(

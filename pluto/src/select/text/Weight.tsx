@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
+
 import { Button, type ButtonProps } from "@/select/Button";
 import { type text } from "@/text/core";
 
@@ -25,6 +27,6 @@ const WEIGHT_DATA: WeightEntry[] = [
 export interface WeightProps
   extends Omit<ButtonProps<text.Weight, WeightEntry>, "data" | "entryRenderKey"> {}
 
-export const Weight = (props: WeightProps) => (
+export const Weight = (props: WeightProps): ReactElement => (
   <Button {...props} data={WEIGHT_DATA} entryRenderKey="label" />
 );

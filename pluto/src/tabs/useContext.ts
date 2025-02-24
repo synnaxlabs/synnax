@@ -79,4 +79,4 @@ const Context = createContext<ContextValue>({ tabs: [] });
 export const Provider = Context;
 
 /** @returns The current value of the {@link Context} context. */
-export const useContext = () => use(Context);
+export const useContext = (): ContextValue => use(Context);

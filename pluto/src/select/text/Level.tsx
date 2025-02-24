@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
+
 import { Button, type ButtonProps } from "@/select/Button";
 import { type text } from "@/text/core";
 
@@ -26,6 +28,6 @@ const DATA: LevelEntry[] = [
   { key: "small", label: "XS" },
 ];
 
-export const Level = (props: LevelProps) => (
+export const Level = (props: LevelProps): ReactElement => (
   <Button {...props} data={DATA} entryRenderKey="label" />
 );
