@@ -36,15 +36,19 @@ static std::string next_scale_key() {
 struct Scale {
     virtual ~Scale() = default;
 
-    virtual std::pair<std::string, int32> apply(
-        const std::shared_ptr<DAQmx> &dmx
-    ) { return {"", 0}; }
+    virtual bool is_none() { return true; };
+
+    virtual std::pair<std::string, xerrors::Error> apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx
+    ) { return {"", xerrors::NIL}; }
 };
 
 struct BaseScale : Scale {
     std::string type;
     std::string pre_scaled_units;
     std::string scaled_units;
+
+    bool is_none() override { return false; };
 
     explicit BaseScale(xjson::Parser &cfg):
         type(cfg.required<std::string>("type")),
@@ -63,7 +67,8 @@ public:
         offset(cfg.required<double>("y_intercept")) {
     }
 
-    std::pair<std::string, int32> apply(const std::shared_ptr<DAQmx> &dmx) override {
+    std::pair<std::string, xerrors::Error> apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -90,7 +95,8 @@ public:
         scaled_max(cfg.required<double>("scaled_max")) {
     }
 
-    std::pair<std::string, int32> apply(const std::shared_ptr<DAQmx> &dmx) override {
+    std::pair<std::string, xerrors::Error> apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -142,7 +148,8 @@ public:
         for (int i = 0; i < num_coeffs; i++) forward_coeffs[i] = j["coeffs"][i];
     }
 
-    std::pair<std::string, int32> apply(const std::shared_ptr<DAQmx> &dmx) override {
+    std::pair<std::string, xerrors::Error> apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx) override {
         auto key = next_scale_key();
         dmx->CalculateReversePolyCoeff(
             this->forward_coeffs.data(),
@@ -170,6 +177,7 @@ public:
 
 class TableScale final : public BaseScale {
     std::vector<double> pre_scaled, scaled;
+
 public:
     explicit TableScale(xjson::Parser &cfg):
         BaseScale(cfg),
@@ -180,7 +188,8 @@ public:
                       "pre_scaled and scaled values must be the same size");
     }
 
-    std::pair<std::string, int32> apply(const std::shared_ptr<DAQmx> &dmx) override {
+    std::pair<std::string, xerrors::Error> apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx) override {
         auto key = next_scale_key();
         return {
             key,

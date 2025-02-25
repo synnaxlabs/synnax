@@ -2,10 +2,12 @@ cc_library(
     name = "daqmx",
     srcs = [
         "daqmx_prod.cpp",
+        "sugared.cpp",
     ],
     hdrs = [
         "daqmx.h",
         "daqmx_prod.h",
+        "sugared.h",
     ],
     visibility = ["//visibility:public"],
     deps = [

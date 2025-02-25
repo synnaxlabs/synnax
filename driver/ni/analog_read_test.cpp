@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "driver/ni/reader.h"
+#include "driver/ni/read_task.h"
 #include "glog/logging.h"
 #include "daqmx/daqmx_prod.h"
 

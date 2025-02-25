@@ -252,3 +252,60 @@ void ni::Scanner::log_err(std::string err_msg) {
     this->ok_state = false;
     LOG(ERROR) << "[ni.scanner] scanner in error state. Disabling.";
 }
+ni::ScannerTask::ScannerTask(
+    const std::shared_ptr<SysCfg> &syscfg,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) : breaker(breaker::default_config(task.name)),
+    scanner(syscfg, ctx, task),
+    ctx(ctx),
+    task(task) {
+    this->breaker.start();
+    thread = std::make_shared<std::thread>(&ni::ScannerTask::run, this);
+    this->scanner.set_scan_thread(thread);
+}
+
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScannerTask::configure(
+    const std::shared_ptr<SysCfg> &syscfg,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto parser = xjson::Parser(task.config);
+    bool enabled = parser.optional<bool>("enabled", true);
+
+    // if (!scanner.ok() || !enabled) {
+    //     ctx->set_state({
+    //         .task = task.key,
+    //         .variant = "error",
+    //         .details = {"message", "failed to initialize scanner"}
+    //     });
+    //     return;
+    // }
+
+    return {std::make_unique<ni::ScannerTask>(syscfg, ctx, task), xerrors::NIL};
+}
+
+void ni::ScannerTask::stop() {
+    this->breaker.stop();
+}
+
+void ni::ScannerTask::exec(task::Command &cmd) {
+    if (cmd.type == "scan") {
+        scanner.scan();
+        scanner.create_devices();
+    } else if (cmd.type == "stop") {
+        this->stop();
+        this->scanner.join_scan_thread();
+    } else {
+        LOG(ERROR) << "unknown command type: " << cmd.type;
+    }
+}
+
+void ni::ScannerTask::run() {
+    auto scan_cmd = task::Command{task.key, "scan", {}};
+    while (this->breaker.running()) {
+        this->breaker.wait_for(this->scan_rate.period().chrono());
+        this->exec(scan_cmd);
+    }
+    LOG(INFO) << "[ni.scanner] stopped scanning " << this->task.name;
+}

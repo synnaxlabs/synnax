@@ -18,12 +18,12 @@
 #include "driver/ni/daqmx/daqmx_prod.h"
 #include "driver/ni/syscfg/syscfg_prod.h"
 #include "driver/ni/ni.h"
-#include "driver/ni/writer.h"
-#include "driver/ni/reader.h"
+#include "driver/ni/write_task.h"
+#include "driver/ni/read_task.h"
 #include "driver/ni/scanner.h"
 
 ni::Factory::Factory(
-    const std::shared_ptr<DAQmx> &dmx,
+    const std::shared_ptr<SugaredDAQmx> &dmx,
     const std::shared_ptr<SysCfg> &syscfg
 ): dmx(dmx), syscfg(syscfg) {
 }
@@ -53,7 +53,7 @@ std::unique_ptr<ni::Factory> ni::Factory::create() {
     auto [dmx, dmx_err] = DAQmxProd::load();
     if (dmx_err)
         LOG(WARNING) << dmx_err;
-    return std::make_unique<ni::Factory>(dmx, syscfg);
+    return std::make_unique<ni::Factory>(std::make_shared<SugaredDAQmx>(dmx), syscfg);
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
@@ -61,13 +61,36 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const synnax::Task &task
 ) {
     if (!this->check_health(ctx, task)) return {nullptr, false};
+    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "ni_scanner")
-        return {ni::ScannerTask::configure(this->syscfg, ctx, task), true};
-    if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
-        return {ni::ReadTask::configure(this->dmx, ctx, task), true};
-    if (task.type == "ni_analog_write" || task.type == "ni_digital_write")
-        return {ni::WriteTask::configure(this->dmx, ctx, task), true};
-    return {nullptr, false};
+        res = ni::ScannerTask::configure(this->syscfg, ctx, task);
+    else if (task.type == "ni_analog_read")
+        res = configure_read<double, AnalogHardwareInterface>(dmx, ctx, task);
+    else if (task.type == "ni_digital_read")
+        res = configure_read<uint8_t, DigitalHardwareInterface>(dmx, ctx, task);
+    else if (task.type == "ni_analog_write")
+        res = ni::WriteTask<uint8_t>::configure(this->dmx, ctx, task);
+    else if (task.type == "ni_digital_write")
+        res = ni::WriteTask<double>::configure(this->dmx, ctx, task);
+    else return {nullptr, false};
+    auto [tsk, err] = std::move(res);
+    if (err)
+        ctx->set_state({
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", err.message()}
+            }
+        });
+    else
+        ctx->set_state({
+            .task = task.key,
+            .variant = "success",
+            .details = json{
+                {"message", "Task configured successfully"},
+            }
+        });
+    return {std::move(tsk), true};
 }
 
 

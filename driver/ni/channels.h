@@ -15,9 +15,10 @@
 
 /// module
 #include "x/cpp/xjson/xjson.h"
+#include "client/cpp/synnax.h"
 
 /// internal
-#include "driver/ni/daqmx/daqmx.h"
+#include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/scale.h"
 #include "driver/ni/util.h"
 
@@ -155,9 +156,7 @@ struct TableConfig {
 
     TableConfig() = default;
 
-    explicit TableConfig(xjson::Parser &cfg)
-        : num_electrical_vals(cfg.required<uint32_t>("num_electrical_vals")),
-          num_physical_vals(cfg.required<uint32_t>("num_physical_vals")) {
+    explicit TableConfig(xjson::Parser &cfg) {
         const auto eu = cfg.required<string>("electrical_units");
         const auto pu = cfg.required<string>("physical_units");
 
@@ -166,13 +165,15 @@ struct TableConfig {
 
         // TODO: figure out why using vector and .data() throws exception when passed to
         // NI function
-        electrical_vals = new double[num_electrical_vals];
         const auto ev = cfg.required_vec<double>("electrical_vals");
+        num_electrical_vals = ev.size();
+        electrical_vals = new double[num_electrical_vals];
         for (uint32_t i = 0; i < num_electrical_vals; i++)
             electrical_vals[i] = ev[i];
 
-        physical_vals = new double[num_physical_vals];
         const auto pv = cfg.required_vec<double>("physical_vals");
+        num_physical_vals = pv.size();
+        physical_vals = new double[num_physical_vals];
         for (uint32_t i = 0; i < num_physical_vals; i++)
             physical_vals[i] = pv[i];
     }
@@ -214,12 +215,12 @@ struct Chan {
 
     explicit Chan(xjson::Parser &cfg):
         enabled(cfg.optional<bool>("enabled", true)),
-        dev_key(cfg.required<std::string>("device")),
+        dev_key(cfg.optional<std::string>("device", "")),
         cfg_path(cfg.path_prefix) {
     }
 
-    virtual int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    virtual xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const = 0;
 };
@@ -231,6 +232,11 @@ struct InputChan : virtual Chan {
     explicit InputChan(xjson::Parser &cfg):
         Chan(cfg),
         synnax_key(cfg.required<synnax::ChannelKey>("channel")) {
+    }
+
+    void bind_remote_info(const synnax::Channel &ch, const std::string &dev) {
+        this->ch = ch;
+        this->dev = dev;
     }
 };
 
@@ -274,8 +280,8 @@ struct DIChan final : DigitalChan, InputChan {
         this->dev = dev;
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateDIChan(
@@ -296,8 +302,8 @@ struct DOChan final : DigitalChan, OutputChan {
         this->dev = dev;
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateDOChan(
@@ -338,24 +344,24 @@ struct AnalogChanCustomScale : virtual AnalogChan {
     explicit AnalogChanCustomScale(xjson::Parser &cfg):
         AnalogChan(cfg),
         scale(parse_scale(cfg, "custom_scale")) {
-        if (this->scale != nullptr) units = DAQmx_Val_FromCustomScale;
+        if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         auto [scale_key, err] = this->scale->apply(dmx);
         if (err) return err;
-        return this->bind(
+        return this->apply(
             dmx,
             task_handle,
             scale_key.empty() ? nullptr : scale_key.c_str()
         );
     }
 
-    virtual int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    virtual xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const = 0;
@@ -369,11 +375,6 @@ struct AIChan : virtual AnalogChan, InputChan {
 
     [[nodiscard]] std::string physical_channel() const {
         return this->dev + "/ai" + std::to_string(this->port);
-    }
-
-    void bind_remote_info(const synnax::Channel &ch, const std::string &dev) {
-        this->ch = ch;
-        this->dev = dev;
     }
 };
 
@@ -403,6 +404,8 @@ struct AOChanCustomScale : AOChan, AnalogChanCustomScale {
 };
 
 struct AIVoltageChan : AIChanCustomScale {
+    const int32_t terminal_config = 0;
+
     explicit AIVoltageChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -410,8 +413,8 @@ struct AIVoltageChan : AIChanCustomScale {
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -426,8 +429,6 @@ struct AIVoltageChan : AIChanCustomScale {
             scale_key
         );
     }
-
-    const int32_t terminal_config = 0;
 };
 
 struct AIVoltageRMSChan final : AIVoltageChan {
@@ -437,15 +438,15 @@ struct AIVoltageRMSChan final : AIVoltageChan {
         AIVoltageChan(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIVoltageRMSChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -469,15 +470,15 @@ struct AIVoltageWithExcitChan final : AIVoltageChan {
 
     ~AIVoltageWithExcitChan() override = default;
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIVoltageChanWithExcit(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -508,15 +509,15 @@ struct AICurrentChan : AIChanCustomScale {
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAICurrentChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -537,15 +538,15 @@ struct AICurrentRMSChan final : AICurrentChan {
                                                     AICurrentChan(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAICurrentRMSChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -557,11 +558,11 @@ struct AICurrentRMSChan final : AICurrentChan {
     }
 };
 
-class AIRTDChan final : public AIChan {
-    int32_t rtd_type;
-    int32_t resistance_config;
-    ExcitationConfig excitation_config;
-    double r0;
+struct AIRTDChan final : public AIChan {
+    const int32_t rtd_type;
+    const int32_t resistance_config;
+    const ExcitationConfig excitation_config;
+    const double r0;
 
     static int32_t get_rtd_type(const string &type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
@@ -587,14 +588,14 @@ public:
         r0(cfg.required<double>("r0")) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIRTDChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -651,14 +652,14 @@ public:
         else this->cjc_port = cjc_sources.at(cjc_port);
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmcplChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -677,8 +678,8 @@ struct AITempBuiltInChan final : public AIChan {
         AIChan(cfg) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         const auto i_name = this->dev + "/_boardTempSensor_vs_aignd";
@@ -710,14 +711,14 @@ public:
         c(cfg.required<double>("c")) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmstrChanIex(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -752,14 +753,14 @@ public:
         r1(cfg.required<double>("r1")) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmstrChanVex(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -791,15 +792,15 @@ struct AIAccelChan : public AIChanCustomScale {
         this->sensitivity_units = ni::UNITS_MAP.at(su);
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIAccelChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -820,15 +821,15 @@ struct AIAccel4WireDCVoltageChan final : public AIAccelChan {
         AIAccelChan(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIAccel4WireDCVoltageChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -857,15 +858,15 @@ public:
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIAccelChargeChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -890,15 +891,15 @@ public:
         excitation_config(cfg, CURR_EXCIT_PREFIX) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIResistanceChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -911,9 +912,9 @@ public:
 };
 
 class AIBridgeChan final : public AIChanCustomScale {
+public:
     BridgeConfig bridge_config;
 
-public:
     explicit AIBridgeChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -921,15 +922,15 @@ public:
         bridge_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIBridgeChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -942,16 +943,15 @@ public:
     }
 };
 
-class AIStrainGaugeChan final : public AIChanCustomScale {
-    int32_t strain_config;
-    ExcitationConfig excitation_config;
-    double gage_factor;
-    double initial_bridge_voltage;
-    double nominal_gage_resistance;
-    double poisson_ratio;
-    double lead_wire_resistance;
+struct AIStrainGaugeChan final : public AIChanCustomScale {
+    const int32_t strain_config;
+    const ExcitationConfig excitation_config;
+    const double gage_factor;
+    const double initial_bridge_voltage;
+    const double nominal_gage_resistance;
+    const double poisson_ratio;
+    const double lead_wire_resistance;
 
-public:
     static int32_t get_strain_config(const string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
@@ -976,15 +976,15 @@ public:
         lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIStrainGageChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1060,14 +1060,14 @@ public:
         lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIRosetteStrainGageChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->rosette_type,
@@ -1085,13 +1085,12 @@ public:
     }
 };
 
-class AIMicrophoneChan final : public AIChanCustomScale {
-    double mic_sensitivity;
-    double max_snd_press_level;
-    ExcitationConfig excitation_config;
-    int32 terminal_config = 0;
+struct AIMicrophoneChan final : AIChanCustomScale {
+    const double mic_sensitivity;
+    const double max_snd_press_level;
+    const ExcitationConfig excitation_config;
+    const int32 terminal_config = 0;
 
-public:
     explicit AIMicrophoneChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1102,15 +1101,15 @@ public:
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIMicrophoneChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->units,
             this->mic_sensitivity,
@@ -1135,8 +1134,8 @@ public:
         hysteresis(cfg.required<double>("hysteresis")) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1144,7 +1143,7 @@ public:
         return dmx->CreateAIFreqVoltageChan(
             task_handle,
             port.c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1155,8 +1154,10 @@ public:
     }
 };
 
-class AIPressureBridgeTwoPointLinChan final : public AIChanCustomScale {
-public:
+struct AIPressureBridgeTwoPointLinChan final : public AIChanCustomScale {
+    const BridgeConfig bridge_config;
+    const TwoPointLinConfig two_point_lin_config;
+
     explicit AIPressureBridgeTwoPointLinChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1165,15 +1166,15 @@ public:
         two_point_lin_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIPressureBridgeTwoPointLinChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1190,17 +1191,12 @@ public:
             scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
 };
 
-class AIPressureBridgeTableChan final : public AIChanCustomScale {
-    BridgeConfig bridge_config;
-    TableConfig table_config;
+struct AIPressureBridgeTableChan final : AIChanCustomScale {
+    const BridgeConfig bridge_config;
+    const TableConfig table_config;
 
-public:
     explicit AIPressureBridgeTableChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1209,15 +1205,15 @@ public:
         table_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIPressureBridgeTableChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1249,15 +1245,15 @@ public:
         polynomial_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIPressureBridgePolynomialChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1289,15 +1285,15 @@ public:
         polynomial_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIForceBridgePolynomialChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1316,11 +1312,10 @@ public:
     }
 };
 
-class AIForceBridgeTableChan final : public AIChanCustomScale {
+struct AIForceBridgeTableChan final : public AIChanCustomScale {
     BridgeConfig bridge_config;
     TableConfig table_config;
 
-public:
     explicit AIForceBridgeTableChan(xjson::Parser &cfg):
         AnalogChan(cfg),
         Chan(cfg),
@@ -1329,15 +1324,15 @@ public:
         table_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIForceBridgeTableChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1356,7 +1351,10 @@ public:
     }
 };
 
-struct AIForceBridgeTwoPointLinChan final : public AIChanCustomScale {
+struct AIForceBridgeTwoPointLinChan final : AIChanCustomScale {
+    BridgeConfig bridge_config;
+    TwoPointLinConfig two_point_lin_config;
+
     explicit AIForceBridgeTwoPointLinChan(xjson::Parser &cfg):
         AnalogChan(cfg),
         Chan(cfg),
@@ -1365,8 +1363,8 @@ struct AIForceBridgeTwoPointLinChan final : public AIChanCustomScale {
         two_point_lin_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
 
         const char *scale_key
@@ -1374,7 +1372,7 @@ struct AIForceBridgeTwoPointLinChan final : public AIChanCustomScale {
         return dmx->CreateAIForceBridgeTwoPointLinChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1391,24 +1389,20 @@ struct AIForceBridgeTwoPointLinChan final : public AIChanCustomScale {
             scale_key
         );
     }
-
-private:
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
 };
 
-class AIVelocityIEPEChan final : public AIChanCustomScale {
-    int32_t sensitivity_units;
-    double sensitivity;
-    ExcitationConfig excitation_config;
-    int32_t terminal_config = 0;
+struct AIVelocityIEPEChan final : public AIChanCustomScale {
+    const int32_t sensitivity_units;
+    const double sensitivity;
+    const ExcitationConfig excitation_config;
+    const int32_t terminal_config;
 
-public:
     explicit AIVelocityIEPEChan(xjson::Parser &cfg):
         AnalogChan(cfg),
         Chan(cfg),
         AIChanCustomScale(cfg),
-        sensitivity_units(ni::AIVelocityIEPEChan::parse_units(cfg, "sensitivity_units")),
+        sensitivity_units(
+            ni::AIVelocityIEPEChan::parse_units(cfg, "sensitivity_units")),
         sensitivity(
             cfg.required<double>(
                 "sensitivity")),
@@ -1418,15 +1412,15 @@ public:
             parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIVelocityIEPEChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -1440,11 +1434,10 @@ public:
     }
 };
 
-class AITorqueBridgeTwoPointLinChan final : public AIChanCustomScale {
-    BridgeConfig bridge_config;
-    TwoPointLinConfig two_point_lin_config;
+struct AITorqueBridgeTwoPointLinChan final : public AIChanCustomScale {
+    const BridgeConfig bridge_config;
+    const TwoPointLinConfig two_point_lin_config;
 
-public:
     explicit AITorqueBridgeTwoPointLinChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1453,15 +1446,15 @@ public:
         two_point_lin_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAITorqueBridgeTwoPointLinChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1493,15 +1486,15 @@ public:
         polynomial_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAITorqueBridgePolynomialChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1520,11 +1513,10 @@ public:
     }
 };
 
-class AITorqueBridgeTableChan final : public AIChanCustomScale {
+struct AITorqueBridgeTableChan final : public AIChanCustomScale {
     BridgeConfig bridge_config;
     TableConfig table_config;
 
-public:
     explicit AITorqueBridgeTableChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1533,15 +1525,15 @@ public:
         table_config(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAITorqueBridgeTableChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1560,8 +1552,12 @@ public:
     }
 };
 
-class AIForceIEPEChan final : public AIChanCustomScale {
-public:
+struct AIForceIEPEChan final : public AIChanCustomScale {
+    const int32_t sensitivity_units;
+    const double sensitivity;
+    const ExcitationConfig excitation_config;
+    const int32 terminal_config;
+
     explicit AIForceIEPEChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
@@ -1572,15 +1568,15 @@ public:
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAIForceIEPEChan(
             task_handle,
             this->physical_channel().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -1592,12 +1588,6 @@ public:
             scale_key
         );
     }
-
-private:
-    int32_t sensitivity_units;
-    double sensitivity;
-    ExcitationConfig excitation_config;
-    int32 terminal_config = 0;
 };
 
 class AIChargeChan final : public AIChanCustomScale {
@@ -1609,8 +1599,8 @@ public:
         terminal_config(parse_terminal_config(cfg)) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1630,22 +1620,22 @@ private:
     int32 terminal_config = 0;
 };
 
-struct AOVoltage final : AOChanCustomScale {
-    explicit AOVoltage(xjson::Parser &cfg):
+struct AOVoltageChan final : AOChanCustomScale {
+    explicit AOVoltageChan(xjson::Parser &cfg):
         AnalogChan(cfg),
         Chan(cfg),
         AOChanCustomScale(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAOVoltageChan(
             task_handle,
             this->loc().c_str(),
-            "", // name to assign to the virtual channel
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1661,15 +1651,15 @@ struct AOCurrent final : AOChanCustomScale {
         AOChanCustomScale(cfg) {
     }
 
-    int32 bind(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
         return dmx->CreateAOCurrentChan(
             task_handle,
             this->loc().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
@@ -1678,8 +1668,12 @@ struct AOCurrent final : AOChanCustomScale {
     }
 };
 
-class AOFunctionGenerator final : public AOChan {
-public:
+struct AOFunctionGeneratorChan final : AOChan {
+    const double frequency;
+    const double amplitude;
+    const double offset;
+    const int32 wave_type;
+
     int32_t static get_type(const string &type, const xjson::Parser &cfg) {
         if (type == "Sine") return DAQmx_Val_Sine;
         if (type == "Triangle") return DAQmx_Val_Triangle;
@@ -1690,7 +1684,7 @@ public:
     }
 
 
-    explicit AOFunctionGenerator(xjson::Parser &cfg) :
+    explicit AOFunctionGeneratorChan(xjson::Parser &cfg) :
         AnalogChan(cfg),
         Chan(cfg),
         AOChan(cfg),
@@ -1700,26 +1694,20 @@ public:
         wave_type(get_type(cfg.required<string>("wave_type"), cfg)) {
     }
 
-    int32 bind_task(
-        const std::shared_ptr<DAQmx> &dmx,
+    xerrors::Error apply(
+        const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAOFuncGenChan(
             task_handle,
             this->loc().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->wave_type,
             this->frequency,
             this->amplitude,
             this->offset
         );
     }
-
-private:
-    double frequency;
-    double amplitude;
-    double offset;
-    int32 wave_type;
 };
 
 using AIChanFactory = std::function<std::unique_ptr<AIChan>(
@@ -1739,8 +1727,8 @@ using AOChanFactory = std::function<std::unique_ptr<AOChan>(xjson::Parser &cfg)>
 
 static const std::map<string, AOChanFactory> AO_CHANS = {
     AO_CHAN_FACTORY("ao_current", AOCurrent),
-    AO_CHAN_FACTORY("ao_voltage", AOVoltage),
-    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator)
+    AO_CHAN_FACTORY("ao_voltage", AOVoltageChan),
+    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGeneratorChan)
 };
 
 static const std::map<string, AIChanFactory> AI_CHANS = {
@@ -1770,7 +1758,7 @@ static const std::map<string, AIChanFactory> AI_CHANS = {
     AI_CHAN_FACTORY("ai_voltage", AIVoltageChan)
 };
 
-inline std::unique_ptr<AIChan> parse_ai_chan(
+inline std::unique_ptr<InputChan> parse_input_chan(
     xjson::Parser &cfg,
     const std::map<int32_t, string> &port_to_channel
 ) {
@@ -1780,7 +1768,7 @@ inline std::unique_ptr<AIChan> parse_ai_chan(
     return AI_CHANS.at(type)(cfg, port_to_channel);
 }
 
-inline std::unique_ptr<OutputChan> parse_ao_chan(xjson::Parser &cfg) {
+inline std::unique_ptr<OutputChan> parse_output_chan(xjson::Parser &cfg) {
     const auto type = cfg.required<string>("type");
     if (AO_CHANS.count(type) == 0)
         cfg.field_err("type", "invalid analog output channel type: " + type);

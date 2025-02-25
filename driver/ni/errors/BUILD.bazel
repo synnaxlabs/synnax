@@ -1,0 +1,10 @@
+cc_library(
+    name = "errors",
+    hdrs = [
+        "errors.h",
+        "fields.h",
+    ],
+    deps = [
+        "//x/cpp/xerrors",
+    ],
+)

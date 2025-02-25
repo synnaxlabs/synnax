@@ -84,7 +84,7 @@ public:
 
     void exec(task::Command &cmd) override;
 
-    static std::unique_ptr<task::Task> configure(
+    static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
         const std::shared_ptr<SysCfg> &syscfg,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task

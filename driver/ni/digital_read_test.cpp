@@ -12,7 +12,7 @@
 
 #include "client/cpp/synnax.h"
 #include "driver/ni/ni.h"
-#include "driver/ni/reader.h"
+#include "driver/ni/read_task.h"
 #include "driver/testutil/testutil.h"
 
 #include <gtest/gtest.h>
