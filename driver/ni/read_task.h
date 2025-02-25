@@ -54,18 +54,7 @@ struct ReadTaskConfig {
     std::vector<std::unique_ptr<InputChan> > channels;
 
     /// @brief Move constructor to allow transfer of ownership
-    ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
-        device_key(std::move(other.device_key)),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
-        timing_source(std::move(other.timing_source)),
-        samples_per_channel(other.samples_per_channel),
-        software_timed(other.software_timed),
-        buffer_size(other.buffer_size),
-        indexes(std::move(other.indexes)),
-        channels(std::move(other.channels)) {
-    }
+    ReadTaskConfig(ReadTaskConfig &&other) noexcept;
 
     /// @brief delete copy constructor and copy assignment to prevent accidental copies.
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -76,94 +65,19 @@ struct ReadTaskConfig {
         std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg,
         std::string task_type
-    ):
-        data_saving(cfg.optional<bool>("data_saving", false)),
-        device_key(cfg.optional<std::string>("device", "cross-device")),
-        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
-        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
-        timing_source(cfg.optional<std::string>("timing_source", "none")),
-        samples_per_channel(std::floor(sample_rate.value / stream_rate.value)),
-        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
-        channels(cfg.map<std::unique_ptr<InputChan> >(
-            "channels",
-            [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<InputChan>, bool> {
-                auto ch = parse_input_chan(ch_cfg, {});
-                return {std::move(ch), ch->enabled};
-            }
-        )) {
-        if (this->channels.empty()) {
-            cfg.field_err("channels", "task must have at least one channel");
-            return;
-        }
-        std::vector<synnax::ChannelKey> channel_keys;
-        for (const auto &ch: this->channels) channel_keys.push_back(ch->synnax_key);
-        auto [channel_vec, err] = client->channels.retrieve(channel_keys);
-        if (err) {
-            cfg.field_err("", "failed to retrieve channels for task");
-            return;
-        }
-        auto remote_channels = channel_keys_map(channel_vec);
-        if (this->device_key != "cross-device") {
-            auto [device, err] = client->hardware.retrieve_device(this->device_key);
-            if (err) {
-                cfg.field_err("", "failed to retrieve device for task");
-                return;
-            }
-        }
-        std::vector<std::string> dev_keys;
-        for (const auto &ch: this->channels) dev_keys.push_back(ch->dev_key);
-        auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
-        if (dev_err) {
-            cfg.field_err("", "failed to retrieve devices for task");
-            return;
-        }
-        auto devices = device_keys_map(devices_vec);
-        for (auto &ch: this->channels) {
-            auto remote_ch = remote_channels.at(ch->synnax_key);
-            auto dev = devices[ch->dev_key];
-            ch->bind_remote_info(remote_ch, dev.location);
-            this->buffer_size += this->samples_per_channel * remote_ch.data_type.
-                    density();
-            if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
-        }
-    }
+    );
 
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
         std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task
-    ) {
-        auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser, task.type), parser.error()};
-    }
+    );
 
     xerrors::Error apply(
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle handle
-    ) const {
-        if (!this->software_timed)
-            dmx->CfgSampClkTiming(
-                handle,
-                this->timing_source == "none" ? nullptr : this->timing_source.c_str(),
-                this->sample_rate.value,
-                DAQmx_Val_Rising,
-                DAQmx_Val_ContSamps,
-                this->sample_rate.value
-            );
-        for (const auto &ch: this->channels)
-            if (auto err = ch->apply(dmx, handle)) return err;
-        return xerrors::NIL;
-    }
+    ) const;
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
-        keys.reserve(this->channels.size() + this->indexes.size());
-        for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
-        for (const auto &idx: this->indexes) keys.push_back(idx);
-        return synnax::WriterConfig{
-            .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving)
-        };
-    }
+    [[nodiscard]] synnax::WriterConfig writer_config() const;
 };
 
 /// @brief a thing shim on top of NI DAQMX that allows us to use different read
@@ -180,11 +94,7 @@ struct HardwareInterface {
     virtual xerrors::Error stop() const = 0;
 
     /// @brief reads data from the hardware.
-    virtual xerrors::Error read(
-        size_t samples_per_channel,
-        std::vector<T> &data,
-        size_t data_size
-    ) = 0;
+    virtual xerrors::Error read(size_t samples_per_channel, std::vector<T> &data) = 0;
 };
 
 /// @brief a base implementation of the hardware interface that uses the NI DAQMX
@@ -197,18 +107,12 @@ protected:
     /// @brief the NI DAQmx API.
     std::shared_ptr<SugaredDAQmx> dmx;
 
-    DAQmxHardwareInterface(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx):
-        task_handle(task_handle), dmx(std::move(dmx)) {
-    }
+    DAQmxHardwareInterface(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx);
 
 public:
-    xerrors::Error start() const override {
-        return this->dmx->StartTask(task_handle);
-    }
+    xerrors::Error start() const override;
 
-    xerrors::Error stop() const override {
-        return this->dmx->StopTask(task_handle);
-    }
+    xerrors::Error stop() const override;
 };
 
 /// @brief a hardware interface for digital tasks.
@@ -219,23 +123,8 @@ struct DigitalHardwareInterface final : DAQmxHardwareInterface<uint8_t> {
     ): DAQmxHardwareInterface(task_handle, dmx) {
     }
 
-    xerrors::Error read(
-        const size_t samples_per_channel,
-        std::vector<uint8_t> &digital_data,
-        size_t digital_data_size
-    ) override {
-        return this->dmx->ReadDigitalLines(
-            this->task_handle,
-            samples_per_channel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            digital_data.data(),
-            digital_data.size(),
-            nullptr,
-            nullptr,
-            nullptr
-        );
-    }
+    xerrors::Error
+    read(size_t samples_per_channel, std::vector<uint8_t> &digital_data) override;
 };
 
 /// @brief a hardware interface for analog tasks.
@@ -246,22 +135,8 @@ struct AnalogHardwareInterface final : DAQmxHardwareInterface<double> {
     ): DAQmxHardwareInterface(task_handle, dmx) {
     }
 
-    xerrors::Error read(
-        const size_t samples_per_channel,
-        std::vector<double> &analog_data,
-        size_t analog_data_size
-    ) override {
-        return this->dmx->ReadAnalogF64(
-            this->task_handle,
-            samples_per_channel,
-            -1,
-            DAQmx_Val_GroupByChannel,
-            analog_data.data(),
-            analog_data.size(),
-            nullptr,
-            nullptr
-        );
-    }
+    xerrors::Error
+    read(size_t samples_per_channel, std::vector<double> &data) override;
 };
 
 /// @brief a read task that can pull from both analog and digital channels.
@@ -285,41 +160,15 @@ public:
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<HardwareInterface<T> > hw_api
-    ): task(std::move(task)),
-       cfg(std::move(cfg)),
-       ctx(ctx),
-       tare_mw(std::make_shared<pipeline::TareMiddleware>(
-           this->cfg.writer_config().channels)),
-       source(std::make_shared<Source>(*this, std::move(hw_api))),
-       pipe(
-           this->ctx->client,
-           this->cfg.writer_config(),
-           this->source,
-           breaker_cfg
-       ) {
-        this->pipe.add_middleware(this->tare_mw);
-    }
+    );
 
-    void exec(task::Command &cmd) override {
-        if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key);
-        else if (cmd.type == "tare") this->tare_mw->tare(cmd.args);
-    }
+    void exec(task::Command &cmd) override;
 
-    void stop() override { this->stop(""); }
+    void stop() override;
 
-    void stop(const std::string &cmd_key) {
-        this->state.key = cmd_key;
-        this->source->breaker.stop();
-        this->source->sample_thread.join();
-        this->pipe.stop();
-        this->ctx->set_state(this->state);
-    }
+    void stop(const std::string &cmd_key);
 
-    void start(const std::string &cmd_key) {
-        this->state.key = cmd_key;
-        this->pipe.start();
-    }
+    void start(const std::string &cmd_key);
 
     class Source final : public pipeline::Source {
     public:

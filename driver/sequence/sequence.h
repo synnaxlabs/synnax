@@ -61,8 +61,8 @@ struct TaskConfig {
         // this comment keeps the formatter happy
         rate(telem::Rate(parser.required<float>("rate"))),
         script(parser.required<std::string>("script")),
-        read(parser.required_vector<synnax::ChannelKey>("read")),
-        write(parser.required_vector<synnax::ChannelKey>("write")),
+        read(parser.required_vec<synnax::ChannelKey>("read")),
+        write(parser.required_vec<synnax::ChannelKey>("write")),
         globals(parser.optional<json>("globals", json::object())),
         authority(parser.optional<telem::Authority>("authority", 150)) {
     }

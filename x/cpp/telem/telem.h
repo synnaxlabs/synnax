@@ -60,6 +60,29 @@ using SampleValue = std::variant<
     uint8_t, // UINT8
     std::string // STRING
 >;
+
+using NumericSampleValue = std::variant<
+    double, // FLOAT64
+    float, // FLOAT32
+    int64_t, // INT64
+    int32_t, // INT32
+    int16_t, // INT16
+    int8_t, // INT8
+    uint64_t, // UINT64
+    uint32_t, // UINT32
+    uint16_t, // UINT16
+    uint8_t // UINT8
+>;
+
+template<typename T>
+[[nodiscard]] T cast_numeric_sample_value(const NumericSampleValue value) {
+    if (std::holds_alternative<T>(value))
+        return std::get<T>(value);
+    return std::visit([](auto &&arg) -> T {
+        return static_cast<T>(arg);
+    }, value);
+}
+
 constexpr size_t FLOAT64_INDEX = 0;
 constexpr size_t FLOAT32_INDEX = 1;
 constexpr size_t INT64_INDEX = 2;
@@ -96,7 +119,8 @@ public:
         if (dt != DataType("")) return dt;
         const auto type_index = std::type_index(typeid(T));
         if (!TYPE_INDEXES.count(type_index))
-            throw std::runtime_error("failed to infer data type for " + std::string(typeid(T).name()));
+            throw std::runtime_error(
+                "failed to infer data type for " + std::string(typeid(T).name()));
         return DataType(TYPE_INDEXES[type_index]);
     }
 
@@ -135,6 +159,24 @@ public:
         return false;
     }
 
+    /// @brief Casts a numeric sample value to the type corresponding to this data type
+    /// @param value The numeric sample value to cast
+    /// @returns A new numeric sample value of the appropriate type
+    /// @throws std::runtime_error if the data type is not numeric
+    [[nodiscard]] NumericSampleValue cast(const NumericSampleValue& value) const {
+        if (this->value == "float64") return cast_numeric_sample_value<double>(value);
+        if (this->value == "float32") return cast_numeric_sample_value<float>(value);
+        if (this->value == "int64") return cast_numeric_sample_value<int64_t>(value);
+        if (this->value == "int32") return cast_numeric_sample_value<int32_t>(value);
+        if (this->value == "int16") return cast_numeric_sample_value<int16_t>(value);
+        if (this->value == "int8") return cast_numeric_sample_value<int8_t>(value);
+        if (this->value == "uint64") return cast_numeric_sample_value<uint64_t>(value);
+        if (this->value == "uint32") return cast_numeric_sample_value<uint32_t>(value);
+        if (this->value == "uint16") return cast_numeric_sample_value<uint16_t>(value);
+        if (this->value == "uint8") return cast_numeric_sample_value<uint8_t>(value);
+        throw std::runtime_error("Cannot cast non-numeric data type: " + this->value);
+    }
+
     /////////////////////////////////// COMPARISON ///////////////////////////////////
 
     bool operator==(const DataType &other) const { return value == other.value; }
@@ -143,7 +185,7 @@ public:
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
-    friend std::ostream& operator<<(std::ostream& os, const DataType& dt) {
+    friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {
         os << dt.value;
         return os;
     }
@@ -190,7 +232,10 @@ private:
         {std::type_index(typeid(std::uint16_t)), "uint16"},
         {std::type_index(typeid(unsigned int)), "uint32"},
         {std::type_index(typeid(std::uint32_t)), "uint32"},
-        {std::type_index(typeid(unsigned long)), sizeof(unsigned long) == 8 ? "uint64" : "uint32"},
+        {
+            std::type_index(typeid(unsigned long)),
+            sizeof(unsigned long) == 8 ? "uint64" : "uint32"
+        },
         {std::type_index(typeid(unsigned long long)), "uint64"},
         {std::type_index(typeid(std::uint64_t)), "uint64"},
         {std::type_index(typeid(std::string)), "string"},

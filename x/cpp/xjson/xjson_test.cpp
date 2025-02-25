@@ -308,7 +308,7 @@ TEST(testConfig, testArray) {
         {"array", {1, 2, 3, 4, 5}}
     };
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    auto values = parser.required_vec<int>("array");
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
     ASSERT_EQ(values[0], 1);
@@ -321,7 +321,7 @@ TEST(testConfig, testArray) {
 TEST(testConfig, testArrayDoesNotExist) {
     json j = {};
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    auto values = parser.required_vec<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -334,7 +334,7 @@ TEST(testConfig, testArrayIsNotArray) {
         {"array", 1}
     };
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    auto values = parser.required_vec<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);

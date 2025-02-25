@@ -29,19 +29,16 @@ namespace xjson {
 class Parser {
     /// @brief the JSON configuration being parsed.
     json config;
-    /// @brief used for tracking the path of a child parser.
-    std::string path_prefix;
     /// @brief noop means the parser should fail fast.
     bool noop = false;
-
 
     Parser(
         json config,
         std::shared_ptr<std::vector<json> > errors,
         std::string path_prefix
-    ) : errors(std::move(errors)),
-        config(std::move(config)),
-        path_prefix(std::move(path_prefix)) {
+    ) : config(std::move(config)),
+        path_prefix(std::move(path_prefix)),
+        errors(std::move(errors)) {
     }
 
     template<typename T>
@@ -65,6 +62,8 @@ class Parser {
         }
     }
 public:
+    /// @brief used for tracking the path of a child parser.
+    const std::string path_prefix;
     /// @brief the current list of accumulated errors.
     std::shared_ptr<std::vector<json> > errors;
 
@@ -122,7 +121,7 @@ public:
     /// accumulates an error in the builder.
     /// @param path The JSON path to the vector.
     template<typename T>
-    std::vector<T> required_vector(const std::string &path) {
+    std::vector<T> required_vec(const std::string &path) {
         if (noop) return std::vector<T>();
         const auto iter = config.find(path);
         if (iter == config.end()) {
@@ -227,6 +226,40 @@ public:
             Parser childParser((*iter)[i], errors, child_path);
             func(childParser);
         }
+    }
+
+    /// @brief Maps over an array at the given path, executing a function for each element
+    /// and collecting the results into a vector.
+    /// If the path does not point to an array, logs an error and returns an empty vector.
+    /// @param path The JSON path to the array.
+    /// @param func The function to execute for each element of the array. It should take a
+    /// Parser as its argument and return a value of type T.
+    /// @return A vector containing the results of applying func to each element.
+    template<typename T>
+    [[nodiscard]] std::vector<T> map(
+        const std::string &path,
+        const std::function<std::pair<T, bool>(Parser &)> &func
+    ) const {
+        if (noop) return {};
+        const auto iter = config.find(path);
+        if (iter == config.end()) {
+            field_err(path, "This field is required");
+            return {};
+        }
+        if (!iter->is_array()) {
+            field_err(path, "Expected an array");
+            return {};
+        }
+        std::vector<T> results;
+        results.reserve(iter->size());
+        for (size_t i = 0; i < iter->size(); ++i) {
+            const auto child_path =
+                    path_prefix + path + "." + std::to_string(i) + ".";
+            Parser childParser((*iter)[i], errors, child_path);
+            auto [res, ok] = func(childParser);
+            if (ok) results.push_back(std::move(res));
+        }
+        return results;
     }
 
     /// @brief binds a new error to the field at the given path.

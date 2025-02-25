@@ -27,7 +27,7 @@ const std::string TYPE_UNKNOWN = "unknown";
 class Error {
 public:
     /// @brief defines the general class that this particular error belongs to. Typically
-    /// used to identify handling logic for errrors (especially ones transported over
+    /// used to identify handling logic for errors (especially ones transported over
     /// the network).
     std::string type;
     /// @brief data related to the error. This is typically a message, but can sometimes

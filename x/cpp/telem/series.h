@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <variant>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -62,9 +63,9 @@ static void output_partial_vector_byte(
 class Series {
 public:
     /// @brief Holds what type of data is being used.
-    const DataType data_type;
+    DataType data_type;
     /// @brief the capacity of the series in number of samples.
-    const size_t cap;
+    size_t cap;
 
 private:
     /// @brief cached_byte_size is an optimization for variable rate channels that
@@ -109,6 +110,7 @@ private:
         time_range(other.time_range) {
         memcpy(data.get(), other.data.get(), other.byte_size());
     }
+
 public:
     [[nodiscard]] size_t size() const { return size_; }
 
@@ -123,6 +125,8 @@ public:
         data(std::move(other.data)),
         time_range(other.time_range) {
     }
+
+    
 
     /// @brief allocates a series with the given data type and capacity (in samples).
     /// Allocated series are treated as buffers and are not initialized with any data.
@@ -160,6 +164,23 @@ public:
             "NumericType must be a numeric type"
         );
         memcpy(this->data.get(), d.data(), d.size() * this->data_type.density());
+    }
+
+    /// @brief constructs a series from the given array of numeric data and a length.
+    /// @param d the array of numeric data to be used.
+    /// @param size_ the number of samples to be used.
+    /// @param dt the data type of the series.
+    template<typename NumericType>
+    Series(const NumericType* d, const size_t size_, const DataType dt = DATA_TYPE_UNKNOWN):
+        data_type(telem::DataType::infer<NumericType>(dt)),
+        cap(size_),
+        size_(size_),
+        data(std::make_unique<std::byte[]>(size_ * this->data_type.density())) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        memcpy(this->data.get(), d, size_ * this->data_type.density());
     }
 
     /// @brief constructs a series of size 1 with a data type of TIMESTAMP from the
@@ -410,6 +431,9 @@ public:
         return count;
     }
 
+    size_t write(const NumericSampleValue v) {
+        return 0;
+    }
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
@@ -496,6 +520,24 @@ public:
             this->at(adjusted, value);
             return value;
         }
+        throw std::runtime_error(
+            "unsupported data type for value_at: " + data_type.name()
+        );
+    }
+
+    [[nodiscard]] NumericSampleValue at_numeric(const int &index) const {
+        const auto adjusted = validate_bounds(index);
+        const auto dt = this->data_type;
+        if (dt == FLOAT64_T) return this->at<double>(adjusted);
+        if (dt == FLOAT32_T) return this->at<float>(adjusted);
+        if (dt == INT64_T) return this->at<int64_t>(adjusted);
+        if (dt == INT32_T) return this->at<int32_t>(adjusted);
+        if (dt == INT16_T) return this->at<int16_t>(adjusted);
+        if (dt == INT8_T) return this->at<int8_t>(adjusted);
+        if (dt == UINT64_T) return this->at<uint64_t>(adjusted);
+        if (dt == UINT32_T) return this->at<uint32_t>(adjusted);
+        if (dt == UINT16_T) return this->at<uint16_t>(adjusted);
+        if (dt == UINT8_T) return this->at<uint8_t>(adjusted);
         throw std::runtime_error(
             "unsupported data type for value_at: " + data_type.name()
         );
@@ -592,9 +634,52 @@ public:
         set_array(vals.data(), 0, vals.size());
     }
 
+    /// @brief Creates a timestamp series with evenly spaced values between start and end (inclusive).
+    /// @param start The starting timestamp
+    /// @param end The ending timestamp
+    /// @param count The number of points to generate
+    /// @return A Series containing evenly spaced timestamps
+    static Series linspace(const TimeStamp &start, const TimeStamp &end, size_t count) {
+        if (count == 1) return Series(start + (end - start) / 2);
+        Series s(TIMESTAMP_T, count);
+        const auto step = static_cast<double>(end.value - start.value) / (count - 1);
+        for (size_t i = 0; i < count; i++) {
+            const uint64_t value = start.value + static_cast<uint64_t>(step * i);
+            s.set<uint64_t>(i, value);
+        }
+        s.size_ = count;
+        return s;
+    }
+
     /// @brief deep copies the series, including all of its data. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return Series(*this); }
+
+    /// @brief constructs a series of size 1 from the given SampleValue.
+    /// @param v the SampleValue to be used.
+    explicit Series(const SampleValue& v) {
+        if (std::holds_alternative<std::string>(v)) {
+            const auto& str = std::get<std::string>(v);
+            data_type = STRING_T;
+            cap = 1;
+            size_ = 1;
+            cached_byte_size = str.size() + 1;
+            data = std::make_unique<std::byte[]>(byte_size());
+            memcpy(data.get(), str.data(), str.size());
+            data[byte_size() - 1] = NEWLINE_TERMINATOR;
+            return;
+        }
+
+        // Handle numeric types
+        std::visit([this](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            data_type = DataType::infer<T>();
+            cap = 1;
+            size_ = 1;
+            data = std::make_unique<std::byte[]>(byte_size());
+            memcpy(data.get(), &arg, byte_size());
+        }, v);
+    }
 }; // class Series
 } // namespace telem

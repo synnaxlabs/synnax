@@ -55,22 +55,24 @@ void Control::ensure_thread_joined() const {
 }
 
 
-void Control::start() {
-    if (this->breaker.running()) return;
+bool Control::start() {
+    if (this->breaker.running()) return false;
     this->ensure_thread_joined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Control::run, this);
     VLOG(1) << "[control] started";
+    return true;
 }
 
-void Control::stop() {
-    const auto was_running = this->breaker.running();
+bool Control::stop() {
+    const bool was_running = this->breaker.running();
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
     if (this->streamer) this->streamer->close_send();
     this->breaker.stop();
     this->ensure_thread_joined();
     if (was_running) VLOG(1) << "[control] stopped";
+    return was_running;
 }
 
 void Control::run() {

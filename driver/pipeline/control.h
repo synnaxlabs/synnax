@@ -146,11 +146,11 @@ public:
 
     /// @brief starts the control pipeline if it has not already been started. start is
     /// idempotent, and is safe to call multiple times without stopping the pipeline.
-    void start();
+    bool start();
 
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.
-    void stop();
+    bool stop();
 
 private:
     std::unique_ptr<std::thread> thread;

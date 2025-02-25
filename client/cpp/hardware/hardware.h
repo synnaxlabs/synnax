@@ -247,6 +247,14 @@ private:
     friend class HardwareClient;
 };
 
+inline std::unordered_map<std::string, Device> device_keys_map(
+    const std::vector<Device> &devices
+) {
+    std::unordered_map<std::string, Device> map;
+    map.reserve(devices.size());
+    for (const auto &device : devices) map[device.key] = device;
+    return map;
+}
 
 class HardwareClient {
 public:
@@ -286,6 +294,10 @@ public:
 
     [[nodiscard]]
     std::pair<Device, xerrors::Error> retrieve_device(const std::string &key) const;
+
+    std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
+        const std::vector<std::string> &keys
+    ) const;
 
     [[nodiscard]]
     xerrors::Error create_device(Device &device) const;

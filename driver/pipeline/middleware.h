@@ -76,7 +76,7 @@ public:
     void tare(json &arg) {
         //create parser
         xjson::Parser parser(arg);
-        auto channels = parser.required_vector<uint32_t>("keys");
+        auto channels = parser.required_vec<uint32_t>("keys");
         if(!parser.ok())
             LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.error().message();
 

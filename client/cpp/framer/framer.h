@@ -53,11 +53,11 @@ typedef freighter::StreamClient<
 > WriterClient;
 
 
-
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 class Frame {
     /// @brief private copy constructor that deep copies the frame.
     Frame(const Frame &other);
+
 public:
     /// @brief the channels in the frame.
     std::unique_ptr<std::vector<ChannelKey> > channels;
@@ -81,6 +81,9 @@ public:
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
     Frame(const ChannelKey &chan, telem::Series &&ser);
+
+    explicit Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data,
+                   int cap = -1);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -128,6 +131,43 @@ public:
     /// unintentional deep copies.
     [[nodiscard]] Frame deep_copy() const;
 
+    // Add iterator support
+    struct Iterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = std::pair<ChannelKey, telem::Series&>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type*;
+        using reference = value_type&;
+
+        Iterator(std::vector<ChannelKey>* channels, std::vector<telem::Series>* series, const size_t pos)
+            : channels(channels), series(series), pos(pos) {}
+
+        value_type operator*() const {
+            return {channels->at(pos), series->at(pos)};
+        }
+
+        Iterator& operator++() {
+            pos++;
+            return *this;
+        }
+
+        bool operator!=(const Iterator& other) const {
+            return pos != other.pos;
+        }
+
+    private:
+        std::vector<ChannelKey>* channels;
+        std::vector<telem::Series>* series;
+        size_t pos;
+    };
+
+    [[nodiscard]] Iterator begin() const {
+        return {channels.get(), series.get(), 0};
+    }
+
+    [[nodiscard]] Iterator end() const {
+        return {channels.get(), series.get(), channels->size()};
+    }
 };
 
 /// @brief configuration for opening a new streamer.
@@ -220,6 +260,11 @@ enum WriterMode : uint8_t {
     /// @brief typically used in scenarios involving streaming writes.
     StreamOnly = 3
 };
+
+inline WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return WriterMode::PersistStream;
+    return WriterMode::StreamOnly;
+}
 
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write.
