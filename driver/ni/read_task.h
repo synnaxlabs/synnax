@@ -84,7 +84,7 @@ struct ReadTaskConfig {
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "none")),
        samples_per_channel(
-           static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
+           static_cast<size_t>(std::floor(sample_rate / stream_rate))),
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<InputChan> >(
            "channels",
