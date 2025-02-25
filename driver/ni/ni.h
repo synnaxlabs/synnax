@@ -9,17 +9,12 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-#include <thread>
-
-
+/// module
 #include "client/cpp/synnax.h"
-#include "daqmx/sugared.h"
 
-#include "driver/ni/syscfg/syscfg.h"
-#include "driver/ni/daqmx/daqmx.h"
-
+/// internal
+#include "driver/ni/daqmx/sugared.h"
+#include "driver/ni/syscfg/sugared.h"
 #include "driver/task/task.h"
 
 namespace ni {
@@ -28,7 +23,7 @@ class Factory final : public task::Factory {
     std::shared_ptr<SugaredDAQmx> dmx;
     /// @brief the system configuration library used to get information
     /// about devices.
-    std::shared_ptr<SysCfg> syscfg;
+    std::shared_ptr<SugaredSysCfg> syscfg;
 
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
@@ -37,7 +32,7 @@ class Factory final : public task::Factory {
 public:
     Factory(
         const std::shared_ptr<SugaredDAQmx> &dmx,
-        const std::shared_ptr<SysCfg> &syscfg
+        const std::shared_ptr<SugaredSysCfg> &syscfg
     );
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration
@@ -60,4 +55,9 @@ public:
 };
 
 const std::string INTEGRATION_NAME = "ni";
+
+inline xerrors::Error cycle_task_to_detect_cfg_errors(const std::shared_ptr<SugaredDAQmx> &dmx, TaskHandle task) {
+    if (const auto err = dmx->StartTask(task)) return err;
+    return dmx->StopTask(task);
+}
 } // namespace ni

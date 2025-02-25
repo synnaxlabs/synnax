@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace ni {
+namespace channel {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
     {"Amps", DAQmx_Val_Amps},
@@ -62,8 +62,5 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 
-inline xerrors::Error cycle_task_to_detect_cfg_errors(const std::shared_ptr<SugaredDAQmx> &dmx, TaskHandle task) {
-    if (const auto err = dmx->StartTask(task)) return err;
-    return dmx->StopTask(task);
-}
+
 }

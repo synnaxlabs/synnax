@@ -7,6 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // ReSharper disable CppParameterMayBeConst
 #pragma once
 
@@ -20,12 +29,12 @@
 
 /// internal
 #include "driver/ni/daqmx/sugared.h"
-#include "driver/ni/scale.h"
-#include "driver/ni/util.h"
+#include "driver/ni/channel/scale.h"
+#include "driver/ni/channel/units.h"
 
 using string = std::string;
 
-namespace ni {
+namespace channel {
 static int32_t parse_terminal_config(xjson::Parser &p) {
     const auto s = p.required<string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
@@ -107,13 +116,13 @@ struct PolynomialConfig {
         const auto eu = cfg.required<string>("electrical_units");
         const auto pu = cfg.required<string>("physical_units");
 
-        const auto ni_eu = ni::UNITS_MAP.find(eu);
-        if (ni_eu == ni::UNITS_MAP.end()) electrical_units = DAQmx_Val_Volts;
+        const auto ni_eu = channel::UNITS_MAP.find(eu);
+        if (ni_eu == channel::UNITS_MAP.end()) electrical_units = DAQmx_Val_Volts;
         else electrical_units = ni_eu->second;
 
-        const auto ni_pu = ni::UNITS_MAP.find(pu);
-        if (ni_pu == ni::UNITS_MAP.end()) physical_units = DAQmx_Val_Volts;
-        else physical_units = ni::UNITS_MAP.at(pu);
+        const auto ni_pu = channel::UNITS_MAP.find(pu);
+        if (ni_pu == channel::UNITS_MAP.end()) physical_units = DAQmx_Val_Volts;
+        else physical_units = channel::UNITS_MAP.at(pu);
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
         const auto f = cfg.required_vec<double>("forward_coeffs");
@@ -141,8 +150,8 @@ struct TableConfig {
         const auto eu = cfg.required<string>("electrical_units");
         const auto pu = cfg.required<string>("physical_units");
 
-        electrical_units = ni::UNITS_MAP.at(eu);
-        physical_units = ni::UNITS_MAP.at(pu);
+        electrical_units = channel::UNITS_MAP.at(eu);
+        physical_units = channel::UNITS_MAP.at(pu);
 
         // TODO: figure out why using vector and .data() throws exception when passed to
         // NI function
@@ -186,15 +195,15 @@ struct TwoPointLinConfig {
     }
 };
 
-struct Chan {
+struct Base {
     const bool enabled;
     const std::string dev_key;
     const std::string cfg_path;
     std::string dev;
 
-    virtual ~Chan() = default;
+    virtual ~Base() = default;
 
-    explicit Chan(xjson::Parser &cfg):
+    explicit Base(xjson::Parser &cfg):
         enabled(cfg.optional<bool>("enabled", true)),
         dev_key(cfg.optional<std::string>("device", "")),
         cfg_path(cfg.path_prefix) {
@@ -206,12 +215,12 @@ struct Chan {
     ) const = 0;
 };
 
-struct InputChan : virtual Chan {
+struct Input : virtual Base {
     const synnax::ChannelKey synnax_key;
     synnax::Channel ch;
 
-    explicit InputChan(xjson::Parser &cfg):
-        Chan(cfg),
+    explicit Input(xjson::Parser &cfg):
+        Base(cfg),
         synnax_key(cfg.required<synnax::ChannelKey>("channel")) {
     }
 
@@ -221,24 +230,24 @@ struct InputChan : virtual Chan {
     }
 };
 
-struct OutputChan : virtual Chan {
+struct Output : virtual Base {
     const synnax::ChannelKey cmd_ch_key;
     const synnax::ChannelKey state_ch_key;
     const size_t index = 0;
     synnax::Channel state_ch;
 
-    explicit OutputChan(xjson::Parser &cfg):
-        Chan(cfg),
+    explicit Output(xjson::Parser &cfg):
+        Base(cfg),
         cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
         state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {
     }
 };
 
-struct DigitalChan : virtual Chan {
+struct Digital : virtual Base {
     const int port;
     const int line;
 
-    explicit DigitalChan(xjson::Parser &cfg):
+    explicit Digital(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
         line(cfg.required<int>("line")) {
     }
@@ -249,11 +258,11 @@ struct DigitalChan : virtual Chan {
     }
 };
 
-struct DIChan final : DigitalChan, InputChan {
-    explicit DIChan(xjson::Parser &cfg):
-        Chan(cfg),
-        DigitalChan(cfg),
-        InputChan(cfg) {
+struct DI final : Digital, Input {
+    explicit DI(xjson::Parser &cfg):
+        Base(cfg),
+        Digital(cfg),
+        Input(cfg) {
     }
 
     xerrors::Error apply(
@@ -269,8 +278,8 @@ struct DIChan final : DigitalChan, InputChan {
     }
 };
 
-struct DOChan final : DigitalChan, OutputChan {
-    explicit DOChan(xjson::Parser &cfg): Chan(cfg), DigitalChan(cfg), OutputChan(cfg) {
+struct DO final : Digital, Output {
+    explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {
     }
 
     void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev) {
@@ -291,7 +300,7 @@ struct DOChan final : DigitalChan, OutputChan {
     }
 };
 
-class AnalogChan : virtual Chan {
+class Analog : virtual Base {
 public:
     const int port;
     const double min_val;
@@ -306,19 +315,19 @@ public:
         return units->second;
     }
 
-    explicit AnalogChan(xjson::Parser &cfg):
+    explicit Analog(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
         min_val(cfg.optional<float>("min_val", 0)),
         max_val(cfg.optional<float>("max_val", 0)),
-        units(ni::AnalogChan::parse_units(cfg, "units")) {
+        units(channel::Analog::parse_units(cfg, "units")) {
     }
 };
 
-struct AnalogChanCustomScale : virtual AnalogChan {
+struct AnalogChanCustomScale : virtual Analog {
     std::unique_ptr<Scale> scale;
 
     explicit AnalogChanCustomScale(xjson::Parser &cfg):
-        AnalogChan(cfg),
+        Analog(cfg),
         scale(parse_scale(cfg, "custom_scale")) {
         if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
     }
@@ -343,10 +352,10 @@ struct AnalogChanCustomScale : virtual AnalogChan {
     ) const = 0;
 };
 
-struct AIChan : virtual AnalogChan, InputChan {
-    explicit AIChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        InputChan(cfg) {
+struct AI : virtual Analog, Input {
+    explicit AI(xjson::Parser &cfg):
+        Analog(cfg),
+        Input(cfg) {
     }
 
     [[nodiscard]] std::string physical_channel() const {
@@ -354,10 +363,10 @@ struct AIChan : virtual AnalogChan, InputChan {
     }
 };
 
-struct AOChan : virtual AnalogChan, OutputChan {
-    explicit AOChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        OutputChan(cfg) {
+struct AO : virtual Analog, Output {
+    explicit AO(xjson::Parser &cfg):
+        Analog(cfg),
+        Output(cfg) {
     }
 
     [[nodiscard]] std::string loc() const {
@@ -365,27 +374,27 @@ struct AOChan : virtual AnalogChan, OutputChan {
     }
 };
 
-struct AIChanCustomScale : AIChan, AnalogChanCustomScale {
-    explicit AIChanCustomScale(xjson::Parser &cfg):
-        AIChan(cfg),
+struct AICustomScale : AI, AnalogChanCustomScale {
+    explicit AICustomScale(xjson::Parser &cfg):
+        AI(cfg),
         AnalogChanCustomScale(cfg) {
     }
 };
 
-struct AOChanCustomScale : AOChan, AnalogChanCustomScale {
-    explicit AOChanCustomScale(xjson::Parser &cfg):
-        AOChan(cfg),
+struct AOCustomScale : AO, AnalogChanCustomScale {
+    explicit AOCustomScale(xjson::Parser &cfg):
+        AO(cfg),
         AnalogChanCustomScale(cfg) {
     }
 };
 
-struct AIVoltageChan : AIChanCustomScale {
+struct AIVoltage : AICustomScale {
     const int32_t terminal_config = 0;
 
-    explicit AIVoltageChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIVoltage(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         terminal_config(parse_terminal_config(cfg)) {
     }
 
@@ -407,11 +416,11 @@ struct AIVoltageChan : AIChanCustomScale {
     }
 };
 
-struct AIVoltageRMSChan final : AIVoltageChan {
-    explicit AIVoltageRMSChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIVoltageChan(cfg) {
+struct AIVoltageRMS final : AIVoltage {
+    explicit AIVoltageRMS(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AIVoltage(cfg) {
     }
 
     xerrors::Error apply(
@@ -432,19 +441,19 @@ struct AIVoltageRMSChan final : AIVoltageChan {
     }
 };
 
-struct AIVoltageWithExcitChan final : AIVoltageChan {
+struct AIVoltageWithExcit final : AIVoltage {
     const int32_t bridge_config;
     const ExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcitChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIVoltageChan(cfg),
+    explicit AIVoltageWithExcit(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AIVoltage(cfg),
         bridge_config(parse_bridge_config(cfg)),
         excitation_config(cfg, VOLT_EXCIT_PREFIX) {
     }
 
-    ~AIVoltageWithExcitChan() override = default;
+    ~AIVoltageWithExcit() override = default;
 
     xerrors::Error apply(
         const std::shared_ptr<SugaredDAQmx> &dmx,
@@ -468,7 +477,7 @@ struct AIVoltageWithExcitChan final : AIVoltageChan {
     }
 };
 
-struct AICurrentChan : AIChanCustomScale {
+struct AICurrent : AICustomScale {
     const int32_t shunt_resistor_loc;
     const double ext_shunt_resistor_val;
     const int32 terminal_config;
@@ -479,10 +488,10 @@ struct AICurrentChan : AIChanCustomScale {
         return DAQmx_Val_Default;
     }
 
-    explicit AICurrentChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AICurrent(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         shunt_resistor_loc(
             get_shunt_resistor_loc(cfg.required<string>("shunt_resistor_loc"))),
         ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
@@ -509,11 +518,11 @@ struct AICurrentChan : AIChanCustomScale {
     }
 };
 
-struct AICurrentRMSChan final : AICurrentChan {
-    explicit AICurrentRMSChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AICurrentChan(cfg) {
+struct AICurrentRMS final : AICurrent {
+    explicit AICurrentRMS(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICurrent(cfg) {
     }
 
     xerrors::Error apply(
@@ -536,7 +545,7 @@ struct AICurrentRMSChan final : AICurrentChan {
     }
 };
 
-struct AIRTDChan final : AIChan {
+struct AIRTD final : AI {
     const int32_t rtd_type;
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
@@ -553,10 +562,10 @@ struct AIRTDChan final : AIChan {
         return DAQmx_Val_Pt3750;
     }
 
-    explicit AIRTDChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg),
+    explicit AIRTD(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg),
         rtd_type(get_rtd_type(
             cfg.required<string>("rtd_type"))),
         resistance_config(
@@ -585,7 +594,7 @@ struct AIRTDChan final : AIChan {
     }
 };
 
-struct AIThermocoupleChan final : AIChan {
+struct AIThermocouple final : AI {
     const int32_t thermocouple_type;
     const int32_t cjc_source;
     const double cjc_val;
@@ -614,12 +623,12 @@ struct AIThermocoupleChan final : AIChan {
         return DAQmx_Val_BuiltIn;
     }
 
-    explicit AIThermocoupleChan(
+    explicit AIThermocouple(
         xjson::Parser &cfg,
         const std::map<std::int32_t, string> &cjc_sources
-    ) : AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg),
+    ) : Analog(cfg),
+        Base(cfg),
+        AI(cfg),
         thermocouple_type(parse_type(cfg)),
         cjc_source(parse_cjc_source(cfg)),
         cjc_val(cfg.optional<double>("cjc_val", 0)) {
@@ -647,11 +656,11 @@ struct AIThermocoupleChan final : AIChan {
     }
 };
 
-struct AITempBuiltInChan final : AIChan {
-    explicit AITempBuiltInChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg) {
+struct AITempBuiltIn final : AI {
+    explicit AITempBuiltIn(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg) {
     }
 
     xerrors::Error apply(
@@ -668,17 +677,17 @@ struct AITempBuiltInChan final : AIChan {
     }
 };
 
-struct AIThermistorIEXChan final : AIChan {
+struct AIThermistorIEX final : AI {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
     const double a;
     const double b;
     const double c;
 
-    explicit AIThermistorIEXChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg),
+    explicit AIThermistorIEX(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         a(cfg.required<double>("a")),
@@ -707,7 +716,7 @@ struct AIThermistorIEXChan final : AIChan {
     }
 };
 
-class AIThermistorVexChan final : public AIChan {
+class AIThermistorVex final : public AI {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
     const double a;
@@ -715,10 +724,10 @@ class AIThermistorVexChan final : public AIChan {
     const double c;
     const double r1;
 
-    explicit AIThermistorVexChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg),
+    explicit AIThermistorVex(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
         a(cfg.required<double>("a")),
@@ -749,16 +758,16 @@ class AIThermistorVexChan final : public AIChan {
     }
 };
 
-struct AIAccelChan : AIChanCustomScale {
+struct AIAccel : AICustomScale {
     const double sensitivity;
     const int32_t sensitivity_units;
     const ExcitationConfig excitation_config;
     const int32 terminal_config;
 
-    explicit AIAccelChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIAccel(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         sensitivity(cfg.required<double>("sensitivity")),
         sensitivity_units(
             UNITS_MAP.at(cfg.optional<string>("sensitivity_units", "mVoltsPerG"))
@@ -789,11 +798,11 @@ struct AIAccelChan : AIChanCustomScale {
     }
 };
 
-struct AIAccel4WireDCVoltageChan final : AIAccelChan {
-    explicit AIAccel4WireDCVoltageChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIAccelChan(cfg) {
+struct AIAccel4WireDCVoltage final : AIAccel {
+    explicit AIAccel4WireDCVoltage(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AIAccel(cfg) {
     }
 
     xerrors::Error apply(
@@ -819,15 +828,15 @@ struct AIAccel4WireDCVoltageChan final : AIAccelChan {
     }
 };
 
-class AIAccelChargeChan final : public AIChanCustomScale {
+class AIAccelCharge final : public AICustomScale {
     const double sensitivity;
     const int32_t sensitivity_units;
     const int32 terminal_config;
 
-    explicit AIAccelChargeChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIAccelCharge(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         sensitivity(cfg.required<double>("sensitivity")),
         sensitivity_units(UNITS_MAP.at(cfg.required<string>("sensitivity_units"))),
         terminal_config(parse_terminal_config(cfg)) {
@@ -853,15 +862,15 @@ class AIAccelChargeChan final : public AIChanCustomScale {
     }
 };
 
-class AIResistanceChan final : public AIChanCustomScale {
+class AIResistance final : public AICustomScale {
     int32_t resistance_config;
     ExcitationConfig excitation_config;
 
 public:
-    explicit AIResistanceChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIResistance(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX) {
     }
@@ -886,14 +895,14 @@ public:
     }
 };
 
-class AIBridgeChan final : public AIChanCustomScale {
+class AIBridge final : public AICustomScale {
 public:
     BridgeConfig bridge_config;
 
-    explicit AIBridgeChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIBridge(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg) {
     }
 
@@ -918,7 +927,7 @@ public:
     }
 };
 
-struct AIStrainGaugeChan final : AIChanCustomScale {
+struct AIStrainGauge final : AICustomScale {
     const int32_t strain_config;
     const ExcitationConfig excitation_config;
     const double gage_factor;
@@ -938,10 +947,10 @@ struct AIStrainGaugeChan final : AIChanCustomScale {
         return DAQmx_Val_FullBridgeI;
     }
 
-    explicit AIStrainGaugeChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIStrainGauge(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         strain_config(get_strain_config(cfg.required<string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
         gage_factor(cfg.required<double>("gage_factor")),
@@ -976,7 +985,7 @@ struct AIStrainGaugeChan final : AIChanCustomScale {
     }
 };
 
-class AIRosetteStrainGaugeChan final : public AIChan {
+class AIRosetteStrainGauge final : public AI {
     int32_t rosette_type;
     double gage_orientation;
     int32 rosette_meas_type;
@@ -1018,10 +1027,10 @@ public:
         return DAQmx_Val_PrincipalStrain1;
     }
 
-    explicit AIRosetteStrainGaugeChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChan(cfg),
+    explicit AIRosetteStrainGauge(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg),
         rosette_type(get_rosette_type(
             cfg.required<string>("rosette_type"))),
         gage_orientation(cfg.required<double>("gage_orientation")),
@@ -1060,16 +1069,16 @@ public:
     }
 };
 
-struct AIMicrophoneChan final : AIChanCustomScale {
+struct AIMicrophone final : AICustomScale {
     const double mic_sensitivity;
     const double max_snd_press_level;
     const ExcitationConfig excitation_config;
     const int32 terminal_config = 0;
 
-    explicit AIMicrophoneChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIMicrophone(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         mic_sensitivity(cfg.required<double>("mic_sensitivity")),
         max_snd_press_level(cfg.required<double>("max_snd_press_level")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
@@ -1096,15 +1105,15 @@ struct AIMicrophoneChan final : AIChanCustomScale {
     }
 };
 
-class AIFrequencyVoltageChan final : public AIChanCustomScale {
+class AIFrequencyVoltage final : public AICustomScale {
     double threshold_level;
     double hysteresis;
 
 public:
-    explicit AIFrequencyVoltageChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIFrequencyVoltage(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         threshold_level(cfg.required<double>("threshold_level")),
         hysteresis(cfg.required<double>("hysteresis")) {
     }
@@ -1129,14 +1138,14 @@ public:
     }
 };
 
-struct AIPressureBridgeTwoPointLinChan final : AIChanCustomScale {
+struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AIPressureBridgeTwoPointLinChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIPressureBridgeTwoPointLin(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         two_point_lin_config(cfg) {
     }
@@ -1168,14 +1177,14 @@ struct AIPressureBridgeTwoPointLinChan final : AIChanCustomScale {
     }
 };
 
-struct AIPressureBridgeTableChan final : AIChanCustomScale {
+struct AIPressureBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AIPressureBridgeTableChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIPressureBridgeTable(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         table_config(cfg) {
     }
@@ -1207,15 +1216,15 @@ struct AIPressureBridgeTableChan final : AIChanCustomScale {
     }
 };
 
-class AIPressureBridgePolynomialChan final : public AIChanCustomScale {
+class AIPressureBridgePolynomial final : public AICustomScale {
     BridgeConfig bridge_config;
     PolynomialConfig polynomial_config;
 
 public:
-    explicit AIPressureBridgePolynomialChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIPressureBridgePolynomial(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         polynomial_config(cfg) {
     }
@@ -1247,15 +1256,15 @@ public:
     }
 };
 
-class AIForceBridgePolynomialChan final : public AIChanCustomScale {
+class AIForceBridgePolynomial final : public AICustomScale {
     BridgeConfig bridge_config;
     PolynomialConfig polynomial_config;
 
 public:
-    explicit AIForceBridgePolynomialChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIForceBridgePolynomial(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         polynomial_config(cfg) {
     }
@@ -1287,14 +1296,14 @@ public:
     }
 };
 
-struct AIForceBridgeTableChan final : AIChanCustomScale {
+struct AIForceBridgeTable final : AICustomScale {
     BridgeConfig bridge_config;
     TableConfig table_config;
 
-    explicit AIForceBridgeTableChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIForceBridgeTable(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         table_config(cfg) {
     }
@@ -1326,14 +1335,14 @@ struct AIForceBridgeTableChan final : AIChanCustomScale {
     }
 };
 
-struct AIForceBridgeTwoPointLinChan final : AIChanCustomScale {
+struct AIForceBridgeTwoPointLin final : AICustomScale {
     BridgeConfig bridge_config;
     TwoPointLinConfig two_point_lin_config;
 
-    explicit AIForceBridgeTwoPointLinChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIForceBridgeTwoPointLin(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         two_point_lin_config(cfg) {
     }
@@ -1366,18 +1375,18 @@ struct AIForceBridgeTwoPointLinChan final : AIChanCustomScale {
     }
 };
 
-struct AIVelocityIEPEChan final : AIChanCustomScale {
+struct AIVelocityIEPE final : AICustomScale {
     const int32_t sensitivity_units;
     const double sensitivity;
     const ExcitationConfig excitation_config;
     const int32_t terminal_config;
 
-    explicit AIVelocityIEPEChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AIVelocityIEPE(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         sensitivity_units(
-            ni::AIVelocityIEPEChan::parse_units(cfg, "sensitivity_units")),
+            channel::AIVelocityIEPE::parse_units(cfg, "sensitivity_units")),
         sensitivity(
             cfg.required<double>(
                 "sensitivity")),
@@ -1409,14 +1418,14 @@ struct AIVelocityIEPEChan final : AIChanCustomScale {
     }
 };
 
-struct AITorqueBridgeTwoPointLinChan final : AIChanCustomScale {
+struct AITorqueBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AITorqueBridgeTwoPointLinChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AITorqueBridgeTwoPointLin(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         two_point_lin_config(cfg) {
     }
@@ -1448,14 +1457,14 @@ struct AITorqueBridgeTwoPointLinChan final : AIChanCustomScale {
     }
 };
 
-struct AITorqueBridgePolynomialChan final : AIChanCustomScale {
+struct AITorqueBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-    explicit AITorqueBridgePolynomialChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AITorqueBridgePolynomial(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         polynomial_config(cfg) {
     }
@@ -1487,14 +1496,14 @@ struct AITorqueBridgePolynomialChan final : AIChanCustomScale {
     }
 };
 
-struct AITorqueBridgeTableChan final : AIChanCustomScale {
+struct AITorqueBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AITorqueBridgeTableChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AITorqueBridgeTable(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         bridge_config(cfg),
         table_config(cfg) {
     }
@@ -1526,17 +1535,17 @@ struct AITorqueBridgeTableChan final : AIChanCustomScale {
     }
 };
 
-struct AIForceIEPEChan final : AIChanCustomScale {
+struct AIForceIEPE final : AICustomScale {
     const int32_t sensitivity_units;
     const double sensitivity;
     const ExcitationConfig excitation_config;
     const int32 terminal_config;
 
-    explicit AIForceIEPEChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
-        sensitivity_units(ni::AIForceIEPEChan::parse_units(cfg, "sensitivity_units")),
+    explicit AIForceIEPE(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
+        sensitivity_units(channel::AIForceIEPE::parse_units(cfg, "sensitivity_units")),
         sensitivity(cfg.required<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {
@@ -1564,13 +1573,13 @@ struct AIForceIEPEChan final : AIChanCustomScale {
     }
 };
 
-struct AIChargeChan final : AIChanCustomScale {
+struct AICharge final : AICustomScale {
     const int32 terminal_config;
 
-    explicit AIChargeChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AIChanCustomScale(cfg),
+    explicit AICharge(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AICustomScale(cfg),
         terminal_config(parse_terminal_config(cfg)) {
     }
 
@@ -1592,11 +1601,11 @@ struct AIChargeChan final : AIChanCustomScale {
     }
 };
 
-struct AOVoltageChan final : AOChanCustomScale {
-    explicit AOVoltageChan(xjson::Parser &cfg):
-        AnalogChan(cfg),
-        Chan(cfg),
-        AOChanCustomScale(cfg) {
+struct AOVoltage  final : AOCustomScale {
+    explicit AOVoltage(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AOCustomScale(cfg) {
     }
 
     xerrors::Error apply(
@@ -1616,11 +1625,11 @@ struct AOVoltageChan final : AOChanCustomScale {
     }
 };
 
-struct AOCurrent final : AOChanCustomScale {
+struct AOCurrent  final : AOCustomScale {
     explicit AOCurrent(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AOChanCustomScale(cfg) {
+        Analog(cfg),
+        Base(cfg),
+        AOCustomScale(cfg) {
     }
 
     xerrors::Error apply(
@@ -1640,7 +1649,7 @@ struct AOCurrent final : AOChanCustomScale {
     }
 };
 
-struct AOFunctionGeneratorChan final : AOChan {
+struct AOFunctionGenerator  final : AO {
     const double frequency;
     const double amplitude;
     const double offset;
@@ -1656,10 +1665,10 @@ struct AOFunctionGeneratorChan final : AOChan {
     }
 
 
-    explicit AOFunctionGeneratorChan(xjson::Parser &cfg) :
-        AnalogChan(cfg),
-        Chan(cfg),
-        AOChan(cfg),
+    explicit AOFunctionGenerator(xjson::Parser &cfg) :
+        Analog(cfg),
+        Base(cfg),
+        AO(cfg),
         frequency(cfg.required<double>("frequency")),
         amplitude(cfg.required<double>("amplitude")),
         offset(cfg.required<double>("offset")),
@@ -1682,11 +1691,11 @@ struct AOFunctionGeneratorChan final : AOChan {
     }
 };
 
-using AIChanFactory = std::function<std::unique_ptr<AIChan>(
+using AIFactory = std::function<std::unique_ptr<AI>(
         xjson::Parser &cfg,
         const std::map<int32_t, string> &port_to_channel)
 >;
-using AOChanFactory = std::function<std::unique_ptr<AOChan>(xjson::Parser &cfg)>;
+using AOFactory = std::function<std::unique_ptr<AO>(xjson::Parser &cfg)>;
 
 #define AO_CHAN_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
@@ -1697,40 +1706,40 @@ using AOChanFactory = std::function<std::unique_ptr<AOChan>(xjson::Parser &cfg)>
 #define AI_CHAN_ENTRY_WITH_PORT(type, class) \
     {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg, ptc); }}
 
-static const std::map<string, AOChanFactory> AO_CHANS = {
+static const std::map<string, AOFactory> AO_CHANS = {
     AO_CHAN_FACTORY("ao_current", AOCurrent),
-    AO_CHAN_FACTORY("ao_voltage", AOVoltageChan),
-    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGeneratorChan)
+    AO_CHAN_FACTORY("ao_voltage", AOVoltage),
+    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator)
 };
 
-static const std::map<string, AIChanFactory> AI_CHANS = {
-    AI_CHAN_FACTORY("ai_accel", AIAccelChan),
-    AI_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltageChan),
-    AI_CHAN_FACTORY("ai_bridge", AIBridgeChan),
-    AI_CHAN_FACTORY("ai_charge", AIChargeChan),
-    AI_CHAN_FACTORY("ai_current", AICurrentChan),
-    AI_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomialChan),
-    AI_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTableChan),
-    AI_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLinChan),
-    AI_CHAN_FACTORY("ai_force_iepe", AIForceIEPEChan),
-    AI_CHAN_FACTORY("ai_microphone", AIMicrophoneChan),
-    AI_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomialChan),
-    AI_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTableChan),
+static const std::map<string, AIFactory> AI_CHANS = {
+    AI_CHAN_FACTORY("ai_accel", AIAccel),
+    AI_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
+    AI_CHAN_FACTORY("ai_bridge", AIBridge),
+    AI_CHAN_FACTORY("ai_charge", AICharge),
+    AI_CHAN_FACTORY("ai_current", AICurrent),
+    AI_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
+    AI_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
+    AI_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
+    AI_CHAN_FACTORY("ai_force_iepe", AIForceIEPE),
+    AI_CHAN_FACTORY("ai_microphone", AIMicrophone),
+    AI_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
+    AI_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
     AI_CHAN_FACTORY("ai_pressure_bridge_two_point_lin",
-                    AIPressureBridgeTwoPointLinChan),
-    AI_CHAN_FACTORY("ai_resistance", AIResistanceChan),
-    AI_CHAN_FACTORY("ai_rtd", AIRTDChan),
-    AI_CHAN_FACTORY("ai_strain_gauge", AIStrainGaugeChan),
-    AI_CHAN_FACTORY("ai_temp_builtin", AITempBuiltInChan),
-    AI_CHAN_ENTRY_WITH_PORT("ai_thermocouple", AIThermocoupleChan),
-    AI_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomialChan),
-    AI_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTableChan),
-    AI_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLinChan),
-    AI_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPEChan),
-    AI_CHAN_FACTORY("ai_voltage", AIVoltageChan)
+                    AIPressureBridgeTwoPointLin),
+    AI_CHAN_FACTORY("ai_resistance", AIResistance),
+    AI_CHAN_FACTORY("ai_rtd", AIRTD),
+    AI_CHAN_FACTORY("ai_strain_gauge", AIStrainGauge),
+    AI_CHAN_FACTORY("ai_temp_builtin", AITempBuiltIn),
+    AI_CHAN_ENTRY_WITH_PORT("ai_thermocouple", AIThermocouple),
+    AI_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
+    AI_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
+    AI_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
+    AI_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
+    AI_CHAN_FACTORY("ai_voltage", AIVoltage)
 };
 
-inline std::unique_ptr<InputChan> parse_input_chan(
+inline std::unique_ptr<Input> parse_input(
     xjson::Parser &cfg,
     const std::map<int32_t, string> &port_to_channel
 ) {
@@ -1740,7 +1749,7 @@ inline std::unique_ptr<InputChan> parse_input_chan(
     return AI_CHANS.at(type)(cfg, port_to_channel);
 }
 
-inline std::unique_ptr<OutputChan> parse_output_chan(xjson::Parser &cfg) {
+inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
     const auto type = cfg.required<string>("type");
     if (AO_CHANS.count(type) == 0)
         cfg.field_err("type", "invalid analog output channel type: " + type);

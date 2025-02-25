@@ -20,11 +20,11 @@
 #include "driver/ni/ni.h"
 #include "driver/ni/write_task.h"
 #include "driver/ni/read_task.h"
-#include "driver/ni/scanner.h"
+#include "driver/ni/scan_task.h"
 
 ni::Factory::Factory(
     const std::shared_ptr<SugaredDAQmx> &dmx,
-    const std::shared_ptr<SysCfg> &syscfg
+    const std::shared_ptr<SugaredSysCfg> &syscfg
 ): dmx(dmx), syscfg(syscfg) {
 }
 
@@ -53,7 +53,10 @@ std::unique_ptr<ni::Factory> ni::Factory::create() {
     auto [dmx, dmx_err] = DAQmxProd::load();
     if (dmx_err)
         LOG(WARNING) << dmx_err;
-    return std::make_unique<ni::Factory>(std::make_shared<SugaredDAQmx>(dmx), syscfg);
+    return std::make_unique<ni::Factory>(
+        dmx != nullptr ? std::make_shared<SugaredDAQmx>(dmx) : nullptr,
+        syscfg != nullptr ? std::make_shared<SugaredSysCfg>(syscfg) : nullptr
+    );
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
@@ -63,7 +66,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (!this->check_health(ctx, task)) return {nullptr, false};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "ni_scanner")
-        res = ni::ScannerTask::configure(this->syscfg, ctx, task);
+        res = ni::ScanTask::configure(this->syscfg, ctx, task);
     else if (task.type == "ni_analog_read")
         res = configure_read<double, AnalogHardwareInterface>(dmx, ctx, task);
     else if (task.type == "ni_digital_read")

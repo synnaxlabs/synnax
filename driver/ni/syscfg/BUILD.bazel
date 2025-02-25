@@ -2,6 +2,8 @@ cc_library(
     name = "syscfg",
     srcs = ["syscfg_prod.cpp"],
     hdrs = [
+        "sugared.cpp",
+        "sugared.h",
         "syscfg.h",
         "syscfg_errors.h",
         "syscfg_prod.h",

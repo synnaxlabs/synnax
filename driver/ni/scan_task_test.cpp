@@ -13,7 +13,7 @@
 
 #include <gtest/gtest.h>
 #include "glog/logging.h"
-#include "driver/ni/scanner.h"
+#include "driver/ni/scan_task.h"
 #include "daqmx/daqmx_prod.h"
 #include "syscfg/syscfg_prod.h"
 #include "nlohmann/json.hpp"

@@ -515,6 +515,7 @@ public:
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
+
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -665,6 +666,9 @@ public:
     }
 
     explicit Rate(const double i) : value(i) {
+    }
+
+    explicit Rate(const TimeSpan period) : value(1 / period.seconds()) {
     }
 
     Rate() = default;

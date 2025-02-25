@@ -21,13 +21,13 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/ni/channels.h"
+#include "driver/ni/channel/channels.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
 
 namespace ni {
-using OutputChannelMap = std::map<synnax::ChannelKey, std::unique_ptr<OutputChan> >;
+using OutputChannelMap = std::map<synnax::ChannelKey, std::unique_ptr<channel::Output> >;
 using CommandToStateMap = std::map<synnax::ChannelKey, synnax::ChannelKey>;
 
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
@@ -118,9 +118,9 @@ struct WriteTaskConfig {
         OutputChannelMap channels;
         bool is_digital = task.type == "ni_digital_write";
         parser.iter("channels", [&](xjson::Parser &ch_cfg) {
-            std::unique_ptr<OutputChan> ch;
-            if (is_digital) ch = std::make_unique<DOChan>(ch_cfg);
-            else ch = parse_output_chan(ch_cfg);
+            std::unique_ptr<channel::Output> ch;
+            if (is_digital) ch = std::make_unique<channel::DO>(ch_cfg);
+            else ch = channel::parse_output(ch_cfg);
             if (ch->enabled) channels[ch->cmd_ch_key] = std::move(ch);
         });
         CommandToStateMap cmd_to_state;

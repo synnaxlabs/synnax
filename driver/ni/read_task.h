@@ -22,7 +22,7 @@
 #include "x/cpp/loop/loop.h"
 
 /// internal
-#include "driver/ni/channels.h"
+#include "driver/ni/channel/channels.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
 #include "x/cpp/doublebuffer/double_buffer.h"
@@ -52,7 +52,7 @@ struct ReadTaskConfig {
     /// @brief the indexes of the channels in the task.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
-    std::vector<std::unique_ptr<InputChan> > channels;
+    std::vector<std::unique_ptr<channel::Input> > channels;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -71,7 +71,6 @@ struct ReadTaskConfig {
     /// @brief delete copy constructor and copy assignment to prevent accidental copies.
     ReadTaskConfig(const ReadTaskConfig &) = delete;
 
-
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
 
     explicit ReadTaskConfig(
@@ -84,12 +83,13 @@ struct ReadTaskConfig {
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "none")),
        samples_per_channel(
-           static_cast<size_t>(std::floor(sample_rate / stream_rate))),
+           static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
-       channels(cfg.map<std::unique_ptr<InputChan> >(
+       channels(cfg.map<std::unique_ptr<channel::Input> >(
            "channels",
-           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<InputChan>, bool> {
-               auto ch = parse_input_chan(ch_cfg, {});
+           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
+       bool> {
+               auto ch = channel::parse_input(ch_cfg, {});
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
@@ -231,8 +231,10 @@ struct DigitalHardwareInterface final : DAQmxHardwareInterface<uint8_t> {
     ): DAQmxHardwareInterface(task_handle, dmx) {
     }
 
-    std::pair<size_t, xerrors::Error> read(size_t samples_per_channel,
-                                           std::vector<unsigned char> &data) override {
+    std::pair<size_t, xerrors::Error> read(
+        const size_t samples_per_channel,
+        std::vector<unsigned char> &data
+    ) override {
         int32 samples_read = 0;
         const auto err = this->dmx->ReadDigitalLines(
             this->task_handle,
@@ -338,7 +340,7 @@ public:
     }
 
     /// @brief stops the task.
-    void stop() override { this->stop(""); };
+    void stop() override { this->stop(""); }
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
@@ -467,7 +469,9 @@ public:
                 if (s.data_type == this->data_type)
                     s.write(buf->data.get()->data() + start, count);
                 else
-                    for (int i = 0; i < count; ++i) s.write(s.data_type.cast(buf->data->at(start + i)));
+                    for (int i = 0; i < count; ++i)
+                        s.write(
+                            s.data_type.cast(buf->data->at(start + i)));
                 f.emplace(ch->synnax_key, std::move(s));
                 data_index++;
             }

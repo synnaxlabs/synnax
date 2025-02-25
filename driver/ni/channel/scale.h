@@ -11,7 +11,6 @@
 
 /// std
 #include <string>
-#include <utility>
 #include <vector>
 #include <cstdint>
 #include <map>
@@ -24,10 +23,10 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/ni/util.h"
+#include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 
-namespace ni {
+namespace channel {
 static std::string next_scale_key() {
     static std::atomic counter = 0;
     return "scale_" + std::to_string(counter++);
@@ -106,7 +105,7 @@ public:
                 this->pre_scaled_max,
                 this->scaled_min,
                 this->scaled_max,
-                ni::UNITS_MAP.at(this->pre_scaled_units),
+                channel::UNITS_MAP.at(this->pre_scaled_units),
                 this->scaled_units.c_str()
             )
         };
@@ -168,7 +167,7 @@ public:
                 this->num_coeffs,
                 this->reverse_coeffs.data(),
                 this->num_coeffs,
-                ni::UNITS_MAP.at(this->pre_scaled_units),
+                channel::UNITS_MAP.at(this->pre_scaled_units),
                 this->scaled_units.c_str()
             )
         };
@@ -199,7 +198,7 @@ public:
                 this->pre_scaled.size(),
                 this->scaled.data(),
                 this->pre_scaled.size(),
-                ni::UNITS_MAP.at(this->pre_scaled_units),
+                channel::UNITS_MAP.at(this->pre_scaled_units),
                 this->scaled_units.c_str()
             )
         };

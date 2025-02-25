@@ -2,15 +2,12 @@ cc_library(
     name = "ni",
     srcs = [
         "factory.cpp",
-        "scanner.cpp",
+        "scan_task.cpp",
     ],
     hdrs = [
-        "channels.h",
         "ni.h",
         "read_task.h",
-        "scale.h",
-        "scanner.h",
-        "util.h",
+        "scan_task.h",
         "write_task.h",
     ],
     copts = select({
@@ -21,6 +18,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/errors",
+        "//driver/ni/channel",
         "//driver/ni/daqmx",
         "//driver/ni/syscfg",
         "//driver/pipeline",
@@ -30,23 +28,6 @@ cc_library(
         "//x/cpp/loop",
         "//x/cpp/xjson",
         "@nlohmann_json//:json",
-    ],
-)
-
-cc_test(
-    name = "channels_test",
-    srcs = [
-        "channels_tests.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    tags = ["hardware"],
-    deps = [
-        "ni",
-        "//client/cpp/testutil",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
