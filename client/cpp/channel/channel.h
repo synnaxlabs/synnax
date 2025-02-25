@@ -45,8 +45,7 @@ class ChannelClient;
 /// values of a single source, typically a sensor, actuator, or software generated
 /// value. See https://docs.synnaxlabs.com/reference/concepts/channels for an
 /// introduction to channels and how they work.
-class Channel {
-public:
+struct Channel {
     /// @brief A human-readable name for the channel.
     std::string name;
     /// @brief the data type of the channel.

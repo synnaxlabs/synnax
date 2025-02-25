@@ -432,7 +432,10 @@ public:
     }
 
     size_t write(const NumericSampleValue v) {
-        return 0;
+        return std::visit([this](auto&& arg) -> size_t {
+            using T = std::decay_t<decltype(arg)>;
+            return this->write(static_cast<T>(arg));
+        }, v);
     }
 
     /// @brief encodes the series' fields into the given protobuf message.

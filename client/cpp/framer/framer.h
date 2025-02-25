@@ -107,18 +107,31 @@ public:
 
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
-    NumericType at(const ChannelKey &key, const int &index) const;
+    NumericType at(const ChannelKey &key, const int &index) const {
+        for (size_t i = 0; i < channels->size(); i++)
+        if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
+        throw std::runtime_error("channel not found");
+    }
 
     void at(const ChannelKey &key, const int &index, std::string &value) const;
 
     [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
-    [[nodiscard]] size_t size() const { return series->size(); }
+    [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
+
+    size_t length() const {
+        if (series == nullptr || series->empty()) return 0;
+        return series->at(0).size();
+    }
+
+    bool contains(const ChannelKey &key) const {
+        return std::find(channels->begin(), channels->end(), key) != channels->end();
+    }
 
     /// @brief returns the number of channel-series pairs that the frame can hold before
     /// resizing.
-    [[nodiscard]] size_t capacity() const { return series->capacity(); }
+    [[nodiscard]] size_t capacity() const { return channels != nullptr ? channels->capacity() : 0; }
 
     /// @brief clears the frame of all channels and series, making it empty for reuse.
     void clear() const;

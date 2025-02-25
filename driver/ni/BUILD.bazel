@@ -24,9 +24,9 @@ cc_library(
         "//driver/ni/daqmx",
         "//driver/ni/syscfg",
         "//driver/pipeline",
-        "//driver/queue",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/doublebuffer",
         "//x/cpp/loop",
         "//x/cpp/xjson",
         "@nlohmann_json//:json",
@@ -45,7 +45,7 @@ cc_test(
     tags = ["hardware"],
     deps = [
         "ni",
-        "//driver/testutil",
+        "//client/cpp/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -63,6 +63,8 @@ cc_test(
     deps = [
         "ni",
         "//client/cpp/testutil",
+        "//driver/pipeline/mock",
+        "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

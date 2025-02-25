@@ -183,7 +183,7 @@ public:
     size_t writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<synnax::Frame> > writes,
+        std::shared_ptr<std::vector<synnax::Frame> > writes = std::make_shared<std::vector<synnax::Frame> >(),
         std::vector<xerrors::Error> open_errors = {},
         std::vector<xerrors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}

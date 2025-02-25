@@ -177,7 +177,7 @@ public:
         throw std::runtime_error("Cannot cast non-numeric data type: " + this->value);
     }
 
-    /////////////////////////////////// COMPARISON ///////////////////////////////////
+    /////////////////////////////////// COMPARISON H///////////////////////////////////
 
     bool operator==(const DataType &other) const { return value == other.value; }
 
@@ -763,4 +763,4 @@ const TimeSpan HOUR = MINUTE * 60;
 /// @brief a single day. Can be made into many days through multiplication
 /// e.g. 55 * DAY = 55 days.
 const TimeSpan DAY = HOUR * 24;
-};
+}

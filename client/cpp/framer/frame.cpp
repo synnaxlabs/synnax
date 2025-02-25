@@ -72,7 +72,7 @@ void Frame::emplace(const ChannelKey &chan, telem::Series &&ser) const {
     series->push_back(std::move(ser));
 }
 
-bool Frame::empty() const { return series->empty(); }
+bool Frame::empty() const { return series == nullptr || series->empty(); }
 
 telem::SampleValue Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
@@ -102,13 +102,6 @@ Frame::Frame(const Frame &other) :
 Frame::Frame(Frame &&other) noexcept :
     channels(std::move(other.channels)),
     series(std::move(other.series)) {
-}
-
-template<typename NumericType>
-NumericType Frame::at(const ChannelKey &key, const int &index) const {
-    for (size_t i = 0; i < channels->size(); i++)
-        if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
-    throw std::runtime_error("channel not found");
 }
 
 void Frame::at(const ChannelKey &key, const int &index, std:: string &value) const {

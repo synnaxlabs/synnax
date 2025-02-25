@@ -140,7 +140,6 @@ void Acquisition::run_internal() {
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
         auto [frame, source_err] = this->source->read(this->breaker);
-        this->middleware_chain.exec(frame);
         if (source_err) {
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();
@@ -153,6 +152,8 @@ void Acquisition::run_internal() {
                 continue;
             break;
         }
+        if (frame.empty()) continue;
+        this->middleware_chain.exec(frame);
         // Open the writer after receiving the first frame so we can resolve the start
         // timestamp from the data. This helps to account for clock drift between the
         // source we're recording data from and the system clock.
