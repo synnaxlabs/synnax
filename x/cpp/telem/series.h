@@ -648,7 +648,7 @@ public:
         const auto step = static_cast<double>(end.value - start.value) / (count - 1);
         for (size_t i = 0; i < count; i++) {
             const uint64_t value = start.value + static_cast<uint64_t>(step * i);
-            s.set<uint64_t>(i, value);
+            s.write<uint64_t>(value);
         }
         s.size_ = count;
         return s;

@@ -47,8 +47,6 @@ struct ReadTaskConfig {
     const std::size_t samples_per_channel;
     /// @brief whether the task should be software timed.
     const bool software_timed;
-    /// @brief the buffer size to allocate to read from the hardware.
-    std::size_t buffer_size = 0;
     /// @brief the indexes of the channels in the task.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
@@ -63,7 +61,6 @@ struct ReadTaskConfig {
         timing_source(other.timing_source),
         samples_per_channel(other.samples_per_channel),
         software_timed(other.software_timed),
-        buffer_size(other.buffer_size),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)) {
     }
@@ -123,8 +120,6 @@ struct ReadTaskConfig {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
             auto dev = devices[ch->dev_key];
             ch->bind_remote_info(remote_ch, dev.location);
-            this->buffer_size += this->samples_per_channel * remote_ch.data_type.
-                    density();
             if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
         }
     }
@@ -141,19 +136,17 @@ struct ReadTaskConfig {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle handle
     ) const {
-        if (!this->software_timed)
-            if (const auto err = dmx->CfgSampClkTiming(
-                handle,
-                this->timing_source == "none" ? nullptr : this->timing_source.c_str(),
-                this->sample_rate.value,
-                DAQmx_Val_Rising,
-                DAQmx_Val_ContSamps,
-                this->samples_per_channel
-            ))
-                return err;
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
-        return xerrors::NIL;
+        if (this->software_timed) return xerrors::NIL;
+        return dmx->CfgSampClkTiming(
+            handle,
+            this->timing_source == "none" ? nullptr : this->timing_source.c_str(),
+            this->sample_rate.value,
+            DAQmx_Val_Rising,
+            DAQmx_Val_ContSamps,
+            this->samples_per_channel
+        );
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
@@ -304,7 +297,6 @@ public:
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
                this->cfg.writer_config().channels)
        ),
-       state(task.key),
        source(std::make_shared<Source>(*this, std::move(hw))),
        pipe(
            factory,
@@ -313,6 +305,7 @@ public:
            breaker_cfg
        ) {
         this->pipe.add_middleware(this->tare_mw);
+        this->state.task = task.key;
     }
 
     explicit ReadTask(
@@ -346,8 +339,10 @@ public:
     /// communicating success state.
     void stop(const std::string &cmd_key) {
         this->state.key = cmd_key;
-        this->source->sample_thread_breaker.stop();
-        this->source->sample_thread.join();
+        if (this->source->sample_thread_breaker.running()) {
+            this->source->sample_thread_breaker.stop();
+            this->source->sample_thread.join();
+        }
         this->pipe.stop();
         this->ctx->set_state(this->state);
     }
@@ -404,6 +399,7 @@ public:
             }
             this->task.state.variant = "success";
             this->task.state.details["message"] = "Task started successfully";
+            this->task.state.details["running"] = true;
             this->task.ctx->set_state(this->task.state);
 
             while (this->sample_thread_breaker.running()) {
@@ -427,7 +423,9 @@ public:
             }
 
             const auto err = hw_api->stop();
-            if (this->task.state.variant == "error") return;
+            this->task.state.details["stopped"] = true;
+            if (this->task.state.variant == "error")
+                this->task.ctx->set_state(this->task.state);
             if (err) {
                 this->task.state.variant = "error";
                 this->task.state.details["message"] = err.message();
@@ -441,7 +439,7 @@ public:
             ReadTask &task,
             std::unique_ptr<HardwareInterface<T> > hw
         ): task(task),
-           buffers(DataBuffer(task.cfg.buffer_size), DataBuffer(task.cfg.buffer_size)),
+           buffers(DataBuffer(task.cfg.channels.size() * task.cfg.samples_per_channel), DataBuffer(task.cfg.channels.size() * task.cfg.samples_per_channel)),
            hw_api(std::move(hw)),
            sample_thread_timer(task.cfg.sample_rate),
            timer(task.cfg.stream_rate) {

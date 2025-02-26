@@ -20,9 +20,9 @@ ni::ScanTask::ScanTask(
     const synnax::Task &task,
     const ScanTaskConfig &cfg
 ) : task(task),
-    timer(this->cfg.rate),
     ctx(ctx),
     cfg(cfg),
+    timer(this->cfg.rate),
     syscfg(syscfg) {
     state.key = task.key;
 }
@@ -30,19 +30,24 @@ ni::ScanTask::ScanTask(
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
 
 xerrors::Error ni::ScanTask::find_devices() {
-    NISysCfgEnumResourceHandle resources;
-    NISysCfgResourceHandle curr_resource;
+    NISysCfgEnumResourceHandle resources = nullptr;
+    NISysCfgResourceHandle curr_resource = nullptr;
     auto err = this->syscfg->FindHardware(
-        this->session, NISysCfgFilterModeAll,
-        this->filter, nullptr,
+        this->session,
+        NISysCfgFilterModeAll,
+        this->filter,
+        nullptr,
         &resources
     );
     if (err) return err;
-    while (this->syscfg->NextResource(
-        this->session,
-        resources,
-        &curr_resource
-    )) {
+    while (true) {
+        if (const auto err = this->syscfg->NextResource(
+            this->session,
+            resources,
+            &curr_resource
+        )) {
+            break;
+        }
         auto [dev, parse_err] = this->parse_device(curr_resource);
         err = parse_err;
         if (err) continue;
@@ -61,6 +66,7 @@ std::pair<ni::Device, xerrors::Error> ni::ScanTask::parse_device(
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
+    dev.rack = synnax::task_key_rack(this->task.key);
 
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -89,6 +95,7 @@ std::pair<ni::Device, xerrors::Error> ni::ScanTask::parse_device(
         return {Device(), err};
     dev.model = property_value_buf;
     if (dev.model.size() > 3) dev.model = dev.model.substr(3);
+    dev.name = MAKE + " " + dev.model;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
         resource,
@@ -123,9 +130,10 @@ xerrors::Error ni::ScanTask::update_remote() {
     const auto client = this->ctx->client;
     for (auto &[key, device]: devices) {
         auto [retrieved_device, err] = client->hardware.retrieve_device(key);
-        if (err.skip(xerrors::NOT_FOUND)) return err;
-        auto sy_dev = device.to_synnax();
-        if (const auto c_err = client->hardware.create_device(sy_dev)) return c_err;
+        if (err.matches(xerrors::NOT_FOUND)) {
+            auto sy_dev = device.to_synnax();
+            if (const auto c_err = client->hardware.create_device(sy_dev)) return c_err;
+        } else if (err) return err;
     }
     return xerrors::NIL;
 }
@@ -143,7 +151,9 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScanTask::configure(
     auto parser = xjson::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
     if (parser.error()) return {nullptr, parser.error()};
-    return {std::make_unique<ni::ScanTask>(syscfg, ctx, task, cfg), xerrors::NIL};
+    auto tsk = std::make_unique<ni::ScanTask>(syscfg, ctx, task, cfg);
+    tsk->start();
+    return {std::move(tsk), xerrors::NIL};
 }
 
 void ni::ScanTask::stop() {
@@ -161,7 +171,7 @@ void ni::ScanTask::stop() {
 
 xerrors::Error ni::ScanTask::start() {
     if (const auto err = this->syscfg->InitializeSession(
-        "localhost", // target (ip, mac or dns name)
+        nullptr, // target (ip, mac or dns name)
         nullptr, // username (NULL for local system)
         nullptr, // password (NULL for local system)
         NISysCfgLocaleDefault, // language
@@ -193,6 +203,12 @@ xerrors::Error ni::ScanTask::start() {
         NISysCfgBoolFalse
     ))
         return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
+        this->filter,
+        NISysCfgFilterPropertyIsNIProduct,
+        NISysCfgBoolTrue
+    ))
+        return err;
     this->breaker.start();
     this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
     return xerrors::NIL;
@@ -215,13 +231,13 @@ void ni::ScanTask::run() {
     this->state.details["message"] = "scan task started";
     this->ctx->set_state(this->state);
     while (this->breaker.running()) {
-        this->timer.wait(breaker);
         if (const auto err = this->scan()) {
             this->state.variant = "warning";
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
             LOG(WARNING) << "[ni.scan_task] failed to scan for devices: " << err;
         }
+        this->timer.wait(breaker);
     }
     this->state.variant = "success";
     this->state.details["message"] = "scan task stopped";

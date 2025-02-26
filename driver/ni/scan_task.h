@@ -94,6 +94,8 @@ struct ScanTaskConfig {
 class ScanTask final : public task::Task {
     /// @brief the raw synnax task configuration.
     synnax::Task task;
+
+    const ScanTaskConfig cfg;
     /// @brief the breaker for managing the lifecycle of threads.
     breaker::Breaker breaker;
     /// @brief the scanner used to scan for devices.
@@ -102,7 +104,6 @@ class ScanTask final : public task::Task {
     std::shared_ptr<task::Context> ctx;
     /// @brief the scan thread that will scan for devices.
     std::shared_ptr<std::thread> thread;
-    const ScanTaskConfig cfg;
     /// @brief the current list of scanned devices.
     std::unordered_map<std::string, ni::Device> devices;
     /// @brief the NI system configuration library.

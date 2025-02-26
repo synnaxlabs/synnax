@@ -271,3 +271,6 @@ TEST_F(SingleChannelReadTask, testDataTypeCoersion) {
     // due to precision loss
     EXPECT_NE(static_cast<double>(value), 1.23456789);
 }
+
+TEST(ReadTaskTest, doubleStop) {}
+TEST(ReadTaskTest, doubleStart) {}
