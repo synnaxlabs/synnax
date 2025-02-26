@@ -37,7 +37,7 @@ xerrors::Error ni::ScanTask::find_devices() {
         this->filter, nullptr,
         &resources
     );
-    if (err)return err;
+    if (err) return err;
     while (this->syscfg->NextResource(
         this->session,
         resources,
@@ -46,7 +46,7 @@ xerrors::Error ni::ScanTask::find_devices() {
         auto [dev, parse_err] = this->parse_device(curr_resource);
         err = parse_err;
         if (err) continue;
-        devices[dev.key] = dev;
+        this->devices[dev.key] = dev;
         this->syscfg->CloseHandle(curr_resource);
     }
     auto close_err = this->syscfg->CloseHandle(resources);
@@ -149,42 +149,57 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScanTask::configure(
 void ni::ScanTask::stop() {
     this->breaker.stop();
     this->thread->join();
-    this->syscfg->CloseHandle(this->filter);
-    this->syscfg->CloseHandle(this->session);
+    const auto f_err = this->syscfg->CloseHandle(this->filter);
+    const auto s_err = this->syscfg->CloseHandle(this->session);
+    if (f_err || s_err) {
+        this->state.variant = "error";
+        if (f_err) this->state.details["message"] = f_err.message();
+        else if (s_err) this->state.details["message"] = s_err.message();
+    }
+    this->ctx->set_state(this->state);
 }
 
 xerrors::Error ni::ScanTask::start() {
-    if (const auto err = syscfg->InitializeSession(
+    if (const auto err = this->syscfg->InitializeSession(
         "localhost", // target (ip, mac or dns name)
         nullptr, // username (NULL for local system)
         nullptr, // password (NULL for local system)
         NISysCfgLocaleDefault, // language
         NISysCfgBoolTrue,
         // force properties to be queried everytime rather than cached
-        (cfg.rate.period() - telem::SECOND).milliseconds(),
+        (this->cfg.rate.period() - telem::SECOND).milliseconds(),
         nullptr, // expert handle
         &this->session // session handle
-    )) return err;
+    ))
+        return err;
 
-    if (const auto err = syscfg->CreateFilter(this->session, &this->filter)) return err;
-    if (const auto err = syscfg->SetFilterProperty(
+    if (const auto err = this->syscfg->CreateFilter(this->session, &this->filter))
+        return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
-    )) return err;
-    if (const auto err = syscfg->SetFilterProperty(
+    ))
+        return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsPresent,
         NISysCfgIsPresentTypePresent
-    )) return err;
-    return syscfg->SetFilterProperty(
+    ))
+        return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsChassis,
         NISysCfgBoolFalse
-    );
+    ))
+        return err;
+    this->breaker.start();
+    this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
+    return xerrors::NIL;
 }
 
 void ni::ScanTask::exec(task::Command &cmd) {
+    this->state.key = cmd.key;
     if (cmd.type == "stop") return this->stop();
     xerrors::Error err = xerrors::NIL;
     if (cmd.type == "start") err = this->start();
@@ -196,6 +211,9 @@ void ni::ScanTask::exec(task::Command &cmd) {
 }
 
 void ni::ScanTask::run() {
+    this->state.variant = "success";
+    this->state.details["message"] = "scan task started";
+    this->ctx->set_state(this->state);
     while (this->breaker.running()) {
         this->timer.wait(breaker);
         if (const auto err = this->scan()) {
@@ -205,4 +223,6 @@ void ni::ScanTask::run() {
             LOG(WARNING) << "[ni.scan_task] failed to scan for devices: " << err;
         }
     }
+    this->state.variant = "success";
+    this->state.details["message"] = "scan task stopped";
 }

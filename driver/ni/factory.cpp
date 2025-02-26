@@ -28,6 +28,9 @@ ni::Factory::Factory(
 ): dmx(dmx), syscfg(syscfg) {
 }
 
+const std::string NO_LIBS_MSG =
+        "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
+
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -36,12 +39,7 @@ bool ni::Factory::check_health(
     ctx->set_state({
         .task = task.key,
         .variant = "error",
-        .details = json{
-            {
-                "message",
-                "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system."
-            }
-        }
+        .details = json{{"message", NO_LIBS_MSG,}}
     });
     return false;
 }
@@ -107,7 +105,7 @@ ni::Factory::configure_initial_tasks(
 
     auto [existing, err] = rack.tasks.list();
     if (err) {
-        LOG(ERROR) << "[ni] Failed to list existing tasks: " << err;
+        LOG(ERROR) << "[ni] failed to list existing tasks: " << err;
         return tasks;
     }
 
@@ -115,31 +113,24 @@ ni::Factory::configure_initial_tasks(
     for (const auto &t: existing)
         if (t.type == "ni_scanner") has_scanner = true;
 
-    if (!has_scanner) {
-        auto sy_task = synnax::Task(
-            rack.key,
-            "ni scanner",
-            "ni_scanner",
-            "",
-            true
-        );
-        const auto c_err = rack.tasks.create(sy_task);
-        LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
-        if (c_err) {
-            LOG(ERROR) << "[ni] Failed to create scanner task: " << c_err;
-            return tasks;
-        }
-        auto [task, ok] = configure_task(ctx, sy_task);
-        if (!ok) {
-            LOG(ERROR) << "[ni] Failed to configure scanner task: " << c_err;
-            return tasks;
-        }
-        tasks.emplace_back(
-            std::pair<synnax::Task, std::unique_ptr<task::Task> >({
-                sy_task,
-                std::move(
-                    task)
-            }));
+    if (has_scanner) return tasks;
+
+    auto sy_task = synnax::Task(rack.key, "ni scanner", "ni_scanner", "", true);
+    const auto c_err = rack.tasks.create(sy_task);
+    if (c_err) {
+        LOG(ERROR) << "[ni] failed to create scanner task: " << c_err;
+        return tasks;
     }
+    auto [task, ok] = configure_task(ctx, sy_task);
+    if (!ok) {
+        LOG(ERROR) << "[ni] failed to configure scanner task: " << c_err;
+        return tasks;
+    }
+    tasks.emplace_back(
+        std::pair<synnax::Task, std::unique_ptr<task::Task> >({
+            sy_task,
+            std::move(task)
+        })
+    );
     return tasks;
 }

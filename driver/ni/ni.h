@@ -18,6 +18,8 @@
 #include "driver/task/task.h"
 
 namespace ni {
+const std::string MAKE = "NI";
+
 class Factory final : public task::Factory {
     /// @brief the daqmx library used to communicate with NI hardware.
     std::shared_ptr<SugaredDAQmx> dmx;

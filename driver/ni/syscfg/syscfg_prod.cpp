@@ -64,6 +64,12 @@ SysCfgProd::SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_) : lib(std::move(l
 
     function_pointers_.GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")));
+
+    function_pointers_.GetStatusDescriptionW = reinterpret_cast<GetStatusDescriptionWPtr>(
+        const_cast<void*>(this->lib->get_func_ptr("NISysCfgGetStatusDescriptionW")));
+
+    function_pointers_.FreeDetailedStringW = reinterpret_cast<FreeDetailedStringWPtr>(
+        const_cast<void*>(this->lib->get_func_ptr("NISysCfgFreeDetailedStringW")));
 }
 
 NISYSCFGCFUNC SysCfgProd::InitializeSession(
@@ -152,4 +158,13 @@ NISYSCFGCFUNC SysCfgProd::GetResourceIndexedProperty(
     void *value
 ) {
     return function_pointers_.GetResourceIndexedProperty(resourceHandle, propertyID, index, value);
+}
+
+NISysCfgStatus SysCfgProd::GetStatusDescriptionW(NISysCfgSessionHandle sessionHandle,
+    NISysCfgStatus status, wchar_t **detailedDescription) {
+    return function_pointers_.GetStatusDescriptionW(sessionHandle, status, detailedDescription);
+}
+
+NISYSCFGCFUNC SysCfgProd::FreeDetailedStringW(wchar_t str[]) {
+    return function_pointers_.FreeDetailedStringW(str);
 }

@@ -1,11 +1,17 @@
 #include "driver/ni/syscfg/sugared.h"
 
-xerrors::Error SugaredSysCfg::process_error(NISysCfgStatus status) {
+xerrors::Error SugaredSysCfg::process_error(NISysCfgStatus status) const {
+    wchar_t *error_buf = nullptr;
     if (status == NISysCfg_OK) return xerrors::Error();
-    
-    char errorMessage[1024];
-    syscfg->GetErrorDescription(status, sizeof(errorMessage), errorMessage);
-    return xerrors::Error(errorMessage);
+    const auto desc_status = this->syscfg->GetStatusDescriptionW(
+        nullptr, status, &error_buf);
+    if (desc_status != NISysCfg_OK || error_buf == nullptr)
+        return xerrors::Error(
+            "failed to retrieve error message for status code " +
+            std::to_string(status));
+    const auto str = std::wstring(error_buf);
+    this->syscfg->FreeDetailedStringW(error_buf);
+    return xerrors::Error(std::string(str.begin(), str.end()));
 }
 
 xerrors::Error SugaredSysCfg::InitializeSession(

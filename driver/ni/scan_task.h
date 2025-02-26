@@ -13,8 +13,8 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <set>
 #include <condition_variable>
+#include <regex>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -22,19 +22,15 @@
 /// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-
-/// internal
-#include <regex>
-
-#include "driver/ni/syscfg/nisyscfg.h"
-#include "driver/ni/syscfg/sugared.h"
-#include "driver/task/task.h"
 #include "x/cpp/loop/loop.h"
 
-namespace ni {
-const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
-const std::string MAKE = "NI";
+/// internal
+#include "driver/task/task.h"
+#include "driver/ni/ni.h"
+#include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/sugared.h"
 
+namespace ni {
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
 struct Device : synnax::Device {
@@ -73,6 +69,9 @@ struct Device : synnax::Device {
     }
 };
 
+const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^O.*", "^cRIO.*", "^nown.*"};
+
 /// @brief configuration for opening a scan task.
 struct ScanTaskConfig {
     const telem::Rate rate;
@@ -85,7 +84,7 @@ struct ScanTaskConfig {
        enabled(cfg.optional<bool>("enabled", true)) {
         const auto ignored = cfg.optional_array<std::string>(
             "ignored_models",
-            {"^O.*", "^cRIO.*", "^nown.*"}
+            DEFAULT_IGNORED_MODELS
         );
         for (const auto &pattern: ignored)
             ignored_models.emplace_back(pattern);
@@ -129,7 +128,6 @@ class ScanTask final : public task::Task {
     xerrors::Error update_remote();
 
     void run();
-
 public:
     explicit ScanTask(
         const std::shared_ptr<SugaredSysCfg> &syscfg,

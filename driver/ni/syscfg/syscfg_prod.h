@@ -1,6 +1,7 @@
 #pragma once
 
 #include "driver/ni/syscfg/nisyscfg.h"
+#include "driver/ni/syscfg/nisyscfg_wide.h"
 #include "driver/ni/syscfg/syscfg.h"
 #include "x/cpp/xlib/xlib.h"
 
@@ -63,6 +64,13 @@ public:
         void *value
     ) override;
 
+    NISysCfgStatus GetStatusDescriptionW(
+        NISysCfgSessionHandle sessionHandle,
+        NISysCfgStatus status,
+        wchar_t **detailedDescription
+    ) override;
+
+    NISysCfgStatus FreeDetailedStringW(wchar_t str[]) override;
 private:
     // Function pointer typedefs
     using InitializeSessionPtr = decltype(&NISysCfgInitializeSession);
@@ -73,6 +81,8 @@ private:
     using NextResourcePtr = decltype(&NISysCfgNextResource);
     using GetResourcePropertyPtr = decltype(&NISysCfgGetResourceProperty);
     using GetResourceIndexedPropertyPtr = decltype(&NISysCfgGetResourceIndexedProperty);
+    using GetStatusDescriptionWPtr = decltype(&NISysCfgGetStatusDescriptionW);
+    using FreeDetailedStringWPtr = decltype(&NISysCfgFreeDetailedStringW);
 
     // Function pointers struct
     typedef struct FunctionPointers {
@@ -84,6 +94,8 @@ private:
         NextResourcePtr NextResource;
         GetResourcePropertyPtr GetResourceProperty;
         GetResourceIndexedPropertyPtr GetResourceIndexedProperty;
+        GetStatusDescriptionWPtr GetStatusDescriptionW;
+        FreeDetailedStringWPtr FreeDetailedStringW;
     } FunctionPointers;
 
     std::unique_ptr<xlib::SharedLib> lib;

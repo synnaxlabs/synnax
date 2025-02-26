@@ -4,7 +4,10 @@ cc_library(
         "errors.h",
         "fields.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
+        "//driver/errors",
         "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
     ],
 )

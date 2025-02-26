@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// ReSharper disable CppUseStructuredBinding
 #include "gtest/gtest.h"
 
 #include "x/cpp/xjson/xjson.h"
@@ -21,10 +22,9 @@
 template<typename T>
 class MockHardwareInterface final : public ni::HardwareInterface<T> {
 public:
-    // Constructor to initialize with test data and errors
-    MockHardwareInterface(
-        std::vector<xerrors::Error> start_errors = {xerrors::NIL},
-        std::vector<xerrors::Error> stop_errors = {xerrors::NIL},
+    explicit MockHardwareInterface(
+        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
+        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
         std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {{{0.5}, xerrors::NIL}}
     ) : start_errors(start_errors),
         stop_errors(stop_errors),
@@ -200,7 +200,7 @@ TEST_F(SingleChannelReadTask, testBasicAnalogRead) {
 TEST_F(SingleChannelReadTask, testErrorOnStart) {
     parseConfig();
     const auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
-        std::vector<xerrors::Error>{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")}
+        std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")}
     ));
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -215,8 +215,8 @@ TEST_F(SingleChannelReadTask, testErrorOnStart) {
 TEST_F(SingleChannelReadTask, testErrorOnStop) {
     parseConfig();
     auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
-        std::vector<xerrors::Error>{xerrors::NIL},
-        std::vector<xerrors::Error>{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")}
+        std::vector{xerrors::NIL},
+        std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")}
     ));
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -238,8 +238,8 @@ TEST_F(SingleChannelReadTask, testDataTypeCoersion) {
     parseConfig();
 
     auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
-        std::vector<xerrors::Error>{xerrors::NIL},
-        std::vector<xerrors::Error>{xerrors::NIL},
+        std::vector{xerrors::NIL},
+        std::vector{xerrors::NIL},
         std::vector<std::pair<std::vector<double>, xerrors::Error>>{{{1.23456789}, xerrors::NIL}}
     ));
     

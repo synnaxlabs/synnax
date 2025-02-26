@@ -9,7 +9,10 @@
 
 #include "driver/ni/daqmx/sugared.h"
 
-xerrors::Error SugaredDAQmx::process_error(int32 status) {
+#include "driver/ni/errors/errors.h"
+
+xerrors::Error SugaredDAQmx::process_error(const int32 status) const {
+    return parse_error(dmx, status);
 }
 
 xerrors::Error SugaredDAQmx::AddCDAQSyncConnection(const char portList[]) {

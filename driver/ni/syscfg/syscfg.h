@@ -68,4 +68,14 @@ public:
         unsigned int index,
         void *value
     ) = 0;
+
+    virtual NISYSCFGCFUNC GetStatusDescriptionW(
+        NISysCfgSessionHandle sessionHandle,
+        NISysCfgStatus status,
+        wchar_t **detailedDescription
+    ) = 0;
+
+    virtual NISYSCFGCFUNC FreeDetailedStringW(
+        wchar_t str[]
+    ) = 0;
 };

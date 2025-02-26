@@ -1,8 +1,10 @@
 cc_library(
     name = "syscfg",
-    srcs = ["syscfg_prod.cpp"],
-    hdrs = [
+    srcs = [
         "sugared.cpp",
+        "syscfg_prod.cpp",
+    ],
+    hdrs = [
         "sugared.h",
         "syscfg.h",
         "syscfg_errors.h",
@@ -18,6 +20,9 @@ cc_library(
 
 cc_library(
     name = "syscfg_official",
-    srcs = ["nisyscfg.h"],
+    srcs = [
+        "nisyscfg.h",
+        "nisyscfg_wide.h",
+    ],
     deps = [],
 )

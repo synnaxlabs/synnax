@@ -140,6 +140,7 @@ const Error VALIDATION_ERROR = BASE_ERROR.sub("validation");
 const Error QUERY_ERROR = BASE_ERROR.sub("query");
 const Error MULTIPLE_RESULTS = QUERY_ERROR.sub("multiple_results");
 const Error NOT_FOUND = QUERY_ERROR.sub("not_found");
+const Error NOT_SUPPORTED = BASE_ERROR.sub("not_supported");
 
 const Error INTERNAL_ERROR = BASE_ERROR.sub("internal");
 const Error UNEXPECTED_ERROR = BASE_ERROR.sub("unexpected");

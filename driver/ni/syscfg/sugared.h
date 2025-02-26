@@ -16,7 +16,7 @@
 class SugaredSysCfg {
     std::shared_ptr<SysCfg> syscfg;
 
-    xerrors::Error process_error(NISysCfgStatus status);
+    xerrors::Error process_error(NISysCfgStatus status) const;
  public:
     explicit SugaredSysCfg(std::shared_ptr<SysCfg> syscfg) : syscfg(std::move(syscfg)) {}
 

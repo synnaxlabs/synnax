@@ -17,7 +17,7 @@
 class SugaredDAQmx {
     std::shared_ptr<DAQmx> dmx;
 
-    xerrors::Error process_error(int32 status);
+    xerrors::Error process_error(int32 status) const;
  public:
     explicit SugaredDAQmx(std::shared_ptr<DAQmx> dmx) : dmx(std::move(dmx)) {}
 
