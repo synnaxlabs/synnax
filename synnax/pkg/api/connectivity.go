@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -28,16 +30,20 @@ func NewConnectivityService(p Provider) *ConnectivityService {
 
 // ClusterInfo is returned by the ConnectivityService.Check method.
 type ClusterInfo struct {
-	ClusterKey  string `json:"cluster_key" msgpack:"cluster_key"`
-	NodeVersion string `json:"node_version" msgpack:"node_version"`
+	ClusterKey  string          `json:"cluster_key" msgpack:"cluster_key"`
+	NodeVersion string          `json:"node_version" msgpack:"node_version"`
+	NodeKey     dcore.NodeKey   `json:"node_key" msgpack:"node_key"`
+	NodeTime    telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
 
 type ConnectivityCheckResponse = ClusterInfo
 
 // Check does nothing except return a success response.
-func (c *ConnectivityService) Check(ctx context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
+func (c *ConnectivityService) Check(_ context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
 	return ConnectivityCheckResponse{
 		ClusterKey:  c.clusterProvider.cluster.Key().String(),
 		NodeVersion: version.Get(),
+		NodeKey:     c.clusterProvider.cluster.HostKey(),
+		NodeTime:    telem.Now(),
 	}, nil
 }
