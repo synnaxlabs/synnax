@@ -178,7 +178,7 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     (p: Common.Task.ChannelListItemProps<OutputChannel>) => (
       <ChannelListItem {...p} device={device} />
     ),
-    [device.key],
+    [device],
   );
   return (
     <Common.Task.Layouts.List<OutputChannel>

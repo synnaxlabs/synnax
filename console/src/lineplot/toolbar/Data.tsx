@@ -22,7 +22,7 @@ import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { useSelectMultiple } from "@/range/selectors";
 
-const SELECT_PROPS: { location: "top" } = { location: "top" } as const;
+const SELECT_PROPS = { location: "top" } as const;
 
 export interface DataProps {
   layoutKey: string;
