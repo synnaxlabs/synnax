@@ -26,7 +26,7 @@ import {
   type ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -35,7 +35,7 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const READ_SELECTABLE: Layout.Selectable = {
+export const READ_SELECTABLE: Selector.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,

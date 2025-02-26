@@ -9,7 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { List, Text } from "@synnaxlabs/pluto";
-import { type FC, isValidElement, type ReactElement } from "react";
+import { type FC, isValidElement } from "react";
 
 import { type Ontology } from "@/ontology";
 
@@ -18,7 +18,7 @@ interface OntologyListItemProps extends List.ItemProps<string, ontology.Resource
 export const createResourceListItem = (
   ontologyServices: Ontology.Services,
 ): FC<OntologyListItemProps> => {
-  const ResourceListItem = (props: OntologyListItemProps): ReactElement | null => {
+  const ResourceListItem = (props: OntologyListItemProps) => {
     const {
       entry,
       entry: { name, id },

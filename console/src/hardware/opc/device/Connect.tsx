@@ -51,7 +51,8 @@ import {
   type TestConnectionCommandResponse,
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
@@ -196,7 +197,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           )}
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
@@ -224,7 +225,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             Save
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

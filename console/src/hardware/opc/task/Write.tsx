@@ -23,7 +23,7 @@ import {
   type WriteType,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -32,7 +32,7 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const WRITE_SELECTABLE: Layout.Selectable = {
+export const WRITE_SELECTABLE: Selector.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,

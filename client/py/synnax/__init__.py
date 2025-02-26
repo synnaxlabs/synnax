@@ -13,31 +13,37 @@ from synnax.access import Policy, PolicyClient
 from synnax.channel import Channel
 from synnax.exceptions import (
     AuthError,
+    ConfigurationError,
     ContiguityError,
+    ControlError,
     Field,
-    QueryError,
+    FieldError,
     MultipleFoundError,
     NotFoundError,
+    QueryError,
     RouteError,
+    UnauthorizedError,
     UnexpectedError,
     ValidationError,
     ControlError,
-    UnauthorizedError,
     FieldError,
     ConfigurationError,
     InvalidToken,
     ExpiredToken,
 )
 from synnax.framer import (
+    AUTO_SPAN,
     BufferedWriter,
     Frame,
     Iterator,
     Streamer,
     Writer,
     WriterMode,
-    AUTO_SPAN,
 )
 from synnax.hardware import Client as HardwareClient
+from synnax.hardware.device import Device
+from synnax.hardware.rack import Rack
+from synnax.hardware.task import Task
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -62,8 +68,6 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.hardware.task import Task
-from synnax.hardware.rack import Rack
-from synnax.hardware.device import Device
+from synnax.timing import Loop, Timer, sleep
 from synnax.timing import sleep, Loop, Timer
 from synnax.user.payload import User

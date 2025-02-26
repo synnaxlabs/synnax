@@ -12,11 +12,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
@@ -27,22 +27,25 @@ export interface ToolbarProps {
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const d = useSyncComponent(layoutKey);
+  const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
   const handleChannelChange = (v: channel.Key) =>
-    d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
+    dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();
   if (state == null) return null;
   return (
     <>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
+      <Core.Header>
+        <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Align.Space direction="x" style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-          <Link.CopyToolbarButton name={name} ontologyID={log.ontologyID(state.key)} />
+          <Cluster.CopyLinkToolbarButton
+            name={name}
+            ontologyID={log.ontologyID(state.key)}
+          />
         </Align.Space>
-      </ToolbarHeader>
+      </Core.Header>
       <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle

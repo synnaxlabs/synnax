@@ -1,28 +1,31 @@
-[tool.poetry]
+[project]
 name = "alamos"
 version = "0.39.0"
 description = ""
-authors = ["Emiliano Bonilla <ebonilla@synnaxlabs.com>"]
+authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.11"
-pydantic = "^1.10.19"
-mypy = "^1.13.0"
-opentelemetry-sdk = "^1.28.2"
-opentelemetry-api = "^1.28.2"
-uptrace = "^1.28.2"
+requires-python = ">=3.10,<4"
+dependencies = [
+    "mypy>=1.15,<2",
+    "pydantic>=1.10.21,<2",
+    "opentelemetry-api>=1.29,<2",
+    "opentelemetry-sdk>=1.29,<2",
+    "uptrace>=1.29,<2",
+]
 
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-black = "^24.10.0"
-pytest-asyncio = "^0.25.0"
-isort = "^5.12.0"
+black = "^25.1.0"
+isort = "^6.0.0"
+poetry = "^2.1.1"
+pytest = "^8.3.4"
+vermin = "^1.6.0"
 
-[tool.pytest.ini_options]
-filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.isort]
+profile = "black"
+
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

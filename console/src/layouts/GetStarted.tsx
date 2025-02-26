@@ -12,7 +12,7 @@ import "@/layouts/GetStarted.css";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Button, Eraser, Synnax, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -34,23 +34,32 @@ const NoCluster = (): ReactElement => {
   // As a note, we need to stop propagation on these events so that we don't
   // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
   // select the new layout when we create it.
-  const handleCluster: Button.ButtonProps["onClick"] = (e) => {
-    e.stopPropagation();
-    placeLayout(Cluster.CONNECT_LAYOUT);
-  };
+  const handleCluster = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
+    (e) => {
+      e.stopPropagation();
+      placeLayout(Cluster.CONNECT_LAYOUT);
+    },
+    [placeLayout],
+  );
 
-  const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
-    e.stopPropagation();
-    placeLayout(Vis.SELECTOR_LAYOUT);
-    dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }),
-    );
-  };
+  const handleVisualize = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
+    (e) => {
+      e.stopPropagation();
+      placeLayout(Vis.SELECTOR_LAYOUT);
+      dispatch(
+        Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
+      );
+    },
+    [placeLayout, dispatch, windowKey],
+  );
 
-  const handleDocs: Text.LinkProps["onClick"] = (e) => {
-    e.stopPropagation();
-    placeLayout(Docs.LAYOUT);
-  };
+  const handleDocs = useCallback<NonNullable<Text.LinkProps["onClick"]>>(
+    (e) => {
+      e.stopPropagation();
+      placeLayout(Docs.LAYOUT);
+    },
+    [placeLayout],
+  );
 
   return (
     <Align.Center className="console-get-started" align="center" size={6}>
@@ -81,9 +90,10 @@ const NoCluster = (): ReactElement => {
 
 const Overview = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const handleWorkspace: Button.ButtonProps["onClick"] = () =>
-    placeLayout(Workspace.CREATE_LAYOUT);
-
+  const handleWorkspace = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
+    () => placeLayout(Workspace.CREATE_LAYOUT),
+    [placeLayout],
+  );
   return (
     <Eraser.Eraser>
       <Align.Center

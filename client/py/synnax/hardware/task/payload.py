@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+
 from freighter import Payload
 
 
