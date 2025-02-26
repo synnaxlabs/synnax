@@ -65,16 +65,12 @@ const NameComponent = ({
   </>
 );
 
-const nameComponent = componentRenderProp(NameComponent);
+const name = componentRenderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
 > = (props) => (
-  <DigitalChannelList
-    {...props}
-    generateChannel={generateDOChannel}
-    name={nameComponent}
-  />
+  <DigitalChannelList {...props} generateChannel={generateDOChannel} name={name} />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<

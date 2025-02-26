@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
 const StatusesContext = createContext<status.Spec[]>([]);
@@ -66,30 +67,19 @@ export interface ExceptionHandler extends status.ExceptionHandler {
   (func: () => Promise<void>, message?: string): void;
 }
 
-const errorToStatus = (exc: unknown, message?: string): status.CrudeSpec => {
-  if (!(exc instanceof Error)) throw exc;
-  return {
-    variant: "error",
-    message: message ?? exc.message,
-    description: message != null ? exc.message : undefined,
-  };
-};
-
 export const useExceptionHandler = (): ExceptionHandler => {
   const add = useAdder();
   return useCallback(
     (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
-      if (typeof excOrFunc === "function") {
-        void (async () => {
-          try {
-            await excOrFunc();
-          } catch (exc) {
-            add(errorToStatus(exc, message));
-          }
-        })();
-        return;
-      }
-      add(errorToStatus(excOrFunc, message));
+      if (typeof excOrFunc !== "function")
+        return add(status.fromException(excOrFunc, message));
+      void (async () => {
+        try {
+          await excOrFunc();
+        } catch (exc) {
+          add(status.fromException(exc, message));
+        }
+      })();
     },
     [add],
   );
@@ -125,7 +115,7 @@ export const useNotifications = ({
     return () => clearInterval(interval);
   }, [poll.milliseconds]);
 
-  const { statuses: filtered } = useMemo(() => {
+  const filtered = useMemo(() => {
     const threshold = now.sub(expiration);
 
     const active = statuses.filter(
@@ -146,15 +136,25 @@ export const useNotifications = ({
       });
       return acc;
     }, new Map<string, NotificationSpec>());
-
-    return { statuses: Array.from(grouped.values()) };
+    return Array.from(grouped.values());
   }, [statuses, expiration, silencedKeys, now]);
+
+  const statusesRef = useSyncedRef(statuses);
 
   const silence = useCallback((key: string) => {
     setSilencedKeys((prev) => {
-      const next = new Set(prev);
-      next.add(key);
-      return next;
+      const next = new Set<string>();
+      const existing = statusesRef.current.find(({ key: k }) => k === key);
+      if (!prev.has(key)) next.add(key);
+      if (existing != null) {
+        const silenced = statusesRef.current.filter(
+          ({ message, variant }) =>
+            message === existing.message && variant === existing.variant,
+        );
+        silenced.forEach((status) => next.add(status.key));
+      }
+      if (next.size == 0) return prev;
+      return new Set([...next, ...prev]);
     });
   }, []);
 

@@ -61,7 +61,7 @@ const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
   <Common.Task.ChannelName channel={channel} />
 );
 
-const nameComponent = componentRenderProp(NameComponent);
+const name = componentRenderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
@@ -69,7 +69,7 @@ const Form: FC<
   <DigitalChannelList<DIChannel>
     {...props}
     generateChannel={generateDIChannel}
-    name={nameComponent}
+    name={name}
   />
 );
 

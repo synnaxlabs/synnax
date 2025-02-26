@@ -132,7 +132,6 @@ export default [
       "**/*.d.ts",
       "examples",
       "vite.config.ts",
-      "vitest.config.ts",
       "stylelint.config.js",
       "eslint.config.js",
       "bazel-bin",

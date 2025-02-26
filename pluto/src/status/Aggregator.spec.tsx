@@ -95,6 +95,62 @@ describe("Aggregator", () => {
     });
   });
 
+  describe("silence", () => {
+    it("should silence a notification", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add({
+          variant: "success",
+          message: "Test",
+          description: "Test",
+        });
+      });
+      expect(result.current.statuses.statuses).toHaveLength(1);
+      const key = result.current.statuses.statuses[0].key;
+      act(() => {
+        result.current.statuses.silence(key);
+      });
+      expect(result.current.statuses.statuses).toHaveLength(0);
+    });
+
+    it("should silence all notifications with the same message and variant", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useAdder(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      // Add multiple notifications with same message and variant
+      act(() => {
+        result.current.add({
+          variant: "success",
+          message: "Test",
+          description: "Test 1",
+        });
+        result.current.add({
+          variant: "success",
+          message: "Test",
+          description: "Test 2",
+        });
+      });
+      expect(result.current.statuses.statuses).toHaveLength(1);
+      expect(result.current.statuses.statuses[0].count).toBe(2);
+
+      const key = result.current.statuses.statuses[0].key;
+      act(() => {
+        result.current.statuses.silence(key);
+      });
+      expect(result.current.statuses.statuses).toHaveLength(0);
+    });
+  });
+
   describe("handleException", () => {
     it("should create a status from an exception", () => {
       const { result } = renderHook(

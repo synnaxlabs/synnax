@@ -203,7 +203,7 @@ const ChannelsForm = ({
   const generateChannel = useCallback(
     (channels: InputChannel[], index: number) =>
       getOpenChannel(channels, index, device),
-    [device.key],
+    [device],
   );
   const listItem = useCallback(
     (p: Common.Task.ChannelListItemProps<InputChannel>) => (
@@ -213,7 +213,7 @@ const ChannelsForm = ({
   );
   const details = useCallback(
     (p: Common.Task.Layouts.DetailsProps) => <ChannelDetails {...p} device={device} />,
-    [device.key],
+    [device],
   );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>

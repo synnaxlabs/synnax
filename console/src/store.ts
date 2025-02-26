@@ -162,7 +162,7 @@ const BASE_MIDDLEWARE = [
   ...Schematic.MIDDLEWARE,
 ];
 
-export const createStore = async (): Promise<RootStore> => {
+const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),

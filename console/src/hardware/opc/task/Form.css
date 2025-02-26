@@ -9,8 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-opc-browser {
-    height: 100%;
-    flex-basis: 300px;
-    border-right: var(--pluto-border);
+.console-task-configure--opc_read,
+.console-task-configure--opc_write {
+    .console-channel-list {
+        max-width: 100% !important;
+    }
 }

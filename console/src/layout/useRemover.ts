@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemoCompare } from "@synnaxlabs/pluto";
-import { compare } from "@synnaxlabs/x";
+import { Status, useMemoCompare } from "@synnaxlabs/pluto";
+import { compare, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { selectRequired } from "@/layout/selectors";
+import { select } from "@/layout/selectors";
 import { remove } from "@/layout/slice";
+import { type State } from "@/layout/types";
 import { Modals } from "@/modals";
 import { type RootState } from "@/store";
 
@@ -34,43 +35,38 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   const promptConfirm = Modals.useConfirm();
+  const handleException = Status.useExceptionHandler();
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],
   );
+
   return useCallback(
-    (...keys) => {
-      const allKeys = [...keys, ...memoKeys];
-      const confirmations: (() => Promise<boolean | null>)[] = [];
-      for (const key of allKeys) {
-        const layout = selectRequired(store.getState(), key);
-        const { unsavedChanges, name, icon } = layout;
-        console.log(unsavedChanges, name, icon);
-        if (unsavedChanges == true)
-          confirmations.push(
-            async () =>
-              await promptConfirm(
-                {
-                  message: `${name} has unsaved changes. Are you sure you want to close it?`,
-                  description: "Any unsaved changes will be lost.",
-                },
-                { icon, name: `${name}.Lose Unsaved Changes` },
-              ),
-          );
-      }
-      if (confirmations.length === 0) {
-        dispatch(remove({ keys: allKeys }));
+    (...keysAlt): void => {
+      const keys = unique.unique([...keysAlt, ...memoKeys]);
+      const unsavedLayouts = keys
+        .map((key) => select(store.getState(), key))
+        .filter((layout) => layout != null && layout.unsavedChanges == true) as State[];
+      if (unsavedLayouts.length == 0) {
+        dispatch(remove({ keys }));
         return;
       }
-      void (async () => {
-        const results: boolean[] = [];
-        for (const confirmation of confirmations) {
-          const result = await confirmation();
-          if (result != null) results.push(result);
+      handleException(async () => {
+        const results: (boolean | null)[] = [];
+        for (const layout of unsavedLayouts) {
+          const { name, icon } = layout;
+          const result = await promptConfirm(
+            {
+              message: `${name} has unsaved changes. Are you sure you want to close it?`,
+              description: "Any unsaved changes will be lost.",
+            },
+            { icon, name: `${name}.Lose Unsaved Changes` },
+          );
+          results.push(result);
         }
-        dispatch(remove({ keys: allKeys.filter((_, i) => results[i] === true) }));
-      })();
+        dispatch(remove({ keys: keys.filter((_, i) => results[i] === true) }));
+      }, "Failed to remove layouts");
     },
     [memoKeys, dispatch, store, promptConfirm],
   );

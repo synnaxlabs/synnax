@@ -47,6 +47,7 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
+  SCAN_NAME,
   TEST_CONNECTION_COMMAND,
   type TestConnectionCommandResponse,
   type TestConnectionCommandState,
@@ -91,7 +92,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const task = await rack.retrieveTaskByName("opc Scanner");
+      const task = await rack.retrieveTaskByName(SCAN_NAME);
       const state = await task.executeCommandSync<TestConnectionCommandResponse>(
         TEST_CONNECTION_COMMAND,
         { connection: methods.get("connection").value },
