@@ -8,8 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 
-from freighter import Payload
 from uuid import UUID
+
+from freighter import Payload
+
 from synnax.ontology.payload import ID
 
 

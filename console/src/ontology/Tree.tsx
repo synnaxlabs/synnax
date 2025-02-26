@@ -471,7 +471,7 @@ export const Tree = (): ReactElement => {
   );
 
   const handleContextMenu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys }: Menu.ContextMenuMenuProps) => {
       if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !treeProps.selected.includes(v),
@@ -543,7 +543,7 @@ export const Tree = (): ReactElement => {
   );
 
   const item = useCallback(
-    (props: Core.ItemProps): ReactElement => (
+    (props: Core.ItemProps) => (
       <AdapterItem {...props} key={props.entry.path} services={services} />
     ),
     [services],

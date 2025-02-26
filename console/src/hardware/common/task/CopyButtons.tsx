@@ -12,8 +12,8 @@ import { Icon, type IconFC } from "@synnaxlabs/media";
 import { Align, Button, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
+import { Cluster } from "@/cluster";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { Link } from "@/link";
 
 interface CopyButtonProps {
   children: IconFC;
@@ -56,7 +56,7 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
       binary.JSON_CODEC.encodeString(getConfig()),
       `JSON configuration for ${getName()}`,
     );
-  const copyLink = Link.useCopyToClipboard();
+  const copyLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () =>
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   const hasDisabledButtons = taskKey === "";

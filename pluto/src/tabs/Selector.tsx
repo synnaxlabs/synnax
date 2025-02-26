@@ -20,8 +20,8 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Menu } from "@/menu";
-import { useContext } from "@/tabs/Tabs";
 import { type Spec } from "@/tabs/types";
+import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 

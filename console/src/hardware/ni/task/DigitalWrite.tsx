@@ -30,7 +30,7 @@ import {
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,7 +39,7 @@ export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_WRITE_TYPE,
 };
 
-export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
+export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
   create: async ({ layoutKey }) => ({ ...DIGITAL_WRITE_LAYOUT, key: layoutKey }),
   icon: <Icon.Logo.NI />,
   key: DIGITAL_WRITE_TYPE,

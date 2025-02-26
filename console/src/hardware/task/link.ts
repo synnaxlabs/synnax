@@ -10,5 +10,5 @@
 import { retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) =>
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) =>
   await retrieveAndPlaceLayout(client, key, placeLayout);

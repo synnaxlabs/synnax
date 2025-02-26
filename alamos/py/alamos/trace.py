@@ -8,20 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 from contextlib import contextmanager
-from typing import Protocol, Iterator
+from typing import Iterator, Protocol
 
-from opentelemetry.propagators.textmap import Setter
-from opentelemetry.propagators.textmap import TextMapPropagator
-from opentelemetry.sdk.trace import (
-    TracerProvider as OtelTraceProvider,
-    Tracer as OtelTracer,
-    Span as OtelSpan,
-    StatusCode,
-)
+from opentelemetry.propagators.textmap import Setter, TextMapPropagator
+from opentelemetry.sdk.trace import Span as OtelSpan
+from opentelemetry.sdk.trace import StatusCode
+from opentelemetry.sdk.trace import Tracer as OtelTracer
+from opentelemetry.sdk.trace import TracerProvider as OtelTraceProvider
 
-from alamos.environment import env_threshold_filter, EnvironmentFilter, Environment
+from alamos.environment import Environment, EnvironmentFilter, env_threshold_filter
 from alamos.meta import InstrumentationMeta
-from alamos.noop import noop as noopd, Noop
+from alamos.noop import Noop
+from alamos.noop import noop as noopd
 
 
 class Carrier(Protocol):
