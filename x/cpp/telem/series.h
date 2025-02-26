@@ -643,12 +643,12 @@ public:
     /// @param count The number of points to generate
     /// @return A Series containing evenly spaced timestamps
     static Series linspace(const TimeStamp &start, const TimeStamp &end, size_t count) {
-        if (count == 1) return Series(start + (end - start) / 2);
+        if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
         const auto step = (end.value - start.value) / (count - 1);
         for (size_t i = 0; i < count; i++) {
-            const uint64_t value = start.value + static_cast<uint64_t>(step * i);
+            const uint64_t value = start.value + step * i;
             s.write<uint64_t>(value);
         }
         s.size_ = count;

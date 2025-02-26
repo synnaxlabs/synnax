@@ -325,7 +325,6 @@ public:
     ) {
     }
 
-
     /// @brief executes the given command on the task.
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
@@ -342,7 +341,7 @@ public:
         this->state.key = cmd_key;
         this->pipe.stop();
         const auto err = this->source->hw_api->stop();
-        this->state.details["stopped"] = true;
+        this->state.details["running"] = false;
         if (this->state.variant != "error") {
             if (err) {
                 this->state.variant = "error";
@@ -359,6 +358,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         this->state.key = cmd_key;
+        this->source->high_water = telem::TimeStamp::now();
         if (const auto err = this->source->hw_api->start()) {
             this->state.variant = "error";
             this->state.details["message"] = err.message();
@@ -401,21 +401,14 @@ public:
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             if (this->task.cfg.software_timed) this->timer.wait(breaker);
-            if (this->high_water == telem::TimeStamp(0))
-                this->high_water = telem::TimeStamp::now();
             auto start = this->high_water;
             const auto [samples_read_per_channel, err] = hw_api->read(
                 this->task.cfg.samples_per_channel,
                 buffer
             );
             if (err) return {Frame(), err};
-            if (samples_read_per_channel < this->task.cfg.samples_per_channel) {
-                LOG(WARNING) << "[ni] read fewer samples than expected: "
-                        << samples_read_per_channel << " < "
-                        << this->task.cfg.samples_per_channel;
-            }
-            auto end = start + samples_read_per_channel * this->task.cfg.sample_rate.
-                       period();
+            auto end = start + (samples_read_per_channel - 1) * this->task.cfg.sample_rate.period();
+            this->high_water = end + this->task.cfg.sample_rate.period();
 
             auto f = synnax::Frame(this->task.cfg.channels.size());
             const size_t count = this->task.cfg.samples_per_channel;
@@ -424,18 +417,15 @@ public:
             for (const auto &ch: this->task.cfg.channels) {
                 auto s = telem::Series(ch->ch.data_type, count);
                 const size_t start_idx = data_index * count;
-                if (s.data_type == this->data_type)
-                    s.write(buffer.data() + start_idx, count);
+                if (s.data_type == this->data_type) s.write(buffer.data() + start_idx, count);
                 else
                     for (int i = 0; i < count; ++i)
-                        s.write(
-                            s.data_type.cast(buffer.at(start_idx + i)));
+                        s.write(s.data_type.cast(buffer.at(start_idx + i)));
                 f.emplace(ch->synnax_key, std::move(s));
                 data_index++;
             }
             if (!this->task.cfg.indexes.empty()) {
-                const auto index_data =
-                        telem::Series::linspace(start, end, count);
+                const auto index_data = telem::Series::linspace(start, end, count);
                 for (const auto &idx: this->task.cfg.indexes)
                     f.emplace(idx, std::move(index_data.deep_copy()));
             }
