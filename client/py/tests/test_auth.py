@@ -53,6 +53,7 @@ class TestClusterAuth:
                 password="wrong",
             )
 
+
 @pytest.mark.auth
 class TestAuthRetry:
     @pytest.fixture(scope="function")
@@ -60,7 +61,7 @@ class TestAuthRetry:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
         res = sy.auth.TokenResponse(
-            token="abc", 
+            token="abc",
             user=sy.User(
                 key=uuid4(),
                 username="synnax",
@@ -68,15 +69,17 @@ class TestAuthRetry:
                 email="synnax@synnax.com",
                 first_name="Synnax",
                 last_name="Labs",
-                root_user=False
-            )
+                root_user=False,
+            ),
         )
-        mock_login_client = MockUnaryClient[sy.auth.InsecureCredentials, sy.auth.TokenResponse](
+        mock_login_client = MockUnaryClient[
+            sy.auth.InsecureCredentials, sy.auth.TokenResponse
+        ](
             responses=[
                 res,
                 res,
             ],
-            response_errors=[None, None]
+            response_errors=[None, None],
         )
 
         # Create auth client

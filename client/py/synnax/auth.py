@@ -40,7 +40,6 @@ RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
 TOKEN_PREFIX = "Bearer "
 
 
-
 class AuthenticationClient:
     _LOGIN_ENDPOINT = "/auth/login"
 
@@ -77,14 +76,14 @@ class AuthenticationClient:
         def mw(ctx: Context, _next: Next):
             if not self.authenticated:
                 self.authenticate()
-            
+
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
             out_ctx, exc = _next(ctx)
-            
+
             if isinstance(exc, RETRY_ON_ERRORS):
                 self.authenticated = False
                 out_ctx, exc = mw(ctx, _next)
-            
+
             self.maybe_refresh_token(out_ctx)
             return out_ctx, exc
 
@@ -94,14 +93,14 @@ class AuthenticationClient:
         async def mw(ctx: Context, _next: AsyncNext):
             if not self.authenticated:
                 self.authenticate()
-            
+
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
             out_ctx, exc = await _next(ctx)
-            
+
             if isinstance(exc, RETRY_ON_ERRORS):
                 self.authenticated = False
                 out_ctx, exc = await mw(ctx, _next)
-            
+
             self.maybe_refresh_token(out_ctx)
             return out_ctx, exc
 

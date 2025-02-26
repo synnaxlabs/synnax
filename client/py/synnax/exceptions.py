@@ -23,20 +23,20 @@ class Field:
 
 
 class ConfigurationError(Exception):
-    """Raised when a configuration error occurs.
-    """
+    """Raised when a configuration error occurs."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "configuration"
 
 
 class ValidationError(Exception):
-    """Raised when a validation error occurs.
-    """
+    """Raised when a validation error occurs."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation"
 
 
 class FieldError(ValidationError):
-    """Raised when a validation error occurs on a specific field.
-    """
+    """Raised when a validation error occurs on a specific field."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation.field"
     field: str
 
@@ -46,71 +46,74 @@ class FieldError(ValidationError):
 
 
 class ControlError(Exception):
-    """Raised when a control error occurs.
-    """
+    """Raised when a control error occurs."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control"
 
 
 class UnauthorizedError(ControlError):
-    """Raised when an entity attempts to access or modify information it is not allowed.
-    """
+    """Raised when an entity attempts to access or modify information it is not allowed."""
+
     TYPE = ControlError.TYPE + ".unauthorized"
 
 
 class AuthError(Exception):
-    """Raised when an authentication error occurs.
-    """
+    """Raised when an authentication error occurs."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "auth"
 
+
 class InvalidCredentials(AuthError):
-    """Raised when invalid credentials are provided.
-    """
+    """Raised when invalid credentials are provided."""
+
     TYPE = AuthError.TYPE + ".invalid-credentials"
 
+
 class InvalidToken(AuthError):
-    """Raised when an invalid token is provided.
-    """
+    """Raised when an invalid token is provided."""
+
     TYPE = AuthError.TYPE + ".invalid-token"
 
+
 class ExpiredToken(AuthError):
-    """Raised when a token has expired.
-    """
+    """Raised when a token has expired."""
+
     TYPE = AuthError.TYPE + ".expired-token"
-    
+
 
 class UnexpectedError(Exception):
-    """Raised when an unexpected error occurs.
-    """
+    """Raised when an unexpected error occurs."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
 
 class ContiguityError(Exception):
-    """Raised when time-series data is not contiguous.
-    """
+    """Raised when time-series data is not contiguous."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "contiguity"
 
 
 class QueryError(Exception):
-    """Raised when a query error occurs, such as an item not found.
-    """
+    """Raised when a query error occurs, such as an item not found."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query"
 
 
 class NotFoundError(QueryError):
-    """Raised when a query returns no results.
-    """
+    """Raised when a query returns no results."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.not_found"
 
 
 class MultipleFoundError(QueryError):
-    """Raised when a query that should return a single result returns multiple.
-    """
+    """Raised when a query that should return a single result returns multiple."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.multiple_results"
 
 
 class RouteError(Exception):
-    """Raised when an API routing error occurs, such as a 404.
-    """
+    """Raised when an API routing error occurs, such as a 404."""
+
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "route"
     path: str
 
