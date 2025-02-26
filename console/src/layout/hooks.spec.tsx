@@ -14,9 +14,10 @@ import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { usePlacer, useRemover } from "@/layout/hooks";
 import { select } from "@/layout/selectors";
 import { reducer } from "@/layout/slice";
+import { usePlacer } from "@/layout/usePlacer";
+import { useRemover } from "@/layout/useRemover";
 
 describe("placing & removing", () => {
   it("should place a layout within the store", () => {
