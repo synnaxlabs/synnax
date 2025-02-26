@@ -8,6 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 
-from alamos.instrumentation import Instrumentation, trace, NOOP
+from alamos.instrumentation import NOOP, Instrumentation, trace
 from alamos.log import Logger
 from alamos.trace import Tracer

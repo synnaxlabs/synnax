@@ -12,7 +12,8 @@ import { type ReactElement, useCallback } from "react";
 
 import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input } from "@/input";
+import { type Input } from "@/input";
+import { Text as InputText } from "@/input/Text";
 import { type OptionalControl } from "@/input/types";
 import { useDataUtils } from "@/list/Data";
 import { state } from "@/state";
@@ -67,7 +68,7 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
  * interface for more details.
  */
 export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = (props) => <Input.Text placeholder="Filter" {...props} />,
+  children = (props) => <InputText placeholder="Filter" {...props} />,
   ...rest
 }: FilterProps): ReactElement | null => children(useFilter<K, E>(rest));
 

@@ -15,6 +15,7 @@ import { type Layout } from "@/layout";
 import { type Link } from "@/link";
 import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
+import { type Selector } from "@/selector";
 
 export * from "@/hardware/device";
 export * from "@/hardware/rack";
@@ -28,12 +29,12 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [task.ONTOLOGY_TYPE]: Task.linkHandler,
+  [task.ONTOLOGY_TYPE]: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Task.Toolbar];
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Task.TOOLBAR];
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] =
   Device.NOTIFICATION_ADAPTERS;
 
-export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
+export const SELECTABLES: Selector.Selectable[] = Task.SELECTABLES;

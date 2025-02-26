@@ -9,7 +9,9 @@
 
 
 from typing import Type
-from freighter import UnaryClient, URL, send_required as fsend_required
+
+from freighter import URL, UnaryClient
+from freighter import send_required as fsend_required
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, Transport
 

@@ -29,8 +29,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { createLayout } from "@/hardware/task/layouts";
@@ -193,7 +193,7 @@ const Content = () => {
     },
   });
   const confirm = Modals.useConfirm();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -255,7 +255,7 @@ const Content = () => {
               rename: () => Text.edit(`text-${keys[0]}`),
               link: () =>
                 handleLink({
-                  name: tasks.find((t) => t.key === keys[0])?.name,
+                  name: tasks.find((t) => t.key === keys[0])?.name ?? "task",
                   ontologyID: task.ontologyID(keys[0]),
                 }),
               delete: () => handleDelete.mutate(keys),
@@ -327,12 +327,12 @@ const Content = () => {
       {...menuProps}
     >
       <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
+        <Toolbar.Header>
+          <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Header.Actions>
             {[{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }]}
           </Header.Actions>
-        </ToolbarHeader>
+        </Toolbar.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
@@ -361,7 +361,7 @@ const Content = () => {
   );
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,

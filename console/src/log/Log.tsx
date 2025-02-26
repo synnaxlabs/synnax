@@ -12,13 +12,14 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
+import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -111,7 +112,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Log: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
+export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const log = useLoadRemote({
     name: "Log",
     targetVersion: ZERO_STATE.version,
@@ -127,7 +128,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | nul
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,

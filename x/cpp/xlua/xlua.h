@@ -21,6 +21,7 @@ extern "C" {
 
 /// internal
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;
@@ -28,7 +29,6 @@ using json = nlohmann::json;
 /// @brief The xlua namespace provides utilities for interacting between C++ and Lua,
 /// specifically focusing on converting between JSON/telemetry data and Lua values.
 namespace xlua {
-
 /// @brief Pushes a JSON value onto the Lua stack, converting it to the appropriate Lua type
 /// @param L The Lua state
 /// @param value The JSON value to push
@@ -129,33 +129,205 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             lua_pushstring(L, std::get<std::string>(value).c_str());
         else if (data_type == telem::JSON_T) {
             try {
-                const auto& str_val = std::get<std::string>(value);
+                const auto &str_val = std::get<std::string>(value);
                 const auto parsed = json::parse(str_val);
                 const auto err = push_json_value(L, parsed);
                 if (!err.ok()) {
                     lua_pushnil(L);
-                    return xerrors::Error(xerrors::VALIDATION_ERROR, 
-                        "failed to push JSON value for '" + name + "': " + err.message());
+                    return xerrors::Error(xerrors::VALIDATION_ERROR,
+                                          "failed to push JSON value for '" + name +
+                                          "': " + err.message());
                 }
-            } catch (const json::parse_error& e) {
+            } catch (const json::parse_error &e) {
                 lua_pushnil(L);
-                return xerrors::Error(xerrors::VALIDATION_ERROR, 
-                    "invalid JSON format for '" + name + "': " + std::string(e.what()));
+                return xerrors::Error(xerrors::VALIDATION_ERROR,
+                                      "invalid JSON format for '" + name + "': " +
+                                      std::string(e.what()));
             }
         } else {
             lua_pushnil(L);
-            return xerrors::Error(xerrors::VALIDATION_ERROR, 
-                "unsupported data type for '" + name + "'");
+            return xerrors::Error(xerrors::VALIDATION_ERROR,
+                                  "unsupported data type for '" + name + "'");
         }
-        
+
         lua_setglobal(L, name.c_str());
         return xerrors::NIL;
-        
-    } catch (const std::bad_variant_access&) {
+    } catch (const std::bad_variant_access &) {
         lua_pushnil(L);
         lua_setglobal(L, name.c_str());
-        return xerrors::Error(xerrors::VALIDATION_ERROR, 
-            "type mismatch between data_type and value for '" + name + "'");
+        return xerrors::Error(xerrors::VALIDATION_ERROR,
+                              "type mismatch between data_type and value for '" + name +
+                              "'");
     }
+}
+
+/// @brief Converts a Lua value at the given stack index to a telemetry Series
+/// based on the specified channel's data type
+/// @param L The Lua state
+/// @param index The stack index of the Lua value
+/// @param data_type The target data type for the Series
+/// @return The converted Series
+[[nodiscard]] inline std::pair<telem::Series, xerrors::Error> to_series(
+    lua_State *L,
+    const int index,
+    const telem::DataType &data_type
+) {
+    // Check if the index contains any value (even nil)
+    if (lua_isnone(L, index)) {
+        return {
+            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            xerrors::Error(xerrors::VALIDATION_ERROR, "Invalid stack index")
+        };
+    }
+
+    if (lua_isnil(L, index)) {
+        return {
+            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            xerrors::Error(xerrors::VALIDATION_ERROR, "Expected value but received nil")
+        };
+    }
+
+    const bool is_numeric = lua_isnumber(L, index) || lua_isinteger(L, index);
+    const bool is_boolean = lua_isboolean(L, index);
+    const bool is_string = lua_isstring(L, index);
+
+    // Helper to get numeric value, handling both numbers and booleans
+    auto get_numeric_value = [L, is_boolean](const int idx) -> lua_Number {
+        if (is_boolean) return lua_toboolean(L, idx);
+        return lua_tonumber(L, idx);
+    };
+
+    auto get_integer_value = [L, is_boolean](const int idx) -> lua_Integer {
+        if (is_boolean) return lua_toboolean(L, idx);
+        return lua_tointeger(L, idx);
+    };
+
+    if (!data_type.is_variable() && !is_numeric && !is_boolean) {
+        std::string error_msg;
+        if (is_string) 
+            error_msg = "cannot convert string value '" + 
+            std::string(lua_tostring(L, index)) + "' to " + data_type.value;
+        else 
+            error_msg = "cannot convert Lua type '" + 
+            std::string(lua_typename(L, lua_type(L, index))) + "' to " + data_type.value;
+        return {
+            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            xerrors::Error(xerrors::VALIDATION_ERROR, error_msg)
+        };
+    }
+
+    if (data_type == telem::STRING_T) {
+        if (is_boolean) {
+            const auto val = lua_toboolean(L, index);
+            const std::string value = val ? "true" : "false";
+            return {telem::Series(value), xerrors::NIL};
+        }
+        if (is_numeric) {
+            return {
+                telem::Series(std::to_string(get_numeric_value(index)), data_type),
+                xerrors::NIL
+            };
+        }
+        if (is_string) {
+            return {
+                telem::Series(std::string(lua_tostring(L, index)), data_type),
+                xerrors::NIL
+            };
+        }
+        return {
+            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            xerrors::Error(
+                xerrors::VALIDATION_ERROR,
+                "expected string value but received type '" + 
+                std::string(lua_typename(L, lua_type(L, index))) + "'"
+            )
+        };
+    }
+
+    if (data_type == telem::FLOAT32_T)
+        return {
+            telem::Series(
+                static_cast<float>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::FLOAT64_T)
+        return {
+            telem::Series(
+                get_numeric_value(index),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::INT8_T)
+        return {
+            telem::Series(
+                static_cast<int8_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::INT16_T)
+        return {
+            telem::Series(
+                static_cast<int16_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::INT32_T)
+        return {
+            telem::Series(
+                static_cast<int32_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::INT64_T)
+        return {
+            telem::Series(
+                static_cast<int64_t>(get_integer_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::UINT8_T)
+        return {
+            telem::Series(
+                static_cast<uint8_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::UINT16_T)
+        return {
+            telem::Series(
+                static_cast<uint16_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::UINT32_T)
+        return {
+            telem::Series(
+                static_cast<uint32_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    if (data_type == telem::UINT64_T)
+        return {
+            telem::Series(
+                static_cast<uint64_t>(get_numeric_value(index)),
+                data_type
+            ),
+            xerrors::NIL
+        };
+    return {
+        telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+        xerrors::Error(xerrors::VALIDATION_ERROR,
+                       "Unsupported data type: " + data_type.value)
+    };
 }
 }

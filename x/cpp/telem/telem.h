@@ -22,13 +22,13 @@
 namespace telem {
 // private namespace for internal constants
 namespace _priv {
-constexpr uint64_t NANOSECOND = 1;
-constexpr uint64_t MICROSECOND = NANOSECOND * 1e3;
-constexpr uint64_t MILLISECOND = MICROSECOND * 1e3;
-constexpr uint64_t SECOND = MILLISECOND * 1e3;
-constexpr uint64_t MINUTE = SECOND * 60;
-constexpr uint64_t HOUR = MINUTE * 60;
-constexpr uint64_t DAY = HOUR * 24;
+constexpr int64_t NANOSECOND = 1;
+constexpr int64_t MICROSECOND = NANOSECOND * 1e3;
+constexpr int64_t MILLISECOND = MICROSECOND * 1e3;
+constexpr int64_t SECOND = MILLISECOND * 1e3;
+constexpr int64_t MINUTE = SECOND * 60;
+constexpr int64_t HOUR = MINUTE * 60;
+constexpr int64_t DAY = HOUR * 24;
 } // namespace _priv
 
 #define ASSERT_TYPE_SIZE(type, size) \
@@ -123,6 +123,7 @@ public:
                 "failed to infer data type for " + std::string(typeid(T).name()));
         return DataType(TYPE_INDEXES[type_index]);
     }
+
 
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }
@@ -303,13 +304,17 @@ const auto JSON_T = DataType("json");
 class TimeSpan {
 public:
     /// @property value holds the internal, primitive value of the timespan.
-    std::uint64_t value;
+    std::int64_t value;
 
     TimeSpan() = default;
 
+    TimeSpan abs() const {
+        return TimeSpan(std::abs(value));
+    }
+
     /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
     /// timespan.
-    explicit TimeSpan(const std::uint64_t i) : value(i) {
+    explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
     explicit TimeSpan(
@@ -318,28 +323,28 @@ public:
     }
 
     static TimeSpan days(const double &days) {
-        return TimeSpan(static_cast<std::uint64_t>(days * _priv::DAY));
+        return TimeSpan(static_cast<std::int64_t>(days * _priv::DAY));
     }
 
     static TimeSpan hours(const double &hours) {
-        return TimeSpan(static_cast<std::uint64_t>(hours * _priv::HOUR));
+        return TimeSpan(static_cast<std::int64_t>(hours * _priv::HOUR));
     }
 
     static TimeSpan minutes(const double &minutes) {
-        return TimeSpan(static_cast<std::uint64_t>(minutes * _priv::MINUTE));
+        return TimeSpan(static_cast<std::int64_t>(minutes * _priv::MINUTE));
     }
 
     static TimeSpan seconds(const double &seconds) {
-        return TimeSpan(static_cast<std::uint64_t>(seconds * _priv::SECOND));
+        return TimeSpan(static_cast<std::int64_t>(seconds * _priv::SECOND));
     }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
     bool operator==(const TimeSpan &other) const { return value == other.value; }
 
-    bool operator==(const std::uint64_t &other) const { return value == other; }
+    bool operator==(const std::int64_t &other) const { return value == other; }
 
-    bool operator!=(const std::uint64_t &other) const { return value != other; }
+    bool operator!=(const std::int64_t &other) const { return value != other; }
 
     bool operator!=(const TimeSpan &other) const { return value != other.value; }
 
@@ -376,11 +381,11 @@ public:
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const unsigned long long &lhs, const TimeSpan &rhs) {
+    friend TimeSpan operator-(const long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs - rhs.value);
     }
 
-    TimeSpan operator-(const unsigned long long &other) const {
+    TimeSpan operator-(const long long &other) const {
         return TimeSpan(value - other);
     }
 
@@ -485,29 +490,38 @@ public:
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
-    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
-        const auto total_days = ts.truncate(TimeSpan(_priv::DAY));
-        const auto total_hours = ts.truncate(TimeSpan(_priv::HOUR));
-        const auto total_minutes = ts.truncate(TimeSpan(_priv::MINUTE));
-        const auto total_seconds = ts.truncate(TimeSpan(_priv::SECOND));
-        const auto total_milliseconds = ts.truncate(TimeSpan(_priv::MILLISECOND));
-        const auto total_microseconds = ts.truncate(TimeSpan(_priv::MICROSECOND));
-        const auto total_nanoseconds = ts;
-        const auto days = total_days;
-        const auto hours = total_hours - total_days;
-        const auto minutes = total_minutes - total_hours;
-        const auto seconds = total_seconds - total_minutes;
-        const auto milliseconds = total_milliseconds - total_seconds;
-        const auto microseconds = total_microseconds - total_milliseconds;
-        const auto nanoseconds = total_nanoseconds - total_microseconds;
+    [[nodiscard]] std::string to_string() const {
+        const auto total_days = this->truncate(TimeSpan(_priv::DAY));
+        const auto total_hours = this->truncate(TimeSpan(_priv::HOUR));
+        const auto total_minutes = this->truncate(TimeSpan(_priv::MINUTE));
+        const auto total_seconds = this->truncate(TimeSpan(_priv::SECOND));
+        const auto total_milliseconds = this->truncate(TimeSpan(_priv::MILLISECOND));
+        const auto total_microseconds = this->truncate(TimeSpan(_priv::MICROSECOND));
+        const auto total_nanoseconds = this->value;
 
-        if (total_days != 0) os << days.days() << "d ";
-        if (total_hours != 0) os << hours.hours() << "h ";
-        if (total_minutes != 0) os << minutes.minutes() << "m ";
-        if (total_seconds != 0) os << seconds.seconds() << "s ";
-        if (total_milliseconds != 0) os << milliseconds.milliseconds() << "ms ";
-        if (total_microseconds != 0) os << microseconds.microseconds() << "us ";
-        if (total_nanoseconds != 0) os << nanoseconds.value << "ns";
+        const auto days = total_days.value / _priv::DAY;
+        const auto hours = (total_hours.value - total_days.value) / _priv::HOUR;
+        const auto minutes = (total_minutes.value - total_hours.value) / _priv::MINUTE;
+        const auto seconds = (total_seconds.value - total_minutes.value) / _priv::SECOND;
+        const auto milliseconds = (total_milliseconds.value - total_seconds.value) / _priv::MILLISECOND;
+        const auto microseconds = (total_microseconds.value - total_milliseconds.value) / _priv::MICROSECOND;
+        const auto nanoseconds = total_nanoseconds - total_microseconds.value;
+
+        std::string out;
+        if (days != 0) out += std::to_string(days) + "d ";
+        if (hours != 0) out += std::to_string(hours) + "h ";
+        if (minutes != 0) out += std::to_string(minutes) + "m ";
+        if (seconds != 0) out += std::to_string(seconds) + "s ";
+        if (milliseconds != 0) out += std::to_string(milliseconds) + "ms ";
+        if (microseconds != 0) out += std::to_string(microseconds) + "us ";
+        if (nanoseconds != 0) out += std::to_string(nanoseconds) + "ns";
+        if (out.empty()) return "0ns";
+        if (out.back() == ' ') out.pop_back();
+        return out;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
+        os << ts.to_string();
         return os;
     }
 
@@ -522,13 +536,13 @@ public:
 class TimeStamp {
 public:
     /// @property value holds the internal, primitive value of the timestamp.
-    std::uint64_t value;
+    std::int64_t value;
 
     TimeStamp() = default;
 
-    /// @brief Constructs a timestamp from the given unsigned long long, interpreting it as a nanosecond-precision UTC
+    /// @brief Constructs a timestamp from the given interpreting it as a nanosecond-precision UTC
     /// timestamp.
-    explicit TimeStamp(const std::uint64_t value) : value(value) {
+    explicit TimeStamp(const std::int64_t value) : value(value) {
     }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
@@ -633,7 +647,7 @@ public:
     TimeRange(const TimeStamp start, const TimeStamp end) : start(start), end(end) {
     }
 
-    TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
+    TimeRange(const std::int64_t start, const std::int64_t end) : start(start),
         end(end) {
     }
 

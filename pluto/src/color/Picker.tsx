@@ -15,9 +15,9 @@ import { type ColorResult, SketchPicker } from "react-color";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { BaseSwatch } from "@/color/BaseSwatch";
 import { color } from "@/color/core";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
-import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useDebouncedCallback } from "@/hooks";
 import { type Input } from "@/input";
@@ -99,7 +99,7 @@ const Frequent = ({ onChange }: FrequentProps) => {
   return (
     <Align.Space direction="x" wrap size={0.5}>
       {frequent.map((c, i) => (
-        <Swatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
+        <BaseSwatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
       ))}
     </Align.Space>
   );

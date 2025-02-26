@@ -27,7 +27,7 @@ TEST(TestAuth, testLoginHappyPath) {
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        3
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
@@ -48,7 +48,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        3
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
@@ -56,4 +56,81 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto [r, err] = mock_client.send("", v);
     EXPECT_TRUE(err) << err.message();
     EXPECT_TRUE(err.matches(INVALID_CREDENTIALS));
+}
+
+/// @brief it should retry authentication if the authentication token is invalid.
+TEST(TestAuth, testLoginRetry) {
+    auto res = api::v1::LoginResponse();
+    res.set_token("abc");
+    auto mock_login_client = std::make_unique<MockUnaryClient<
+        api::v1::LoginRequest,
+        api::v1::LoginResponse
+    >>(
+        std::vector<api::v1::LoginResponse>{res, res},
+        std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
+    );
+    const auto mw = std::make_shared<AuthMiddleware>(
+        std::move(mock_login_client),
+        "synnax",
+        "seldon"
+    );
+    auto mock_client = MockUnaryClient<int, int>{
+            {1, 1},
+            {xerrors::Error(INVALID_TOKEN, ""), xerrors::NIL}
+    };
+    mock_client.use(mw);
+    auto v = 1;
+    auto [r, err] = mock_client.send("", v);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_TRUE(err.matches(xerrors::NIL));
+}
+
+class TestAuthRetry : public ::testing::Test {
+protected:
+    api::v1::LoginResponse res;
+    std::unique_ptr<MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>> mock_login_client;
+    std::shared_ptr<AuthMiddleware> mw;
+    MockUnaryClient<int, int> mock_client;
+
+    void SetUp() override {
+        res.set_token("abc");
+    }
+
+    void setupTest(xerrors::Error first_error) {
+        mock_login_client = std::make_unique<MockUnaryClient<
+            api::v1::LoginRequest,
+            api::v1::LoginResponse
+        >>(
+            std::vector<api::v1::LoginResponse>{res, res},
+            std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
+        );
+        mw = std::make_shared<AuthMiddleware>(
+            std::move(mock_login_client),
+            "synnax",
+            "seldon"
+        );
+        mock_client = MockUnaryClient<int, int>{
+            {1, 1},
+            {first_error, xerrors::NIL}
+        };
+        mock_client.use(mw);
+    }
+};
+
+/// @brief it should retry authentication if the authentication token is invalid.
+TEST_F(TestAuthRetry, RetryOnInvalidToken) {
+    setupTest(xerrors::Error(INVALID_TOKEN, ""));
+    auto v = 1;
+    auto [r, err] = mock_client.send("", v);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_TRUE(err.matches(xerrors::NIL));
+}
+
+/// @brief it should retry authentication if the authentication token is expired.
+TEST_F(TestAuthRetry, RetryOnExpiredToken) {
+    setupTest(xerrors::Error(EXPIRED_TOKEN, ""));
+    auto v = 1;
+    auto [r, err] = mock_client.send("", v);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_TRUE(err.matches(xerrors::NIL));
 }

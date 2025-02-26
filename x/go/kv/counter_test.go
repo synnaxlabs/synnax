@@ -10,20 +10,16 @@
 package kv_test
 
 import (
-	"github.com/cockroachdb/pebble"
-	"github.com/cockroachdb/pebble/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var _ = Describe("Counter", Ordered, func() {
 	var db kv.DB
 	BeforeAll(func() {
-		db_, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
-		Expect(err).NotTo(HaveOccurred())
-		db = pebblekv.Wrap(db_)
+		db = memkv.New()
 	})
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";
+
 export interface PromptRenameLayoutArgs extends BaseArgs<string> {
   result?: string;
   allowEmpty?: boolean;
