@@ -10,7 +10,7 @@
 import { Align } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Layout } from "@/layout";
+import { BottomNavBar } from "@/modals/BottomNavBar";
 
 export interface ModalContentLayoutProps extends PropsWithChildren {
   footer: React.ReactNode;
@@ -30,6 +30,6 @@ export const ModalContentLayout = ({
     >
       {children}
     </Align.Space>
-    <Layout.BottomNavBar>{footer}</Layout.BottomNavBar>
+    <BottomNavBar>{footer}</BottomNavBar>
   </Align.Space>
 );

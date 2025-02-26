@@ -10,7 +10,8 @@
 import { useStore } from "react-redux";
 
 import { Hardware } from "@/hardware";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Vis } from "@/vis";
 
@@ -20,7 +21,7 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
-  name: "New Layout",
+  name: "New Component",
 };
 
 export const Selector: Layout.Renderer = (props) => {
@@ -30,7 +31,7 @@ export const Selector: Layout.Renderer = (props) => {
     ...Hardware.SELECTABLES,
   ];
   return (
-    <Layout.Selector
+    <CoreSelector.Selector
       selectables={selectables}
       text="Select a Component Type"
       {...props}

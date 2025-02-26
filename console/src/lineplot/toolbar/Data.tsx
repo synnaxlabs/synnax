@@ -26,7 +26,7 @@ export interface DataProps {
   layoutKey: string;
 }
 
-export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
+export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectMultiple();

@@ -33,6 +33,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -76,7 +77,7 @@ const parentRangeIcon = (
   </PIcon.Icon>
 );
 
-export const Create = (props: Layout.RendererProps): ReactElement => {
+export const Create: Layout.Renderer = (props) => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
@@ -218,7 +219,7 @@ const CreateLayoutForm = ({
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
           <Button.Button
@@ -239,7 +240,7 @@ const CreateLayoutForm = ({
             Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

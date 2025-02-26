@@ -13,7 +13,8 @@ import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { Link } from "@/link";
@@ -93,7 +94,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus, handleException } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
@@ -120,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {hasNoSnapshots && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

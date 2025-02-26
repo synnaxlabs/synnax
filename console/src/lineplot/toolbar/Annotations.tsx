@@ -24,7 +24,7 @@ import { bounds, id, type KeyedNamed } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectAxes, useSelectRules } from "@/lineplot/selectors";

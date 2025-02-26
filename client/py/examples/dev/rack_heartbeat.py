@@ -9,8 +9,9 @@
 
 import json
 
-import synnax as sy
 from freighter import Payload
+
+import synnax as sy
 
 client = sy.Synnax()
 

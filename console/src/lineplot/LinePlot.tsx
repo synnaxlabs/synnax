@@ -27,7 +27,6 @@ import {
 import {
   box,
   DataType,
-  deep,
   getEntries,
   location,
   primitiveIsZero,
@@ -38,9 +37,8 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -52,6 +50,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
+import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import {
   select,
   useSelect,
@@ -86,6 +85,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
+import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -116,7 +116,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placeLayout = Layout.usePlacer();
@@ -501,22 +501,7 @@ const buildLines = (
     ),
   );
 
-export const LAYOUT_TYPE = "lineplot";
-export type LayoutType = typeof LAYOUT_TYPE;
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
-  };
-
-export const LinePlot: Layout.Renderer = ({
-  layoutKey,
-  ...rest
-}): ReactElement | null => {
+export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const linePlot = useLoadRemote({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
@@ -532,7 +517,7 @@ export const LinePlot: Layout.Renderer = ({
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
   icon: <Icon.LinePlot />,

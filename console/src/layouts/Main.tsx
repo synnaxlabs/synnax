@@ -26,11 +26,11 @@ import { useDispatch } from "react-redux";
 import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
-import { NavDrawer } from "@/components/nav/Nav";
+import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
-import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
+import { Nav } from "@/layouts/nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
@@ -43,21 +43,21 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
-const NOTIFICATION_ADAPTERS = [
+const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
+  ...Cluster.NOTIFICATION_ADAPTERS,
   ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
-  ...Cluster.NOTIFICATION_ADAPTERS,
 ];
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [channel.ONTOLOGY_TYPE]: ChannelServices.linkHandler,
-  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.linkHandler,
-  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
-  [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
-  [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
-  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
+  [channel.ONTOLOGY_TYPE]: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
+  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.handleLink,
+  [log.ONTOLOGY_TYPE]: LogServices.handleLink,
+  [ranger.ONTOLOGY_TYPE]: RangeServices.handleLink,
+  [schematic.ONTOLOGY_TYPE]: SchematicServices.handleLink,
+  [table.ONTOLOGY_TYPE]: TableServices.handleLink,
+  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.handleLink,
 };
 
 const SideEffect = (): null => {
@@ -70,7 +70,7 @@ const SideEffect = (): null => {
   Hardware.Device.useListenForChanges();
   Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
-  Link.useDeep(LINK_HANDLERS);
+  Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   Layout.useTriggers();
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
@@ -88,25 +88,25 @@ export const Main = (): ReactElement => (
     {/* We need to place notifications here so they are in the proper stacking context */}
     <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
     <SideEffect />
-    <NavTop />
+    <Nav.Top />
     <Layout.Modals />
     <Align.Space className="console-main-fixed--y" direction="x" empty>
-      <NavLeft />
+      <Nav.Left />
       <Align.Space
         className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
         empty
       >
         <Align.Space className="console-main--driven" direction="x" empty>
-          <NavDrawer location="left" />
+          <Nav.Drawer location="left" />
           <main className="console-main--driven" style={{ position: "relative" }}>
             <Mosaic />
           </main>
-          <NavDrawer location="right" />
+          <Nav.Drawer location="right" />
         </Align.Space>
-        <NavDrawer location="bottom" />
+        <Nav.Drawer location="bottom" />
       </Align.Space>
-      <NavRight />
+      <Nav.Right />
     </Align.Space>
-    <NavBottom />
+    <Nav.Bottom />
   </>
 );

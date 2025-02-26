@@ -15,7 +15,8 @@ import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -226,7 +227,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     dispatch(setActive(null));
   };
   const groupFromSelection = Group.useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleAddChildRange = () => {
     placeLayout(createCreateLayout({ parent: resources[0].id.key }));
   };
@@ -267,7 +268,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {showAddToActivePlot && addToActivePlotMenuItem}
       {addToNewPlotMenuItem}
       <PMenu.Divider />

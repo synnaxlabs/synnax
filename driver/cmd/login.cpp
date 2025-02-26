@@ -81,14 +81,14 @@ int cmd::sub::login(xargs::Parser &args) {
     LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << xlog::RED << "failed to authenticate: " << err << xlog::RESET;
+        LOG(ERROR) << xlog::RED() << "failed to authenticate: " << err << xlog::RESET();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN << "successfully logged in!" << xlog::RESET;
+    LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
     if (auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED << "failed to save credentials: " << err << xlog::RESET;
+        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err << xlog::RESET();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN << "credentials saved successfully!" << xlog::RESET;
+    LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();
     return 0;
 }
