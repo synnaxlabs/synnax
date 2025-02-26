@@ -645,7 +645,8 @@ public:
     static Series linspace(const TimeStamp &start, const TimeStamp &end, size_t count) {
         if (count == 1) return Series(start + (end - start) / 2);
         Series s(TIMESTAMP_T, count);
-        const auto step = static_cast<double>(end.value - start.value) / (count - 1);
+        if (count == 0) return s;
+        const auto step = (end.value - start.value) / (count - 1);
         for (size_t i = 0; i < count; i++) {
             const uint64_t value = start.value + static_cast<uint64_t>(step * i);
             s.write<uint64_t>(value);

@@ -427,3 +427,53 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap, s1.cap);
 }
+
+TEST(TestSeriesLinspace, BasicEvenSpacing) {
+    const auto start = telem::TimeStamp(100);
+    const auto end = telem::TimeStamp(500);
+    constexpr size_t count = 5;
+    const auto s = telem::Series::linspace(start, end, count);
+    ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
+    ASSERT_EQ(s.size(), count);
+    const auto values = s.values<uint64_t>();
+    ASSERT_EQ(values[0], 100);
+    ASSERT_EQ(values[1], 200);
+    ASSERT_EQ(values[2], 300);
+    ASSERT_EQ(values[3], 400);
+    ASSERT_EQ(values[4], 500);
+}
+
+TEST(TestSeriesLinspace, SinglePoint) {
+    const auto start = telem::TimeStamp(100);
+    const auto end = telem::TimeStamp(500);
+    const auto s = telem::Series::linspace(start, end, 1);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.at<uint64_t>(0), 300);  // Should be midpoint
+}
+
+TEST(TestSeriesLinspace, LargeTimestamps) {
+    const auto start = telem::TimeStamp(1000000000000ULL);
+    const auto end = telem::TimeStamp(1000000001000ULL);
+    constexpr size_t count = 3;
+    const auto s = telem::Series::linspace(start, end, count);
+    const auto values = s.values<uint64_t>();
+    ASSERT_EQ(values[0], 1000000000000ULL);
+    ASSERT_EQ(values[1], 1000000000500ULL);
+    ASSERT_EQ(values[2], 1000000001000ULL);
+}
+
+TEST(TestSeriesLinspace, EqualStartEnd) {
+    const auto timestamp = telem::TimeStamp(100);
+    const auto s = telem::Series::linspace(timestamp, timestamp, 5);
+    const auto values = s.values<uint64_t>();
+    for (size_t i = 0; i < 5; i++) ASSERT_EQ(values[i], 100);
+}
+
+TEST(TestSeriesLinspace, ZeroCount) {
+    const auto start = telem::TimeStamp(100);
+    const auto end = telem::TimeStamp(500);
+    const auto s = telem::Series::linspace(start, end, 0);
+    ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+}
