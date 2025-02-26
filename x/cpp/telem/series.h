@@ -153,7 +153,7 @@ public:
     template<typename NumericType>
     explicit Series(
         const std::vector<NumericType> &d,
-        const DataType dt = DATA_TYPE_UNKNOWN
+        const DataType& dt = DATA_TYPE_UNKNOWN
     ):
         data_type(telem::DataType::infer<NumericType>(dt)),
         cap(d.size()),
@@ -203,7 +203,7 @@ public:
     template<typename NumericType>
     explicit Series(
         NumericType v,
-        const DataType override_dt = DATA_TYPE_UNKNOWN
+        const DataType& override_dt = DATA_TYPE_UNKNOWN
     ) :
         data_type(telem::DataType::infer<NumericType>(override_dt)),
         cap(1),

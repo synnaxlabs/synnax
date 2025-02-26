@@ -124,6 +124,7 @@ public:
         return DataType(TYPE_INDEXES[type_index]);
     }
 
+
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }
 
@@ -485,29 +486,38 @@ public:
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
-    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
-        const auto total_days = ts.truncate(TimeSpan(_priv::DAY));
-        const auto total_hours = ts.truncate(TimeSpan(_priv::HOUR));
-        const auto total_minutes = ts.truncate(TimeSpan(_priv::MINUTE));
-        const auto total_seconds = ts.truncate(TimeSpan(_priv::SECOND));
-        const auto total_milliseconds = ts.truncate(TimeSpan(_priv::MILLISECOND));
-        const auto total_microseconds = ts.truncate(TimeSpan(_priv::MICROSECOND));
-        const auto total_nanoseconds = ts;
-        const auto days = total_days;
-        const auto hours = total_hours - total_days;
-        const auto minutes = total_minutes - total_hours;
-        const auto seconds = total_seconds - total_minutes;
-        const auto milliseconds = total_milliseconds - total_seconds;
-        const auto microseconds = total_microseconds - total_milliseconds;
-        const auto nanoseconds = total_nanoseconds - total_microseconds;
+    [[nodiscard]] std::string to_string() const {
+        const auto total_days = this->truncate(TimeSpan(_priv::DAY));
+        const auto total_hours = this->truncate(TimeSpan(_priv::HOUR));
+        const auto total_minutes = this->truncate(TimeSpan(_priv::MINUTE));
+        const auto total_seconds = this->truncate(TimeSpan(_priv::SECOND));
+        const auto total_milliseconds = this->truncate(TimeSpan(_priv::MILLISECOND));
+        const auto total_microseconds = this->truncate(TimeSpan(_priv::MICROSECOND));
+        const auto total_nanoseconds = this->value;
 
-        if (total_days != 0) os << days.days() << "d ";
-        if (total_hours != 0) os << hours.hours() << "h ";
-        if (total_minutes != 0) os << minutes.minutes() << "m ";
-        if (total_seconds != 0) os << seconds.seconds() << "s ";
-        if (total_milliseconds != 0) os << milliseconds.milliseconds() << "ms ";
-        if (total_microseconds != 0) os << microseconds.microseconds() << "us ";
-        if (total_nanoseconds != 0) os << nanoseconds.value << "ns";
+        const auto days = total_days.value / _priv::DAY;
+        const auto hours = (total_hours.value - total_days.value) / _priv::HOUR;
+        const auto minutes = (total_minutes.value - total_hours.value) / _priv::MINUTE;
+        const auto seconds = (total_seconds.value - total_minutes.value) / _priv::SECOND;
+        const auto milliseconds = (total_milliseconds.value - total_seconds.value) / _priv::MILLISECOND;
+        const auto microseconds = (total_microseconds.value - total_milliseconds.value) / _priv::MICROSECOND;
+        const auto nanoseconds = total_nanoseconds - total_microseconds.value;
+
+        std::string out;
+        if (days != 0) out += std::to_string(days) + "d ";
+        if (hours != 0) out += std::to_string(hours) + "h ";
+        if (minutes != 0) out += std::to_string(minutes) + "m ";
+        if (seconds != 0) out += std::to_string(seconds) + "s ";
+        if (milliseconds != 0) out += std::to_string(milliseconds) + "ms ";
+        if (microseconds != 0) out += std::to_string(microseconds) + "us ";
+        if (nanoseconds != 0) out += std::to_string(nanoseconds) + "ns";
+        if (out.empty()) return "0ns";
+        if (out.back() == ' ') out.pop_back();
+        return out;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
+        os << ts.to_string();
         return os;
     }
 
