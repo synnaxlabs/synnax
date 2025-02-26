@@ -25,6 +25,7 @@
 #include "driver/ni/channel/channels.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/task.h"
+#include "driver/ni/ni.h"
 #include "x/cpp/doublebuffer/double_buffer.h"
 
 namespace ni {
@@ -339,11 +340,18 @@ public:
     /// communicating success state.
     void stop(const std::string &cmd_key) {
         this->state.key = cmd_key;
-        if (this->source->sample_thread_breaker.running()) {
-            this->source->sample_thread_breaker.stop();
-            this->source->sample_thread.join();
-        }
         this->pipe.stop();
+        const auto err = this->source->hw_api->stop();
+        this->state.details["stopped"] = true;
+        if (this->state.variant != "error") {
+            if (err) {
+                this->state.variant = "error";
+                this->state.details["message"] = err.message();
+            } else {
+                this->state.variant = "success";
+                this->state.details["message"] = "Task stopped successfully";
+            }
+        }
         this->ctx->set_state(this->state);
     }
 
@@ -351,6 +359,16 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         this->state.key = cmd_key;
+        if (const auto err = this->source->hw_api->start()) {
+            this->state.variant = "error";
+            this->state.details["message"] = err.message();
+            this->ctx->set_state(this->state);
+            return;
+        }
+        this->state.variant = "success";
+        this->state.details["message"] = "Task started successfully";
+        this->state.details["running"] = true;
+        this->ctx->set_state(this->state);
         this->pipe.start();
     }
 
@@ -358,104 +376,46 @@ public:
     public:
         /// @brief the parent read task.
         ReadTask &task;
-
-        /// @brief a buffer that will store data we've read from the hardware
-        /// along with timing information.
-        struct DataBuffer {
-            std::unique_ptr<std::vector<T> > data;
-            telem::TimeStamp t0 = telem::TimeStamp(0);
-            telem::TimeStamp tf = telem::TimeStamp(0);
-            size_t samples_read_per_channel = 0;
-
-            explicit DataBuffer(const size_t buffer_size):
-                data(std::make_unique<std::vector<T> >(buffer_size)) {
-            }
-        };
-
-        /// @brief a lock free double buffer that allows for efficient exchange of data
-        /// between the sample thread and the pipeline source.
-        DoubleBuffer<DataBuffer> buffers;
-
         /// @brief interface used to read data from the hardware.
         std::unique_ptr<HardwareInterface<T> > hw_api;
         /// @brief a separate thread to acquire samples in.
-        std::thread sample_thread;
-        /// @brief breaker for hte separate thread.
-        breaker::Breaker sample_thread_breaker;
-        /// @brief a timer that is used in the software timed mode.
-        loop::Timer sample_thread_timer;
         loop::Timer timer;
         /// @brief automatically infer the data type from the template parameter. This
         /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
         /// the data read from the hardware.
         const telem::DataType data_type = telem::DataType::infer<T>();
-
-        void acquire_data() {
-            if (const auto err = hw_api->start()) {
-                this->task.state.variant = "error";
-                this->task.state.details["message"] = err.message();
-                this->task.ctx->set_state(this->task.state);
-                return;
-            }
-            this->task.state.variant = "success";
-            this->task.state.details["message"] = "Task started successfully";
-            this->task.state.details["running"] = true;
-            this->task.ctx->set_state(this->task.state);
-
-            while (this->sample_thread_breaker.running()) {
-                auto buffer = this->buffers.curr_write();
-                buffer->t0 = telem::TimeStamp::now();
-                if (this->task.cfg.software_timed)
-                    this->timer.wait(this->sample_thread_breaker);
-                const auto [samples_read_per_channel, err] = hw_api->read(
-                    this->task.cfg.samples_per_channel,
-                    *buffer->data
-                );
-                if (err) {
-                    this->task.state.variant = "error";
-                    this->task.state.details["message"] = err.message();
-                    break;
-                }
-                if (samples_read_per_channel == 0) continue;
-                buffer->samples_read_per_channel = samples_read_per_channel;
-                buffer->tf = telem::TimeStamp::now();
-                this->buffers.exchange();
-            }
-
-            const auto err = hw_api->stop();
-            this->task.state.details["stopped"] = true;
-            if (this->task.state.variant == "error")
-                this->task.ctx->set_state(this->task.state);
-            if (err) {
-                this->task.state.variant = "error";
-                this->task.state.details["message"] = err.message();
-                return;
-            }
-            this->task.state.variant = "success";
-            this->task.state.details["message"] = "Task stopped successfully";
-        }
+        telem::TimeStamp high_water = telem::TimeStamp(0);
+        std::vector<T> buffer;
 
         explicit Source(
             ReadTask &task,
             std::unique_ptr<HardwareInterface<T> > hw
         ): task(task),
-           buffers(DataBuffer(task.cfg.channels.size() * task.cfg.samples_per_channel), DataBuffer(task.cfg.channels.size() * task.cfg.samples_per_channel)),
            hw_api(std::move(hw)),
-           sample_thread_timer(task.cfg.sample_rate),
-           timer(task.cfg.stream_rate) {
+           timer(task.cfg.stream_rate),
+           buffer(task.cfg.samples_per_channel * task.cfg.channels.size()) {
         }
 
         void stopped_with_err(const xerrors::Error &err) override {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            if (!this->sample_thread_breaker.running()) {
-                this->sample_thread_breaker.start();
-                sample_thread = std::thread(&Source::acquire_data, this);
+            if (this->task.cfg.software_timed) this->timer.wait(breaker);
+            if (this->high_water == telem::TimeStamp(0))
+                this->high_water = telem::TimeStamp::now();
+            auto start = this->high_water;
+            const auto [samples_read_per_channel, err] = hw_api->read(
+                this->task.cfg.samples_per_channel,
+                buffer
+            );
+            if (err) return {Frame(), err};
+            if (samples_read_per_channel < this->task.cfg.samples_per_channel) {
+                LOG(WARNING) << "[ni] read fewer samples than expected: "
+                        << samples_read_per_channel << " < "
+                        << this->task.cfg.samples_per_channel;
             }
-            this->timer.wait(breaker);
-            auto [buf, ok] = this->buffers.curr_read();
-            if (!ok) return {synnax::Frame(), xerrors::NIL};
+            auto end = start + samples_read_per_channel * this->task.cfg.sample_rate.
+                       period();
 
             auto f = synnax::Frame(this->task.cfg.channels.size());
             const size_t count = this->task.cfg.samples_per_channel;
@@ -463,24 +423,22 @@ public:
 
             for (const auto &ch: this->task.cfg.channels) {
                 auto s = telem::Series(ch->ch.data_type, count);
-                const size_t start = data_index * count;
+                const size_t start_idx = data_index * count;
                 if (s.data_type == this->data_type)
-                    s.write(buf->data.get()->data() + start, count);
+                    s.write(buffer.data() + start_idx, count);
                 else
                     for (int i = 0; i < count; ++i)
                         s.write(
-                            s.data_type.cast(buf->data->at(start + i)));
+                            s.data_type.cast(buffer.at(start_idx + i)));
                 f.emplace(ch->synnax_key, std::move(s));
                 data_index++;
             }
-
             if (!this->task.cfg.indexes.empty()) {
                 const auto index_data =
-                        telem::Series::linspace(buf->t0, buf->tf, count);
+                        telem::Series::linspace(start, end, count);
                 for (const auto &idx: this->task.cfg.indexes)
                     f.emplace(idx, std::move(index_data.deep_copy()));
             }
-
             return std::make_pair(std::move(f), xerrors::NIL);
         }
     };
