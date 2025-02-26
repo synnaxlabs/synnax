@@ -11,8 +11,8 @@ import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
 import { bounds, box, clamp, type scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
-import { aether } from "@/ether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";

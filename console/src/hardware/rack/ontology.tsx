@@ -13,7 +13,7 @@ import { Icon as PIcon, Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Sequence } from "@/hardware/task/sequence";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";

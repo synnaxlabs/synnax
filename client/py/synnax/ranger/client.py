@@ -12,13 +12,29 @@ from __future__ import annotations
 
 import functools
 from typing import Callable, overload
+from uuid import UUID
 
+import numpy as np
 from freighter import UnaryClient
+from pydantic import PrivateAttr
 
+from synnax.channel.payload import (
+    ChannelKey,
+    ChannelKeys,
+    ChannelName,
+    ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+)
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
+from synnax.hardware.ni import AnalogReadTask
+from synnax.hardware.task import Client as TaskClient
+from synnax.hardware.task import Task
+from synnax.ontology import Client as OntologyClient
+from synnax.ontology.payload import ID
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
@@ -33,33 +49,15 @@ from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
 from synnax.telem import (
-    TimeRange,
-    Series,
-    SampleValue,
+    CrudeSeries,
     DataType,
     Rate,
-    CrudeSeries,
-)
-from synnax.ontology.payload import ID
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelName,
-    ChannelPayload,
-    ChannelKeys,
-    ChannelNames,
-    ChannelParams,
+    SampleValue,
+    Series,
+    TimeRange,
 )
 from synnax.util.interop import overload_comparison_operators
-from synnax.hardware.task import Task, Client as TaskClient
-from synnax.ontology import Client as OntologyClient
-from synnax.hardware.ni import AnalogReadTask
 from synnax.util.normalize import check_for_none, normalize
-
-from uuid import UUID
-from typing import overload
-
-import numpy as np
-from pydantic import PrivateAttr
 
 RANGE_SET_CHANNEL = "sy_range_set"
 

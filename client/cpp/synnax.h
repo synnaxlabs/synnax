@@ -120,8 +120,7 @@ public:
         auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
-            cfg.password,
-            5
+            cfg.password
         );
         t.use(auth);
         channels = ChannelClient(std::move(t.chan_retrieve),

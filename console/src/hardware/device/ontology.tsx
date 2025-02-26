@@ -13,7 +13,7 @@ import { Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import {
   CONFIGURE_LAYOUTS,
@@ -89,7 +89,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {singleResource && (
         <>
           <Menu.RenameItem />

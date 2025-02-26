@@ -25,7 +25,7 @@ import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { Text } from "@/text";
+import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 import { type Button as CoreButton } from "@/vis/button";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
@@ -120,7 +120,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       label="Label Size"
       padHelpText={false}
     >
-      {Text.SelectLevel}
+      {(p) => <Select.Text.Level {...p} />}
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
@@ -129,7 +129,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {Select.TextAlignment}
+      {(p) => <Select.TextAlignment {...p} />}
     </Form.Field>
     <Form.Field<direction.Direction>
       visible={!omit.includes("direction")}
@@ -196,7 +196,7 @@ export const CommonStyleForm = ({
           hideIfNull
           optional
         >
-          {Input.Switch}
+          {(p) => <Input.Switch {...p} />}
         </Form.Field>
         <ScaleControl path="scale" />
       </Align.Space>
@@ -435,7 +435,7 @@ export const ValueForm = (): ReactElement => {
                   align="start"
                   padHelpText={false}
                 >
-                  {Input.Text}
+                  {(p) => <Input.Text {...p} />}
                 </Form.Field>
                 <Form.NumericField
                   path="inlineSize"
@@ -453,7 +453,7 @@ export const ValueForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {Text.SelectLevel}
+                  {(p) => <Select.Text.Level {...p} />}
                 </Form.Field>
               </Align.Space>
             </Align.Space>
@@ -710,7 +710,7 @@ export const SetpointForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {Select.ComponentSize}
+                  {(p) => <Select.ComponentSize {...p} />}
                 </Form.Field>
                 <ColorControl path="color" />
               </Align.Space>
@@ -736,10 +736,10 @@ export const TextBoxForm = (): ReactElement => {
       <Align.Space direction="y" grow>
         <Align.Space direction="x" align="stretch">
           <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
-            {Input.Text}
+            {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-            {Text.SelectLevel}
+            {(p) => <Select.Text.Level {...p} />}
           </Form.Field>
           <Form.Field<Align.Alignment>
             path="align"
@@ -747,7 +747,7 @@ export const TextBoxForm = (): ReactElement => {
             padHelpText={false}
             hideIfNull
           >
-            {Select.TextAlignment}
+            {(p) => <Select.TextAlignment {...p} />}
           </Form.Field>
         </Align.Space>
         <Align.Space direction="x">

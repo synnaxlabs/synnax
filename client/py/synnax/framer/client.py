@@ -25,18 +25,18 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import Frame, CrudeFrame
+from synnax.framer.deleter import Deleter
+from synnax.framer.frame import CrudeFrame, Frame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
-from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
-from synnax.framer.deleter import Deleter
+from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.ontology import ID
 from synnax.telem import (
+    CrudeSeries,
     CrudeTimeStamp,
+    MultiSeries,
     TimeRange,
     TimeSpan,
-    CrudeSeries,
-    MultiSeries,
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
