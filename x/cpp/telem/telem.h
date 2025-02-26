@@ -22,13 +22,13 @@
 namespace telem {
 // private namespace for internal constants
 namespace _priv {
-constexpr uint64_t NANOSECOND = 1;
-constexpr uint64_t MICROSECOND = NANOSECOND * 1e3;
-constexpr uint64_t MILLISECOND = MICROSECOND * 1e3;
-constexpr uint64_t SECOND = MILLISECOND * 1e3;
-constexpr uint64_t MINUTE = SECOND * 60;
-constexpr uint64_t HOUR = MINUTE * 60;
-constexpr uint64_t DAY = HOUR * 24;
+constexpr int64_t NANOSECOND = 1;
+constexpr int64_t MICROSECOND = NANOSECOND * 1e3;
+constexpr int64_t MILLISECOND = MICROSECOND * 1e3;
+constexpr int64_t SECOND = MILLISECOND * 1e3;
+constexpr int64_t MINUTE = SECOND * 60;
+constexpr int64_t HOUR = MINUTE * 60;
+constexpr int64_t DAY = HOUR * 24;
 } // namespace _priv
 
 #define ASSERT_TYPE_SIZE(type, size) \
@@ -304,13 +304,17 @@ const auto JSON_T = DataType("json");
 class TimeSpan {
 public:
     /// @property value holds the internal, primitive value of the timespan.
-    std::uint64_t value;
+    std::int64_t value;
 
     TimeSpan() = default;
 
+    TimeSpan abs() const {
+        return TimeSpan(std::abs(value));
+    }
+
     /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
     /// timespan.
-    explicit TimeSpan(const std::uint64_t i) : value(i) {
+    explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
     explicit TimeSpan(
@@ -319,28 +323,28 @@ public:
     }
 
     static TimeSpan days(const double &days) {
-        return TimeSpan(static_cast<std::uint64_t>(days * _priv::DAY));
+        return TimeSpan(static_cast<std::int64_t>(days * _priv::DAY));
     }
 
     static TimeSpan hours(const double &hours) {
-        return TimeSpan(static_cast<std::uint64_t>(hours * _priv::HOUR));
+        return TimeSpan(static_cast<std::int64_t>(hours * _priv::HOUR));
     }
 
     static TimeSpan minutes(const double &minutes) {
-        return TimeSpan(static_cast<std::uint64_t>(minutes * _priv::MINUTE));
+        return TimeSpan(static_cast<std::int64_t>(minutes * _priv::MINUTE));
     }
 
     static TimeSpan seconds(const double &seconds) {
-        return TimeSpan(static_cast<std::uint64_t>(seconds * _priv::SECOND));
+        return TimeSpan(static_cast<std::int64_t>(seconds * _priv::SECOND));
     }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
     bool operator==(const TimeSpan &other) const { return value == other.value; }
 
-    bool operator==(const std::uint64_t &other) const { return value == other; }
+    bool operator==(const std::int64_t &other) const { return value == other; }
 
-    bool operator!=(const std::uint64_t &other) const { return value != other; }
+    bool operator!=(const std::int64_t &other) const { return value != other; }
 
     bool operator!=(const TimeSpan &other) const { return value != other.value; }
 
@@ -377,11 +381,11 @@ public:
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const unsigned long long &lhs, const TimeSpan &rhs) {
+    friend TimeSpan operator-(const long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs - rhs.value);
     }
 
-    TimeSpan operator-(const unsigned long long &other) const {
+    TimeSpan operator-(const long long &other) const {
         return TimeSpan(value - other);
     }
 
@@ -532,13 +536,13 @@ public:
 class TimeStamp {
 public:
     /// @property value holds the internal, primitive value of the timestamp.
-    std::uint64_t value;
+    std::int64_t value;
 
     TimeStamp() = default;
 
-    /// @brief Constructs a timestamp from the given unsigned long long, interpreting it as a nanosecond-precision UTC
+    /// @brief Constructs a timestamp from the given interpreting it as a nanosecond-precision UTC
     /// timestamp.
-    explicit TimeStamp(const std::uint64_t value) : value(value) {
+    explicit TimeStamp(const std::int64_t value) : value(value) {
     }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
@@ -643,7 +647,7 @@ public:
     TimeRange(const TimeStamp start, const TimeStamp end) : start(start), end(end) {
     }
 
-    TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
+    TimeRange(const std::int64_t start, const std::int64_t end) : start(start),
         end(end) {
     }
 

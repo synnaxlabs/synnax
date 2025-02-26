@@ -26,7 +26,8 @@ TEST(TestAuth, testLoginHappyPath) {
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon"
+        "seldon",
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
@@ -46,7 +47,8 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon"
+        "seldon",
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
@@ -89,7 +91,7 @@ protected:
     std::unique_ptr<MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>> mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
     MockUnaryClient<int, int> mock_client;
-    
+
     void SetUp() override {
         res.set_token("abc");
     }

@@ -9,11 +9,19 @@
 
 #pragma once
 
+/// std
 #include <string>
 
-#include "x/cpp/xerrors/errors.h"
-#include "freighter/cpp/freighter.h"
+/// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+
+/// module
+#include <glog/logging.h>
+
+#include "freighter/cpp/freighter.h"
+#include "x/cpp/telem/clock_skew.h"
+#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
@@ -34,15 +42,25 @@ const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired-token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
 const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
 
+/// @brief diagnostic information about the Synnax cluster.
 struct ClusterInfo {
+    /// @brief a unique UUID key for the cluster.
     std::string cluster_key;
+    /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
+    /// @brief the key of the node within the cluster.
+    std::uint16_t node_key;
+    /// @brief the time of the node at the midpoint of the server processing the request.
+    /// This is used to calculate a rough clock skew between the client and server.
+    telem::TimeStamp node_time;
 
     ClusterInfo() = default;
 
     explicit ClusterInfo(const api::v1::ClusterInfo &info):
         cluster_key(info.cluster_key()),
-        node_version(info.node_version()) {
+        node_version(info.node_version()),
+        node_key(info.node_key()),
+        node_time(info.node_time()) {
     }
 };
 
@@ -62,30 +80,47 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::string password;
     /// @brief
     std::mutex mu;
+    /// @brief the maximum clock skew between the client and server before logging a warning.
+    telem::TimeSpan clock_skew_threshold;
 public:
     /// Cluster information.
-    ClusterInfo cluster_info;
+    ClusterInfo cluster_info = ClusterInfo();
 
     AuthMiddleware(
         std::unique_ptr<AuthLoginClient> login_client,
         std::string username,
-        std::string password
+        std::string password,
+        const telem::TimeSpan clock_skew_threshold
     ) : login_client(std::move(login_client)),
         username(std::move(username)),
-        password(std::move(password)) {
+        password(std::move(password)),
+        clock_skew_threshold(clock_skew_threshold) {
     }
 
-    /// @brief authenticates with the credentials provided when construction the 
+    /// @brief authenticates with the credentials provided when construction the
     /// Synnax client.
     xerrors::Error authenticate() {
         std::lock_guard lock(mu);
         api::v1::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
+        auto skew_calc = telem::ClockSkewCalculator();
+        skew_calc.start();
         auto [res, err] = login_client->send(AUTH_ENDPOINT, req);
         if (err) return err;
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());
+        skew_calc.end(this->cluster_info.node_time);
+
+        if (skew_calc.exceeds(this->clock_skew_threshold)) {
+            LOG(WARNING) << "measured excessive clock skew between this host and the Synnax cluster.";
+            if (skew_calc.skew() > telem::TimeSpan(0))
+                LOG(WARNING) << "this host is behind by approximately" << skew_calc.skew().abs();
+             else
+                LOG(WARNING) << "this host is ahead by approximately" << skew_calc.skew().abs();
+            LOG(WARNING) << "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";
+        }
+
         this->authenticated = true;
         return xerrors::NIL;
     }

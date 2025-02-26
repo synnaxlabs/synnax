@@ -11,6 +11,8 @@ package grpc
 
 import (
 	"context"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/x/telem"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
@@ -76,6 +78,8 @@ func (l loginResponseTranslator) Forward(
 		ClusterInfo: &gapi.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
+			NodeKey:     uint32(r.ClusterInfo.NodeKey),
+			NodeTime:    int64(r.ClusterInfo.NodeTime),
 		},
 	}, nil
 }
@@ -94,6 +98,8 @@ func (l loginResponseTranslator) Backward(
 		ClusterInfo: api.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
+			NodeKey:     dcore.NodeKey(r.ClusterInfo.NodeKey),
+			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err
 }
