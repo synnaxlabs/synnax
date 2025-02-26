@@ -105,15 +105,14 @@ class Synnax(Client):
             max_retries=max_retries,
             instrumentation=instrumentation,
         )
-        if opts.username != "" or opts.password != "":
-            self.auth = AuthenticationClient(
-                transport=self._transport.unary,
-                username=opts.username,
-                password=opts.password,
-            )
-            self.auth.authenticate()
-            self._transport.use(*self.auth.middleware())
-            self._transport.use_async(*self.auth.async_middleware())
+        self.auth = AuthenticationClient(
+            transport=self._transport.unary,
+            username=opts.username,
+            password=opts.password,
+        )
+        self.auth.authenticate()
+        self._transport.use(self.auth.middleware())
+        self._transport.use_async(self.auth.async_middleware())
 
         ch_retriever = ClusterChannelRetriever(self._transport.unary, instrumentation)
         if cache_channels:

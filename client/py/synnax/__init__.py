@@ -25,6 +25,8 @@ from synnax.exceptions import (
     UnauthorizedError,
     FieldError,
     ConfigurationError,
+    InvalidToken,
+    ExpiredToken,
 )
 from synnax.framer import (
     BufferedWriter,
@@ -64,3 +66,4 @@ from synnax.hardware.task import Task
 from synnax.hardware.rack import Rack
 from synnax.hardware.device import Device
 from synnax.timing import sleep, Loop, Timer
+from synnax.user.payload import User

@@ -115,6 +115,7 @@ protected:
     }
 };
 
+/// @brief it should retry authentication if the authentication token is invalid.
 TEST_F(TestAuthRetry, RetryOnInvalidToken) {
     setupTest(xerrors::Error(INVALID_TOKEN, ""));
     auto v = 1;
@@ -123,6 +124,7 @@ TEST_F(TestAuthRetry, RetryOnInvalidToken) {
     EXPECT_TRUE(err.matches(xerrors::NIL));
 }
 
+/// @brief it should retry authentication if the authentication token is expired.
 TEST_F(TestAuthRetry, RetryOnExpiredToken) {
     setupTest(xerrors::Error(EXPIRED_TOKEN, ""));
     auto v = 1;
