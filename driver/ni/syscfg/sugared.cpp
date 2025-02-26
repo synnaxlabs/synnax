@@ -47,7 +47,7 @@ xerrors::Error SugaredSysCfg::SetFilterProperty(
 ) {
     va_list args;
     va_start(args, propertyID);
-    auto status = syscfg->SetFilterProperty(filterHandle, propertyID, args);
+    auto status = syscfg->SetFilterPropertyV(filterHandle, propertyID, args);
     va_end(args);
     return process_error(status);
 }

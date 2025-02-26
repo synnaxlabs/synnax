@@ -33,6 +33,12 @@ public:
         ...
     ) override;
 
+    NISYSCFGCFUNC SetFilterPropertyV(
+        NISysCfgFilterHandle filterHandle,
+        NISysCfgFilterProperty propertyID,
+        va_list args
+    ) override;
+
     NISYSCFGCFUNC CloseHandle(
         void *syscfgHandle
     ) override;

@@ -75,6 +75,13 @@ public:
         wchar_t **detailedDescription
     ) = 0;
 
+
+    virtual NISYSCFGCFUNC SetFilterPropertyV(
+            NISysCfgFilterHandle filterHandle,
+            NISysCfgFilterProperty propertyID,
+            va_list args
+    ) = 0;
+
     virtual NISYSCFGCFUNC FreeDetailedStringW(
         wchar_t str[]
     ) = 0;

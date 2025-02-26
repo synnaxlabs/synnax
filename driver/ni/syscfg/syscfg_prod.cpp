@@ -101,16 +101,24 @@ NISYSCFGCFUNC SysCfgProd::CreateFilter(
     return function_pointers_.CreateFilter(sessionHandle, filterHandle);
 }
 
+NISYSCFGCDECL SysCfgProd::SetFilterPropertyV(
+    NISysCfgFilterHandle filterHandle,
+    NISysCfgFilterProperty propertyID,
+    va_list args
+) {
+    return function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
+}
+
 NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-  va_list args;
-  va_start(args, propertyID);
-  NISysCfgStatus status = function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
-  va_end(args);
-  return status;
+    va_list args;
+    va_start(args, propertyID);
+    NISysCfgStatus status = SetFilterPropertyV(filterHandle, propertyID, args);
+    va_end(args);
+    return status;
 }
 
 NISYSCFGCFUNC SysCfgProd::CloseHandle(
