@@ -193,6 +193,12 @@ struct TwoPointLinConfig {
     }
 };
 
+inline std::string format_cfg_path(const std::string &path) {
+    auto formatted = path;
+    std::replace(formatted.begin(), formatted.end(), '.', '_');
+    return formatted;
+}
+
 struct Base {
     const bool enabled;
     const std::string dev_key;
@@ -204,7 +210,7 @@ struct Base {
     explicit Base(xjson::Parser &cfg):
         enabled(cfg.optional<bool>("enabled", true)),
         dev_key(cfg.optional<std::string>("device", "")),
-        cfg_path(cfg.path_prefix) {
+        cfg_path(format_cfg_path(cfg.path_prefix)) {
     }
 
     virtual xerrors::Error apply(
