@@ -287,7 +287,7 @@ public:
     }
 
     /// @brief stops the task.
-    void stop(bool will_reconfigure) override { this->stop(""); }
+    void stop(const bool will_reconfigure) override { this->stop("", will_reconfigure); }
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.

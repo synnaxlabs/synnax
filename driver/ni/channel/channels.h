@@ -400,7 +400,7 @@ struct AIVoltage : AICustomScale {
         return dmx->CreateAIVoltageChan(
             task_handle,
             this->physical_channel().c_str(),
-            "", // name to assign channel
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
