@@ -45,9 +45,10 @@ static std::string get_error_msg(
     const Status status
 ) {
     if (status == 0) return "";
-    char err_buf[2048];
-    dmx->GetExtendedErrorInfo(err_buf, 2048);
-    return std::string(err_buf);
+    const size_t bytes_to_alloc = dmx->GetExtendedErrorInfo(nullptr, 0);
+    std::vector<char> err_buf(bytes_to_alloc);  
+    dmx->GetExtendedErrorInfo(err_buf.data(), err_buf.size());
+    return std::string(err_buf.data());
 }
 
 struct FieldErrorInfo {
