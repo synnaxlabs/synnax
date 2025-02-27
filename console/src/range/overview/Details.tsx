@@ -65,7 +65,9 @@ const ParentRangeButton = ({
   if (parent == null) return null;
   return (
     <Align.Space direction="x" size="small" align="center">
-      <Text.Text level="p">Child Range of</Text.Text>
+      <Text.Text level="p" shade={7} weight={450}>
+        Child Range of
+      </Text.Text>
       <Button.Button
         variant="text"
         shade={7}

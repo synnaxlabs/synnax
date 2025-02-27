@@ -10,18 +10,20 @@
  */
 
 .pluto-tag {
-    padding: 0rem 1.5rem;
+    padding: 0rem 1.5rem 0rem 1rem;
     border-radius: var(--pluto-border-radius);
-    border: var(--pluto-border);
+    border: var(--pluto-border-l4);
+    border-width: 0.5px;
     width: fit-content;
-    height: 3.75rem;
+    height: 4rem;
     background: var(--pluto-gray-l1);
-    transition: padding-right 0.3s ease;
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-
+    box-shadow:
+        lch(0 0 0 / 0.02) 0px 4px 4px -1px,
+        lch(0 0 0 / 0.06) 0px 1px 1px 0px;
     & .pluto-text {
         text-overflow: ellipsis;
         overflow: hidden;

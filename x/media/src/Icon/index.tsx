@@ -94,13 +94,13 @@ import {
   MdLabel,
   MdLink,
   MdNewReleases,
-  MdOutlineAccessTimeFilled,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineTimelapse,
   MdOutlineWebAsset,
   MdPause,
   MdPerson,
@@ -144,12 +144,12 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
+  TbBinaryTreeFilled,
   TbDecimal,
   TbLivePhoto,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
-  TbSquareLetterV,
   TbSquareLetterVFilled,
   TbVariable,
 } from "react-icons/tb";
@@ -372,6 +372,7 @@ export interface IconType {
   };
   TextAlign: { Left: IconFC; Center: IconFC; Right: IconFC };
   Hardware: IconFC;
+  Hierarchy: IconFC;
   Device: IconFC;
   Task: IconFC;
   Save: IconFC;
@@ -459,7 +460,7 @@ export const Icon: IconType = {
   Download: wrapIcon(HiDownload, "download"),
   Import: wrapIcon(MdFileUpload, "import"),
   Export: wrapIcon(PiDownloadSimple, "export"),
-  Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
+  Range: wrapIcon(MdOutlineTimelapse, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
   Resources: wrapIcon(AiFillFolder, "resources"),
@@ -590,4 +591,5 @@ export const Icon: IconType = {
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
   Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
+  Hierarchy: wrapIcon(TbBinaryTreeFilled, "hierarchy"),
 };
