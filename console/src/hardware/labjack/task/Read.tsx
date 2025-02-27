@@ -78,7 +78,7 @@ const getRenderedPort = (
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<InputChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
-  device: Device.Device;
+  deviceModel: Device.Model;
 }
 
 const ChannelListItem = ({
@@ -86,7 +86,7 @@ const ChannelListItem = ({
   isSnapshot,
   onTare,
   isRunning,
-  device,
+  deviceModel,
   ...rest
 }: ChannelListItemProps) => {
   const {
@@ -94,7 +94,7 @@ const ChannelListItem = ({
   } = rest;
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
-  const renderedPort = getRenderedPort(port, device.model, type);
+  const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -111,12 +111,11 @@ const ChannelListItem = ({
 };
 
 interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
-  device: Device.Device;
+  deviceModel: Device.Model;
 }
 
-const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
+const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const channel = PForm.useFieldValue<InputChannel>(path);
-  const model = device.model;
   const Form = FORMS[channel.type];
   return (
     <>
@@ -137,7 +136,9 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
             let nextPort = nextParent.port;
             if (prevPortType !== nextPortType)
               nextPort =
-                Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
+                Device.DEVICES[deviceModel].ports[
+                  convertChannelTypeToPortType(value)
+                ][0].key;
             set(parentPath, {
               ...nextParent,
               type: next.type,
@@ -150,13 +151,13 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
           {(p) => (
             <Device.SelectPort
               {...p}
-              model={model}
+              model={deviceModel}
               portType={convertChannelTypeToPortType(channel.type)}
             />
           )}
         </PForm.Field>
       </Align.Space>
-      <Form deviceModel={device.model} path={path} />
+      <Form deviceModel={deviceModel} path={path} />
     </>
   );
 };
@@ -222,13 +223,20 @@ const ChannelsForm = ({
   );
   const listItem = useCallback(
     (p: Common.Task.ChannelListItemProps<InputChannel>) => (
-      <ChannelListItem {...p} onTare={tare} isRunning={isRunning} device={device} />
+      <ChannelListItem
+        {...p}
+        onTare={tare}
+        isRunning={isRunning}
+        deviceModel={device.model}
+      />
     ),
-    [tare, isRunning, device],
+    [tare, isRunning, device.model],
   );
   const details = useCallback(
-    (p: Common.Task.Layouts.DetailsProps) => <ChannelDetails {...p} device={device} />,
-    [device],
+    (p: Common.Task.Layouts.DetailsProps) => (
+      <ChannelDetails {...p} deviceModel={device.model} />
+    ),
+    [device.model],
   );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
