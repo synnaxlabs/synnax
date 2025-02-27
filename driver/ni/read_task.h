@@ -299,6 +299,7 @@ public:
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
     void start(const std::string &cmd_key) {
+        this->hw_start_time = telem::TimeStamp::now();
         if (!this->state.error(this->hw->start())) this->pipe.start();
         this->state.send_start(cmd_key);
         this->pipe.start();
