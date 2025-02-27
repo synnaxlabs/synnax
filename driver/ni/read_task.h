@@ -100,24 +100,29 @@ struct ReadTaskConfig {
             return;
         }
         auto remote_channels = channel_keys_map(channel_vec);
+        std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, err] = client->hardware.retrieve_device(this->device_key);
             if (err) {
                 cfg.field_err("", "failed to retrieve device for task");
                 return;
             }
+            devices[device.key] = device;
+        } else {
+            std::vector<std::string> dev_keys;
+            for (const auto &ch: this->channels) dev_keys.push_back(ch->dev_key);
+            auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
+            if (dev_err) {
+                cfg.field_err("", "failed to retrieve devices for task");
+                return;
+            }
+            devices = device_keys_map(devices_vec);
+
         }
-        std::vector<std::string> dev_keys;
-        for (const auto &ch: this->channels) dev_keys.push_back(ch->dev_key);
-        auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
-        if (dev_err) {
-            cfg.field_err("", "failed to retrieve devices for task");
-            return;
-        }
-        auto devices = device_keys_map(devices_vec);
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
-            auto dev = devices[ch->dev_key];
+            auto dev = this->device_key == "cross-device" ?
+                devices.at(ch->dev_key) : devices.at(this->device_key);
             ch->bind_remote_info(remote_ch, dev.location);
             if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
         }

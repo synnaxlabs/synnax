@@ -49,12 +49,12 @@ protected:
 
     void parse_config() {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
-        
+
         auto idx_err = sy->channels.create(index_channel);
         ASSERT_FALSE(idx_err) << idx_err;
 
         data_channel.index = index_channel.key;
-        auto data_err= sy->channels.create(data_channel);
+        auto data_err = sy->channels.create(data_channel);
         ASSERT_FALSE(data_err) << data_err;
 
         auto [rack, rack_err] = sy->hardware.create_rack("cat");
@@ -84,26 +84,28 @@ protected:
             {"data_saving", false},
             {"sample_rate", 25},
             {"stream_rate", 25},
-            {"channels", json::array({
-                {
-                    {"type", "ai_accel"},
-                    {"key", "ks1VnWdrSVA"},
-                    {"port", 0},
-                    {"enabled", true},
-                    {"name", ""},
-                    {"channel", data_channel.key},
-                    {"terminal_config", "Cfg_Default"},
-                    {"min_val", 0},
-                    {"max_val", 1},
-                    {"sensitivity", 0},
-                    {"current_excit_source", "Internal"},
-                    {"current_excit_val", 0},
-                    {"custom_scale", {{"type", "none"}}},
-                    {"units", "g"},
-                    {"sensitivity_units", "mVoltsPerG"},
-                    {"device", dev.key}
-                }
-            })}
+            {
+                "channels", json::array({
+                    {
+                        {"type", "ai_accel"},
+                        {"key", "ks1VnWdrSVA"},
+                        {"port", 0},
+                        {"enabled", true},
+                        {"name", ""},
+                        {"channel", data_channel.key},
+                        {"terminal_config", "Cfg_Default"},
+                        {"min_val", 0},
+                        {"max_val", 1},
+                        {"sensitivity", 0},
+                        {"current_excit_source", "Internal"},
+                        {"current_excit_val", 0},
+                        {"custom_scale", {{"type", "none"}}},
+                        {"units", "g"},
+                        {"sensitivity_units", "mVoltsPerG"},
+                        {"device", dev.key}
+                    }
+                })
+            }
         };
 
         auto p = xjson::Parser(j);
@@ -132,7 +134,7 @@ protected:
 TEST_F(SingleChannelAnalogReadTest, testBasicAnalogRead) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
-    
+
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto first_state = ctx->states[0];
@@ -162,7 +164,9 @@ TEST_F(SingleChannelAnalogReadTest, testBasicAnalogRead) {
 TEST_F(SingleChannelAnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
-        std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")}
+        std::vector{
+            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")
+        }
     ));
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -170,7 +174,8 @@ TEST_F(SingleChannelAnalogReadTest, testErrorOnStart) {
     EXPECT_EQ(state.key, "start_cmd");
     EXPECT_EQ(state.task, task.key);
     EXPECT_EQ(state.variant, "error");
-    EXPECT_EQ(state.details["message"], "[sy.driver.hardware.critical] Failed to start hardware");
+    EXPECT_EQ(state.details["message"],
+              "[sy.driver.hardware.critical] Failed to start hardware");
     rt->stop(false);
 }
 
@@ -179,7 +184,9 @@ TEST_F(SingleChannelAnalogReadTest, testErrorOnStop) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::NIL},
-        std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")}
+        std::vector{
+            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")
+        }
     ));
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -191,7 +198,8 @@ TEST_F(SingleChannelAnalogReadTest, testErrorOnStop) {
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.task, task.key);
     EXPECT_EQ(stop_state.variant, "error");
-    EXPECT_EQ(stop_state.details["message"], "[sy.driver.hardware.critical] Failed to stop hardware");
+    EXPECT_EQ(stop_state.details["message"],
+              "[sy.driver.hardware.critical] Failed to stop hardware");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
@@ -202,9 +210,11 @@ TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::NIL},
         std::vector{xerrors::NIL},
-        std::vector<std::pair<std::vector<double>, xerrors::Error>>{{{1.23456789}, xerrors::NIL}}
+        std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+            {{1.23456789}, xerrors::NIL}
+        }
     ));
-    
+
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
@@ -214,21 +224,21 @@ TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.variant, "success");
-    
+
     ASSERT_EQ(mock_factory->writer_opens, 1);
     ASSERT_GE(mock_factory->writes->size(), 1);
-    
+
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
-    
+
     // Verify that the data was properly coerced to float32
     // The value should be stored as float32 and show some precision loss
     auto value = fr.at<float>(data_channel.key, 0);
-    ASSERT_EQ(sizeof(value), sizeof(float));  // Verify it's actually float32
-    EXPECT_FLOAT_EQ(value, 1.23456789f);     // Should match float32 precision
-    
+    ASSERT_EQ(sizeof(value), sizeof(float)); // Verify it's actually float32
+    EXPECT_FLOAT_EQ(value, 1.23456789f); // Should match float32 precision
+
     // Optional: Verify that the original double value and the float value are different
     // due to precision loss
     EXPECT_NE(static_cast<double>(value), 1.23456789);
@@ -238,18 +248,18 @@ TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
 TEST_F(SingleChannelAnalogReadTest, testDoubleStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
-    
+
     rt->start("start_cmd1");
-    rt->start("start_cmd2");  // Second start should be ignored
-    
+    rt->start("start_cmd2"); // Second start should be ignored
+
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    EXPECT_EQ(ctx->states.size(), 1);  // Should only have one state message
+    EXPECT_EQ(ctx->states.size(), 1); // Should only have one state message
     const auto state = ctx->states[0];
     EXPECT_EQ(state.key, "start_cmd1");
     EXPECT_EQ(state.task, task.key);
     EXPECT_EQ(state.variant, "success");
     EXPECT_EQ(state.details["message"], "Task started successfully");
-    
+
     rt->stop("stop_cmd", false);
 }
 
@@ -257,15 +267,16 @@ TEST_F(SingleChannelAnalogReadTest, testDoubleStart) {
 TEST_F(SingleChannelAnalogReadTest, testDoubleStop) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
-    
+
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    
+
     rt->stop("stop_cmd1", false);
-    rt->stop("stop_cmd2", false);  // Second stop should be ignored
-    
+    rt->stop("stop_cmd2", false); // Second stop should be ignored
+
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states.size(), 2);  // Should only have two state messages (start + stop)
+    EXPECT_EQ(ctx->states.size(), 2);
+    // Should only have two state messages (start + stop)
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd1");
     EXPECT_EQ(stop_state.task, task.key);
@@ -288,14 +299,14 @@ protected:
     );
     synnax::Channel data_channel = synnax::Channel(
         "digital_channel",
-        telem::UINT8_T,  // Digital data is typically boolean/uint8
+        telem::UINT8_T, // Digital data is typically boolean/uint8
         index_channel.key,
         false
     );
 
     void parse_config() {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
-        
+
         auto idx_err = sy->channels.create(index_channel);
         ASSERT_FALSE(idx_err) << idx_err;
 
@@ -330,17 +341,19 @@ protected:
             {"data_saving", true},
             {"sample_rate", 25},
             {"stream_rate", 25},
-            {"channels", json::array({
-                {
-                    {"type", "digital_input"},
-                    {"key", "hCzuNC9glqc"},
-                    {"port", 0},
-                    {"enabled", true},
-                    {"line", 1},
-                    {"channel", data_channel.key},
-                    {"device", dev.key}
-                }
-            })}
+            {"device", dev.key},
+            {
+                "channels", json::array({
+                    {
+                        {"type", "digital_input"},
+                        {"key", "hCzuNC9glqc"},
+                        {"port", 0},
+                        {"enabled", true},
+                        {"line", 1},
+                        {"channel", data_channel.key},
+                    }
+                })
+            }
         };
 
         auto p = xjson::Parser(j);
@@ -372,9 +385,11 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     auto rt = create_task(std::make_unique<hardware::mock::Reader<uint8_t>>(
         std::vector{xerrors::NIL},
         std::vector{xerrors::NIL},
-        std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{{{1}, xerrors::NIL}}  // Digital high
+        std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{
+            {{1}, xerrors::NIL}
+        } // Digital high
     ));
-    
+
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto first_state = ctx->states[0];
@@ -398,6 +413,6 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
     ASSERT_TRUE(fr.contains(index_channel.key));
-    ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);  // Verify digital high
+    ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1); // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
