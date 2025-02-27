@@ -84,10 +84,18 @@ struct WriteTaskConfig {
             state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
             ch->index = index++;
         }
-        auto [state_channels, err] = client->channels.retrieve(state_keys);
+        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        if (err) {
+            cfg.field_err("device", "failed to retrieve device " + err.message());
+        }
+        auto [state_channels, ch_err] = client->channels.retrieve(state_keys);
+        if (ch_err) {
+            cfg.field_err("channels", "failed to retrieve state channels: " + ch_err.message());
+            return;
+        }
         for (const auto &state_ch: state_channels) {
             auto &ptr = this->channels[state_to_cmd[state_ch.key]];
-            ptr->bind_remote_info(state_ch, device_key);
+            ptr->bind_remote_info(state_ch, dev.location);
             if (state_ch.index != 0) this->state_indexes.insert(state_ch.index);
         }
     }
