@@ -32,7 +32,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
-import { type Common } from "@/hardware/common";
+import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
@@ -57,9 +57,15 @@ const EmptyContent = () => {
   );
 };
 
-interface MutationVars {
+interface RenameArgs {
   name: string;
-  key: string;
+  key: task.Key;
+}
+
+type Command = "start" | "stop";
+interface StartStopArgs {
+  command: Command;
+  keys: task.Key[];
 }
 
 const parseVariant = (variant?: string): Status.Variant | undefined =>
@@ -68,50 +74,48 @@ const parseVariant = (variant?: string): Status.Variant | undefined =>
 const Content = () => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<task.Key[]>([]);
   const handleException = Status.useExceptionHandler();
-  const handleRename = useMutation<void, Error, MutationVars, string>({
-    onMutate: ({ name, key }) => {
-      const oldName = tasks.find((t) => t.key === key)?.name;
-      if (oldName == null) return "task";
-      setTasks((prev) => {
-        const t = prev.find((t) => t.key === key);
-        if (t != null) t.name = name;
-        return [...prev];
-      });
-      return oldName;
+  const handleRename = useMutation({
+    onMutate: ({ name, key }: RenameArgs) => {
+      const taskIndex = tasks.findIndex((t) => t.key === key);
+      if (taskIndex === -1) return "task";
+      setTasks((prev) =>
+        prev.map((t, i) => {
+          if (i === taskIndex) t.name = name;
+          return t;
+        }),
+      );
+      return tasks[taskIndex].name;
     },
     mutationFn: async ({ name, key }) => {
       const tsk = tasks.find((t) => t.key === key);
       if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-      const isRunning = tsk.state?.details?.running === true;
-      if (
-        isRunning &&
-        !(await confirm({
+      if (states[key].status === "running") {
+        const confirmed = await confirm({
           message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
           description: `This will cause ${tsk.name} to stop and be reconfigured.`,
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
-        }))
-      )
-        return;
+        });
+        if (!confirmed) return;
+      }
       if (client == null) throw NULL_CLIENT_ERROR;
       await client.hardware.tasks.create({ ...tsk, name });
     },
     onError: (e, { name, key }, oldName) => {
       if (oldName != null)
-        setTasks((prev) => {
-          const t = prev.find((t) => t.key === key);
-          if (t != null) t.name = oldName;
-          return [...prev];
-        });
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.key === key) t.name = oldName;
+            return t;
+          }),
+        );
       if (errors.CANCELED.matches(e)) return;
       handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
-  const [desiredStates, setDesiredStates] = useState<
-    Record<task.Key, Common.Task.State>
-  >({});
+  const [states, setStates] = useState<Record<task.Key, Common.Task.State>>({});
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
@@ -125,6 +129,14 @@ const Content = () => {
       ({ internal, snapshot }) => !internal && !snapshot,
     );
     setTasks(shownTasks);
+    const startingStates: Record<task.Key, Common.Task.State> = {};
+    shownTasks.forEach(({ key, state }) => {
+      startingStates[key] = {
+        status: state?.details?.running ? "running" : "paused",
+        variant: parseVariant(state?.variant),
+      };
+    });
+    setStates(startingStates);
   }, [client?.key]);
   Observe.useListener({
     key: [client?.key],
@@ -137,7 +149,7 @@ const Content = () => {
         task.state = state;
         return [...prev];
       });
-      setDesiredStates((prev) => {
+      setStates((prev) => {
         const prevTsk = prev[key];
         if (prevTsk == null) return prev;
         const next = { ...prev };
@@ -164,9 +176,13 @@ const Content = () => {
         .retrieve(addedOrUpdated)
         .then((changedTasks) => {
           setTasks((prev) => {
+            const changedTasksRecord: Record<task.Key, task.Task> = {};
+            changedTasks.forEach((task) => {
+              changedTasksRecord[task.key] = task;
+            });
             const next = prev
               .filter(({ key }) => !removed.has(key))
-              .map((t) => changedTasks.find(({ key }) => key === t.key) ?? t);
+              .map((t) => changedTasksRecord[t.key] ?? t);
             const existingKeys = new Set(next.map(({ key }) => key));
             return [
               ...next,
@@ -185,12 +201,12 @@ const Content = () => {
     open: async () => client?.hardware.tasks.openCommandObserver(),
     onChange: ({ type, task }) => {
       if (type !== "start" && type !== "stop") return;
-      const desiredState = type === "start" ? "running" : "paused";
-      if (desiredStates[task] == null) return;
-      if (desiredStates[task].status === desiredState) return;
-      setDesiredStates((prev) => {
+      const desiredStatus = type === "start" ? "running" : "paused";
+      if (states[task] == null) return;
+      if (states[task].status === desiredStatus) return;
+      setStates((prev) => {
         const next = { ...prev };
-        next[task] = { status: "loading", variant: "loading" };
+        next[task] = Common.Task.LOADING_STATE;
         return next;
       });
     },
@@ -199,27 +215,23 @@ const Content = () => {
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
+      if (keys.length === 0) return;
       if (client == null) throw NULL_CLIENT_ERROR;
       const deletedNames = tasks
         .filter((task) => keys.includes(task.key))
         .map((task) => task.name);
       const names = strings.naturalLanguageJoin(deletedNames, "tasks");
-      if (
-        !(await confirm({
-          message: `Are you sure you want to delete ${names}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        }))
-      )
-        return;
-      await client.hardware.tasks.delete(keys.map((k) => BigInt(k)));
-      dispatch(Layout.remove({ keys }));
-      setTasks((prev) => {
-        const next = prev.filter((t) => !keys.includes(t.key.toString()));
-        return [...next];
+      const confirmed = await confirm({
+        message: `Are you sure you want to delete ${names}?`,
+        description: "This action cannot be undone.",
+        cancel: { label: "Cancel" },
+        confirm: { label: "Delete", variant: "error" },
       });
-      setDesiredStates((prev) => {
+      if (!confirmed) return;
+      await client.hardware.tasks.delete(keys.map(BigInt));
+      dispatch(Layout.remove({ keys }));
+      setTasks((prev) => prev.filter(({ key }) => !keys.includes(key)));
+      setStates((prev) => {
         const next = { ...prev };
         keys.forEach((k) => delete next[k]);
         return next;
@@ -229,25 +241,88 @@ const Content = () => {
       if (errors.CANCELED.matches(e)) return;
       handleException(e, "Failed to delete tasks");
     },
-  });
+  }).mutate;
   const actions = useMemo(
     () => [{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }],
     [placeLayout],
   );
+  const handleStartStop = useMutation({
+    mutationFn: async ({ command, keys }: StartStopArgs) => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const filteredKeys = new Set(
+        keys.filter((k) => {
+          const status = states[k].status;
+          if (status === "loading") return false;
+          if (command === "start" && status === "running") return false;
+          if (command === "stop" && status === "paused") return false;
+          return true;
+        }),
+      );
+      setStates((prev) => {
+        const next = { ...prev };
+        filteredKeys.forEach((key) => {
+          next[key] = Common.Task.LOADING_STATE;
+        });
+        return next;
+      });
+      const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
+      await Promise.all(
+        tasksToExecute.map(async (tsk) => {
+          await tsk.executeCommand(command);
+        }),
+      );
+    },
+    onError: (e, { command }) => handleException(e, `Failed to ${command} tasks`),
+  }).mutate;
+  const handleStart = useCallback(
+    (keys: string[]) => handleStartStop({ command: "start", keys }),
+    [handleStartStop],
+  );
+  const handleStop = useCallback(
+    (keys: string[]) => handleStartStop({ command: "stop", keys }),
+    [handleStartStop],
+  );
+  const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
+    ({ keys }) => (
+      <ContextMenu
+        keys={keys}
+        tasks={tasks}
+        desiredStates={states}
+        onDelete={handleDelete}
+        onStart={handleStart}
+        onStop={handleStop}
+      />
+    ),
+    [handleDelete, handleStart, handleStop, tasks, states],
+  );
+  const handleListItemStopStart = useCallback(
+    (command: Command, key: task.Key) => {
+      const status = states[key].status;
+      if (status === "loading") return;
+      if (command === "start" && status === "running") return;
+      if (command === "stop" && status === "paused") return;
+      setStates((prev) => {
+        const next = { ...prev };
+        next[key] = Common.Task.LOADING_STATE;
+        return next;
+      });
+    },
+    [states],
+  );
+  const listItem = useCallback<List.ItemRenderProp<string, task.Task>>(
+    ({ key, ...p }) => (
+      <TaskListItem
+        key={key}
+        {...p}
+        desiredState={states[key]}
+        onStopStart={(command) => handleListItemStopStart(command, key)}
+        onRename={(name) => handleRename({ name, key })}
+      />
+    ),
+    [handleListItemStopStart, handleRename, states],
+  );
   return (
-    <PMenu.ContextMenu
-      menu={({ keys }) => (
-        <ContextMenu
-          keys={keys}
-          tasks={tasks}
-          desiredStates={desiredStates}
-          onDelete={handleDelete.mutate}
-          onStart={() => {}}
-          onStop={() => {}}
-        />
-      )}
-      {...menuProps}
-    >
+    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
@@ -255,25 +330,7 @@ const Content = () => {
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
-            <List.Core<string, task.Task>>
-              {({ key, ...p }) => (
-                <TaskListItem
-                  key={key}
-                  {...p}
-                  desiredState={desiredStates[p.entry.key]}
-                  onStopStart={() => {
-                    if (desiredStates[p.entry.key].status === "running") return;
-                    if (desiredStates[p.entry.key].status === "paused") return;
-                    setDesiredStates((prev) => {
-                      const next = { ...prev };
-                      next[p.entry.key] = { status: "loading", variant: "loading" };
-                      return next;
-                    });
-                  }}
-                  onRename={(name) => handleRename({ name, key })}
-                />
-              )}
-            </List.Core>
+            <List.Core<string, task.Task>>{listItem}</List.Core>
           </List.Selector>
         </List.List>
       </Align.Space>
@@ -293,7 +350,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
 
 interface TaskListItemProps extends List.ItemProps<string, task.Task> {
   desiredState: Common.Task.State;
-  onStopStart: () => void;
+  onStopStart: (command: Command) => void;
   onRename: (name: string) => void;
 }
 
@@ -312,11 +369,11 @@ const TaskListItem = ({
     (e) => {
       e.stopPropagation();
       if (isLoading) return;
-      onStopStart();
-      const action = isRunning ? "stop" : "start";
+      const command = isRunning ? "stop" : "start";
+      onStopStart(command);
       tsk
-        .executeCommand(action)
-        .catch((e) => handleException(e, `Failed to ${action} task`));
+        .executeCommand(command)
+        .catch((e) => handleException(e, `Failed to ${command} task`));
     },
     [tsk, desiredState, onStopStart, handleException],
   );
@@ -388,42 +445,59 @@ const ContextMenu = ({
   onStart,
   onStop,
 }: ContextMenuProps) => {
-  const selected = keys.map((k) => tasks.find((t) => t.key === k) as task.Task);
-  const canStart = selected.some((t) => desiredStates[t.key].status === "paused");
-  const canStop = selected.some((t) => desiredStates[t.key].status === "running");
-  const someSelected = selected.length > 0;
-  const isSingle = selected.length === 1;
+  const selectedKeys = new Set(keys);
+  const selectedTasks = tasks.filter(({ key }) => selectedKeys.has(key));
+
+  const canStart = selectedTasks.some(
+    ({ key }) => desiredStates[key].status === "paused",
+  );
+  const canStop = selectedTasks.some(
+    ({ key }) => desiredStates[key].status === "running",
+  );
+  const someSelected = selectedTasks.length > 0;
+  const isSingle = selectedTasks.length === 1;
+
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const copyLinkToClipboard = Link.useCopyToClipboard();
-  const handleEdit = (key: string) => {
-    const task = tasks.find((t) => t.key === key);
-    if (task == null)
-      return addStatus({
-        variant: "error",
-        message: "Failed to open task details",
-        description: `Task with key ${key} not found`,
-      });
-    const layout = createLayout(task);
-    placeLayout(layout);
-  };
+
+  const handleEdit = useCallback(
+    (key: task.Key) => {
+      const task = tasks.find((t) => t.key === key);
+      if (task == null) {
+        addStatus({
+          variant: "error",
+          message: "Failed to open task details",
+          description: `Task with key ${key} not found`,
+        });
+        return;
+      }
+      const layout = createLayout(task);
+      placeLayout(layout);
+    },
+    [tasks, desiredStates, placeLayout],
+  );
+  const handleLink = useCallback(
+    (key: task.Key) => {
+      const name = tasks.find((t) => t.key === key)?.name;
+      if (name == null) return;
+      copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    },
+    [tasks, copyLinkToClipboard],
+  );
+  const handleChange: PMenu.MenuProps["onChange"] = useMemo(
+    () => ({
+      start: () => onStart(keys),
+      stop: () => onStop(keys),
+      edit: () => handleEdit(keys[0]),
+      rename: () => Text.edit(`text-${keys[0]}`),
+      link: () => handleLink(keys[0]),
+      delete: () => onDelete(keys),
+    }),
+    [onStart, onStop, handleEdit, handleLink, onDelete, keys],
+  );
   return (
-    <PMenu.Menu
-      level="small"
-      iconSpacing="small"
-      onChange={{
-        start: () => onStart(keys),
-        stop: () => onStop(keys),
-        edit: () => handleEdit(keys[0]),
-        rename: () => Text.edit(`text-${keys[0]}`),
-        link: () =>
-          copyLinkToClipboard({
-            name: tasks.find(({ key }) => key === keys[0])?.name,
-            ontologyID: task.ontologyID(keys[0]),
-          }),
-        delete: () => onDelete(keys),
-      }}
-    >
+    <PMenu.Menu level="small" iconSpacing="small" onChange={handleChange}>
       {canStart && (
         <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
           Start
