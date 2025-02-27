@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC, useRef } from "react";
+import { type FC } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -122,7 +122,6 @@ export const wrapForm = <
     });
     const startOrStopMutation = useMutation<void, Error, "start" | "stop">({
       mutationFn: async (command) => {
-        console.log("executing start stop", command);
         if (!configured) throw new UnexpectedError("Task has not been configured");
         setLoading();
         await tsk.executeCommand(command);
@@ -138,11 +137,7 @@ export const wrapForm = <
       isSnapshot,
       isRunning,
     } as FormProps<Config, Details, Type>;
-    const stateRef = useRef(state);
-    if (stateRef.current !== state) {
-      console.log("state changed", state, stateRef.current);
-      stateRef.current = state;
-    }
+
     return (
       <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
         <Align.Space grow>

@@ -308,10 +308,7 @@ const List = (): ReactElement => {
 
     const handleSelect: PMenu.MenuProps["onChange"] = {
       rename: () => Text.edit(`text-${key}`),
-      create: (sdf) => {
-        console.log(sdf);
-        handleCreate();
-      },
+      create: handleCreate,
       remove: () => rangeExists && handleRemove([rng.key]),
       delete: () => rangeExists && del.mutate(rng.key),
       details: () => rangeExists && handleViewDetails(rng.key),

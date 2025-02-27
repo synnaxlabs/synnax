@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Observe, Status as PStatus, Synnax } from "@synnaxlabs/pluto";
-import { useCallback, useState as useReactState } from "react";
+import { useCallback, useMemo, useState as useReactState } from "react";
 
 export interface StateDetails {
   running: boolean;
@@ -30,7 +30,7 @@ export interface State {
  *  - state: The current state of the task.
  *  - triggerLoading: A function to set the state to "loading".
  */
-export type useStateReturn = [state: State, triggerLoading: () => void];
+export type UseStateReturn = [state: State, triggerLoading: () => void];
 
 /**
  * useState takes in a task key and an optional initial state.
@@ -48,7 +48,7 @@ export type useStateReturn = [state: State, triggerLoading: () => void];
 export const useState = <D extends StateDetails>(
   key: task.Key,
   initialState?: task.State<D>,
-): useStateReturn => {
+): UseStateReturn => {
   const [state, setState] = useReactState<State>({
     status: initialState?.details?.running ? "running" : "paused",
     message: initialState?.details?.message,
@@ -83,10 +83,13 @@ export const useState = <D extends StateDetails>(
     },
   });
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
-  return [state, triggerLoading];
+  return useMemo<UseStateReturn>(
+    () => [state, triggerLoading],
+    [state, triggerLoading],
+  );
 };
 
 const parseVariant = (variant?: string): PStatus.Variant | undefined =>
   PStatus.variantZ.safeParse(variant).data ?? undefined;
 
-const LOADING_STATE: State = { status: "loading", variant: "loading" };
+export const LOADING_STATE: State = { status: "loading", variant: "loading" };

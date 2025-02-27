@@ -127,7 +127,6 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       for (const key of allKeys) {
         const layout = selectRequired(store.getState(), key);
         const { unsavedChanges, name, icon } = layout;
-        console.log(unsavedChanges, name, icon);
         if (unsavedChanges == true)
           confirmations.push(
             async () =>
