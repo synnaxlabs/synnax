@@ -11,12 +11,18 @@ import { type task } from "@synnaxlabs/client";
 import { Observe, Status as PStatus, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo, useState as useReactState } from "react";
 
+import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
+import {
+  LOADING_STATUS,
+  PAUSED_STATUS,
+  RUNNING_STATUS,
+  type Status,
+} from "@/hardware/common/task/types";
+
 export interface StateDetails {
   running: boolean;
   message?: string;
 }
-
-export type Status = "loading" | "running" | "paused";
 
 export interface State {
   status: Status;
@@ -50,7 +56,7 @@ export const useState = <D extends StateDetails>(
   initialState?: task.State<D>,
 ): UseStateReturn => {
   const [state, setState] = useReactState<State>({
-    status: initialState?.details?.running ? "running" : "paused",
+    status: initialState?.details?.running ? RUNNING_STATUS : PAUSED_STATUS,
     message: initialState?.details?.message,
     variant: parseVariant(initialState?.variant),
   });
@@ -61,12 +67,7 @@ export const useState = <D extends StateDetails>(
     open: async () => client?.hardware.tasks.openCommandObserver(),
     onChange: ({ task, type }) => {
       if (task !== key) return;
-      if (status === "loading") return;
-      if (
-        (status === "running" && type === "stop") ||
-        (status === "paused" && type === "start")
-      )
-        setState(LOADING_STATE);
+      if (shouldExecuteCommand(status, type)) setState(LOADING_STATE);
     },
   });
   Observe.useListener({
@@ -76,7 +77,7 @@ export const useState = <D extends StateDetails>(
       if (state.task !== key) return;
       const { details, variant } = state as task.State<D>;
       setState({
-        status: details?.running ? "running" : "paused",
+        status: details?.running ? RUNNING_STATUS : PAUSED_STATUS,
         message: details?.message,
         variant: parseVariant(variant),
       });
@@ -92,4 +93,4 @@ export const useState = <D extends StateDetails>(
 const parseVariant = (variant?: string): PStatus.Variant | undefined =>
   PStatus.variantZ.safeParse(variant).data ?? undefined;
 
-export const LOADING_STATE: State = { status: "loading", variant: "loading" };
+export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };

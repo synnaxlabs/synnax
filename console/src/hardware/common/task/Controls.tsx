@@ -9,15 +9,23 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
+import {
+  LOADING_STATUS,
+  RUNNING_STATUS,
+  START_COMMAND,
+  type StartOrStopCommand,
+  STOP_COMMAND,
+} from "@/hardware/common/task/types";
 import { type State } from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
 
 export interface ControlsProps {
   layoutKey: string;
   state: State;
-  onStartStop: (command: "start" | "stop") => void;
+  onStartStop: (command: StartOrStopCommand) => void;
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
@@ -47,12 +55,16 @@ export const Controls = ({
         Task must be configured to start.
       </Status.Text.Centered>
     );
-  const isLoading = state.status === "loading";
+  const isLoading = state.status === LOADING_STATUS;
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
   const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
   const hasTriggers =
     Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
-  const isRunning = state.status === "running";
+  const isRunning = state.status === RUNNING_STATUS;
+  const handleStartStop = useCallback(
+    () => onStartStop(isRunning ? STOP_COMMAND : START_COMMAND),
+    [isRunning, onStartStop],
+  );
   return (
     <Align.Space
       className={CSS.B("task-controls")}
@@ -89,7 +101,7 @@ export const Controls = ({
           <Button.Icon
             disabled={!canStartOrStop}
             loading={isLoading}
-            onClick={() => onStartStop(isRunning ? "stop" : "start")}
+            onClick={handleStartStop}
             size="medium"
             variant="filled"
           >

@@ -99,7 +99,6 @@ export const wrapForm = <
     task: tsk,
     configured,
   }: TaskProps<Config, Details, Type>) => {
-    console.log("Rendering Form.tsx");
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
     const values = { name: tsk.name, config: tsk.config };
