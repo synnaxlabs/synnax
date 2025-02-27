@@ -268,31 +268,37 @@ public:
 
     public:
         explicit CommandSink(WriteTask &task):
-            task(task),
+            p(task),
             buf(task.cfg.channels.size()) {
         }
 
     private:
         /// @brief the parent write task.
-        WriteTask &task;
+        WriteTask &p;
         /// @brief a pre-allocated write buffer that is flushed to the device every
         /// time a command is provided.
         std::vector<T> buf;
+
+        void stopped_with_err(const xerrors::Error &err) override {
+            this->p.state.error(err);
+            this->p.state.error(this->p.hw_writer->stop());
+            this->p.state.send_stop("");
+        }
 
 
         xerrors::Error write(const synnax::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
             for (const auto &[key, series]: frame) {
-                auto it = this->task.cfg.channels.find(key);
-                if (it == this->task.cfg.channels.end()) continue;
+                auto it = this->p.cfg.channels.find(key);
+                if (it == this->p.cfg.channels.end()) continue;
                 buf[it->second->index] = telem::cast<T>(series.at_numeric(-1));
             }
-            if (const auto err = this->task.hw_writer->write(buf)) return err;
+            if (const auto err = this->p.hw_writer->write(buf)) return err;
 
-            std::lock_guard lock{this->task.chan_state_lock};
+            std::lock_guard lock{this->p.chan_state_lock};
             for (const auto &[key, series]: frame) {
-                const auto &o = this->task.cfg.channels.at(key);
-                this->task.chan_state[o->state_ch_key] = o->state_ch.data_type.cast(
+                const auto &o = this->p.cfg.channels.at(key);
+                this->p.chan_state[o->state_ch_key] = o->state_ch.data_type.cast(
                     series.at_numeric(-1));
             }
             return xerrors::NIL;

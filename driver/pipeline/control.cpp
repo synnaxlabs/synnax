@@ -98,10 +98,11 @@ void Control::run_internal() {
         return this->sink->stopped_with_err(open_err);
     }
 
+    xerrors::Error sink_err = xerrors::NIL;
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
-        if (const auto sink_err = this->sink->write(cmd_frame)) {
+        if (sink_err = this->sink->write(cmd_frame); sink_err) {
             if (
                 sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
                 && breaker.wait(sink_err.message())
@@ -117,7 +118,8 @@ void Control::run_internal() {
         && breaker.wait()
     )
         return run_internal();
-    if (close_err) this->sink->stopped_with_err(close_err);
+    if (sink_err) this->sink->stopped_with_err(sink_err);
+    else if (close_err) this->sink->stopped_with_err(close_err);
 }
 
 SynnaxStreamer::SynnaxStreamer(std::unique_ptr<synnax::Streamer> internal)

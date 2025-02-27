@@ -210,6 +210,7 @@ class ReadTask final : public task::Task {
         std::vector<T> buffer;
 
         void stopped_with_err(const xerrors::Error &err) override {
+            this->p.state.error(err);
             this->p.state.error(this->p.hw_reader->stop());
             this->p.state.send_stop("");
         }
