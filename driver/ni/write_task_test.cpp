@@ -40,14 +40,25 @@ protected:
         0,
         true
     );
-    synnax::Channel state_ch = synnax::Channel(
-        "state_ch",
+    synnax::Channel state_ch_1 = synnax::Channel(
+        "state_ch_1",
         telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch = synnax::Channel(
-        "cmd_ch",
+    synnax::Channel cmd_ch_1 = synnax::Channel(
+        "cmd_ch_1",
+        telem::FLOAT64_T,
+        true
+    );
+    synnax::Channel state_ch_2 = synnax::Channel(
+        "state_ch_2",
+        telem::FLOAT64_T,
+        state_idx_ch.key,
+        false
+    );
+    synnax::Channel cmd_ch_2 = synnax::Channel(
+        "cmd_ch_2",
         telem::FLOAT64_T,
         true
     );
@@ -58,12 +69,15 @@ protected:
         auto idx_err = sy->channels.create(state_idx_ch);
         ASSERT_FALSE(idx_err) << idx_err;
 
-        state_ch.index = state_idx_ch.key;
-        auto data_err = sy->channels.create(state_ch);
+        state_ch_1.index = state_idx_ch.key;
+        state_ch_2.index = state_idx_ch.key;
+        auto data_err = sy->channels.create(state_ch_1);
         ASSERT_FALSE(data_err) << data_err;
-
-        auto cmd_err = sy->channels.create(cmd_ch);
+        data_err = sy->channels.create(state_ch_2);
+        ASSERT_FALSE(data_err) << data_err;
+        auto cmd_err = sy->channels.create(cmd_ch_1);
         ASSERT_FALSE(cmd_err) << cmd_err;
+        cmd_err = sy->channels.create(cmd_ch_2);
 
         auto [rack, rack_err] = sy->hardware.create_rack("cat");
         ASSERT_FALSE(rack_err) << rack_err;
@@ -101,11 +115,24 @@ protected:
                         {"enabled", true},
                         {"min_val", 0},
                         {"max_val", 1},
-                        {"state_channel", state_ch.key},
-                        {"cmd_channel", cmd_ch.key},
+                        {"state_channel", state_ch_1.key},
+                        {"cmd_channel", cmd_ch_1.key},
                         {"custom_scale", {{"type", "none"}}},
                         {"units", "Volts"}
-                    }
+                    },
+                    {
+
+                        {"type", "ao_voltage"},
+                        {"key", "hCzuNC9glqc"},
+                        {"port", 1},
+                        {"enabled", true},
+                        {"min_val", 0},
+                        {"max_val", 1},
+                        {"state_channel", state_ch_2.key},
+                        {"cmd_channel", cmd_ch_2.key},
+                        {"custom_scale", {{"type", "none"}}},
+                        {"units", "Volts"}
+                    },
                 })
             }
         };
@@ -136,10 +163,12 @@ protected:
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
     auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    reads->emplace_back(cmd_ch.key, telem::Series(1, telem::UINT8_T));
+    constexpr double v = 1;
+    reads->emplace_back(cmd_ch_2.key, telem::Series(v, telem::FLOAT64_T));
     mock_streamer_factory =
-            pipeline::mock::simple_streamer_factory({cmd_ch.key}, reads);
-    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
+            pipeline::mock::simple_streamer_factory({cmd_ch_2.key}, reads);
+    auto written_data = std::make_shared<std::vector<std::vector<double>>>();
+    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>(written_data));
 
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -150,7 +179,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
-
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
 
     wt->stop("stop_cmd", false);
     ASSERT_EQ(ctx->states.size(), 2);
@@ -158,5 +187,19 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.task, task.key);
     EXPECT_EQ(second_state.variant, "success");
-    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
+    ASSERT_EQ(second_state.details["message"], "Task stopped successfully");
+
+    auto first = std::move(mock_writer_factory->writes->at(0));
+    ASSERT_EQ(first.size(), 3);
+    ASSERT_EQ(first.length(), 1);
+    ASSERT_TRUE(first.contains(state_ch_1.key));
+    ASSERT_TRUE(first.contains(state_ch_2.key));
+    ASSERT_TRUE(first.contains(state_idx_ch.key));
+    ASSERT_EQ(first.at<double>(state_ch_1.key, 0), 0);
+    ASSERT_EQ(first.at<double>(state_ch_2.key, 0), 1);
+
+    ASSERT_EQ(written_data->size(), 1);
+    ASSERT_EQ(written_data->at(0).size(), 2);
+    ASSERT_EQ(written_data->at(0).at(0), 0);
+    ASSERT_EQ(written_data->at(0).at(1), 1);
 }

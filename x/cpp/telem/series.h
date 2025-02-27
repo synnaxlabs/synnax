@@ -685,5 +685,17 @@ public:
             memcpy(data.get(), &arg, byte_size());
         }, v);
     }
+
+    /// @brief constructs the series from the given numeric sample value.
+    explicit Series(const NumericSampleValue& v) {
+        std::visit([this](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+            data_type = DataType::infer<T>();
+            cap = 1;
+            size_ = 1;
+            data = std::make_unique<std::byte[]>(byte_size());
+            memcpy(data.get(), &arg, byte_size());
+        }, v);
+    }
 }; // class Series
 } // namespace telem

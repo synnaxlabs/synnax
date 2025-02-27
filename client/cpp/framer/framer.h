@@ -82,8 +82,8 @@ public:
     /// @param ser the series to add to the frame.
     Frame(const ChannelKey &chan, telem::Series &&ser);
 
-    explicit Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data,
-                   int cap = -1);
+    explicit Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data, int cap = -1);
+    explicit Frame(std::unordered_map<ChannelKey, telem::NumericSampleValue> &data, int cap = -1);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.

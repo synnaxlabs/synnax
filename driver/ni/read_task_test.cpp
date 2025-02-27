@@ -396,8 +396,8 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
-    ASSERT_EQ(fr.contains(data_channel.key), true);
-    ASSERT_EQ(fr.contains(index_channel.key), true);
+    ASSERT_TRUE(fr.contains(data_channel.key));
+    ASSERT_TRUE(fr.contains(index_channel.key));
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);  // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }

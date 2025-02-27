@@ -42,9 +42,6 @@ struct WriteTaskConfig {
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
-    /// @brief a map of command channel keys to the state channel keys for each
-    /// channel in the task.
-    std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> cmd_to_state;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
     std::set<synnax::ChannelKey> state_indexes;
@@ -55,7 +52,6 @@ struct WriteTaskConfig {
         state_rate(other.state_rate),
         data_saving(other.data_saving),
         channels(std::move(other.channels)),
-        cmd_to_state(std::move(other.cmd_to_state)),
         state_indexes(std::move(other.state_indexes)) {
     }
 
@@ -77,18 +73,23 @@ struct WriteTaskConfig {
             std::unique_ptr<channel::Output> ch;
             if (is_digital) ch = std::make_unique<channel::DO>(ch_cfg);
             else ch = channel::parse_output(ch_cfg);
-            if (ch->enabled) channels[ch->cmd_ch_key] = std::move(ch);
+            if (ch->enabled) this->channels[ch->cmd_ch_key] = std::move(ch);
         });
-        std::set<synnax::ChannelKey> state_indexes;
-        std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size() * 2);
-        for (const auto &[_, ch]: channels) {
-            keys.push_back(ch->state_ch_key);
-            cmd_to_state[ch->cmd_ch_key] = ch->state_ch_key;
+        std::vector<synnax::ChannelKey> state_keys;
+        state_keys.reserve(this->channels.size());
+        std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
+        size_t index = 0;
+        for (const auto &[_, ch]: this->channels) {
+            state_keys.push_back(ch->state_ch_key);
+            state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
+            ch->index = index++;
         }
-        auto [channels_vec, err] = client->channels.retrieve(keys);
-        for (const auto &ch: channels_vec)
-            if (ch.index != 0) state_indexes.insert(ch.key);
+        auto [state_channels, err] = client->channels.retrieve(state_keys);
+        for (const auto &state_ch: state_channels) {
+            auto &ptr = this->channels[state_to_cmd[state_ch.key]];
+            ptr->bind_remote_info(state_ch, device_key);
+            if (state_ch.index != 0) this->state_indexes.insert(state_ch.index);
+        }
     }
 
     /// @brief returns the configuration necessary for opening the writer
@@ -134,9 +135,10 @@ struct WriteTaskConfig {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const {
-        size_t idx = 0;
+        size_t index = 0;
         for (const auto &[_, ch]: channels) {
-            ch->index = idx++;
+            if (ch->index != index) throw std::runtime_error("channel index mismatch");
+            index++;
             if (const auto err = ch->apply(dmx, task_handle)) return err;
         }
         return xerrors::NIL;
@@ -157,7 +159,7 @@ class WriteTask final : public task::Task {
     std::unique_ptr<hardware::Writer<T>> hw_writer;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
+    std::unordered_map<synnax::ChannelKey, telem::NumericSampleValue> chan_state;
     /// @brief used to lock concurrent access to the channel state.
     std::mutex chan_state_lock;
     /// @brief the current state of the task.
@@ -167,7 +169,7 @@ public:
     /// @brief base constructor that takes in pipeline factories to allow the
     /// caller to stub cluster communication during tests.
     explicit WriteTask(
-        const synnax::Task& task,
+        const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         WriteTaskConfig cfg,
         const breaker::Config &breaker_cfg,
@@ -190,6 +192,10 @@ public:
         ),
         hw_writer(std::move(hw_writer)),
         state(ctx, task) {
+        chan_state.reserve(this->cfg.channels.size());
+        for (const auto &[_, ch]: this->cfg.channels)
+            chan_state[ch->state_ch_key] =
+                    ch->state_ch.data_type.cast(0);
     }
 
     /// @brief primary constructor that uses the task context's Synnax client for
@@ -251,40 +257,37 @@ public:
         /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
         /// the data read from the hardware.
         const telem::DataType data_type = telem::DataType::infer<T>();
+
     public:
         explicit CommandSink(WriteTask &task):
             task(task),
-            write_buffer(task.cfg.channels.size() * data_type.density()) {
+            buf(task.cfg.channels.size()) {
         }
+
     private:
         /// @brief the parent write task.
         WriteTask &task;
         /// @brief a pre-allocated write buffer that is flushed to the device every
         /// time a command is provided.
-        std::vector<T> write_buffer;
+        std::vector<T> buf;
 
 
         xerrors::Error write(const synnax::Frame &frame) override {
-            auto data = this->format_data(frame);
-            if (const auto err = this->task.hw_writer->write(data)) return err;
-
-            std::lock_guard lock{this->task.chan_state_lock};
-            for (const auto &[key, series]: frame) {
-                const auto state_key = this->task.cfg.cmd_to_state.at(key);
-                this->task.chan_state[state_key] = series.at(-1);
-            }
-            return xerrors::NIL;
-        }
-
-        T *format_data(const synnax::Frame &frame) {
+            if (frame.empty()) return xerrors::NIL;
             for (const auto &[key, series]: frame) {
                 auto it = this->task.cfg.channels.find(key);
                 if (it == this->task.cfg.channels.end()) continue;
-                write_buffer[it->second->index] = telem::cast_numeric_sample_value<T>(
-                    series.at_numeric(0)
-                );
+                buf[it->second->index] = telem::cast<T>(series.at_numeric(-1));
             }
-            return write_buffer.data();
+            if (const auto err = this->task.hw_writer->write(buf)) return err;
+
+            std::lock_guard lock{this->task.chan_state_lock};
+            for (const auto &[key, series]: frame) {
+                const auto &o = this->task.cfg.channels.at(key);
+                this->task.chan_state[o->state_ch_key] = o->state_ch.data_type.cast(
+                    series.at_numeric(-1));
+            }
+            return xerrors::NIL;
         }
     };
 
@@ -293,7 +296,9 @@ public:
         else if (cmd.type == "stop") this->stop(cmd.key, false);
     }
 
-    void stop(const bool will_reconfigure) override { this->stop("", will_reconfigure); }
+    void stop(const bool will_reconfigure) override {
+        this->stop("", will_reconfigure);
+    }
 
     void stop(const std::string &cmd_key, const bool will_reconfigure) {
         this->cmd_write_pipe.stop();

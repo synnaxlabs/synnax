@@ -75,7 +75,7 @@ using NumericSampleValue = std::variant<
 >;
 
 template<typename T>
-[[nodiscard]] T cast_numeric_sample_value(const NumericSampleValue value) {
+[[nodiscard]] T cast(const NumericSampleValue value) {
     if (std::holds_alternative<T>(value))
         return std::get<T>(value);
     return std::visit([](auto &&arg) -> T {
@@ -165,16 +165,16 @@ public:
     /// @returns A new numeric sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     [[nodiscard]] NumericSampleValue cast(const NumericSampleValue& value) const {
-        if (this->value == "float64") return cast_numeric_sample_value<double>(value);
-        if (this->value == "float32") return cast_numeric_sample_value<float>(value);
-        if (this->value == "int64") return cast_numeric_sample_value<int64_t>(value);
-        if (this->value == "int32") return cast_numeric_sample_value<int32_t>(value);
-        if (this->value == "int16") return cast_numeric_sample_value<int16_t>(value);
-        if (this->value == "int8") return cast_numeric_sample_value<int8_t>(value);
-        if (this->value == "uint64") return cast_numeric_sample_value<uint64_t>(value);
-        if (this->value == "uint32") return cast_numeric_sample_value<uint32_t>(value);
-        if (this->value == "uint16") return cast_numeric_sample_value<uint16_t>(value);
-        if (this->value == "uint8") return cast_numeric_sample_value<uint8_t>(value);
+        if (this->value == "float64") return telem::cast<double>(value);
+        if (this->value == "float32") return telem::cast<float>(value);
+        if (this->value == "int64") return telem::cast<int64_t>(value);
+        if (this->value == "int32") return telem::cast<int32_t>(value);
+        if (this->value == "int16") return telem::cast<int16_t>(value);
+        if (this->value == "int8") return telem::cast<int8_t>(value);
+        if (this->value == "uint64") return telem::cast<uint64_t>(value);
+        if (this->value == "uint32") return telem::cast<uint32_t>(value);
+        if (this->value == "uint16") return telem::cast<uint16_t>(value);
+        if (this->value == "uint8") return telem::cast<uint8_t>(value);
         throw std::runtime_error("Cannot cast non-numeric data type: " + this->value);
     }
 

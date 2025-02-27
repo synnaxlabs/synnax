@@ -42,7 +42,7 @@ struct Reader : virtual Hardware {
 
 template<typename T>
 struct Writer : virtual Hardware {
-    [[nodiscard]] virtual xerrors::Error write(const T *data) = 0;
+    [[nodiscard]] virtual xerrors::Error write(const std::vector<T> &data) = 0;
 };
 
 
@@ -74,7 +74,7 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     );
-    xerrors::Error write(const uint8_t *data) override;
+    xerrors::Error write(const std::vector<uint8_t> &data) override;
 };
 
 struct AnalogWriter final : Base, Writer<double> {
@@ -82,7 +82,7 @@ struct AnalogWriter final : Base, Writer<double> {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     );
-    xerrors::Error write(const double *data) override;
+    xerrors::Error write(const std::vector<double> &data) override;
 };
 
 /// @brief a hardware interface for digital tasks.
@@ -112,12 +112,12 @@ struct AnalogReader final : Base, Reader<double> {
 
 namespace mock {
 struct Base : virtual hardware::Hardware {
-protected:
     std::vector<xerrors::Error> start_errors;
     std::vector<xerrors::Error> stop_errors;
     size_t start_call_count;
     size_t stop_call_count;
 
+protected:
     explicit Base(
         const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
         const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL}
@@ -130,9 +130,9 @@ public:
 
 template<typename T>
 class Reader final : public Base, public hardware::Reader<T> {
+public:
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
     size_t read_call_count;
-public:
     explicit Reader(
         const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
         const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL},
@@ -147,20 +147,20 @@ public:
 
 template<typename T>
 class Writer final : public Base, public hardware::Writer<T> {
+public:
     std::vector<xerrors::Error> write_responses;
     size_t write_call_count;
-    std::vector<T> last_written_data;
-public:
+    std::shared_ptr<std::vector<std::vector<T>>> written_data;
     explicit Writer(
+        std::shared_ptr<std::vector<std::vector<T>>> written_data = std::make_shared<std::vector<std::vector<T>>>(),
         const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
         const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL},
         std::vector<xerrors::Error> write_responses = {xerrors::NIL}
     );
 
-    xerrors::Error write(const T* data) override;
+    xerrors::Error write(const std::vector<T> &data) override;
     
-    // Helper method to get the last written data
-    const std::vector<T>& get_last_written_data() const { return last_written_data; }
+    std::shared_ptr<std::vector<std::vector<T>>> get_written_data() const { return written_data; }
 };
 
 }

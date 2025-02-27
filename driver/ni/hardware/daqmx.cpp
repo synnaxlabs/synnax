@@ -41,14 +41,14 @@ DigitalWriter::DigitalWriter(
 ): Base(task_handle, dmx) {
 }
 
-xerrors::Error DigitalWriter::write(const uint8_t *data) {
+xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
     return this->dmx->WriteDigitalU8(
         this->task_handle,
         1,
         1,
         10.0,
         DAQmx_Val_GroupByChannel,
-        data,
+        data.data(),
         nullptr,
         nullptr
     );
@@ -60,14 +60,14 @@ AnalogWriter::AnalogWriter(
 ): Base(task_handle, dmx) {
 }
 
-xerrors::Error AnalogWriter::write(const double *data) {
+xerrors::Error AnalogWriter::write(const std::vector<double> &data) {
     return this->dmx->WriteAnalogF64(
         this->task_handle,
         1,
         1,
         10.0,
         DAQmx_Val_GroupByChannel,
-        data,
+        data.data(),
         nullptr,
         nullptr
     );

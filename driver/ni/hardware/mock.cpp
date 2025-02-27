@@ -54,16 +54,18 @@ std::pair<size_t, xerrors::Error> Reader<T>::read(
 
 template<typename T>
 Writer<T>::Writer(
+    std::shared_ptr<std::vector<std::vector<T>>> written_data,
     const std::vector<xerrors::Error>& start_errors,
     const std::vector<xerrors::Error>& stop_errors,
     std::vector<xerrors::Error> write_responses
 ) : Base(start_errors, stop_errors),
     write_responses(std::move(write_responses)),
-    write_call_count(0) {}
+    write_call_count(0),
+    written_data(written_data) {}
 
 template<typename T>
-xerrors::Error Writer<T>::write(const T* data) {
-    last_written_data = std::vector<T>(data, data + 1); // Assuming single value writes
+xerrors::Error Writer<T>::write(const std::vector<T> &data) {
+    written_data->push_back(data);
     auto err = write_responses[std::min(write_call_count, write_responses.size() - 1)];
     write_call_count++;
     return err;
