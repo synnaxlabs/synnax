@@ -216,7 +216,7 @@ void ReaderTask::exec(task::Command &cmd) {
     else if (cmd.type == "stop") return this->stop(cmd.key);
 }
 
-void ReaderTask::stop() { this->stop(""); }
+void ReaderTask::stop(bool will_reconfigure) { this->stop(""); }
 
 void ReaderTask::stop(const std::string &cmd_key) {
     ctx->set_state({

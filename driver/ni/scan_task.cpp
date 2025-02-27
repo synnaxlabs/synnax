@@ -156,7 +156,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScanTask::configure(
     return {std::move(tsk), xerrors::NIL};
 }
 
-void ni::ScanTask::stop() {
+void ni::ScanTask::stop(bool will_reconfigure) {
     this->breaker.stop();
     this->thread->join();
     const auto f_err = this->syscfg->CloseHandle(this->filter);
@@ -216,7 +216,7 @@ xerrors::Error ni::ScanTask::start() {
 
 void ni::ScanTask::exec(task::Command &cmd) {
     this->state.key = cmd.key;
-    if (cmd.type == "stop") return this->stop();
+    if (cmd.type == "stop") return this->stop(false);
     xerrors::Error err = xerrors::NIL;
     if (cmd.type == "start") err = this->start();
     else if (cmd.type == "scan") err = this->scan();

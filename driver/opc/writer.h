@@ -168,7 +168,7 @@ public:
 
     void exec(task::Command &cmd) override;
 
-    void stop() override;
+    void stop(bool will_reconfigure) override;
 
     void start();
 

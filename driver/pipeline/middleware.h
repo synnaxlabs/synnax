@@ -7,6 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #pragma once
 
 #include <memory>
@@ -21,9 +30,6 @@
 #include "x/cpp/xjson/xjson.h"
 
 namespace pipeline {
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Middleware                                 //
-///////////////////////////////////////////////////////////////////////////////////
 class Middleware {
 public:
     virtual ~Middleware() = default;
@@ -31,38 +37,25 @@ public:
     virtual bool handle(Frame &frame) = 0;
 }; // class Middleware
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                  MiddlewareChain                              //
-///////////////////////////////////////////////////////////////////////////////////
 class MiddlewareChain {
 public:
-    void add(std::shared_ptr<Middleware> middleware) {
+    void add(const std::shared_ptr<Middleware> &middleware) {
         middlewares.push_back(middleware);
     }
 
-    bool empty() {
-        return middlewares.empty();
-    }
-
-    xerrors::Error exec(Frame &frame) {
-        if(middlewares.empty())
-            return xerrors::NIL;
-        for (auto &middleware: middlewares) {
-            if (!middleware->handle(frame)) {
-                return xerrors::Error("Middleware failed");
-            }
-        }
+    xerrors::Error exec(Frame &frame) const {
+        if (middlewares.empty()) return xerrors::NIL;
+        for (auto &middleware: middlewares)
+            if (!middleware->handle(frame))
+                return xerrors::Error("middleware failed to handle frame");
         return xerrors::NIL;
     }
 
 private:
-    std::vector<std::shared_ptr<Middleware> > middlewares;
-}; // class MiddlewareChain
+    std::vector<std::shared_ptr<Middleware>> middlewares;
+};
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                  TareMiddleware                               //
-///////////////////////////////////////////////////////////////////////////////////
-///@brief middleware to tare data written to channels based on the last frame processed at the time of taring
+/// @brief middleware to tare data written to channels based on the last frame processed at the time of taring
 /// This middleware should added to the pipeline middleware chain first so that it can tare the data before any other middleware
 /// can process it.
 class TareMiddleware : public Middleware {
@@ -77,8 +70,9 @@ public:
         //create parser
         xjson::Parser parser(arg);
         auto channels = parser.required_vec<uint32_t>("keys");
-        if(!parser.ok())
-            LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.error().message();
+        if (!parser.ok())
+            LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.
+                    error().message();
 
         if (channels.empty()) {
             std::lock_guard<std::mutex> lock(mutex);
@@ -96,7 +90,8 @@ public:
             if (it != last_raw_value.end()) {
                 tare_values[key] = it->second;
             } else {
-                LOG(ERROR) << "[driver] Channel " << key << "is not a configured channel to tare.";
+                LOG(ERROR) << "[driver] Channel " << key <<
+                        "is not a configured channel to tare.";
             }
         }
     }
@@ -114,17 +109,16 @@ public:
             auto channel_key = frame.channels->at(i);
 
             // update last raw value first
-            auto &series = frame.series->at(i);
-            {
+            auto &series = frame.series->at(i); {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (series.size() > 0 && series.data_type == telem::FLOAT64_T)
                     last_raw_value[channel_key] = series.at<double>(0);
                 else if (series.size() > 0 && series.data_type == telem::FLOAT32_T)
-                    last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
+                    last_raw_value[channel_key] = static_cast<double>(series.at<
+                        float>(0));
             }
 
-            double tare = 0.0;
-            {
+            double tare = 0.0; {
                 std::lock_guard<std::mutex> lock(mutex);
                 auto it = tare_values.find(channel_key);
                 if (it != tare_values.end())
@@ -206,20 +200,23 @@ struct MapScale {
             LOG(ERROR) << "[driver] failed to parse custom linear configuration";
     }
 
-    void transform_inplace(telem::Series &series) {
+    void transform_inplace(telem::Series &series) const {
         if (series.data_type == telem::FLOAT64_T) {
             series.map_inplace<double>(
-                [this](double val) {
-                    return (val - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) +
+                [this](const double val) {
+                    return (val - prescaled_min) / (prescaled_max - prescaled_min) * (
+                               scaled_max - scaled_min) +
                            scaled_min;
                 }
             );
         } else if (series.data_type == telem::FLOAT32_T) {
             series.map_inplace<float>(
-                [this](float val) {
+                [this](const float val) {
                     return (val - static_cast<float>(prescaled_min)) / (
-                               static_cast<float>(prescaled_max) - static_cast<float>(prescaled_min)) * (
-                               static_cast<float>(scaled_max) - static_cast<float>(scaled_min)) + static_cast<float>(
+                               static_cast<float>(prescaled_max) - static_cast<float>(
+                                   prescaled_min)) * (
+                               static_cast<float>(scaled_max) - static_cast<float>(
+                                   scaled_min)) + static_cast<float>(
                                scaled_min);
                 }
             );
@@ -263,6 +260,6 @@ public:
     }
 
 private:
-    std::map<synnax::ChannelKey, std::variant<LinearScale, MapScale> > scales;
+    std::map<synnax::ChannelKey, std::variant<LinearScale, MapScale>> scales;
 }; // class ScalingMiddleWare
 } // namespace pipeline

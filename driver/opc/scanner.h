@@ -62,7 +62,7 @@ public:
     ///@brief Executes the command on the task. Possible commands are SCAN_CMD_TYPE and TEST_CONNECTION_CMD_TYPE
     void exec(task::Command &cmd) override;
 
-    void stop() override {
+    void stop(bool will_reconfigure) override {
     }
 
 private:

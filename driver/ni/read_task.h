@@ -287,13 +287,14 @@ public:
     }
 
     /// @brief stops the task.
-    void stop() override { this->stop(""); }
+    void stop(bool will_reconfigure) override { this->stop(""); }
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
-    void stop(const std::string &cmd_key) {
-        this->pipe.stop();
+    void stop(const std::string &cmd_key, const bool will_reconfigure = false) {
+        if (!this->pipe.stop()) return;
         this->state.error(this->hw->stop());
+        if (will_reconfigure) return;
         this->state.send_stop(cmd_key);
     }
 

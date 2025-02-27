@@ -50,7 +50,7 @@ public:
         });
     }
 
-    void stop() override {
+    void stop(bool will_reconfigure) override {
         ctx->set_state({
             .task = task.key,
             .variant = "success",

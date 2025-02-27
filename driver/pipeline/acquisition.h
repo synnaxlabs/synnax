@@ -158,11 +158,15 @@ public:
 
     /// @brief starts the acquisition pipeline if it has not already been started. start
     /// is safe to call multiple times without stopping the pipeline.
-    void start();
+    /// @retruns true if the pipeline was not previously started and was started, and
+    /// false if the pipeline was already running.
+    bool start();
 
     /// @brief stops the acquisition pipeline, blocking until the pipeline has stopped.
     /// If the pipeline has already stopped, stop will return immediately.
-    void stop();
+    /// @returns true if the pipeline was running and was stopped, and false if the
+    /// if the pipeline was already stopped.
+    bool stop();
 
     /// @brief adds a middleware to the acquisition pipeline that will be called on each
     /// frame read from source

@@ -87,7 +87,7 @@ public:
     std::string name() override { return "heartbeat"; }
 
     /// @brief stop the heartbeat process
-    void stop() override { pipe.stop(); }
+    void stop(bool will_reconfigure) override { pipe.stop(); }
 
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task> configure(

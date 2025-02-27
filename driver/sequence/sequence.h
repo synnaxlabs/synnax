@@ -152,7 +152,7 @@ public:
     void run();
 
     /// @brief stops the task, implementing task::Task.
-    void stop() override;
+    void stop(bool will_reconfigure) override;
 
     /// @brief stops the task, using the provided key as the key of the command that
     /// was executed.

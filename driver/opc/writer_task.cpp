@@ -29,7 +29,7 @@ opc::WriterConfig::WriterConfig(
 ///////////////////////////////////////////////////////////////////////////////////
 void opc::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start();
-    else if (cmd.type == "stop") return stop();
+    else if (cmd.type == "stop") return stop(false);
 }
 
 void opc::WriterTask::start() {
@@ -60,7 +60,7 @@ void opc::WriterTask::start() {
     });
 }
 
-void opc::WriterTask::stop() {
+void opc::WriterTask::stop(bool will_reconfigure) {
     ctx->set_state({
         .task = task.key,
         .variant = "success",

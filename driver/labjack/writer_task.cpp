@@ -115,7 +115,7 @@ void labjack::WriterTask::start(const std::string &key) {
     this->state_pipe.start();
 }
 
-void labjack::WriterTask::stop() { this->stop(""); }
+void labjack::WriterTask::stop(bool will_reconfigure) { this->stop(""); }
 
 void labjack::WriterTask::stop(const std::string &key) {
     if (!this->running.exchange(false)) return;

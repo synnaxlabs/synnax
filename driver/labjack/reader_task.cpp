@@ -58,7 +58,7 @@ void labjack::ReaderTask::stop(const std::string &cmd_key) {
         LOG(INFO) << "[labjack.task] successfully stopped task " << this->task.name;
 }
 
-void labjack::ReaderTask::stop() { this->stop(""); }
+void labjack::ReaderTask::stop(bool will_reconfigure) { this->stop(""); }
 
 
 void labjack::ReaderTask::start(const std::string &cmd_key) {

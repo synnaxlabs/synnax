@@ -81,7 +81,7 @@ public:
         );
     }
 
-    void stop() override { pipe.stop(); }
+    void stop(bool will_reconfigure) override { pipe.stop(); }
 };
 
 class Factory final : public task::Factory {

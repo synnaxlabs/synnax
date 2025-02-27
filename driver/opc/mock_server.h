@@ -42,7 +42,7 @@ public:
         thread = std::thread(&MockServer::run, this);
     }
 
-    void stop() {
+    void stop(bool will_reconfigure) {
         *running = false;
         thread.join();
     }

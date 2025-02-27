@@ -82,24 +82,19 @@ void Acquisition::ensure_thread_joined() const {
     this->thread->join();
 }
 
-void Acquisition::start() {
-    if (this->breaker.running()) return;
-    VLOG(1) << "[acquisition] starting pipeline";
+bool Acquisition::start() {
+    if (this->breaker.running()) return false;
     this->ensure_thread_joined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Acquisition::run, this);
+    return true;
 }
 
-void Acquisition::stop() {
+bool Acquisition::stop() {
     const auto was_running = this->breaker.running();
-    if (was_running)
-        VLOG(1) << "[acquisition] stopping pipeline";
-    else
-        VLOG(1) << "[acquisition] pipeline already stopped";
     this->breaker.stop();
     this->ensure_thread_joined();
-    if (was_running)
-        VLOG(1) << "[acquisition] pipeline stopped";
+    return !was_running;
 }
 
 /// @brief the main run function for the acquisition thread. Servers as a wrapper

@@ -67,7 +67,7 @@ void sequence::Task::run() {
     this->state.details["message"] = "Sequence stopped";
 }
 
-void sequence::Task::stop() { this->stop(""); }
+void sequence::Task::stop(bool will_reconfigure) { this->stop(""); }
 
 void sequence::Task::exec(task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);

@@ -283,7 +283,7 @@ public:
         else if (cmd.type == "stop") this->stop(cmd.key);
     }
 
-    void stop() override { this->stop(""); }
+    void stop(bool will_reconfigure) override { this->stop(""); }
 
     void stop(const std::string &cmd_key) {
         this->cmd_write_pipe.stop();

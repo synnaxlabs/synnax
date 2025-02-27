@@ -114,7 +114,7 @@ public:
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
     /// a call to the destructor.
-    virtual void stop() = 0;
+    virtual void stop(bool will_reconfigure) = 0;
 
     virtual ~Task() = default;
 };

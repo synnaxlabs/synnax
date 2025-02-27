@@ -121,7 +121,7 @@ void labjack::ScannerTask::create_devices() {
     }
 }
 
-void labjack::ScannerTask::stop() {
+void labjack::ScannerTask::stop(bool will_reconfigure) {
     this->breaker.stop();
     if (this->thread != nullptr && this->thread->joinable() && std::this_thread::get_id() != this->thread->get_id())
         this->thread->join();
