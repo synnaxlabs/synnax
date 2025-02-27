@@ -5,6 +5,7 @@ cc_library(
         "scan_task.cpp",
     ],
     hdrs = [
+        "hardware.h",
         "ni.h",
         "read_task.h",
         "scan_task.h",
@@ -24,7 +25,6 @@ cc_library(
         "//driver/pipeline",
         "//driver/task",
         "//x/cpp/breaker",
-        "//x/cpp/doublebuffer",
         "//x/cpp/loop",
         "//x/cpp/xjson",
         "@nlohmann_json//:json",

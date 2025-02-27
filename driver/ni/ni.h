@@ -19,6 +19,37 @@
 
 namespace ni {
 const std::string MAKE = "NI";
+const std::string INTEGRATION_NAME = "ni";
+
+inline xerrors::Error cycle_task_to_detect_cfg_errors(const std::shared_ptr<SugaredDAQmx> &dmx, TaskHandle task) {
+    if (const auto err = dmx->StartTask(task)) return err;
+    return dmx->StopTask(task);
+}
+
+template<typename Constructor, typename TaskType, typename ConfigType>
+static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
+    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto [cfg, cfg_err] = ConfigType::parse(ctx->client, task);
+    if (cfg_err) return {nullptr, cfg_err};
+    TaskHandle task_handle;
+    if (const auto err = dmx->CreateTask("", &task_handle)) return {nullptr, err};
+    if (const auto err = cfg.apply(dmx, task_handle)) return {nullptr, err};
+    if (const auto err = cycle_task_to_detect_cfg_errors(dmx, task_handle))
+        return {nullptr, err};
+    return {
+        std::make_unique<TaskType>(
+            task,
+            ctx,
+            std::move(cfg),
+            breaker::default_config(task.name),
+            std::make_unique<Constructor>(dmx, task_handle)
+        ),
+        xerrors::NIL
+    };
+}
 
 class Factory final : public task::Factory {
     /// @brief the daqmx library used to communicate with NI hardware.
@@ -56,10 +87,6 @@ public:
     ) override;
 };
 
-const std::string INTEGRATION_NAME = "ni";
 
-inline xerrors::Error cycle_task_to_detect_cfg_errors(const std::shared_ptr<SugaredDAQmx> &dmx, TaskHandle task) {
-    if (const auto err = dmx->StartTask(task)) return err;
-    return dmx->StopTask(task);
-}
+
 } // namespace ni

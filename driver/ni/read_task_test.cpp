@@ -20,7 +20,7 @@
 
 
 template<typename T>
-class MockHardwareInterface final : public ni::HardwareInterface<T> {
+class MockHardwareInterface final : public ni::HardwareReader<T> {
 public:
     explicit MockHardwareInterface(
         const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},

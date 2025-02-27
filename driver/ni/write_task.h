@@ -22,12 +22,13 @@
 
 /// internal
 #include "driver/ni/channel/channels.h"
+#include "driver/ni/hardware.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
 
 namespace ni {
-using OutputChannelMap = std::map<synnax::ChannelKey, std::unique_ptr<channel::Output> >;
+using OutputChannelMap = std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>>;
 using CommandToStateMap = std::map<synnax::ChannelKey, synnax::ChannelKey>;
 
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
@@ -48,11 +49,11 @@ struct WriteTaskConfig {
     /// @brief a map of command channel keys to the state channel keys for each
     /// channel in the task.
     CommandToStateMap cmd_to_state;
-    /// @brief the index channel keys for all of the state channels. This is used
+    /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
     std::set<synnax::ChannelKey> state_indexes;
 
-    /// @brief move constructor to deeal with output channel unique pointers.
+    /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         device_key(other.device_key),
         state_rate(other.state_rate),
@@ -63,7 +64,7 @@ struct WriteTaskConfig {
         state_indexes(std::move(other.state_indexes)) {
     }
 
-    /// @brief delete copy constructor and copy assignment to prevent accidenal
+    /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
     WriteTaskConfig(const WriteTaskConfig &) = delete;
 
@@ -111,8 +112,8 @@ struct WriteTaskConfig {
     /// @brief parses the task from the given configuration, returning an error
     /// if the task could not be parsed.
     static std::pair<WriteTaskConfig, xerrors::Error> parse(
-        std::shared_ptr<synnax::Synnax> client,
-        synnax::Task task
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::Task &task
     ) {
         auto parser = xjson::Parser(task.config);
         OutputChannelMap channels;
@@ -153,48 +154,11 @@ struct WriteTaskConfig {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const {
-        if (const auto err = cycle_task_to_detect_cfg_errors(dmx, task_handle))
-            return
-                    err;
         for (const auto &[_, ch]: channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
         return xerrors::NIL;
     }
 };
-
-inline xerrors::Error write_digital(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
-    TaskHandle task_handle,
-    const uint8_t *data
-) {
-    return dmx->WriteDigitalU8(
-        task_handle,
-        1,
-        1,
-        10.0,
-        DAQmx_Val_GroupByChannel,
-        data,
-        nullptr,
-        nullptr
-    );
-}
-
-inline xerrors::Error write_analog(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
-    TaskHandle task_handle,
-    const double *data
-) {
-    return dmx->WriteAnalogF64(
-        task_handle,
-        1,
-        1,
-        10.0,
-        DAQmx_Val_GroupByChannel,
-        data,
-        nullptr,
-        nullptr
-    );
-}
 
 template<typename T>
 class WriteTask final : public task::Task {
@@ -202,8 +166,6 @@ class WriteTask final : public task::Task {
     const synnax::Task task;
     /// @brief the configuration for the task.
     const WriteTaskConfig cfg;
-    /// @brief the DAQmx interface used to communicate with the device.
-    const std::shared_ptr<SugaredDAQmx> dmx;
     /// @brief the task context used to communicate state changes back to Synnax.
     std::shared_ptr<task::Context> ctx;
     /// @brief the pipeline used to receive commands from Synnax and write them to
@@ -212,8 +174,8 @@ class WriteTask final : public task::Task {
     /// @brief the pipeline used to receive state changes from the device and write
     /// to Synnax.
     pipeline::Acquisition state_write_pipe;
-    /// @brief the task handle for the DAQmx task.
-    TaskHandle handle;
+    /// @brief the hardware interface for writing data
+    std::unique_ptr<HardwareWriter<T>> hw;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> channel_state;
@@ -224,11 +186,11 @@ class WriteTask final : public task::Task {
 
 public:
     explicit WriteTask(
-        const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
+        const std::shared_ptr<task::Context> &ctx,
         WriteTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        TaskHandle handle
+        std::unique_ptr<HardwareWriter<T>> hw
     ): task(std::move(task)),
        cfg(std::move(cfg)),
        ctx(ctx),
@@ -244,39 +206,33 @@ public:
            std::make_shared<StateSource>(*this),
            breaker_cfg
        ),
-       handle(handle) {
-    }
-
-    ~WriteTask() override {
-        /// the task should always be stopped before this gets destructed, so
-        /// we only need to clear the task.
-        this->dmx->ClearTask(this->handle);
+       hw(std::move(hw)) {
     }
 
     /// @brief StateSource is passed to the state pipeline in order to continually
     /// communicate the current output states to Synnax.
     class StateSource final : public pipeline::Source {
         /// @brief the parent write task.
-        WriteTask &task;
+        WriteTask &p;
         /// @brief a timer that is used to control the rate at which the state is
         /// propagated.
         loop::Timer state_timer;
 
     public:
-        explicit StateSource(WriteTask &task)
-            : task(task), state_timer(task.cfg.state_rate) {
+        explicit StateSource(WriteTask &task):
+            p(task), state_timer(task.cfg.state_rate) {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             this->state_timer.wait(breaker);
-            std::lock_guard{this->task.channel_state_lock};
+            std::lock_guard lock{this->p.channel_state_lock};
             auto fr = synnax::Frame(
-                this->task.channel_state,
-                this->task.channel_state.size() + this->task.cfg.state_indexes.size()
+                this->p.channel_state,
+                this->p.channel_state.size() + this->p.cfg.state_indexes.size()
             );
-            if (!this->task.cfg.state_indexes.empty()) {
+            if (!this->p.cfg.state_indexes.empty()) {
                 const auto idx_ser = telem::Series(telem::TimeStamp::now());
-                for (const auto idx: this->task.cfg.state_indexes)
+                for (const auto idx: this->p.cfg.state_indexes)
                     fr.emplace(idx, idx_ser.deep_copy());
             }
             return {std::move(fr), xerrors::NIL};
@@ -290,21 +246,19 @@ public:
         WriteTask &task;
         /// @brief a pre-allocated write buffer that is flushed to the device every
         /// time a command is provided.
-        std::unique_ptr<T> write_buffer = nullptr;
+        std::vector<T> write_buffer;
 
     public:
-        explicit CommandSink(WriteTask &task): task(task) {
+        explicit CommandSink(WriteTask &task):
+            task(task),
+            write_buffer(task.cfg.buffer_size) {
         }
 
         xerrors::Error write(const synnax::Frame &frame) override {
             auto data = this->format_data(frame);
-            if (this->task.task.type == "ni_digital_write")
-                write_digital(this->task.dmx, this->task.handle,
-                              reinterpret_cast<uint8_t *>(data));
-            else if (this->task.task.type == "ni_analog_write")
-                write_analog(this->task.dmx, this->task.handle,
-                             reinterpret_cast<double *>(data));
-            std::lock_guard{this->task.channel_state_lock};
+            if (const auto err = this->task.hw->write(data)) return err;
+
+            std::lock_guard lock{this->task.channel_state_lock};
             for (const auto &[key, series]: frame) {
                 const auto state_key = this->task.cfg.cmd_to_state.at(key);
                 this->task.channel_state[state_key] = series.at(0);
@@ -316,12 +270,11 @@ public:
             for (const auto &[key, series]: frame) {
                 auto it = this->task.cfg.channels.find(key);
                 if (it == this->task.cfg.channels.end()) continue;
-                auto buf = this->write_buffer.get();
-                buf[it->second->index] = telem::cast_numeric_sample_value<T>(
+                write_buffer[it->second->index] = telem::cast_numeric_sample_value<T>(
                     series.at_numeric(0)
                 );
             }
-            return this->write_buffer.get();
+            return write_buffer.data();
         }
     };
 
@@ -338,7 +291,7 @@ public:
         this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
         this->state.details["running"] = false;
-        if (const auto err = this->dmx->StopTask(this->handle)) {
+        if (const auto err = this->hw->stop()) {
             this->state.variant = "error";
             this->state.details["message"] = err.message();
         } else {
@@ -351,7 +304,7 @@ public:
     void start(const std::string &cmd_key) {
         if (this->state.details["running"]) return;
         this->state.key = cmd_key;
-        if (const auto err = this->dmx->StartTask(this->handle)) {
+        if (const auto err = this->hw->start()) {
             this->state.variant = "error";
             this->state.details["message"] = err.message();
         } else {
@@ -365,30 +318,5 @@ public:
     }
 
     std::string name() override { return task.name; }
-
-    static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    ) {
-        auto [cfg, parse_err] = WriteTaskConfig::parse(ctx->client, task);
-        if (parse_err) return {nullptr, parse_err};
-
-        TaskHandle task_handle;
-        if (const auto err = dmx->CreateTask("", &task_handle)) return {nullptr, err};
-        if (const auto err = cfg.apply(dmx, task_handle)) return {nullptr, err};
-        if (const auto err = cycle_task_to_detect_cfg_errors(dmx, task_handle))
-            return {nullptr, err};
-        return {
-            std::make_unique<WriteTask>(
-                ctx,
-                task,
-                std::move(cfg),
-                breaker::default_config(task.name),
-                task_handle
-            ),
-            xerrors::NIL
-        };
-    }
 };
 }

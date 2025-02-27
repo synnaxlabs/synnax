@@ -14,7 +14,6 @@
 #include <vector>
 #include <set>
 #include <thread>
-#include <atomic>
 
 /// module
 #include "x/cpp/breaker/breaker.h"
@@ -24,9 +23,9 @@
 /// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/ni/hardware.h"
 #include "driver/task/task.h"
 #include "driver/ni/ni.h"
-#include "x/cpp/doublebuffer/double_buffer.h"
 
 namespace ni {
 /// @brief the configuration for a read task.
@@ -45,7 +44,7 @@ struct ReadTaskConfig {
     /// use software timing on digital tasks and the sample clock on analog tasks.
     const std::string timing_source;
     /// @brief the number of samples per channel to connect on each call to read.
-    const std::size_t samples_per_channel;
+    const std::size_t samps_per_chan;
     /// @brief whether the task should be software timed.
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
@@ -60,7 +59,7 @@ struct ReadTaskConfig {
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
         timing_source(other.timing_source),
-        samples_per_channel(other.samples_per_channel),
+        samps_per_chan(other.samps_per_chan),
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)) {
@@ -80,7 +79,7 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "none")),
-       samples_per_channel(
+       samps_per_chan(
            static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input> >(
@@ -146,7 +145,7 @@ struct ReadTaskConfig {
             this->sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
-            this->samples_per_channel
+            this->samps_per_chan
         );
     }
 
@@ -162,113 +161,7 @@ struct ReadTaskConfig {
     }
 };
 
-/// @brief a thing shim on top of NI DAQMX that allows us to use different read
-/// interfaces for analog and digital tasks. It also allows us to mock the hardware
-/// during testing.
-template<typename T>
-struct HardwareInterface {
-    virtual ~HardwareInterface() = default;
 
-    /// @brief starts the task.
-    [[nodiscard]] virtual xerrors::Error start() = 0;
-
-    /// @brief stops the task.
-    [[nodiscard]] virtual xerrors::Error stop() = 0;
-
-    /// @brief reads data from the hardware.
-    /// @param samples_per_channel the number of samples to read per channel.
-    /// @param data the buffer to read data into.
-    /// @return a pair containing the number of samples read and an error if one
-    /// occurred.
-    [[nodiscard]] virtual std::pair<size_t, xerrors::Error> read(
-        size_t samples_per_channel,
-        std::vector<T> &data
-    ) = 0;
-};
-
-/// @brief a base implementation of the hardware interface that uses the NI DAQMX
-/// in the background.
-template<typename T>
-struct DAQmxHardwareInterface : HardwareInterface<T> {
-protected:
-    /// @brief the handle for the task.
-    TaskHandle task_handle;
-    /// @brief the NI DAQmx API.
-    std::shared_ptr<SugaredDAQmx> dmx;
-
-    DAQmxHardwareInterface(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx):
-        task_handle(task_handle), dmx(std::move(dmx)) {
-    }
-
-    ~DAQmxHardwareInterface() override {
-        if (const auto err = this->dmx->ClearTask(this->task_handle))
-            LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
-    }
-
-public:
-    /// @brief implements HardwareInterface to start the DAQmx task.
-    xerrors::Error start() override {
-        return this->dmx->StartTask(this->task_handle);
-    }
-
-    /// @brief implements the HardwareInterface to stop the DAQmx task.
-    xerrors::Error stop() override {
-        return this->dmx->StopTask(this->task_handle);
-    }
-};
-
-/// @brief a hardware interface for digital tasks.
-struct DigitalHardwareInterface final : DAQmxHardwareInterface<uint8_t> {
-    DigitalHardwareInterface(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
-        TaskHandle task_handle
-    ): DAQmxHardwareInterface(task_handle, dmx) {
-    }
-
-    std::pair<size_t, xerrors::Error> read(
-        const size_t samples_per_channel,
-        std::vector<unsigned char> &data
-    ) override {
-        int32 samples_read = 0;
-        const auto err = this->dmx->ReadDigitalLines(
-            this->task_handle,
-            static_cast<int32>(samples_per_channel),
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data.data(),
-            data.size(),
-            &samples_read,
-            nullptr,
-            nullptr
-        );
-        return {static_cast<size_t>(samples_read), err};
-    }
-};
-
-/// @brief a hardware interface for analog tasks.
-struct AnalogHardwareInterface final : DAQmxHardwareInterface<double> {
-    AnalogHardwareInterface(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
-        TaskHandle task_handle
-    ): DAQmxHardwareInterface(task_handle, dmx) {
-    }
-
-    std::pair<size_t, xerrors::Error> read(size_t samples_per_channel,
-                                           std::vector<double> &data) override {
-        int32 samples_read = 0;
-        const auto err = this->dmx->ReadAnalogF64(
-            this->task_handle,
-            static_cast<int32>(samples_per_channel),
-            -1,
-            DAQmx_Val_GroupByChannel,
-            data.data(),
-            data.size(),
-            &samples_read,
-            nullptr
-        );
-        return {static_cast<size_t>(samples_read), err};
-    }
-};
 
 /// @brief a read task that can pull from both analog and digital channels.
 template<typename T>
@@ -283,6 +176,69 @@ class ReadTask final : public task::Task {
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
     /// @brief the current task state.
     task::State state;
+    /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
+    pipeline::Acquisition pipe;
+    /// @brief interface used to read data from the hardware.
+    std::unique_ptr<HardwareReader<T> > hw;
+    /// @brief the timestamp at which the hardware task was started. We use this to
+    /// interpolate the correct timestamps of recorded samples.
+    telem::TimeStamp hw_start_time = telem::TimeStamp(0);
+
+    /// @brief an internal source that we pass to the acquisition pipeline that manages
+    /// the lifecycle of this task.
+    class Source final : public pipeline::Source {
+    public:
+        /// @brief the parent read task.
+        ReadTask &p;
+        /// @brief a separate thread to acquire samples in.
+        loop::Timer timer;
+        /// @brief automatically infer the data type from the template parameter. This
+        /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
+        /// the data read from the hardware.
+        const telem::DataType data_type = telem::DataType::infer<T>();
+        /// @brief the buffer used to read data from the hardware. This vector is
+        /// pre-allocated and reused.
+        std::vector<T> buffer;
+
+        explicit Source(ReadTask &task):
+            p(task),
+            timer(task.cfg.stream_rate),
+            buffer(task.cfg.samps_per_chan * task.cfg.channels.size()) {
+        }
+
+        void stopped_with_err(const xerrors::Error &err) override {
+        }
+
+        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+            if (this->p.cfg.software_timed) this->timer.wait(breaker);
+            auto start = this->p.hw_start_time;
+            const size_t count = this->p.cfg.samps_per_chan;
+            const auto [n, err] = this->p.hw->read(count, buffer);
+            if (err) return {Frame(), err};
+            auto end = start + (n - 1) * this->p.cfg.sample_rate.period();
+            this->p.hw_start_time = end + this->p.cfg.sample_rate.period();
+
+            auto f = synnax::Frame(this->p.cfg.channels.size());
+            size_t data_index = 0;
+            for (const auto &ch: this->p.cfg.channels) {
+                auto s = telem::Series(ch->ch.data_type, count);
+                const size_t start_idx = data_index * count;
+                if (s.data_type == this->data_type)
+                    s.write(buffer.data() + start_idx, count);
+                else
+                    for (int i = 0; i < count; ++i)
+                        s.write(s.data_type.cast(buffer.at(start_idx + i)));
+                f.emplace(ch->synnax_key, std::move(s));
+                data_index++;
+            }
+            if (!this->p.cfg.indexes.empty()) {
+                const auto index_data = telem::Series::linspace(start, end, count);
+                for (const auto &idx: this->p.cfg.indexes)
+                    f.emplace(idx, std::move(index_data.deep_copy()));
+            }
+            return std::make_pair(std::move(f), xerrors::NIL);
+        }
+    };
 
 public:
     explicit ReadTask(
@@ -290,21 +246,21 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareInterface<T> > hw,
+        std::unique_ptr<HardwareReader<T> > hw,
         const std::shared_ptr<pipeline::WriterFactory> &factory
     ): task(std::move(task)),
        cfg(std::move(cfg)),
        ctx(ctx),
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
-               this->cfg.writer_config().channels)
-       ),
-       source(std::make_shared<Source>(*this, std::move(hw))),
+           this->cfg.writer_config().channels
+       )),
        pipe(
            factory,
            this->cfg.writer_config(),
-           this->source,
+           std::make_shared<Source>(*this),
            breaker_cfg
-       ) {
+       ),
+       hw(std::move(hw)) {
         this->pipe.add_middleware(this->tare_mw);
         this->state.task = task.key;
     }
@@ -314,7 +270,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareInterface<T> > hw
+        std::unique_ptr<HardwareReader<T> > hw
     ): ReadTask(
         std::move(task),
         ctx,
@@ -340,7 +296,7 @@ public:
     void stop(const std::string &cmd_key) {
         this->state.key = cmd_key;
         this->pipe.stop();
-        const auto err = this->source->hw_api->stop();
+        const auto err = this->hw->stop();
         this->state.details["running"] = false;
         if (this->state.variant != "error") {
             if (err) {
@@ -358,8 +314,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         this->state.key = cmd_key;
-        this->source->high_water = telem::TimeStamp::now();
-        if (const auto err = this->source->hw_api->start()) {
+        if (const auto err = this->hw->start()) {
             this->state.variant = "error";
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
@@ -372,96 +327,7 @@ public:
         this->pipe.start();
     }
 
-    class Source final : public pipeline::Source {
-    public:
-        /// @brief the parent read task.
-        ReadTask &task;
-        /// @brief interface used to read data from the hardware.
-        std::unique_ptr<HardwareInterface<T> > hw_api;
-        /// @brief a separate thread to acquire samples in.
-        loop::Timer timer;
-        /// @brief automatically infer the data type from the template parameter. This
-        /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
-        /// the data read from the hardware.
-        const telem::DataType data_type = telem::DataType::infer<T>();
-        telem::TimeStamp high_water = telem::TimeStamp(0);
-        std::vector<T> buffer;
-
-        explicit Source(
-            ReadTask &task,
-            std::unique_ptr<HardwareInterface<T> > hw
-        ): task(task),
-           hw_api(std::move(hw)),
-           timer(task.cfg.stream_rate),
-           buffer(task.cfg.samples_per_channel * task.cfg.channels.size()) {
-        }
-
-        void stopped_with_err(const xerrors::Error &err) override {
-        }
-
-        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            if (this->task.cfg.software_timed) this->timer.wait(breaker);
-            auto start = this->high_water;
-            const auto [samples_read_per_channel, err] = hw_api->read(
-                this->task.cfg.samples_per_channel,
-                buffer
-            );
-            if (err) return {Frame(), err};
-            auto end = start + (samples_read_per_channel - 1) * this->task.cfg.sample_rate.period();
-            this->high_water = end + this->task.cfg.sample_rate.period();
-
-            auto f = synnax::Frame(this->task.cfg.channels.size());
-            const size_t count = this->task.cfg.samples_per_channel;
-            size_t data_index = 0;
-
-            for (const auto &ch: this->task.cfg.channels) {
-                auto s = telem::Series(ch->ch.data_type, count);
-                const size_t start_idx = data_index * count;
-                if (s.data_type == this->data_type) s.write(buffer.data() + start_idx, count);
-                else
-                    for (int i = 0; i < count; ++i)
-                        s.write(s.data_type.cast(buffer.at(start_idx + i)));
-                f.emplace(ch->synnax_key, std::move(s));
-                data_index++;
-            }
-            if (!this->task.cfg.indexes.empty()) {
-                const auto index_data = telem::Series::linspace(start, end, count);
-                for (const auto &idx: this->task.cfg.indexes)
-                    f.emplace(idx, std::move(index_data.deep_copy()));
-            }
-            return std::make_pair(std::move(f), xerrors::NIL);
-        }
-    };
-
-    std::shared_ptr<Source> source;
-    /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
-    pipeline::Acquisition pipe;
-
+    /// @brief implements task::Task.
     std::string name() override { return task.name; }
 };
-
-template<typename T, typename Constructor>
-static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
-    if (cfg_err) return {nullptr, cfg_err};
-    TaskHandle task_handle;
-    if (const auto err = dmx->CreateTask("", &task_handle)) return {nullptr, err};
-    if (const auto err = cfg.apply(dmx, task_handle)) return {nullptr, err};
-    if (const auto err = cycle_task_to_detect_cfg_errors(dmx, task_handle))
-        return {nullptr, err};
-    return {
-        std::make_unique<ReadTask<T> >(
-            task,
-            ctx,
-            std::move(cfg),
-            breaker::default_config(task.name),
-            std::make_unique<Constructor>(dmx, task_handle)
-        ),
-        xerrors::NIL
-    };
-}
 }

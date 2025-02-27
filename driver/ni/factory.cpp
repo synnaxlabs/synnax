@@ -18,6 +18,7 @@
 #include "driver/ni/daqmx/daqmx_prod.h"
 #include "driver/ni/syscfg/syscfg_prod.h"
 #include "driver/ni/ni.h"
+#include "driver/ni/hardware.h"
 #include "driver/ni/write_task.h"
 #include "driver/ni/read_task.h"
 #include "driver/ni/scan_task.h"
@@ -66,13 +67,13 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == "ni_scanner")
         res = ni::ScanTask::configure(this->syscfg, ctx, task);
     else if (task.type == "ni_analog_read")
-        res = configure_read<double, AnalogHardwareInterface>(dmx, ctx, task);
+        res = configure<AnalogHardwareReader, ReadTask<double>, ReadTaskConfig>(dmx, ctx, task);
     else if (task.type == "ni_digital_read")
-        res = configure_read<uint8_t, DigitalHardwareInterface>(dmx, ctx, task);
+        res = configure<DigitalHardwareReader, ReadTask<uint8_t>, ReadTaskConfig>(dmx, ctx, task);
     else if (task.type == "ni_analog_write")
-        res = ni::WriteTask<uint8_t>::configure(this->dmx, ctx, task);
+        res = configure<AnalogHardwareWriter, WriteTask<double>, WriteTaskConfig>(dmx, ctx, task);
     else if (task.type == "ni_digital_write")
-        res = ni::WriteTask<double>::configure(this->dmx, ctx, task);
+        res = configure<DigitalHardwareWriter, WriteTask<uint8_t>, WriteTaskConfig>(dmx, ctx, task);
     else return {nullptr, false};
     auto [tsk, err] = std::move(res);
     if (err)

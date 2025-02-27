@@ -37,16 +37,16 @@ struct Device : synnax::Device {
     /// @brief the raw NI resource name.
     std::string resource_name;
     /// @brief whether the device is simulated.
-    bool is_simulated;
+    bool is_simulated = false;
 
     Device() = default;
 
     explicit Device(
         const synnax::Device &device,
-        const std::string &resource_name,
+        std::string resource_name,
         const bool is_simulated
     ): synnax::Device(device),
-       resource_name(resource_name),
+       resource_name(std::move(resource_name)),
        is_simulated(is_simulated) {
     }
 
