@@ -192,8 +192,7 @@ public:
             }
             writer = std::make_unique<Writer>(std::move(su));
         }
-        auto fr = Frame(chan.key, telem::Series(state.to_json()));
-        if (writer->write(fr)) return;
+        if (writer->write(Frame(chan.key, telem::Series(state.to_json())))) return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;

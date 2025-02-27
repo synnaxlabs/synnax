@@ -26,6 +26,38 @@
 const std::string NO_LIBS_MSG =
         "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
 
+template<typename Hardware, typename TaskType, typename ConfigType>
+static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
+    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto [cfg, cfg_err] = ConfigType::parse(ctx->client, task);
+    if (cfg_err) return {nullptr, cfg_err};
+    TaskHandle handle;
+    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +")";
+    if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle)) return {nullptr, err};
+    // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
+    // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
+    // sure it gets cleared.
+    auto hw = std::make_unique<Hardware>(dmx, handle);
+    if (const auto err = cfg.apply(dmx, handle)) return {nullptr, err};
+    // NI will look for invalid configuration parameters internally, so we quickly
+    // cycle the task in order to catch and communicate any errors as soon as possible.
+    if (const auto err = hw->start()) return {nullptr, err};
+    if (const auto err = hw->stop()) return {nullptr, err};
+    return {
+        std::make_unique<TaskType>(
+            task,
+            ctx,
+            std::move(cfg),
+            breaker::default_config(task.name),
+            std::move(hw)
+        ),
+        xerrors::NIL
+    };
+}
+
 ni::Factory::Factory(
     const std::shared_ptr<SugaredDAQmx> &dmx,
     const std::shared_ptr<SugaredSysCfg> &syscfg

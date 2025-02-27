@@ -156,7 +156,8 @@ struct ReadTaskConfig {
         for (const auto &idx: this->indexes) keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving)
+            .mode = synnax::data_saving_writer_mode(this->data_saving),
+            .enable_auto_commit = true
         };
     }
 };

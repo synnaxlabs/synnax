@@ -21,33 +21,8 @@ namespace ni {
 const std::string MAKE = "NI";
 const std::string INTEGRATION_NAME = "ni";
 
-template<typename Constructor, typename TaskType, typename ConfigType>
-static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto [cfg, cfg_err] = ConfigType::parse(ctx->client, task);
-    if (cfg_err) return {nullptr, cfg_err};
-    TaskHandle task_handle;
-    if (const auto err = dmx->CreateTask("", &task_handle)) return {nullptr, err};
-    if (const auto err = cfg.apply(dmx, task_handle)) return {nullptr, err};
-    // NI will look for invalid configuration parameters internally, so we quickly
-    // cycle the task in order to catch and communicate any errors as soon as possible.
-    if (const auto err = dmx->StartTask(task_handle)) return {nullptr, err};
-    if (const auto err = dmx->StopTask(task_handle)) return {nullptr, err};
-    return {
-        std::make_unique<TaskType>(
-            task,
-            ctx,
-            std::move(cfg),
-            breaker::default_config(task.name),
-            std::make_unique<Constructor>(dmx, task_handle)
-        ),
-        xerrors::NIL
-    };
-}
-
+/// @brief a factory for instantiating and operationg NI data acquisition, control,
+/// and device scanning tasks.
 class Factory final : public task::Factory {
     /// @brief the daqmx library used to communicate with NI hardware.
     std::shared_ptr<SugaredDAQmx> dmx;
