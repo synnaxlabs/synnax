@@ -41,8 +41,8 @@ import {
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { Layout } from "@/layout";
-import { setUnsavedChanges } from "@/layout/slice";
 import { type Modals } from "@/modals";
+import { type Selector } from "@/selector";
 
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -64,7 +64,7 @@ export const createLayout = async ({
   return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
@@ -125,7 +125,7 @@ const Internal = ({
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
       dispatch(
-        setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
+        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
       );
     },
     [dispatch, layoutKey],
@@ -142,7 +142,7 @@ const Internal = ({
   const [state, setState] = Common.Task.useState(base?.key, base?.state ?? undefined);
 
   useEffect(() => {
-    dispatch(setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
+    dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
   }, [layoutKey]);
 
   const configureMutation = useMutation({

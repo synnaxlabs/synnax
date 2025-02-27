@@ -68,11 +68,13 @@ export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
   ): Promise<[Config, rack.Key]>;
 }
 
-export interface WrapFormOptions<
+export interface WrapFormArgs<
   Config extends UnknownRecord = UnknownRecord,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends WrapOptions<Config, Details, Type> {
+  Properties: FC<{}>;
+  Form: FC<FormProps<Config, Details, Type>>;
   type: Type;
   onConfigure: OnConfigure<Config>;
 }
@@ -83,16 +85,14 @@ export const wrapForm = <
   Config extends UnknownRecord = UnknownRecord,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
->(
-  Properties: FC,
-  Form: FC<FormProps<Config, Details, Type>>,
-  {
-    configSchema,
-    type,
-    getInitialPayload,
-    onConfigure,
-  }: WrapFormOptions<Config, Details, Type>,
-): Layout.Renderer => {
+>({
+  Properties,
+  Form,
+  configSchema,
+  type,
+  getInitialPayload,
+  onConfigure,
+}: WrapFormArgs<Config, Details, Type>): Layout.Renderer => {
   const schema = z.object({ name: nameZ, config: configSchema });
   const Wrapper = ({
     layoutKey,
@@ -138,7 +138,12 @@ export const wrapForm = <
     } as FormProps<Config, Details, Type>;
 
     return (
-      <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
+      <Align.Space
+        direction="y"
+        className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
+        grow
+        empty
+      >
         <Align.Space grow>
           <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
             <Align.Space direction="x" justify="spaceBetween">

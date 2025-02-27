@@ -10,14 +10,14 @@
 import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { rack } from "@/hardware/rack";
+import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
 export const deviceZ = z.object({
   key: keyZ,
-  rack: rack.keyZ,
+  rack: rackKeyZ,
   name: z.string(),
   make: z.string(),
   model: z.string(),

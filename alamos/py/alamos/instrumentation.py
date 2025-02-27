@@ -9,18 +9,12 @@
 
 from __future__ import annotations
 
-from typing import (
-    Callable,
-    TypeVar,
-    Protocol,
-    Concatenate,
-    ParamSpec,
-)
+from typing import Callable, Concatenate, ParamSpec, Protocol, TypeVar
 
 from alamos.environment import Environment
-from alamos.log import Logger, NOOP_LOGGER
+from alamos.log import NOOP_LOGGER, Logger
 from alamos.meta import InstrumentationMeta
-from alamos.trace import Tracer, NOOP_TRACER
+from alamos.trace import NOOP_TRACER, Tracer
 
 
 class Instrumentation:

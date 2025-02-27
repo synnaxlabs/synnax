@@ -15,6 +15,7 @@ and then read the data back from the cluster and plot it.
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide

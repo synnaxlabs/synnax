@@ -28,9 +28,7 @@ export const useCreate = <
   return useCallback(
     async (task: task.New<Config, Type>, rackKey: rack.Key) => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const rck = await client.hardware.racks.retrieve(
-        rackKey ?? "Node 1 Embedded Driver",
-      );
+      const rck = await client.hardware.racks.retrieve(rackKey);
       const createdTask = await rck.createTask<Config, Details, Type>(task);
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: createdTask.key }));
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));

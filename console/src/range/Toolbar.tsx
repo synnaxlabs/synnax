@@ -17,7 +17,7 @@ import {
   componentRenderProp,
   Header,
   Icon as PIcon,
-  List as Core,
+  List as CoreList,
   Menu as PMenu,
   Ranger,
   Status,
@@ -32,15 +32,15 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
   LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
-} from "@/lineplot/LinePlot";
+} from "@/lineplot/layout";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
@@ -283,11 +283,9 @@ const List = (): ReactElement => {
     onError: (e) => handleException(e, "Failed to save range"),
   });
 
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
-  const ContextMenu = ({
-    keys: [key],
-  }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     const rng = ranges.find((r) => r.key === key);
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
@@ -369,26 +367,26 @@ const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <Core.List<string, StaticRange>
+      <CoreList.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
       >
-        <Core.Selector
+        <CoreList.Selector
           value={activeRange?.key ?? null}
           onChange={handleSelect}
           allowMultiple={false}
           allowNone={true}
         >
-          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+          <CoreList.Core style={{ height: "100%", overflowX: "hidden" }}>
             {componentRenderProp(ListItem)}
-          </Core.Core>
-        </Core.Selector>
-      </Core.List>
+          </CoreList.Core>
+        </CoreList.Selector>
+      </CoreList.List>
     </PMenu.ContextMenu>
   );
 };
 
-interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
+interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
@@ -411,7 +409,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       .catch((e) => handleException(e, "Failed to rename range"));
   };
   return (
-    <Core.ItemFrame
+    <CoreList.ItemFrame
       className={CSS.B("range-list-item")}
       direction="y"
       rightAligned
@@ -448,7 +446,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           ))}
         </Align.Space>
       )}
-    </Core.ItemFrame>
+    </CoreList.ItemFrame>
   );
 };
 
@@ -456,18 +454,18 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
+      <Toolbar.Header>
+        <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Header.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
-      </ToolbarHeader>
+      </Toolbar.Header>
       <List />
     </Align.Space>
   );
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

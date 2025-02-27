@@ -21,7 +21,7 @@ export const componentRenderProp =
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
   ({ key, ...rest }) =>
-    (<Component key={key} {...(rest as P)} />) as R;
+    (<Component {...(rest as P)} key={key} />) as R;
 
 export const isRenderProp = <P extends Record<string, any>>(
   children: React.ReactNode | RenderProp<P>,

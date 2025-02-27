@@ -11,7 +11,6 @@ import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
 import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 
-import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/layout/selectors";
 import {
   clearWorkspace,
@@ -134,13 +133,13 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
   RemovePayload
 > = ({ store, action: { payload } }) => {
   if (selectWindowKey(store.getState()) !== MAIN_WINDOW) return;
-  if (payload.key == null || !payload.key.startsWith(Layout.MOSAIC_WINDOW_TYPE)) return;
-  const { layouts } = Layout.selectSliceState(store.getState());
+  if (payload.key == null || !payload.key.startsWith(MOSAIC_WINDOW_TYPE)) return;
+  const { layouts } = selectSliceState(store.getState());
   // remove all layouts associated with the mosaic window
   const layoutKeys = Object.values(layouts)
     .filter((layout) => layout.windowKey === payload.key)
     .map((layout) => layout.key);
-  store.dispatch(Layout.remove({ keys: layoutKeys }));
+  store.dispatch(remove({ keys: layoutKeys }));
 };
 
 export const MIDDLEWARE = [

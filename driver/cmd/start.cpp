@@ -11,19 +11,19 @@
 #include "x/cpp/xargs/xargs.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    bool stdin_stop_enabled = !args.flag("--block-stdin-stop");
-    bool sig_stop_enabled = !args.flag("--block-sig-stop");
+    bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
+    bool sig_stop_enabled = !args.flag("--disable-sig-stop");
     if (args.error()) {
         LOG(ERROR) << "[driver] invalid arguments: " << args.error();
         return 1;
     }
-    LOG(INFO) << xlog::BLUE << "[driver] starting synnax driver " << cmd::version() << xlog::RESET;
+    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version() << xlog::RESET();
     rack::Rack r;
     r.start(args);
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    LOG(INFO) << xlog::BLUE << "[driver] received shutdown signal. stopping driver" << xlog::RESET;
+    LOG(INFO) << xlog::BLUE() << "[driver] received shutdown signal. stopping driver" << xlog::RESET();
     if (const auto err = r.stop())
         LOG(ERROR) << "[driver] stopped with error: " << err;
-    else LOG(INFO) << xlog::BLUE << "[driver] stopped" << xlog::RESET;
+    else LOG(INFO) << xlog::BLUE() << "[driver] stopped" << xlog::RESET();
     return 0;
 }

@@ -21,7 +21,8 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
@@ -251,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importPlot = LinePlotServices.useImport(selection.resources[0].id.key);
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
   const handleSelect = {
     delete: () => handleDelete(props),
@@ -278,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Divider />
       {singleResource && (
         <>

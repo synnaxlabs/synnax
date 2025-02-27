@@ -10,7 +10,7 @@
 import { type Link } from "@/link";
 import { Range } from "@/range";
 
-export const linkHandler: Link.Handler = async ({
+export const handleLink: Link.Handler = async ({
   client,
   dispatch,
   key,

@@ -29,8 +29,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
@@ -333,10 +333,10 @@ const Content = () => {
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
+        <Toolbar.Header>
+          <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Header.Actions>{actions}</Header.Actions>
-        </ToolbarHeader>
+        </Toolbar.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>{listItem}</List.Core>
@@ -469,7 +469,7 @@ const ContextMenu = ({
 
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
-  const copyLinkToClipboard = Link.useCopyToClipboard();
+  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
   const handleEdit = useCallback(
     (key: task.Key) => {
