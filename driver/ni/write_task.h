@@ -22,15 +22,13 @@
 
 /// internal
 #include "driver/ni/channel/channels.h"
-#include "driver/ni/hardware.h"
+#include "driver/ni/ni.h"
+#include "driver/ni/hardware/hardware.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
 
 namespace ni {
-using OutputChannelMap = std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>>;
-using CommandToStateMap = std::map<synnax::ChannelKey, synnax::ChannelKey>;
-
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
 /// Write Task.
 struct WriteTaskConfig {
@@ -39,16 +37,14 @@ struct WriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
     const telem::Rate state_rate;
-    /// @brief the buffer size to allocate for writing data to the device.
-    const size_t buffer_size;
     /// @brief whether data saving is enabled for the task.
     const bool data_saving;
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
-    OutputChannelMap channels;
+    std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
     /// @brief a map of command channel keys to the state channel keys for each
     /// channel in the task.
-    CommandToStateMap cmd_to_state;
+    std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> cmd_to_state;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
     std::set<synnax::ChannelKey> state_indexes;
@@ -57,7 +53,6 @@ struct WriteTaskConfig {
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         device_key(other.device_key),
         state_rate(other.state_rate),
-        buffer_size(other.buffer_size),
         data_saving(other.data_saving),
         channels(std::move(other.channels)),
         cmd_to_state(std::move(other.cmd_to_state)),
@@ -71,18 +66,29 @@ struct WriteTaskConfig {
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
 
     explicit WriteTaskConfig(
+        const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg,
-        OutputChannelMap &&channels,
-        CommandToStateMap &&cmd_to_state,
-        std::set<synnax::ChannelKey> &&state_indexes,
-        const size_t buffer_size
+        const std::string &task_type
     ): device_key(cfg.required<std::string>("device")),
        state_rate(telem::Rate(cfg.required<float>("state_rate"))),
-       buffer_size(buffer_size),
-       data_saving(cfg.optional<bool>("data_saving", false)),
-       channels(std::move(channels)),
-       cmd_to_state(std::move(cmd_to_state)),
-       state_indexes(std::move(state_indexes)) {
+       data_saving(cfg.optional<bool>("data_saving", false)) {
+        bool is_digital = task_type == "ni_digital_write";
+        cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
+            std::unique_ptr<channel::Output> ch;
+            if (is_digital) ch = std::make_unique<channel::DO>(ch_cfg);
+            else ch = channel::parse_output(ch_cfg);
+            if (ch->enabled) channels[ch->cmd_ch_key] = std::move(ch);
+        });
+        std::set<synnax::ChannelKey> state_indexes;
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(channels.size() * 2);
+        for (const auto &[_, ch]: channels) {
+            keys.push_back(ch->state_ch_key);
+            cmd_to_state[ch->cmd_ch_key] = ch->state_ch_key;
+        }
+        auto [channels_vec, err] = client->channels.retrieve(keys);
+        for (const auto &ch: channels_vec)
+            if (ch.index != 0) state_indexes.insert(ch.key);
     }
 
     /// @brief returns the configuration necessary for opening the writer
@@ -116,35 +122,9 @@ struct WriteTaskConfig {
         const synnax::Task &task
     ) {
         auto parser = xjson::Parser(task.config);
-        OutputChannelMap channels;
-        bool is_digital = task.type == "ni_digital_write";
-        parser.iter("channels", [&](xjson::Parser &ch_cfg) {
-            std::unique_ptr<channel::Output> ch;
-            if (is_digital) ch = std::make_unique<channel::DO>(ch_cfg);
-            else ch = channel::parse_output(ch_cfg);
-            if (ch->enabled) channels[ch->cmd_ch_key] = std::move(ch);
-        });
-        CommandToStateMap cmd_to_state;
-        std::set<synnax::ChannelKey> state_indexes;
-        std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size() * 2);
-        for (const auto &[_, ch]: channels) {
-            keys.push_back(ch->state_ch_key);
-            cmd_to_state[ch->cmd_ch_key] = ch->state_ch_key;
-        }
-        auto buffer_size = channels.size();
-        if (!is_digital) buffer_size *= telem::FLOAT64_T.density();
-        auto [channels_vec, err] = client->channels.retrieve(keys);
-        for (const auto &ch: channels_vec)
-            if (ch.index != 0) state_indexes.insert(ch.key);
+
         return {
-            WriteTaskConfig(
-                parser,
-                std::move(channels),
-                std::move(cmd_to_state),
-                std::move(state_indexes),
-                buffer_size
-            ),
+            WriteTaskConfig(client, parser, task.type),
             parser.error()
         };
     }
@@ -154,8 +134,11 @@ struct WriteTaskConfig {
         const std::shared_ptr<SugaredDAQmx> &dmx,
         TaskHandle task_handle
     ) const {
-        for (const auto &[_, ch]: channels)
+        size_t idx = 0;
+        for (const auto &[_, ch]: channels) {
+            ch->index = idx++;
             if (const auto err = ch->apply(dmx, task_handle)) return err;
+        }
         return xerrors::NIL;
     }
 };
@@ -171,7 +154,7 @@ class WriteTask final : public task::Task {
     /// to Synnax.
     pipeline::Acquisition state_write_pipe;
     /// @brief the hardware interface for writing data
-    std::unique_ptr<HardwareWriter<T>> hw;
+    std::unique_ptr<hardware::Writer<T>> hw_writer;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
@@ -181,28 +164,51 @@ class WriteTask final : public task::Task {
     ni::TaskStateHandler state;
 
 public:
+    /// @brief base constructor that takes in pipeline factories to allow the
+    /// caller to stub cluster communication during tests.
     explicit WriteTask(
-        synnax::Task task,
+        const synnax::Task& task,
         const std::shared_ptr<task::Context> &ctx,
         WriteTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareWriter<T>> hw
+        std::unique_ptr<hardware::Writer<T>> hw_writer,
+        const std::shared_ptr<pipeline::WriterFactory> &writer_factory,
+        const std::shared_ptr<pipeline::StreamerFactory> &streamer_factory
     ):
         cfg(std::move(cfg)),
         cmd_write_pipe(
-            ctx->client,
+            streamer_factory,
             this->cfg.streamer_config(),
             std::make_shared<CommandSink>(*this),
             breaker_cfg
         ),
         state_write_pipe(
-            ctx->client,
+            writer_factory,
             this->cfg.writer_config(),
             std::make_shared<StateSource>(*this),
             breaker_cfg
         ),
-        hw(std::move(hw)),
+        hw_writer(std::move(hw_writer)),
         state(ctx, task) {
+    }
+
+    /// @brief primary constructor that uses the task context's Synnax client for
+    /// cluster communication.
+    explicit WriteTask(
+        synnax::Task task,
+        const std::shared_ptr<task::Context> &ctx,
+        WriteTaskConfig cfg,
+        const breaker::Config &breaker_cfg,
+        std::unique_ptr<hardware::Writer<T>> hw_writer
+    ): WriteTask(
+        std::move(task),
+        ctx,
+        std::move(cfg),
+        breaker_cfg,
+        std::move(hw_writer),
+        std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
+        std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
+    ) {
     }
 
     /// @brief StateSource is passed to the state pipeline in order to continually
@@ -241,10 +247,14 @@ public:
     /// @brief sink is passed to the command pipeline in order to receive incoming
     /// data from Synnax, write it to the device, and update the state.
     class CommandSink final : public pipeline::Sink {
+        /// @brief automatically infer the data type from the template parameter. This
+        /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
+        /// the data read from the hardware.
+        const telem::DataType data_type = telem::DataType::infer<T>();
     public:
         explicit CommandSink(WriteTask &task):
             task(task),
-            write_buffer(task.cfg.buffer_size) {
+            write_buffer(task.cfg.channels.size() * data_type.density()) {
         }
     private:
         /// @brief the parent write task.
@@ -256,7 +266,7 @@ public:
 
         xerrors::Error write(const synnax::Frame &frame) override {
             auto data = this->format_data(frame);
-            if (const auto err = this->task.hw->write(data)) return err;
+            if (const auto err = this->task.hw_writer->write(data)) return err;
 
             std::lock_guard lock{this->task.chan_state_lock};
             for (const auto &[key, series]: frame) {
@@ -280,20 +290,21 @@ public:
 
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key);
+        else if (cmd.type == "stop") this->stop(cmd.key, false);
     }
 
-    void stop(bool will_reconfigure) override { this->stop(""); }
+    void stop(const bool will_reconfigure) override { this->stop("", will_reconfigure); }
 
-    void stop(const std::string &cmd_key) {
+    void stop(const std::string &cmd_key, const bool will_reconfigure) {
         this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
-        this->state.error(this->hw->stop());
+        this->state.error(this->hw_writer->stop());
+        if (will_reconfigure) return;
         this->state.send_stop(cmd_key);
     }
 
     void start(const std::string &cmd_key) {
-        if (!this->state.error(this->hw->start())) {
+        if (!this->state.error(this->hw_writer->start())) {
             this->cmd_write_pipe.start();
             this->state_write_pipe.start();
         }

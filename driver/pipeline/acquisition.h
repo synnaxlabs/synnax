@@ -168,6 +168,8 @@ public:
     /// if the pipeline was already stopped.
     bool stop();
 
+    bool running() const;
+
     /// @brief adds a middleware to the acquisition pipeline that will be called on each
     /// frame read from source
     void add_middleware(const std::shared_ptr<pipeline::Middleware> &middleware) {
@@ -187,6 +189,7 @@ private:
     void run_internal();
 
     void ensure_thread_joined() const;
+
 
     void run();
 };

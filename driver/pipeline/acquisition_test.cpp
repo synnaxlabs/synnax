@@ -27,7 +27,7 @@ public:
 
     explicit MockSource(
         const telem::TimeStamp start_ts,
-        xerrors::Error read_err = xerrors::NIL
+        const xerrors::Error &read_err = xerrors::NIL
     ) : start_ts(start_ts), read_err(read_err) {}
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -57,9 +57,9 @@ TEST(AcquisitionPipeline, testStartResolution) {
         source,
         breaker::Config()
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(mock_factory->config.start.value, start_ts.value);
 }
 
@@ -83,9 +83,9 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
             .scale = 0,
         }
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 1);
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
 }
 
 /// @brief it should not retry when a non-unreachable error occurs.
@@ -108,9 +108,9 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
             .scale = 0,
         }
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(writes->size(), 0);
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(writes->size(), 0);
 }
 
@@ -135,9 +135,9 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
             .scale = 0,
         }
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 3);
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(mock_factory->writer_opens, 2);
 }
 
@@ -162,10 +162,10 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
             .scale = 0,
         }
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     ASSERT_EQ(source->stopped_err, xerrors::UNAUTHORIZED);
-    pipeline.stop();
+    ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
@@ -179,10 +179,10 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
         source,
         breaker::Config()
     );
-    pipeline.start();
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_FALSE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
 }
 
 /// @brief it should not stop the pipeline if it has already been stopped.
@@ -196,10 +196,10 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
         source,
         breaker::Config()
     );
-    pipeline.start();
+    ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(writes->size(), 0);
-    pipeline.stop();
-    pipeline.stop();
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief it should stop the pipeline when the source returns an error on read,

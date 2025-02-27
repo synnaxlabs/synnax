@@ -7,192 +7,156 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <stdio.h>
-#include <thread>
+// ReSharper disable CppUseStructuredBinding
 
-#include <include/gtest/gtest.h>
+/// std
+#include <utility>
 
-#include "client/cpp/synnax.h"
-#include "driver/ni/ni.h"
-#include "driver/testutil/testutil.h"
-#include "nlohmann/json.hpp"
+/// external
+#include "gtest/gtest.h"
 
-// macro define for the devices needed for each test
-#define SIMULATED_AO_DEVICE "0577EE88-E26D-11EF-804F-FB40AD45A9A9" // Simulated NI-9263
-#define AO_DEVICE "01BB4D51"  // Physical NI-9263
-#define DO_DEVICE "7B997D92-D8F3-11EF-8063-D5E44C514171"
+/// module
+#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xtest/xtest.h"
+#include "client/cpp/testutil/testutil.h"
 
-using json = nlohmann::json;
+/// internal
+#include "driver/ni/write_task.h"
+#include "driver/ni/hardware/hardware.h"
+#include "driver/errors/errors.h"
+#include "driver/pipeline/mock/pipeline.h"
 
-TEST(NiTaskTests, test_NI_analog_writer_task) {
-    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << std::endl;
-    auto client_config = synnax::Config{
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
-    };
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-
-    auto [ack_idx, tErr1] = client->channels.create(
-        "ao_state_idx",
+class SingleChannelAnalogWriteTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> sy;
+    synnax::Task task;
+    std::unique_ptr<ni::WriteTaskConfig> cfg;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::WriterFactory> mock_writer_factory;
+    std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
+    synnax::Channel state_idx_ch = synnax::Channel(
+        "state_idx_ch",
         telem::TIMESTAMP_T,
         0,
         true
     );
-    ASSERT_FALSE(tErr1) << tErr1.message();
-
-    auto [cmd_idx, tErr2] = client->channels.create(
-        "ao_cmd_idx",
-        telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    ASSERT_FALSE(tErr2) << tErr2.message();
-
-    auto [ack, aErr] = client->channels.create(
-        "ao_state",
+    synnax::Channel state_ch = synnax::Channel(
+        "state_ch",
         telem::FLOAT64_T,
-        ack_idx.key,
+        state_idx_ch.key,
         false
     );
-    ASSERT_FALSE(aErr) << aErr.message();
-
-    auto [cmd, cErr] = client->channels.create(
-        "ao_cmd",
+    synnax::Channel cmd_ch = synnax::Channel(
+        "cmd_ch",
         telem::FLOAT64_T,
-        cmd_idx.key,
-        false
-    );
-    ASSERT_FALSE(cErr) << cErr.message();
-
-    auto config = json{
-        {
-            "channels", json::array({
-                {
-                    {"cmd_channel", cmd.key},
-                    {"enabled", true},
-                    {"key", "w1GsZJokuR6"},
-                    {"port", 1},
-                    {"state_channel", ack.key},
-                    {"type", "ao_voltage"},
-                    {"min_val", 0},
-                    {"max_val", 10},
-                    {"units", "Volts"}
-                }
-            })
-        },
-        {"data_saving", true},
-        {"device", AO_DEVICE},
-        {"state_rate", 10}
-    };
-
-    auto task = synnax::Task(
-        "my_task",
-        "ni_analog_write",
-        to_string(config)
-    );
-
-    std::cout << "Analog Writer Task Config: " << config.dump(4) << std::endl;
-
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10)
-    );
-
-    auto ni_factory = ni::Factory::create();
-
-    auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
-    ASSERT_TRUE(ok) << "Failed to configure writer task";
-
-    auto start_cmd = task::Command{task.key, "start", {}};
-    auto stop_cmd = task::Command{task.key, "stop", {}};
-
-    writerTask->exec(start_cmd);
-    std::this_thread::sleep_for(std::chrono::seconds(500));
-    writerTask->exec(stop_cmd);
-}
-
-TEST(NiTaskTests, test_NI_digital_writer_task) {
-    LOG(INFO) << "Test NI writer task with  NI Digital Writer: " << std::endl;
-    auto client_config = synnax::Config{
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
-    };
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-
-    auto [ack_idx, tErr1] = client->channels.create(
-        "do_state_idx",
-        telem::TIMESTAMP_T,
-        0,
         true
     );
-    ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create(
-        "do_cmd_idx",
-        telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    ASSERT_FALSE(tErr2) << tErr2.message();
+    void parse_config() {
+        sy = std::make_shared<synnax::Synnax>(new_test_client());
 
-    auto [ack, aErr] = client->channels.create(
-        "do_state",
-        telem::UINT8_T,
-        ack_idx.key,
-        false
-    );
-    ASSERT_FALSE(aErr) << aErr.message();
+        auto idx_err = sy->channels.create(state_idx_ch);
+        ASSERT_FALSE(idx_err) << idx_err;
 
-    auto [cmd, cErr] = client->channels.create(
-        "do_cmd",
-        telem::UINT8_T,
-        cmd_idx.key,
-        false
-    );
-    ASSERT_FALSE(cErr) << cErr.message();
+        state_ch.index = state_idx_ch.key;
+        auto data_err = sy->channels.create(state_ch);
+        ASSERT_FALSE(data_err) << data_err;
 
-    auto config = json{
-        {
-            "channels", json::array({
-                {
-                    {"cmd_channel", cmd.key},
-                    {"enabled", true},
-                    {"key", "w1GsZJokuR6"},
-                    {"line", 0},
-                    {"port", 0},
-                    {"state_channel", ack.key},
-                }
-            })
-        },
-        {"data_saving", true},
-        {"device", DO_DEVICE},
-        {"state_rate", 10}
-    };
+        auto cmd_err = sy->channels.create(cmd_ch);
+        ASSERT_FALSE(cmd_err) << cmd_err;
 
-    auto task = synnax::Task(
-        "my_task",
-        "ni_digital_write",
-        to_string(config)
-    );
+        auto [rack, rack_err] = sy->hardware.create_rack("cat");
+        ASSERT_FALSE(rack_err) << rack_err;
 
-    std::cout << "Digital Writer Task Config: " << config.dump(4) << std::endl;
+        synnax::Device dev(
+            "abc123",
+            "my_device",
+            rack.key,
+            "dev1",
+            "dev1",
+            "ni",
+            "PXI-6255",
+            ""
+        );
+        auto dev_err = sy->hardware.create_device(dev);
+        ASSERT_FALSE(dev_err) << dev_err;
 
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10)
-    );
+        task = synnax::Task(
+            rack.key,
+            "my_task",
+            "ni_analog_write",
+            ""
+        );
 
-    auto ni_factory = ni::Factory::create();
-    auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
+        json j{
+            {"data_saving", false},
+            {"state_rate", 25},
+            {"device", dev.key},
+            {
+                "channels", json::array({
+                    {
+                        {"type", "ao_voltage"},
+                        {"key", "hCzuNC9glqc"},
+                        {"port", 0},
+                        {"enabled", true},
+                        {"min_val", 0},
+                        {"max_val", 1},
+                        {"state_channel", state_ch.key},
+                        {"cmd_channel", cmd_ch.key},
+                        {"custom_scale", {{"type", "none"}}},
+                        {"units", "Volts"}
+                    }
+                })
+            }
+        };
 
-    ASSERT_TRUE(ok) << "Failed to configure writer task";
+        auto p = xjson::Parser(j);
+        cfg = std::make_unique<ni::WriteTaskConfig>(sy, p, "ni_analog_write");
+        ASSERT_FALSE(p.error()) << p.error();
 
-    auto start_cmd = task::Command{task.key, "start", {}};
-    auto stop_cmd = task::Command{task.key, "stop", {}};
+        ctx = std::make_shared<task::MockContext>(sy);
+        mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    }
 
-    writerTask->exec(start_cmd);
-    std::this_thread::sleep_for(std::chrono::seconds(500));
-    writerTask->exec(stop_cmd);
+    std::unique_ptr<ni::WriteTask<double>> create_task(
+        std::unique_ptr<hardware::mock::Writer<double>> mock_hw
+    ) {
+        return std::make_unique<ni::WriteTask<double>>(
+            task,
+            ctx,
+            std::move(*cfg),
+            breaker::default_config(task.name),
+            std::move(mock_hw),
+            mock_writer_factory,
+            mock_streamer_factory
+        );
+    }
+};
+
+TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
+    parse_config();
+    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    reads->emplace_back(cmd_ch.key, telem::Series(1, telem::UINT8_T));
+    mock_streamer_factory =
+            pipeline::mock::simple_streamer_factory({cmd_ch.key}, reads);
+    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto first_state = ctx->states[0];
+    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.task, task.key);
+    EXPECT_EQ(first_state.variant, "success");
+    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+
+
+    wt->stop("stop_cmd", false);
+    ASSERT_EQ(ctx->states.size(), 2);
+    const auto second_state = ctx->states[1];
+    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.task, task.key);
+    EXPECT_EQ(second_state.variant, "success");
+    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
 }

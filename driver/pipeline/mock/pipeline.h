@@ -110,7 +110,7 @@ public:
     }
 };
 
-inline std::shared_ptr<pipeline::StreamerFactory> simple_streamer_factory(
+inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
     const std::vector<synnax::ChannelKey> &keys,
     const std::shared_ptr<std::vector<synnax::Frame> > &reads
 ) {

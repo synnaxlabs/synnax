@@ -66,16 +66,16 @@ static int32_t get_excitation_src(const std::string &s) {
 }
 
 struct ExcitationConfig {
-    int32_t excit_source;
-    double excit_val;
+    int32_t source;
+    double val;
     double min_val_for_excitation; // optional
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
 
     explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix)
-        : excit_source(
+        : source(
               get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
-          excit_val(cfg.required<double>(prefix + "_excit_val")),
+          val(cfg.required<double>(prefix + "_excit_val")),
           min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
           max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
           use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {
@@ -237,13 +237,18 @@ struct Input : virtual Base {
 struct Output : virtual Base {
     const synnax::ChannelKey cmd_ch_key;
     const synnax::ChannelKey state_ch_key;
-    const size_t index = 0;
+    size_t index = 0;
     synnax::Channel state_ch;
 
     explicit Output(xjson::Parser &cfg):
         Base(cfg),
         cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
         state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {
+    }
+
+    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev) {
+        this->state_ch = state_ch;
+        this->dev = dev;
     }
 };
 
@@ -286,10 +291,6 @@ struct DO final : Digital, Output {
     explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {
     }
 
-    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev) {
-        this->state_ch = state_ch;
-        this->dev = dev;
-    }
 
     xerrors::Error apply(
         const std::shared_ptr<SugaredDAQmx> &dmx,
@@ -360,7 +361,7 @@ struct AI : virtual Analog, Input {
     explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {
     }
 
-    [[nodiscard]] std::string physical_channel() const {
+    [[nodiscard]] std::string loc() const {
         return this->dev + "/ai" + std::to_string(this->port);
     }
 };
@@ -405,7 +406,7 @@ struct AIVoltage : AICustomScale {
     ) const override {
         return dmx->CreateAIVoltageChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -427,7 +428,7 @@ struct AIVoltageRMS final : AIVoltage {
     ) const override {
         return dmx->CreateAIVoltageRMSChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -459,15 +460,15 @@ struct AIVoltageWithExcit final : AIVoltage {
     ) const override {
         return dmx->CreateAIVoltageChanWithExcit(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
             this->units,
             this->bridge_config,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             static_cast<bool32>(this->excitation_config.min_val_for_excitation),
             scale_key
         );
@@ -502,7 +503,7 @@ struct AICurrent : AICustomScale {
     ) const override {
         return dmx->CreateAICurrentChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -529,7 +530,7 @@ struct AICurrentRMS final : AICurrent {
     ) const override {
         return dmx->CreateAICurrentRMSChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -577,15 +578,15 @@ struct AIRTD final : AI {
     ) const override {
         return dmx->CreateAIRTDChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
             this->rtd_type,
             this->resistance_config,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             this->r0
         );
     }
@@ -640,7 +641,7 @@ struct AIThermocouple final : AI {
     ) const override {
         return dmx->CreateAIThrmcplChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -698,14 +699,14 @@ struct AIThermistorIEX final : AI {
     ) const override {
         return dmx->CreateAIThrmstrChanIex(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
             this->resistance_config,
-            this->excitation_config.excit_source, // current excitation source FIXME
-            this->excitation_config.excit_val, // current excitation val FIXME
+            this->excitation_config.source, // current excitation source FIXME
+            this->excitation_config.val, // current excitation val FIXME
             this->a,
             this->b,
             this->c
@@ -739,14 +740,14 @@ class AIThermistorVex final : public AI {
     ) const override {
         return dmx->CreateAIThrmstrChanVex(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
             this->resistance_config,
-            this->excitation_config.excit_source, // current excitation source FIXME
-            this->excitation_config.excit_val, // current excitation val FIXME
+            this->excitation_config.source, // current excitation source FIXME
+            this->excitation_config.val, // current excitation val FIXME
             this->a,
             this->b,
             this->c,
@@ -780,7 +781,7 @@ struct AIAccel : AICustomScale {
     ) const override {
         return dmx->CreateAIAccelChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -788,8 +789,8 @@ struct AIAccel : AICustomScale {
             this->units,
             this->sensitivity,
             this->sensitivity_units,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             scale_key
         );
     }
@@ -809,7 +810,7 @@ struct AIAccel4WireDCVoltage final : AIAccel {
     ) const override {
         return dmx->CreateAIAccel4WireDCVoltageChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -817,8 +818,8 @@ struct AIAccel4WireDCVoltage final : AIAccel {
             this->units,
             this->sensitivity,
             this->sensitivity_units,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             this->excitation_config.use_excit_for_scaling,
             scale_key
         );
@@ -846,7 +847,7 @@ class AIAccelCharge final : public AICustomScale {
     ) const override {
         return dmx->CreateAIAccelChargeChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -879,14 +880,14 @@ public:
     ) const override {
         return dmx->CreateAIResistanceChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
             this->resistance_config,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             scale_key
         );
     }
@@ -910,7 +911,7 @@ public:
     ) const override {
         return dmx->CreateAIBridgeChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -964,14 +965,14 @@ struct AIStrainGauge final : AICustomScale {
     ) const override {
         return dmx->CreateAIStrainGageChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
             this->units,
             this->strain_config,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             this->gage_factor,
             this->initial_bridge_voltage,
             this->nominal_gage_resistance,
@@ -1047,7 +1048,7 @@ public:
     ) const override {
         return dmx->CreateAIRosetteStrainGageChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1056,8 +1057,8 @@ public:
             &this->rosette_meas_type,
             1, // bynRosetteMeasTypes
             this->strain_config,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             this->gage_factor,
             this->nominal_gage_resistance,
             this->poisson_ratio,
@@ -1089,14 +1090,14 @@ struct AIMicrophone final : AICustomScale {
     ) const override {
         return dmx->CreateAIMicrophoneChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->units,
             this->mic_sensitivity,
             this->max_snd_press_level,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             scale_key
         );
     }
@@ -1154,7 +1155,7 @@ struct AIPressureBridgeTwoPointLin final : AICustomScale {
     ) const override {
         return dmx->CreateAIPressureBridgeTwoPointLinChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1193,7 +1194,7 @@ struct AIPressureBridgeTable final : AICustomScale {
     ) const override {
         return dmx->CreateAIPressureBridgeTableChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1233,7 +1234,7 @@ public:
     ) const override {
         return dmx->CreateAIPressureBridgePolynomialChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1273,7 +1274,7 @@ public:
     ) const override {
         return dmx->CreateAIForceBridgePolynomialChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1312,7 +1313,7 @@ struct AIForceBridgeTable final : AICustomScale {
     ) const override {
         return dmx->CreateAIForceBridgeTableChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1352,7 +1353,7 @@ struct AIForceBridgeTwoPointLin final : AICustomScale {
     ) const override {
         return dmx->CreateAIForceBridgeTwoPointLinChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1400,7 +1401,7 @@ struct AIVelocityIEPE final : AICustomScale {
     ) const override {
         return dmx->CreateAIVelocityIEPEChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -1408,8 +1409,8 @@ struct AIVelocityIEPE final : AICustomScale {
             this->units,
             this->sensitivity,
             this->sensitivity_units,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             scale_key
         );
     }
@@ -1434,7 +1435,7 @@ struct AITorqueBridgeTwoPointLin final : AICustomScale {
     ) const override {
         return dmx->CreateAITorqueBridgeTwoPointLinChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1473,7 +1474,7 @@ struct AITorqueBridgePolynomial final : AICustomScale {
     ) const override {
         return dmx->CreateAITorqueBridgePolynomialChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1512,7 +1513,7 @@ struct AITorqueBridgeTable final : AICustomScale {
     ) const override {
         return dmx->CreateAITorqueBridgeTableChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1555,7 +1556,7 @@ struct AIForceIEPE final : AICustomScale {
     ) const override {
         return dmx->CreateAIForceIEPEChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
@@ -1563,8 +1564,8 @@ struct AIForceIEPE final : AICustomScale {
             this->units,
             this->sensitivity,
             this->sensitivity_units,
-            this->excitation_config.excit_source,
-            this->excitation_config.excit_val,
+            this->excitation_config.source,
+            this->excitation_config.val,
             scale_key
         );
     }
@@ -1587,7 +1588,7 @@ struct AICharge final : AICustomScale {
     ) const override {
         return dmx->CreateAIChargeChan(
             task_handle,
-            this->physical_channel().c_str(),
+            this->loc().c_str(),
             "",
             this->terminal_config,
             this->min_val,
@@ -1688,51 +1689,51 @@ struct AOFunctionGenerator final : AO {
     }
 };
 
-using AIFactory = std::function<std::unique_ptr<AI>(
+template<typename T>
+using Factory = std::function<std::unique_ptr<T>(
         xjson::Parser &cfg,
         const std::map<int32_t, std::string> &port_to_channel)
 >;
-using AOFactory = std::function<std::unique_ptr<AO>(xjson::Parser &cfg)>;
 
-#define AO_FACTORY(type, class) \
-    {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
-
-#define AI_FACTORY(type, class) \
+#define FACTORY(type, class) \
     {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg); }}
 
-#define AI_FACTORY_WITH_PORT(type, class) \
+#define FACTORY_WITH_CJC_SOURCES(type, class) \
     {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg, ptc); }}
 
-static const std::map<std::string, AOFactory> AO_CHANS = {
-    AO_FACTORY("ao_current", AOCurrent),
-    AO_FACTORY("ao_voltage", AOVoltage),
-    AO_FACTORY("ao_func_gen", AOFunctionGenerator)
+static const std::map<std::string, Factory<Output>> OUTPUTS = {
+    FACTORY("ao_current", AOCurrent),
+    FACTORY("ao_voltage", AOVoltage),
+    FACTORY("ao_func_gen", AOFunctionGenerator),
+    FACTORY("digital_output", DO)
 };
 
-static const std::map<std::string, AIFactory> AI_CHANS = {
-    AI_FACTORY("ai_accel", AIAccel),
-    AI_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
-    AI_FACTORY("ai_bridge", AIBridge),
-    AI_FACTORY("ai_charge", AICharge),
-    AI_FACTORY("ai_current", AICurrent),
-    AI_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
-    AI_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
-    AI_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
-    AI_FACTORY("ai_force_iepe", AIForceIEPE),
-    AI_FACTORY("ai_microphone", AIMicrophone),
-    AI_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
-    AI_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
-    AI_FACTORY("ai_pressure_bridge_two_point_lin", AIPressureBridgeTwoPointLin),
-    AI_FACTORY("ai_resistance", AIResistance),
-    AI_FACTORY("ai_rtd", AIRTD),
-    AI_FACTORY("ai_strain_gauge", AIStrainGauge),
-    AI_FACTORY("ai_temp_builtin", AITempBuiltIn),
-    AI_FACTORY_WITH_PORT("ai_thermocouple", AIThermocouple),
-    AI_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
-    AI_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
-    AI_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
-    AI_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
-    AI_FACTORY("ai_voltage", AIVoltage)
+static const std::map<std::string, Factory<Input>> INPUTS = {
+    FACTORY("ai_accel", AIAccel),
+    FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
+    FACTORY("ai_bridge", AIBridge),
+    FACTORY("ai_charge", AICharge),
+    FACTORY("ai_current", AICurrent),
+    FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
+    FACTORY("ai_force_bridge_table", AIForceBridgeTable),
+    FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
+    FACTORY("ai_force_iepe", AIForceIEPE),
+    FACTORY("ai_microphone", AIMicrophone),
+    FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
+    FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
+    FACTORY("ai_pressure_bridge_two_point_lin", AIPressureBridgeTwoPointLin),
+    FACTORY("ai_resistance", AIResistance),
+    FACTORY("ai_rtd", AIRTD),
+    FACTORY("ai_strain_gauge", AIStrainGauge),
+    FACTORY("ai_temp_builtin", AITempBuiltIn),
+    FACTORY_WITH_CJC_SOURCES("ai_thermocouple", AIThermocouple),
+    FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
+    FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
+    FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
+    FACTORY("ai_velocity_iepe", AIVelocityIEPE),
+    FACTORY("ai_voltage", AIVoltage),
+    FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    FACTORY("digital_input", DI)
 };
 
 inline std::unique_ptr<Input> parse_input(
@@ -1740,19 +1741,22 @@ inline std::unique_ptr<Input> parse_input(
     const std::map<int32_t, std::string> &port_to_channel
 ) {
     const auto type = cfg.required<std::string>("type");
-    if (AI_CHANS.count(type) == 0)
-        cfg.field_err("type", "invalid analog input channel type: " + type);
-    return AI_CHANS.at(type)(cfg, port_to_channel);
+    const auto input = INPUTS.find(type);
+    if (input != INPUTS.end())
+        return input->second(cfg, port_to_channel);
+    cfg.field_err("type", "unknown channel type: " + type);
+    return nullptr;
 }
 
 inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
     const auto type = cfg.required<std::string>("type");
-    if (AO_CHANS.count(type) == 0)
-        cfg.field_err("type", "invalid analog output channel type: " + type);
-    return AO_CHANS.at(type)(cfg);
+    const auto output = OUTPUTS.find(type);
+    if (output != OUTPUTS.end())
+        return output->second(cfg, {});
+    return nullptr;
 }
 
-#undef AO_FACTORY
-#undef AI_FACTORY
-#undef AI_FACTORY_WITH_PORT
+#undef FACTORY
+#undef FACTORY
+#undef FACTORY_WITH_CJC_SOURCES
 };

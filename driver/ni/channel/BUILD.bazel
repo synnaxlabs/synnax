@@ -26,8 +26,8 @@ cc_test(
     }),
     tags = ["hardware"],
     deps = [
-        "ni",
         "//client/cpp/testutil",
+        "//driver/ni/channel",
         "@com_google_googletest//:gtest_main",
     ],
 )

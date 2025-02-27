@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <thread>
 
 /// module
 #include "x/cpp/breaker/breaker.h"
@@ -23,7 +22,7 @@
 /// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/ni/hardware.h"
+#include "driver/ni/hardware/hardware.h"
 #include "driver/task/task.h"
 #include "driver/ni/ni.h"
 
@@ -174,12 +173,13 @@ class ReadTask final : public task::Task {
     /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
     pipeline::Acquisition pipe;
     /// @brief interface used to read data from the hardware.
-    std::unique_ptr<HardwareReader<T>> hw;
+    std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
     telem::TimeStamp hw_start_time = telem::TimeStamp(0);
     /// @brief handles communicating the task state back to the cluster.
     ni::TaskStateHandler state;
+    synnax::Task task_;
 
     /// @brief an internal source that we pass to the acquisition pipeline that manages
     /// the lifecycle of this task.
@@ -205,7 +205,7 @@ class ReadTask final : public task::Task {
         std::vector<T> buffer;
 
         void stopped_with_err(const xerrors::Error &err) override {
-            this->p.state.error(this->p.hw->stop());
+            this->p.state.error(this->p.hw_reader->stop());
             this->p.state.send_stop("");
         }
 
@@ -213,7 +213,7 @@ class ReadTask final : public task::Task {
             if (this->p.cfg.software_timed) this->timer.wait(breaker);
             auto start = this->p.hw_start_time;
             const size_t count = this->p.cfg.samples_per_chan;
-            const auto [n, err] = this->p.hw->read(count, buffer);
+            const auto [n, err] = this->p.hw_reader->read(count, buffer);
             if (err) return {Frame(), err};
             auto end = start + (n - 1) * this->p.cfg.sample_rate.period();
             this->p.hw_start_time = end + this->p.cfg.sample_rate.period();
@@ -241,12 +241,14 @@ class ReadTask final : public task::Task {
     };
 
 public:
+    /// @brief base constructor that takes in a pipeline writer factory to allow the
+    /// caller to stub cluster communication during tests.
     explicit ReadTask(
         synnax::Task task,
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareReader<T>> hw,
+        std::unique_ptr<hardware::Reader<T>> reader,
         const std::shared_ptr<pipeline::WriterFactory> &factory
     ): cfg(std::move(cfg)),
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
@@ -258,23 +260,25 @@ public:
            std::make_shared<Source>(*this),
            breaker_cfg
        ),
-       hw(std::move(hw)),
-       state(ctx, task) {
+       hw_reader(std::move(reader)),
+       state(ctx, task), task_(std::move(task)) {
         this->pipe.add_middleware(this->tare_mw);
     }
 
+    /// @brief primary constructor that uses the task context's Synnnax client in order
+    /// to communicate with the cluster.
     explicit ReadTask(
         synnax::Task task,
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareReader<T>> hw
+        std::unique_ptr<hardware::Reader<T>> reader
     ): ReadTask(
         std::move(task),
         ctx,
         std::move(cfg),
         breaker_cfg,
-        std::move(hw),
+        std::move(reader),
         std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client)
     ) {
     }
@@ -282,18 +286,20 @@ public:
     /// @brief executes the given command on the task.
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key);
+        else if (cmd.type == "stop") this->stop(cmd.key, false);
         else if (cmd.type == "tare") this->tare_mw->tare(cmd.args);
     }
 
     /// @brief stops the task.
-    void stop(const bool will_reconfigure) override { this->stop("", will_reconfigure); }
+    void stop(const bool will_reconfigure) override {
+        this->stop("", will_reconfigure);
+    }
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
-    void stop(const std::string &cmd_key, const bool will_reconfigure = false) {
-        if (!this->pipe.stop()) return;
-        this->state.error(this->hw->stop());
+    void stop(const std::string &cmd_key, const bool will_reconfigure) {
+        if (const auto was_running = this->pipe.stop(); !was_running) return;
+        this->state.error(this->hw_reader->stop());
         if (will_reconfigure) return;
         this->state.send_stop(cmd_key);
     }
@@ -301,10 +307,11 @@ public:
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
     void start(const std::string &cmd_key) {
+        if (this->pipe.running()) return;
         this->hw_start_time = telem::TimeStamp::now();
-        if (!this->state.error(this->hw->start())) this->pipe.start();
+        if (const auto ok = this->state.error(this->hw_reader->start()); !ok)
+            this->pipe.start();
         this->state.send_start(cmd_key);
-        this->pipe.start();
     }
 
     /// @brief implements task::Task.

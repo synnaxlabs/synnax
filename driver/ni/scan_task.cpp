@@ -170,6 +170,25 @@ void ni::ScanTask::stop(bool will_reconfigure) {
 }
 
 xerrors::Error ni::ScanTask::start() {
+
+    this->breaker.start();
+    this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
+    return xerrors::NIL;
+}
+
+void ni::ScanTask::exec(task::Command &cmd) {
+    this->state.key = cmd.key;
+    if (cmd.type == "stop") return this->stop(false);
+    xerrors::Error err = xerrors::NIL;
+    if (cmd.type == "start") err = this->start();
+    else if (cmd.type == "scan") err = this->scan();
+    if (!err) return;
+    this->state.variant = "error";
+    this->state.details["message"] = err.message();
+    this->ctx->set_state(this->state);
+}
+
+xerrors::Error ni::ScanTask::initialize_syscfg_session() {
     if (const auto err = this->syscfg->InitializeSession(
         nullptr, // target (ip, mac or dns name)
         nullptr, // username (NULL for local system)
@@ -203,30 +222,20 @@ xerrors::Error ni::ScanTask::start() {
         NISysCfgBoolFalse
     ))
         return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
+    return this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsNIProduct,
         NISysCfgBoolTrue
-    ))
-        return err;
-    this->breaker.start();
-    this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
-    return xerrors::NIL;
-}
-
-void ni::ScanTask::exec(task::Command &cmd) {
-    this->state.key = cmd.key;
-    if (cmd.type == "stop") return this->stop(false);
-    xerrors::Error err = xerrors::NIL;
-    if (cmd.type == "start") err = this->start();
-    else if (cmd.type == "scan") err = this->scan();
-    if (!err) return;
-    this->state.variant = "error";
-    this->state.details["message"] = err.message();
-    this->ctx->set_state(this->state);
+    );
 }
 
 void ni::ScanTask::run() {
+    if (const auto err = this->initialize_syscfg_session()) {
+        this->state.variant = "error";
+        this->state.details["message"] = err.message();
+        this->ctx->set_state(this->state);
+        return;
+    }
     this->state.variant = "success";
     this->state.details["message"] = "scan task started";
     this->ctx->set_state(this->state);

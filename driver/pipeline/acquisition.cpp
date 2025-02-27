@@ -82,6 +82,8 @@ void Acquisition::ensure_thread_joined() const {
     this->thread->join();
 }
 
+bool Acquisition::running() const { return this->breaker.running(); }
+
 bool Acquisition::start() {
     if (this->breaker.running()) return false;
     this->ensure_thread_joined();
@@ -94,7 +96,7 @@ bool Acquisition::stop() {
     const auto was_running = this->breaker.running();
     this->breaker.stop();
     this->ensure_thread_joined();
-    return !was_running;
+    return was_running;
 }
 
 /// @brief the main run function for the acquisition thread. Servers as a wrapper

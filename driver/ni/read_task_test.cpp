@@ -8,64 +8,26 @@
 // included in the file licenses/APL.txt.
 
 // ReSharper disable CppUseStructuredBinding
+
+/// std
+#include <utility>
+
+/// external
 #include "gtest/gtest.h"
 
+/// module
 #include "x/cpp/xjson/xjson.h"
-#include "driver/ni/read_task.h"
-
+#include "x/cpp/xtest/xtest.h"
 #include "client/cpp/testutil/testutil.h"
+
+/// internal
+#include "driver/ni/read_task.h"
+#include "driver/ni/hardware/hardware.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/mock/pipeline.h"
-#include "x/cpp/xtest/xtest.h"
 
 
-template<typename T>
-class MockHardwareInterface final : public ni::HardwareReader<T> {
-public:
-    explicit MockHardwareInterface(
-        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
-        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {{{0.5}, xerrors::NIL}}
-    ) : start_errors(start_errors),
-        stop_errors(stop_errors),
-        read_responses(read_responses),
-        start_cal_count(0),
-        stop_call_count(0),
-        read_call_count(0) {}
-
-    xerrors::Error start() override {
-        auto err = start_errors[std::min(start_cal_count, start_errors.size() - 1)];
-        start_cal_count++;
-        return err;
-    }
-
-    xerrors::Error stop() override {
-        auto err = stop_errors[std::min(stop_call_count, stop_errors.size() - 1)];
-        stop_call_count++;
-        return err;
-    }
-
-    std::pair<size_t, xerrors::Error> read(
-        size_t samples_per_channel,
-        std::vector<T> &data
-    ) override {
-        auto response = read_responses[std::min(read_call_count, read_responses.size() - 1)];
-        read_call_count++;
-        if (!response.first.empty())
-            std::copy(response.first.begin(), response.first.end(), data.begin());
-        return {response.first.size(), response.second};
-    }
-
-private:
-    std::vector<xerrors::Error> start_errors;
-    std::vector<xerrors::Error> stop_errors;
-    std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
-    size_t start_cal_count;
-    size_t stop_call_count;
-    size_t read_call_count;
-};
-
-class SingleChannelReadTask : public ::testing::Test {
+class SingleChannelAnalogReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> sy;
     synnax::Task task;
@@ -85,7 +47,7 @@ protected:
         false
     );
 
-    void parseConfig() {
+    void parse_config() {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
         
         auto idx_err = sy->channels.create(index_channel);
@@ -148,13 +110,12 @@ protected:
         cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
         ASSERT_FALSE(p.error()) << p.error();
 
-        auto client = std::make_shared<synnax::Synnax>(new_test_client());
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(sy);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<ni::ReadTask<double>> createReadTask(
-        std::unique_ptr<MockHardwareInterface<double>> mock_hw
+    std::unique_ptr<ni::ReadTask<double>> create_task(
+        std::unique_ptr<hardware::mock::Reader<double>> mock_hw
     ) {
         return std::make_unique<ni::ReadTask<double>>(
             task,
@@ -167,9 +128,10 @@ protected:
     }
 };
 
-TEST_F(SingleChannelReadTask, testBasicAnalogRead) {
-    parseConfig();
-    auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>());
+/// @brief it should run a basic analog read task using a mock hardware implementation.
+TEST_F(SingleChannelAnalogReadTest, testBasicAnalogRead) {
+    parse_config();
+    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
     
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -178,15 +140,14 @@ TEST_F(SingleChannelReadTask, testBasicAnalogRead) {
     EXPECT_EQ(first_state.task, task.key);
     EXPECT_EQ(first_state.variant, "success");
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
-
-    rt->stop("stop_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    rt->stop("stop_cmd", false);
+    ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.task, task.key);
     EXPECT_EQ(second_state.variant, "success");
     EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
-    ASSERT_EQ(mock_factory->writer_opens, 1);
     ASSERT_GE(mock_factory->writes->size(), 1);
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
@@ -197,9 +158,10 @@ TEST_F(SingleChannelReadTask, testBasicAnalogRead) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
-TEST_F(SingleChannelReadTask, testErrorOnStart) {
-    parseConfig();
-    const auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
+/// @breif it should communicate an error when the hardware fails to start.
+TEST_F(SingleChannelAnalogReadTest, testErrorOnStart) {
+    parse_config();
+    const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")}
     ));
     rt->start("start_cmd");
@@ -209,12 +171,13 @@ TEST_F(SingleChannelReadTask, testErrorOnStart) {
     EXPECT_EQ(state.task, task.key);
     EXPECT_EQ(state.variant, "error");
     EXPECT_EQ(state.details["message"], "[sy.driver.hardware.critical] Failed to start hardware");
-    rt->stop();
+    rt->stop(false);
 }
 
-TEST_F(SingleChannelReadTask, testErrorOnStop) {
-    parseConfig();
-    auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
+/// @brief it should communicate an error when the hardware fails to stop.
+TEST_F(SingleChannelAnalogReadTest, testErrorOnStop) {
+    parse_config();
+    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::NIL},
         std::vector{xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")}
     ));
@@ -222,7 +185,7 @@ TEST_F(SingleChannelReadTask, testErrorOnStop) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.variant, "success");
-    rt->stop("stop_cmd");
+    rt->stop("stop_cmd", false);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
@@ -231,13 +194,12 @@ TEST_F(SingleChannelReadTask, testErrorOnStop) {
     EXPECT_EQ(stop_state.details["message"], "[sy.driver.hardware.critical] Failed to stop hardware");
 }
 
-/// make data channel float32 and then assert that the output data is actually float32
-TEST_F(SingleChannelReadTask, testDataTypeCoersion) {
-    // Override the default float64 data channel with a float32 channel
+/// @brief it should correctly coerce read data types to the channel data type.
+TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
     data_channel.data_type = telem::FLOAT32_T;
-    parseConfig();
+    parse_config();
 
-    auto rt = createReadTask(std::make_unique<MockHardwareInterface<double>>(
+    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::NIL},
         std::vector{xerrors::NIL},
         std::vector<std::pair<std::vector<double>, xerrors::Error>>{{{1.23456789}, xerrors::NIL}}
@@ -248,7 +210,7 @@ TEST_F(SingleChannelReadTask, testDataTypeCoersion) {
     const auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.variant, "success");
 
-    rt->stop("stop_cmd");
+    rt->stop("stop_cmd", false);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.variant, "success");
@@ -272,5 +234,170 @@ TEST_F(SingleChannelReadTask, testDataTypeCoersion) {
     EXPECT_NE(static_cast<double>(value), 1.23456789);
 }
 
-TEST(ReadTaskTest, doubleStop) {}
-TEST(ReadTaskTest, doubleStart) {}
+/// @brief it should not double communicate state if the task is already started.
+TEST_F(SingleChannelAnalogReadTest, testDoubleStart) {
+    parse_config();
+    const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
+    
+    rt->start("start_cmd1");
+    rt->start("start_cmd2");  // Second start should be ignored
+    
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    EXPECT_EQ(ctx->states.size(), 1);  // Should only have one state message
+    const auto state = ctx->states[0];
+    EXPECT_EQ(state.key, "start_cmd1");
+    EXPECT_EQ(state.task, task.key);
+    EXPECT_EQ(state.variant, "success");
+    EXPECT_EQ(state.details["message"], "Task started successfully");
+    
+    rt->stop("stop_cmd", false);
+}
+
+/// @brief it should not double communicate state if the task is already stopped.
+TEST_F(SingleChannelAnalogReadTest, testDoubleStop) {
+    parse_config();
+    const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
+    
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    
+    rt->stop("stop_cmd1", false);
+    rt->stop("stop_cmd2", false);  // Second stop should be ignored
+    
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    EXPECT_EQ(ctx->states.size(), 2);  // Should only have two state messages (start + stop)
+    const auto stop_state = ctx->states[1];
+    EXPECT_EQ(stop_state.key, "stop_cmd1");
+    EXPECT_EQ(stop_state.task, task.key);
+    EXPECT_EQ(stop_state.variant, "success");
+    EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
+}
+
+class DigitalReadTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> sy;
+    synnax::Task task;
+    std::unique_ptr<ni::ReadTaskConfig> cfg;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    synnax::Channel index_channel = synnax::Channel(
+        "time_channel",
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    synnax::Channel data_channel = synnax::Channel(
+        "digital_channel",
+        telem::UINT8_T,  // Digital data is typically boolean/uint8
+        index_channel.key,
+        false
+    );
+
+    void parse_config() {
+        sy = std::make_shared<synnax::Synnax>(new_test_client());
+        
+        auto idx_err = sy->channels.create(index_channel);
+        ASSERT_FALSE(idx_err) << idx_err;
+
+        data_channel.index = index_channel.key;
+        auto data_err = sy->channels.create(data_channel);
+        ASSERT_FALSE(data_err) << data_err;
+
+        auto [rack, rack_err] = sy->hardware.create_rack("digital_rack");
+        ASSERT_FALSE(rack_err) << rack_err;
+
+        synnax::Device dev(
+            "130227d9-02aa-47e4-b370-0d590add1bc1",
+            "digital_device",
+            rack.key,
+            "dev1",
+            "dev1",
+            "ni",
+            "PXI-6255",
+            ""
+        );
+        auto dev_err = sy->hardware.create_device(dev);
+        ASSERT_FALSE(dev_err) << dev_err;
+
+        task = synnax::Task(
+            rack.key,
+            "digital_task",
+            "ni_digital_read",
+            ""
+        );
+
+        json j{
+            {"data_saving", true},
+            {"sample_rate", 25},
+            {"stream_rate", 25},
+            {"channels", json::array({
+                {
+                    {"type", "digital_input"},
+                    {"key", "hCzuNC9glqc"},
+                    {"port", 0},
+                    {"enabled", true},
+                    {"line", 1},
+                    {"channel", data_channel.key},
+                    {"device", dev.key}
+                }
+            })}
+        };
+
+        auto p = xjson::Parser(j);
+        cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_digital_read");
+        ASSERT_FALSE(p.error()) << p.error();
+
+        auto client = std::make_shared<synnax::Synnax>(new_test_client());
+        ctx = std::make_shared<task::MockContext>(client);
+        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    }
+
+    std::unique_ptr<ni::ReadTask<uint8_t>> create_task(
+        std::unique_ptr<hardware::mock::Reader<uint8_t>> mock_hw
+    ) {
+        return std::make_unique<ni::ReadTask<uint8_t>>(
+            task,
+            ctx,
+            std::move(*cfg),
+            breaker::default_config(task.name),
+            std::move(mock_hw),
+            mock_factory
+        );
+    }
+};
+
+/// @brief it should run a basic digital read task using a mock hardware implementation.
+TEST_F(DigitalReadTest, testBasicDigitalRead) {
+    parse_config();
+    auto rt = create_task(std::make_unique<hardware::mock::Reader<uint8_t>>(
+        std::vector{xerrors::NIL},
+        std::vector{xerrors::NIL},
+        std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{{{1}, xerrors::NIL}}  // Digital high
+    ));
+    
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto first_state = ctx->states[0];
+    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.task, task.key);
+    EXPECT_EQ(first_state.variant, "success");
+    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+
+    rt->stop("stop_cmd", false);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto second_state = ctx->states[1];
+    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.task, task.key);
+    EXPECT_EQ(second_state.variant, "success");
+    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
+
+    ASSERT_GE(mock_factory->writes->size(), 1);
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 2);
+    ASSERT_EQ(fr.length(), 1);
+    ASSERT_EQ(fr.contains(data_channel.key), true);
+    ASSERT_EQ(fr.contains(index_channel.key), true);
+    ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);  // Verify digital high
+    ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
+}

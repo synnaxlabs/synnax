@@ -48,7 +48,7 @@ export const legendSwatches = (
           onVisibleChange={onVisibleChange}
           allowChange={onEntryChange != null}
           draggable={false}
-          size="small"
+          size="tiny"
         />
         <Text.MaybeEditable
           level="small"

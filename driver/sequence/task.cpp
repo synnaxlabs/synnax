@@ -67,11 +67,11 @@ void sequence::Task::run() {
     this->state.details["message"] = "Sequence stopped";
 }
 
-void sequence::Task::stop(bool will_reconfigure) { this->stop(""); }
+void sequence::Task::stop(bool will_reconfigure) { this->stop("", will_reconfigure); }
 
 void sequence::Task::exec(task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);
-    if (cmd.type == "stop") return this->stop(cmd.key);
+    if (cmd.type == "stop") return this->stop(cmd.key, false);
 }
 
 void sequence::Task::start(const std::string &key) {
@@ -82,7 +82,7 @@ void sequence::Task::start(const std::string &key) {
     this->thread = std::thread([this] { this->run(); });
 }
 
-void sequence::Task::stop(const std::string &key) {
+void sequence::Task::stop(const std::string &key, bool will_reconfigure) {
     if (!this->breaker.running()) return;
     this->breaker.stop();
     this->breaker.reset();

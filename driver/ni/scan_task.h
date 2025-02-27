@@ -139,6 +139,8 @@ public:
 
     void exec(task::Command &cmd) override;
 
+    xerrors::Error initialize_syscfg_session();
+
     void stop(bool will_reconfigure) override;
 
     xerrors::Error start();
