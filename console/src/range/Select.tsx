@@ -87,6 +87,7 @@ interface SelectMultipleInputItemProps
     Pick<SelectMultipleRangesProps, "data"> {
   value: string[];
   onChange: (value: string[]) => void;
+  selectProps?: Partial<SelectMultipleRangesProps>;
 }
 
 const SelectEmptyContent = (): ReactElement => {
@@ -107,6 +108,7 @@ export const SelectMultipleInputItem = ({
   value,
   onChange,
   data,
+  selectProps,
   ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
   <Input.Item direction="x" label="Ranges" {...rest}>
@@ -115,6 +117,7 @@ export const SelectMultipleInputItem = ({
       value={value}
       onChange={onChange}
       emptyContent={<SelectEmptyContent />}
+      {...selectProps}
     />
   </Input.Item>
 );
@@ -122,12 +125,15 @@ export const SelectMultipleInputItem = ({
 interface SelectInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange">,
     Input.Control<string>,
-    Pick<SelectSingleRangeProps, "data"> {}
+    Pick<SelectSingleRangeProps, "data"> {
+  selectProps?: Partial<SelectSingleRangeProps>;
+}
 
 export const SelectInputItem = ({
   value,
   onChange,
   data,
+  selectProps,
   ...rest
 }: SelectInputItemProps): ReactElement => (
   <Input.Item label="Range:" {...rest}>
@@ -136,6 +142,7 @@ export const SelectInputItem = ({
       onChange={onChange}
       data={data}
       emptyContent={<SelectEmptyContent />}
+      {...selectProps}
     />
   </Input.Item>
 );

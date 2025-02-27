@@ -205,10 +205,20 @@ const ChannelsForm = ({
       getOpenChannel(channels, index, device),
     [device],
   );
+  const listItem = useCallback(
+    (p: Common.Task.ChannelListItemProps<InputChannel>) => (
+      <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />
+    ),
+    [tare, isRunning],
+  );
+  const details = useCallback(
+    (p: Common.Task.Layouts.DetailsProps) => <ChannelDetails {...p} device={device} />,
+    [device],
+  );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
-      ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
-      Details={(p) => <ChannelDetails {...p} device={device} />}
+      listItem={listItem}
+      details={details}
       generateChannel={generateChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
@@ -303,7 +313,9 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(Properties, Form, {
+export const Read = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

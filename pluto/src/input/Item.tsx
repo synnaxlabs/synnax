@@ -59,7 +59,7 @@ export const Item = ({
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
-        {(padHelpText || (helpText != null && helpText.length > 0)) && (
+        {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
       </Align.Space>

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement, type ReactNode, useCallback } from "react";
+import { Align, Form, List, Menu as PMenu, type RenderProp } from "@synnaxlabs/pluto";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -109,28 +109,30 @@ const ContextMenu = <C extends Channel>({
 
 export interface ChannelListItemProps<C extends Channel>
   extends List.ItemProps<string, C> {
+  key: string;
   isSnapshot: boolean;
   path: string;
 }
 
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
-    Pick<Align.SpaceProps, "onDragOver" | "onDrop"> {
+    Pick<Align.SpaceProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
-  ListItem: FC<ChannelListItemProps<C>>;
+  listItem: RenderProp<ChannelListItemProps<C>>;
   selected: string[];
 }
 
 export const ChannelList = <C extends Channel>({
-  ListItem,
+  listItem,
   emptyContent,
   header,
   isDragging,
   onDragOver,
   onDrop,
   selected,
+  grow,
   ...rest
 }: ChannelListProps<C>) => {
   const { channels, isSnapshot, onSelect, path } = rest;
@@ -141,7 +143,7 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("channel-list")} empty>
+    <Align.Space className={CSS.B("channel-list")} empty grow={grow}>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
@@ -157,14 +159,9 @@ export const ChannelList = <C extends Channel>({
             value={selected}
           >
             <List.Core<string, C>>
-              {({ key, ...r }) => (
-                <ListItem
-                  key={key}
-                  {...r}
-                  isSnapshot={isSnapshot}
-                  path={`${path}.${r.index}`}
-                />
-              )}
+              {(props) =>
+                listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })
+              }
             </List.Core>
           </List.Selector>
         </List.List>

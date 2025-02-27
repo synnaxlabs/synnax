@@ -10,7 +10,10 @@
 import { type FC } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { select, selectArgs, useSelectArgs } from "@/layout/selectors";
+import { setArgs } from "@/layout/slice";
+import { usePlacer } from "@/layout/usePlacer";
 
 export interface BaseArgs<V> {
   result?: V;
@@ -46,7 +49,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
     args: { ...args, result: undefined },
   });
   const useModal = (): Prompt<R, A> => {
-    const placeLayout = Layout.usePlacer();
+    const placeLayout = usePlacer();
     const store = useStore<Layout.StoreState>();
     return async (
       args: A,
@@ -59,9 +62,9 @@ export const createBase = <R, A extends BaseArgs<R>>(
         const { key } = layout;
         unsubscribe = store.subscribe(() => {
           const state = store.getState();
-          const l = Layout.select(state, key);
+          const l = select(state, key);
           if (l == null) resolve(null);
-          const args = Layout.selectArgs<A>(state, key);
+          const args = selectArgs<A>(state, key);
           if (args?.result == null) resolve(null);
           else resolve(args.result);
           unsubscribe?.();
@@ -70,12 +73,12 @@ export const createBase = <R, A extends BaseArgs<R>>(
     };
   };
   const Modal: Layout.Renderer = ({ layoutKey, onClose }) => {
-    const args = Layout.useSelectArgs<A>(layoutKey);
+    const args = useSelectArgs<A>(layoutKey);
     const dispatch = useDispatch();
     const handleResult = (value: R | null) => {
       if (value == null) return onClose();
       dispatch(
-        Layout.setArgs<BaseArgs<R>>({
+        setArgs<BaseArgs<R>>({
           key: layoutKey,
           args: { ...args, result: value },
         }),

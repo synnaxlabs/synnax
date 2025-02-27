@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference types="vitest/config" />
+
 import react from "@vitejs/plugin-react";
 import * as path from "path";
 import { defineConfig } from "vite";
@@ -51,5 +53,9 @@ export default defineConfig({
   define: { IS_DEV: isDev },
   worker: {
     format: "es",
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
   },
 });
