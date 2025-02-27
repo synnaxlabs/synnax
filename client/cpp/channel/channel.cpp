@@ -162,7 +162,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(
     if (res.channels_size() > 1)
         return {
             Channel(),
-            xerrors::Error(xerrors::QUERY_ERROR,
+            xerrors::Error(xerrors::QUERY,
                            "multiple channels found matching name " + name)
         };
     return {Channel(res.channels(0)), err};

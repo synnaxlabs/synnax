@@ -23,7 +23,7 @@ typedef void *LibraryHandle;
 #endif
 
 namespace xlib {
-const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("shared");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("shared");
 const xerrors::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32

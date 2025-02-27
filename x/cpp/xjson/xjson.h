@@ -288,7 +288,7 @@ public:
 
     [[nodiscard]] xerrors::Error error() const {
         if (this->errors->empty()) return xerrors::Error{};
-        return xerrors::Error{xerrors::VALIDATION_ERROR, error_json().dump()};
+        return xerrors::Error{xerrors::VALIDATION, error_json().dump()};
     }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.

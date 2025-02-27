@@ -137,10 +137,12 @@ void Acquisition::run_internal() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
     xerrors::Error writer_err;
+    xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
-        auto [frame, source_err] = this->source->read(this->breaker);
-        if (source_err) {
+        auto [frame, source_err_i] = this->source->read(this->breaker);
+        if (source_err_i) {
+            source_err = source_err_i;
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();
             // With a temporary error, we just continue the loop. With any other error
@@ -163,14 +165,14 @@ void Acquisition::run_internal() {
             // handoff between different levels of authorization, so we just reject
             // unauthorized writes.
             this->writer_config.err_on_unauthorized = true;
-            auto res = factory->open_writer(writer_config);
-            writer_err = res.second;
+            auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
+            writer_err = writer_err_i;
             if (writer_err) {
                 LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.
                         message();
                 break;
             }
-            writer = std::move(res.first);
+            writer = std::move(writer_i);
             writer_opened = true;
         }
         if (!writer->write(frame)) {
@@ -185,7 +187,8 @@ void Acquisition::run_internal() {
         this->breaker.wait(writer_err.message())
     )
         return this->run_internal();
-    if (writer_err) this->source->stopped_with_err(writer_err);
+    if (source_err) this->source->stopped_with_err(source_err);
+    else if (writer_err) this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 

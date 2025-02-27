@@ -90,7 +90,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
         telem::ControlSubject{"test_writer"},
     });
     ASSERT_TRUE(w_err) << w_err.message();
-    ASSERT_TRUE(w_err.matches(xerrors::QUERY_ERROR));
+    ASSERT_TRUE(w_err.matches(xerrors::QUERY));
 }
 
 TEST(FramerTests, testWriteToUnspecifiedChannel) {
@@ -119,7 +119,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     ASSERT_FALSE(ok);
     auto err = writer.error();
     ASSERT_TRUE(err) << err.message();
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION_ERROR)) << err.message();
+    ASSERT_TRUE(err.matches(xerrors::VALIDATION)) << err.message();
 }
 
 TEST(FramerTests, testWriteErrOnUnauthorized) {
@@ -153,7 +153,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
         .err_on_unauthorized = true
     });
     ASSERT_TRUE(w2_err) << w2_err.message();
-    ASSERT_TRUE(w2_err.matches(xerrors::UNAUTHORIZED_ERROR));
+    ASSERT_TRUE(w2_err.matches(xerrors::UNAUTHORIZED));
     ASSERT_TRUE(w2_err.message().find("test_writer_1") != std::string::npos);
     ASSERT_TRUE(w2.close());
 }

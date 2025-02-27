@@ -39,7 +39,7 @@ TEST(TestChannel, testCreateValidation) {
         0,
         true);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION_ERROR));
+    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
 /// @brief it should create an index based channel and assign it a non-zero key.
@@ -112,7 +112,7 @@ TEST(TestChannel, testRetrieveNotFound) {
     const auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(22);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_TRUE(err.matches(xerrors::QUERY_ERROR));
+    ASSERT_TRUE(err.matches(xerrors::QUERY));
 }
 
 /// @brief it should correctly retrieve a channel by name.
@@ -199,6 +199,6 @@ TEST(TestChannel, testRetrieveManySameName) {
     ASSERT_FALSE(err2) << err2.message();
     auto [retrieved, err3] = client.channels.retrieve("test");
     ASSERT_TRUE(err3) << err3.message();
-    ASSERT_EQ(err3, xerrors::QUERY_ERROR);
+    ASSERT_EQ(err3, xerrors::QUERY);
 }
 

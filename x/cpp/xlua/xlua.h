@@ -79,7 +79,7 @@ inline xerrors::Error set_global_json_value(lua_State *L, const std::string &nam
 /// @return xerrors::Error if the input is not a JSON object or if setting any value fails
 inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &object) {
     if (!object.is_object())
-        return xerrors::Error(xerrors::VALIDATION_ERROR, "input must be a JSON object");
+        return xerrors::Error(xerrors::VALIDATION, "input must be a JSON object");
     for (auto it = object.begin(); it != object.end(); ++it) {
         auto err = set_global_json_value(L, it.key(), it.value());
         if (!err.ok()) return err;
@@ -134,19 +134,19 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
                 const auto err = push_json_value(L, parsed);
                 if (!err.ok()) {
                     lua_pushnil(L);
-                    return xerrors::Error(xerrors::VALIDATION_ERROR,
+                    return xerrors::Error(xerrors::VALIDATION,
                                           "failed to push JSON value for '" + name +
                                           "': " + err.message());
                 }
             } catch (const json::parse_error &e) {
                 lua_pushnil(L);
-                return xerrors::Error(xerrors::VALIDATION_ERROR,
+                return xerrors::Error(xerrors::VALIDATION,
                                       "invalid JSON format for '" + name + "': " +
                                       std::string(e.what()));
             }
         } else {
             lua_pushnil(L);
-            return xerrors::Error(xerrors::VALIDATION_ERROR,
+            return xerrors::Error(xerrors::VALIDATION,
                                   "unsupported data type for '" + name + "'");
         }
 
@@ -155,7 +155,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     } catch (const std::bad_variant_access &) {
         lua_pushnil(L);
         lua_setglobal(L, name.c_str());
-        return xerrors::Error(xerrors::VALIDATION_ERROR,
+        return xerrors::Error(xerrors::VALIDATION,
                               "type mismatch between data_type and value for '" + name +
                               "'");
     }
@@ -176,14 +176,14 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     if (lua_isnone(L, index)) {
         return {
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
-            xerrors::Error(xerrors::VALIDATION_ERROR, "Invalid stack index")
+            xerrors::Error(xerrors::VALIDATION, "Invalid stack index")
         };
     }
 
     if (lua_isnil(L, index)) {
         return {
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
-            xerrors::Error(xerrors::VALIDATION_ERROR, "Expected value but received nil")
+            xerrors::Error(xerrors::VALIDATION, "Expected value but received nil")
         };
     }
 
@@ -212,7 +212,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             std::string(lua_typename(L, lua_type(L, index))) + "' to " + data_type.value;
         return {
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
-            xerrors::Error(xerrors::VALIDATION_ERROR, error_msg)
+            xerrors::Error(xerrors::VALIDATION, error_msg)
         };
     }
 
@@ -237,7 +237,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
         return {
             telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
             xerrors::Error(
-                xerrors::VALIDATION_ERROR,
+                xerrors::VALIDATION,
                 "expected string value but received type '" + 
                 std::string(lua_typename(L, lua_type(L, index))) + "'"
             )
@@ -326,7 +326,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
         };
     return {
         telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
-        xerrors::Error(xerrors::VALIDATION_ERROR,
+        xerrors::Error(xerrors::VALIDATION,
                        "Unsupported data type: " + data_type.value)
     };
 }

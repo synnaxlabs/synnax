@@ -135,15 +135,15 @@ public:
 
 const Error UNKNOWN = {TYPE_UNKNOWN, ""};
 const Error NIL = {TYPE_NIL, ""};
-const Error BASE_ERROR("sy");
-const Error VALIDATION_ERROR = BASE_ERROR.sub("validation");
-const Error QUERY_ERROR = BASE_ERROR.sub("query");
-const Error MULTIPLE_RESULTS = QUERY_ERROR.sub("multiple_results");
-const Error NOT_FOUND = QUERY_ERROR.sub("not_found");
-const Error NOT_SUPPORTED = BASE_ERROR.sub("not_supported");
+const Error SY("sy");
+const Error VALIDATION = SY.sub("validation");
+const Error QUERY = SY.sub("query");
+const Error MULTIPLE_RESULTS = QUERY.sub("multiple_results");
+const Error NOT_FOUND = QUERY.sub("not_found");
+const Error NOT_SUPPORTED = SY.sub("not_supported");
 
-const Error INTERNAL_ERROR = BASE_ERROR.sub("internal");
-const Error UNEXPECTED_ERROR = BASE_ERROR.sub("unexpected");
-const Error CONTROL_ERROR = BASE_ERROR.sub("control");
-const Error UNAUTHORIZED_ERROR = CONTROL_ERROR.sub("unauthorized");
+const Error INTERNAL = SY.sub("internal");
+const Error UNEXPECTED = SY.sub("unexpected");
+const Error CONTROL = SY.sub("control");
+const Error UNAUTHORIZED = CONTROL.sub("unauthorized");
 } // namespace freighter

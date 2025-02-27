@@ -36,7 +36,7 @@ typedef freighter::UnaryClient<
     api::v1::LoginResponse
 > AuthLoginClient;
 
-const xerrors::Error AUTH_ERROR = xerrors::BASE_ERROR.sub("auth");
+const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
 const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired-token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");

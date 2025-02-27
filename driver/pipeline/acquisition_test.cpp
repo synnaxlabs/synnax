@@ -15,20 +15,31 @@
 
 /// internal
 #include "driver/pipeline/acquisition.h"
+
+#include "driver/errors/errors.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class MockSource final : public pipeline::Source {
 public:
     telem::TimeStamp start_ts;
+    xerrors::Error stopped_err = xerrors::NIL;
+    xerrors::Error read_err = xerrors::NIL;
 
-    explicit MockSource(const telem::TimeStamp start_ts) : start_ts(start_ts) {
-    }
+    explicit MockSource(
+        const telem::TimeStamp start_ts,
+        xerrors::Error read_err = xerrors::NIL
+    ) : start_ts(start_ts), read_err(read_err) {}
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        if (read_err != xerrors::NIL) return {Frame(), read_err};
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         auto fr = Frame(1);
         fr.emplace(1, telem::Series(start_ts));
         return {std::move(fr), xerrors::Error()};
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {
+        this->stopped_err = err;
     }
 };
 
@@ -83,7 +94,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector{
-            xerrors::Error(xerrors::UNAUTHORIZED_ERROR), xerrors::NIL
+            xerrors::Error(xerrors::UNAUTHORIZED), xerrors::NIL
         }
     );
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
@@ -137,7 +148,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector<xerrors::Error>{},
-        std::vector{xerrors::Error(xerrors::UNAUTHORIZED_ERROR)},
+        std::vector{xerrors::Error(xerrors::UNAUTHORIZED)},
         std::vector{0}
     );
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
@@ -153,6 +164,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     );
     pipeline.start();
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EQ(source->stopped_err, xerrors::UNAUTHORIZED);
     pipeline.stop();
 }
 
@@ -187,5 +199,25 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     pipeline.start();
     ASSERT_EVENTUALLY_EQ(writes->size(), 0);
     pipeline.stop();
+    pipeline.stop();
+}
+
+/// @brief it should stop the pipeline when the source returns an error on read,
+/// and communicate the error back to the source.
+TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    auto critical_error = xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now(), critical_error);
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    pipeline.start();
+    ASSERT_EVENTUALLY_EQ(source->stopped_err, critical_error);
+    ASSERT_EQ(writes->size(), 0);
     pipeline.stop();
 }

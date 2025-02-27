@@ -43,7 +43,7 @@ TEST(HardwareTest, testDeleteRack) {
     const auto err2 = client.hardware.delete_rack(r.key);
     ASSERT_FALSE(err2) << err2.message();
     const auto [r2, r2err] = client.hardware.retrieve_rack(r.key);
-    ASSERT_TRUE(r2err.matches(xerrors::QUERY_ERROR)) << r2err;
+    ASSERT_TRUE(r2err.matches(xerrors::QUERY)) << r2err;
 }
 
 /// @brief it should correctly create a module on the rack.

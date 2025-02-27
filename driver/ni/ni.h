@@ -21,11 +21,6 @@ namespace ni {
 const std::string MAKE = "NI";
 const std::string INTEGRATION_NAME = "ni";
 
-inline xerrors::Error cycle_task_to_detect_cfg_errors(const std::shared_ptr<SugaredDAQmx> &dmx, TaskHandle task) {
-    if (const auto err = dmx->StartTask(task)) return err;
-    return dmx->StopTask(task);
-}
-
 template<typename Constructor, typename TaskType, typename ConfigType>
 static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     const std::shared_ptr<SugaredDAQmx> &dmx,
@@ -37,8 +32,10 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     TaskHandle task_handle;
     if (const auto err = dmx->CreateTask("", &task_handle)) return {nullptr, err};
     if (const auto err = cfg.apply(dmx, task_handle)) return {nullptr, err};
-    if (const auto err = cycle_task_to_detect_cfg_errors(dmx, task_handle))
-        return {nullptr, err};
+    // NI will look for invalid configuration parameters internally, so we quickly
+    // cycle the task in order to catch and communicate any errors as soon as possible.
+    if (const auto err = dmx->StartTask(task_handle)) return {nullptr, err};
+    if (const auto err = dmx->StopTask(task_handle)) return {nullptr, err};
     return {
         std::make_unique<TaskType>(
             task,
@@ -62,6 +59,7 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) const;
+
 public:
     Factory(
         const std::shared_ptr<SugaredDAQmx> &dmx,
@@ -80,7 +78,7 @@ public:
 
     /// @brief implements task::Factory to configure initial tasks such as the
     /// device scanner.
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
@@ -96,7 +94,7 @@ struct TaskStateHandler {
     TaskStateHandler(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    ) : ctx(ctx), task(task)  {
+    ) : ctx(ctx), task(task) {
         this->wrapped.task = task.key;
         this->wrapped.variant = "success";
     }

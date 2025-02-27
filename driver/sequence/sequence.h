@@ -33,7 +33,7 @@ namespace sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
 /// @brief base error for all sequencing problems.
-const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("sequence");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("sequence");
 /// @brief returned when a sequence fails to compile.
 const xerrors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
 /// @brief returned when the sequence encounters a runtime error.
