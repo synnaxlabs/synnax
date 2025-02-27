@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 import serial
+
+import synnax as sy
 
 PORT = "/dev/cu.usbmodem21401"
 BAUD_RATE = 9600

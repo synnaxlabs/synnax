@@ -12,7 +12,8 @@ from __future__ import annotations
 from logging import Logger as BaseLogger
 
 from alamos.meta import InstrumentationMeta
-from alamos.noop import noop as noopd, Noop
+from alamos.noop import Noop
+from alamos.noop import noop as noopd
 
 
 class Logger:

@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -29,7 +29,7 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,7 +38,7 @@ export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_WRITE_SELECTABLE: Layout.Selectable = {
+export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
   key: ANALOG_WRITE_TYPE,
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
@@ -87,12 +87,15 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
+const channelDetails = componentRenderProp(ChannelDetails);
+const channelListItem = componentRenderProp(ChannelListItem);
+
 const Form: FC<
   Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
-    ListItem={ChannelListItem}
-    Details={ChannelDetails}
+    listItem={channelListItem}
+    details={channelDetails}
     generateChannel={generateAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
@@ -208,7 +211,9 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
   return [config, dev.rack];
 };
 
-export const AnalogWrite = Common.Task.wrapForm(Properties, Form, {
+export const AnalogWrite = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,

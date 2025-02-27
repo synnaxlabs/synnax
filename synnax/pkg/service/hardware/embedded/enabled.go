@@ -34,6 +34,10 @@ import (
 const (
 	startCmdName        = "start"
 	startStandaloneFlag = "--standalone"
+	blockSigStopFlag    = "--disable-sig-stop"
+	noColorFlag         = "--no-color"
+	configFlag          = "--config"
+	debugFlag           = "--debug"
 )
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -88,7 +92,17 @@ func (d *Driver) start() error {
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(driverFileName, "start", "-s", "--block-sig-stop", "--config", cfgFileName)
+		flags := []string{
+			startCmdName,
+			startStandaloneFlag,
+			blockSigStopFlag,
+			noColorFlag,
+		}
+		if *d.cfg.Debug {
+			flags = append(flags, debugFlag)
+		}
+		flags = append(flags, configFlag, cfgFileName)
+		d.cmd = exec.Command(driverFileName, flags...)
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()

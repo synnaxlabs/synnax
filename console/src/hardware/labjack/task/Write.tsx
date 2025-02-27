@@ -28,7 +28,7 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -37,7 +37,7 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const WRITE_SELECTABLE: Layout.Selectable = {
+export const WRITE_SELECTABLE: Selector.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
@@ -174,11 +174,17 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
   );
+  const listItem = useCallback(
+    (p: Common.Task.ChannelListItemProps<OutputChannel>) => (
+      <ChannelListItem {...p} device={device} />
+    ),
+    [device],
+  );
   return (
     <Common.Task.Layouts.List<OutputChannel>
       isSnapshot={isSnapshot}
       generateChannel={generateChannel}
-      ListItem={(p) => <ChannelListItem {...p} device={device} />}
+      listItem={listItem}
     />
   );
 };
@@ -307,7 +313,9 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm(() => <Properties />, Form, {
+export const Write = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   getInitialPayload,

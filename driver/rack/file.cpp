@@ -21,7 +21,7 @@ xerrors::Error rack::Config::load_config_file(xargs::Parser &args) {
     this->connection.override(conn);
 
     auto remote_info = p.optional_child("remote_info");
-    this->remote.override(remote_info);
+    this->remote_info.override(remote_info);
 
     this->integrations = p.optional("integrations", this->integrations);
     return p.error();

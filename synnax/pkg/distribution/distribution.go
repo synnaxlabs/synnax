@@ -212,7 +212,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 func (d Distribution) configureControlUpdates(ctx context.Context) error {
 	controlCh := []channel.Channel{{
-		Name:        fmt.Sprintf("sy-node-%v-control", d.Cluster.HostKey()),
+		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
 		Leaseholder: d.Cluster.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,

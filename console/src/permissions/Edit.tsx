@@ -10,10 +10,11 @@
 import { user as clientUser } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import {
   type ConsolePolicy,
   consolePolicyKeysZ,
@@ -46,7 +47,7 @@ const initialPermissions = { schematic: false, admin: false, keys: {} };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
 
-export const Edit = (props: Layout.RendererProps): ReactElement => {
+export const Edit: Layout.Renderer = (props) => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
   const handleException = Status.useExceptionHandler();
@@ -162,13 +163,13 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar size="6rem">
+      <Modals.BottomNavBar size="6rem">
         <Nav.Bar.Start align="center" size="large">
           <Status.Text variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
           </Status.Text>
         </Nav.Bar.Start>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

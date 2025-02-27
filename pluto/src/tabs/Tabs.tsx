@@ -10,20 +10,15 @@
 import "@/tabs/Tabs.css";
 
 import { direction } from "@synnaxlabs/x";
-import React, {
-  createContext,
-  type ReactElement,
-  type ReactNode,
-  use,
-  useCallback,
-} from "react";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
-import { type RenderProp, type Spec, type Tab } from "@/tabs/types";
+import { type RenderProp, type Tab } from "@/tabs/types";
+import { type ContextValue, Provider, useContext } from "@/tabs/useContext";
 import { type ComponentSize } from "@/util/component";
 
 /**
@@ -108,61 +103,6 @@ export const useStatic = ({
   };
 };
 
-export interface ContextValue {
-  /** The array of tabs to display. */
-  tabs: Tab[];
-  /** Content to display when no tab is selected. */
-  emptyContent?: ReactElement | null;
-  /** Whether to display a close button on each tab. */
-  closable?: boolean;
-  /** The key of the currently selected tab. */
-  selected?: string;
-  /** A callback executed when a tab is selected. */
-  onSelect?: (key: string) => void;
-  /**
-   * An optional render prop to display the content of the selected tab instead of using
-   * the 'content' property of the tab object.
-   */
-  content?: RenderProp | ReactNode;
-  /**
-   * A callback executed when a tab is closed. The key of the tab to close is passed as
-   * an argument. This callback is only executed if the tab is closable.
-   */
-  onClose?: (key: string) => void;
-  /**
-   * A callback executed when a tab's handle is dragged. Identical to a onDragStart
-   * handler in react, except the tab object is passed as the second argument.
-   *
-   * @param e The drag event.
-   * @param tab The tab being dragged.
-   */
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
-  /**
-   * A callback executed when a tab's handle stops being dragged. Identical to a
-   * onDragEnd handler in react, except the tab object is passed as the second argument.
-   *
-   * @param e The drag event.
-   * @param tab The tab being dragged.
-   */
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
-  /**
-   * A callback executed when a tab is dropped. Identical to a onDrop handler in react.
-   */
-  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
-  /**
-   * A callback executed when a tab is renamed.
-   *
-   * @param key the key of the tab to rename
-   * @param name the name to rename the tab to
-   */
-  onRename?: (key: string, name: string) => void;
-  /**
-   * If provided, the Tabs.Selector component will display a button to create a new tab.
-   * This callback is executed when that button is clicked.
-   */
-  onCreate?: () => void;
-}
-
 /** Props for the {@link Tabs} component. */
 export interface TabsProps
   extends Omit<
@@ -181,21 +121,6 @@ export interface TabsProps
   selectedAltColor?: boolean;
   contextMenu?: SelectorProps["contextMenu"];
 }
-
-/**
- * Context used to propagate tab related information to children. See the {@link ContextValue}
- * type for information on the shape of the context.
- */
-const Context = createContext<ContextValue>({ tabs: [] });
-
-/**
- * Provider for the {@link Context} context. See the {@link ContextValue} type for information
- * on the shape of the context.
- */
-export const Provider = Context;
-
-/** @returns The current value of the {@link Context} context. */
-export const useContext = () => use(Context);
 
 /**
  * High-level component for creating a tabbed interface. This component is a composition

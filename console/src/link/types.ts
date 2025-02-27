@@ -7,17 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
+import { type Dispatch, type Store, type UnknownAction } from "@reduxjs/toolkit";
 import { ontology, type Synnax } from "@synnaxlabs/client";
 
 import { type Layout } from "@/layout";
+import { type RootState } from "@/store";
 
 // Links have the form synnax://cluster/<cluster-key> for a cluster or
 // synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource
 
 export const PREFIX = `synnax://${ontology.CLUSTER_TYPE}/`;
 
-export interface HandlerProps {
+export interface ClusterHandlerArgs {
+  store: Store<RootState>;
+  key: string;
+}
+
+export interface ClusterHandler {
+  (args: ClusterHandlerArgs): Promise<Synnax>;
+}
+
+export interface HandlerArgs {
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   key: string;
@@ -25,5 +35,5 @@ export interface HandlerProps {
 }
 
 export interface Handler {
-  (props: HandlerProps): Promise<void>;
+  (args: HandlerArgs): Promise<void>;
 }

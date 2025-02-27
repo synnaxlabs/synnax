@@ -12,7 +12,7 @@ import "@/cluster/Connect.css";
 import { type connection } from "@synnaxlabs/client";
 import { Align, Button, Form, Input, Nav, Status } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
@@ -21,7 +21,8 @@ import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
@@ -48,7 +49,7 @@ const ZERO_VALUES: z.infer<typeof clusterZ> = {
  * Connect implements the LayoutRenderer component type to provide a form for connecting
  * to a cluster.
  */
-export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Connect: Layout.Renderer = ({ onClose }) => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
@@ -57,14 +58,14 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     ({ name }) => !names.includes(name),
     ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
   );
-
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
     values: { ...ZERO_VALUES },
   });
 
-  const handleSubmit = (): void => {
-    void (async () => {
+  const handleSubmit = (): void =>
+    handleException(async () => {
       if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
@@ -75,19 +76,17 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       dispatch(set({ ...data, key: state.clusterKey }));
       dispatch(setActive(state.clusterKey));
       onClose();
-    })();
-  };
+    }, "Failed to connect to cluster");
 
-  const handleTestConnection = (): void => {
-    void (async () => {
+  const handleTestConnection = (): void =>
+    handleException(async () => {
       if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value());
       setConnState(state);
       setLoading(null);
-    })();
-  };
+    }, "Failed to test connection");
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
@@ -121,7 +120,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Align.Space>
         </Align.Space>
       </Form.Form>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connState != null ? (
             <Status.Text variant={statusVariants[connState.status]}>
@@ -151,7 +150,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             Done
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

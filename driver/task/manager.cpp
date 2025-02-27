@@ -80,7 +80,7 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
-        LOG(INFO) << "[driver] received task for foreign rack: " << task_key << ", skipping";
+        VLOG(1) << "[driver] received task for foreign rack: " << task_key << ", skipping";
         return true;
     }
     return false;
@@ -89,7 +89,7 @@ bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
 xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
     if (const auto err = this->configure_initial_tasks()) return err;
     if (const auto err = this->open_streamer()) return err;
-    LOG(INFO) << xlog::GREEN << "[driver] started successfully" << xlog::RESET;
+    LOG(INFO) << xlog::GREEN() << "[driver] started successfully" << xlog::RESET();
     if (started_promise != nullptr) started_promise->set_value();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()

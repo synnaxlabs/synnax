@@ -270,7 +270,7 @@ export const Tree = (): ReactElement => {
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
-      void (async () => {
+      handleException(async () => {
         if (client == null) return;
         const id = new ontology.ID(clicked);
         try {
@@ -304,7 +304,7 @@ export const Tree = (): ReactElement => {
         } finally {
           setLoading(false);
         }
-      })();
+      }, "Failed to expand tree");
     },
     [client, services],
   );
@@ -471,7 +471,7 @@ export const Tree = (): ReactElement => {
   );
 
   const handleContextMenu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys }: Menu.ContextMenuMenuProps) => {
       if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !treeProps.selected.includes(v),
@@ -543,7 +543,7 @@ export const Tree = (): ReactElement => {
   );
 
   const item = useCallback(
-    (props: Core.ItemProps): ReactElement => (
+    (props: Core.ItemProps) => (
       <AdapterItem {...props} key={props.entry.path} services={services} />
     ),
     [services],

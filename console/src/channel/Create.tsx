@@ -20,11 +20,12 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
@@ -81,7 +82,7 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   requires: [],
 };
 
-export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
+export const Create: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use<Schema>({
     schema: createFormSchema,
@@ -179,7 +180,7 @@ export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
@@ -197,7 +198,7 @@ export const Create: Layout.Renderer = ({ onClose }): ReactElement => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

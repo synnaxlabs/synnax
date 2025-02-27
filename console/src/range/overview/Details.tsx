@@ -26,11 +26,11 @@ import { type FC, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
+import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -158,7 +158,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     false,
     formCtx,
   );
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
   };

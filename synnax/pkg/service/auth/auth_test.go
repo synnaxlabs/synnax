@@ -171,4 +171,20 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(authenticator.Authenticate(ctx, creds2)).To(MatchError(auth.InvalidCredentials))
 		})
 	})
+	Describe("Error Encoding and Decoding", func() {
+		DescribeTable(
+			"Correctly encodes/decodes a network portable freighter error",
+			func(err error) {
+				pld := errors.Encode(ctx, err, false)
+				oErr := errors.Decode(ctx, pld)
+				Expect(oErr).To(MatchError(err))
+			},
+			Entry("InvalidCredentials", auth.InvalidCredentials),
+			Entry("RepeatedUsername", auth.RepeatedUsername),
+			Entry("InvalidToken", auth.InvalidToken),
+			Entry("ExpiredToken", auth.ExpiredToken),
+			Entry("Error", auth.Error),
+		)
+
+	})
 })

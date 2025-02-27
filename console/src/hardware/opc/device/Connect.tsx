@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack as clientRack, TimeSpan } from "@synnaxlabs/client";
+import { rack, TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -17,6 +17,7 @@ import {
   Form,
   Input,
   Nav,
+  Rack,
   Status,
   Synnax,
   Text,
@@ -51,7 +52,8 @@ import {
   type TestConnectionCommandResponse,
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
@@ -67,6 +69,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
 
 const formSchema = z.object({
   name: Common.Device.nameZ,
+  rack: rack.keyZ,
   connection: connectionConfigZ,
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
@@ -87,7 +90,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
       const rack = await client.hardware.racks.retrieve(
-        clientRack.DEFAULT_CHANNEL_NAME,
+        methods.get<rack.Key>("rack").value,
       );
       const task = await rack.retrieveTaskByName(SCAN_NAME);
       const state = await task.executeCommandSync<TestConnectionCommandResponse>(
@@ -107,7 +110,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve(
-        clientRack.DEFAULT_CHANNEL_NAME,
+        methods.get<rack.Key>("rack").value,
       );
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create<Properties>({
@@ -143,6 +146,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             }}
             path="name"
           />
+          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+            {(p) => <Rack.SelectSingle {...p}></Rack.SelectSingle>}
+          </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
               <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
@@ -196,7 +202,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           )}
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
+      <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
@@ -224,7 +230,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             Save
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };
@@ -236,13 +242,13 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     queryFn: async () => {
       if (client == null || layoutKey === CONNECT_LAYOUT_TYPE)
         return [
-          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG } },
+          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
       const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
       dev.properties = migrateProperties(dev.properties);
       return [
-        { name: dev.name, connection: dev.properties.connection },
+        { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
         dev.properties,
       ];
     },

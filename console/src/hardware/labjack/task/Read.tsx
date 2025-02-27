@@ -36,7 +36,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -45,7 +45,7 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const READ_SELECTABLE: Layout.Selectable = {
+export const READ_SELECTABLE: Selector.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
@@ -131,14 +131,19 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<InputChannel>(parentPath).value;
             const schema = INPUT_CHANNEL_SCHEMAS[value];
-            const port =
-              Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
+            const nextParent = deep.overrideValidItems(next, prevParent, schema);
+            const prevPortType = convertChannelTypeToPortType(prevType);
+            const nextPortType = convertChannelTypeToPortType(value);
+            let nextPort = nextParent.port;
+            if (prevPortType !== nextPortType)
+              nextPort =
+                Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
             set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
+              ...nextParent,
               type: next.type,
             });
             // Need to explicitly set port to cause select port field to rerender
-            set(`${parentPath}.port`, port);
+            set(`${parentPath}.port`, nextPort);
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
@@ -215,12 +220,20 @@ const ChannelsForm = ({
       getOpenChannel(channels, index, device),
     [device],
   );
+  const listItem = useCallback(
+    (p: Common.Task.ChannelListItemProps<InputChannel>) => (
+      <ChannelListItem {...p} onTare={tare} isRunning={isRunning} device={device} />
+    ),
+    [tare, isRunning, device],
+  );
+  const details = useCallback(
+    (p: Common.Task.Layouts.DetailsProps) => <ChannelDetails {...p} device={device} />,
+    [device],
+  );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
-      ListItem={(p) => (
-        <ChannelListItem {...p} onTare={tare} isRunning={isRunning} device={device} />
-      )}
-      Details={(p) => <ChannelDetails {...p} device={device} />}
+      listItem={listItem}
+      details={details}
       generateChannel={generateChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
@@ -315,7 +328,9 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(Properties, Form, {
+export const Read = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,
