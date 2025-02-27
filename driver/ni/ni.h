@@ -87,6 +87,51 @@ public:
     ) override;
 };
 
+struct TaskStateHandler {
+    const std::shared_ptr<task::Context> ctx;
+    const synnax::Task task;
+    xerrors::Error err;
+    task::State wrapped;
 
+    TaskStateHandler(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) : ctx(ctx), task(task)  {
+        this->wrapped.task = task.key;
+        this->wrapped.variant = "success";
+    }
 
+    bool error(const xerrors::Error &err) {
+        if (!err) return false;
+        this->wrapped.variant = "error";
+        this->err = err;
+        return true;
+    }
+
+    void send_start(const std::string &key) {
+        this->wrapped.key = key;
+        if (!this->err) {
+            this->wrapped.details["running"] = true;
+            this->wrapped.details["message"] = "Task started successfully";
+        } else {
+            this->wrapped.variant = "error";
+            this->wrapped.details["running"] = false;
+            this->wrapped.details["message"] = this->err.message();
+        }
+        this->ctx->set_state(this->wrapped);
+    }
+
+    void send_stop(const std::string &key) {
+        this->wrapped.key = key;
+        if (!this->err) {
+            this->wrapped.details["running"] = false;
+            this->wrapped.details["message"] = "Task stopped successfully";
+        } else {
+            this->wrapped.variant = "error";
+            this->wrapped.details["running"] = false;
+            this->wrapped.details["message"] = this->err.message();
+        }
+        this->ctx->set_state(this->wrapped);
+    }
+};
 } // namespace ni

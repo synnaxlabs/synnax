@@ -162,12 +162,8 @@ struct WriteTaskConfig {
 
 template<typename T>
 class WriteTask final : public task::Task {
-    /// @brief the raw synnax task configuration.
-    const synnax::Task task;
     /// @brief the configuration for the task.
     const WriteTaskConfig cfg;
-    /// @brief the task context used to communicate state changes back to Synnax.
-    std::shared_ptr<task::Context> ctx;
     /// @brief the pipeline used to receive commands from Synnax and write them to
     /// the device.
     pipeline::Control cmd_write_pipe;
@@ -178,11 +174,11 @@ class WriteTask final : public task::Task {
     std::unique_ptr<HardwareWriter<T>> hw;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> channel_state;
+    std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
     /// @brief used to lock concurrent access to the channel state.
-    std::mutex channel_state_lock;
+    std::mutex chan_state_lock;
     /// @brief the current state of the task.
-    task::State state;
+    ni::TaskStateHandler state;
 
 public:
     explicit WriteTask(
@@ -191,44 +187,47 @@ public:
         WriteTaskConfig cfg,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<HardwareWriter<T>> hw
-    ): task(std::move(task)),
-       cfg(std::move(cfg)),
-       ctx(ctx),
-       cmd_write_pipe(
-           this->ctx->client,
-           this->cfg.streamer_config(),
-           std::make_shared<CommandSink>(*this),
-           breaker_cfg
-       ),
-       state_write_pipe(
-           this->ctx->client,
-           this->cfg.writer_config(),
-           std::make_shared<StateSource>(*this),
-           breaker_cfg
-       ),
-       hw(std::move(hw)) {
+    ):
+        cfg(std::move(cfg)),
+        cmd_write_pipe(
+            ctx->client,
+            this->cfg.streamer_config(),
+            std::make_shared<CommandSink>(*this),
+            breaker_cfg
+        ),
+        state_write_pipe(
+            ctx->client,
+            this->cfg.writer_config(),
+            std::make_shared<StateSource>(*this),
+            breaker_cfg
+        ),
+        hw(std::move(hw)),
+        state(ctx, task) {
     }
 
     /// @brief StateSource is passed to the state pipeline in order to continually
     /// communicate the current output states to Synnax.
     class StateSource final : public pipeline::Source {
+    public:
+        explicit StateSource(WriteTask &task):
+            p(task), state_timer(task.cfg.state_rate) {
+        }
+
+    private:
         /// @brief the parent write task.
         WriteTask &p;
         /// @brief a timer that is used to control the rate at which the state is
         /// propagated.
         loop::Timer state_timer;
 
-    public:
-        explicit StateSource(WriteTask &task):
-            p(task), state_timer(task.cfg.state_rate) {
-        }
-
+        /// @brief implements pipeline::Source to return the current state of the
+        /// outputs in teh task.
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             this->state_timer.wait(breaker);
-            std::lock_guard lock{this->p.channel_state_lock};
+            std::lock_guard lock{this->p.chan_state_lock};
             auto fr = synnax::Frame(
-                this->p.channel_state,
-                this->p.channel_state.size() + this->p.cfg.state_indexes.size()
+                this->p.chan_state,
+                this->p.chan_state.size() + this->p.cfg.state_indexes.size()
             );
             if (!this->p.cfg.state_indexes.empty()) {
                 const auto idx_ser = telem::Series(telem::TimeStamp::now());
@@ -242,26 +241,27 @@ public:
     /// @brief sink is passed to the command pipeline in order to receive incoming
     /// data from Synnax, write it to the device, and update the state.
     class CommandSink final : public pipeline::Sink {
+    public:
+        explicit CommandSink(WriteTask &task):
+            task(task),
+            write_buffer(task.cfg.buffer_size) {
+        }
+    private:
         /// @brief the parent write task.
         WriteTask &task;
         /// @brief a pre-allocated write buffer that is flushed to the device every
         /// time a command is provided.
         std::vector<T> write_buffer;
 
-    public:
-        explicit CommandSink(WriteTask &task):
-            task(task),
-            write_buffer(task.cfg.buffer_size) {
-        }
 
         xerrors::Error write(const synnax::Frame &frame) override {
             auto data = this->format_data(frame);
             if (const auto err = this->task.hw->write(data)) return err;
 
-            std::lock_guard lock{this->task.channel_state_lock};
+            std::lock_guard lock{this->task.chan_state_lock};
             for (const auto &[key, series]: frame) {
                 const auto state_key = this->task.cfg.cmd_to_state.at(key);
-                this->task.channel_state[state_key] = series.at(0);
+                this->task.chan_state[state_key] = series.at(-1);
             }
             return xerrors::NIL;
         }
@@ -286,37 +286,20 @@ public:
     void stop() override { this->stop(""); }
 
     void stop(const std::string &cmd_key) {
-        if (!this->state.details["running"]) return;
-        this->state.key = cmd_key;
         this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
-        this->state.details["running"] = false;
-        if (const auto err = this->hw->stop()) {
-            this->state.variant = "error";
-            this->state.details["message"] = err.message();
-        } else {
-            this->state.variant = "success";
-            this->state.details["message"] = "Task stopped successfully";
-        }
-        this->ctx->set_state(this->state);
+        this->state.error(this->hw->stop());
+        this->state.send_stop(cmd_key);
     }
 
     void start(const std::string &cmd_key) {
-        if (this->state.details["running"]) return;
-        this->state.key = cmd_key;
-        if (const auto err = this->hw->start()) {
-            this->state.variant = "error";
-            this->state.details["message"] = err.message();
-        } else {
+        if (!this->state.error(this->hw->start())) {
             this->cmd_write_pipe.start();
             this->state_write_pipe.start();
-            this->state.variant = "success";
-            this->state.details["message"] = "Task started successfully";
-            this->state.details["running"] = true;
         }
-        this->ctx->set_state(this->state);
+        this->state.send_start(cmd_key);
     }
 
-    std::string name() override { return task.name; }
+    std::string name() override { return this->state.task.name; }
 };
 }

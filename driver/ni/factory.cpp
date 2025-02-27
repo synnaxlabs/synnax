@@ -23,14 +23,14 @@
 #include "driver/ni/read_task.h"
 #include "driver/ni/scan_task.h"
 
+const std::string NO_LIBS_MSG =
+        "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
+
 ni::Factory::Factory(
     const std::shared_ptr<SugaredDAQmx> &dmx,
     const std::shared_ptr<SugaredSysCfg> &syscfg
 ): dmx(dmx), syscfg(syscfg) {
 }
-
-const std::string NO_LIBS_MSG =
-        "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
 
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,

@@ -61,6 +61,4 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
-
-
 }

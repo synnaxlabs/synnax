@@ -44,13 +44,13 @@ struct ReadTaskConfig {
     /// use software timing on digital tasks and the sample clock on analog tasks.
     const std::string timing_source;
     /// @brief the number of samples per channel to connect on each call to read.
-    const std::size_t samps_per_chan;
+    const std::size_t samples_per_chan;
     /// @brief whether the task should be software timed.
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
-    std::vector<std::unique_ptr<channel::Input> > channels;
+    std::vector<std::unique_ptr<channel::Input>> channels;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -59,7 +59,7 @@ struct ReadTaskConfig {
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
         timing_source(other.timing_source),
-        samps_per_chan(other.samps_per_chan),
+        samples_per_chan(other.samples_per_chan),
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)) {
@@ -79,10 +79,10 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "none")),
-       samps_per_chan(
+       samples_per_chan(
            static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
-       channels(cfg.map<std::unique_ptr<channel::Input> >(
+       channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
            [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
        bool> {
@@ -145,7 +145,7 @@ struct ReadTaskConfig {
             this->sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
-            this->samps_per_chan
+            this->samples_per_chan
         );
     }
 
@@ -161,33 +161,36 @@ struct ReadTaskConfig {
     }
 };
 
-
-
 /// @brief a read task that can pull from both analog and digital channels.
 template<typename T>
 class ReadTask final : public task::Task {
     /// @brief the raw synnax task configuration.
-    const synnax::Task task;
     /// @brief the parsed configuration for the task.
     const ReadTaskConfig cfg;
     /// @brief the task context used to communicate state changes back to Synnax.
-    std::shared_ptr<task::Context> ctx;
     /// @brief tare middleware used for taring values.
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
-    /// @brief the current task state.
-    task::State state;
     /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
     pipeline::Acquisition pipe;
     /// @brief interface used to read data from the hardware.
-    std::unique_ptr<HardwareReader<T> > hw;
+    std::unique_ptr<HardwareReader<T>> hw;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
     telem::TimeStamp hw_start_time = telem::TimeStamp(0);
+    /// @brief handles communicating the task state back to the cluster.
+    ni::TaskStateHandler state;
 
     /// @brief an internal source that we pass to the acquisition pipeline that manages
     /// the lifecycle of this task.
     class Source final : public pipeline::Source {
     public:
+        explicit Source(ReadTask &task):
+            p(task),
+            timer(task.cfg.stream_rate),
+            buffer(task.cfg.samples_per_chan * task.cfg.channels.size()) {
+        }
+
+    private:
         /// @brief the parent read task.
         ReadTask &p;
         /// @brief a separate thread to acquire samples in.
@@ -200,19 +203,15 @@ class ReadTask final : public task::Task {
         /// pre-allocated and reused.
         std::vector<T> buffer;
 
-        explicit Source(ReadTask &task):
-            p(task),
-            timer(task.cfg.stream_rate),
-            buffer(task.cfg.samps_per_chan * task.cfg.channels.size()) {
-        }
-
         void stopped_with_err(const xerrors::Error &err) override {
+            this->p.state.error(this->p.hw->stop());
+            this->p.state.send_stop("");
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             if (this->p.cfg.software_timed) this->timer.wait(breaker);
             auto start = this->p.hw_start_time;
-            const size_t count = this->p.cfg.samps_per_chan;
+            const size_t count = this->p.cfg.samples_per_chan;
             const auto [n, err] = this->p.hw->read(count, buffer);
             if (err) return {Frame(), err};
             auto end = start + (n - 1) * this->p.cfg.sample_rate.period();
@@ -246,11 +245,9 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareReader<T> > hw,
+        std::unique_ptr<HardwareReader<T>> hw,
         const std::shared_ptr<pipeline::WriterFactory> &factory
-    ): task(std::move(task)),
-       cfg(std::move(cfg)),
-       ctx(ctx),
+    ): cfg(std::move(cfg)),
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
            this->cfg.writer_config().channels
        )),
@@ -260,9 +257,9 @@ public:
            std::make_shared<Source>(*this),
            breaker_cfg
        ),
-       hw(std::move(hw)) {
+       hw(std::move(hw)),
+       state(ctx, task) {
         this->pipe.add_middleware(this->tare_mw);
-        this->state.task = task.key;
     }
 
     explicit ReadTask(
@@ -270,7 +267,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         ReadTaskConfig cfg,
         const breaker::Config &breaker_cfg,
-        std::unique_ptr<HardwareReader<T> > hw
+        std::unique_ptr<HardwareReader<T>> hw
     ): ReadTask(
         std::move(task),
         ctx,
@@ -294,40 +291,20 @@ public:
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
     void stop(const std::string &cmd_key) {
-        this->state.key = cmd_key;
         this->pipe.stop();
-        const auto err = this->hw->stop();
-        this->state.details["running"] = false;
-        if (this->state.variant != "error") {
-            if (err) {
-                this->state.variant = "error";
-                this->state.details["message"] = err.message();
-            } else {
-                this->state.variant = "success";
-                this->state.details["message"] = "Task stopped successfully";
-            }
-        }
-        this->ctx->set_state(this->state);
+        this->state.error(this->hw->stop());
+        this->state.send_stop(cmd_key);
     }
 
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
     void start(const std::string &cmd_key) {
-        this->state.key = cmd_key;
-        if (const auto err = this->hw->start()) {
-            this->state.variant = "error";
-            this->state.details["message"] = err.message();
-            this->ctx->set_state(this->state);
-            return;
-        }
-        this->state.variant = "success";
-        this->state.details["message"] = "Task started successfully";
-        this->state.details["running"] = true;
-        this->ctx->set_state(this->state);
+        if (!this->state.error(this->hw->start())) this->pipe.start();
+        this->state.send_start(cmd_key);
         this->pipe.start();
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return task.name; }
+    std::string name() override { return this->state.task.name; }
 };
 }

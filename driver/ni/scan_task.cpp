@@ -17,12 +17,12 @@
 ni::ScanTask::ScanTask(
     const std::shared_ptr<SugaredSysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    const ScanTaskConfig &cfg
-) : task(task),
-    ctx(ctx),
-    cfg(cfg),
+    synnax::Task task,
+    ScanTaskConfig cfg
+) : task(std::move(task)),
+    cfg(std::move(cfg)),
     timer(this->cfg.rate),
+    ctx(ctx),
     syscfg(syscfg) {
     state.key = task.key;
 }
@@ -41,7 +41,7 @@ xerrors::Error ni::ScanTask::find_devices() {
     );
     if (err) return err;
     while (true) {
-        if (const auto err = this->syscfg->NextResource(
+        if (const auto next_err = this->syscfg->NextResource(
             this->session,
             resources,
             &curr_resource

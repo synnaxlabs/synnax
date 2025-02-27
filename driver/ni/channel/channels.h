@@ -32,11 +32,9 @@
 #include "driver/ni/channel/scale.h"
 #include "driver/ni/channel/units.h"
 
-using string = std::string;
-
 namespace channel {
 static int32_t parse_terminal_config(xjson::Parser &p) {
-    const auto s = p.required<string>("terminal_config");
+    const auto s = p.required<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
     if (s == "NRSE") return DAQmx_Val_NRSE;
@@ -45,7 +43,7 @@ static int32_t parse_terminal_config(xjson::Parser &p) {
 }
 
 static int32_t parse_bridge_config(xjson::Parser &p) {
-    const auto s = p.required<string>("bridge_config");
+    const auto s = p.required<std::string>("bridge_config");
     if (s == "FullBridge") return DAQmx_Val_FullBridge;
     if (s == "HalfBridge") return DAQmx_Val_HalfBridge;
     if (s == "QuarterBridge") return DAQmx_Val_QuarterBridge;
@@ -53,14 +51,14 @@ static int32_t parse_bridge_config(xjson::Parser &p) {
 }
 
 static int32_t parse_resistance_config(xjson::Parser &p) {
-    const auto s = p.required<string>("resistance_config");
+    const auto s = p.required<std::string>("resistance_config");
     if (s == "2Wire") return DAQmx_Val_2Wire;
     if (s == "3Wire") return DAQmx_Val_3Wire;
     if (s == "4Wire") return DAQmx_Val_4Wire;
     return DAQmx_Val_2Wire;
 }
 
-static int32_t get_excitation_src(const string &s) {
+static int32_t get_excitation_src(const std::string &s) {
     if (s == "Internal") return DAQmx_Val_Internal;
     if (s == "External") return DAQmx_Val_External;
     if (s == "None") return DAQmx_Val_None;
@@ -74,9 +72,9 @@ struct ExcitationConfig {
     double max_val_for_excitation; //optional
     bool32 use_excit_for_scaling; //optional
 
-    explicit ExcitationConfig(xjson::Parser &cfg, const string &prefix)
+    explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix)
         : excit_source(
-              get_excitation_src(cfg.required<string>(prefix + "_excit_source"))),
+              get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
           excit_val(cfg.required<double>(prefix + "_excit_val")),
           min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
           max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
@@ -84,8 +82,8 @@ struct ExcitationConfig {
     }
 };
 
-const string CURR_EXCIT_PREFIX = "current";
-const string VOLT_EXCIT_PREFIX = "voltage";
+const std::string CURR_EXCIT_PREFIX = "current";
+const std::string VOLT_EXCIT_PREFIX = "voltage";
 
 struct BridgeConfig {
     const int32_t ni_bridge_config;
@@ -96,7 +94,7 @@ struct BridgeConfig {
     explicit BridgeConfig(xjson::Parser &cfg):
         ni_bridge_config(parse_bridge_config(cfg)),
         voltage_excit_source(
-            get_excitation_src(cfg.required<string>("voltage_excit_source"))),
+            get_excitation_src(cfg.required<std::string>("voltage_excit_source"))),
         voltage_excit_val(cfg.required<double>("voltage_excit_val")),
         nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {
     }
@@ -113,8 +111,8 @@ struct PolynomialConfig {
     explicit PolynomialConfig(xjson::Parser &cfg)
         : num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
           num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
-        const auto eu = cfg.required<string>("electrical_units");
-        const auto pu = cfg.required<string>("physical_units");
+        const auto eu = cfg.required<std::string>("electrical_units");
+        const auto pu = cfg.required<std::string>("physical_units");
 
         const auto ni_eu = channel::UNITS_MAP.find(eu);
         if (ni_eu == channel::UNITS_MAP.end()) electrical_units = DAQmx_Val_Volts;
@@ -147,8 +145,8 @@ struct TableConfig {
     TableConfig() = default;
 
     explicit TableConfig(xjson::Parser &cfg) {
-        const auto eu = cfg.required<string>("electrical_units");
-        const auto pu = cfg.required<string>("physical_units");
+        const auto eu = cfg.required<std::string>("electrical_units");
+        const auto pu = cfg.required<std::string>("physical_units");
 
         electrical_units = channel::UNITS_MAP.at(eu);
         physical_units = channel::UNITS_MAP.at(pu);
@@ -187,11 +185,11 @@ struct TwoPointLinConfig {
     explicit TwoPointLinConfig(xjson::Parser &cfg)
         : first_electrical_val(cfg.required<double>("first_electrical_val")),
           second_electrical_val(cfg.required<double>("second_electrical_val")),
-          electrical_units(UNITS_MAP.at(cfg.required<string>("electrical_units"))),
+          electrical_units(UNITS_MAP.at(cfg.required<std::string>("electrical_units"))),
           first_physical_val(cfg.required<double>("first_physical_val")),
           second_physical_val(cfg.required<double>("second_physical_val")),
-          physical_units(UNITS_MAP.at(cfg.required<string>("physical_units"))) {
-        const auto eu = cfg.required<string>("electrical_units");
+          physical_units(UNITS_MAP.at(cfg.required<std::string>("physical_units"))) {
+        const auto eu = cfg.required<std::string>("electrical_units");
     }
 };
 
@@ -308,7 +306,7 @@ public:
     int32_t units;
 
     int32_t static parse_units(xjson::Parser &cfg, const std::string &path) {
-        const auto str_units = cfg.optional<string>(path, "Volts");
+        const auto str_units = cfg.optional<std::string>(path, "Volts");
         const auto units = UNITS_MAP.find(str_units);
         if (units == UNITS_MAP.end())
             cfg.field_err(path, "invalid units: " + str_units);
@@ -323,10 +321,10 @@ public:
     }
 };
 
-struct AnalogChanCustomScale : virtual Analog {
+struct AnalogCustomScale : virtual Analog {
     std::unique_ptr<Scale> scale;
 
-    explicit AnalogChanCustomScale(xjson::Parser &cfg):
+    explicit AnalogCustomScale(xjson::Parser &cfg):
         Analog(cfg),
         scale(parse_scale(cfg, "custom_scale")) {
         if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -353,9 +351,7 @@ struct AnalogChanCustomScale : virtual Analog {
 };
 
 struct AI : virtual Analog, Input {
-    explicit AI(xjson::Parser &cfg):
-        Analog(cfg),
-        Input(cfg) {
+    explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {
     }
 
     [[nodiscard]] std::string physical_channel() const {
@@ -364,9 +360,7 @@ struct AI : virtual Analog, Input {
 };
 
 struct AO : virtual Analog, Output {
-    explicit AO(xjson::Parser &cfg):
-        Analog(cfg),
-        Output(cfg) {
+    explicit AO(xjson::Parser &cfg): Analog(cfg), Output(cfg) {
     }
 
     [[nodiscard]] std::string loc() const {
@@ -374,17 +368,17 @@ struct AO : virtual Analog, Output {
     }
 };
 
-struct AICustomScale : AI, AnalogChanCustomScale {
+struct AICustomScale : AI, AnalogCustomScale {
     explicit AICustomScale(xjson::Parser &cfg):
         AI(cfg),
-        AnalogChanCustomScale(cfg) {
+        AnalogCustomScale(cfg) {
     }
 };
 
-struct AOCustomScale : AO, AnalogChanCustomScale {
+struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg):
         AO(cfg),
-        AnalogChanCustomScale(cfg) {
+        AnalogCustomScale(cfg) {
     }
 };
 
@@ -417,10 +411,7 @@ struct AIVoltage : AICustomScale {
 };
 
 struct AIVoltageRMS final : AIVoltage {
-    explicit AIVoltageRMS(xjson::Parser &cfg) :
-        Analog(cfg),
-        Base(cfg),
-        AIVoltage(cfg) {
+    explicit AIVoltageRMS(xjson::Parser &cfg): Analog(cfg), Base(cfg), AIVoltage(cfg) {
     }
 
     xerrors::Error apply(
@@ -471,7 +462,7 @@ struct AIVoltageWithExcit final : AIVoltage {
             this->bridge_config,
             this->excitation_config.excit_source,
             this->excitation_config.excit_val,
-            this->excitation_config.min_val_for_excitation,
+            static_cast<bool32>(this->excitation_config.min_val_for_excitation),
             scale_key
         );
     }
@@ -482,7 +473,7 @@ struct AICurrent : AICustomScale {
     const double ext_shunt_resistor_val;
     const int32 terminal_config;
 
-    static int32_t get_shunt_resistor_loc(const string &loc) {
+    static int32_t get_shunt_resistor_loc(const std::string &loc) {
         if (loc == "External") return DAQmx_Val_External;
         if (loc == "Internal") return DAQmx_Val_Internal;
         return DAQmx_Val_Default;
@@ -493,7 +484,7 @@ struct AICurrent : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         shunt_resistor_loc(
-            get_shunt_resistor_loc(cfg.required<string>("shunt_resistor_loc"))),
+            get_shunt_resistor_loc(cfg.required<std::string>("shunt_resistor_loc"))),
         ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
         terminal_config(parse_terminal_config(cfg)) {
     }
@@ -551,7 +542,7 @@ struct AIRTD final : AI {
     const ExcitationConfig excitation_config;
     const double r0;
 
-    static int32_t get_rtd_type(const string &type) {
+    static int32_t get_rtd_type(const std::string &type) {
         if (type == "Pt3750") return DAQmx_Val_Pt3750;
         if (type == "PT3851") return DAQmx_Val_Pt3851;
         if (type == "PT3911") return DAQmx_Val_Pt3911;
@@ -567,7 +558,7 @@ struct AIRTD final : AI {
         Base(cfg),
         AI(cfg),
         rtd_type(get_rtd_type(
-            cfg.required<string>("rtd_type"))),
+            cfg.required<std::string>("rtd_type"))),
         resistance_config(
             parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
@@ -598,10 +589,10 @@ struct AIThermocouple final : AI {
     const int32_t thermocouple_type;
     const int32_t cjc_source;
     const double cjc_val;
-    string cjc_port;
+    std::string cjc_port;
 
     [[nodiscard]] int32_t static parse_type(xjson::Parser &cfg) {
-        const auto type = cfg.required<string>("thermocouple_type");
+        const auto type = cfg.required<std::string>("thermocouple_type");
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -615,7 +606,7 @@ struct AIThermocouple final : AI {
     }
 
     [[nodiscard]] int32_t static parse_cjc_source(xjson::Parser &cfg) {
-        const auto source = cfg.required<string>("cjc_source");
+        const auto source = cfg.required<std::string>("cjc_source");
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
@@ -625,7 +616,7 @@ struct AIThermocouple final : AI {
 
     explicit AIThermocouple(
         xjson::Parser &cfg,
-        const std::map<std::int32_t, string> &cjc_sources
+        const std::map<std::int32_t, std::string> &cjc_sources
     ) : Analog(cfg),
         Base(cfg),
         AI(cfg),
@@ -770,7 +761,7 @@ struct AIAccel : AICustomScale {
         AICustomScale(cfg),
         sensitivity(cfg.required<double>("sensitivity")),
         sensitivity_units(
-            UNITS_MAP.at(cfg.optional<string>("sensitivity_units", "mVoltsPerG"))
+            UNITS_MAP.at(cfg.optional<std::string>("sensitivity_units", "mVoltsPerG"))
         ),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {
@@ -838,7 +829,7 @@ class AIAccelCharge final : public AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         sensitivity(cfg.required<double>("sensitivity")),
-        sensitivity_units(UNITS_MAP.at(cfg.required<string>("sensitivity_units"))),
+        sensitivity_units(UNITS_MAP.at(cfg.required<std::string>("sensitivity_units"))),
         terminal_config(parse_terminal_config(cfg)) {
     }
 
@@ -863,8 +854,8 @@ class AIAccelCharge final : public AICustomScale {
 };
 
 class AIResistance final : public AICustomScale {
-    int32_t resistance_config;
-    ExcitationConfig excitation_config;
+    const int32_t resistance_config;
+    const ExcitationConfig excitation_config;
 
 public:
     explicit AIResistance(xjson::Parser &cfg) :
@@ -936,7 +927,7 @@ struct AIStrainGauge final : AICustomScale {
     const double poisson_ratio;
     const double lead_wire_resistance;
 
-    static int32_t get_strain_config(const string &s) {
+    static int32_t get_strain_config(const std::string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
         if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
@@ -951,7 +942,7 @@ struct AIStrainGauge final : AICustomScale {
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
-        strain_config(get_strain_config(cfg.required<string>("strain_config"))),
+        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
         gage_factor(cfg.required<double>("gage_factor")),
         initial_bridge_voltage(cfg.required<double>("initial_bridge_voltage")),
@@ -986,18 +977,18 @@ struct AIStrainGauge final : AICustomScale {
 };
 
 class AIRosetteStrainGauge final : public AI {
-    int32_t rosette_type;
-    double gage_orientation;
-    int32 rosette_meas_type;
-    int32 strain_config;
-    ExcitationConfig excitation_config;
-    double gage_factor;
-    double nominal_gage_resistance;
-    double poisson_ratio;
-    double lead_wire_resistance;
+    const int32_t rosette_type;
+    const double gage_orientation;
+    const int32 rosette_meas_type;
+    const int32 strain_config;
+    const ExcitationConfig excitation_config;
+    const double gage_factor;
+    const double nominal_gage_resistance;
+    const double poisson_ratio;
+    const double lead_wire_resistance;
 
 public:
-    static int32_t get_strain_config(const string &s) {
+    static int32_t get_strain_config(const std::string &s) {
         if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
         if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
         if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
@@ -1008,14 +999,14 @@ public:
         return DAQmx_Val_FullBridgeI;
     }
 
-    static int32_t get_rosette_type(const string &s) {
+    static int32_t get_rosette_type(const std::string &s) {
         if (s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
         if (s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
         if (s == "TeeRosette") return DAQmx_Val_TeeRosette;
         return DAQmx_Val_RectangularRosette;
     }
 
-    static int32_t get_rosette_meas_type(const string &s) {
+    static int32_t get_rosette_meas_type(const std::string &s) {
         if (s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
         if (s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
         if (s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
@@ -1032,11 +1023,11 @@ public:
         Base(cfg),
         AI(cfg),
         rosette_type(get_rosette_type(
-            cfg.required<string>("rosette_type"))),
+            cfg.required<std::string>("rosette_type"))),
         gage_orientation(cfg.required<double>("gage_orientation")),
         rosette_meas_type(
-            get_rosette_meas_type(cfg.required<string>("rosette_meas_type"))),
-        strain_config(get_strain_config(cfg.required<string>("strain_config"))),
+            get_rosette_meas_type(cfg.required<std::string>("rosette_meas_type"))),
+        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
         gage_factor(cfg.required<double>("gage_factor")),
         nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
@@ -1217,8 +1208,8 @@ struct AIPressureBridgeTable final : AICustomScale {
 };
 
 class AIPressureBridgePolynomial final : public AICustomScale {
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
+    const BridgeConfig bridge_config;
+    const PolynomialConfig polynomial_config;
 
 public:
     explicit AIPressureBridgePolynomial(xjson::Parser &cfg):
@@ -1257,8 +1248,8 @@ public:
 };
 
 class AIForceBridgePolynomial final : public AICustomScale {
-    BridgeConfig bridge_config;
-    PolynomialConfig polynomial_config;
+    const BridgeConfig bridge_config;
+    const PolynomialConfig polynomial_config;
 
 public:
     explicit AIForceBridgePolynomial(xjson::Parser &cfg):
@@ -1297,8 +1288,8 @@ public:
 };
 
 struct AIForceBridgeTable final : AICustomScale {
-    BridgeConfig bridge_config;
-    TableConfig table_config;
+    const BridgeConfig bridge_config;
+    const TableConfig table_config;
 
     explicit AIForceBridgeTable(xjson::Parser &cfg):
         Analog(cfg),
@@ -1601,7 +1592,7 @@ struct AICharge final : AICustomScale {
     }
 };
 
-struct AOVoltage  final : AOCustomScale {
+struct AOVoltage final : AOCustomScale {
     explicit AOVoltage(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
@@ -1625,7 +1616,7 @@ struct AOVoltage  final : AOCustomScale {
     }
 };
 
-struct AOCurrent  final : AOCustomScale {
+struct AOCurrent final : AOCustomScale {
     explicit AOCurrent(xjson::Parser &cfg) :
         Analog(cfg),
         Base(cfg),
@@ -1649,13 +1640,13 @@ struct AOCurrent  final : AOCustomScale {
     }
 };
 
-struct AOFunctionGenerator  final : AO {
+struct AOFunctionGenerator final : AO {
     const double frequency;
     const double amplitude;
     const double offset;
     const int32 wave_type;
 
-    int32_t static get_type(const string &type, const xjson::Parser &cfg) {
+    int32_t static get_type(const std::string &type, const xjson::Parser &cfg) {
         if (type == "Sine") return DAQmx_Val_Sine;
         if (type == "Triangle") return DAQmx_Val_Triangle;
         if (type == "Square") return DAQmx_Val_Square;
@@ -1672,7 +1663,7 @@ struct AOFunctionGenerator  final : AO {
         frequency(cfg.required<double>("frequency")),
         amplitude(cfg.required<double>("amplitude")),
         offset(cfg.required<double>("offset")),
-        wave_type(get_type(cfg.required<string>("wave_type"), cfg)) {
+        wave_type(get_type(cfg.required<std::string>("wave_type"), cfg)) {
     }
 
     xerrors::Error apply(
@@ -1693,70 +1684,69 @@ struct AOFunctionGenerator  final : AO {
 
 using AIFactory = std::function<std::unique_ptr<AI>(
         xjson::Parser &cfg,
-        const std::map<int32_t, string> &port_to_channel)
+        const std::map<int32_t, std::string> &port_to_channel)
 >;
 using AOFactory = std::function<std::unique_ptr<AO>(xjson::Parser &cfg)>;
 
-#define AO_CHAN_FACTORY(type, class) \
+#define AO_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-#define AI_CHAN_FACTORY(type, class) \
+#define AI_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg); }}
 
-#define AI_CHAN_ENTRY_WITH_PORT(type, class) \
+#define AI_FACTORY_WITH_PORT(type, class) \
     {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg, ptc); }}
 
-static const std::map<string, AOFactory> AO_CHANS = {
-    AO_CHAN_FACTORY("ao_current", AOCurrent),
-    AO_CHAN_FACTORY("ao_voltage", AOVoltage),
-    AO_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator)
+static const std::map<std::string, AOFactory> AO_CHANS = {
+    AO_FACTORY("ao_current", AOCurrent),
+    AO_FACTORY("ao_voltage", AOVoltage),
+    AO_FACTORY("ao_func_gen", AOFunctionGenerator)
 };
 
-static const std::map<string, AIFactory> AI_CHANS = {
-    AI_CHAN_FACTORY("ai_accel", AIAccel),
-    AI_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
-    AI_CHAN_FACTORY("ai_bridge", AIBridge),
-    AI_CHAN_FACTORY("ai_charge", AICharge),
-    AI_CHAN_FACTORY("ai_current", AICurrent),
-    AI_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
-    AI_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
-    AI_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
-    AI_CHAN_FACTORY("ai_force_iepe", AIForceIEPE),
-    AI_CHAN_FACTORY("ai_microphone", AIMicrophone),
-    AI_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
-    AI_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
-    AI_CHAN_FACTORY("ai_pressure_bridge_two_point_lin",
-                    AIPressureBridgeTwoPointLin),
-    AI_CHAN_FACTORY("ai_resistance", AIResistance),
-    AI_CHAN_FACTORY("ai_rtd", AIRTD),
-    AI_CHAN_FACTORY("ai_strain_gauge", AIStrainGauge),
-    AI_CHAN_FACTORY("ai_temp_builtin", AITempBuiltIn),
-    AI_CHAN_ENTRY_WITH_PORT("ai_thermocouple", AIThermocouple),
-    AI_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
-    AI_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
-    AI_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
-    AI_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
-    AI_CHAN_FACTORY("ai_voltage", AIVoltage)
+static const std::map<std::string, AIFactory> AI_CHANS = {
+    AI_FACTORY("ai_accel", AIAccel),
+    AI_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
+    AI_FACTORY("ai_bridge", AIBridge),
+    AI_FACTORY("ai_charge", AICharge),
+    AI_FACTORY("ai_current", AICurrent),
+    AI_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
+    AI_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
+    AI_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
+    AI_FACTORY("ai_force_iepe", AIForceIEPE),
+    AI_FACTORY("ai_microphone", AIMicrophone),
+    AI_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
+    AI_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
+    AI_FACTORY("ai_pressure_bridge_two_point_lin", AIPressureBridgeTwoPointLin),
+    AI_FACTORY("ai_resistance", AIResistance),
+    AI_FACTORY("ai_rtd", AIRTD),
+    AI_FACTORY("ai_strain_gauge", AIStrainGauge),
+    AI_FACTORY("ai_temp_builtin", AITempBuiltIn),
+    AI_FACTORY_WITH_PORT("ai_thermocouple", AIThermocouple),
+    AI_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
+    AI_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
+    AI_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
+    AI_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
+    AI_FACTORY("ai_voltage", AIVoltage)
 };
 
 inline std::unique_ptr<Input> parse_input(
     xjson::Parser &cfg,
-    const std::map<int32_t, string> &port_to_channel
+    const std::map<int32_t, std::string> &port_to_channel
 ) {
-    const auto type = cfg.required<string>("type");
+    const auto type = cfg.required<std::string>("type");
     if (AI_CHANS.count(type) == 0)
         cfg.field_err("type", "invalid analog input channel type: " + type);
     return AI_CHANS.at(type)(cfg, port_to_channel);
 }
 
 inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
-    const auto type = cfg.required<string>("type");
+    const auto type = cfg.required<std::string>("type");
     if (AO_CHANS.count(type) == 0)
         cfg.field_err("type", "invalid analog output channel type: " + type);
     return AO_CHANS.at(type)(cfg);
 }
 
-#undef AO_CHAN_FACTORY
-#undef AI_CHAN_FACTORY
-#undef AI_CHAN_ENTRY_WITH_PORT
+#undef AO_FACTORY
+#undef AI_FACTORY
+#undef AI_FACTORY_WITH_PORT
 };

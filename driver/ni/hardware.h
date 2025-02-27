@@ -32,6 +32,8 @@ protected:
     TaskHandle task_handle;
     /// @brief the NI DAQmx API.
     std::shared_ptr<SugaredDAQmx> dmx;
+    /// @brief a flag to indicate if the task is running.
+    std::atomic<bool> running = false;
 
     DAQmxHardware(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx):
         task_handle(task_handle), dmx(std::move(dmx)) {
@@ -45,11 +47,13 @@ protected:
 public:
     /// @brief implements HardwareInterface to start the DAQmx task.
     xerrors::Error start() override {
+        if (this->running.exchange(true)) return xerrors::NIL;
         return this->dmx->StartTask(this->task_handle);
     }
 
     /// @brief implements the HardwareInterface to stop the DAQmx task.
     xerrors::Error stop() override {
+        if (!this->running.exchange(false)) return xerrors::NIL;
         return this->dmx->StopTask(this->task_handle);
     }
 };

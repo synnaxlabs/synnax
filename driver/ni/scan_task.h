@@ -133,8 +133,8 @@ public:
     explicit ScanTask(
         const std::shared_ptr<SugaredSysCfg> &syscfg,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        const ScanTaskConfig &cfg
+        synnax::Task task,
+        ScanTaskConfig cfg
     );
 
     void exec(task::Command &cmd) override;
