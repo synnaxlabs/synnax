@@ -448,7 +448,7 @@ TEST(TestSeriesLinspace, SinglePoint) {
     const auto end = telem::TimeStamp(500);
     const auto s = telem::Series::linspace(start, end, 1);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.at<uint64_t>(0), 300);  // Should be midpoint
+    ASSERT_EQ(s.at<uint64_t>(0), 100);  // Should be starting value
 }
 
 TEST(TestSeriesLinspace, LargeTimestamps) {

@@ -31,275 +31,6 @@ constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
 } // namespace _priv
 
-#define ASSERT_TYPE_SIZE(type, size) \
-    static_assert(sizeof(type) == size, "synnax only supports compilation environments with " #size " bit " #type "s")
-
-ASSERT_TYPE_SIZE(float, 4);
-ASSERT_TYPE_SIZE(double, 8);
-ASSERT_TYPE_SIZE(int64_t, 8);
-ASSERT_TYPE_SIZE(int32_t, 4);
-ASSERT_TYPE_SIZE(int16_t, 2);
-ASSERT_TYPE_SIZE(int8_t, 1);
-ASSERT_TYPE_SIZE(uint64_t, 8);
-ASSERT_TYPE_SIZE(uint32_t, 4);
-ASSERT_TYPE_SIZE(uint16_t, 2);
-ASSERT_TYPE_SIZE(uint8_t, 1);
-
-/// @brief all the possible types for a sample within the series.
-/// THE ORDER OF THESE TYPES IS VERY IMPORTANT. DO NOT CHANGE IT.
-using SampleValue = std::variant<
-    double, // FLOAT64
-    float, // FLOAT32
-    int64_t, // INT64
-    int32_t, // INT32
-    int16_t, // INT16
-    int8_t, // INT8
-    uint64_t, // UINT64
-    uint32_t, // UINT32
-    uint16_t, // UINT16
-    uint8_t, // UINT8
-    std::string // STRING
->;
-
-using NumericSampleValue = std::variant<
-    double, // FLOAT64
-    float, // FLOAT32
-    int64_t, // INT64
-    int32_t, // INT32
-    int16_t, // INT16
-    int8_t, // INT8
-    uint64_t, // UINT64
-    uint32_t, // UINT32
-    uint16_t, // UINT16
-    uint8_t // UINT8
->;
-
-template<typename T>
-[[nodiscard]] T cast(const NumericSampleValue value) {
-    if (std::holds_alternative<T>(value))
-        return std::get<T>(value);
-    return std::visit([](auto &&arg) -> T {
-        return static_cast<T>(arg);
-    }, value);
-}
-
-constexpr size_t FLOAT64_INDEX = 0;
-constexpr size_t FLOAT32_INDEX = 1;
-constexpr size_t INT64_INDEX = 2;
-constexpr size_t INT32_INDEX = 3;
-constexpr size_t INT16_INDEX = 4;
-constexpr size_t INT8_INDEX = 5;
-constexpr size_t UINT64_INDEX = 6;
-constexpr size_t UINT32_INDEX = 7;
-constexpr size_t UINT16_INDEX = 8;
-constexpr size_t UINT8_INDEX = 9;
-constexpr size_t STRING_INDEX = 10;
-
-/// @brief Holds the name and properties of a datatype.
-class DataType {
-public:
-    DataType() = default;
-
-    /// @brief Holds the id of the data type
-    std::string value;
-
-    explicit DataType(std::string data_type) {
-        if (!DENSITIES.count(data_type)) {
-            if (!NAMES.count(data_type))
-                throw std::runtime_error(
-                    "Tried to create unknown datatype " + data_type);
-            data_type = NAMES[data_type];
-        }
-        value = data_type;
-    }
-
-    /// @returns the data type corresponding to the given type.
-    template<typename T>
-    DataType static infer(const DataType &dt = DataType("")) {
-        if (dt != DataType("")) return dt;
-        const auto type_index = std::type_index(typeid(T));
-        if (!TYPE_INDEXES.count(type_index))
-            throw std::runtime_error(
-                "failed to infer data type for " + std::string(typeid(T).name()));
-        return DataType(TYPE_INDEXES[type_index]);
-    }
-
-
-    /// @property Gets type name.
-    [[nodiscard]] std::string name() const { return value; }
-
-    /// @property Essentially how many bytes in memory the datatype holds.
-    [[nodiscard]] uint32_t density() const { return DENSITIES[value]; }
-
-    [[nodiscard]] bool is_variable() const {
-        return value == "string" || value == "json";
-    }
-
-    /// @brief Checks if this data type matches another data type.
-    /// @param other The data type to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const DataType &other) const {
-        if (value.empty() || other.value.empty()) return true;
-        return *this == other;
-    }
-
-    /// @brief Checks if this data type matches a string data type identifier.
-    /// @param other The data type string to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const std::string &other) const {
-        if (value.empty() || other.empty()) return true;
-        return value == other;
-    }
-
-    /// @brief Checks if this data type matches any of the provided data types.
-    /// @param others Vector of data types to compare against
-    /// @returns true if this data type matches any in the vector, false otherwise
-    [[nodiscard]] bool matches(const std::vector<DataType> &others) const {
-        if (value.empty()) return true;
-        for (const auto &other: others) if (matches(other)) return true;
-        return false;
-    }
-
-    /// @brief Casts a numeric sample value to the type corresponding to this data type
-    /// @param value The numeric sample value to cast
-    /// @returns A new numeric sample value of the appropriate type
-    /// @throws std::runtime_error if the data type is not numeric
-    [[nodiscard]] NumericSampleValue cast(const NumericSampleValue& value) const {
-        if (this->value == "float64") return telem::cast<double>(value);
-        if (this->value == "float32") return telem::cast<float>(value);
-        if (this->value == "int64") return telem::cast<int64_t>(value);
-        if (this->value == "int32") return telem::cast<int32_t>(value);
-        if (this->value == "int16") return telem::cast<int16_t>(value);
-        if (this->value == "int8") return telem::cast<int8_t>(value);
-        if (this->value == "uint64") return telem::cast<uint64_t>(value);
-        if (this->value == "uint32") return telem::cast<uint32_t>(value);
-        if (this->value == "uint16") return telem::cast<uint16_t>(value);
-        if (this->value == "uint8") return telem::cast<uint8_t>(value);
-        throw std::runtime_error("Cannot cast non-numeric data type: " + this->value);
-    }
-
-    /////////////////////////////////// COMPARISON H///////////////////////////////////
-
-    bool operator==(const DataType &other) const { return value == other.value; }
-
-    bool operator!=(const DataType &other) const { return value != other.value; }
-
-    ////////////////////////////////// OSTREAM /////////////////////////////////
-
-    friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {
-        os << dt.value;
-        return os;
-    }
-
-private:
-    /// @brief Maps the data type to the 'density' of
-    /// the object.
-    inline static std::unordered_map<std::string, uint32_t> DENSITIES = {
-        {"", 0},
-        {"float64", 8},
-        {"float32", 4},
-        {"int8", 1},
-        {"int16", 2},
-        {"int32", 4},
-        {"int64", 8},
-        {"uint8", 1},
-        {"uint16", 2},
-        {"uint32", 4},
-        {"uint64", 8},
-        {"uint128", 16},
-        {"timestamp", 8},
-        {"uuid", 16},
-        {"string", 0},
-        {"json", 0},
-    };
-
-    /// @brief stores a map of C++ type indexes to their corresponding synnax data
-    /// type identifiers.
-    inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
-        {std::type_index(typeid(float)), "float32"},
-        {std::type_index(typeid(double)), "float64"},
-        {std::type_index(typeid(char)), "int8"},
-        {std::type_index(typeid(std::int8_t)), "int8"},
-        {std::type_index(typeid(short)), "int16"},
-        {std::type_index(typeid(std::int16_t)), "int16"},
-        {std::type_index(typeid(int)), "int32"},
-        {std::type_index(typeid(std::int32_t)), "int32"},
-        {std::type_index(typeid(long)), sizeof(long) == 8 ? "int64" : "int32"},
-        {std::type_index(typeid(long long)), "int64"},
-        {std::type_index(typeid(std::int64_t)), "int64"},
-        {std::type_index(typeid(unsigned char)), "uint8"},
-        {std::type_index(typeid(std::uint8_t)), "uint8"},
-        {std::type_index(typeid(unsigned short)), "uint16"},
-        {std::type_index(typeid(std::uint16_t)), "uint16"},
-        {std::type_index(typeid(unsigned int)), "uint32"},
-        {std::type_index(typeid(std::uint32_t)), "uint32"},
-        {
-            std::type_index(typeid(unsigned long)),
-            sizeof(unsigned long) == 8 ? "uint64" : "uint32"
-        },
-        {std::type_index(typeid(unsigned long long)), "uint64"},
-        {std::type_index(typeid(std::uint64_t)), "uint64"},
-        {std::type_index(typeid(std::string)), "string"},
-    };
-
-    /// @brief Maps the data type id to name
-    inline static std::unordered_map<std::string, std::string> NAMES = {
-        {typeid(double).name(), "float64"},
-        {typeid(float).name(), "float32"},
-        {typeid(char).name(), "int8"},
-        {typeid(std::int8_t).name(), "int8"},
-        {typeid(short).name(), "int16"},
-        {typeid(std::int16_t).name(), "int16"},
-        {typeid(int).name(), "int32"},
-        {typeid(std::int32_t).name(), "int32"},
-        {typeid(long long).name(), "int64"},
-        {typeid(std::int64_t).name(), "int64"},
-        {typeid(unsigned char).name(), "uint8"},
-        {typeid(std::uint8_t).name(), "uint8"},
-        {typeid(unsigned short).name(), "uint16"},
-        {typeid(std::uint16_t).name(), "uint16"},
-        {typeid(unsigned int).name(), "uint32"},
-        {typeid(unsigned long long).name(), "uint64"},
-        {typeid(std::string).name(), "string"},
-    };
-};
-
-/// @brief
-const auto DATA_TYPE_UNKNOWN = DataType("");
-/// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
-const auto FLOAT64_T = DataType("float64");
-/// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
-const auto FLOAT32_T = DataType("float32");
-/// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
-const auto INT8_T = DataType("int8");
-/// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
-const auto INT16_T = DataType("int16");
-/// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
-const auto INT32_T = DataType("int32");
-/// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
-const auto INT64_T = DataType("int64");
-/// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
-const auto TIMESTAMP_T = DataType("timestamp");
-/// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
-const auto UINT8_T = DataType("uint8");
-/// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
-const auto UINT16_T = DataType("uint16");
-/// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
-const auto UINT32_T = DataType("uint32");
-/// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
-const auto UINT64_T = DataType("uint64");
-/// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
-const auto UINT128_T = DataType("uint128");
-/// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
-const auto UUID_T = DataType("uuid");
-/// @brief identifier for a newline separated, variable-length string data type in a
-/// Synnax cluster. Note that variable-length data types have reduced performance and
-/// restricted use within a Synnax cluster.
-const auto STRING_T = DataType("string");
-/// @brief identifier for a newline separated, stringified JSON data type in a Synnax
-/// cluster. Note that variable-length data types have reduced performance and
-/// restricted use within a Synnax cluster.
-const auto JSON_T = DataType("json");
 
 class TimeSpan {
 public:
@@ -308,7 +39,7 @@ public:
 
     TimeSpan() = default;
 
-    TimeSpan abs() const {
+    [[nodiscard]] TimeSpan abs() const {
         return TimeSpan(std::abs(value));
     }
 
@@ -367,11 +98,11 @@ public:
         return *this;
     }
 
-    TimeSpan operator+(const std::uint64_t &other) const {
+    TimeSpan operator+(const std::int64_t &other) const {
         return TimeSpan(value + other);
     }
 
-    friend TimeSpan operator+(const unsigned long long &lhs, const TimeSpan &rhs) {
+    friend TimeSpan operator+(const long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs + rhs.value);
     }
 
@@ -395,14 +126,16 @@ public:
         return TimeSpan(value * other.value);
     }
 
-    TimeSpan operator*(const float &other) const { return TimeSpan(value * other); }
-
-    friend TimeSpan operator*(const unsigned long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs * rhs.value);
+    TimeSpan operator*(const float &other) const {
+        return TimeSpan(static_cast<std::int64_t>(static_cast<double>(value) * other));
     }
 
-    TimeSpan operator*(const unsigned long long &other) const {
-        return TimeSpan(value * other);
+    friend TimeSpan operator*(const long long &lhs, const TimeSpan &rhs) {
+        return TimeSpan(rhs.value * lhs);
+    }
+
+    TimeSpan operator*(const long long &other) const {
+        return TimeSpan(other * value);
     }
 
     TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
@@ -412,19 +145,10 @@ public:
     }
 
     TimeSpan operator*(const double &other) const {
-        return TimeSpan(value * other);
+        return TimeSpan(static_cast<std::int64_t>(static_cast<double>(value) * other));
     }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
-
-    TimeSpan operator*(const unsigned long &other) const {
-        return TimeSpan(value * other);
-    }
-
-    TimeSpan operator*(const long long &other) const {
-        return TimeSpan(value * other);
-    }
-
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
@@ -432,11 +156,11 @@ public:
         return TimeSpan(value / other.value);
     }
 
-    friend TimeSpan operator/(const unsigned long long &lhs, const TimeSpan &rhs) {
+    friend TimeSpan operator/(const long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs / rhs.value);
     }
 
-    TimeSpan operator/(const unsigned long long &other) const {
+    TimeSpan operator/(const long long &other) const {
         return TimeSpan(value / other);
     }
 
@@ -446,11 +170,11 @@ public:
         return TimeSpan(value % other.value);
     }
 
-    friend TimeSpan operator%(const unsigned long long &lhs, const TimeSpan &rhs) {
+    friend TimeSpan operator%(const long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs % rhs.value);
     }
 
-    TimeSpan operator%(const unsigned long long &other) const {
+    TimeSpan operator%(const long long &other) const {
         return TimeSpan(value % other);
     }
 
@@ -502,9 +226,12 @@ public:
         const auto days = total_days.value / _priv::DAY;
         const auto hours = (total_hours.value - total_days.value) / _priv::HOUR;
         const auto minutes = (total_minutes.value - total_hours.value) / _priv::MINUTE;
-        const auto seconds = (total_seconds.value - total_minutes.value) / _priv::SECOND;
-        const auto milliseconds = (total_milliseconds.value - total_seconds.value) / _priv::MILLISECOND;
-        const auto microseconds = (total_microseconds.value - total_milliseconds.value) / _priv::MICROSECOND;
+        const auto seconds = (total_seconds.value - total_minutes.value) /
+                             _priv::SECOND;
+        const auto milliseconds = (total_milliseconds.value - total_seconds.value) /
+                                  _priv::MILLISECOND;
+        const auto microseconds = (total_microseconds.value - total_milliseconds.value)
+                                  / _priv::MICROSECOND;
         const auto nanoseconds = total_nanoseconds - total_microseconds.value;
 
         std::string out;
@@ -529,7 +256,6 @@ public:
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
-
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -550,7 +276,7 @@ public:
     }
 
     TimeStamp static now() {
-        // note that on some machines, high res clock refs system_clock and on others it references
+        // note that on some machines, hig-res clock refs system_clock and on others it references
         // steady_clock. This could create a problem so we should probably use system_clock.
         return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::system_clock::now().time_since_epoch()
@@ -579,7 +305,7 @@ public:
     }
 
     friend TimeStamp
-    operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
+    operator+(const long long &lhs, const TimeStamp &rhs) {
         return TimeStamp(lhs + rhs.value);
     }
 
@@ -593,7 +319,7 @@ public:
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const unsigned long long &lhs, const TimeStamp &rhs) {
+    friend TimeSpan operator-(const long long &lhs, const TimeStamp &rhs) {
         return TimeSpan(lhs - rhs.value);
     }
 
@@ -676,13 +402,14 @@ public:
     explicit Rate(const float i) : value(i) {
     }
 
-    explicit Rate(const int i) : value(i) {
+    explicit Rate(const int i) : value(static_cast<float>(i)) {
     }
 
-    explicit Rate(const double i) : value(i) {
+    explicit Rate(const double i) : value(static_cast<float>(i)) {
     }
 
-    explicit Rate(const TimeSpan period) : value(1 / period.seconds()) {
+    explicit Rate(const TimeSpan period) : value(
+        static_cast<float>(1 / period.seconds())) {
     }
 
     Rate() = default;
@@ -731,7 +458,9 @@ public:
 
     Rate operator*(const float &other) const { return Rate(value * other); }
 
-    [[nodiscard]] TimeSpan period() const { return TimeSpan(1 / value * 1e9); }
+    [[nodiscard]] TimeSpan period() const {
+        return TimeSpan(static_cast<std::int64_t>(1 / value * static_cast<double>(_priv::SECOND)));
+    }
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
@@ -739,46 +468,351 @@ public:
 
     Rate operator/(const float &other) const { return Rate(value / other); }
 
-    Rate operator/(const int &other) const { return Rate(value / other); }
-
-    Rate operator/(const unsigned int &other) const { return Rate(value / other); }
+    Rate operator/(const int &other) const {
+        return Rate(value / static_cast<float>(other));
+    }
 
     Rate operator/(const double &other) const { return Rate(value / other); }
 
-    Rate operator/(const long &other) const { return Rate(value / other); }
-
-    Rate operator/(const size_t &other) const { return Rate(value / other); }
+    Rate operator/(const size_t &other) const {
+        return Rate(value / static_cast<float>(other));
+    }
 };
 
-/// @brief a single hertz. Can be made into many hertz through multiplication
-/// e.g. 55 * HZ = 55 hertz.
-const auto HZ = Rate(1);
-/// @brief a single kilohertz. Can be made into many kilohertz through multiplication
-/// e.g. 55 * KHZ = 55 kilohertz.
-const Rate KHZ = 1000 * HZ;
-/// @brief a single megahertz. Can be made into many megahertz through multiplication
-/// e.g. 55 * MHZ = 55 megahertz.
-const Rate MHZ = 1000 * KHZ;
+/// @brief a single hertz
+inline const auto HZ = Rate(1);
+/// @brief a single kilohertz
+inline const Rate KHZ = 1000 * HZ;
+/// @brief a single megahertz
+inline const Rate MHZ = 1000 * KHZ;
+/// @brief a single nanosecond.
+inline const auto NANOSECOND = TimeSpan(1);
+/// @brief a single microsecond.
+inline const TimeSpan MICROSECOND = NANOSECOND * 1000;
+/// @brief a single millisecond.
+inline const TimeSpan MILLISECOND = MICROSECOND * 1000;
+/// @brief a single second.
+inline const TimeSpan SECOND = MILLISECOND * 1000;
+/// @brief a single minute.
+inline const TimeSpan MINUTE = SECOND * 60;
+/// @brief a single hour.
+inline const TimeSpan HOUR = MINUTE * 60;
+/// @brief a single day.
+inline const TimeSpan DAY = HOUR * 24;
 
-/// @brief a single nanosecond. Can be made into many nanoseconds through multiplication
-/// e.g. 55 * NANOSECOND = 55 nanoseconds.
-const auto NANOSECOND = TimeSpan(1);
-/// @brief a single microsecond. Can be made into many microseconds through multiplication
-/// e.g. 55 * MICROSECOND = 55 microseconds.
-const TimeSpan MICROSECOND = NANOSECOND * 1000;
-/// @brief a single millisecond. Can be made into many milliseconds through multiplication
-/// e.g. 55 * MILLISECOND = 55 milliseconds.
-const TimeSpan MILLISECOND = MICROSECOND * 1000;
-/// @brief a single second. Can be made into many seconds through multiplication
-/// e.g. 55 * SECOND = 55 seconds.
-const TimeSpan SECOND = MILLISECOND * 1000;
-/// @brief a single minute. Can be made into many minutes through multiplication
-/// e.g. 55 * MINUTE = 55 minutes.
-const TimeSpan MINUTE = SECOND * 60;
-/// @brief a single hour. Can be made into many hours through multiplication
-/// e.g. 55 * HOUR = 55 hours.
-const TimeSpan HOUR = MINUTE * 60;
-/// @brief a single day. Can be made into many days through multiplication
-/// e.g. 55 * DAY = 55 days.
-const TimeSpan DAY = HOUR * 24;
+#define ASSERT_TYPE_SIZE(type, size) \
+    static_assert(sizeof(type) == size, "synnax only supports compilation environments with " #size " bit " #type "s")
+
+// Do a check to ensure that our compilation environment uses sizes that match
+// those expected by Synnax.
+ASSERT_TYPE_SIZE(float, 4);
+ASSERT_TYPE_SIZE(double, 8);
+ASSERT_TYPE_SIZE(int64_t, 8);
+ASSERT_TYPE_SIZE(int32_t, 4);
+ASSERT_TYPE_SIZE(int16_t, 2);
+ASSERT_TYPE_SIZE(int8_t, 1);
+ASSERT_TYPE_SIZE(uint64_t, 8);
+ASSERT_TYPE_SIZE(uint32_t, 4);
+ASSERT_TYPE_SIZE(uint16_t, 2);
+ASSERT_TYPE_SIZE(uint8_t, 1);
+
+/// @brief all the possible types for a sample within the series.
+/// THE ORDER OF THESE TYPES IS VERY IMPORTANT. DO NOT CHANGE IT.
+using SampleValue = std::variant<
+    double, // FLOAT64
+    float, // FLOAT32
+    int64_t, // INT64
+    int32_t, // INT32
+    int16_t, // INT16
+    int8_t, // INT8
+    uint64_t, // UINT64
+    uint32_t, // UINT32
+    uint16_t, // UINT16
+    uint8_t, // UINT8
+    TimeStamp, // TIMESTAMP
+    std::string // STRING
+>;
+
+template<typename T>
+[[nodiscard]] T cast(const SampleValue &value) {
+    if (std::holds_alternative<T>(value)) return std::get<T>(value);
+    if constexpr (std::is_same_v<T, std::string>) {
+        // Handle conversion to string
+        return std::visit([]<typename IT>(IT &&arg) -> std::string {
+            if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
+                return arg; // Already a string, just return it
+            else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>) {
+                return std::to_string(arg.value); // Convert TimeStamp to string
+            } else {
+                return std::to_string(arg);
+            }
+        }, value);
+    }
+    if constexpr (std::is_same_v<T, TimeStamp>) {
+        // Handle conversion to TimeStamp
+        return std::visit([]<typename IT>(IT &&arg) -> TimeStamp {
+            if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
+                return TimeStamp(static_cast<std::int64_t>(arg));
+            } else if constexpr (std::is_same_v<std::decay_t<IT>,
+                std::string>) {
+                try {
+                    return TimeStamp(std::stoll(arg));
+                } catch (...) {
+                    throw std::runtime_error("failed to convert string to TimeStamp");
+                }
+            }
+            throw std::runtime_error("invalid type conversion to TimeStamp");
+        }, value);
+    }
+    if (std::holds_alternative<TimeStamp>(value)) {
+        const auto &ts = std::get<TimeStamp>(value);
+        if constexpr (std::is_arithmetic_v<T>)
+            return static_cast<T>(ts.value);
+    }
+    if (std::holds_alternative<std::string>(value)) {
+        // Handle string conversion specially
+        const auto &str = std::get<std::string>(value);
+        if constexpr (std::is_arithmetic_v<T>) {
+            try {
+                if constexpr (std::is_floating_point_v<T>) {
+                    return static_cast<T>(std::stod(str));
+                } else if constexpr (std::is_signed_v<T>) {
+                    return static_cast<T>(std::stoll(str));
+                } else {
+                    return static_cast<T>(std::stoull(str));
+                }
+            } catch (...) {
+                throw std::runtime_error("failed to convert string to numeric type");
+            }
+        }
+    }
+    // For non-string conversions between numeric types
+    return std::visit([]<typename IT>(IT &&arg) -> T {
+        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<
+                          IT>>) {
+            return static_cast<T>(arg);
+        }
+        throw std::runtime_error("invalid type conversion");
+    }, value);
+}
+
+namespace _priv {
+const std::string UNKNOWN_T;
+const std::string FLOAT64_T = "float64";
+const std::string FLOAT32_T = "float32";
+const std::string INT8_T = "int8";
+const std::string INT16_T = "int16";
+const std::string INT32_T = "int32";
+const std::string INT64_T = "int64";
+const std::string TIMESTAMP_T = "timestamp";
+const std::string UINT8_T = "uint8";
+const std::string UINT16_T = "uint16";
+const std::string UINT32_T = "uint32";
+const std::string UINT64_T = "uint64";
+const std::string UINT128_T = "uint128";
+const std::string UUID_T = "uuid";
+const std::string STRING_T = "string";
+const std::string JSON_T = "json";
+const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
+}
+
+class DataType;
+
+/// @brief Holds the name and properties of a datatype.
+class DataType {
+public:
+    DataType() = default;
+
+    /// @brief Holds the id of the data type
+    std::string value;
+
+    /// @brief constructs a data type from the provided string.
+    explicit DataType(std::string data_type): value(std::move(data_type)) {
+    }
+
+    /// @returns infers the data type from a given C++ type along with an optional
+    /// override.
+    template<typename T>
+    DataType static infer(const DataType &override = DataType(_priv::UNKNOWN_T)) {
+        if (override != _priv::UNKNOWN_T) return override;
+        const auto type_index = std::type_index(typeid(T));
+        const auto it = TYPE_INDEXES.find(type_index);
+        if (it != TYPE_INDEXES.end()) return DataType(it->second);
+        throw std::runtime_error("cannot infer data type from unknown C++ type");
+    }
+
+
+    /// @property Gets type name.
+    [[nodiscard]] std::string name() const { return value; }
+
+    /// @property Essentially how many bytes in memory the datatype holds.
+    [[nodiscard]] uint32_t density() const { return DENSITIES[value]; }
+
+    [[nodiscard]] bool is_variable() const {
+        return this->matches(_priv::VARIABLE_TYPES);
+    }
+
+    /// @brief Checks if this data type matches another data type.
+    /// @param other The data type to compare against
+    /// @returns true if the data types match, false otherwise
+    [[nodiscard]] bool matches(const DataType &other) const {
+        if (value.empty() || other.value.empty()) return true;
+        return *this == other;
+    }
+
+    /// @brief Checks if this data type matches a string data type identifier.
+    /// @param other The data type string to compare against
+    /// @returns true if the data types match, false otherwise
+    [[nodiscard]] bool matches(const std::string &other) const {
+        if (value.empty() || other.empty()) return true;
+        return value == other;
+    }
+
+    /// @brief Checks if this data type matches any of the provided data types.
+    /// @param others Vector of data types to compare against
+    /// @returns true if this data type matches any in the vector, false otherwise
+    [[nodiscard]] bool matches(const std::vector<DataType> &others) const {
+        if (value.empty()) return true;
+        for (const auto &other: others) if (matches(other)) return true;
+        return false;
+    }
+
+    [[nodiscard]] bool matches(const std::vector<std::string> &others) const {
+        if (value.empty()) return true;
+        for (const auto &other: others) if (matches(other)) return true;
+        return false;
+    }
+
+    /// @brief Casts a numeric sample value to the type corresponding to this data type
+    /// @param value The numeric sample value to cast
+    /// @returns A new numeric sample value of the appropriate type
+    /// @throws std::runtime_error if the data type is not numeric
+    [[nodiscard]] SampleValue cast(const SampleValue &value) const {
+        if (*this == _priv::FLOAT64_T) return telem::cast<double>(value);
+        if (*this == _priv::FLOAT32_T) return telem::cast<float>(value);
+        if (*this == _priv::INT64_T) return telem::cast<int64_t>(value);
+        if (*this == _priv::INT32_T) return telem::cast<int32_t>(value);
+        if (*this == _priv::INT16_T) return telem::cast<int16_t>(value);
+        if (*this == _priv::INT8_T) return telem::cast<int8_t>(value);
+        if (*this == _priv::UINT64_T) return telem::cast<uint64_t>(value);
+        if (*this == _priv::UINT32_T) return telem::cast<uint32_t>(value);
+        if (*this == _priv::UINT16_T) return telem::cast<uint16_t>(value);
+        if (*this == _priv::UINT8_T) return telem::cast<uint8_t>(value);
+        if (*this == _priv::TIMESTAMP_T) return telem::cast<TimeStamp>(value);
+        if (this->is_variable()) return telem::cast<std::string>(value);
+        throw std::runtime_error(
+            "cannot cast sample value to unknown data type " + this->value);
+    }
+
+    /////////////////////////////////// COMPARISON H///////////////////////////////////
+
+    bool operator==(const DataType &other) const { return value == other.value; }
+
+    bool operator==(const std::string &other) const { return value == other; }
+
+    bool operator!=(const DataType &other) const { return value != other.value; }
+
+    ////////////////////////////////// OSTREAM /////////////////////////////////
+
+    friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {
+        os << dt.value;
+        return os;
+    }
+
+private:
+    /// @brief Maps the data type to the 'density' of the object.
+    static std::unordered_map<std::string, uint32_t> init_densities() {
+        return {
+            {_priv::UNKNOWN_T, 0},
+            {_priv::FLOAT64_T, 8},
+            {_priv::FLOAT32_T, 4},
+            {_priv::INT8_T, 1},
+            {_priv::INT16_T, 2},
+            {_priv::INT32_T, 4},
+            {_priv::INT64_T, 8},
+            {_priv::UINT8_T, 1},
+            {_priv::UINT16_T, 2},
+            {_priv::UINT32_T, 4},
+            {_priv::UINT64_T, 8},
+            {_priv::UINT128_T, 16},
+            {_priv::TIMESTAMP_T, 8},
+            {_priv::UUID_T, 16},
+            {_priv::STRING_T, 0},
+            {_priv::JSON_T, 0},
+        };
+    }
+
+    inline static std::unordered_map<std::string, uint32_t> DENSITIES =
+            init_densities();
+
+    /// @brief stores a map of C++ type indexes to their corresponding synnax data
+    /// type identifiers.
+    inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
+        {std::type_index(typeid(float)), _priv::FLOAT32_T},
+        {std::type_index(typeid(double)), _priv::FLOAT64_T},
+        {std::type_index(typeid(char)), _priv::INT8_T},
+        {std::type_index(typeid(std::int8_t)), _priv::INT8_T},
+        {std::type_index(typeid(short)), _priv::INT16_T},
+        {std::type_index(typeid(std::int16_t)), _priv::INT16_T},
+        {std::type_index(typeid(int)), _priv::INT32_T},
+        {std::type_index(typeid(std::int32_t)), _priv::INT32_T},
+        {
+            std::type_index(typeid(long)),
+            sizeof(long) == 8 ? _priv::INT64_T : _priv::INT32_T
+        },
+        {std::type_index(typeid(long long)), _priv::INT64_T},
+        {std::type_index(typeid(std::int64_t)), _priv::INT64_T},
+        {std::type_index(typeid(unsigned char)), _priv::UINT8_T},
+        {std::type_index(typeid(std::uint8_t)), _priv::UINT8_T},
+        {std::type_index(typeid(unsigned short)), _priv::UINT16_T},
+        {std::type_index(typeid(std::uint16_t)), _priv::UINT16_T},
+        {std::type_index(typeid(unsigned int)), _priv::UINT32_T},
+        {std::type_index(typeid(std::uint32_t)), _priv::UINT32_T},
+        {
+            std::type_index(typeid(unsigned long)),
+            sizeof(unsigned long) == 8 ? _priv::UINT64_T : _priv::UINT32_T
+        },
+        {std::type_index(typeid(unsigned long long)), _priv::UINT64_T},
+        {std::type_index(typeid(std::uint64_t)), _priv::UINT64_T},
+        {std::type_index(typeid(std::string)), _priv::STRING_T},
+        {std::type_index(typeid(TimeStamp)), _priv::TIMESTAMP_T},
+    };
+};
+
+/// @brief identifier for an unknown data type in a Synnax cluster.
+inline const DataType UNKNOWN_T(_priv::UNKNOWN_T);
+/// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
+inline const DataType FLOAT64_T(_priv::FLOAT64_T);
+/// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
+inline const DataType FLOAT32_T(_priv::FLOAT32_T);
+/// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
+inline const DataType INT8_T(_priv::INT8_T);
+/// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
+inline const DataType INT16_T(_priv::INT16_T);
+/// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
+inline const DataType INT32_T(_priv::INT32_T);
+/// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
+inline const DataType INT64_T(_priv::INT64_T);
+/// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
+inline const DataType TIMESTAMP_T(_priv::TIMESTAMP_T);
+/// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
+inline const DataType UINT8_T(_priv::UINT8_T);
+/// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
+inline const DataType UINT16_T(_priv::UINT16_T);
+/// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
+inline const DataType UINT32_T(_priv::UINT32_T);
+/// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
+inline const DataType UINT64_T(_priv::UINT64_T);
+/// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
+inline const DataType UINT128_T(_priv::UINT128_T);
+/// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
+inline const DataType UUID_T(_priv::UUID_T);
+/// @brief identifier for a newline separated, variable-length string data type in a
+/// Synnax cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
+inline const DataType STRING_T(_priv::STRING_T);
+/// @brief identifier for a newline separated, stringified JSON data type in a Synnax
+/// cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
+inline const DataType JSON_T(_priv::JSON_T);
 }

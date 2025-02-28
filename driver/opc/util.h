@@ -298,7 +298,7 @@ inline telem::Series val_to_series(UA_Variant *val, telem::DataType dt) {
 inline std::pair<telem::DataType, bool> variant_data_type(const UA_Variant &val) {
     if(!val.type) {
         LOG(ERROR) << "[opc.scanner] opc node type is null.";
-        return {telem::DATA_TYPE_UNKNOWN, false};
+        return {telem::UNKNOWN_T, false};
     }
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT]))
         return {
@@ -363,7 +363,7 @@ inline std::pair<telem::DataType, bool> variant_data_type(const UA_Variant &val)
     if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {telem::UINT128_T, false};
     if (val.type == &UA_TYPES[UA_TYPES_BOOLEAN]) return {telem::UINT8_T, false};
     LOG(ERROR) << "[opc.scanner] Unknown data type: " << val.type->typeName;
-    return {telem::DATA_TYPE_UNKNOWN, false};
+    return {telem::UNKNOWN_T, false};
 }
 
 inline xerrors::Error

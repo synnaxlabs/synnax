@@ -120,7 +120,7 @@ static UA_StatusCode node_iter(
             reinterpret_cast<char *>(browseName.name.data),
             browseName.name.length
         );
-        auto data_type = telem::DATA_TYPE_UNKNOWN;
+        auto data_type = telem::UNKNOWN_T;
         bool is_array = false;
         if (nodeClass == UA_NODECLASS_VARIABLE && response.results[2].hasValue) {
             UA_Variant value;

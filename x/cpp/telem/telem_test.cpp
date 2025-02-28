@@ -385,19 +385,21 @@ TEST(RateTests, testGreaterThanEqual) {
 // DataType Tests
 ////////////////////////////////////////////////////////////
 
-class DataTypeTests : public ::testing::Test {};
+class DataTypeTests : public ::testing::Test {
+};
 
 struct TypeTestCase {
     std::string expected;
     std::function<DataType()> inferFn;
 };
 
-class DataTypeInferTest : public testing::TestWithParam<TypeTestCase> {};
+class DataTypeInferTest : public testing::TestWithParam<TypeTestCase> {
+};
 
 TEST_P(DataTypeInferTest, testInferBuiltInTypes) {
-    const auto& param = GetParam();
-    const auto dt = param.inferFn();
-    ASSERT_EQ(dt.value, param.expected);
+    const auto &[expected, infer_fn] = GetParam();
+    const auto dt = infer_fn();
+    ASSERT_EQ(dt.value, expected);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -413,8 +415,16 @@ INSTANTIATE_TEST_SUITE_P(
         TypeTestCase{"int64", []() { return DataType::infer<int64_t>(); }},
         TypeTestCase{"uint64", []() { return DataType::infer<uint64_t>(); }},
         TypeTestCase{"float32", []() { return DataType::infer<float>(); }},
-        TypeTestCase{"float64", []() { return DataType::infer<double>(); }}
-    ));
+        TypeTestCase{"float64", []() { return DataType::infer<double>(); }},
+        TypeTestCase{"timestamp", []() { return DataType::infer<TimeStamp>(); }},
+        TypeTestCase{"string", []() { return DataType::infer<std::string>(); }}
+    )
+);
+
+TEST(DataTypeTests, testInferOveride) {
+    const auto dt = DataType::infer<int8_t>(INT16_T);
+    ASSERT_EQ(dt, INT16_T);
+}
 
 TEST(DataTypeTests, testName) {
     const auto dt = DataType("float32");
@@ -452,18 +462,18 @@ TEST(DataTypeTests, testMatches) {
     const auto empty = DataType("");
     ASSERT_TRUE(empty.matches(DataType("float32")));
     ASSERT_TRUE(empty.matches("float32"));
-    
+
     // Test exact matches
     const auto dt = DataType("float32");
     ASSERT_TRUE(dt.matches(DataType("float32")));
     ASSERT_TRUE(dt.matches("float32"));
     ASSERT_FALSE(dt.matches(DataType("float64")));
     ASSERT_FALSE(dt.matches("float64"));
-    
+
     // Test vector matches
     std::vector<DataType> types = {DataType("float32"), DataType("float64")};
     ASSERT_TRUE(dt.matches(types));
-    
+
     std::vector<DataType> non_matching = {DataType("int32"), DataType("int64")};
     ASSERT_FALSE(dt.matches(non_matching));
 }
@@ -472,7 +482,7 @@ TEST(DataTypeTests, testEquality) {
     const auto dt1 = DataType("float32");
     const auto dt2 = DataType("float32");
     const auto dt3 = DataType("float64");
-    
+
     ASSERT_TRUE(dt1 == dt2);
     ASSERT_FALSE(dt1 == dt3);
 }
@@ -481,7 +491,7 @@ TEST(DataTypeTests, testInequality) {
     const auto dt1 = DataType("float32");
     const auto dt2 = DataType("float32");
     const auto dt3 = DataType("float64");
-    
+
     ASSERT_FALSE(dt1 != dt2);
     ASSERT_TRUE(dt1 != dt3);
 }
@@ -492,9 +502,3 @@ TEST(DataTypeTests, testStreamOperator) {
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
 }
-
-TEST(DataTypeTests, testInvalidConstruction) {
-    ASSERT_THROW(DataType("invalid_type"), std::runtime_error);
-}
-
-

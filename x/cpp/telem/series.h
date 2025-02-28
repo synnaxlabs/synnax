@@ -118,7 +118,7 @@ public:
 
     /// @brief move constructor.
     Series(Series &&other) noexcept:
-        data_type(other.data_type),
+        data_type(std::move(other.data_type)),
         cap(other.cap),
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
@@ -160,7 +160,7 @@ public:
     template<typename NumericType>
     explicit Series(
         const std::vector<NumericType> &d,
-        const DataType& dt = DATA_TYPE_UNKNOWN
+        const DataType& dt = UNKNOWN_T
     ):
         data_type(telem::DataType::infer<NumericType>(dt)),
         cap(d.size()),
@@ -178,7 +178,7 @@ public:
     /// @param size_ the number of samples to be used.
     /// @param dt the data type of the series.
     template<typename NumericType>
-    Series(const NumericType* d, const size_t size_, const DataType dt = DATA_TYPE_UNKNOWN):
+    Series(const NumericType* d, const size_t size_, const DataType dt = UNKNOWN_T):
         data_type(telem::DataType::infer<NumericType>(dt)),
         cap(size_),
         size_(size_),
@@ -210,7 +210,7 @@ public:
     template<typename NumericType>
     explicit Series(
         NumericType v,
-        const DataType& override_dt = DATA_TYPE_UNKNOWN
+        const DataType& override_dt = UNKNOWN_T
     ) :
         data_type(telem::DataType::infer<NumericType>(override_dt)),
         cap(1),
@@ -438,13 +438,6 @@ public:
         return count;
     }
 
-    size_t write(const NumericSampleValue v) {
-        return std::visit([this](auto&& arg) -> size_t {
-            using T = std::decay_t<decltype(arg)>;
-            return this->write(static_cast<T>(arg));
-        }, v);
-    }
-
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
     void to_proto(telem::PBSeries *pb) const {
@@ -534,25 +527,6 @@ public:
             "unsupported data type for value_at: " + data_type.name()
         );
     }
-
-    [[nodiscard]] NumericSampleValue at_numeric(const int &index) const {
-        const auto adjusted = validate_bounds(index);
-        const auto dt = this->data_type;
-        if (dt == FLOAT64_T) return this->at<double>(adjusted);
-        if (dt == FLOAT32_T) return this->at<float>(adjusted);
-        if (dt == INT64_T) return this->at<int64_t>(adjusted);
-        if (dt == INT32_T) return this->at<int32_t>(adjusted);
-        if (dt == INT16_T) return this->at<int16_t>(adjusted);
-        if (dt == INT8_T) return this->at<int8_t>(adjusted);
-        if (dt == UINT64_T) return this->at<uint64_t>(adjusted);
-        if (dt == UINT32_T) return this->at<uint32_t>(adjusted);
-        if (dt == UINT16_T) return this->at<uint16_t>(adjusted);
-        if (dt == UINT8_T) return this->at<uint8_t>(adjusted);
-        throw std::runtime_error(
-            "unsupported data type for value_at: " + data_type.name()
-        );
-    }
-
 
     /// @brief binds the string value at the given index to the provided string. The
     /// series' data type must be STRING or JSON.
@@ -665,7 +639,7 @@ public:
     /// @brief deep copies the series, including all of its data. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
-    [[nodiscard]] Series deep_copy() const { return Series(*this); }
+    [[nodiscard]] Series deep_copy() const { return {*this}; }
 
     /// @brief constructs a series of size 1 from the given SampleValue.
     /// @param v the SampleValue to be used.
@@ -682,21 +656,8 @@ public:
             return;
         }
 
-        // Handle numeric types
-        std::visit([this](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-            data_type = DataType::infer<T>();
-            cap = 1;
-            size_ = 1;
-            data = std::make_unique<std::byte[]>(byte_size());
-            memcpy(data.get(), &arg, byte_size());
-        }, v);
-    }
-
-    /// @brief constructs the series from the given numeric sample value.
-    explicit Series(const NumericSampleValue& v) {
-        std::visit([this](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
+        std::visit([this]<typename IT>(IT&& arg) {
+            using T = std::decay_t<IT>;
             data_type = DataType::infer<T>();
             cap = 1;
             size_ = 1;

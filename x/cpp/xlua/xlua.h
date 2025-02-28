@@ -175,14 +175,14 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     // Check if the index contains any value (even nil)
     if (lua_isnone(L, index)) {
         return {
-            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(xerrors::VALIDATION, "Invalid stack index")
         };
     }
 
     if (lua_isnil(L, index)) {
         return {
-            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(xerrors::VALIDATION, "Expected value but received nil")
         };
     }
@@ -211,7 +211,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             error_msg = "cannot convert Lua type '" + 
             std::string(lua_typename(L, lua_type(L, index))) + "' to " + data_type.value;
         return {
-            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(xerrors::VALIDATION, error_msg)
         };
     }
@@ -235,7 +235,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             };
         }
         return {
-            telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+            telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(
                 xerrors::VALIDATION,
                 "expected string value but received type '" + 
@@ -325,7 +325,7 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
             xerrors::NIL
         };
     return {
-        telem::Series(telem::DATA_TYPE_UNKNOWN, 0),
+        telem::Series(telem::UNKNOWN_T, 0),
         xerrors::Error(xerrors::VALIDATION,
                        "Unsupported data type: " + data_type.value)
     };
