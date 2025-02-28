@@ -27,7 +27,7 @@ const generateDigitalChannel = <C extends DigitalChannel>(
   zeroChannel: C,
 ): C => {
   const line = Math.max(0, ...channels.map(({ line }) => line)) + 1;
-  return { ...zeroChannel, key: id.id(), line };
+  return { ...zeroChannel, key: id.generate(), line };
 };
 
 export const generateDIChannel = (channels: DIChannel[]): DIChannel =>
@@ -41,7 +41,7 @@ const generateAnalogChannel = <C extends AnalogChannel>(
   index: number,
   zeroChannel: C,
 ): C => {
-  const key = id.id();
+  const key = id.generate();
   let template: C;
   if (channels.length === 0) template = deep.copy(zeroChannel);
   else if (index === -1) template = deep.copy(channels[0]);

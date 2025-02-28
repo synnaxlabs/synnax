@@ -22,7 +22,7 @@ const client = newClient();
 const newChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
     leaseholder: 1,
-    name: `test-${id.id()}`,
+    name: `test-${id.generate()}`,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });

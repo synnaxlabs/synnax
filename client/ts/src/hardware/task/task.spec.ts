@@ -66,7 +66,7 @@ describe("Hardware", () => {
             dog: string;
           }
           const state: task.State<StateDetails> = {
-            key: id.id(),
+            key: id.generate(),
             task: t.key,
             variant: "success",
           };

@@ -55,7 +55,7 @@ const client = newClient();
 test("client", async () => {
   expect.assertions(2);
   try {
-    await client.channels.retrieve(id.id());
+    await client.channels.retrieve(id.generate());
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }

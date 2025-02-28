@@ -64,10 +64,10 @@ export const stateZ = z.object({
 
 export type State = z.infer<typeof stateZ>;
 
-const cellOneKey = id.id();
-const cellTwoKey = id.id();
-const cellThreeKey = id.id();
-const cellFourKey = id.id();
+const cellOneKey = id.generate();
+const cellTwoKey = id.generate();
+const cellThreeKey = id.generate();
+const cellFourKey = id.generate();
 
 export const ZERO_STATE: State = {
   key: "",

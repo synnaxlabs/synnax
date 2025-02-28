@@ -101,7 +101,7 @@ export class Task<
   async executeCommand<Args>(type: string, args?: Args): Promise<string> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
-    const key = id.id();
+    const key = id.generate();
     await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
     await writer.close();
     return key;

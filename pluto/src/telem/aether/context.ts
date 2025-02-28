@@ -28,7 +28,7 @@ export class Context {
 
   constructor(factory: CompoundTelemFactory, parent?: Context) {
     this.factory = factory;
-    this.key = id.id();
+    this.key = id.generate();
     this.parent = parent;
   }
 

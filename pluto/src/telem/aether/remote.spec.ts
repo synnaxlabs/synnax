@@ -31,7 +31,7 @@ import { client } from "@/telem/client";
 describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements client.Client {
-      key: string = id.id();
+      key: string = id.generate();
 
       // Stream
       streamHandler: client.StreamHandler | null = null;
@@ -179,7 +179,7 @@ describe("remote", () => {
   });
   describe("ChannelData", () => {
     class MockClient implements client.ReadClient, client.ChannelClient {
-      key: string = id.id();
+      key: string = id.generate();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
 
@@ -312,7 +312,7 @@ describe("remote", () => {
   });
   describe("StreamChannelData", () => {
     class MockClient implements client.Client {
-      key: string = id.id();
+      key: string = id.generate();
 
       // Stream
       streamHandler: client.StreamHandler | null = null;

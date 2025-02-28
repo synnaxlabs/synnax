@@ -17,6 +17,6 @@ import { useRef } from "react";
  * */
 export const useUniqueKey = (override?: string): string => {
   const gen = useRef<string | null>(null);
-  if (gen.current === null) gen.current = override ?? id.id();
+  if (gen.current === null) gen.current = override ?? id.generate();
   return gen.current;
 };

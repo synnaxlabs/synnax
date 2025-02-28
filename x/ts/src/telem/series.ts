@@ -186,7 +186,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = id.id(),
+      key = id.generate(),
     } = props;
     const data = props.data ?? [];
     if (
