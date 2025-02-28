@@ -25,8 +25,19 @@
 #include "driver/ni/hardware/hardware.h"
 #include "driver/task/task.h"
 #include "driver/ni/ni.h"
+#include "errors/errors.h"
 
 namespace ni {
+static xerrors::Error translate_error(const xerrors::Error &err) {
+    if (APPLICATION_TOO_SLOW.matches(err))
+        return {xerrors::Error(
+            driver::CRITICAL_HARDWARE_ERROR,
+            "the network cannot keep up with the stream rate specified. try making the sample rate a higher multiple of the stream rate"
+        )};
+    return err;
+}
+
+
 /// @brief the configuration for a read task.
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -77,7 +88,7 @@ struct ReadTaskConfig {
        device_key(cfg.optional<std::string>("device", "cross-device")),
        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
-       timing_source(cfg.optional<std::string>("timing_source", "none")),
+       timing_source(cfg.optional<std::string>("timing_source", "")),
        samples_per_chan(
            static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
@@ -89,11 +100,12 @@ struct ReadTaskConfig {
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
-            cfg.field_err("channels", "task must have at least one channel");
+            cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
         if (this->sample_rate < this->stream_rate) {
-            cfg.field_err("sample_rate", "sample rate must be greater than or equal to stream rate");
+            cfg.field_err("sample_rate",
+                          "sample rate must be greater than or equal to stream rate");
             return;
         }
         std::vector<synnax::ChannelKey> channel_keys;
@@ -149,7 +161,7 @@ struct ReadTaskConfig {
         if (this->software_timed) return xerrors::NIL;
         return dmx->CfgSampClkTiming(
             handle,
-            this->timing_source == "none" ? nullptr : this->timing_source.c_str(),
+            this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
             this->sample_rate.value,
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
@@ -222,24 +234,20 @@ class ReadTask final : public task::Task {
             if (this->p.cfg.software_timed) this->timer.wait(breaker);
             auto start = this->p.hw_start_time;
             const size_t count = this->p.cfg.samples_per_chan;
-            const auto [n, err] = this->p.hw_reader->read(count, buffer);
-            if (err) return {Frame(), err};
+            const auto [n, err] = this->p.hw_reader->read(
+                this->p.cfg.samples_per_chan,
+                buffer
+            );
+            if (err) return {Frame(), translate_error(err)};
             auto end = start + (n - 1) * this->p.cfg.sample_rate.period();
             this->p.hw_start_time = end + this->p.cfg.sample_rate.period();
-
             auto f = synnax::Frame(this->p.cfg.channels.size());
-            size_t data_index = 0;
-            for (const auto &ch: this->p.cfg.channels) {
-                auto s = telem::Series(ch->ch.data_type, count);
-                const size_t start_idx = data_index * count;
-                if (s.data_type == this->data_type)
-                    s.write(buffer.data() + start_idx, count);
-                else
-                    for (int i = 0; i < count; ++i)
-                        s.write(s.data_type.cast(buffer.at(start_idx + i)));
-                f.emplace(ch->synnax_key, std::move(s));
-                data_index++;
-            }
+            size_t i = -1;
+            for (const auto &ch: this->p.cfg.channels)
+                f.emplace(
+                    ch->synnax_key,
+                    telem::Series::cast(ch->ch.data_type, buffer.data() + ++i * n, n)
+                );
             if (!this->p.cfg.indexes.empty()) {
                 const auto index_data = telem::Series::linspace(start, end, count);
                 for (const auto &idx: this->p.cfg.indexes)

@@ -126,7 +126,14 @@ public:
         time_range(other.time_range) {
     }
 
-    
+    template<typename T>
+    static Series cast(const DataType &data_type, T* data, const size_t size) {
+        auto s = Series(data_type, size);
+        if (DataType::infer<T>() == data_type)
+            s.write(data, size);
+        else for (size_t i = 0; i < size; i++) s.write(data_type.cast(data[i]));
+        return s;
+    }
 
     /// @brief allocates a series with the given data type and capacity (in samples).
     /// Allocated series are treated as buffers and are not initialized with any data.
