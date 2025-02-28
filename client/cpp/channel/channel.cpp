@@ -118,6 +118,19 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
+/// @brief rate based create.
+std::pair<Channel, xerrors::Error> ChannelClient::create(
+    const std::string &name,
+    const telem::DataType &data_type,
+    const bool is_virtual
+) const {
+    auto ch = Channel(name, data_type, is_virtual);
+    auto err = create(ch);
+    return {ch, err};
+}
+
+
+
 /// @brief multiple channel create.
 xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     auto req = api::v1::ChannelCreateRequest();

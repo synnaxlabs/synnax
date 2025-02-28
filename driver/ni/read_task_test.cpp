@@ -26,8 +26,133 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+/// @brief it should correctly parse a basic analog read task.
+namespace {
+json base_analog_config() {
+    return {
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {
+            "channels", json::array({
+                {
+                    {"type", "ai_accel"},
+                    {"key", "ks1VnWdrSVA"},
+                    {"port", 0},
+                    {"enabled", true},
+                    {"name", ""},
+                    {"channel", ""}, // Will be overridden
+                    {"terminal_config", "Cfg_Default"},
+                    {"min_val", 0},
+                    {"max_val", 1},
+                    {"sensitivity", 0},
+                    {"current_excit_source", "Internal"},
+                    {"current_excit_val", 0},
+                    {"custom_scale", {{"type", "none"}}},
+                    {"units", "g"},
+                    {"sensitivity_units", "mVoltsPerG"},
+                    {"device", ""} // Will be overridden
+                }
+            })
+        }
+    };
+}
+}
 
-class SingleChannelAnalogReadTest : public ::testing::Test {
+TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "abc123",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual",telem::FLOAT64_T,true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+}
+
+/// @brief it should return a validation error if the device does not exist.
+TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual",telem::FLOAT64_T,true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = "definitely_not_an_existing_device";
+    j["channels"][0]["channel"] = ch.key;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+}
+
+/// @brief it should return a validation error if the channel does not exist.
+TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "abc123",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = 12121212;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+}
+
+/// @brief it should return a validation error if the sample rate is less than the stream rate.
+TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "abc123",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    auto dev_err = sy->hardware.create_device(dev);
+    ASSERT_FALSE(dev_err) << dev_err;
+
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    j["sample_rate"] = 10;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+}
+
+class AnalogReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> sy;
     synnax::Task task;
@@ -131,7 +256,7 @@ protected:
 };
 
 /// @brief it should run a basic analog read task using a mock hardware implementation.
-TEST_F(SingleChannelAnalogReadTest, testBasicAnalogRead) {
+TEST_F(AnalogReadTest, testBasicAnalogRead) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
@@ -161,7 +286,7 @@ TEST_F(SingleChannelAnalogReadTest, testBasicAnalogRead) {
 }
 
 /// @breif it should communicate an error when the hardware fails to start.
-TEST_F(SingleChannelAnalogReadTest, testErrorOnStart) {
+TEST_F(AnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{
@@ -180,7 +305,7 @@ TEST_F(SingleChannelAnalogReadTest, testErrorOnStart) {
 }
 
 /// @brief it should communicate an error when the hardware fails to stop.
-TEST_F(SingleChannelAnalogReadTest, testErrorOnStop) {
+TEST_F(AnalogReadTest, testErrorOnStop) {
     parse_config();
     auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
         std::vector{xerrors::NIL},
@@ -203,7 +328,7 @@ TEST_F(SingleChannelAnalogReadTest, testErrorOnStop) {
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
-TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
+TEST_F(AnalogReadTest, testDataTypeCoersion) {
     data_channel.data_type = telem::FLOAT32_T;
     parse_config();
 
@@ -220,12 +345,12 @@ TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
     const auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.variant, "success");
 
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     rt->stop("stop_cmd", false);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.variant, "success");
 
-    ASSERT_EQ(mock_factory->writer_opens, 1);
     ASSERT_GE(mock_factory->writes->size(), 1);
 
     auto &fr = mock_factory->writes->at(0);
@@ -245,7 +370,7 @@ TEST_F(SingleChannelAnalogReadTest, testDataTypeCoersion) {
 }
 
 /// @brief it should not double communicate state if the task is already started.
-TEST_F(SingleChannelAnalogReadTest, testDoubleStart) {
+TEST_F(AnalogReadTest, testDoubleStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
@@ -264,7 +389,7 @@ TEST_F(SingleChannelAnalogReadTest, testDoubleStart) {
 }
 
 /// @brief it should not double communicate state if the task is already stopped.
-TEST_F(SingleChannelAnalogReadTest, testDoubleStop) {
+TEST_F(AnalogReadTest, testDoubleStop) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 

@@ -65,7 +65,7 @@ void eventually_compare(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    auto start = std::chrono::steady_clock::now();
+    const auto start = std::chrono::steady_clock::now();
     while (true) {
         if (comparator(actual(), expected)) return;
         
@@ -235,8 +235,31 @@ void eventually_ge(
 #define ASSERT_EVENTUALLY_GE_F_WITH_TIMEOUT(fn, expected, timeout, interval) \
     xtest::eventually_ge<decltype((fn)())>(std::function<decltype((fn)())()>(fn), (expected), (interval), (timeout))
 
+/// @brief Macro for asserting that an operation returning a pair<T, xerrors::Error> succeeded
+/// and returning the result value
+/// @param pair_expr The expression returning the pair to evaluate
+/// @return The first element of the pair (the result value) if successful
+#define ASSERT_NIL_P(pair_expr) \
+    ({\
+        auto __result = (pair_expr); \
+        ASSERT_FALSE(__result.second) << "Expected operation to succeed, but got error: " << __result.second; \
+        std::move(__result.first); \
+    })
+
+/// @brief Macro asserting that the provided xerrors::Error is NIL.
+#define ASSERT_NIL(expr) \
+    ASSERT_FALSE(expr) << expr;
+
+/// @brief Macro asserting that the provided xerrors::Error is the same as the provided error.
+#define ASSERT_OCCURRED_AS(expr, err) \
+    ASSERT_TRUE(expr) << expr; \
+    ASSERT_MATCHES(expr, err);
+
+/// @brief Macro asserting that the error return as the second item in the pair is the same as the provided error.
+#define ASSERT_OCCURRED_AS_P(expr, err) \
+    ASSERT_TRUE(expr.second) << expr.second; \
+    ASSERT_MATCHES(expr.second, err);
+
+#define ASSERT_MATCHES(err, expected) \
+    ASSERT_TRUE(err.matches(expected)) << "Expected error to match " << expected << ", but got " << err;
 } // namespace xtest
-
-
-
-

@@ -83,13 +83,17 @@ struct ReadTaskConfig {
        software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
-           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
-       bool> {
+           [&](xjson::Parser &ch_cfg)
+       -> std::pair<std::unique_ptr<channel::Input>, bool> {
                auto ch = channel::parse_input(ch_cfg, {});
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one channel");
+            return;
+        }
+        if (this->sample_rate < this->stream_rate) {
+            cfg.field_err("sample_rate", "sample rate must be greater than or equal to stream rate");
             return;
         }
         std::vector<synnax::ChannelKey> channel_keys;
@@ -117,12 +121,12 @@ struct ReadTaskConfig {
                 return;
             }
             devices = device_keys_map(devices_vec);
-
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
-            auto dev = this->device_key == "cross-device" ?
-                devices.at(ch->dev_key) : devices.at(this->device_key);
+            auto dev = this->device_key == "cross-device"
+                           ? devices.at(ch->dev_key)
+                           : devices.at(this->device_key);
             ch->bind_remote_info(remote_ch, dev.location);
             if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
         }
@@ -184,7 +188,6 @@ class ReadTask final : public task::Task {
     telem::TimeStamp hw_start_time = telem::TimeStamp(0);
     /// @brief handles communicating the task state back to the cluster.
     ni::TaskStateHandler state;
-    synnax::Task task_;
 
     /// @brief an internal source that we pass to the acquisition pipeline that manages
     /// the lifecycle of this task.
@@ -267,11 +270,11 @@ public:
            breaker_cfg
        ),
        hw_reader(std::move(reader)),
-       state(ctx, task), task_(std::move(task)) {
+       state(ctx, task) {
         this->pipe.add_middleware(this->tare_mw);
     }
 
-    /// @brief primary constructor that uses the task context's Synnnax client in order
+    /// @brief primary constructor that uses the task context's Synnax client in order
     /// to communicate with the cluster.
     explicit ReadTask(
         synnax::Task task,

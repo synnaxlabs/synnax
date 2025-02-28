@@ -14,6 +14,7 @@
 
 /// internal
 #include "x/cpp/xtest/xtest.h"
+#include "x/cpp/xerrors/errors.h"
 
 class XTestTest : public ::testing::Test {
 protected:
@@ -114,4 +115,14 @@ TEST_F(XTestTest, TestEventuallyLEWithCustomTimeout) {
         std::chrono::milliseconds(10)
     );
     t.join();
+}
+
+TEST_F(XTestTest, TestMustSucceedSuccess) {
+    // Create a pair that simulates a successful operation
+    auto successfulOp = []() -> std::pair<int, xerrors::Error> {
+        return {42, xerrors::NIL};
+    };
+
+    // Should extract the value from a successful operation
+    EXPECT_EQ(MUST_SUCCEED(successfulOp()), 42);
 }

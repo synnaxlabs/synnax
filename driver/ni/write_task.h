@@ -285,7 +285,6 @@ public:
             this->p.state.send_stop("");
         }
 
-
         xerrors::Error write(const synnax::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
             for (const auto &[key, series]: frame) {
