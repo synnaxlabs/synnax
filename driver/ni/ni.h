@@ -81,6 +81,14 @@ struct TaskStateHandler {
         return true;
     }
 
+    void send_warning(const std::string &warning) {
+        if (err) return;
+        this->wrapped.variant = "warning";
+        this->wrapped.details["running"] = true;
+        this->wrapped.details["message"] = warning;
+        this->ctx->set_state(this->wrapped);
+    }
+
     void send_start(const std::string &key) {
         this->wrapped.key = key;
         if (!this->err) {

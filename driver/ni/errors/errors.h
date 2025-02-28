@@ -19,7 +19,6 @@
 #include "nlohmann/json.hpp"
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/daqmx.h"
-#include "driver/ni/errors/fields.h"
 
 using json = nlohmann::json;
 
@@ -37,6 +36,7 @@ static const std::regex STATUS_CODE_LINE_REGEX(R"(\nStatus Code:.*$)");
 
 const xerrors::Error BASE_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
 const xerrors::Error FIELD_ERROR = BASE_ERROR.sub("field");
+const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = BASE_ERROR.sub("200561");
 
 using Status = int32;
 

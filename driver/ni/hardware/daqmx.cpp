@@ -42,7 +42,7 @@ DigitalWriter::DigitalWriter(
 }
 
 xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
-    return this->dmx->WriteDigitalU8(
+    return this->dmx->WriteDigitalLines(
         this->task_handle,
         1,
         1,

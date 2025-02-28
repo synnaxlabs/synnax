@@ -26,6 +26,7 @@
 #include "driver/ni/hardware/hardware.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/ni/errors/errors.h"
 #include "driver/task/task.h"
 
 namespace ni {
@@ -292,7 +293,13 @@ public:
                 if (it == this->p.cfg.channels.end()) continue;
                 buf[it->second->index] = telem::cast<T>(series.at_numeric(-1));
             }
-            if (const auto err = this->p.hw_writer->write(buf)) return err;
+            if (const auto err = this->p.hw_writer->write(buf)) {
+                if (ANALOG_WRITE_OUT_OF_BOUNDS.matches(err)) {
+                    this->p.state.send_warning(err.message());
+                    return xerrors::NIL;
+                }
+                return err;
+            }
 
             std::lock_guard lock{this->p.chan_state_lock};
             for (const auto &[key, series]: frame) {
