@@ -266,7 +266,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         undoableDispatch(
           addElement({
             key: layoutKey,
-            elKey: id.id(),
+            elKey: id.generate(),
             node: { position: pos, zIndex: spec.zIndex },
             props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
           }),

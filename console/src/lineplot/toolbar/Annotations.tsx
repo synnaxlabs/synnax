@@ -225,7 +225,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const handleCreateRule = (): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
     const color = visColors[rules.length % visColors.length]?.hex;
-    const key = id.id();
+    const key = id.generate();
     const axis = Y1;
     const position = bounds.mean(axes[axis].bounds);
     dispatch(setRule({ key: linePlotKey, rule: { key, color, axis, position } }));

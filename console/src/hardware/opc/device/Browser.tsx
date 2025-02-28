@@ -27,7 +27,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
-  SCAN_COMMAND_NAME,
+  SCAN_COMMAND_TYPE,
   SCAN_NAME,
   type ScanCommandResult,
 } from "@/hardware/opc/task/types";
@@ -73,7 +73,7 @@ export const Browser = ({ device }: BrowserProps) => {
       const { connection } = device.properties;
       setLoading(clicked);
       const { details } = await scanTask.executeCommandSync<ScanCommandResult>(
-        SCAN_COMMAND_NAME,
+        SCAN_COMMAND_TYPE,
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),
       );

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, device, type task } from "@synnaxlabs/client";
+import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
+
+import { Common } from "@/hardware/common";
 
 export const VERSION = "0.0.0";
 export const PREFIX = "ni";
@@ -17,7 +19,7 @@ export const PREFIX = "ni";
 
 const baseChannelZ = z.object({
   key: z.string(),
-  port: z.number(),
+  port: z.number().int().positive(),
   enabled: z.boolean(),
 });
 interface BaseChannel extends z.infer<typeof baseChannelZ> {}
@@ -1007,24 +1009,48 @@ export const ZERO_DO_CHANNEL: DOChannel = {
   line: 0,
 };
 
+export type Channel = AIChannel | AOChannel | DIChannel | DOChannel;
+
 // Tasks
 
-const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
-
-const baseConfigZ = z.object({ device: deviceKeyZ, dataSaving: z.boolean() });
+const baseConfigZ = z.object({ device: Common.Device.keyZ, dataSaving: z.boolean() });
 interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 const ZERO_BASE_CONFIG: BaseConfig = { device: "", dataSaving: true };
 
-type BaseStateDetails = { running: boolean };
+export type BaseStateDetails = { running: boolean };
 
+const validateAnalogPorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
+  const portsToIndexMap = new Map<number, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portsToIndexMap.has(port)) {
+      portsToIndexMap.set(port, i);
+      return;
+    }
+    const index = portsToIndexMap.get(port) as number;
+    const baseIssue = {
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port} has already been used on another channel`,
+    };
+    addIssue({ ...baseIssue, path: [index, "port"] });
+    addIssue({ ...baseIssue, path: [i, "port"] });
+  });
+};
 // Analog Read Task
 
-export const analogReadConfigZ = baseConfigZ.extend({
-  version: z.literal(VERSION).optional().default(VERSION),
-  sampleRate: z.number().min(0).max(50000),
-  streamRate: z.number().min(0).max(50000),
-  channels: z.array(aiChannelZ),
-});
+export const analogReadConfigZ = baseConfigZ
+  .extend({
+    version: z.literal(VERSION).optional().default(VERSION),
+    sampleRate: z.number().positive().max(50000),
+    streamRate: z.number().positive().max(50000),
+    channels: z
+      .array(aiChannelZ)
+      .length(1, "Must specify at least one channel")
+      .superRefine(Common.Task.validateUniqueChannelKeys)
+      .refine(Common.Task.validateSomeChannelsEnabled)
+      .superRefine(validateAnalogPorts)
+      .superRefine(Common.Task.validateReadChannels),
+  })
+  .refine(Common.Task.validateStreamRate);
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   ...ZERO_BASE_CONFIG,
@@ -1054,8 +1080,14 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 // Analog Write Task
 
 export const analogWriteConfigZ = baseConfigZ.extend({
-  stateRate: z.number().min(0).max(50000),
-  channels: z.array(aoChannelZ),
+  stateRate: z.number().positive().max(50000),
+  channels: z
+    .array(aoChannelZ)
+    .length(1, "Must specify at least one channel")
+    .superRefine(Common.Task.validateUniqueChannelKeys)
+    .refine(Common.Task.validateSomeChannelsEnabled)
+    .superRefine(validateAnalogPorts)
+    .superRefine(Common.Task.validateWriteChannels),
 });
 export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
 const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
@@ -1080,11 +1112,44 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
 
 // Digital Read Task
 
-export const digitalReadConfigZ = baseConfigZ.extend({
-  sampleRate: z.number().min(0).max(50000),
-  streamRate: z.number().min(0).max(50000),
-  channels: z.array(diChannelZ),
-});
+const validateDigitalChannels = (
+  channels: DIChannel[] | DOChannel[],
+  { addIssue }: z.RefinementCtx,
+) => {
+  const portLineToIndexMap = new Map<string, number>();
+  channels.forEach(({ port, line }, i) => {
+    const key = JSON.stringify({ port, line });
+    if (!portLineToIndexMap.has(key)) {
+      portLineToIndexMap.set(key, i);
+      return;
+    }
+    const index = portLineToIndexMap.get(key) as number;
+    addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port}, line ${line} has already been used on another channel`,
+      path: [index, "line"],
+    });
+    addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port}, line ${line} has already been used on another channel`,
+      path: [i, "line"],
+    });
+  });
+};
+
+export const digitalReadConfigZ = baseConfigZ
+  .extend({
+    sampleRate: z.number().positive().max(50000),
+    streamRate: z.number().positive().max(50000),
+    channels: z
+      .array(diChannelZ)
+      .length(1, "Must specify at least one channel")
+      .superRefine(Common.Task.validateUniqueChannelKeys)
+      .refine(Common.Task.validateSomeChannelsEnabled)
+      .superRefine(validateDigitalChannels)
+      .superRefine(Common.Task.validateReadChannels),
+  })
+  .refine(Common.Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   ...ZERO_BASE_CONFIG,
@@ -1110,8 +1175,14 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 // Digital Write Task
 
 export const digitalWriteConfigZ = baseConfigZ.extend({
-  channels: z.array(doChannelZ),
-  stateRate: z.number().min(0).max(50000),
+  channels: z
+    .array(doChannelZ)
+    .length(1, "Must specify at least one channel")
+    .superRefine(Common.Task.validateUniqueChannelKeys)
+    .refine(Common.Task.validateSomeChannelsEnabled)
+    .superRefine(validateDigitalChannels)
+    .superRefine(Common.Task.validateWriteChannels),
+  stateRate: z.number().positive().max(50000),
 });
 export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
 const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {

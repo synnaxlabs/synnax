@@ -57,7 +57,7 @@ export interface Payload<
   state?: State<Details> | null;
 }
 
-export const newZ = taskZ.omit({ key: true }).extend({
+export const newZ = taskZ.omit({ key: true, state: true }).extend({
   key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });

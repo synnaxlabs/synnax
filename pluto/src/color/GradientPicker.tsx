@@ -80,7 +80,7 @@ export const GradientPicker = ({
           const x = stopPosition(e);
           if (x == null) return;
           const newStop: color.Stop = {
-            key: id.id(),
+            key: id.generate(),
             color: "#FFFFFF",
             position: x,
           };

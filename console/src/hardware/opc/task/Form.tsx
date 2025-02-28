@@ -24,12 +24,9 @@ import { useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import {
-  type ReadChannelConfig,
-  type WriteChannelConfig,
-} from "@/hardware/opc/task/types";
+import { type ReadChannel, type WriteChannel } from "@/hardware/opc/task/types";
 
-type ChannelConfig = ReadChannelConfig | WriteChannelConfig;
+type ChannelConfig = ReadChannel | WriteChannel;
 
 export interface ExtraItemProps {
   path: string;

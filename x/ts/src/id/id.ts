@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { customAlphabet } from "nanoid/non-secure";
+import { z } from "zod";
 
 const ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -19,3 +20,12 @@ const generator = customAlphabet(ALPHANUMERIC, 11);
  * @returns {string} A unique alphanumeric string.
  */
 export const generate = (): string => generator();
+
+const REGEX = /^[0-9A-Za-z]{11}$/;
+
+export const validate = (id: string): boolean => REGEX.test(id);
+
+export const schema = z
+  .string()
+  .regex(REGEX, "Invalid ID, must be exactly 11 characters and alphanumeric");
+export type ID = z.infer<typeof schema>;

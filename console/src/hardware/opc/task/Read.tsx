@@ -18,7 +18,7 @@ import { Device } from "@/hardware/opc/device";
 import { Form } from "@/hardware/opc/task/Form";
 import {
   READ_TYPE,
-  type ReadChannelConfig,
+  type ReadChannel,
   type ReadConfig,
   readConfigZ,
   type ReadStateDetails,
@@ -197,7 +197,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
       indexChannel = idx.key;
     }
   }
-  const toCreate: ReadChannelConfig[] = [];
+  const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
     const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
     if (primitiveIsZero(exKey)) toCreate.push(ch);

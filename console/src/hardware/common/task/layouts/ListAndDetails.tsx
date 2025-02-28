@@ -20,11 +20,11 @@ import { binary } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
   ChannelList,
   type ChannelListProps,
 } from "@/hardware/common/task/layouts/ChannelList";
+import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface GenerateChannel<C extends Channel> {

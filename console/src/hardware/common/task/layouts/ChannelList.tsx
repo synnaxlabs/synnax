@@ -12,10 +12,10 @@ import { Align, Form, Header as PHeader, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import {
-  type Channel,
   ChannelList as Core,
   type ChannelListProps as CoreProps,
 } from "@/hardware/common/task/ChannelList";
+import { type Channel } from "@/hardware/common/task/types";
 
 interface HeaderProps {
   isSnapshot: boolean;

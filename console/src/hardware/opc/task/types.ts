@@ -10,23 +10,15 @@
 import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { Common } from "@/hardware/common";
+
 export const PREFIX = "opc";
 
-// Reads
-export const READ_TYPE = `${PREFIX}_read`;
-export type ReadType = typeof READ_TYPE;
+// Channels
 
-export type ReadChannelConfig = z.infer<typeof readChanZ>;
+// Read Channels
 
-export const readStateDetails = z.object({
-  running: z.boolean().optional().default(false),
-  message: z.string().optional(),
-});
-
-export type ReadStateDetails = z.infer<typeof readStateDetails>;
-export type ReadState = task.State<ReadStateDetails>;
-
-export const readChanZ = z.object({
+export const readChannelZ = z.object({
   key: z.string(),
   name: z.string(),
   channel: z.number(),
@@ -36,59 +28,94 @@ export const readChanZ = z.object({
   useAsIndex: z.boolean(),
   dataType: z.string(),
 });
+export interface ReadChannel extends z.infer<typeof readChannelZ> {}
+
+// Write Channels
+
+export const writeChannelZ = z.object({
+  key: z.string(),
+  name: z.string(),
+  cmdChannel: z.number(),
+  nodeName: z.string(),
+  nodeId: z.string(),
+  enabled: z.boolean(),
+  dataType: z.string(),
+});
+export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+
+// Tasks
+
+// Read Task
+
+const baseReadConfigZ = z.object({
+  device: Common.Device.keyZ,
+  sampleRate: z.number().positive().max(10000),
+  channels: z.array(readChannelZ).superRefine(Common.Task.validateReadChannels),
+  dataSaving: z.boolean().optional().default(true),
+});
+
+const nonArraySamplingConfig = baseReadConfigZ
+  .and(
+    z.object({
+      arrayMode: z.literal(false),
+      streamRate: z.number().positive().max(10000),
+    }),
+  )
+  .refine(Common.Task.validateStreamRate);
+
+const arraySamplingConfig = baseReadConfigZ
+  .and(
+    z.object({
+      arrayMode: z.literal(true),
+      arraySize: z.number().int().positive(),
+    }),
+  )
+  .refine(({ sampleRate, arraySize }) => sampleRate >= arraySize, {
+    message: "Sample rate must be greater than or equal to the array size",
+    path: ["sampleRate"],
+  });
+
+export const newReadConfigZ = z.union([nonArraySamplingConfig, arraySamplingConfig]);
+export type NewReadConfig = z.infer<typeof newReadConfigZ>;
 
 export const readConfigZ = z
   .object({
-    device: z.string().min(1, "Device must be specified"),
-    sampleRate: z.number().min(1).max(10000),
-    streamRate: z.number(),
+    device: Common.Device.keyZ,
+    sampleRate: z.number().positive().max(10000),
+    streamRate: z.number().positive().max(10000).default(1),
     arrayMode: z.boolean(),
-    arraySize: z.number().min(1),
-    channels: z.array(readChanZ),
+    arraySize: z.number().int().positive().default(1),
+    channels: z
+      .array(readChannelZ)
+      .length(1, "Must specify at least one channel")
+      .superRefine(Common.Task.validateReadChannels),
     dataSaving: z.boolean().optional().default(true),
   })
+  .transform((cfg) => {
+    if (cfg.arrayMode) cfg.streamRate = 1;
+    else cfg.arraySize = 1;
+    return cfg;
+  })
   .refine(
-    (cfg) => {
-      if (cfg.arrayMode) return true;
-      return cfg.sampleRate >= cfg.streamRate;
-    },
+    ({ arrayMode, sampleRate, streamRate }) => arrayMode || sampleRate >= streamRate,
     {
-      message: "Sample rate must be greater than or equal to stream rate",
-      path: ["sampleRate"],
+      message: "Stream rate must be less than or equal to the sample rate",
+      path: ["streamRate"],
     },
   )
   .refine(
-    (cfg) => {
-      if (!cfg.arrayMode) return true;
-      return cfg.sampleRate >= cfg.arraySize;
-    },
+    ({ arrayMode, arraySize, sampleRate }) => !arrayMode || sampleRate >= arraySize,
     {
       message: "Sample rate must be greater than or equal to the array size",
       path: ["sampleRate"],
     },
   )
-  .refine(
-    (cfg) => {
-      if (cfg.arrayMode) return true;
-      return cfg.streamRate > 0;
-    },
-    { message: "Stream rate must be greater than or equal to 1", path: ["streamRate"] },
-  )
-  // Error if channel ahs been duplicated
-  .superRefine((cfg, ctx) => {
-    const channels = new Map<number, number>();
-    cfg.channels.forEach(({ channel }) =>
-      channels.set(channel, (channels.get(channel) ?? 0) + 1),
-    );
-    cfg.channels.forEach(({ channel }, i) => {
-      if (channel === 0 || (channels.get(channel) ?? 0) < 2) return;
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["channels", i, "channel"],
-        message: "This channel has already been used elsewhere in the configuration",
-      });
-    });
+  .refine(({ arrayMode, streamRate }) => arrayMode || streamRate > 0, {
+    message: "Stream rate must be greater than or equal to 1",
+    path: ["streamRate"],
   })
+  // Error if channel ahs been duplicated
+
   // Warning if node ID is duplicated
   .superRefine((cfg, ctx) => {
     const nodeIds = new Map<string, number>();
@@ -104,13 +131,20 @@ export const readConfigZ = z
         params: { variant: "warning" },
       });
     });
-  })
-  .transform((cfg) => {
-    if (!cfg.arrayMode) cfg.arraySize = 1;
-    return cfg;
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
+
+export const readStateDetails = z.object({
+  running: z.boolean().optional().default(false),
+  message: z.string().optional(),
+});
+export type ReadStateDetails = z.infer<typeof readStateDetails>;
+export type ReadState = task.State<ReadStateDetails>;
+
+export const READ_TYPE = `${PREFIX}_read`;
+export type ReadType = typeof READ_TYPE;
+
 export type ReadTask = task.Task<ReadConfig, ReadStateDetails, ReadType>;
 export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
@@ -128,88 +162,33 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   },
 };
 
-export interface NodeId {
-  namespaceIndex: number;
-  identifierType: NodeIdType;
-  identifier: string | number; // Strings for String, GUID, and ByteString types, number for Numeric
+// Scan Task
+
+export const SCAN_NAME = "opc Scanner";
+export const SCAN_COMMAND_TYPE = "scan";
+
+export interface ScannedNode {
+  nodeId: string;
+  dataType: string;
+  name: string;
+  nodeClass: string;
+  isArray: boolean;
 }
 
-export const parseNodeId = (nodeIdStr: string): NodeId | null => {
-  const regex = /NS=(\d+);(I|S|G|B)=(.+)/;
-  const match = nodeIdStr.match(regex);
+export const TEST_CONNECTION_COMMAND = "test_connection";
+export type TestConnectionCommandResponse = { message: string };
 
-  if (match === null) return null;
+export interface TestConnectionCommandState
+  extends task.State<TestConnectionCommandResponse> {}
 
-  const namespaceIndex = parseInt(match[1]);
-  const typeCode = match[2];
-  const identifier = match[3];
+export type ScanCommandResult = { channels: ScannedNode[] };
 
-  let identifierType: NodeIdType;
-
-  switch (typeCode) {
-    case "I":
-      identifierType = "Numeric";
-      return {
-        namespaceIndex,
-        identifierType,
-        identifier: parseInt(identifier),
-      };
-    case "S":
-      identifierType = "String";
-      break;
-    case "G":
-      identifierType = "GUID";
-      break;
-    case "B":
-      identifierType = "ByteString";
-      break;
-    default:
-      return null;
-  }
-
-  return { namespaceIndex, identifierType, identifier };
-};
-
-export const nodeIdToString = (nodeId: NodeId): string => {
-  const prefix = `NS=${nodeId.namespaceIndex};`;
-  switch (nodeId.identifierType) {
-    case "Numeric":
-      return `${prefix}I=${nodeId.identifier}`;
-    case "String":
-    case "GUID":
-    case "ByteString":
-      return `${prefix}${nodeId.identifierType.charAt(0)}=${nodeId.identifier}`;
-  }
-};
-
-// Writes
-export const WRITE_TYPE = `${PREFIX}_write`;
-export type WriteType = typeof WRITE_TYPE;
-
-export type WriteChannelConfig = z.infer<typeof writeChanZ>;
-
-export const writeStateDetails = z.object({
-  running: z.boolean().optional().default(false),
-  message: z.string().optional(),
-});
-
-export type WriteStateDetails = z.infer<typeof writeStateDetails>;
-export type WriteState = task.State<WriteStateDetails>;
-
-export const writeChanZ = z.object({
-  key: z.string(),
-  name: z.string(),
-  cmdChannel: z.number(),
-  nodeName: z.string(),
-  nodeId: z.string(),
-  enabled: z.boolean(),
-  dataType: z.string(),
-});
+// Write Task
 
 export const writeConfigZ = z
   .object({
     device: z.string().min(1, "Device must be specified"),
-    channels: z.array(writeChanZ),
+    channels: z.array(writeChannelZ),
     dataSaving: z.boolean().optional().default(true),
   })
   // Error if channel has been duplicated
@@ -243,35 +222,30 @@ export const writeConfigZ = z
       });
     });
   });
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+export const ZERO_WRITE_CONFIG: WriteConfig = {
+  device: "",
+  channels: [],
+  dataSaving: true,
+};
 
-export type WriteConfig = z.infer<typeof writeConfigZ>;
+export interface WriteStateDetails {
+  running: boolean;
+  message?: string;
+}
+export interface WriteState extends task.State<WriteStateDetails> {}
+
+export const WRITE_TYPE = `${PREFIX}_write`;
+export type WriteType = typeof WRITE_TYPE;
+
 export type WritePayload = task.Payload<WriteConfig, WriteStateDetails, WriteType>;
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   type: WRITE_TYPE,
   name: "OPC UA Write Task",
-  config: { device: "", channels: [], dataSaving: true },
+  config: ZERO_WRITE_CONFIG,
 };
 
-type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
-
-// scan task
-
-export const SCAN_NAME = "opc Scanner";
-export const SCAN_COMMAND_NAME = "scan";
-
-type ScannedNode = {
-  nodeId: string;
-  dataType: string;
-  name: string;
-  nodeClass: string;
-  isArray: boolean;
-};
-
-export const TEST_CONNECTION_COMMAND = "test_connection";
-export type TestConnectionCommandResponse = { message: string };
-
-export interface TestConnectionCommandState
-  extends task.State<TestConnectionCommandResponse> {}
-
-export type ScanCommandResult = { channels: ScannedNode[] };
+export interface WriteTask
+  extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
+export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}

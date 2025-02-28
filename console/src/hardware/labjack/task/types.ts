@@ -7,29 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, device, type task } from "@synnaxlabs/client";
+import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
+
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/labjack/device";
 
 export const PREFIX = "labjack";
 
-// Channels
+// Base Channels
 
-const baseChannelZ = z.object({
-  port: z.string().min(1, "Port must be specified"),
-  enabled: z.boolean(),
-  key: z.string().min(1, "Key must be specified"),
-});
-interface BaseChannel extends z.infer<typeof baseChannelZ> {}
-const ZERO_BASE_CHANNEL: BaseChannel = { port: "", enabled: true, key: "" };
+const portZ = z.string().min(1, "Port must be specified");
 
-// Input Channels
+// Digital Channels
 
-const baseInputChannelZ = baseChannelZ.extend({ channel: channel.keyZ });
-interface BaseInputChannel extends z.infer<typeof baseInputChannelZ> {}
-const ZERO_BASE_INPUT_CHANNEL: BaseInputChannel = {
-  ...ZERO_BASE_CHANNEL,
-  channel: 0,
-};
+const digitalPortZ = portZ.regex(
+  Device.DIO_PORT_REGEX,
+  "Invalid port, port must start with DIO and end with an integer",
+);
 
 // Analog Input Channels
 
@@ -66,14 +61,15 @@ export const ZERO_SCALES: Record<ScaleType, Scale> = {
 export const AI_CHANNEL_TYPE = "AI";
 export type AIChannelType = typeof AI_CHANNEL_TYPE;
 
-const aiChannelZ = baseInputChannelZ.extend({
+const aiChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(AI_CHANNEL_TYPE),
   range: z.number().finite().optional(),
   scale: scaleZ,
+  port: digitalPortZ,
 });
 interface AIChannel extends z.infer<typeof aiChannelZ> {}
 const ZERO_AI_CHANNEL: AIChannel = {
-  ...ZERO_BASE_INPUT_CHANNEL,
+  ...Common.Task.ZERO_READ_CHANNEL,
   type: AI_CHANNEL_TYPE,
   port: "AIN0",
   range: 0,
@@ -85,12 +81,13 @@ const ZERO_AI_CHANNEL: AIChannel = {
 export const DI_CHANNEL_TYPE = "DI";
 export type DIChannelType = typeof DI_CHANNEL_TYPE;
 
-const diChannelZ = baseInputChannelZ.extend({
+const diChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(DI_CHANNEL_TYPE),
+  port: digitalPortZ,
 });
 interface DIChannel extends z.infer<typeof diChannelZ> {}
 const ZERO_DI_CHANNEL: DIChannel = {
-  ...ZERO_BASE_INPUT_CHANNEL,
+  ...Common.Task.ZERO_READ_CHANNEL,
   port: "DIO4",
   type: DI_CHANNEL_TYPE,
 };
@@ -145,15 +142,17 @@ interface TCChannel extends z.infer<typeof tcChannelZ> {}
 const ZERO_TC_CHANNEL: TCChannel = {
   ...ZERO_AI_CHANNEL,
   type: TC_CHANNEL_TYPE,
-  thermocoupleType: KELVIN_UNIT,
+  thermocoupleType: K_TC_TYPE,
   posChan: 0,
   negChan: 199,
-  units: "K",
+  units: KELVIN_UNIT,
   cjcSource: DEVICE_CJC_SOURCE,
   cjcSlope: 1,
   cjcOffset: 0,
   scale: NO_SCALE,
 };
+
+// Input Channels
 
 const inputChannelZ = z.union([aiChannelZ, diChannelZ, tcChannelZ]);
 export type InputChannel = z.infer<typeof inputChannelZ>;
@@ -173,97 +172,111 @@ export const ZERO_INPUT_CHANNELS: Record<InputChannelType, InputChannel> = {
 };
 export const ZERO_INPUT_CHANNEL: InputChannel = ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE];
 
-// Output Channels
+// Base Output Channels
+
+const baseOutputChannelZ = Common.Task.channelZ.extend({
+  cmdKey: channel.keyZ,
+  stateKey: channel.keyZ,
+});
+interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
+const ZERO_BASE_OUTPUT_CHANNEL: BaseOutputChannel = {
+  ...Common.Task.ZERO_CHANNEL,
+  cmdKey: 0,
+  stateKey: 0,
+};
+
+// Analog Output Channels
 
 export const AO_CHANNEL_TYPE = "AO";
 export type AOChannelType = typeof AO_CHANNEL_TYPE;
 
+const aoChannelZ = baseOutputChannelZ.extend({
+  type: z.literal(AO_CHANNEL_TYPE),
+  port: portZ.regex(
+    Device.DAC_PORT_REGEX,
+    "Invalid port, ports must start with DAC and end with an integer",
+  ),
+});
+interface AOChannel extends z.infer<typeof aoChannelZ> {}
+const ZERO_AO_CHANNEL: AOChannel = {
+  ...ZERO_BASE_OUTPUT_CHANNEL,
+  type: AO_CHANNEL_TYPE,
+  port: "DAC0",
+};
+
+// Digital Output Channels
+
 export const DO_CHANNEL_TYPE = "DO";
 export type DOChannelType = typeof DO_CHANNEL_TYPE;
 
-export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
-export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
-
-const outputChannelZ = baseChannelZ.extend({
-  type: outputChannelTypeZ,
-  cmdKey: channel.keyZ,
-  stateKey: channel.keyZ,
+const doChannelZ = baseOutputChannelZ.extend({
+  type: z.literal(DO_CHANNEL_TYPE),
+  port: portZ.regex(
+    Device.DIO_PORT_REGEX,
+    "Invalid port, ports must start with DIO and end with an integer",
+  ),
 });
-export interface OutputChannel extends z.infer<typeof outputChannelZ> {}
-export const ZERO_OUTPUT_CHANNEL: OutputChannel = {
-  ...ZERO_BASE_CHANNEL,
-  port: "DIO4",
-  cmdKey: 0,
-  stateKey: 0,
+interface DOChannel extends z.infer<typeof doChannelZ> {}
+const ZERO_DO_CHANNEL: DOChannel = {
+  ...ZERO_BASE_OUTPUT_CHANNEL,
   type: DO_CHANNEL_TYPE,
+  port: "DIO4",
 };
+
+// Output Channels
+
+const outputChannelZ = z.union([aoChannelZ, doChannelZ]);
+export type OutputChannel = z.infer<typeof outputChannelZ>;
+export type OutputChannelType = OutputChannel["type"];
+
+export const ZERO_OUTPUT_CHANNELS: Record<OutputChannelType, OutputChannel> = {
+  [AO_CHANNEL_TYPE]: ZERO_AO_CHANNEL,
+  [DO_CHANNEL_TYPE]: ZERO_DO_CHANNEL,
+};
+export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNEL_TYPE];
+
+// Channels
 
 export type Channel = InputChannel | OutputChannel;
 export type ChannelType = Channel["type"];
 
 // Tasks
 
-const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
-
 export interface BaseStateDetails {
   running: boolean;
 }
 
-// Read Tasks
+const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
+  const portToIndexMap = new Map<string, number>();
+  channels.forEach(({ port }, i) => {
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const baseIssue = {
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port} has already been used on another channel`,
+    };
+    addIssue({ ...baseIssue, path: [index, "port"] });
+    addIssue({ ...baseIssue, path: [i, "port"] });
+  });
+};
+
+// Read Task
 
 export const readConfigZ = z
   .object({
-    device: deviceKeyZ,
-    sampleRate: z.number().min(0).max(50000),
-    streamRate: z.number().min(0).max(50000),
+    device: Common.Device.keyZ,
+    sampleRate: z.number().positive().max(50000),
+    streamRate: z.number().positive().max(50000),
     channels: z
       .array(inputChannelZ)
-      .refine((channels) => channels.some(({ enabled }) => enabled), {
-        message: "At least one channel must be enabled",
-      })
-      .superRefine((channels, { addIssue }) => {
-        const portSet = new Set<string>();
-        channels.forEach(({ port }, i) => {
-          if (portSet.has(port))
-            addIssue({
-              code: z.ZodIssueCode.custom,
-              path: [i, "port"],
-              message: `Port ${port} has already been used on another channel`,
-            });
-          else portSet.add(port);
-        });
-      })
-      .superRefine((channels, { addIssue }) => {
-        const channelSet = new Set<number>();
-        channels.forEach(({ channel }, i) => {
-          if (channel === 0) return;
-          if (channelSet.has(channel))
-            addIssue({
-              code: z.ZodIssueCode.custom,
-              path: [i, "channel"],
-              message: `Synnax channel with key ${channel} is being used elsewhere in the configuration`,
-            });
-          else channelSet.add(channel);
-        });
-      })
-      .superRefine((channels, { addIssue }) => {
-        const keySet = new Set<string>();
-        channels.forEach(({ key }, i) => {
-          if (keySet.has(key))
-            addIssue({
-              code: z.ZodIssueCode.custom,
-              path: [i, "key"],
-              message: `Key ${key} has already been used on another channel`,
-            });
-          else keySet.add(key);
-        });
-      }),
+      .superRefine(Common.Task.validateReadChannels)
+      .superRefine(validateUniquePorts),
     dataSaving: z.boolean(),
   })
-  .refine(({ sampleRate, streamRate }) => sampleRate >= streamRate, {
-    path: ["streamRate"],
-    message: "Stream rate must be less than or equal to the sample rate",
-  });
+  .refine(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
   device: "",
@@ -277,6 +290,7 @@ export interface ReadStateDetails extends BaseStateDetails {
   message: string;
   errors?: { message: string; path: string }[];
 }
+export interface ReadState extends task.State<ReadStateDetails> {}
 
 export const READ_TYPE = `${PREFIX}_read`;
 export type ReadType = typeof READ_TYPE;
@@ -291,64 +305,51 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 };
 
 export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
+export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
 
-// Write Tasks
+// Write Task
+
+interface IndexAndType {
+  index: number;
+  type: "cmd" | "state";
+}
 
 export const writeConfigZ = z.object({
-  device: deviceKeyZ,
+  device: Common.Device.keyZ,
   channels: z
     .array(outputChannelZ)
-    .refine((channels) => channels.some(({ enabled }) => enabled), {
-      message: "At least one channel must be enabled",
-    })
+    .superRefine(Common.Task.validateChannels)
+    .superRefine(validateUniquePorts)
     .superRefine((channels, { addIssue }) => {
-      const portSet = new Set<string>();
-      channels.forEach(({ port }, i) => {
-        if (portSet.has(port))
-          addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [i, "port"],
-            message: `Port ${port} has already been used on another channel`,
-          });
-        else portSet.add(port);
-      });
-    })
-    .superRefine((channels, { addIssue }) => {
-      const cmdChannelSet = new Set<number>();
-      const stateChannelSet = new Set<number>();
+      // This has to be separate from the common write channel validation because
+      // LabJack write channels stupidly use 'cmdKey' and 'stateKey' instead of
+      // 'cmdChannel' and 'stateChannel' like everything else.
+      const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
       channels.forEach(({ cmdKey, stateKey }, i) => {
         if (cmdKey !== 0)
-          if (cmdChannelSet.has(cmdKey))
-            addIssue({
+          if (channelsToIndexMap.has(cmdKey)) {
+            const { index, type } = channelsToIndexMap.get(cmdKey) as IndexAndType;
+            const baseIssue = {
               code: z.ZodIssueCode.custom,
-              path: [i, "cmdKey"],
-              message: `Command channel with key ${cmdKey} is being used elsewhere in the configuration`,
-            });
-          else cmdChannelSet.add(cmdKey);
+              message: `Synnax channel with key ${cmdKey} is used on multiple channels`,
+            };
+            addIssue({ ...baseIssue, path: [index, `${type}Key`] });
+            addIssue({ ...baseIssue, path: [i, "cmdKey"] });
+          } else channelsToIndexMap.set(cmdKey, { index: i, type: "cmd" });
         if (stateKey === 0) return;
-        if (stateChannelSet.has(stateKey))
-          addIssue({
+        if (channelsToIndexMap.has(stateKey)) {
+          const { index, type } = channelsToIndexMap.get(stateKey) as IndexAndType;
+          const baseIssue = {
             code: z.ZodIssueCode.custom,
-            path: [i, "stateKey"],
-            message: `State channel with key ${stateKey} is being used elsewhere in the configuration`,
-          });
-        else stateChannelSet.add(stateKey);
-      });
-    })
-    .superRefine((channels, { addIssue }) => {
-      const keySet = new Set<string>();
-      channels.forEach(({ key }, i) => {
-        if (keySet.has(key))
-          addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [i, "key"],
-            message: `Key ${key} has already been used on another channel`,
-          });
-        else keySet.add(key);
+            message: `Synnax channel with key ${stateKey} is used on multiple channels`,
+          };
+          addIssue({ ...baseIssue, path: [index, `${type}Key`] });
+          addIssue({ ...baseIssue, path: [i, "stateKey"] });
+        } else channelsToIndexMap.set(stateKey, { index: i, type: "state" });
       });
     }),
   dataSaving: z.boolean(),
-  stateRate: z.number().min(1).max(50000),
+  stateRate: z.number().positive().max(50000),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 const ZERO_WRITE_CONFIG: WriteConfig = {
@@ -359,6 +360,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
 };
 
 export interface WriteStateDetails extends BaseStateDetails {}
+export interface WriteState extends task.State<WriteStateDetails> {}
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export type WriteType = typeof WRITE_TYPE;
@@ -374,3 +376,4 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 
 export interface WriteTask
   extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
+export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}

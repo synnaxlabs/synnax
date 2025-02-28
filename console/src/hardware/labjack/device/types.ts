@@ -43,12 +43,16 @@ export interface AIPort extends BasePort {
   voltageRange: bounds.Bounds;
 }
 
+export const AIN_PORT_REGEX = /^AIN\d+$/;
+
 export const AO_PORT_TYPE = "AO";
 export type AOPortType = typeof AO_PORT_TYPE;
 
 export interface AOPort extends BasePort {
   type: AOPortType;
 }
+
+export const DAC_PORT_REGEX = /^DAC\d+$/;
 
 export const DI_PORT_TYPE = "DI";
 export type DIPortType = typeof DI_PORT_TYPE;
@@ -63,6 +67,8 @@ export type DOPortType = typeof DO_PORT_TYPE;
 export interface DOPort extends BasePort {
   type: DOPortType;
 }
+
+export const DIO_PORT_REGEX = /^DIO\d+$/;
 
 export type Port = AIPort | AOPort | DIPort | DOPort;
 export type PortType = Port["type"];

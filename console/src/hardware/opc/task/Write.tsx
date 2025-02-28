@@ -16,7 +16,7 @@ import { Device } from "@/hardware/opc/device";
 import { Form } from "@/hardware/opc/task/Form";
 import {
   WRITE_TYPE,
-  type WriteChannelConfig,
+  type WriteChannel,
   type WriteConfig,
   writeConfigZ,
   type WriteStateDetails,
@@ -65,7 +65,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.migrateProperties(dev.properties);
   let modified = false;
-  const commandsToCreate: WriteChannelConfig[] = [];
+  const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
     const key = getChannelByNodeID(dev.properties, channel.nodeId);
     if (primitiveIsZero(key)) commandsToCreate.push(channel);

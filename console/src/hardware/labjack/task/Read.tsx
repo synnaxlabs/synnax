@@ -151,7 +151,7 @@ const getOpenChannel = (
   index: number,
   device: Device.Device,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.id() };
+  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.generate() };
   const channelToCopy = channels[index];
   // preferredPortType is AI or DI
   const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
@@ -173,7 +173,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
-    key: id.id(),
+    key: id.generate(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
   };

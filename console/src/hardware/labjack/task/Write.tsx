@@ -145,7 +145,8 @@ const ChannelListItem = ({
 };
 
 const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
-  if (channels.length === 0) return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.id() };
+  if (channels.length === 0)
+    return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.generate() };
   const last = channels[channels.length - 1];
   const backupType =
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
@@ -157,7 +158,7 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
   return {
     ...deep.copy(last),
     type: port.type,
-    key: id.id(),
+    key: id.generate(),
     port: port.key,
     cmdKey: existingCommandStatePair.command,
     stateKey: existingCommandStatePair.state,
