@@ -54,11 +54,11 @@ protected:
     /// @brief the handle for the task.
     TaskHandle task_handle;
     /// @brief the NI DAQmx API.
-    std::shared_ptr<SugaredDAQmx> dmx;
+    std::shared_ptr<::daqmx::SugaredAPI> dmx;
     /// @brief a flag to indicate if the task is running.
     std::atomic<bool> running = false;
 
-    Base(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx);
+    Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx);
     ~Base() override;
 
 public:
@@ -71,7 +71,7 @@ public:
 
 struct DigitalWriter final : Base, Writer<uint8_t> {
     DigitalWriter(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     xerrors::Error write(const std::vector<uint8_t> &data) override;
@@ -79,7 +79,7 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
 
 struct AnalogWriter final : Base, Writer<double> {
     AnalogWriter(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     xerrors::Error write(const std::vector<double> &data) override;
@@ -88,7 +88,7 @@ struct AnalogWriter final : Base, Writer<double> {
 /// @brief a hardware interface for digital tasks.
 struct DigitalReader final : Base, Reader<uint8_t> {
     DigitalReader(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     std::pair<size_t, xerrors::Error> read(
@@ -100,7 +100,7 @@ struct DigitalReader final : Base, Reader<uint8_t> {
 /// @brief a hardware interface for analog tasks.
 struct AnalogReader final : Base, Reader<double> {
     AnalogReader(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     std::pair<size_t, xerrors::Error> read(

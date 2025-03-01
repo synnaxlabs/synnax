@@ -68,7 +68,7 @@ Channel::Channel(
 void Channel::to_proto(api::v1::Channel *ch) const {
     ch->set_name(name);
     ch->set_data_type(data_type.name());
-    ch->set_rate(rate.value);
+    ch->set_rate(rate.hz());
     ch->set_is_index(is_index);
     ch->set_leaseholder(leaseholder);
     ch->set_index(index);

@@ -2,14 +2,15 @@
 
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_wide.h"
-#include "driver/ni/syscfg/syscfg.h"
+#include "driver/ni/syscfg/api.h"
 #include "x/cpp/xlib/xlib.h"
 
-class SysCfgProd : public SysCfg {
+namespace syscfg {
+class ProdAPI final : public API {
 public:
-    explicit SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_);
+    explicit ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_);
 
-    static std::pair<std::shared_ptr<SysCfg>, xerrors::Error> load();
+    static std::pair<std::shared_ptr<API>, xerrors::Error> load();
 
     NISYSCFGCFUNC InitializeSession(
         const char *targetName,
@@ -107,3 +108,4 @@ private:
     std::unique_ptr<xlib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };
+}

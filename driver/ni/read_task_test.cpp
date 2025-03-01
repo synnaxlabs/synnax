@@ -152,6 +152,9 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should return a validation error if no channels in the task are enabled.
+TEST(ReadTaskConfigTest, testNoEnabledChannels) {}
+
 class AnalogReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> sy;
@@ -326,6 +329,9 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     EXPECT_EQ(stop_state.details["message"],
               "[sy.driver.hardware.critical] Failed to stop hardware");
 }
+
+/// @brief it should communicate an error when the hardware fails to read.
+TEST_F(AnalogReadTest, testErrorOnRead) {}
 
 /// @brief it should correctly coerce read data types to the channel data type.
 TEST_F(AnalogReadTest, testDataTypeCoersion) {

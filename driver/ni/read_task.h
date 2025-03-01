@@ -25,18 +25,18 @@
 #include "driver/ni/hardware/hardware.h"
 #include "driver/task/task.h"
 #include "driver/ni/ni.h"
-#include "errors/errors.h"
 
 namespace ni {
 static xerrors::Error translate_error(const xerrors::Error &err) {
-    if (APPLICATION_TOO_SLOW.matches(err))
-        return {xerrors::Error(
-            driver::CRITICAL_HARDWARE_ERROR,
-            "the network cannot keep up with the stream rate specified. try making the sample rate a higher multiple of the stream rate"
-        )};
+    if (daqmx::APPLICATION_TOO_SLOW.matches(err))
+        return {
+            xerrors::Error(
+                driver::CRITICAL_HARDWARE_ERROR,
+                "the network cannot keep up with the stream rate specified. try making the sample rate a higher multiple of the stream rate"
+            )
+        };
     return err;
 }
-
 
 /// @brief the configuration for a read task.
 struct ReadTaskConfig {
@@ -90,12 +90,12 @@ struct ReadTaskConfig {
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "")),
        samples_per_chan(
-           static_cast<size_t>(std::floor(sample_rate.value / stream_rate.value))),
-       software_timed(this->timing_source == "none" && task_type == "ni_digital_read"),
+           static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))),
+       software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
-           [&](xjson::Parser &ch_cfg)
-       -> std::pair<std::unique_ptr<channel::Input>, bool> {
+           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
+       bool> {
                auto ch = channel::parse_input(ch_cfg, {});
                return {std::move(ch), ch->enabled};
            })) {
@@ -112,7 +112,8 @@ struct ReadTaskConfig {
         for (const auto &ch: this->channels) channel_keys.push_back(ch->synnax_key);
         auto [channel_vec, err] = client->channels.retrieve(channel_keys);
         if (err) {
-            cfg.field_err("", "failed to retrieve channels for task");
+            cfg.field_err("channels",
+                          "failed to retrieve channels for task: " + err.message());
             return;
         }
         auto remote_channels = channel_keys_map(channel_vec);
@@ -120,7 +121,8 @@ struct ReadTaskConfig {
         if (this->device_key != "cross-device") {
             auto [device, err] = client->hardware.retrieve_device(this->device_key);
             if (err) {
-                cfg.field_err("", "failed to retrieve device for task");
+                cfg.field_err("device",
+                              "failed to retrieve device for task: " + err.message());
                 return;
             }
             devices[device.key] = device;
@@ -129,7 +131,9 @@ struct ReadTaskConfig {
             for (const auto &ch: this->channels) dev_keys.push_back(ch->dev_key);
             auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
             if (dev_err) {
-                cfg.field_err("", "failed to retrieve devices for task");
+                cfg.field_err("device",
+                              "failed to retrieve devices for task: " + dev_err.
+                              message());
                 return;
             }
             devices = device_keys_map(devices_vec);
@@ -153,7 +157,7 @@ struct ReadTaskConfig {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle handle
     ) const {
         for (const auto &ch: this->channels)
@@ -162,14 +166,14 @@ struct ReadTaskConfig {
         return dmx->CfgSampClkTiming(
             handle,
             this->timing_source.empty() ? nullptr : this->timing_source.c_str(),
-            this->sample_rate.value,
+            this->sample_rate.hz(),
             DAQmx_Val_Rising,
             DAQmx_Val_ContSamps,
             this->samples_per_chan
         );
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
+    [[nodiscard]] synnax::WriterConfig writer() const {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size() + this->indexes.size());
         for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
@@ -179,6 +183,50 @@ struct ReadTaskConfig {
             .mode = synnax::data_saving_writer_mode(this->data_saving),
             .enable_auto_commit = true
         };
+    }
+};
+
+/// @brief used to regulate the speed of software timed tasks and generate timing
+/// information for use in index channels.
+class SampleClock {
+    /// @brief whether the task is software timed and the sample clock should be
+    /// in charge of regulating acquisition rates.
+    const bool software_timed;
+    /// @brief the same rate of the task.
+    const telem::Rate sample_rate;
+    /// @brief a timer used for waiting in software timed tasks.
+    loop::Timer timer;
+    /// @brief a high-water mark used to interpolate timestamp values in non-software
+    /// timed tasks.
+    telem::TimeStamp high_water{};
+
+public:
+    explicit SampleClock(const ReadTaskConfig &cfg):
+        software_timed(cfg.software_timed),
+        sample_rate(cfg.sample_rate),
+        timer(cfg.stream_rate) {
+    }
+
+    /// @brief resets the sample clock.
+    void reset() {
+        this->high_water = telem::TimeStamp::now();
+    }
+
+    /// @brief waits the appropriate duration before returning the starting timestamp
+    /// of the next read.
+    telem::TimeStamp wait(breaker::Breaker &breaker) {
+        if (!this->software_timed) return telem::TimeStamp::now();
+        this->timer.wait(breaker);
+        return telem::TimeStamp::now();
+    }
+
+    /// @brief returns the ending timestamp of the read based on the number of samples
+    /// read.
+    telem::TimeStamp end(const size_t n_read) {
+        if (this->software_timed) return telem::TimeStamp::now();
+        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
+        this->high_water = end + this->sample_rate.period();
+        return end;
     }
 };
 
@@ -197,7 +245,7 @@ class ReadTask final : public task::Task {
     std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
-    telem::TimeStamp hw_start_time = telem::TimeStamp(0);
+    SampleClock sample_clock;
     /// @brief handles communicating the task state back to the cluster.
     ni::TaskStateHandler state;
 
@@ -205,10 +253,11 @@ class ReadTask final : public task::Task {
     /// the lifecycle of this task.
     class Source final : public pipeline::Source {
     public:
-        explicit Source(ReadTask &task):
-            p(task),
-            timer(task.cfg.stream_rate),
-            buffer(task.cfg.samples_per_chan * task.cfg.channels.size()) {
+        /// @brief constructs a source bound to the provided parent read task.
+        explicit Source(ReadTask &parent):
+            p(parent),
+            timer(parent.cfg.stream_rate),
+            buffer(parent.cfg.samples_per_chan * parent.cfg.channels.size()) {
         }
 
     private:
@@ -231,25 +280,22 @@ class ReadTask final : public task::Task {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            if (this->p.cfg.software_timed) this->timer.wait(breaker);
-            auto start = this->p.hw_start_time;
-            const size_t count = this->p.cfg.samples_per_chan;
+            auto start = this->p.sample_clock.wait(breaker);
             const auto [n, err] = this->p.hw_reader->read(
                 this->p.cfg.samples_per_chan,
                 buffer
             );
             if (err) return {Frame(), translate_error(err)};
-            auto end = start + (n - 1) * this->p.cfg.sample_rate.period();
-            this->p.hw_start_time = end + this->p.cfg.sample_rate.period();
-            auto f = synnax::Frame(this->p.cfg.channels.size());
-            size_t i = -1;
+            auto end = this->p.sample_clock.end(n);
+            synnax::Frame f(this->p.cfg.channels.size());
+            size_t i = 0;
             for (const auto &ch: this->p.cfg.channels)
                 f.emplace(
                     ch->synnax_key,
-                    telem::Series::cast(ch->ch.data_type, buffer.data() + ++i * n, n)
+                    telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n, n)
                 );
             if (!this->p.cfg.indexes.empty()) {
-                const auto index_data = telem::Series::linspace(start, end, count);
+                const auto index_data = telem::Series::linspace(start, end, n);
                 for (const auto &idx: this->p.cfg.indexes)
                     f.emplace(idx, std::move(index_data.deep_copy()));
             }
@@ -269,17 +315,18 @@ public:
         const std::shared_ptr<pipeline::WriterFactory> &factory
     ): cfg(std::move(cfg)),
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
-           this->cfg.writer_config().channels
+           this->cfg.writer().channels
        )),
        pipe(
            factory,
-           this->cfg.writer_config(),
+           this->cfg.writer(),
            std::make_shared<Source>(*this),
            breaker_cfg
        ),
        hw_reader(std::move(reader)),
+       sample_clock(this->cfg),
        state(ctx, task) {
-        this->pipe.add_middleware(this->tare_mw);
+        this->pipe.use(this->tare_mw);
     }
 
     /// @brief primary constructor that uses the task context's Synnax client in order
@@ -325,7 +372,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         if (this->pipe.running()) return;
-        this->hw_start_time = telem::TimeStamp::now();
+        this->sample_clock.reset();
         if (const auto ok = this->state.error(this->hw_reader->start()); !ok)
             this->pipe.start();
         this->state.send_start(cmd_key);

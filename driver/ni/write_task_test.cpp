@@ -138,7 +138,7 @@ protected:
         };
 
         auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::WriteTaskConfig>(sy, p, "ni_analog_write");
+        cfg = std::make_unique<ni::WriteTaskConfig>(sy, p);
         ASSERT_FALSE(p.error()) << p.error();
 
         ctx = std::make_shared<task::MockContext>(sy);

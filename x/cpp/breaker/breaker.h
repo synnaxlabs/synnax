@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <iomanip>
+#include <memory>
 
 /// external
 #include "glog/logging.h"
@@ -64,7 +65,7 @@ class Breaker {
     /// @brief a condition variable used to notify the breaker to shut down immediately.
     std::condition_variable shutdown_cv;
     /// @brief used to protect the condition variable.
-    std::mutex shutdown_mu;
+    std::mutex start_stop_mu;
 
 public:
     explicit Breaker(const Config &config)
@@ -90,6 +91,13 @@ public:
         std::cerr << "breaker was not stopped before destruction" << std::endl;
         assert(false && "breaker was not stopped before destruction");
     }
+
+    /// @brief marks the breaker as stopped.
+    bool mark_stopped() {
+        return this->is_running.exchange(false);
+    }
+
+
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
@@ -127,7 +135,7 @@ public:
                 "Error: " << message << ".";
         // keeps the formatter happy
         {
-            std::unique_lock lock(this->shutdown_mu);
+            std::unique_lock lock(this->start_stop_mu);
             shutdown_cv.wait_for(lock, this->interval.chrono());
             if (!this->running()) {
                 LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
@@ -156,24 +164,71 @@ public:
     /// @param time the time to wait for in nanoseconds.
     void wait_for(const std::chrono::nanoseconds &time) {
         if (!this->running()) return;
-        std::unique_lock lock(this->shutdown_mu);
+        std::unique_lock lock(this->start_stop_mu);
         this->shutdown_cv.wait_for(lock, time);
     }
+
+    class Starter {
+        Breaker *breaker;
+    public:
+        explicit Starter(Breaker *b) : breaker(b) {
+            this->breaker->start_stop_mu.lock();
+            this->breaker->is_running = true;
+        }
+
+        ~Starter() {
+            this->breaker->start_stop_mu.unlock();
+        }
+    };
 
     /// @brief starts the breaker, using it as a signaling mechanism for a thread to
     /// operate. A breaker that is started must be stopped before it is destroyed.
     /// @throws std::runtime_error inside the destructor if hte breaker is not stopped.
-    void start() {
-        if (this->running()) return;
-        this->is_running = true;
+    bool start() {
+        return !this->is_running.exchange(true);
+    }
+
+    /// @brief allows the caller to execute code within a mutex guard after the breaker
+    /// is started.
+    /// @details the caller will call start_guard(), at which point the breaker will
+    /// marked as running. The caller can then execute mutex isolated code, and when
+    /// the guard goes out of scope, the breaker will unlock it's mutex.
+    [[nodiscard]]
+    std::unique_ptr<Starter> start_guard() {
+        return std::make_unique<Starter>(this);
     }
 
     /// @brief shuts down the breaker, preventing any further retries.
-    void stop() {
-        if (!running()) return;
-        std::lock_guard lock(this->shutdown_mu);
-        this->is_running = false;
-        this->shutdown_cv.notify_all();
+    bool stop() {
+        if (!this->running()) return false;
+        std::lock_guard lock(this->start_stop_mu);
+        const auto was_running = this->mark_stopped();
+        if (was_running) this->shutdown_cv.notify_all();
+        return was_running;
+    }
+
+    class Stopper {
+        Breaker *breaker;
+
+    public:
+        explicit Stopper(Breaker *b) : breaker(b) {
+            this->breaker->start_stop_mu.lock();
+            if (this->breaker->mark_stopped()) this->breaker->shutdown_cv.notify_all();
+        }
+
+        ~Stopper() {
+            this->breaker->start_stop_mu.unlock();
+        }
+    };
+
+    /// @brief allows the caller to execute code within a mutex guard after the breaker
+    /// is stopped.
+    /// @details the caller will call stop_guard(), at which point the breaker will
+    /// lock it's mutex and mark itself as not running. The caller can then execute
+    /// mutex isolated code, and when the guard goes out of scope, the breaker will
+    /// unlock it's mutex.
+    [[nodiscard]] auto stop_guard() {
+        return std::make_unique<Stopper>(this);
     }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has been

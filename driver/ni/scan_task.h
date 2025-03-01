@@ -79,7 +79,7 @@ struct ScanTaskConfig {
 
     explicit ScanTaskConfig(
         xjson::Parser &cfg
-    ): rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.value))),
+    ): rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
        enabled(cfg.optional<bool>("enabled", true)) {
         const auto ignored = cfg.optional_array<std::string>(
             "ignored_models",
@@ -92,8 +92,8 @@ struct ScanTaskConfig {
 
 class ScanTask final : public task::Task {
     /// @brief the raw synnax task configuration.
-    synnax::Task task;
-
+    const synnax::Task task;
+    /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
     /// @brief the breaker for managing the lifecycle of threads.
     breaker::Breaker breaker;
@@ -106,7 +106,7 @@ class ScanTask final : public task::Task {
     /// @brief the current list of scanned devices.
     std::unordered_map<std::string, ni::Device> devices;
     /// @brief the NI system configuration library.
-    std::shared_ptr<SugaredSysCfg> syscfg;
+    std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices;
@@ -130,7 +130,7 @@ class ScanTask final : public task::Task {
     void run();
 public:
     explicit ScanTask(
-        const std::shared_ptr<SugaredSysCfg> &syscfg,
+        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         ScanTaskConfig cfg
@@ -149,7 +149,7 @@ public:
     std::string name() override { return task.name; }
 
     static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-        const std::shared_ptr<SugaredSysCfg> &syscfg,
+        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     );

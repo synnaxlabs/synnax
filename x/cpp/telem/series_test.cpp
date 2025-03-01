@@ -24,7 +24,7 @@
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {
 protected:
-    void validate_construction(
+    void validate_vec_ctor(
         const std::vector<T> &vals,
         const telem::DataType &expected_type
     ) {
@@ -36,13 +36,22 @@ protected:
             ASSERT_EQ(v[i], vals[i]);
     }
 
-    void validate_single_value_construction(const T value) {
+    void validate_single_value_ctor(const T value) {
         const auto s = telem::Series(value);
         ASSERT_EQ(s.data_type, telem::DataType::infer<T>());
         ASSERT_EQ(s.size(), 1);
         ASSERT_EQ(s.byte_size(), sizeof(T));
         const auto v = s.values<T>();
         ASSERT_EQ(v[0], value);
+        ASSERT_EQ(s.at<T>(0), value);
+    }
+
+
+    void validate_sample_value_ctor(const T value) {
+        telem::SampleValue val = value;
+        telem::Series s(val);
+        ASSERT_EQ(s.data_type, telem::DataType::infer<T>());
+        ASSERT_EQ(s.size(), 1);
         ASSERT_EQ(s.at<T>(0), value);
     }
 };
@@ -54,20 +63,29 @@ using NumericTypes = ::testing::Types<
 
 TYPED_TEST_SUITE(NumericSeriesTest, NumericTypes);
 
-TYPED_TEST(NumericSeriesTest, test_construction) {
+/// @brief it should correctly construct the series from a ve
+TYPED_TEST(NumericSeriesTest, testNumericVectorConstruction) {
     std::vector<TypeParam> vals;
     if constexpr (std::is_floating_point_v<TypeParam>)
         vals = {1.0, 2.0, 3.0, 4.0, 5.0};
-     else
+    else
         vals = {1, 2, 3, 4, 5};
-    this->validate_construction(vals, telem::DataType::infer<TypeParam>());
+    this->validate_vec_ctor(vals, telem::DataType::infer<TypeParam>());
 }
 
-TYPED_TEST(NumericSeriesTest, test_single_value_construction) {
+TYPED_TEST(NumericSeriesTest, testSingleValueConstruction) {
     if constexpr (std::is_floating_point_v<TypeParam>)
-        this->validate_single_value_construction(TypeParam{1.0});
+        this->validate_single_value_ctor(TypeParam{1.0});
     else
-        this->validate_single_value_construction(TypeParam{1});
+        this->validate_single_value_ctor(TypeParam{1});
+}
+
+
+TYPED_TEST(NumericSeriesTest, testSampleValueConstruction) {
+    if constexpr (std::is_floating_point_v<TypeParam>)
+        this->validate_sample_value_ctor(TypeParam{42.5});
+    else
+        this->validate_sample_value_ctor(TypeParam{42});
 }
 
 //// @brief it should correctly initialize and parse a string series.
@@ -117,8 +135,26 @@ TEST(TestSeries, testTimestampNowConstruction) {
     ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
     ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 8);
-    const auto v = s.values<std::uint64_t>();
-    ASSERT_EQ(v[0], now.value);
+    const auto v = s.values<std::int64_t>();
+    ASSERT_EQ(v[0], now.nanoseconds());
+}
+
+// Special cases that can't be handled by the typed test
+TEST(TestSeries, testSampleValueConstructionTimeStamp) {
+    telem::TimeStamp ts(1000);
+    telem::SampleValue val = ts;
+    telem::Series s(val);
+    ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.at<uint64_t>(0), 1000);
+}
+
+TEST(TestSeries, testSampleValueConstructionString) {
+    telem::SampleValue val = std::string("test");
+    telem::Series s(val);
+    ASSERT_EQ(s.data_type, telem::STRING_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.at<std::string>(0), "test");
 }
 
 //// @brief it should correctly serialize and deserialize the series from protoubuf.
@@ -448,7 +484,7 @@ TEST(TestSeriesLinspace, SinglePoint) {
     const auto end = telem::TimeStamp(500);
     const auto s = telem::Series::linspace(start, end, 1);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.at<uint64_t>(0), 100);  // Should be starting value
+    ASSERT_EQ(s.at<uint64_t>(0), 100); // Should be starting value
 }
 
 TEST(TestSeriesLinspace, LargeTimestamps) {
@@ -466,7 +502,8 @@ TEST(TestSeriesLinspace, EqualStartEnd) {
     const auto timestamp = telem::TimeStamp(100);
     const auto s = telem::Series::linspace(timestamp, timestamp, 5);
     const auto values = s.values<uint64_t>();
-    for (size_t i = 0; i < 5; i++) ASSERT_EQ(values[i], 100);
+    for (size_t i = 0; i < 5; i++)
+        ASSERT_EQ(values[i], 100);
 }
 
 TEST(TestSeriesLinspace, ZeroCount) {

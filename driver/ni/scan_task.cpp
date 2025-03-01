@@ -15,7 +15,7 @@
 #include "driver/ni/scan_task.h"
 
 ni::ScanTask::ScanTask(
-    const std::shared_ptr<SugaredSysCfg> &syscfg,
+    const std::shared_ptr<::syscfg::SugaredAPI> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task,
     ScanTaskConfig cfg
@@ -144,7 +144,7 @@ xerrors::Error ni::ScanTask::scan() {
 }
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScanTask::configure(
-    const std::shared_ptr<SugaredSysCfg> &syscfg,
+    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -170,7 +170,6 @@ void ni::ScanTask::stop(bool will_reconfigure) {
 }
 
 xerrors::Error ni::ScanTask::start() {
-
     this->breaker.start();
     this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
     return xerrors::NIL;

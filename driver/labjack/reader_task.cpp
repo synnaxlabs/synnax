@@ -32,11 +32,11 @@ labjack::ReaderTask::ReaderTask(
     source(labjack_source) {
     std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_ai_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
-    read_pipe.add_middleware(tare_mw);
+    read_pipe.use(tare_mw);
 
     auto parser = xjson::Parser(task.config);
     auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
-    read_pipe.add_middleware(scale_mw);
+    read_pipe.use(scale_mw);
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {

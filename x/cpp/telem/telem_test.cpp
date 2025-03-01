@@ -20,35 +20,35 @@ using namespace telem;
 /// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testConstructor) {
     const auto ts = TimeStamp(5);
-    ASSERT_EQ(ts.value, 5);
+    ASSERT_EQ(ts.nanoseconds(), 5);
 }
 
 TEST(TimeStampTests, testAddition) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     const auto ts3 = ts + ts2;
-    ASSERT_EQ(ts3.value, 10);
+    ASSERT_EQ(ts3.nanoseconds(), 10);
 }
 
 TEST(TimeStampTests, testSubtraction) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     const auto ts3 = ts - ts2;
-    ASSERT_EQ(ts3.value, 0);
+    ASSERT_EQ(ts3.nanoseconds(), 0);
 }
 
 TEST(TimeStampTests, testMultiplication) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     const auto ts3 = ts * ts2;
-    ASSERT_EQ(ts3.value, 25);
+    ASSERT_EQ(ts3.nanoseconds(), 25);
 }
 
 TEST(TimeStampTests, testDivision) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     const auto ts3 = ts / ts2;
-    ASSERT_EQ(ts3.value, 1);
+    ASSERT_EQ(ts3.nanoseconds(), 1);
 }
 
 TEST(TimeStampTests, testEquality) {
@@ -91,42 +91,42 @@ TEST(TimeStampTests, testModulo) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(2);
     const auto ts3 = ts % ts2;
-    ASSERT_EQ(ts3.value, 1);
+    ASSERT_EQ(ts3.nanoseconds(), 1);
 }
 
 TEST(TimeStampTests, testAdditionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ts += ts2;
-    ASSERT_EQ(ts.value, 10);
+    ASSERT_EQ(ts.nanoseconds(), 10);
 }
 
 TEST(TimeStampTests, testSubtractionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ts -= ts2;
-    ASSERT_EQ(ts.value, 0);
+    ASSERT_EQ(ts.nanoseconds(), 0);
 }
 
 TEST(TimeStampTests, testMultiplicationAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ts *= ts2;
-    ASSERT_EQ(ts.value, 25);
+    ASSERT_EQ(ts.nanoseconds(), 25);
 }
 
 TEST(TimeStampTests, testDivisionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ts /= ts2;
-    ASSERT_EQ(ts.value, 1);
+    ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
 TEST(TimeStampTests, testModuloAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(2);
     ts %= ts2;
-    ASSERT_EQ(ts.value, 1);
+    ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
 ////////////////////////////////////////////////////////////
@@ -135,59 +135,59 @@ TEST(TimeStampTests, testModuloAssignment) {
 
 TEST(TimeSpanTests, testConstructor) {
     const auto ts = TimeSpan(5);
-    ASSERT_EQ(ts.value, 5);
+    ASSERT_EQ(ts.nanoseconds(), 5);
 }
 
 TEST(TimeSpanTests, testAddition) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     const auto ts3 = ts + ts2;
-    ASSERT_EQ(ts3.value, 10);
+    ASSERT_EQ(ts3.nanoseconds(), 10);
 }
 
 TEST(TimeSpanTests, testSubtraction) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     const auto ts3 = ts - ts2;
-    ASSERT_EQ(ts3.value, 0);
+    ASSERT_EQ(ts3.nanoseconds(), 0);
 }
 
 TEST(TimeSpanTests, testMultiplication) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     const auto ts3 = ts * ts2;
-    ASSERT_EQ(ts3.value, 25);
+    ASSERT_EQ(ts3.nanoseconds(), 25);
 
     const auto ts4 = TimeSpan(5);
     const auto ts5 = ts4 * 5;
-    ASSERT_EQ(ts5.value, 25);
+    ASSERT_EQ(ts5.nanoseconds(), 25);
 
     const auto ts6 = TimeSpan(5);
     const auto ts7 = 5 * ts6;
-    ASSERT_EQ(ts7.value, 25);
+    ASSERT_EQ(ts7.nanoseconds(), 25);
 
     const auto ts8 = TimeSpan(5);
     const auto ts9 = ts8 * 5.0;
-    ASSERT_EQ(ts9.value, 25);
+    ASSERT_EQ(ts9.nanoseconds(), 25);
 
     const auto ts10 = TimeSpan(5);
     const auto ts11 = ts10 * 5.0f;
-    ASSERT_EQ(ts11.value, 25);
+    ASSERT_EQ(ts11.nanoseconds(), 25);
 }
 
 TEST(TimeSpanTests, testDivision) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     const auto ts3 = ts / ts2;
-    ASSERT_EQ(ts3.value, 1);
+    ASSERT_EQ(ts3.nanoseconds(), 1);
 
     const auto ts4 = TimeSpan(5);
     const auto ts5 = ts4 / 5;
-    ASSERT_EQ(ts5.value, 1);
+    ASSERT_EQ(ts5.nanoseconds(), 1);
 
     const auto ts6 = TimeSpan(5);
     const auto ts7 = 5 / ts6;
-    ASSERT_EQ(ts7.value, 1);
+    ASSERT_EQ(ts7.nanoseconds(), 1);
 }
 
 TEST(TimeSpanTests, testEquality) {
@@ -230,29 +230,29 @@ TEST(TimeSpanTests, testModulo) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(2);
     const auto ts3 = ts % ts2;
-    ASSERT_EQ(ts3.value, 1);
+    ASSERT_EQ(ts3.nanoseconds(), 1);
 
     const auto ts4 = TimeSpan(5);
     const auto ts5 = 2 % ts4;
-    ASSERT_EQ(ts5.value, 2);
+    ASSERT_EQ(ts5.nanoseconds(), 2);
 
     const auto ts6 = TimeSpan(5);
     const auto ts7 = ts6 % 2;
-    ASSERT_EQ(ts7.value, 1);
+    ASSERT_EQ(ts7.nanoseconds(), 1);
 }
 
 TEST(TimeSpanTests, testTruncate) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(2);
     const auto ts3 = ts.truncate(ts2);
-    ASSERT_EQ(ts3.value, 4);
+    ASSERT_EQ(ts3.nanoseconds(), 4);
 }
 
 TEST(TimeSpanTests, testDelta) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(2);
     const auto ts3 = ts.delta(ts2);
-    ASSERT_EQ(ts3.value, 3);
+    ASSERT_EQ(ts3.nanoseconds(), 3);
 }
 
 ////////////////////////////////////////////////////////////
@@ -283,9 +283,9 @@ TEST(TimeRangeTests, testEquality) {
 
 TEST(RateTests, testPeriod) {
     const auto r = Rate(1);
-    ASSERT_EQ(r.period().value, telem::SECOND.value);
+    ASSERT_EQ(r.period(), telem::SECOND);
     const auto r2 = Rate(2);
-    ASSERT_EQ(r2.period().value, telem::SECOND.value / 2);
+    ASSERT_EQ(r2.period(), telem::SECOND / 2);
 }
 
 TEST(RateTests, testContructor) {

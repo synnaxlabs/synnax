@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 2/27/25.
-//
-
 #include "driver/ni/hardware/hardware.h"
 #include "glog/logging.h"
 
 namespace hardware::daqmx {
-
-Base::Base(TaskHandle task_handle, std::shared_ptr<SugaredDAQmx> dmx)
+Base::Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx)
     : task_handle(task_handle), dmx(std::move(dmx)) {
 }
 
@@ -36,7 +31,7 @@ xerrors::Error Base::stop() {
 }
 
 DigitalWriter::DigitalWriter(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ): Base(task_handle, dmx) {
 }
@@ -55,7 +50,7 @@ xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
 }
 
 AnalogWriter::AnalogWriter(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ): Base(task_handle, dmx) {
 }
@@ -74,7 +69,7 @@ xerrors::Error AnalogWriter::write(const std::vector<double> &data) {
 }
 
 DigitalReader::DigitalReader(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ): Base(task_handle, dmx) {
 }
@@ -99,7 +94,7 @@ std::pair<size_t, xerrors::Error> DigitalReader::read(
 }
 
 AnalogReader::AnalogReader(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ): Base(task_handle, dmx) {
 }
@@ -121,5 +116,4 @@ std::pair<size_t, xerrors::Error> AnalogReader::read(
     );
     return {static_cast<size_t>(samples_read), err};
 }
-
 }

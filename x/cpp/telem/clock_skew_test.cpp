@@ -43,7 +43,7 @@ TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     calc.end(remoteMidpoint);
 
     // Verify skew.
-    EXPECT_EQ(calc.skew().value, 2);
+    EXPECT_EQ(calc.skew().nanoseconds(), 2);
     // Check "exceeds()" logic for a threshold of 1 and 3 ns.
     EXPECT_TRUE(calc.exceeds(telem::TimeSpan(1)));
     EXPECT_FALSE(calc.exceeds(telem::TimeSpan(3)));
@@ -63,7 +63,7 @@ TEST(ClockSkewCalculatorTest, ZeroSkewScenario) {
     calc.end(telem::TimeStamp(500));
 
     // Confirm zero skew.
-    EXPECT_EQ(calc.skew().value, 0);
+    EXPECT_EQ(calc.skew().nanoseconds(), 0);
     // Confirm that 0 does not exceed any positive threshold.
     EXPECT_FALSE(calc.exceeds(telem::TimeSpan(1)));
 }

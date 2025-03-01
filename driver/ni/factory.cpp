@@ -15,8 +15,8 @@
 #include "nlohmann/json.hpp"
 
 /// internal
-#include "driver/ni/daqmx/daqmx_prod.h"
-#include "driver/ni/syscfg/syscfg_prod.h"
+#include "driver/ni/daqmx/prod.h"
+#include "driver/ni/syscfg/prod.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
@@ -28,7 +28,7 @@ const std::string NO_LIBS_MSG =
 
 template<typename Hardware, typename TaskType, typename ConfigType>
 static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
+    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -59,8 +59,8 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
 }
 
 ni::Factory::Factory(
-    const std::shared_ptr<SugaredDAQmx> &dmx,
-    const std::shared_ptr<SugaredSysCfg> &syscfg
+    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<syscfg::SugaredAPI> &syscfg
 ): dmx(dmx), syscfg(syscfg) {
 }
 
@@ -78,15 +78,15 @@ bool ni::Factory::check_health(
 }
 
 std::unique_ptr<ni::Factory> ni::Factory::create() {
-    auto [syscfg, syscfg_err] = SysCfgProd::load();
+    auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
     if (syscfg_err)
         LOG(WARNING) << syscfg_err;
-    auto [dmx, dmx_err] = DAQmxProd::load();
+    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
     if (dmx_err)
         LOG(WARNING) << dmx_err;
     return std::make_unique<ni::Factory>(
-        dmx != nullptr ? std::make_shared<SugaredDAQmx>(dmx) : nullptr,
-        syscfg != nullptr ? std::make_shared<SugaredSysCfg>(syscfg) : nullptr
+        dmx != nullptr ? std::make_shared<daqmx::SugaredAPI>(dmx) : nullptr,
+        syscfg != nullptr ? std::make_shared<syscfg::SugaredAPI>(syscfg) : nullptr
     );
 }
 

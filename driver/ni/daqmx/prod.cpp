@@ -13,7 +13,7 @@
 #include <cstring>
 
 #include "x/cpp/xlib/xlib.h"
-#include "driver/ni/daqmx/daqmx_prod.h"
+#include "driver/ni/daqmx/prod.h"
 
 #include "x/cpp/xos/xos.h"
 
@@ -23,19 +23,20 @@ static const std::string LIB_NAME = "nicaiu.dll";
 static const std::string LIB_NAME = "libnidaqmx.so.1";
 #endif
 
+namespace daqmx {
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
     "failed to load DAQmx shared libraries. Are they installed?"
 );
 
-std::pair<std::shared_ptr<DAQmx>, xerrors::Error> DAQmxProd::load() {
+std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     if (xos::get() == "macOS") return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
-    return {std::make_shared<DAQmxProd>(lib), xerrors::Error()};
+    return {std::make_shared<ProdAPI>(lib), xerrors::Error()};
 }
 
-DAQmxProd::DAQmxProd(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.AddCDAQSyncConnection =
             reinterpret_cast<AddCDAQSyncConnectionPtr>(
@@ -1856,19 +1857,19 @@ DAQmxProd::DAQmxProd(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_
             "DAQmxWriteToTEDSFromFile")));
 }
 
-DAQmxProd::~DAQmxProd() {
+ProdAPI::~ProdAPI() {
 }
 
 
-int32 DAQmxProd::AddCDAQSyncConnection(const char portList[]) {
+int32 ProdAPI::AddCDAQSyncConnection(const char portList[]) {
     return function_pointers_.AddCDAQSyncConnection(portList);
 }
 
-int32 DAQmxProd::AddGlobalChansToTask(TaskHandle task, const char channelNames[]) {
+int32 ProdAPI::AddGlobalChansToTask(TaskHandle task, const char channelNames[]) {
     return function_pointers_.AddGlobalChansToTask(task, channelNames);
 }
 
-int32 DAQmxProd::AddNetworkDevice(const char ipAddress[], const char deviceName[],
+int32 ProdAPI::AddNetworkDevice(const char ipAddress[], const char deviceName[],
                                   bool32 attemptReservation, float64 timeout,
                                   char deviceNameOut[],
                                   uInt32 deviceNameOutBufferSize) {
@@ -1877,19 +1878,19 @@ int32 DAQmxProd::AddNetworkDevice(const char ipAddress[], const char deviceName[
                                                deviceNameOut, deviceNameOutBufferSize);
 }
 
-int32 DAQmxProd::AreConfiguredCDAQSyncPortsDisconnected(
+int32 ProdAPI::AreConfiguredCDAQSyncPortsDisconnected(
     const char chassisDevicesPorts[], float64 timeout, bool32 *disconnectedPortsExist) {
     return function_pointers_.AreConfiguredCDAQSyncPortsDisconnected(
         chassisDevicesPorts, timeout, disconnectedPortsExist);
 }
 
-int32 DAQmxProd::AutoConfigureCDAQSyncConnections(
+int32 ProdAPI::AutoConfigureCDAQSyncConnections(
     const char chassisDevicesPorts[], float64 timeout) {
     return function_pointers_.AutoConfigureCDAQSyncConnections(
         chassisDevicesPorts, timeout);
 }
 
-int32 DAQmxProd::CalculateReversePolyCoeff(const float64 forwardCoeffs[],
+int32 ProdAPI::CalculateReversePolyCoeff(const float64 forwardCoeffs[],
                                            uInt32 numForwardCoeffsIn,
                                            float64 minValX, float64 maxValX,
                                            int32 numPointsToCompute,
@@ -1900,20 +1901,20 @@ int32 DAQmxProd::CalculateReversePolyCoeff(const float64 forwardCoeffs[],
         reversePolyOrder, reverseCoeffs);
 }
 
-int32 DAQmxProd::CfgAnlgEdgeRefTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgAnlgEdgeRefTrig(TaskHandle task, const char triggerSource[],
                                     int32 triggerSlope, float64 triggerLevel,
                                     uInt32 pretriggerSamples) {
     return function_pointers_.CfgAnlgEdgeRefTrig(task, triggerSource, triggerSlope,
                                                  triggerLevel, pretriggerSamples);
 }
 
-int32 DAQmxProd::CfgAnlgEdgeStartTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgAnlgEdgeStartTrig(TaskHandle task, const char triggerSource[],
                                       int32 triggerSlope, float64 triggerLevel) {
     return function_pointers_.CfgAnlgEdgeStartTrig(task, triggerSource, triggerSlope,
                                                    triggerLevel);
 }
 
-int32 DAQmxProd::CfgAnlgMultiEdgeRefTrig(TaskHandle task,
+int32 ProdAPI::CfgAnlgMultiEdgeRefTrig(TaskHandle task,
                                          const char triggerSources[],
                                          const int32 triggerSlopeArray[],
                                          const float64 triggerLevelArray[],
@@ -1927,7 +1928,7 @@ int32 DAQmxProd::CfgAnlgMultiEdgeRefTrig(TaskHandle task,
         arraySize);
 }
 
-int32 DAQmxProd::CfgAnlgMultiEdgeStartTrig(TaskHandle task,
+int32 ProdAPI::CfgAnlgMultiEdgeStartTrig(TaskHandle task,
                                            const char triggerSources[],
                                            const int32 triggerSlopeArray[],
                                            const float64 triggerLevelArray[],
@@ -1939,7 +1940,7 @@ int32 DAQmxProd::CfgAnlgMultiEdgeStartTrig(TaskHandle task,
         task, triggerSources, slopeArray, levelArray, arraySize);
 }
 
-int32 DAQmxProd::CfgAnlgWindowRefTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgAnlgWindowRefTrig(TaskHandle task, const char triggerSource[],
                                       int32 triggerWhen, float64 windowTop,
                                       float64 windowBottom,
                                       uInt32 pretriggerSamples) {
@@ -1948,7 +1949,7 @@ int32 DAQmxProd::CfgAnlgWindowRefTrig(TaskHandle task, const char triggerSource[
                                                    pretriggerSamples);
 }
 
-int32 DAQmxProd::CfgAnlgWindowStartTrig(TaskHandle task,
+int32 ProdAPI::CfgAnlgWindowStartTrig(TaskHandle task,
                                         const char triggerSource[],
                                         int32 triggerWhen, float64 windowTop,
                                         float64 windowBottom) {
@@ -1956,7 +1957,7 @@ int32 DAQmxProd::CfgAnlgWindowStartTrig(TaskHandle task,
         task, triggerSource, triggerWhen, windowTop, windowBottom);
 }
 
-int32 DAQmxProd::CfgBurstHandshakingTimingExportClock(
+int32 ProdAPI::CfgBurstHandshakingTimingExportClock(
     TaskHandle task, int32 sampleMode, uInt64 sampsPerChan, float64 sampleClkRate,
     const char sampleClkOutpTerm[], int32 sampleClkPulsePolarity, int32 pauseWhen,
     int32 readyEventActiveLevel) {
@@ -1965,7 +1966,7 @@ int32 DAQmxProd::CfgBurstHandshakingTimingExportClock(
         sampleClkPulsePolarity, pauseWhen, readyEventActiveLevel);
 }
 
-int32 DAQmxProd::CfgBurstHandshakingTimingImportClock(
+int32 ProdAPI::CfgBurstHandshakingTimingImportClock(
     TaskHandle task, int32 sampleMode, uInt64 sampsPerChan, float64 sampleClkRate,
     const char sampleClkSrc[], int32 sampleClkActiveEdge, int32 pauseWhen,
     int32 readyEventActiveLevel) {
@@ -1974,7 +1975,7 @@ int32 DAQmxProd::CfgBurstHandshakingTimingImportClock(
         sampleClkActiveEdge, pauseWhen, readyEventActiveLevel);
 }
 
-int32 DAQmxProd::CfgChangeDetectionTiming(TaskHandle task,
+int32 ProdAPI::CfgChangeDetectionTiming(TaskHandle task,
                                           const char risingEdgeChan[],
                                           const char fallingEdgeChan[],
                                           int32 sampleMode, uInt64 sampsPerChan) {
@@ -1982,18 +1983,18 @@ int32 DAQmxProd::CfgChangeDetectionTiming(TaskHandle task,
         task, risingEdgeChan, fallingEdgeChan, sampleMode, sampsPerChan);
 }
 
-int32 DAQmxProd::CfgDigEdgeRefTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgDigEdgeRefTrig(TaskHandle task, const char triggerSource[],
                                    int32 triggerEdge, uInt32 pretriggerSamples) {
     return function_pointers_.CfgDigEdgeRefTrig(task, triggerSource, triggerEdge,
                                                 pretriggerSamples);
 }
 
-int32 DAQmxProd::CfgDigEdgeStartTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgDigEdgeStartTrig(TaskHandle task, const char triggerSource[],
                                      int32 triggerEdge) {
     return function_pointers_.CfgDigEdgeStartTrig(task, triggerSource, triggerEdge);
 }
 
-int32 DAQmxProd::CfgDigPatternRefTrig(TaskHandle task, const char triggerSource[],
+int32 ProdAPI::CfgDigPatternRefTrig(TaskHandle task, const char triggerSource[],
                                       const char triggerPattern[],
                                       int32 triggerWhen,
                                       uInt32 pretriggerSamples) {
@@ -2001,7 +2002,7 @@ int32 DAQmxProd::CfgDigPatternRefTrig(TaskHandle task, const char triggerSource[
                                                    triggerWhen, pretriggerSamples);
 }
 
-int32 DAQmxProd::CfgDigPatternStartTrig(TaskHandle task,
+int32 ProdAPI::CfgDigPatternStartTrig(TaskHandle task,
                                         const char triggerSource[],
                                         const char triggerPattern[],
                                         int32 triggerWhen) {
@@ -2009,44 +2010,44 @@ int32 DAQmxProd::CfgDigPatternStartTrig(TaskHandle task,
         task, triggerSource, triggerPattern, triggerWhen);
 }
 
-int32 DAQmxProd::CfgHandshakingTiming(TaskHandle task, int32 sampleMode,
+int32 ProdAPI::CfgHandshakingTiming(TaskHandle task, int32 sampleMode,
                                       uInt64 sampsPerChan) {
     return function_pointers_.CfgHandshakingTiming(task, sampleMode, sampsPerChan);
 }
 
-int32 DAQmxProd::CfgImplicitTiming(TaskHandle task, int32 sampleMode,
+int32 ProdAPI::CfgImplicitTiming(TaskHandle task, int32 sampleMode,
                                    uInt64 sampsPerChan) {
     return function_pointers_.CfgImplicitTiming(task, sampleMode, sampsPerChan);
 }
 
-int32 DAQmxProd::CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
+int32 ProdAPI::CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
     return function_pointers_.CfgInputBuffer(task, numSampsPerChan);
 }
 
-int32 DAQmxProd::CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
+int32 ProdAPI::CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
     return function_pointers_.CfgOutputBuffer(task, numSampsPerChan);
 }
 
-int32 DAQmxProd::CfgPipelinedSampClkTiming(TaskHandle task, const char source[],
+int32 ProdAPI::CfgPipelinedSampClkTiming(TaskHandle task, const char source[],
                                            float64 rate, int32 activeEdge,
                                            int32 sampleMode, uInt64 sampsPerChan) {
     return function_pointers_.CfgPipelinedSampClkTiming(
         task, source, rate, activeEdge, sampleMode, sampsPerChan);
 }
 
-int32 DAQmxProd::CfgSampClkTiming(TaskHandle task, const char source[],
+int32 ProdAPI::CfgSampClkTiming(TaskHandle task, const char source[],
                                   float64 rate, int32 activeEdge, int32 sampleMode,
                                   uInt64 sampsPerChan) {
     return function_pointers_.CfgSampClkTiming(task, source, rate, activeEdge,
                                                sampleMode, sampsPerChan);
 }
 
-int32 DAQmxProd::CfgTimeStartTrig(TaskHandle task, CVIAbsoluteTime when,
+int32 ProdAPI::CfgTimeStartTrig(TaskHandle task, CVIAbsoluteTime when,
                                   int32 timescale) {
     return function_pointers_.CfgTimeStartTrig(task, when, timescale);
 }
 
-int32 DAQmxProd::CfgWatchdogAOExpirStates(TaskHandle task,
+int32 ProdAPI::CfgWatchdogAOExpirStates(TaskHandle task,
                                           const char channelNames[],
                                           const float64 expirStateArray[],
                                           const int32 outputTypeArray[],
@@ -2055,7 +2056,7 @@ int32 DAQmxProd::CfgWatchdogAOExpirStates(TaskHandle task,
         task, channelNames, expirStateArray, outputTypeArray, arraySize);
 }
 
-int32 DAQmxProd::CfgWatchdogCOExpirStates(TaskHandle task,
+int32 ProdAPI::CfgWatchdogCOExpirStates(TaskHandle task,
                                           const char channelNames[],
                                           const int32 expirStateArray[],
                                           uInt32 arraySize) {
@@ -2063,7 +2064,7 @@ int32 DAQmxProd::CfgWatchdogCOExpirStates(TaskHandle task,
         task, channelNames, expirStateArray, arraySize);
 }
 
-int32 DAQmxProd::CfgWatchdogDOExpirStates(TaskHandle task,
+int32 ProdAPI::CfgWatchdogDOExpirStates(TaskHandle task,
                                           const char channelNames[],
                                           const int32 expirStateArray[],
                                           uInt32 arraySize) {
@@ -2071,38 +2072,38 @@ int32 DAQmxProd::CfgWatchdogDOExpirStates(TaskHandle task,
         task, channelNames, expirStateArray, arraySize);
 }
 
-int32 DAQmxProd::ClearTEDS(const char physicalChannel[]) {
+int32 ProdAPI::ClearTEDS(const char physicalChannel[]) {
     return function_pointers_.ClearTEDS(physicalChannel);
 }
 
-int32 DAQmxProd::ClearTask(TaskHandle task) {
+int32 ProdAPI::ClearTask(TaskHandle task) {
     return function_pointers_.ClearTask(task);
 }
 
-int32 DAQmxProd::ConfigureLogging(TaskHandle task, const char filePath[],
+int32 ProdAPI::ConfigureLogging(TaskHandle task, const char filePath[],
                                   int32 loggingMode, const char groupName[],
                                   int32 operation) {
     return function_pointers_.ConfigureLogging(task, filePath, loggingMode, groupName,
                                                operation);
 }
 
-int32 DAQmxProd::ConfigureTEDS(const char physicalChannel[],
+int32 ProdAPI::ConfigureTEDS(const char physicalChannel[],
                                const char filePath[]) {
     return function_pointers_.ConfigureTEDS(physicalChannel, filePath);
 }
 
-int32 DAQmxProd::ConnectTerms(const char sourceTerminal[],
+int32 ProdAPI::ConnectTerms(const char sourceTerminal[],
                               const char destinationTerminal[],
                               int32 signalModifiers) {
     return function_pointers_.ConnectTerms(sourceTerminal, destinationTerminal,
                                            signalModifiers);
 }
 
-int32 DAQmxProd::ControlWatchdogTask(TaskHandle task, int32 action) {
+int32 ProdAPI::ControlWatchdogTask(TaskHandle task, int32 action) {
     return function_pointers_.ControlWatchdogTask(task, action);
 }
 
-int32 DAQmxProd::CreateAIAccel4WireDCVoltageChan(
+int32 ProdAPI::CreateAIAccel4WireDCVoltageChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     int32 terminalConfig, float64 minVal, float64 maxVal, int32 units,
     float64 sensitivity, int32 sensitivityUnits, int32 voltageExcitSource,
@@ -2113,7 +2114,7 @@ int32 DAQmxProd::CreateAIAccel4WireDCVoltageChan(
         useExcitForScaling, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIAccelChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIAccelChan(TaskHandle task, const char physicalChannel[],
                                    const char nameToAssignToChannel[],
                                    int32 terminalConfig, float64 minVal,
                                    float64 maxVal, int32 units,
@@ -2128,7 +2129,7 @@ int32 DAQmxProd::CreateAIAccelChan(TaskHandle task, const char physicalChannel[]
                                                 currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIAccelChargeChan(TaskHandle task,
+int32 ProdAPI::CreateAIAccelChargeChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          int32 terminalConfig, float64 minVal,
@@ -2141,7 +2142,7 @@ int32 DAQmxProd::CreateAIAccelChargeChan(TaskHandle task,
         units, sensitivity, sensitivityUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIBridgeChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIBridgeChan(TaskHandle task, const char physicalChannel[],
                                     const char nameToAssignToChannel[],
                                     float64 minVal, float64 maxVal, int32 units,
                                     int32 bridgeConfig, int32 voltageExcitSource,
@@ -2156,7 +2157,7 @@ int32 DAQmxProd::CreateAIBridgeChan(TaskHandle task, const char physicalChannel[
                                                  customScaleName);
 }
 
-int32 DAQmxProd::CreateAIChargeChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIChargeChan(TaskHandle task, const char physicalChannel[],
                                     const char nameToAssignToChannel[],
                                     int32 terminalConfig, float64 minVal,
                                     float64 maxVal, int32 units,
@@ -2167,7 +2168,7 @@ int32 DAQmxProd::CreateAIChargeChan(TaskHandle task, const char physicalChannel[
                                                  customScaleName);
 }
 
-int32 DAQmxProd::CreateAICurrentChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAICurrentChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      int32 terminalConfig, float64 minVal,
                                      float64 maxVal, int32 units,
@@ -2181,7 +2182,7 @@ int32 DAQmxProd::CreateAICurrentChan(TaskHandle task, const char physicalChannel
                                                   customScaleName);
 }
 
-int32 DAQmxProd::CreateAICurrentRMSChan(TaskHandle task,
+int32 ProdAPI::CreateAICurrentRMSChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         int32 terminalConfig, float64 minVal,
@@ -2194,7 +2195,7 @@ int32 DAQmxProd::CreateAICurrentRMSChan(TaskHandle task,
         units, shuntResistorLoc, extShuntResistorVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIForceBridgePolynomialChan(
+int32 ProdAPI::CreateAIForceBridgePolynomialChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2208,7 +2209,7 @@ int32 DAQmxProd::CreateAIForceBridgePolynomialChan(
         electricalUnits, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIForceBridgeTableChan(TaskHandle task,
+int32 ProdAPI::CreateAIForceBridgeTableChan(TaskHandle task,
                                               const char physicalChannel[],
                                               const char nameToAssignToChannel[],
                                               float64 minVal, float64 maxVal,
@@ -2230,7 +2231,7 @@ int32 DAQmxProd::CreateAIForceBridgeTableChan(TaskHandle task,
         numPhysicalVals, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIForceBridgeTwoPointLinChan(
+int32 ProdAPI::CreateAIForceBridgeTwoPointLinChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2244,7 +2245,7 @@ int32 DAQmxProd::CreateAIForceBridgeTwoPointLinChan(
         secondPhysicalVal, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIForceIEPEChan(TaskHandle task,
+int32 ProdAPI::CreateAIForceIEPEChan(TaskHandle task,
                                        const char physicalChannel[],
                                        const char nameToAssignToChannel[],
                                        int32 terminalConfig, float64 minVal,
@@ -2262,7 +2263,7 @@ int32 DAQmxProd::CreateAIForceIEPEChan(TaskHandle task,
                                                     customScaleName);
 }
 
-int32 DAQmxProd::CreateAIFreqVoltageChan(TaskHandle task,
+int32 ProdAPI::CreateAIFreqVoltageChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
@@ -2274,7 +2275,7 @@ int32 DAQmxProd::CreateAIFreqVoltageChan(TaskHandle task,
         thresholdLevel, hysteresis, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIMicrophoneChan(TaskHandle task,
+int32 ProdAPI::CreateAIMicrophoneChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         int32 terminalConfig, int32 units,
@@ -2289,7 +2290,7 @@ int32 DAQmxProd::CreateAIMicrophoneChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPosEddyCurrProxProbeChan(
+int32 ProdAPI::CreateAIPosEddyCurrProxProbeChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, float64 sensitivity,
     int32 sensitivityUnits, const char customScaleName[]) {
@@ -2298,7 +2299,7 @@ int32 DAQmxProd::CreateAIPosEddyCurrProxProbeChan(
         sensitivity, sensitivityUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPosLVDTChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIPosLVDTChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      float64 sensitivity, int32 sensitivityUnits,
@@ -2315,7 +2316,7 @@ int32 DAQmxProd::CreateAIPosLVDTChan(TaskHandle task, const char physicalChannel
                                                   customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPosRVDTChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIPosRVDTChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      float64 sensitivity, int32 sensitivityUnits,
@@ -2332,14 +2333,14 @@ int32 DAQmxProd::CreateAIPosRVDTChan(TaskHandle task, const char physicalChannel
                                                   customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPowerChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIPowerChan(TaskHandle task, const char physicalChannel[],
                                    const char nameToAssignToChannel[],
                                    float64 voltageSetpoint,
                                    float64 currentSetpoint, bool32 outputEnable) {
     return 0;
 }
 
-int32 DAQmxProd::CreateAIPressureBridgePolynomialChan(
+int32 ProdAPI::CreateAIPressureBridgePolynomialChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2353,7 +2354,7 @@ int32 DAQmxProd::CreateAIPressureBridgePolynomialChan(
         electricalUnits, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPressureBridgeTableChan(
+int32 ProdAPI::CreateAIPressureBridgeTableChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2367,7 +2368,7 @@ int32 DAQmxProd::CreateAIPressureBridgeTableChan(
         numPhysicalVals, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIPressureBridgeTwoPointLinChan(
+int32 ProdAPI::CreateAIPressureBridgeTwoPointLinChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2381,7 +2382,7 @@ int32 DAQmxProd::CreateAIPressureBridgeTwoPointLinChan(
         secondPhysicalVal, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIRTDChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIRTDChan(TaskHandle task, const char physicalChannel[],
                                  const char nameToAssignToChannel[],
                                  float64 minVal, float64 maxVal, int32 units,
                                  int32 rtdType, int32 resistanceConfig,
@@ -2393,7 +2394,7 @@ int32 DAQmxProd::CreateAIRTDChan(TaskHandle task, const char physicalChannel[],
                                               currentExcitSource, currentExcitVal, r0);
 }
 
-int32 DAQmxProd::CreateAIResistanceChan(TaskHandle task,
+int32 ProdAPI::CreateAIResistanceChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
@@ -2406,7 +2407,7 @@ int32 DAQmxProd::CreateAIResistanceChan(TaskHandle task,
         resistanceConfig, currentExcitSource, currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIRosetteStrainGageChan(TaskHandle task,
+int32 ProdAPI::CreateAIRosetteStrainGageChan(TaskHandle task,
                                                const char physicalChannel[],
                                                const char nameToAssignToChannel[],
                                                float64 minVal, float64 maxVal,
@@ -2428,7 +2429,7 @@ int32 DAQmxProd::CreateAIRosetteStrainGageChan(TaskHandle task,
         poissonRatio, leadWireResistance);
 }
 
-int32 DAQmxProd::CreateAIStrainGageChan(TaskHandle task,
+int32 ProdAPI::CreateAIStrainGageChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
@@ -2448,7 +2449,7 @@ int32 DAQmxProd::CreateAIStrainGageChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateAITempBuiltInSensorChan(TaskHandle task,
+int32 ProdAPI::CreateAITempBuiltInSensorChan(TaskHandle task,
                                                const char physicalChannel[],
                                                const char nameToAssignToChannel[],
                                                int32 units) {
@@ -2456,7 +2457,7 @@ int32 DAQmxProd::CreateAITempBuiltInSensorChan(TaskHandle task,
         task, physicalChannel, nameToAssignToChannel, units);
 }
 
-int32 DAQmxProd::CreateAIThrmcplChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIThrmcplChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      int32 thermocoupleType, int32 cjcSource,
@@ -2467,7 +2468,7 @@ int32 DAQmxProd::CreateAIThrmcplChan(TaskHandle task, const char physicalChannel
                                                   cjcVal, cjcChannel);
 }
 
-int32 DAQmxProd::CreateAIThrmstrChanIex(TaskHandle task,
+int32 ProdAPI::CreateAIThrmstrChanIex(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
@@ -2480,7 +2481,7 @@ int32 DAQmxProd::CreateAIThrmstrChanIex(TaskHandle task,
         resistanceConfig, currentExcitSource, currentExcitVal, a, b, c);
 }
 
-int32 DAQmxProd::CreateAIThrmstrChanVex(TaskHandle task,
+int32 ProdAPI::CreateAIThrmstrChanVex(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
@@ -2493,7 +2494,7 @@ int32 DAQmxProd::CreateAIThrmstrChanVex(TaskHandle task,
         resistanceConfig, voltageExcitSource, voltageExcitVal, a, b, c, r1);
 }
 
-int32 DAQmxProd::CreateAITorqueBridgePolynomialChan(
+int32 ProdAPI::CreateAITorqueBridgePolynomialChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2507,7 +2508,7 @@ int32 DAQmxProd::CreateAITorqueBridgePolynomialChan(
         electricalUnits, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAITorqueBridgeTableChan(TaskHandle task,
+int32 ProdAPI::CreateAITorqueBridgeTableChan(TaskHandle task,
                                                const char physicalChannel[],
                                                const char nameToAssignToChannel[],
                                                float64 minVal, float64 maxVal,
@@ -2529,7 +2530,7 @@ int32 DAQmxProd::CreateAITorqueBridgeTableChan(TaskHandle task,
         numPhysicalVals, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAITorqueBridgeTwoPointLinChan(
+int32 ProdAPI::CreateAITorqueBridgeTwoPointLinChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig,
     int32 voltageExcitSource, float64 voltageExcitVal, float64 nominalBridgeResistance,
@@ -2543,7 +2544,7 @@ int32 DAQmxProd::CreateAITorqueBridgeTwoPointLinChan(
         secondPhysicalVal, physicalUnits, customScaleName);
 }
 
-int32 DAQmxProd::CreateAIVelocityIEPEChan(TaskHandle task,
+int32 ProdAPI::CreateAIVelocityIEPEChan(TaskHandle task,
                                           const char physicalChannel[],
                                           const char nameToAssignToChannel[],
                                           int32 terminalConfig, float64 minVal,
@@ -2559,7 +2560,7 @@ int32 DAQmxProd::CreateAIVelocityIEPEChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateAIVoltageChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAIVoltageChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      int32 terminalConfig, float64 minVal,
                                      float64 maxVal, int32 units,
@@ -2570,7 +2571,7 @@ int32 DAQmxProd::CreateAIVoltageChan(TaskHandle task, const char physicalChannel
                                                   customScaleName);
 }
 
-int32 DAQmxProd::CreateAIVoltageChanWithExcit(TaskHandle task,
+int32 ProdAPI::CreateAIVoltageChanWithExcit(TaskHandle task,
                                               const char physicalChannel[],
                                               const char nameToAssignToChannel[],
                                               int32 terminalConfig, float64 minVal,
@@ -2586,7 +2587,7 @@ int32 DAQmxProd::CreateAIVoltageChanWithExcit(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateAIVoltageRMSChan(TaskHandle task,
+int32 ProdAPI::CreateAIVoltageRMSChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         int32 terminalConfig, float64 minVal,
@@ -2597,7 +2598,7 @@ int32 DAQmxProd::CreateAIVoltageRMSChan(TaskHandle task,
         units, customScaleName);
 }
 
-int32 DAQmxProd::CreateAOCurrentChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAOCurrentChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      const char customScaleName[]) {
@@ -2606,7 +2607,7 @@ int32 DAQmxProd::CreateAOCurrentChan(TaskHandle task, const char physicalChannel
                                                   units, customScaleName);
 }
 
-int32 DAQmxProd::CreateAOFuncGenChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAOFuncGenChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      int32 type, float64 freq, float64 amplitude,
                                      float64 offset) {
@@ -2615,7 +2616,7 @@ int32 DAQmxProd::CreateAOFuncGenChan(TaskHandle task, const char physicalChannel
                                                   amplitude, offset);
 }
 
-int32 DAQmxProd::CreateAOVoltageChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateAOVoltageChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      const char customScaleName[]) {
@@ -2624,7 +2625,7 @@ int32 DAQmxProd::CreateAOVoltageChan(TaskHandle task, const char physicalChannel
                                                   units, customScaleName);
 }
 
-int32 DAQmxProd::CreateCIAngEncoderChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIAngEncoderChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         int32 decodingType, bool32 zidxEnable,
                                         float64 zidxVal, int32 zidxPhase,
@@ -2636,7 +2637,7 @@ int32 DAQmxProd::CreateCIAngEncoderChan(TaskHandle task, const char counter[],
         zidxPhase, units, pulsesPerRev, initialAngle, customScaleName);
 }
 
-int32 DAQmxProd::CreateCIAngVelocityChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIAngVelocityChan(TaskHandle task, const char counter[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
                                          int32 decodingType, int32 units,
@@ -2647,7 +2648,7 @@ int32 DAQmxProd::CreateCIAngVelocityChan(TaskHandle task, const char counter[],
         pulsesPerRev, customScaleName);
 }
 
-int32 DAQmxProd::CreateCICountEdgesChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCICountEdgesChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         int32 edge, uInt32 initialCount,
                                         int32 countDirection) {
@@ -2655,7 +2656,7 @@ int32 DAQmxProd::CreateCICountEdgesChan(TaskHandle task, const char counter[],
         task, counter, nameToAssignToChannel, edge, initialCount, countDirection);
 }
 
-int32 DAQmxProd::CreateCIDutyCycleChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIDutyCycleChan(TaskHandle task, const char counter[],
                                        const char nameToAssignToChannel[],
                                        float64 minFreq, float64 maxFreq,
                                        int32 edge, const char customScaleName[]) {
@@ -2664,7 +2665,7 @@ int32 DAQmxProd::CreateCIDutyCycleChan(TaskHandle task, const char counter[],
                                                     maxFreq, edge, customScaleName);
 }
 
-int32 DAQmxProd::CreateCIFreqChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIFreqChan(TaskHandle task, const char counter[],
                                   const char nameToAssignToChannel[],
                                   float64 minVal, float64 maxVal, int32 units,
                                   int32 edge, int32 measMethod, float64 measTime,
@@ -2674,7 +2675,7 @@ int32 DAQmxProd::CreateCIFreqChan(TaskHandle task, const char counter[],
                                                measTime, divisor, customScaleName);
 }
 
-int32 DAQmxProd::CreateCIGPSTimestampChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIGPSTimestampChan(TaskHandle task, const char counter[],
                                           const char nameToAssignToChannel[],
                                           int32 units, int32 syncMethod,
                                           const char customScaleName[]) {
@@ -2682,7 +2683,7 @@ int32 DAQmxProd::CreateCIGPSTimestampChan(TaskHandle task, const char counter[],
         task, counter, nameToAssignToChannel, units, syncMethod, customScaleName);
 }
 
-int32 DAQmxProd::CreateCILinEncoderChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCILinEncoderChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         int32 decodingType, bool32 zidxEnable,
                                         float64 zidxVal, int32 zidxPhase,
@@ -2694,7 +2695,7 @@ int32 DAQmxProd::CreateCILinEncoderChan(TaskHandle task, const char counter[],
         zidxPhase, units, distPerPulse, initialPos, customScaleName);
 }
 
-int32 DAQmxProd::CreateCILinVelocityChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCILinVelocityChan(TaskHandle task, const char counter[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
                                          int32 decodingType, int32 units,
@@ -2705,7 +2706,7 @@ int32 DAQmxProd::CreateCILinVelocityChan(TaskHandle task, const char counter[],
         distPerPulse, customScaleName);
 }
 
-int32 DAQmxProd::CreateCIPeriodChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIPeriodChan(TaskHandle task, const char counter[],
                                     const char nameToAssignToChannel[],
                                     float64 minVal, float64 maxVal, int32 units,
                                     int32 edge, int32 measMethod, float64 measTime,
@@ -2716,7 +2717,7 @@ int32 DAQmxProd::CreateCIPeriodChan(TaskHandle task, const char counter[],
                                                  customScaleName);
 }
 
-int32 DAQmxProd::CreateCIPulseChanFreq(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIPulseChanFreq(TaskHandle task, const char counter[],
                                        const char nameToAssignToChannel[],
                                        float64 minVal, float64 maxVal,
                                        int32 units) {
@@ -2725,7 +2726,7 @@ int32 DAQmxProd::CreateCIPulseChanFreq(TaskHandle task, const char counter[],
                                                     maxVal, units);
 }
 
-int32 DAQmxProd::CreateCIPulseChanTicks(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIPulseChanTicks(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         const char sourceTerminal[],
                                         float64 minVal, float64 maxVal) {
@@ -2733,7 +2734,7 @@ int32 DAQmxProd::CreateCIPulseChanTicks(TaskHandle task, const char counter[],
         task, counter, nameToAssignToChannel, sourceTerminal, minVal, maxVal);
 }
 
-int32 DAQmxProd::CreateCIPulseChanTime(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIPulseChanTime(TaskHandle task, const char counter[],
                                        const char nameToAssignToChannel[],
                                        float64 minVal, float64 maxVal,
                                        int32 units) {
@@ -2742,7 +2743,7 @@ int32 DAQmxProd::CreateCIPulseChanTime(TaskHandle task, const char counter[],
                                                     maxVal, units);
 }
 
-int32 DAQmxProd::CreateCIPulseWidthChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCIPulseWidthChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
                                         int32 units, int32 startingEdge,
@@ -2752,7 +2753,7 @@ int32 DAQmxProd::CreateCIPulseWidthChan(TaskHandle task, const char counter[],
         customScaleName);
 }
 
-int32 DAQmxProd::CreateCISemiPeriodChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCISemiPeriodChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
                                         int32 units,
@@ -2761,7 +2762,7 @@ int32 DAQmxProd::CreateCISemiPeriodChan(TaskHandle task, const char counter[],
         task, counter, nameToAssignToChannel, minVal, maxVal, units, customScaleName);
 }
 
-int32 DAQmxProd::CreateCITwoEdgeSepChan(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCITwoEdgeSepChan(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
                                         int32 units, int32 firstEdge,
@@ -2772,7 +2773,7 @@ int32 DAQmxProd::CreateCITwoEdgeSepChan(TaskHandle task, const char counter[],
         secondEdge, customScaleName);
 }
 
-int32 DAQmxProd::CreateCOPulseChanFreq(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCOPulseChanFreq(TaskHandle task, const char counter[],
                                        const char nameToAssignToChannel[],
                                        int32 units, int32 idleState,
                                        float64 initialDelay, float64 freq,
@@ -2783,7 +2784,7 @@ int32 DAQmxProd::CreateCOPulseChanFreq(TaskHandle task, const char counter[],
                                                     dutyCycle);
 }
 
-int32 DAQmxProd::CreateCOPulseChanTicks(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCOPulseChanTicks(TaskHandle task, const char counter[],
                                         const char nameToAssignToChannel[],
                                         const char sourceTerminal[],
                                         int32 idleState, int32 initialDelay,
@@ -2793,7 +2794,7 @@ int32 DAQmxProd::CreateCOPulseChanTicks(TaskHandle task, const char counter[],
         lowTicks, highTicks);
 }
 
-int32 DAQmxProd::CreateCOPulseChanTime(TaskHandle task, const char counter[],
+int32 ProdAPI::CreateCOPulseChanTime(TaskHandle task, const char counter[],
                                        const char nameToAssignToChannel[],
                                        int32 units, int32 idleState,
                                        float64 initialDelay, float64 lowTime,
@@ -2804,28 +2805,28 @@ int32 DAQmxProd::CreateCOPulseChanTime(TaskHandle task, const char counter[],
                                                     highTime);
 }
 
-int32 DAQmxProd::CreateDIChan(TaskHandle task, const char lines[],
+int32 ProdAPI::CreateDIChan(TaskHandle task, const char lines[],
                               const char nameToAssignToLines[],
                               int32 lineGrouping) {
     return function_pointers_.CreateDIChan(task, lines, nameToAssignToLines,
                                            lineGrouping);
 }
 
-int32 DAQmxProd::CreateDOChan(TaskHandle task, const char lines[],
+int32 ProdAPI::CreateDOChan(TaskHandle task, const char lines[],
                               const char nameToAssignToLines[],
                               int32 lineGrouping) {
     return function_pointers_.CreateDOChan(task, lines, nameToAssignToLines,
                                            lineGrouping);
 }
 
-int32 DAQmxProd::CreateLinScale(const char name[], float64 slope,
+int32 ProdAPI::CreateLinScale(const char name[], float64 slope,
                                 float64 yIntercept, int32 preScaledUnits,
                                 const char scaledUnits[]) {
     return function_pointers_.CreateLinScale(name, slope, yIntercept, preScaledUnits,
                                              scaledUnits);
 }
 
-int32 DAQmxProd::CreateMapScale(const char name[], float64 prescaledMin,
+int32 ProdAPI::CreateMapScale(const char name[], float64 prescaledMin,
                                 float64 prescaledMax, float64 scaledMin,
                                 float64 scaledMax, int32 preScaledUnits,
                                 const char scaledUnits[]) {
@@ -2834,7 +2835,7 @@ int32 DAQmxProd::CreateMapScale(const char name[], float64 prescaledMin,
                                              scaledUnits);
 }
 
-int32 DAQmxProd::CreatePolynomialScale(const char name[],
+int32 ProdAPI::CreatePolynomialScale(const char name[],
                                        const float64 forwardCoeffs[],
                                        uInt32 numForwardCoeffsIn,
                                        const float64 reverseCoeffs[],
@@ -2847,7 +2848,7 @@ int32 DAQmxProd::CreatePolynomialScale(const char name[],
                                                     scaledUnits);
 }
 
-int32 DAQmxProd::CreateTEDSAIAccelChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIAccelChan(TaskHandle task,
                                        const char physicalChannel[],
                                        const char nameToAssignToChannel[],
                                        int32 terminalConfig, float64 minVal,
@@ -2862,7 +2863,7 @@ int32 DAQmxProd::CreateTEDSAIAccelChan(TaskHandle task,
                                                     currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIBridgeChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIBridgeChan(TaskHandle task,
                                         const char physicalChannel[],
                                         const char nameToAssignToChannel[],
                                         float64 minVal, float64 maxVal,
@@ -2874,7 +2875,7 @@ int32 DAQmxProd::CreateTEDSAIBridgeChan(TaskHandle task,
         voltageExcitSource, voltageExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAICurrentChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAICurrentChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          int32 terminalConfig, float64 minVal,
@@ -2887,7 +2888,7 @@ int32 DAQmxProd::CreateTEDSAICurrentChan(TaskHandle task,
         units, shuntResistorLoc, extShuntResistorVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIForceBridgeChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIForceBridgeChan(TaskHandle task,
                                              const char physicalChannel[],
                                              const char nameToAssignToChannel[],
                                              float64 minVal, float64 maxVal,
@@ -2899,7 +2900,7 @@ int32 DAQmxProd::CreateTEDSAIForceBridgeChan(TaskHandle task,
         voltageExcitSource, voltageExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIForceIEPEChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIForceIEPEChan(TaskHandle task,
                                            const char physicalChannel[],
                                            const char nameToAssignToChannel[],
                                            int32 terminalConfig, float64 minVal,
@@ -2912,7 +2913,7 @@ int32 DAQmxProd::CreateTEDSAIForceIEPEChan(TaskHandle task,
         units, currentExcitSource, currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIMicrophoneChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIMicrophoneChan(TaskHandle task,
                                             const char physicalChannel[],
                                             const char nameToAssignToChannel[],
                                             int32 terminalConfig, int32 units,
@@ -2925,7 +2926,7 @@ int32 DAQmxProd::CreateTEDSAIMicrophoneChan(TaskHandle task,
         maxSndPressLevel, currentExcitSource, currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIPosLVDTChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIPosLVDTChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
@@ -2940,7 +2941,7 @@ int32 DAQmxProd::CreateTEDSAIPosLVDTChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIPosRVDTChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIPosRVDTChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
@@ -2955,7 +2956,7 @@ int32 DAQmxProd::CreateTEDSAIPosRVDTChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIPressureBridgeChan(
+int32 ProdAPI::CreateTEDSAIPressureBridgeChan(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     float64 minVal, float64 maxVal, int32 units, int32 voltageExcitSource,
     float64 voltageExcitVal, const char customScaleName[]) {
@@ -2964,7 +2965,7 @@ int32 DAQmxProd::CreateTEDSAIPressureBridgeChan(
         voltageExcitSource, voltageExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIRTDChan(TaskHandle task, const char physicalChannel[],
+int32 ProdAPI::CreateTEDSAIRTDChan(TaskHandle task, const char physicalChannel[],
                                      const char nameToAssignToChannel[],
                                      float64 minVal, float64 maxVal, int32 units,
                                      int32 resistanceConfig,
@@ -2976,7 +2977,7 @@ int32 DAQmxProd::CreateTEDSAIRTDChan(TaskHandle task, const char physicalChannel
                                                   currentExcitSource, currentExcitVal);
 }
 
-int32 DAQmxProd::CreateTEDSAIResistanceChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIResistanceChan(TaskHandle task,
                                             const char physicalChannel[],
                                             const char nameToAssignToChannel[],
                                             float64 minVal, float64 maxVal,
@@ -2989,7 +2990,7 @@ int32 DAQmxProd::CreateTEDSAIResistanceChan(TaskHandle task,
         resistanceConfig, currentExcitSource, currentExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIStrainGageChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIStrainGageChan(TaskHandle task,
                                             const char physicalChannel[],
                                             const char nameToAssignToChannel[],
                                             float64 minVal, float64 maxVal,
@@ -3004,7 +3005,7 @@ int32 DAQmxProd::CreateTEDSAIStrainGageChan(TaskHandle task,
         customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIThrmcplChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIThrmcplChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          float64 minVal, float64 maxVal,
@@ -3015,7 +3016,7 @@ int32 DAQmxProd::CreateTEDSAIThrmcplChan(TaskHandle task,
         cjcVal, cjcChannel);
 }
 
-int32 DAQmxProd::CreateTEDSAIThrmstrChanIex(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIThrmstrChanIex(TaskHandle task,
                                             const char physicalChannel[],
                                             const char nameToAssignToChannel[],
                                             float64 minVal, float64 maxVal,
@@ -3027,7 +3028,7 @@ int32 DAQmxProd::CreateTEDSAIThrmstrChanIex(TaskHandle task,
         resistanceConfig, currentExcitSource, currentExcitVal);
 }
 
-int32 DAQmxProd::CreateTEDSAIThrmstrChanVex(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIThrmstrChanVex(TaskHandle task,
                                             const char physicalChannel[],
                                             const char nameToAssignToChannel[],
                                             float64 minVal, float64 maxVal,
@@ -3039,7 +3040,7 @@ int32 DAQmxProd::CreateTEDSAIThrmstrChanVex(TaskHandle task,
         resistanceConfig, voltageExcitSource, voltageExcitVal, r1);
 }
 
-int32 DAQmxProd::CreateTEDSAITorqueBridgeChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAITorqueBridgeChan(TaskHandle task,
                                               const char physicalChannel[],
                                               const char nameToAssignToChannel[],
                                               float64 minVal, float64 maxVal,
@@ -3052,7 +3053,7 @@ int32 DAQmxProd::CreateTEDSAITorqueBridgeChan(TaskHandle task,
         voltageExcitSource, voltageExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIVoltageChan(TaskHandle task,
+int32 ProdAPI::CreateTEDSAIVoltageChan(TaskHandle task,
                                          const char physicalChannel[],
                                          const char nameToAssignToChannel[],
                                          int32 terminalConfig, float64 minVal,
@@ -3063,7 +3064,7 @@ int32 DAQmxProd::CreateTEDSAIVoltageChan(TaskHandle task,
         units, customScaleName);
 }
 
-int32 DAQmxProd::CreateTEDSAIVoltageChanWithExcit(
+int32 ProdAPI::CreateTEDSAIVoltageChanWithExcit(
     TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
     int32 terminalConfig, float64 minVal, float64 maxVal, int32 units,
     int32 voltageExcitSource, float64 voltageExcitVal, const char customScaleName[]) {
@@ -3072,7 +3073,7 @@ int32 DAQmxProd::CreateTEDSAIVoltageChanWithExcit(
         units, voltageExcitSource, voltageExcitVal, customScaleName);
 }
 
-int32 DAQmxProd::CreateTableScale(const char name[], const float64 prescaledVals[],
+int32 ProdAPI::CreateTableScale(const char name[], const float64 prescaledVals[],
                                   uInt32 numPrescaledValsIn,
                                   const float64 scaledVals[],
                                   uInt32 numScaledValsIn, int32 preScaledUnits,
@@ -3082,11 +3083,11 @@ int32 DAQmxProd::CreateTableScale(const char name[], const float64 prescaledVals
                                                preScaledUnits, scaledUnits);
 }
 
-int32 DAQmxProd::CreateTask(const char sessionName[], TaskHandle *task) {
+int32 ProdAPI::CreateTask(const char sessionName[], TaskHandle *task) {
     return function_pointers_.CreateTask(sessionName, task);
 }
 
-int32 DAQmxProd::CreateWatchdogTimerTask(const char deviceName[],
+int32 ProdAPI::CreateWatchdogTimerTask(const char deviceName[],
                                          const char sessionName[],
                                          TaskHandle *task, float64 timeout,
                                          const char lines[], int32 expState,
@@ -3217,66 +3218,66 @@ int32 DAQmxProd::CreateWatchdogTimerTask(const char deviceName[],
         lines93, expState93, lines94, expState94, lines95, expState95);
 }
 
-int32 DAQmxProd::CreateWatchdogTimerTaskEx(const char deviceName[],
+int32 ProdAPI::CreateWatchdogTimerTaskEx(const char deviceName[],
                                            const char sessionName[],
                                            TaskHandle *task, float64 timeout) {
     return function_pointers_.CreateWatchdogTimerTaskEx(
         deviceName, sessionName, task, timeout);
 }
 
-int32 DAQmxProd::DeleteNetworkDevice(const char deviceName[]) {
+int32 ProdAPI::DeleteNetworkDevice(const char deviceName[]) {
     return function_pointers_.DeleteNetworkDevice(deviceName);
 }
 
-int32 DAQmxProd::DeleteSavedGlobalChan(const char channelName[]) {
+int32 ProdAPI::DeleteSavedGlobalChan(const char channelName[]) {
     return function_pointers_.DeleteSavedGlobalChan(channelName);
 }
 
-int32 DAQmxProd::DeleteSavedScale(const char scaleName[]) {
+int32 ProdAPI::DeleteSavedScale(const char scaleName[]) {
     return function_pointers_.DeleteSavedScale(scaleName);
 }
 
-int32 DAQmxProd::DeleteSavedTask(const char taskName[]) {
+int32 ProdAPI::DeleteSavedTask(const char taskName[]) {
     return function_pointers_.DeleteSavedTask(taskName);
 }
 
-int32 DAQmxProd::DeviceSupportsCal(const char deviceName[], bool32 *calSupported) {
+int32 ProdAPI::DeviceSupportsCal(const char deviceName[], bool32 *calSupported) {
     return function_pointers_.DeviceSupportsCal(deviceName, calSupported);
 }
 
-int32 DAQmxProd::DisableRefTrig(TaskHandle task) {
+int32 ProdAPI::DisableRefTrig(TaskHandle task) {
     return function_pointers_.DisableRefTrig(task);
 }
 
-int32 DAQmxProd::DisableStartTrig(TaskHandle task) {
+int32 ProdAPI::DisableStartTrig(TaskHandle task) {
     return function_pointers_.DisableStartTrig(task);
 }
 
-int32 DAQmxProd::DisconnectTerms(const char sourceTerminal[],
+int32 ProdAPI::DisconnectTerms(const char sourceTerminal[],
                                  const char destinationTerminal[]) {
     return function_pointers_.DisconnectTerms(sourceTerminal, destinationTerminal);
 }
 
-int32 DAQmxProd::ExportSignal(TaskHandle task, int32 signalID,
+int32 ProdAPI::ExportSignal(TaskHandle task, int32 signalID,
                               const char outputTerminal[]) {
     return function_pointers_.ExportSignal(task, signalID, outputTerminal);
 }
 
-int32 DAQmxProd::GetAIChanCalCalDate(TaskHandle task, const char channelName[],
+int32 ProdAPI::GetAIChanCalCalDate(TaskHandle task, const char channelName[],
                                      uInt32 *year, uInt32 *month, uInt32 *day,
                                      uInt32 *hour, uInt32 *minute) {
     return function_pointers_.GetAIChanCalCalDate(task, channelName, year, month, day,
                                                   hour, minute);
 }
 
-int32 DAQmxProd::GetAIChanCalExpDate(TaskHandle task, const char channelName[],
+int32 ProdAPI::GetAIChanCalExpDate(TaskHandle task, const char channelName[],
                                      uInt32 *year, uInt32 *month, uInt32 *day,
                                      uInt32 *hour, uInt32 *minute) {
     return function_pointers_.GetAIChanCalExpDate(task, channelName, year, month, day,
                                                   hour, minute);
 }
 
-int32 DAQmxProd::GetAnalogPowerUpStates(const char deviceName[],
+int32 ProdAPI::GetAnalogPowerUpStates(const char deviceName[],
                                         const char channelName[], float64 *state,
                                         int32 channelType,
                                         const char channelName0[], float64 *state0,
@@ -3523,143 +3524,143 @@ int32 DAQmxProd::GetAnalogPowerUpStates(const char deviceName[],
         channelName95, state95, channelType95);
 }
 
-int32 DAQmxProd::GetAnalogPowerUpStatesWithOutputType(
+int32 ProdAPI::GetAnalogPowerUpStatesWithOutputType(
     const char channelNames[], float64 stateArray[], int32 channelTypeArray[],
     uInt32 *arraySize) {
     return function_pointers_.GetAnalogPowerUpStatesWithOutputType(
         channelNames, stateArray, channelTypeArray, arraySize);
 }
 
-int32 DAQmxProd::GetArmStartTrigTimestampVal(TaskHandle task,
+int32 ProdAPI::GetArmStartTrigTimestampVal(TaskHandle task,
                                              CVIAbsoluteTime *data) {
     return function_pointers_.GetArmStartTrigTimestampVal(task, data);
 }
 
-int32 DAQmxProd::GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetArmStartTrigTrigWhen(task, data);
 }
 
-int32 DAQmxProd::GetAutoConfiguredCDAQSyncConnections(
+int32 ProdAPI::GetAutoConfiguredCDAQSyncConnections(
     char portList[], uInt32 portListSize) {
     return function_pointers_.GetAutoConfiguredCDAQSyncConnections(
         portList, portListSize);
 }
 
-int32 DAQmxProd::GetBufferAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetBufferAttributeUInt32(TaskHandle task, int32 attribute,
                                           uInt32 *value) {
     return function_pointers_.GetBufferAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetCalInfoAttributeBool(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetCalInfoAttributeBool(const char deviceName[], int32 attribute,
                                          bool32 *value) {
     return function_pointers_.GetCalInfoAttributeBool(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetCalInfoAttributeDouble(const char deviceName[],
+int32 ProdAPI::GetCalInfoAttributeDouble(const char deviceName[],
                                            int32 attribute, float64 *value) {
     return function_pointers_.GetCalInfoAttributeDouble(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetCalInfoAttributeString(const char deviceName[],
+int32 ProdAPI::GetCalInfoAttributeString(const char deviceName[],
                                            int32 attribute, char value[],
                                            uInt32 size) {
     return function_pointers_.GetCalInfoAttributeString(
         deviceName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetCalInfoAttributeUInt32(const char deviceName[],
+int32 ProdAPI::GetCalInfoAttributeUInt32(const char deviceName[],
                                            int32 attribute, uInt32 *value) {
     return function_pointers_.GetCalInfoAttributeUInt32(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetChanAttributeBool(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeBool(TaskHandle task, const char channel[],
                                       int32 attribute, bool32 *value) {
     return function_pointers_.GetChanAttributeBool(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::GetChanAttributeDouble(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeDouble(TaskHandle task, const char channel[],
                                         int32 attribute, float64 *value) {
     return function_pointers_.GetChanAttributeDouble(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::GetChanAttributeDoubleArray(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeDoubleArray(TaskHandle task, const char channel[],
                                              int32 attribute, float64 value[],
                                              uInt32 size) {
     return function_pointers_.GetChanAttributeDoubleArray(
         task, channel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetChanAttributeInt32(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeInt32(TaskHandle task, const char channel[],
                                        int32 attribute, int32 *value) {
     return function_pointers_.GetChanAttributeInt32(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::GetChanAttributeString(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeString(TaskHandle task, const char channel[],
                                         int32 attribute, char value[],
                                         uInt32 size) {
     return function_pointers_.GetChanAttributeString(
         task, channel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetChanAttributeUInt32(TaskHandle task, const char channel[],
+int32 ProdAPI::GetChanAttributeUInt32(TaskHandle task, const char channel[],
                                         int32 attribute, uInt32 *value) {
     return function_pointers_.GetChanAttributeUInt32(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::GetDeviceAttributeBool(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetDeviceAttributeBool(const char deviceName[], int32 attribute,
                                         bool32 *value) {
     return function_pointers_.GetDeviceAttributeBool(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetDeviceAttributeDouble(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetDeviceAttributeDouble(const char deviceName[], int32 attribute,
                                           float64 *value) {
     return function_pointers_.GetDeviceAttributeDouble(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetDeviceAttributeDoubleArray(const char deviceName[],
+int32 ProdAPI::GetDeviceAttributeDoubleArray(const char deviceName[],
                                                int32 attribute, float64 value[],
                                                uInt32 size) {
     return function_pointers_.GetDeviceAttributeDoubleArray(
         deviceName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetDeviceAttributeInt32(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetDeviceAttributeInt32(const char deviceName[], int32 attribute,
                                          int32 *value) {
     return function_pointers_.GetDeviceAttributeInt32(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetDeviceAttributeInt32Array(const char deviceName[],
+int32 ProdAPI::GetDeviceAttributeInt32Array(const char deviceName[],
                                               int32 attribute, int32 value[],
                                               uInt32 size) {
     return function_pointers_.GetDeviceAttributeInt32Array(
         deviceName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetDeviceAttributeString(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetDeviceAttributeString(const char deviceName[], int32 attribute,
                                           char value[], uInt32 size) {
     return function_pointers_.GetDeviceAttributeString(
         deviceName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetDeviceAttributeUInt32(const char deviceName[], int32 attribute,
+int32 ProdAPI::GetDeviceAttributeUInt32(const char deviceName[], int32 attribute,
                                           uInt32 *value) {
     return function_pointers_.GetDeviceAttributeUInt32(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::GetDeviceAttributeUInt32Array(const char deviceName[],
+int32 ProdAPI::GetDeviceAttributeUInt32Array(const char deviceName[],
                                                int32 attribute, uInt32 value[],
                                                uInt32 size) {
     return function_pointers_.GetDeviceAttributeUInt32Array(
         deviceName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetDigitalLogicFamilyPowerUpState(
+int32 ProdAPI::GetDigitalLogicFamilyPowerUpState(
     const char deviceName[], int32 *logicFamily) {
     return function_pointers_.
             GetDigitalLogicFamilyPowerUpState(deviceName, logicFamily);
 }
 
-int32 DAQmxProd::GetDigitalPowerUpStates(const char deviceName[],
+int32 ProdAPI::GetDigitalPowerUpStates(const char deviceName[],
                                          const char channelName[], int32 *state,
                                          const char channelName0[], int32 *state0,
                                          const char channelName1[], int32 *state1,
@@ -3878,7 +3879,7 @@ int32 DAQmxProd::GetDigitalPowerUpStates(const char deviceName[],
         channelName93, state93, channelName94, state94, channelName95, state95);
 }
 
-int32 DAQmxProd::GetDigitalPullUpPullDownStates(
+int32 ProdAPI::GetDigitalPullUpPullDownStates(
     const char deviceName[], const char channelName[], int32 *state,
     const char channelName0[], int32 *state0, const char channelName1[], int32 *state1,
     const char channelName2[], int32 *state2, const char channelName3[], int32 *state3,
@@ -3978,312 +3979,312 @@ int32 DAQmxProd::GetDigitalPullUpPullDownStates(
         channelName93, state93, channelName94, state94, channelName95, state95);
 }
 
-int32 DAQmxProd::GetDisconnectedCDAQSyncPorts(char portList[],
+int32 ProdAPI::GetDisconnectedCDAQSyncPorts(char portList[],
                                               uInt32 portListSize) {
     return function_pointers_.GetDisconnectedCDAQSyncPorts(portList, portListSize);
 }
 
-int32 DAQmxProd::GetErrorString(int32 errorCode, char errorString[],
+int32 ProdAPI::GetErrorString(int32 errorCode, char errorString[],
                                 uInt32 bufferSize) {
     return function_pointers_.GetErrorString(errorCode, errorString, bufferSize);
 }
 
-int32 DAQmxProd::GetExportedSignalAttributeBool(
+int32 ProdAPI::GetExportedSignalAttributeBool(
     TaskHandle task, int32 attribute, bool32 *value) {
     return function_pointers_.GetExportedSignalAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetExportedSignalAttributeDouble(
+int32 ProdAPI::GetExportedSignalAttributeDouble(
     TaskHandle task, int32 attribute, float64 *value) {
     return function_pointers_.GetExportedSignalAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::GetExportedSignalAttributeInt32(
+int32 ProdAPI::GetExportedSignalAttributeInt32(
     TaskHandle task, int32 attribute, int32 *value) {
     return function_pointers_.GetExportedSignalAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetExportedSignalAttributeString(
+int32 ProdAPI::GetExportedSignalAttributeString(
     TaskHandle task, int32 attribute, char value[], uInt32 size) {
     return function_pointers_.GetExportedSignalAttributeString(
         task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetExportedSignalAttributeUInt32(
+int32 ProdAPI::GetExportedSignalAttributeUInt32(
     TaskHandle task, int32 attribute, uInt32 *value) {
     return function_pointers_.GetExportedSignalAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetExtCalLastDateAndTime(const char deviceName[], uInt32 *year,
+int32 ProdAPI::GetExtCalLastDateAndTime(const char deviceName[], uInt32 *year,
                                           uInt32 *month, uInt32 *day, uInt32 *hour,
                                           uInt32 *minute) {
     return function_pointers_.GetExtCalLastDateAndTime(
         deviceName, year, month, day, hour, minute);
 }
 
-int32 DAQmxProd::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
+int32 ProdAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
     return function_pointers_.GetExtendedErrorInfo(errorString, bufferSize);
 }
 
-int32 DAQmxProd::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetFirstSampClkWhen(task, data);
 }
 
-int32 DAQmxProd::GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetFirstSampTimestampVal(task, data);
 }
 
-int32 DAQmxProd::GetNthTaskChannel(TaskHandle task, uInt32 index, char buffer[],
+int32 ProdAPI::GetNthTaskChannel(TaskHandle task, uInt32 index, char buffer[],
                                    int32 bufferSize) {
     return function_pointers_.GetNthTaskChannel(task, index, buffer, bufferSize);
 }
 
-int32 DAQmxProd::GetNthTaskDevice(TaskHandle task, uInt32 index, char buffer[],
+int32 ProdAPI::GetNthTaskDevice(TaskHandle task, uInt32 index, char buffer[],
                                   int32 bufferSize) {
     return function_pointers_.GetNthTaskDevice(task, index, buffer, bufferSize);
 }
 
-int32 DAQmxProd::GetNthTaskReadChannel(TaskHandle task, uInt32 index,
+int32 ProdAPI::GetNthTaskReadChannel(TaskHandle task, uInt32 index,
                                        char buffer[], int32 bufferSize) {
     return function_pointers_.GetNthTaskReadChannel(task, index, buffer, bufferSize);
 }
 
-int32 DAQmxProd::GetPersistedChanAttributeBool(const char channel[],
+int32 ProdAPI::GetPersistedChanAttributeBool(const char channel[],
                                                int32 attribute, bool32 *value) {
     return function_pointers_.GetPersistedChanAttributeBool(channel, attribute, value);
 }
 
-int32 DAQmxProd::GetPersistedChanAttributeString(
+int32 ProdAPI::GetPersistedChanAttributeString(
     const char channel[], int32 attribute, char value[], uInt32 size) {
     return function_pointers_.GetPersistedChanAttributeString(
         channel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPersistedScaleAttributeBool(
+int32 ProdAPI::GetPersistedScaleAttributeBool(
     const char scaleName[], int32 attribute, bool32 *value) {
     return function_pointers_.GetPersistedScaleAttributeBool(
         scaleName, attribute, value);
 }
 
-int32 DAQmxProd::GetPersistedScaleAttributeString(
+int32 ProdAPI::GetPersistedScaleAttributeString(
     const char scaleName[], int32 attribute, char value[], uInt32 size) {
     return function_pointers_.GetPersistedScaleAttributeString(
         scaleName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPersistedTaskAttributeBool(const char taskName[],
+int32 ProdAPI::GetPersistedTaskAttributeBool(const char taskName[],
                                                int32 attribute, bool32 *value) {
     return function_pointers_.GetPersistedTaskAttributeBool(taskName, attribute, value);
 }
 
-int32 DAQmxProd::GetPersistedTaskAttributeString(
+int32 ProdAPI::GetPersistedTaskAttributeString(
     const char taskName[], int32 attribute, char value[], uInt32 size) {
     return function_pointers_.GetPersistedTaskAttributeString(
         taskName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeBool(const char physicalChannel[],
+int32 ProdAPI::GetPhysicalChanAttributeBool(const char physicalChannel[],
                                               int32 attribute, bool32 *value) {
     return function_pointers_.GetPhysicalChanAttributeBool(
         physicalChannel, attribute, value);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeBytes(const char physicalChannel[],
+int32 ProdAPI::GetPhysicalChanAttributeBytes(const char physicalChannel[],
                                                int32 attribute, uInt8 value[],
                                                uInt32 size) {
     return function_pointers_.GetPhysicalChanAttributeBytes(
         physicalChannel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeDouble(
+int32 ProdAPI::GetPhysicalChanAttributeDouble(
     const char physicalChannel[], int32 attribute, float64 *value) {
     return function_pointers_.GetPhysicalChanAttributeDouble(
         physicalChannel, attribute, value);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeDoubleArray(
+int32 ProdAPI::GetPhysicalChanAttributeDoubleArray(
     const char physicalChannel[], int32 attribute, float64 value[], uInt32 size) {
     return function_pointers_.GetPhysicalChanAttributeDoubleArray(
         physicalChannel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeInt32(const char physicalChannel[],
+int32 ProdAPI::GetPhysicalChanAttributeInt32(const char physicalChannel[],
                                                int32 attribute, int32 *value) {
     return function_pointers_.GetPhysicalChanAttributeInt32(
         physicalChannel, attribute, value);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeInt32Array(
+int32 ProdAPI::GetPhysicalChanAttributeInt32Array(
     const char physicalChannel[], int32 attribute, int32 value[], uInt32 size) {
     return function_pointers_.GetPhysicalChanAttributeInt32Array(
         physicalChannel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeString(
+int32 ProdAPI::GetPhysicalChanAttributeString(
     const char physicalChannel[], int32 attribute, char value[], uInt32 size) {
     return function_pointers_.GetPhysicalChanAttributeString(
         physicalChannel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeUInt32(
+int32 ProdAPI::GetPhysicalChanAttributeUInt32(
     const char physicalChannel[], int32 attribute, uInt32 *value) {
     return function_pointers_.GetPhysicalChanAttributeUInt32(
         physicalChannel, attribute, value);
 }
 
-int32 DAQmxProd::GetPhysicalChanAttributeUInt32Array(
+int32 ProdAPI::GetPhysicalChanAttributeUInt32Array(
     const char physicalChannel[], int32 attribute, uInt32 value[], uInt32 size) {
     return function_pointers_.GetPhysicalChanAttributeUInt32Array(
         physicalChannel, attribute, value, size);
 }
 
-int32 DAQmxProd::GetReadAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeBool(TaskHandle task, int32 attribute,
                                       bool32 *value) {
     return function_pointers_.GetReadAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetReadAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeDouble(TaskHandle task, int32 attribute,
                                         float64 *value) {
     return function_pointers_.GetReadAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::GetReadAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeInt32(TaskHandle task, int32 attribute,
                                        int32 *value) {
     return function_pointers_.GetReadAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetReadAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeString(TaskHandle task, int32 attribute,
                                         char value[], uInt32 size) {
     return function_pointers_.GetReadAttributeString(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetReadAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeUInt32(TaskHandle task, int32 attribute,
                                         uInt32 *value) {
     return function_pointers_.GetReadAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetReadAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetReadAttributeUInt64(TaskHandle task, int32 attribute,
                                         uInt64 *value) {
     return function_pointers_.GetReadAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::GetRealTimeAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetRealTimeAttributeBool(TaskHandle task, int32 attribute,
                                           bool32 *value) {
     return function_pointers_.GetRealTimeAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetRealTimeAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetRealTimeAttributeInt32(TaskHandle task, int32 attribute,
                                            int32 *value) {
     return function_pointers_.GetRealTimeAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetRealTimeAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetRealTimeAttributeUInt32(TaskHandle task, int32 attribute,
                                             uInt32 *value) {
     return function_pointers_.GetRealTimeAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetRefTrigTimestampVal(task, data);
 }
 
-int32 DAQmxProd::GetScaleAttributeDouble(const char scaleName[], int32 attribute,
+int32 ProdAPI::GetScaleAttributeDouble(const char scaleName[], int32 attribute,
                                          float64 *value) {
     return function_pointers_.GetScaleAttributeDouble(scaleName, attribute, value);
 }
 
-int32 DAQmxProd::GetScaleAttributeDoubleArray(const char scaleName[],
+int32 ProdAPI::GetScaleAttributeDoubleArray(const char scaleName[],
                                               int32 attribute, float64 value[],
                                               uInt32 size) {
     return function_pointers_.GetScaleAttributeDoubleArray(
         scaleName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetScaleAttributeInt32(const char scaleName[], int32 attribute,
+int32 ProdAPI::GetScaleAttributeInt32(const char scaleName[], int32 attribute,
                                         int32 *value) {
     return function_pointers_.GetScaleAttributeInt32(scaleName, attribute, value);
 }
 
-int32 DAQmxProd::GetScaleAttributeString(const char scaleName[], int32 attribute,
+int32 ProdAPI::GetScaleAttributeString(const char scaleName[], int32 attribute,
                                          char value[], uInt32 size) {
     return function_pointers_.
             GetScaleAttributeString(scaleName, attribute, value, size);
 }
 
-int32 DAQmxProd::GetSelfCalLastDateAndTime(const char deviceName[], uInt32 *year,
+int32 ProdAPI::GetSelfCalLastDateAndTime(const char deviceName[], uInt32 *year,
                                            uInt32 *month, uInt32 *day,
                                            uInt32 *hour, uInt32 *minute) {
     return function_pointers_.GetSelfCalLastDateAndTime(
         deviceName, year, month, day, hour, minute);
 }
 
-int32 DAQmxProd::GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetStartTrigTimestampVal(task, data);
 }
 
-int32 DAQmxProd::GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetStartTrigTrigWhen(task, data);
 }
 
-int32 DAQmxProd::GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data) {
+int32 ProdAPI::GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return function_pointers_.GetSyncPulseTimeWhen(task, data);
 }
 
-int32 DAQmxProd::GetSystemInfoAttributeString(int32 attribute, char value[],
+int32 ProdAPI::GetSystemInfoAttributeString(int32 attribute, char value[],
                                               uInt32 size) {
     return function_pointers_.GetSystemInfoAttributeString(attribute, value, size);
 }
 
-int32 DAQmxProd::GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value) {
+int32 ProdAPI::GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value) {
     return function_pointers_.GetSystemInfoAttributeUInt32(attribute, value);
 }
 
-int32 DAQmxProd::GetTaskAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTaskAttributeBool(TaskHandle task, int32 attribute,
                                       bool32 *value) {
     return function_pointers_.GetTaskAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTaskAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTaskAttributeString(TaskHandle task, int32 attribute,
                                         char value[], uInt32 size) {
     return function_pointers_.GetTaskAttributeString(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTaskAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTaskAttributeUInt32(TaskHandle task, int32 attribute,
                                         uInt32 *value) {
     return function_pointers_.GetTaskAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeBool(TaskHandle task, int32 attribute,
                                         bool32 *value) {
     return function_pointers_.GetTimingAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeDouble(TaskHandle task, int32 attribute,
                                           float64 *value) {
     return function_pointers_.GetTimingAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExBool(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExBool(TaskHandle task,
                                           const char deviceNames[],
                                           int32 attribute, bool32 *value) {
     return function_pointers_.GetTimingAttributeExBool(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExDouble(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExDouble(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, float64 *value) {
     return function_pointers_.GetTimingAttributeExDouble(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExInt32(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExInt32(TaskHandle task,
                                            const char deviceNames[],
                                            int32 attribute, int32 *value) {
     return function_pointers_.GetTimingAttributeExInt32(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExString(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExString(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, char value[],
                                             uInt32 size) {
@@ -4291,7 +4292,7 @@ int32 DAQmxProd::GetTimingAttributeExString(TaskHandle task,
         task, deviceNames, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTimingAttributeExTimestamp(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExTimestamp(TaskHandle task,
                                                const char deviceNames[],
                                                int32 attribute,
                                                CVIAbsoluteTime *value) {
@@ -4299,152 +4300,152 @@ int32 DAQmxProd::GetTimingAttributeExTimestamp(TaskHandle task,
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExUInt32(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExUInt32(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, uInt32 *value) {
     return function_pointers_.GetTimingAttributeExUInt32(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeExUInt64(TaskHandle task,
+int32 ProdAPI::GetTimingAttributeExUInt64(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, uInt64 *value) {
     return function_pointers_.GetTimingAttributeExUInt64(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeInt32(TaskHandle task, int32 attribute,
                                          int32 *value) {
     return function_pointers_.GetTimingAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeString(TaskHandle task, int32 attribute,
                                           char value[], uInt32 size) {
     return function_pointers_.GetTimingAttributeString(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTimingAttributeTimestamp(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeTimestamp(TaskHandle task, int32 attribute,
                                              CVIAbsoluteTime *value) {
     return function_pointers_.GetTimingAttributeTimestamp(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeUInt32(TaskHandle task, int32 attribute,
                                           uInt32 *value) {
     return function_pointers_.GetTimingAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTimingAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTimingAttributeUInt64(TaskHandle task, int32 attribute,
                                           uInt64 *value) {
     return function_pointers_.GetTimingAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTrigAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeBool(TaskHandle task, int32 attribute,
                                       bool32 *value) {
     return function_pointers_.GetTrigAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTrigAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeDouble(TaskHandle task, int32 attribute,
                                         float64 *value) {
     return function_pointers_.GetTrigAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTrigAttributeDoubleArray(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeDoubleArray(TaskHandle task, int32 attribute,
                                              float64 value[], uInt32 size) {
     return function_pointers_.GetTrigAttributeDoubleArray(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTrigAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeInt32(TaskHandle task, int32 attribute,
                                        int32 *value) {
     return function_pointers_.GetTrigAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTrigAttributeInt32Array(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeInt32Array(TaskHandle task, int32 attribute,
                                             int32 value[], uInt32 size) {
     return function_pointers_.GetTrigAttributeInt32Array(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTrigAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeString(TaskHandle task, int32 attribute,
                                         char value[], uInt32 size) {
     return function_pointers_.GetTrigAttributeString(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetTrigAttributeTimestamp(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeTimestamp(TaskHandle task, int32 attribute,
                                            CVIAbsoluteTime *value) {
     return function_pointers_.GetTrigAttributeTimestamp(task, attribute, value);
 }
 
-int32 DAQmxProd::GetTrigAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetTrigAttributeUInt32(TaskHandle task, int32 attribute,
                                         uInt32 *value) {
     return function_pointers_.GetTrigAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetWatchdogAttributeBool(TaskHandle task, const char lines[],
+int32 ProdAPI::GetWatchdogAttributeBool(TaskHandle task, const char lines[],
                                           int32 attribute, bool32 *value) {
     return function_pointers_.GetWatchdogAttributeBool(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::GetWatchdogAttributeDouble(TaskHandle task, const char lines[],
+int32 ProdAPI::GetWatchdogAttributeDouble(TaskHandle task, const char lines[],
                                             int32 attribute, float64 *value) {
     return function_pointers_.GetWatchdogAttributeDouble(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::GetWatchdogAttributeInt32(TaskHandle task, const char lines[],
+int32 ProdAPI::GetWatchdogAttributeInt32(TaskHandle task, const char lines[],
                                            int32 attribute, int32 *value) {
     return function_pointers_.GetWatchdogAttributeInt32(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::GetWatchdogAttributeString(TaskHandle task, const char lines[],
+int32 ProdAPI::GetWatchdogAttributeString(TaskHandle task, const char lines[],
                                             int32 attribute, char value[],
                                             uInt32 size) {
     return function_pointers_.GetWatchdogAttributeString(
         task, lines, attribute, value, size);
 }
 
-int32 DAQmxProd::GetWriteAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeBool(TaskHandle task, int32 attribute,
                                        bool32 *value) {
     return function_pointers_.GetWriteAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::GetWriteAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeDouble(TaskHandle task, int32 attribute,
                                          float64 *value) {
     return function_pointers_.GetWriteAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::GetWriteAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeInt32(TaskHandle task, int32 attribute,
                                         int32 *value) {
     return function_pointers_.GetWriteAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetWriteAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeString(TaskHandle task, int32 attribute,
                                          char value[], uInt32 size) {
     return function_pointers_.GetWriteAttributeString(task, attribute, value, size);
 }
 
-int32 DAQmxProd::GetWriteAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeUInt32(TaskHandle task, int32 attribute,
                                          uInt32 *value) {
     return function_pointers_.GetWriteAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::GetWriteAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::GetWriteAttributeUInt64(TaskHandle task, int32 attribute,
                                          uInt64 *value) {
     return function_pointers_.GetWriteAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::IsTaskDone(TaskHandle task, bool32 *isTaskDone) {
+int32 ProdAPI::IsTaskDone(TaskHandle task, bool32 *isTaskDone) {
     return function_pointers_.IsTaskDone(task, isTaskDone);
 }
 
-int32 DAQmxProd::LoadTask(const char sessionName[], TaskHandle *task) {
+int32 ProdAPI::LoadTask(const char sessionName[], TaskHandle *task) {
     return function_pointers_.LoadTask(sessionName, task);
 }
 
-int32 DAQmxProd::PerformBridgeOffsetNullingCalEx(
+int32 ProdAPI::PerformBridgeOffsetNullingCalEx(
     TaskHandle task, const char channel[], bool32 skipUnsupportedChannels) {
     return function_pointers_.PerformBridgeOffsetNullingCalEx(
         task, channel, skipUnsupportedChannels);
 }
 
-int32 DAQmxProd::PerformBridgeShuntCalEx(TaskHandle task, const char channel[],
+int32 ProdAPI::PerformBridgeShuntCalEx(TaskHandle task, const char channel[],
                                          float64 shuntResistorValue,
                                          int32 shuntResistorLocation,
                                          int32 shuntResistorSelect,
@@ -4456,7 +4457,7 @@ int32 DAQmxProd::PerformBridgeShuntCalEx(TaskHandle task, const char channel[],
         shuntResistorSource, bridgeResistance, skipUnsupportedChannels);
 }
 
-int32 DAQmxProd::PerformStrainShuntCalEx(TaskHandle task, const char channel[],
+int32 ProdAPI::PerformStrainShuntCalEx(TaskHandle task, const char channel[],
                                          float64 shuntResistorValue,
                                          int32 shuntResistorLocation,
                                          int32 shuntResistorSelect,
@@ -4467,13 +4468,13 @@ int32 DAQmxProd::PerformStrainShuntCalEx(TaskHandle task, const char channel[],
         shuntResistorSource, skipUnsupportedChannels);
 }
 
-int32 DAQmxProd::PerformThrmcplLeadOffsetNullingCal(
+int32 ProdAPI::PerformThrmcplLeadOffsetNullingCal(
     TaskHandle task, const char channel[], bool32 skipUnsupportedChannels) {
     return function_pointers_.PerformThrmcplLeadOffsetNullingCal(
         task, channel, skipUnsupportedChannels);
 }
 
-int32 DAQmxProd::ReadAnalogF64(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadAnalogF64(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode,
                                float64 readArray[], uInt32 arraySizeInSamps,
                                int32 *sampsPerChanRead, bool32 *reserved) {
@@ -4482,12 +4483,12 @@ int32 DAQmxProd::ReadAnalogF64(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadAnalogScalarF64(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadAnalogScalarF64(TaskHandle task, float64 timeout,
                                      float64 *value, bool32 *reserved) {
     return function_pointers_.ReadAnalogScalarF64(task, timeout, value, reserved);
 }
 
-int32 DAQmxProd::ReadBinaryI16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadBinaryI16(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode, int16 readArray[],
                                uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                bool32 *reserved) {
@@ -4496,7 +4497,7 @@ int32 DAQmxProd::ReadBinaryI16(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadBinaryI32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadBinaryI32(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode, int32 readArray[],
                                uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                bool32 *reserved) {
@@ -4505,7 +4506,7 @@ int32 DAQmxProd::ReadBinaryI32(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadBinaryU16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadBinaryU16(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode, uInt16 readArray[],
                                uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                bool32 *reserved) {
@@ -4514,7 +4515,7 @@ int32 DAQmxProd::ReadBinaryU16(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadBinaryU32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadBinaryU32(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode, uInt32 readArray[],
                                uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                bool32 *reserved) {
@@ -4523,7 +4524,7 @@ int32 DAQmxProd::ReadBinaryU32(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadCounterF64(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCounterF64(TaskHandle task, int32 numSampsPerChan,
                                 float64 timeout, float64 readArray[],
                                 uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                 bool32 *reserved) {
@@ -4532,7 +4533,7 @@ int32 DAQmxProd::ReadCounterF64(TaskHandle task, int32 numSampsPerChan,
                                              reserved);
 }
 
-int32 DAQmxProd::ReadCounterF64Ex(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCounterF64Ex(TaskHandle task, int32 numSampsPerChan,
                                   float64 timeout, int32 fillMode,
                                   float64 readArray[], uInt32 arraySizeInSamps,
                                   int32 *sampsPerChanRead, bool32 *reserved) {
@@ -4541,17 +4542,17 @@ int32 DAQmxProd::ReadCounterF64Ex(TaskHandle task, int32 numSampsPerChan,
                                                sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadCounterScalarF64(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadCounterScalarF64(TaskHandle task, float64 timeout,
                                       float64 *value, bool32 *reserved) {
     return function_pointers_.ReadCounterScalarF64(task, timeout, value, reserved);
 }
 
-int32 DAQmxProd::ReadCounterScalarU32(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadCounterScalarU32(TaskHandle task, float64 timeout,
                                       uInt32 *value, bool32 *reserved) {
     return function_pointers_.ReadCounterScalarU32(task, timeout, value, reserved);
 }
 
-int32 DAQmxProd::ReadCounterU32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCounterU32(TaskHandle task, int32 numSampsPerChan,
                                 float64 timeout, uInt32 readArray[],
                                 uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                 bool32 *reserved) {
@@ -4560,7 +4561,7 @@ int32 DAQmxProd::ReadCounterU32(TaskHandle task, int32 numSampsPerChan,
                                              reserved);
 }
 
-int32 DAQmxProd::ReadCounterU32Ex(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCounterU32Ex(TaskHandle task, int32 numSampsPerChan,
                                   float64 timeout, int32 fillMode,
                                   uInt32 readArray[], uInt32 arraySizeInSamps,
                                   int32 *sampsPerChanRead, bool32 *reserved) {
@@ -4569,7 +4570,7 @@ int32 DAQmxProd::ReadCounterU32Ex(TaskHandle task, int32 numSampsPerChan,
                                                sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadCtrFreq(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCtrFreq(TaskHandle task, int32 numSampsPerChan,
                              float64 timeout, int32 interleaved,
                              float64 readArrayFrequency[],
                              float64 readArrayDutyCycle[], uInt32 arraySizeInSamps,
@@ -4579,14 +4580,14 @@ int32 DAQmxProd::ReadCtrFreq(TaskHandle task, int32 numSampsPerChan,
                                           arraySizeInSamps, sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadCtrFreqScalar(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadCtrFreqScalar(TaskHandle task, float64 timeout,
                                    float64 *frequency, float64 *dutyCycle,
                                    bool32 *reserved) {
     return function_pointers_.ReadCtrFreqScalar(task, timeout, frequency, dutyCycle,
                                                 reserved);
 }
 
-int32 DAQmxProd::ReadCtrTicks(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCtrTicks(TaskHandle task, int32 numSampsPerChan,
                               float64 timeout, int32 interleaved,
                               uInt32 readArrayHighTicks[],
                               uInt32 readArrayLowTicks[], uInt32 arraySizeInSamps,
@@ -4597,14 +4598,14 @@ int32 DAQmxProd::ReadCtrTicks(TaskHandle task, int32 numSampsPerChan,
                                            reserved);
 }
 
-int32 DAQmxProd::ReadCtrTicksScalar(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadCtrTicksScalar(TaskHandle task, float64 timeout,
                                     uInt32 *highTicks, uInt32 *lowTicks,
                                     bool32 *reserved) {
     return function_pointers_.ReadCtrTicksScalar(task, timeout, highTicks, lowTicks,
                                                  reserved);
 }
 
-int32 DAQmxProd::ReadCtrTime(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadCtrTime(TaskHandle task, int32 numSampsPerChan,
                              float64 timeout, int32 interleaved,
                              float64 readArrayHighTime[],
                              float64 readArrayLowTime[], uInt32 arraySizeInSamps,
@@ -4614,14 +4615,14 @@ int32 DAQmxProd::ReadCtrTime(TaskHandle task, int32 numSampsPerChan,
                                           arraySizeInSamps, sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadCtrTimeScalar(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadCtrTimeScalar(TaskHandle task, float64 timeout,
                                    float64 *highTime, float64 *lowTime,
                                    bool32 *reserved) {
     return function_pointers_.ReadCtrTimeScalar(task, timeout, highTime, lowTime,
                                                 reserved);
 }
 
-int32 DAQmxProd::ReadDigitalLines(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadDigitalLines(TaskHandle task, int32 numSampsPerChan,
                                   float64 timeout, int32 fillMode,
                                   uInt8 readArray[], uInt32 arraySizeInBytes,
                                   int32 *sampsPerChanRead, int32 *numBytesPerSamp,
@@ -4632,12 +4633,12 @@ int32 DAQmxProd::ReadDigitalLines(TaskHandle task, int32 numSampsPerChan,
                                                reserved);
 }
 
-int32 DAQmxProd::ReadDigitalScalarU32(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadDigitalScalarU32(TaskHandle task, float64 timeout,
                                       uInt32 *value, bool32 *reserved) {
     return function_pointers_.ReadDigitalScalarU32(task, timeout, value, reserved);
 }
 
-int32 DAQmxProd::ReadDigitalU16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadDigitalU16(TaskHandle task, int32 numSampsPerChan,
                                 float64 timeout, int32 fillMode,
                                 uInt16 readArray[], uInt32 arraySizeInSamps,
                                 int32 *sampsPerChanRead, bool32 *reserved) {
@@ -4646,7 +4647,7 @@ int32 DAQmxProd::ReadDigitalU16(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadDigitalU32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadDigitalU32(TaskHandle task, int32 numSampsPerChan,
                                 float64 timeout, int32 fillMode,
                                 uInt32 readArray[], uInt32 arraySizeInSamps,
                                 int32 *sampsPerChanRead, bool32 *reserved) {
@@ -4655,7 +4656,7 @@ int32 DAQmxProd::ReadDigitalU32(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadDigitalU8(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadDigitalU8(TaskHandle task, int32 numSampsPerChan,
                                float64 timeout, int32 fillMode, uInt8 readArray[],
                                uInt32 arraySizeInSamps, int32 *sampsPerChanRead,
                                bool32 *reserved) {
@@ -4664,7 +4665,7 @@ int32 DAQmxProd::ReadDigitalU8(TaskHandle task, int32 numSampsPerChan,
                                             sampsPerChanRead, reserved);
 }
 
-int32 DAQmxProd::ReadPowerBinaryI16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadPowerBinaryI16(TaskHandle task, int32 numSampsPerChan,
                                     float64 timeout, int32 fillMode,
                                     int16 readArrayVoltage[],
                                     int16 readArrayCurrent[],
@@ -4673,7 +4674,7 @@ int32 DAQmxProd::ReadPowerBinaryI16(TaskHandle task, int32 numSampsPerChan,
     return 0;
 }
 
-int32 DAQmxProd::ReadPowerF64(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::ReadPowerF64(TaskHandle task, int32 numSampsPerChan,
                               float64 timeout, int32 fillMode,
                               float64 readArrayVoltage[],
                               float64 readArrayCurrent[], uInt32 arraySizeInSamps,
@@ -4681,13 +4682,13 @@ int32 DAQmxProd::ReadPowerF64(TaskHandle task, int32 numSampsPerChan,
     return 0;
 }
 
-int32 DAQmxProd::ReadPowerScalarF64(TaskHandle task, float64 timeout,
+int32 ProdAPI::ReadPowerScalarF64(TaskHandle task, float64 timeout,
                                     float64 *voltage, float64 *current,
                                     bool32 *reserved) {
     return 0;
 }
 
-int32 DAQmxProd::ReadRaw(TaskHandle task, int32 numSampsPerChan, float64 timeout,
+int32 ProdAPI::ReadRaw(TaskHandle task, int32 numSampsPerChan, float64 timeout,
                          uInt8 readArray[], uInt32 arraySizeInBytes,
                          int32 *sampsRead, int32 *numBytesPerSamp,
                          bool32 *reserved) {
@@ -4696,14 +4697,14 @@ int32 DAQmxProd::ReadRaw(TaskHandle task, int32 numSampsPerChan, float64 timeout
                                       reserved);
 }
 
-int32 DAQmxProd::RegisterDoneEvent(TaskHandle task, uInt32 options,
+int32 ProdAPI::RegisterDoneEvent(TaskHandle task, uInt32 options,
                                    DAQmxDoneEventCallbackPtr callbackFunction,
                                    void *callbackData) {
     return function_pointers_.RegisterDoneEvent(task, options, callbackFunction,
                                                 callbackData);
 }
 
-int32 DAQmxProd::RegisterEveryNSamplesEvent(TaskHandle task,
+int32 ProdAPI::RegisterEveryNSamplesEvent(TaskHandle task,
                                             int32 everyNSamplesEventType,
                                             uInt32 nSamples, uInt32 options,
                                             DAQmxEveryNSamplesEventCallbackPtr
@@ -4713,7 +4714,7 @@ int32 DAQmxProd::RegisterEveryNSamplesEvent(TaskHandle task,
         callbackData);
 }
 
-int32 DAQmxProd::RegisterSignalEvent(TaskHandle task, int32 signalID,
+int32 ProdAPI::RegisterSignalEvent(TaskHandle task, int32 signalID,
                                      uInt32 options,
                                      DAQmxSignalEventCallbackPtr callbackFunction,
                                      void *callbackData) {
@@ -4721,106 +4722,106 @@ int32 DAQmxProd::RegisterSignalEvent(TaskHandle task, int32 signalID,
                                                   callbackFunction, callbackData);
 }
 
-int32 DAQmxProd::RemoveCDAQSyncConnection(const char portList[]) {
+int32 ProdAPI::RemoveCDAQSyncConnection(const char portList[]) {
     return function_pointers_.RemoveCDAQSyncConnection(portList);
 }
 
-int32 DAQmxProd::ReserveNetworkDevice(const char deviceName[],
+int32 ProdAPI::ReserveNetworkDevice(const char deviceName[],
                                       bool32 overrideReservation) {
     return function_pointers_.ReserveNetworkDevice(deviceName, overrideReservation);
 }
 
-int32 DAQmxProd::ResetBufferAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetBufferAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetBufferAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetChanAttribute(TaskHandle task, const char channel[],
+int32 ProdAPI::ResetChanAttribute(TaskHandle task, const char channel[],
                                     int32 attribute) {
     return function_pointers_.ResetChanAttribute(task, channel, attribute);
 }
 
-int32 DAQmxProd::ResetDevice(const char deviceName[]) {
+int32 ProdAPI::ResetDevice(const char deviceName[]) {
     return function_pointers_.ResetDevice(deviceName);
 }
 
-int32 DAQmxProd::ResetExportedSignalAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetExportedSignalAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetExportedSignalAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetReadAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetReadAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetReadAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetRealTimeAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetRealTimeAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetRealTimeAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetTimingAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetTimingAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetTimingAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetTimingAttributeEx(TaskHandle task, const char deviceNames[],
+int32 ProdAPI::ResetTimingAttributeEx(TaskHandle task, const char deviceNames[],
                                         int32 attribute) {
     return function_pointers_.ResetTimingAttributeEx(task, deviceNames, attribute);
 }
 
-int32 DAQmxProd::ResetTrigAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetTrigAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetTrigAttribute(task, attribute);
 }
 
-int32 DAQmxProd::ResetWatchdogAttribute(TaskHandle task, const char lines[],
+int32 ProdAPI::ResetWatchdogAttribute(TaskHandle task, const char lines[],
                                         int32 attribute) {
     return function_pointers_.ResetWatchdogAttribute(task, lines, attribute);
 }
 
-int32 DAQmxProd::ResetWriteAttribute(TaskHandle task, int32 attribute) {
+int32 ProdAPI::ResetWriteAttribute(TaskHandle task, int32 attribute) {
     return function_pointers_.ResetWriteAttribute(task, attribute);
 }
 
-int32 DAQmxProd::RestoreLastExtCalConst(const char deviceName[]) {
+int32 ProdAPI::RestoreLastExtCalConst(const char deviceName[]) {
     return function_pointers_.RestoreLastExtCalConst(deviceName);
 }
 
-int32 DAQmxProd::SaveGlobalChan(TaskHandle task, const char channelName[],
+int32 ProdAPI::SaveGlobalChan(TaskHandle task, const char channelName[],
                                 const char saveAs[], const char author[],
                                 uInt32 options) {
     return function_pointers_.
             SaveGlobalChan(task, channelName, saveAs, author, options);
 }
 
-int32 DAQmxProd::SaveScale(const char scaleName[], const char saveAs[],
+int32 ProdAPI::SaveScale(const char scaleName[], const char saveAs[],
                            const char author[], uInt32 options) {
     return function_pointers_.SaveScale(scaleName, saveAs, author, options);
 }
 
-int32 DAQmxProd::SaveTask(TaskHandle task, const char saveAs[],
+int32 ProdAPI::SaveTask(TaskHandle task, const char saveAs[],
                           const char author[], uInt32 options) {
     return function_pointers_.SaveTask(task, saveAs, author, options);
 }
 
-int32 DAQmxProd::SelfCal(const char deviceName[]) {
+int32 ProdAPI::SelfCal(const char deviceName[]) {
     return function_pointers_.SelfCal(deviceName);
 }
 
-int32 DAQmxProd::SelfTestDevice(const char deviceName[]) {
+int32 ProdAPI::SelfTestDevice(const char deviceName[]) {
     return function_pointers_.SelfTestDevice(deviceName);
 }
 
-int32 DAQmxProd::SetAIChanCalCalDate(TaskHandle task, const char channelName[],
+int32 ProdAPI::SetAIChanCalCalDate(TaskHandle task, const char channelName[],
                                      uInt32 year, uInt32 month, uInt32 day,
                                      uInt32 hour, uInt32 minute) {
     return function_pointers_.SetAIChanCalCalDate(task, channelName, year, month, day,
                                                   hour, minute);
 }
 
-int32 DAQmxProd::SetAIChanCalExpDate(TaskHandle task, const char channelName[],
+int32 ProdAPI::SetAIChanCalExpDate(TaskHandle task, const char channelName[],
                                      uInt32 year, uInt32 month, uInt32 day,
                                      uInt32 hour, uInt32 minute) {
     return function_pointers_.SetAIChanCalExpDate(task, channelName, year, month, day,
                                                   hour, minute);
 }
 
-int32 DAQmxProd::SetAnalogPowerUpStates(const char deviceName[],
+int32 ProdAPI::SetAnalogPowerUpStates(const char deviceName[],
                                         const char channelNames[], float64 state,
                                         int32 channelType,
                                         const char channelNames0[], float64 state0,
@@ -5067,81 +5068,81 @@ int32 DAQmxProd::SetAnalogPowerUpStates(const char deviceName[],
         channelType94, channelNames95, state95, channelType95);
 }
 
-int32 DAQmxProd::SetAnalogPowerUpStatesWithOutputType(
+int32 ProdAPI::SetAnalogPowerUpStatesWithOutputType(
     const char channelNames[], const float64 stateArray[],
     const int32 channelTypeArray[], uInt32 arraySize) {
     return function_pointers_.SetAnalogPowerUpStatesWithOutputType(
         channelNames, stateArray, channelTypeArray, arraySize);
 }
 
-int32 DAQmxProd::SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
+int32 ProdAPI::SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
     return function_pointers_.SetArmStartTrigTrigWhen(task, data);
 }
 
-int32 DAQmxProd::SetBufferAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetBufferAttributeUInt32(TaskHandle task, int32 attribute,
                                           uInt32 value) {
     return function_pointers_.SetBufferAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetCalInfoAttributeBool(const char deviceName[], int32 attribute,
+int32 ProdAPI::SetCalInfoAttributeBool(const char deviceName[], int32 attribute,
                                          bool32 value) {
     return function_pointers_.SetCalInfoAttributeBool(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::SetCalInfoAttributeDouble(const char deviceName[],
+int32 ProdAPI::SetCalInfoAttributeDouble(const char deviceName[],
                                            int32 attribute, float64 value) {
     return function_pointers_.SetCalInfoAttributeDouble(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::SetCalInfoAttributeString(const char deviceName[],
+int32 ProdAPI::SetCalInfoAttributeString(const char deviceName[],
                                            int32 attribute, const char value[]) {
     return function_pointers_.SetCalInfoAttributeString(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::SetCalInfoAttributeUInt32(const char deviceName[],
+int32 ProdAPI::SetCalInfoAttributeUInt32(const char deviceName[],
                                            int32 attribute, uInt32 value) {
     return function_pointers_.SetCalInfoAttributeUInt32(deviceName, attribute, value);
 }
 
-int32 DAQmxProd::SetChanAttributeBool(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeBool(TaskHandle task, const char channel[],
                                       int32 attribute, bool32 value) {
     return function_pointers_.SetChanAttributeBool(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::SetChanAttributeDouble(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeDouble(TaskHandle task, const char channel[],
                                         int32 attribute, float64 value) {
     return function_pointers_.SetChanAttributeDouble(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::SetChanAttributeDoubleArray(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeDoubleArray(TaskHandle task, const char channel[],
                                              int32 attribute,
                                              const float64 value[], uInt32 size) {
     return function_pointers_.SetChanAttributeDoubleArray(
         task, channel, attribute, value, size);
 }
 
-int32 DAQmxProd::SetChanAttributeInt32(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeInt32(TaskHandle task, const char channel[],
                                        int32 attribute, int32 value) {
     return function_pointers_.SetChanAttributeInt32(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::SetChanAttributeString(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeString(TaskHandle task, const char channel[],
                                         int32 attribute, const char value[]) {
     return function_pointers_.SetChanAttributeString(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::SetChanAttributeUInt32(TaskHandle task, const char channel[],
+int32 ProdAPI::SetChanAttributeUInt32(TaskHandle task, const char channel[],
                                         int32 attribute, uInt32 value) {
     return function_pointers_.SetChanAttributeUInt32(task, channel, attribute, value);
 }
 
-int32 DAQmxProd::SetDigitalLogicFamilyPowerUpState(
+int32 ProdAPI::SetDigitalLogicFamilyPowerUpState(
     const char deviceName[], int32 logicFamily) {
     return function_pointers_.
             SetDigitalLogicFamilyPowerUpState(deviceName, logicFamily);
 }
 
-int32 DAQmxProd::SetDigitalPowerUpStates(const char deviceName[],
+int32 ProdAPI::SetDigitalPowerUpStates(const char deviceName[],
                                          const char channelNames[], int32 state,
                                          const char channelNames0[], int32 state0,
                                          const char channelNames1[], int32 state1,
@@ -5361,7 +5362,7 @@ int32 DAQmxProd::SetDigitalPowerUpStates(const char deviceName[],
         channelNames95, state95);
 }
 
-int32 DAQmxProd::SetDigitalPullUpPullDownStates(
+int32 ProdAPI::SetDigitalPullUpPullDownStates(
     const char deviceName[], const char channelNames[], int32 state,
     const char channelNames0[], int32 state0, const char channelNames1[], int32 state1,
     const char channelNames2[], int32 state2, const char channelNames3[], int32 state3,
@@ -5462,81 +5463,81 @@ int32 DAQmxProd::SetDigitalPullUpPullDownStates(
         channelNames95, state95);
 }
 
-int32 DAQmxProd::SetExportedSignalAttributeBool(
+int32 ProdAPI::SetExportedSignalAttributeBool(
     TaskHandle task, int32 attribute, bool32 value) {
     return function_pointers_.SetExportedSignalAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetExportedSignalAttributeDouble(
+int32 ProdAPI::SetExportedSignalAttributeDouble(
     TaskHandle task, int32 attribute, float64 value) {
     return function_pointers_.SetExportedSignalAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::SetExportedSignalAttributeInt32(
+int32 ProdAPI::SetExportedSignalAttributeInt32(
     TaskHandle task, int32 attribute, int32 value) {
     return function_pointers_.SetExportedSignalAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetExportedSignalAttributeString(
+int32 ProdAPI::SetExportedSignalAttributeString(
     TaskHandle task, int32 attribute, const char value[]) {
     return function_pointers_.SetExportedSignalAttributeString(task, attribute, value);
 }
 
-int32 DAQmxProd::SetExportedSignalAttributeUInt32(
+int32 ProdAPI::SetExportedSignalAttributeUInt32(
     TaskHandle task, int32 attribute, uInt32 value) {
     return function_pointers_.SetExportedSignalAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
+int32 ProdAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
     return function_pointers_.SetFirstSampClkWhen(task, data);
 }
 
-int32 DAQmxProd::SetReadAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeBool(TaskHandle task, int32 attribute,
                                       bool32 value) {
     return function_pointers_.SetReadAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetReadAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeDouble(TaskHandle task, int32 attribute,
                                         float64 value) {
     return function_pointers_.SetReadAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::SetReadAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeInt32(TaskHandle task, int32 attribute,
                                        int32 value) {
     return function_pointers_.SetReadAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetReadAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeString(TaskHandle task, int32 attribute,
                                         const char value[]) {
     return function_pointers_.SetReadAttributeString(task, attribute, value);
 }
 
-int32 DAQmxProd::SetReadAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeUInt32(TaskHandle task, int32 attribute,
                                         uInt32 value) {
     return function_pointers_.SetReadAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetReadAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetReadAttributeUInt64(TaskHandle task, int32 attribute,
                                         uInt64 value) {
     return function_pointers_.SetReadAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::SetRealTimeAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetRealTimeAttributeBool(TaskHandle task, int32 attribute,
                                           bool32 value) {
     return function_pointers_.SetRealTimeAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetRealTimeAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetRealTimeAttributeInt32(TaskHandle task, int32 attribute,
                                            int32 value) {
     return function_pointers_.SetRealTimeAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetRealTimeAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetRealTimeAttributeUInt32(TaskHandle task, int32 attribute,
                                             uInt32 value) {
     return function_pointers_.SetRealTimeAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetRuntimeEnvironment(const char environment[],
+int32 ProdAPI::SetRuntimeEnvironment(const char environment[],
                                        const char environmentVersion[],
                                        const char reserved1[],
                                        const char reserved2[]) {
@@ -5544,75 +5545,75 @@ int32 DAQmxProd::SetRuntimeEnvironment(const char environment[],
                                                     reserved1, reserved2);
 }
 
-int32 DAQmxProd::SetScaleAttributeDouble(const char scaleName[], int32 attribute,
+int32 ProdAPI::SetScaleAttributeDouble(const char scaleName[], int32 attribute,
                                          float64 value) {
     return function_pointers_.SetScaleAttributeDouble(scaleName, attribute, value);
 }
 
-int32 DAQmxProd::SetScaleAttributeDoubleArray(const char scaleName[],
+int32 ProdAPI::SetScaleAttributeDoubleArray(const char scaleName[],
                                               int32 attribute,
                                               const float64 value[], uInt32 size) {
     return function_pointers_.SetScaleAttributeDoubleArray(
         scaleName, attribute, value, size);
 }
 
-int32 DAQmxProd::SetScaleAttributeInt32(const char scaleName[], int32 attribute,
+int32 ProdAPI::SetScaleAttributeInt32(const char scaleName[], int32 attribute,
                                         int32 value) {
     return function_pointers_.SetScaleAttributeInt32(scaleName, attribute, value);
 }
 
-int32 DAQmxProd::SetScaleAttributeString(const char scaleName[], int32 attribute,
+int32 ProdAPI::SetScaleAttributeString(const char scaleName[], int32 attribute,
                                          const char value[]) {
     return function_pointers_.SetScaleAttributeString(scaleName, attribute, value);
 }
 
-int32 DAQmxProd::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
+int32 ProdAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
     return function_pointers_.SetStartTrigTrigWhen(task, data);
 }
 
-int32 DAQmxProd::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
+int32 ProdAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
     return function_pointers_.SetSyncPulseTimeWhen(task, data);
 }
 
-int32 DAQmxProd::SetTimingAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeBool(TaskHandle task, int32 attribute,
                                         bool32 value) {
     return function_pointers_.SetTimingAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeDouble(TaskHandle task, int32 attribute,
                                           float64 value) {
     return function_pointers_.SetTimingAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExBool(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExBool(TaskHandle task,
                                           const char deviceNames[],
                                           int32 attribute, bool32 value) {
     return function_pointers_.SetTimingAttributeExBool(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExDouble(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExDouble(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, float64 value) {
     return function_pointers_.SetTimingAttributeExDouble(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExInt32(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExInt32(TaskHandle task,
                                            const char deviceNames[],
                                            int32 attribute, int32 value) {
     return function_pointers_.SetTimingAttributeExInt32(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExString(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExString(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, const char value[]) {
     return function_pointers_.SetTimingAttributeExString(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExTimestamp(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExTimestamp(TaskHandle task,
                                                const char deviceNames[],
                                                int32 attribute,
                                                CVIAbsoluteTime value) {
@@ -5620,163 +5621,163 @@ int32 DAQmxProd::SetTimingAttributeExTimestamp(TaskHandle task,
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExUInt32(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExUInt32(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, uInt32 value) {
     return function_pointers_.SetTimingAttributeExUInt32(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeExUInt64(TaskHandle task,
+int32 ProdAPI::SetTimingAttributeExUInt64(TaskHandle task,
                                             const char deviceNames[],
                                             int32 attribute, uInt64 value) {
     return function_pointers_.SetTimingAttributeExUInt64(
         task, deviceNames, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeInt32(TaskHandle task, int32 attribute,
                                          int32 value) {
     return function_pointers_.SetTimingAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeString(TaskHandle task, int32 attribute,
                                           const char value[]) {
     return function_pointers_.SetTimingAttributeString(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeTimestamp(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeTimestamp(TaskHandle task, int32 attribute,
                                              CVIAbsoluteTime value) {
     return function_pointers_.SetTimingAttributeTimestamp(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeUInt32(TaskHandle task, int32 attribute,
                                           uInt32 value) {
     return function_pointers_.SetTimingAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTimingAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTimingAttributeUInt64(TaskHandle task, int32 attribute,
                                           uInt64 value) {
     return function_pointers_.SetTimingAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeBool(TaskHandle task, int32 attribute,
                                       bool32 value) {
     return function_pointers_.SetTrigAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeDouble(TaskHandle task, int32 attribute,
                                         float64 value) {
     return function_pointers_.SetTrigAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeDoubleArray(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeDoubleArray(TaskHandle task, int32 attribute,
                                              const float64 value[], uInt32 size) {
     return function_pointers_.SetTrigAttributeDoubleArray(task, attribute, value, size);
 }
 
-int32 DAQmxProd::SetTrigAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeInt32(TaskHandle task, int32 attribute,
                                        int32 value) {
     return function_pointers_.SetTrigAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeInt32Array(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeInt32Array(TaskHandle task, int32 attribute,
                                             const int32 value[], uInt32 size) {
     return function_pointers_.SetTrigAttributeInt32Array(task, attribute, value, size);
 }
 
-int32 DAQmxProd::SetTrigAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeString(TaskHandle task, int32 attribute,
                                         const char value[]) {
     return function_pointers_.SetTrigAttributeString(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeTimestamp(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeTimestamp(TaskHandle task, int32 attribute,
                                            CVIAbsoluteTime value) {
     return function_pointers_.SetTrigAttributeTimestamp(task, attribute, value);
 }
 
-int32 DAQmxProd::SetTrigAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetTrigAttributeUInt32(TaskHandle task, int32 attribute,
                                         uInt32 value) {
     return function_pointers_.SetTrigAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWatchdogAttributeBool(TaskHandle task, const char lines[],
+int32 ProdAPI::SetWatchdogAttributeBool(TaskHandle task, const char lines[],
                                           int32 attribute, bool32 value) {
     return function_pointers_.SetWatchdogAttributeBool(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::SetWatchdogAttributeDouble(TaskHandle task, const char lines[],
+int32 ProdAPI::SetWatchdogAttributeDouble(TaskHandle task, const char lines[],
                                             int32 attribute, float64 value) {
     return function_pointers_.SetWatchdogAttributeDouble(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::SetWatchdogAttributeInt32(TaskHandle task, const char lines[],
+int32 ProdAPI::SetWatchdogAttributeInt32(TaskHandle task, const char lines[],
                                            int32 attribute, int32 value) {
     return function_pointers_.SetWatchdogAttributeInt32(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::SetWatchdogAttributeString(TaskHandle task, const char lines[],
+int32 ProdAPI::SetWatchdogAttributeString(TaskHandle task, const char lines[],
                                             int32 attribute, const char value[]) {
     return function_pointers_.SetWatchdogAttributeString(task, lines, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeBool(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeBool(TaskHandle task, int32 attribute,
                                        bool32 value) {
     return function_pointers_.SetWriteAttributeBool(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeDouble(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeDouble(TaskHandle task, int32 attribute,
                                          float64 value) {
     return function_pointers_.SetWriteAttributeDouble(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeInt32(TaskHandle task, int32 attribute,
                                         int32 value) {
     return function_pointers_.SetWriteAttributeInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeString(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeString(TaskHandle task, int32 attribute,
                                          const char value[]) {
     return function_pointers_.SetWriteAttributeString(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeUInt32(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeUInt32(TaskHandle task, int32 attribute,
                                          uInt32 value) {
     return function_pointers_.SetWriteAttributeUInt32(task, attribute, value);
 }
 
-int32 DAQmxProd::SetWriteAttributeUInt64(TaskHandle task, int32 attribute,
+int32 ProdAPI::SetWriteAttributeUInt64(TaskHandle task, int32 attribute,
                                          uInt64 value) {
     return function_pointers_.SetWriteAttributeUInt64(task, attribute, value);
 }
 
-int32 DAQmxProd::StartNewFile(TaskHandle task, const char filePath[]) {
+int32 ProdAPI::StartNewFile(TaskHandle task, const char filePath[]) {
     return function_pointers_.StartNewFile(task, filePath);
 }
 
-int32 DAQmxProd::StartTask(TaskHandle task) {
+int32 ProdAPI::StartTask(TaskHandle task) {
     return function_pointers_.StartTask(task);
 }
 
-int32 DAQmxProd::StopTask(TaskHandle task) {
+int32 ProdAPI::StopTask(TaskHandle task) {
     return function_pointers_.StopTask(task);
 }
 
-int32 DAQmxProd::TaskControl(TaskHandle task, int32 action) {
+int32 ProdAPI::TaskControl(TaskHandle task, int32 action) {
     return function_pointers_.TaskControl(task, action);
 }
 
-int32 DAQmxProd::TristateOutputTerm(const char outputTerminal[]) {
+int32 ProdAPI::TristateOutputTerm(const char outputTerminal[]) {
     return function_pointers_.TristateOutputTerm(outputTerminal);
 }
 
-int32 DAQmxProd::UnregisterDoneEvent(TaskHandle task, uInt32 options,
+int32 ProdAPI::UnregisterDoneEvent(TaskHandle task, uInt32 options,
                                      DAQmxDoneEventCallbackPtr callbackFunction,
                                      void *callbackData) {
     return function_pointers_.UnregisterDoneEvent(task, options, callbackFunction,
                                                   callbackData);
 }
 
-int32 DAQmxProd::UnregisterEveryNSamplesEvent(TaskHandle task,
+int32 ProdAPI::UnregisterEveryNSamplesEvent(TaskHandle task,
                                               int32 everyNSamplesEventType,
                                               uInt32 nSamples, uInt32 options,
                                               DAQmxEveryNSamplesEventCallbackPtr
@@ -5787,7 +5788,7 @@ int32 DAQmxProd::UnregisterEveryNSamplesEvent(TaskHandle task,
         callbackData);
 }
 
-int32 DAQmxProd::UnregisterSignalEvent(TaskHandle task, int32 signalID,
+int32 ProdAPI::UnregisterSignalEvent(TaskHandle task, int32 signalID,
                                        uInt32 options,
                                        DAQmxSignalEventCallbackPtr
                                        callbackFunction, void *callbackData) {
@@ -5795,27 +5796,27 @@ int32 DAQmxProd::UnregisterSignalEvent(TaskHandle task, int32 signalID,
                                                     callbackFunction, callbackData);
 }
 
-int32 DAQmxProd::UnreserveNetworkDevice(const char deviceName[]) {
+int32 ProdAPI::UnreserveNetworkDevice(const char deviceName[]) {
     return function_pointers_.UnreserveNetworkDevice(deviceName);
 }
 
-int32 DAQmxProd::WaitForNextSampleClock(TaskHandle task, float64 timeout,
+int32 ProdAPI::WaitForNextSampleClock(TaskHandle task, float64 timeout,
                                         bool32 *isLate) {
     return function_pointers_.WaitForNextSampleClock(task, timeout, isLate);
 }
 
-int32 DAQmxProd::WaitForValidTimestamp(TaskHandle task, int32 timestampEvent,
+int32 ProdAPI::WaitForValidTimestamp(TaskHandle task, int32 timestampEvent,
                                        float64 timeout,
                                        CVIAbsoluteTime *timestamp) {
     return function_pointers_.WaitForValidTimestamp(task, timestampEvent, timeout,
                                                     timestamp);
 }
 
-int32 DAQmxProd::WaitUntilTaskDone(TaskHandle task, float64 timeToWait) {
+int32 ProdAPI::WaitUntilTaskDone(TaskHandle task, float64 timeToWait) {
     return function_pointers_.WaitUntilTaskDone(task, timeToWait);
 }
 
-int32 DAQmxProd::WriteAnalogF64(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteAnalogF64(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const float64 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5824,14 +5825,14 @@ int32 DAQmxProd::WriteAnalogF64(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteAnalogScalarF64(TaskHandle task, bool32 autoStart,
+int32 ProdAPI::WriteAnalogScalarF64(TaskHandle task, bool32 autoStart,
                                       float64 timeout, float64 value,
                                       bool32 *reserved) {
     return function_pointers_.WriteAnalogScalarF64(task, autoStart, timeout, value,
                                                    reserved);
 }
 
-int32 DAQmxProd::WriteBinaryI16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteBinaryI16(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const int16 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5840,7 +5841,7 @@ int32 DAQmxProd::WriteBinaryI16(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteBinaryI32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteBinaryI32(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const int32 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5849,7 +5850,7 @@ int32 DAQmxProd::WriteBinaryI32(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteBinaryU16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteBinaryU16(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const uInt16 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5858,7 +5859,7 @@ int32 DAQmxProd::WriteBinaryU16(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteBinaryU32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteBinaryU32(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const uInt32 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5867,7 +5868,7 @@ int32 DAQmxProd::WriteBinaryU32(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteCtrFreq(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteCtrFreq(TaskHandle task, int32 numSampsPerChan,
                               bool32 autoStart, float64 timeout, int32 dataLayout,
                               const float64 frequency[], const float64 dutyCycle[],
                               int32 *numSampsPerChanWritten, bool32 *reserved) {
@@ -5876,14 +5877,14 @@ int32 DAQmxProd::WriteCtrFreq(TaskHandle task, int32 numSampsPerChan,
                                            numSampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteCtrFreqScalar(TaskHandle task, bool32 autoStart,
+int32 ProdAPI::WriteCtrFreqScalar(TaskHandle task, bool32 autoStart,
                                     float64 timeout, float64 frequency,
                                     float64 dutyCycle, bool32 *reserved) {
     return function_pointers_.WriteCtrFreqScalar(task, autoStart, timeout, frequency,
                                                  dutyCycle, reserved);
 }
 
-int32 DAQmxProd::WriteCtrTicks(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteCtrTicks(TaskHandle task, int32 numSampsPerChan,
                                bool32 autoStart, float64 timeout, int32 dataLayout,
                                const uInt32 highTicks[], const uInt32 lowTicks[],
                                int32 *numSampsPerChanWritten, bool32 *reserved) {
@@ -5892,14 +5893,14 @@ int32 DAQmxProd::WriteCtrTicks(TaskHandle task, int32 numSampsPerChan,
                                             numSampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteCtrTicksScalar(TaskHandle task, bool32 autoStart,
+int32 ProdAPI::WriteCtrTicksScalar(TaskHandle task, bool32 autoStart,
                                      float64 timeout, uInt32 highTicks,
                                      uInt32 lowTicks, bool32 *reserved) {
     return function_pointers_.WriteCtrTicksScalar(task, autoStart, timeout, highTicks,
                                                   lowTicks, reserved);
 }
 
-int32 DAQmxProd::WriteCtrTime(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteCtrTime(TaskHandle task, int32 numSampsPerChan,
                               bool32 autoStart, float64 timeout, int32 dataLayout,
                               const float64 highTime[], const float64 lowTime[],
                               int32 *numSampsPerChanWritten, bool32 *reserved) {
@@ -5908,14 +5909,14 @@ int32 DAQmxProd::WriteCtrTime(TaskHandle task, int32 numSampsPerChan,
                                            numSampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteCtrTimeScalar(TaskHandle task, bool32 autoStart,
+int32 ProdAPI::WriteCtrTimeScalar(TaskHandle task, bool32 autoStart,
                                     float64 timeout, float64 highTime,
                                     float64 lowTime, bool32 *reserved) {
     return function_pointers_.WriteCtrTimeScalar(task, autoStart, timeout, highTime,
                                                  lowTime, reserved);
 }
 
-int32 DAQmxProd::WriteDigitalLines(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteDigitalLines(TaskHandle task, int32 numSampsPerChan,
                                    bool32 autoStart, float64 timeout,
                                    int32 dataLayout, const uInt8 writeArray[],
                                    int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5924,14 +5925,14 @@ int32 DAQmxProd::WriteDigitalLines(TaskHandle task, int32 numSampsPerChan,
                                                 sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteDigitalScalarU32(TaskHandle task, bool32 autoStart,
+int32 ProdAPI::WriteDigitalScalarU32(TaskHandle task, bool32 autoStart,
                                        float64 timeout, uInt32 value,
                                        bool32 *reserved) {
     return function_pointers_.WriteDigitalScalarU32(task, autoStart, timeout, value,
                                                     reserved);
 }
 
-int32 DAQmxProd::WriteDigitalU16(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteDigitalU16(TaskHandle task, int32 numSampsPerChan,
                                  bool32 autoStart, float64 timeout,
                                  int32 dataLayout, const uInt16 writeArray[],
                                  int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5940,7 +5941,7 @@ int32 DAQmxProd::WriteDigitalU16(TaskHandle task, int32 numSampsPerChan,
                                               sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteDigitalU32(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteDigitalU32(TaskHandle task, int32 numSampsPerChan,
                                  bool32 autoStart, float64 timeout,
                                  int32 dataLayout, const uInt32 writeArray[],
                                  int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5949,7 +5950,7 @@ int32 DAQmxProd::WriteDigitalU32(TaskHandle task, int32 numSampsPerChan,
                                               sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteDigitalU8(TaskHandle task, int32 numSampsPerChan,
+int32 ProdAPI::WriteDigitalU8(TaskHandle task, int32 numSampsPerChan,
                                 bool32 autoStart, float64 timeout,
                                 int32 dataLayout, const uInt8 writeArray[],
                                 int32 *sampsPerChanWritten, bool32 *reserved) {
@@ -5958,23 +5959,24 @@ int32 DAQmxProd::WriteDigitalU8(TaskHandle task, int32 numSampsPerChan,
                                              sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteRaw(TaskHandle task, int32 numSamps, bool32 autoStart,
+int32 ProdAPI::WriteRaw(TaskHandle task, int32 numSamps, bool32 autoStart,
                           float64 timeout, const uInt8 writeArray[],
                           int32 *sampsPerChanWritten, bool32 *reserved) {
     return function_pointers_.WriteRaw(task, numSamps, autoStart, timeout, writeArray,
                                        sampsPerChanWritten, reserved);
 }
 
-int32 DAQmxProd::WriteToTEDSFromArray(const char physicalChannel[],
+int32 ProdAPI::WriteToTEDSFromArray(const char physicalChannel[],
                                       const uInt8 bitStream[], uInt32 arraySize,
                                       int32 basicTEDSOptions) {
     return function_pointers_.WriteToTEDSFromArray(physicalChannel, bitStream,
                                                    arraySize, basicTEDSOptions);
 }
 
-int32 DAQmxProd::WriteToTEDSFromFile(const char physicalChannel[],
+int32 ProdAPI::WriteToTEDSFromFile(const char physicalChannel[],
                                      const char filePath[],
                                      int32 basicTEDSOptions) {
     return function_pointers_.WriteToTEDSFromFile(physicalChannel, filePath,
                                                   basicTEDSOptions);
+}
 }

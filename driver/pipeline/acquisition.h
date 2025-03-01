@@ -9,14 +9,12 @@
 
 #pragma once
 
-/// std
-#include <thread>
-
-/// external
-#include "client/cpp/synnax.h"
-
 /// module
 #include "x/cpp/breaker/breaker.h"
+#include "client/cpp/synnax.h"
+
+/// internal
+#include "driver/pipeline/base.h"
 #include "driver/pipeline/middleware.h"
 
 namespace pipeline {
@@ -89,24 +87,27 @@ public:
 /// @brief an implementation of the pipeline::Writer interface that is backed
 /// by a Synnax writer that writes data to a cluster.
 class SynnaxWriter final : public pipeline::Writer {
-    std::unique_ptr<synnax::Writer> internal;
-
+    /// @brief the internal Synnax writer that this writer wraps.
+    synnax::Writer internal;
 public:
-    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal);
+    explicit SynnaxWriter(synnax::Writer internal);
 
+    /// @brief implements pipeline::Writer to write the frame to Synnax.
     bool write(synnax::Frame &fr) override;
 
+    /// @brief implements pipeline::Writer to close the writer.
     xerrors::Error close() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is
 /// backed by an actual synnax client connected to a cluster.
 class SynnaxWriterFactory final : public WriterFactory {
+    /// @brief the Synnax client to use for opening writers.
     std::shared_ptr<synnax::Synnax> client;
-
 public:
     explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
 
+    /// @brief implements pipeline::WriterFactory to open a Synnax writer.
     std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
         const WriterConfig &config
     ) override;
@@ -116,10 +117,24 @@ public:
 /// should be used as a utility for implementing a broader acquisition task. It implements
 /// retry handling on connection loss and temporary hardware errors. The pipeline
 /// forks a thread to repeatedly read from the source and write to Synnax.
-class Acquisition {
-public:
-    Acquisition() = default;
+class Acquisition final : public Base {
+    /// @brief a factory used to instantiate Synnax writers to write acquired data to.
+    /// This is typically backed by a synnax client, but can be mocked.
+    const std::shared_ptr<WriterFactory> factory;
+    /// @brief the source that the acquisition pipeline reads from in order to push
+    /// new frames to synnax.
+    const std::shared_ptr<Source> source;
+    /// @brief the configuration for the Synnax writer.
+    WriterConfig writer_config;
+    /// @brief a middleware chain that can modify frames read from the source before
+    /// they are written to Synnax.
+    pipeline::MiddlewareChain middleware;
 
+    /// @brief the run function passed to the pipeline thread. Automatically catches
+    /// standard exceptions to ensure the pipeline does not cause the application to
+    /// crash.
+    void run() override;
+public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax database
     /// cluster.
     /// @param client the Synnax client to use for writing data.
@@ -156,41 +171,10 @@ public:
         const breaker::Config &breaker_config
     );
 
-    /// @brief starts the acquisition pipeline if it has not already been started. start
-    /// is safe to call multiple times without stopping the pipeline.
-    /// @retruns true if the pipeline was not previously started and was started, and
-    /// false if the pipeline was already running.
-    bool start();
-
-    /// @brief stops the acquisition pipeline, blocking until the pipeline has stopped.
-    /// If the pipeline has already stopped, stop will return immediately.
-    /// @returns true if the pipeline was running and was stopped, and false if the
-    /// if the pipeline was already stopped.
-    bool stop();
-
-    bool running() const;
-
     /// @brief adds a middleware to the acquisition pipeline that will be called on each
     /// frame read from source
-    void add_middleware(const std::shared_ptr<pipeline::Middleware> &middleware) {
-        middleware_chain.add(middleware);
+    void use(const std::shared_ptr<pipeline::Middleware> &mw) {
+        this->middleware.add(mw);
     }
-
-    ~Acquisition();
-
-private:
-    std::unique_ptr<std::thread> thread;
-    std::shared_ptr<WriterFactory> factory;
-    WriterConfig writer_config;
-    breaker::Breaker breaker;
-    std::shared_ptr<Source> source;
-    pipeline::MiddlewareChain middleware_chain;
-
-    void run_internal();
-
-    void ensure_thread_joined() const;
-
-
-    void run();
 };
 }

@@ -10,11 +10,13 @@
 #pragma once
 
 #include "driver/ni/syscfg/nisyscfg.h"
-#include "driver/ni/syscfg/syscfg_errors.h"
+#include "driver/ni/syscfg/nisyscfg_errors.h"
 
-class SysCfg {
+
+namespace syscfg {
+class API {
 public:
-    virtual ~SysCfg() = default;
+    virtual ~API() = default;
 
     virtual NISYSCFGCFUNC InitializeSession(
         const char *targetName,
@@ -86,3 +88,4 @@ public:
         wchar_t str[]
     ) = 0;
 };
+}

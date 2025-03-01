@@ -22,7 +22,7 @@
 
 #include <stddef.h>
 #include <stdarg.h>
-#include "syscfg_errors.h"
+#include "nisyscfg_errors.h"
 
 #if defined(_CVI_)
 #pragma EnableLibraryRuntimeChecking

@@ -6,6 +6,7 @@ cc_library(
     ],
     hdrs = [
         "acquisition.h",
+        "base.h",
         "control.h",
         "middleware.h",
     ],

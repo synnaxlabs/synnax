@@ -25,13 +25,13 @@ using json = nlohmann::json;
 
 using namespace pipeline;
 
-SynnaxWriter::SynnaxWriter(std::unique_ptr<synnax::Writer> internal)
+SynnaxWriter::SynnaxWriter(synnax::Writer internal)
     : internal(std::move(internal)) {
 }
 
-bool SynnaxWriter::write(synnax::Frame &fr) { return this->internal->write(fr); }
+bool SynnaxWriter::write(synnax::Frame &fr) { return this->internal.write(fr); }
 
-xerrors::Error SynnaxWriter::close() { return this->internal->close(); }
+xerrors::Error SynnaxWriter::close() { return this->internal.close(); }
 
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
     : client(std::move(client)) {
@@ -42,8 +42,7 @@ SynnaxWriterFactory::open_writer(const WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
     return {
-        std::make_unique<SynnaxWriter>(
-            std::make_unique<synnax::Writer>(std::move(sw))),
+        std::make_unique<SynnaxWriter>(std::move(sw)),
         xerrors::NIL
     };
 }
@@ -53,11 +52,12 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) : thread(nullptr),
-    factory(std::make_shared<SynnaxWriterFactory>(std::move(client))),
-    writer_config(std::move(writer_config)),
-    breaker(breaker_config),
-    source(std::move(source)) {
+) : Acquisition(
+    std::make_shared<SynnaxWriterFactory>(std::move(client)),
+    std::move(writer_config),
+    std::move(source),
+    breaker_config
+    ) {
 }
 
 Acquisition::Acquisition(
@@ -65,57 +65,10 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) : thread(nullptr),
-    factory(std::move(factory)),
-    writer_config(std::move(writer_config)),
-    breaker(breaker_config),
-    source(std::move(source)) {
+) : Base(breaker_config), factory(std::move(factory)),
+    source(std::move(source)),
+    writer_config(std::move(writer_config)) {
 }
-
-void Acquisition::ensure_thread_joined() const {
-    if (
-        this->thread == nullptr ||
-        !this->thread->joinable() ||
-        std::this_thread::get_id() == this->thread->get_id()
-    )
-        return;
-    this->thread->join();
-}
-
-bool Acquisition::running() const { return this->breaker.running(); }
-
-bool Acquisition::start() {
-    if (this->breaker.running()) return false;
-    this->ensure_thread_joined();
-    this->breaker.start();
-    this->thread = std::make_unique<std::thread>(&Acquisition::run, this);
-    return true;
-}
-
-bool Acquisition::stop() {
-    const auto was_running = this->breaker.running();
-    this->breaker.stop();
-    this->ensure_thread_joined();
-    return was_running;
-}
-
-/// @brief the main run function for the acquisition thread. Servers as a wrapper
-/// around runInternal to catch exceptions and log them.
-void Acquisition::run() {
-    try {
-        // This will call itself recursively.
-        this->run_internal();
-    } catch (const std::exception &e) {
-        LOG(ERROR) << "[acquisition] unhandled standard exception: " << e.what();
-    } catch (...) {
-        LOG(ERROR) << "[acquisition] unhandled unknown exception";
-    }
-    // Stop the acquisition thread. This is an idempotent operation, which means its
-    // safe to call stop even in a scenario where a user called stop explicitly (as
-    // opposed to an internal error).
-    this->stop();
-}
-
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
@@ -129,7 +82,7 @@ telem::TimeStamp resolve_start(const synnax::Frame &frame) {
     return telem::TimeStamp::now();
 }
 
-void Acquisition::run_internal() {
+void Acquisition::run() {
     VLOG(1) << "[acquisition] acquisition thread started";
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
@@ -152,7 +105,7 @@ void Acquisition::run_internal() {
             break;
         }
         if (frame.empty()) continue;
-        this->middleware_chain.exec(frame);
+        this->middleware.exec(frame);
         // Open the writer after receiving the first frame so we can resolve the start
         // timestamp from the data. This helps to account for clock drift between the
         // source we're recording data from and the system clock.
@@ -183,13 +136,8 @@ void Acquisition::run_internal() {
         writer_err.matches(freighter::UNREACHABLE) &&
         this->breaker.wait(writer_err.message())
     )
-        return this->run_internal();
+        return this->run();
     if (source_err) this->source->stopped_with_err(source_err);
     else if (writer_err) this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
-}
-
-Acquisition::~Acquisition() {
-    this->stop();
-    this->ensure_thread_joined();
 }

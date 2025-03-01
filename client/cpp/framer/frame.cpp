@@ -34,31 +34,17 @@ Frame::Frame(const ChannelKey &chan, telem::Series &&ser) :
     series->emplace_back(std::move(ser));
 }
 
-Frame::Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data, int cap) :
+Frame::Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data, size_t cap) :
     channels(std::make_unique<std::vector<ChannelKey> >()),
     series(std::make_unique<std::vector<telem::Series> >()) {
-    if (cap == -1) cap = data.size();
-    series->reserve(data.size());
-    channels->reserve(data.size());
+    if (cap < data.size()) cap = data.size();
+    series->reserve(cap);
+    channels->reserve(cap);
     for (auto &[key, value]: data) {
         channels->push_back(key);
         series->emplace_back(telem::Series(value));
     }
 }
-
-Frame::Frame(std::unordered_map<ChannelKey, telem::NumericSampleValue> &data, int cap) :
-    channels(std::make_unique<std::vector<ChannelKey> >()),
-    series(std::make_unique<std::vector<telem::Series> >()) {
-    if (cap == -1) cap = data.size();
-    series->reserve(data.size());
-    channels->reserve(data.size());
-    for (auto &[key, value]: data) {
-        channels->push_back(key);
-        series->emplace_back(telem::Series(value));
-    }
-}
-
-
 
 Frame::Frame(const api::v1::Frame &f) :
     channels(std::make_unique<std::vector<ChannelKey> >(
@@ -104,7 +90,7 @@ void Frame::reserve(const size_t &size) const {
     this->series->reserve(size);
 }
 
-Frame Frame::deep_copy() const { return Frame(*this); }
+Frame Frame::deep_copy() const { return {*this}; }
 
 Frame::Frame(const Frame &other) :
     channels(std::make_unique<std::vector<ChannelKey>>(*other.channels)),

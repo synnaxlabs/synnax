@@ -395,7 +395,7 @@ std::pair<Frame, xerrors::Error> opc::ReaderSource::read(breaker::Breaker &break
     auto fr = Frame(cfg.channels.size() + indexes.size());
 
     // TODO: what is read_calls_per_cycle? explain whats happening here
-    auto read_calls_per_cycle = static_cast<std::size_t>(cfg.sample_rate.value / cfg.stream_rate.value);
+    auto read_calls_per_cycle = static_cast<std::size_t>((cfg.sample_rate / cfg.stream_rate).hz());
     auto series_size = read_calls_per_cycle;
     if (cfg.array_size > 1) {
         read_calls_per_cycle = 1;
@@ -460,7 +460,7 @@ std::pair<Frame, xerrors::Error> opc::ReaderSource::read(breaker::Breaker &break
         if (cfg.array_size == 1) {
             const auto now = telem::TimeStamp::now();
             for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
-                fr.series->at(j).write(now.value);
+                fr.series->at(j).write(now.nanoseconds());
         } else if (indexes.size() > 0) {
             // In this case we don't know the exact spacing between the timestamps,
             // so we just back it out from the sample rate.
@@ -469,7 +469,7 @@ std::pair<Frame, xerrors::Error> opc::ReaderSource::read(breaker::Breaker &break
             // make an array of timestamps with the same spacing
             auto to_generate = std::min(series_size, curr_arr_size);
             for (std::size_t k = 0; k < to_generate; k++)
-                timestamp_buf[k] = (now + (spacing * k)).value;
+                timestamp_buf[k] = (now + (spacing * k)).nanoseconds();
             for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
                 fr.series->at(j).write(timestamp_buf.get(), cfg.array_size);
         }

@@ -27,27 +27,31 @@
 #include "driver/ni/daqmx/nidaqmx.h"
 
 namespace channel {
+/// @brief uses an atomic counter to generate new scale keys;
 static std::string next_scale_key() {
-    static std::atomic counter = 0;
+    static std::atomic<size_t> counter = 0;
     return "scale_" + std::to_string(counter++);
 }
 
+/// @brief abstract class for a scale that will be applied to a channel.
 struct Scale {
     virtual ~Scale() = default;
 
-    virtual bool is_none() { return true; };
+    /// @brief returns true if the scale should not be applied.
+    virtual bool is_none() { return true; }
 
+    /// @brief applies the scale to the DAQmx task, returning a key for the scale
+    /// and any error that occurred during application.
     virtual std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx
     ) { return {"", xerrors::NIL}; }
 };
 
+/// @brief base scale data structure for all scale types.
 struct BaseScale : Scale {
-    std::string type;
-    std::string pre_scaled_units;
-    std::string scaled_units;
+    const std::string type, pre_scaled_units, scaled_units;
 
-    bool is_none() override { return false; };
+    bool is_none() override { return false; }
 
     explicit BaseScale(xjson::Parser &cfg):
         type(cfg.required<std::string>("type")),
@@ -56,10 +60,9 @@ struct BaseScale : Scale {
     }
 };
 
-class LinearScale final : public BaseScale {
-    float64 slope, offset;
+struct LinearScale final : BaseScale {
+    const float64 slope, offset;
 
-public:
     explicit LinearScale(xjson::Parser &cfg) :
         BaseScale(cfg),
         slope(cfg.required<double>("slope")),
@@ -67,7 +70,7 @@ public:
     }
 
     std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx) override {
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -82,10 +85,9 @@ public:
     }
 };
 
-class MapScale final : public BaseScale {
-    float64 pre_scaled_min, pre_scaled_max, scaled_min, scaled_max;
+struct MapScale final : BaseScale {
+    const float64 pre_scaled_min, pre_scaled_max, scaled_min, scaled_max;
 
-public:
     explicit MapScale(xjson::Parser &cfg):
         BaseScale(cfg),
         pre_scaled_min(cfg.required<double>("pre_scaled_min")),
@@ -95,7 +97,7 @@ public:
     }
 
     std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx) override {
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -112,23 +114,21 @@ public:
     }
 };
 
-class PolynomialScale final : public BaseScale {
+struct PolynomialScale final : BaseScale {
     std::vector<double> forward_coeffs, reverse_coeffs;
-    uint32_t num_coeffs;
-    float64 min_x, max_x;
-    int32 num_points, poly_order;
+    const uint32_t num_coeffs;
+    const float64 min_x, max_x;
+    const int32 num_points, poly_order;
 
-public:
     explicit PolynomialScale(xjson::Parser &cfg):
         BaseScale(cfg),
+        forward_coeffs(num_coeffs * 2),
+        reverse_coeffs(num_coeffs * 2),
         num_coeffs(cfg.required<int>("num_coeffs")),
         min_x(cfg.required<double>("min_x")),
         max_x(cfg.required<double>("max_x")),
         num_points(cfg.optional<int>("num_reverse_coeffs", 0)),
         poly_order(cfg.required<int>("poly_order")) {
-        forward_coeffs.resize(num_coeffs * 2);
-        reverse_coeffs.resize(num_coeffs * 2);
-
         if (!cfg.ok()) {
             LOG(ERROR) <<
                     "[ni.analog] failed to parse custom polynomial scale configuration";
@@ -148,7 +148,7 @@ public:
     }
 
     std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx) override {
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         dmx->CalculateReversePolyCoeff(
             this->forward_coeffs.data(),
@@ -188,7 +188,7 @@ public:
     }
 
     std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx) override {
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -205,8 +205,10 @@ public:
     }
 };
 
-inline std::unique_ptr<Scale> parse_scale(const xjson::Parser &parent_cfg,
-                                          const std::string &path) {
+inline std::unique_ptr<Scale> parse_scale(
+    const xjson::Parser &parent_cfg,
+    const std::string &path
+) {
     auto cfg = parent_cfg.child(path);
     const auto type = cfg.required<std::string>("type");
     if (type == "linear") return std::make_unique<LinearScale>(cfg);

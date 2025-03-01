@@ -29,8 +29,7 @@ constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
 
 namespace telem {
 template<typename T>
-static void
-output_partial_vector(
+void output_partial_vector(
     std::ostream &os,
     const std::vector<T> &v
 ) {
@@ -43,7 +42,7 @@ output_partial_vector(
     for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
 }
 
-static void output_partial_vector_byte(
+inline void output_partial_vector_byte(
     std::ostream &os,
     const std::vector<uint8_t> &vec
 ) {
@@ -66,7 +65,6 @@ public:
     DataType data_type;
     /// @brief the capacity of the series in number of samples.
     size_t cap;
-
 private:
     /// @brief cached_byte_size is an optimization for variable rate channels that
     /// caches the byte size of the series so it doesn't need to be re-calculated.
@@ -112,8 +110,10 @@ private:
     }
 
 public:
+    /// @brief returns the number of samples in the series.
     [[nodiscard]] size_t size() const { return size_; }
 
+    /// @brief returns true if the series is empty.
     [[nodiscard]] bool empty() const { return size_ == 0; }
 
     /// @brief move constructor.
@@ -126,11 +126,17 @@ public:
         time_range(other.time_range) {
     }
 
+    /// @brief constructor that conditionally casts that provided data array to the
+    /// given data type.
+    /// @param data_type - the data type of the series.
+    /// @param data - the data to write to the series. If data_type is the same as
+    /// the inferred type of this data, then it will be directly written to the series.
+    /// Otherwise, each sample in data will be cast to the correct data type.
+    /// @param size - the number of samples in the data array.
     template<typename T>
-    static Series cast(const DataType &data_type, T* data, const size_t size) {
+    static Series cast(const DataType &data_type, T *data, const size_t size) {
         auto s = Series(data_type, size);
-        if (DataType::infer<T>() == data_type)
-            s.write(data, size);
+        if (DataType::infer<T>() == data_type) s.write(data, size);
         else for (size_t i = 0; i < size; i++) s.write(data_type.cast(data[i]));
         return s;
     }
@@ -160,17 +166,8 @@ public:
     template<typename NumericType>
     explicit Series(
         const std::vector<NumericType> &d,
-        const DataType& dt = UNKNOWN_T
-    ):
-        data_type(telem::DataType::infer<NumericType>(dt)),
-        cap(d.size()),
-        size_(d.size()),
-        data(std::make_unique<std::byte[]>(d.size() * this->data_type.density())) {
-        static_assert(
-            std::is_arithmetic_v<NumericType>,
-            "NumericType must be a numeric type"
-        );
-        memcpy(this->data.get(), d.data(), d.size() * this->data_type.density());
+        const DataType &dt = UNKNOWN_T
+    ): Series(d.data(), d.size(), dt) {
     }
 
     /// @brief constructs a series from the given array of numeric data and a length.
@@ -178,7 +175,7 @@ public:
     /// @param size_ the number of samples to be used.
     /// @param dt the data type of the series.
     template<typename NumericType>
-    Series(const NumericType* d, const size_t size_, const DataType dt = UNKNOWN_T):
+    Series(const NumericType *d, const size_t size_, const DataType dt = UNKNOWN_T):
         data_type(telem::DataType::infer<NumericType>(dt)),
         cap(size_),
         size_(size_),
@@ -198,7 +195,8 @@ public:
         cap(1),
         size_(1),
         data(std::make_unique<std::byte[]>(this->byte_size())) {
-        memcpy(data.get(), &v.value, this->byte_size());
+        const auto ov = v.nanoseconds();
+        memcpy(data.get(), &ov, this->byte_size());
     }
 
     /// @brief constructs a series of size 1 from the given number.
@@ -210,7 +208,7 @@ public:
     template<typename NumericType>
     explicit Series(
         NumericType v,
-        const DataType& override_dt = UNKNOWN_T
+        const DataType &override_dt = UNKNOWN_T
     ) :
         data_type(telem::DataType::infer<NumericType>(override_dt)),
         cap(1),
@@ -226,9 +224,9 @@ public:
     /// @brief constructs the series from the given vector of strings. These can also
     /// be JSON encoded strings, in which case the data type should be set to JSON.
     /// @param d the vector of strings to be used as the data.
-    /// @param data_type_ the type of data being used.
-    explicit Series(const std::vector<std::string> &d, DataType data_type_ = STRING_T):
-        data_type(std::move(data_type_)),
+    /// @param data_type the type of data being used.
+    explicit Series(const std::vector<std::string> &d, DataType data_type = STRING_T):
+        data_type(std::move(data_type)),
         cap(d.size()),
         size_(d.size()) {
         if (!this->data_type.is_variable())
@@ -263,7 +261,6 @@ public:
         this->data[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
-
     /// @brief constructs the series from its protobuf representation.
     explicit Series(const telem::PBSeries &s)
         : data_type(s.data_type()),
@@ -279,6 +276,31 @@ public:
 
     /// @brief constructs the series from the given JSON value.
     explicit Series(const json &value): Series(value.dump(), JSON_T) {
+    }
+
+    /// @brief constructs a series of size 1 from the given SampleValue.
+    /// @param v the SampleValue to be used.
+    explicit Series(const SampleValue &v) {
+        if (std::holds_alternative<std::string>(v)) {
+            const auto &str = std::get<std::string>(v);
+            data_type = STRING_T;
+            cap = 1;
+            size_ = 1;
+            cached_byte_size = str.size() + 1;
+            data = std::make_unique<std::byte[]>(byte_size());
+            memcpy(data.get(), str.data(), str.size());
+            data[byte_size() - 1] = NEWLINE_TERMINATOR;
+            return;
+        }
+
+        std::visit([this]<typename IT>(IT &&arg) {
+            using T = std::decay_t<IT>;
+            data_type = DataType::infer<T>();
+            cap = 1;
+            size_ = 1;
+            data = std::make_unique<std::byte[]>(byte_size());
+            memcpy(data.get(), &arg, byte_size());
+        }, v);
     }
 
     /// @brief sets a number at an index.
@@ -308,7 +330,7 @@ public:
     /// @throws std::runtime_error if the index is out of bounds or the write would
     /// exceed the capacity of the series.
     template<typename NumericType>
-    void set_array(const NumericType *d, const int &index, const size_t size_) {
+    void set(const NumericType *d, const int &index, const size_t size_) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -348,8 +370,7 @@ public:
     size_t write(const std::vector<T> &d) {
         if constexpr (std::is_same_v<T, std::string>) {
             if (!this->data_type.matches({STRING_T, JSON_T}))
-                throw std::runtime_error(
-                    "cannot write strings to non-string/JSON series");
+                throw std::runtime_error("cannot write strings to non-string/JSON series");
             const size_t count = std::min(d.size(), this->cap - this->size());
             if (count == 0) return 0;
             size_t offset = 0;
@@ -374,6 +395,14 @@ public:
             this->size_ += count;
             return count;
         }
+    }
+
+    size_t write(const telem::SampleValue &value) {
+        if (std::holds_alternative<std::string>(value))
+            return write(std::get<std::string>(value));
+        return std::visit([this](const auto &v) {
+            return this->write(v);
+        }, value);
     }
 
     /// @brief writes a single number to the series.
@@ -405,10 +434,20 @@ public:
             this->cached_byte_size += str_len + 1;
             this->size_++;
             return 1;
+        } else if constexpr (std::is_same_v<T, TimeStamp>) {
+            if (this->size() >= this->cap) return 0;
+            const auto v = d.nanoseconds();
+            memcpy(
+                data.get() + this->size() * this->data_type.density(),
+                &v,
+                this->data_type.density()
+            );
+            this->size_++;
+            return 1;
         } else {
             static_assert(
                 std::is_arithmetic_v<T>,
-                "generic argument to write must be a numeric type or string"
+                "generic argument to write must be a numeric type, string, or TimeStamp"
             );
             if (this->size() >= this->cap) return 0;
             memcpy(
@@ -502,7 +541,7 @@ public:
     }
 
     template<typename T>
-    [[nodiscard]] T operator[](int index) { return this->at(index); }
+    [[nodiscard]] T operator[](const int index) { return this->at(index); }
 
     /// @returns the value at the given index.
     [[nodiscard]] SampleValue at(const int &index) const {
@@ -570,9 +609,9 @@ public:
             output_partial_vector(os, s.strings());
         else if (s.data_type == telem::FLOAT32_T)
             output_partial_vector(os, s.values<float>());
-        else if (s.data_type == telem::INT64_T)
+        else if (s.data_type == telem::INT64_T || s.data_type == telem::TIMESTAMP_T)
             output_partial_vector(os, s.values<int64_t>());
-        else if (s.data_type == telem::UINT64_T || s.data_type == telem::TIMESTAMP_T)
+        else if (s.data_type == telem::UINT64_T)
             output_partial_vector(os, s.values<uint64_t>());
         else if (s.data_type == telem::UINT8_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
@@ -591,7 +630,6 @@ public:
         return os;
     }
 
-
     /// @brief returns the size of the series in bytes.
     [[nodiscard]] size_t byte_size() const {
         if (this->data_type.is_variable()) return this->cached_byte_size;
@@ -601,8 +639,7 @@ public:
     /// @brief returns the capacity of the series in bytes.
     [[nodiscard]] size_t byte_cap() const {
         if (this->cap == 0 || this->data_type.is_variable())
-            return this->
-                    cached_byte_size;
+            return this->cached_byte_size;
         return this->cap * this->data_type.density();
     }
 
@@ -615,7 +652,7 @@ public:
         if (size() == 0) return;
         auto vals = this->values<NumericType>();
         std::transform(vals.begin(), vals.end(), vals.begin(), func);
-        set_array(vals.data(), 0, vals.size());
+        set(vals.data(), 0, vals.size());
     }
 
     /// @brief Creates a timestamp series with evenly spaced values between start and end (inclusive).
@@ -623,15 +660,13 @@ public:
     /// @param end The ending timestamp
     /// @param count The number of points to generate
     /// @return A Series containing evenly spaced timestamps
-    static Series linspace(const TimeStamp &start, const TimeStamp &end, size_t count) {
+    static Series linspace(const TimeStamp &start, const TimeStamp &end, const size_t count) {
         if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
-        const auto step = (end.value - start.value) / (count - 1);
-        for (size_t i = 0; i < count; i++) {
-            const uint64_t value = start.value + step * i;
-            s.write<uint64_t>(value);
-        }
+        const auto step = (end.nanoseconds() - start.nanoseconds()) / (count - 1);
+        for (size_t i = 0; i < count; i++)
+            s.write<int64_t>(start.nanoseconds() + step * i);
         s.size_ = count;
         return s;
     }
@@ -640,30 +675,5 @@ public:
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
-
-    /// @brief constructs a series of size 1 from the given SampleValue.
-    /// @param v the SampleValue to be used.
-    explicit Series(const SampleValue& v) {
-        if (std::holds_alternative<std::string>(v)) {
-            const auto& str = std::get<std::string>(v);
-            data_type = STRING_T;
-            cap = 1;
-            size_ = 1;
-            cached_byte_size = str.size() + 1;
-            data = std::make_unique<std::byte[]>(byte_size());
-            memcpy(data.get(), str.data(), str.size());
-            data[byte_size() - 1] = NEWLINE_TERMINATOR;
-            return;
-        }
-
-        std::visit([this]<typename IT>(IT&& arg) {
-            using T = std::decay_t<IT>;
-            data_type = DataType::infer<T>();
-            cap = 1;
-            size_ = 1;
-            data = std::make_unique<std::byte[]>(byte_size());
-            memcpy(data.get(), &arg, byte_size());
-        }, v);
-    }
 }; // class Series
 } // namespace telem

@@ -60,7 +60,7 @@ TEST(AcquisitionPipeline, testStartResolution) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
     ASSERT_TRUE(pipeline.stop());
-    ASSERT_EQ(mock_factory->config.start.value, start_ts.value);
+    ASSERT_EQ(mock_factory->config.start, start_ts);
 }
 
 /// @brief it should correctly retry opening the writer when an unreachable error occurs.

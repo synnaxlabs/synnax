@@ -32,12 +32,12 @@ constexpr int64_t DAY = HOUR * 24;
 } // namespace _priv
 
 
+/// @brief timespan is a nanosecond-precision time duration.
 class TimeSpan {
-public:
     /// @property value holds the internal, primitive value of the timespan.
     std::int64_t value;
-
-    TimeSpan() = default;
+public:
+    TimeSpan(): value(0) {}
 
     [[nodiscard]] TimeSpan abs() const {
         return TimeSpan(std::abs(value));
@@ -51,6 +51,10 @@ public:
     explicit TimeSpan(
         const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
         duration.count()) {
+    }
+
+    [[nodiscard]] std::int64_t nanoseconds() const {
+        return this->value;
     }
 
     static TimeSpan days(const double &days) {
@@ -124,6 +128,10 @@ public:
 
     TimeSpan operator*(const TimeSpan &other) const {
         return TimeSpan(value * other.value);
+    }
+
+    TimeSpan operator*(const size_t &other) const {
+        return TimeSpan(value * static_cast<std::int64_t>(other));
     }
 
     TimeSpan operator*(const float &other) const {
@@ -260,10 +268,9 @@ public:
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
 class TimeStamp {
-public:
     /// @property value holds the internal, primitive value of the timestamp.
     std::int64_t value;
-
+public:
     TimeStamp() = default;
 
     /// @brief Constructs a timestamp from the given interpreting it as a nanosecond-precision UTC
@@ -271,8 +278,10 @@ public:
     explicit TimeStamp(const std::int64_t value) : value(value) {
     }
 
+    std::int64_t nanoseconds() const {return this->value;}
+
     /// @brief interprets the given TimeSpan as a TimeStamp.
-    explicit TimeStamp(const TimeSpan ts) : value(ts.value) {
+    explicit TimeStamp(const TimeSpan ts) : value(ts.nanoseconds()) {
     }
 
     TimeStamp static now() {
@@ -310,7 +319,7 @@ public:
     }
 
     TimeStamp operator+(const TimeSpan &other) const {
-        return TimeStamp(value + other.value);
+        return TimeStamp(value + other.nanoseconds());
     }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
@@ -324,7 +333,7 @@ public:
     }
 
     TimeSpan operator-(const TimeSpan &other) const {
-        return TimeSpan(value - other.value);
+        return TimeSpan(value - other.nanoseconds());
     }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
@@ -396,8 +405,9 @@ public:
 };
 
 class Rate {
-public:
     float value;
+public:
+    float hz() const { return this->value; }
 
     explicit Rate(const float i) : value(i) {
     }
@@ -542,7 +552,7 @@ template<typename T>
             if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
                 return arg; // Already a string, just return it
             else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>) {
-                return std::to_string(arg.value); // Convert TimeStamp to string
+                return std::to_string(arg.nanoseconds()); // Convert TimeStamp to string
             } else {
                 return std::to_string(arg);
             }
@@ -567,7 +577,7 @@ template<typename T>
     if (std::holds_alternative<TimeStamp>(value)) {
         const auto &ts = std::get<TimeStamp>(value);
         if constexpr (std::is_arithmetic_v<T>)
-            return static_cast<T>(ts.value);
+            return static_cast<T>(ts.nanoseconds());
     }
     if (std::holds_alternative<std::string>(value)) {
         // Handle string conversion specially
@@ -616,8 +626,6 @@ const std::string JSON_T = "json";
 const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 }
 
-class DataType;
-
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
@@ -641,6 +649,24 @@ public:
         throw std::runtime_error("cannot infer data type from unknown C++ type");
     }
 
+    DataType static infer(const SampleValue &value) {
+        return std::visit([]<typename IT>(IT&& arg) -> DataType {
+            using T = std::decay_t<IT>;
+            if constexpr (std::is_same_v<T, double>) return DataType(_priv::FLOAT64_T);
+            if constexpr (std::is_same_v<T, float>) return DataType(_priv::FLOAT32_T);
+            if constexpr (std::is_same_v<T, int64_t>) return DataType(_priv::INT64_T);
+            if constexpr (std::is_same_v<T, int32_t>) return DataType(_priv::INT32_T);
+            if constexpr (std::is_same_v<T, int16_t>) return DataType(_priv::INT16_T);
+            if constexpr (std::is_same_v<T, int8_t>) return DataType(_priv::INT8_T);
+            if constexpr (std::is_same_v<T, uint64_t>) return DataType(_priv::UINT64_T);
+            if constexpr (std::is_same_v<T, uint32_t>) return DataType(_priv::UINT32_T);
+            if constexpr (std::is_same_v<T, uint16_t>) return DataType(_priv::UINT16_T);
+            if constexpr (std::is_same_v<T, uint8_t>) return DataType(_priv::UINT8_T);
+            if constexpr (std::is_same_v<T, TimeStamp>) return DataType(_priv::TIMESTAMP_T);
+            if constexpr (std::is_same_v<T, std::string>) return DataType(_priv::STRING_T);
+            return DataType(_priv::UNKNOWN_T);
+        }, value);
+    }
 
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }

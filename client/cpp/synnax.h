@@ -73,11 +73,11 @@ struct Config {
         this->client_cert_file = parser.optional("client_cert_file", this->client_cert_file);
         this->client_key_file = parser.optional("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
-        this->clock_skew_threshold = telem::TimeSpan(parser.optional("clock_skew_threshold", this->clock_skew_threshold.value));
+        this->clock_skew_threshold = telem::TimeSpan(parser.optional("clock_skew_threshold", this->clock_skew_threshold.nanoseconds()));
         this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
-    json to_json() const {
+    [[nodiscard]] json to_json() const {
         return {
             {"host", this->host},
             {"port", this->port},
@@ -86,7 +86,7 @@ struct Config {
             {"ca_cert_file", this->ca_cert_file},
             {"client_cert_file", this->client_cert_file},
             {"client_key_file", this->client_key_file},
-            {"clock_skew_threshold", this->clock_skew_threshold.value},
+            {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries}
         };
     }

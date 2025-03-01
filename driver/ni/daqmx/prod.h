@@ -13,18 +13,19 @@
 #include <memory>
 
 /// internal
-#include "driver/ni/daqmx/daqmx.h"
+#include "driver/ni/daqmx/api.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 #include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xerrors/errors.h"
 
-class DAQmxProd final : public DAQmx {
+namespace daqmx {
+class ProdAPI final : public API {
 public:
-    explicit DAQmxProd(std::unique_ptr<xlib::SharedLib> &lib_);
+    explicit ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_);
 
-    ~DAQmxProd() override;
+    ~ProdAPI() override;
 
-    static std::pair<std::shared_ptr<DAQmx>, xerrors::Error> load();
+    static std::pair<std::shared_ptr<API>, xerrors::Error> load();
 
     int32 AddCDAQSyncConnection(const char portList[]) override;
 
@@ -3224,3 +3225,4 @@ private:
     FunctionPointers function_pointers_{};
     std::unique_ptr<xlib::SharedLib> lib;
 };
+}

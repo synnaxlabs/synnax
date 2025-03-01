@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // ReSharper disable CppParameterMayBeConst
 #pragma once
 
@@ -66,11 +57,11 @@ static int32_t get_excitation_src(const std::string &s) {
 }
 
 struct ExcitationConfig {
-    int32_t source;
-    double val;
-    double min_val_for_excitation; // optional
-    double max_val_for_excitation; //optional
-    bool32 use_excit_for_scaling; //optional
+    const int32_t source;
+    const double val;
+    const double min_val_for_excitation; // optional
+    const double max_val_for_excitation; //optional
+    const bool32 use_excit_for_scaling; //optional
 
     explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix)
         : source(
@@ -199,11 +190,19 @@ inline std::string format_cfg_path(const std::string &path) {
     return formatted;
 }
 
+/// @brief base channel class that all NI channels inherit from.
 struct Base {
+    /// @brief whether data acquisition/control is enabled.
     const bool enabled;
+    /// @brief the device key that the channel is associated with. This key is optional,
+    /// and can be ultimately overridden by the caller in bind_remote_info implementations.
     const std::string dev_key;
+    /// @brief the path within the JSON configuration structure that the channel is
+    /// defined within. This is used for error propagation.
     const std::string cfg_path;
-    std::string dev;
+    /// @brief the actual location of the device e.g. "cDAQ1Mod1". This is not constant,
+    /// it gets bound by the caller after fetching all the devices for the task.
+    std::string dev_loc;
 
     virtual ~Base() = default;
 
@@ -213,14 +212,20 @@ struct Base {
         cfg_path(format_cfg_path(cfg.path_prefix)) {
     }
 
+    /// @brief applies the channel configuration to the DAQmx task.
     virtual xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const = 0;
 };
 
+/// @brief base class for an input channel (AI, DI)
 struct Input : virtual Base {
+    /// @brief the key of the synnax channel that we'll write acquired data to.
     const synnax::ChannelKey synnax_key;
+    /// @brief the properties of the synnax channel that we'll write acquired data to.
+    /// This field is bound by the caller after fetching all the synnax channels for the
+    /// task.
     synnax::Channel ch;
 
     explicit Input(xjson::Parser &cfg):
@@ -228,16 +233,23 @@ struct Input : virtual Base {
         synnax_key(cfg.required<synnax::ChannelKey>("channel")) {
     }
 
-    void bind_remote_info(const synnax::Channel &ch, const std::string &dev) {
+    /// @brief binds remotely fetched information to the channel.
+    void bind_remote_info(const synnax::Channel &ch, const std::string &dev_loc) {
         this->ch = ch;
-        this->dev = dev;
+        this->dev_loc = dev_loc;
     }
 };
 
+/// @brief base class for an output channel (AO, DO)
 struct Output : virtual Base {
+    /// @brief the key of the command channel that we'll receive commands from.
     const synnax::ChannelKey cmd_ch_key;
+    /// @brief the key of the state channel that we'll write the state of the command
+    /// channel to.
     const synnax::ChannelKey state_ch_key;
-    size_t index = 0;
+    /// @brief the properties of the command channel that we'll receive commands from.
+    /// This field is bound by the caller after fetching all the synnax channels for the
+    /// task.
     synnax::Channel state_ch;
 
     explicit Output(xjson::Parser &cfg):
@@ -246,12 +258,14 @@ struct Output : virtual Base {
         state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {
     }
 
-    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev) {
+    /// @brief binds remotely fetched information to the channel.
+    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
         this->state_ch = state_ch;
-        this->dev = dev;
+        this->dev_loc = dev_loc;
     }
 };
 
+/// @brief base class for a digital channel (DI, DO)
 struct Digital : virtual Base {
     const int port;
     const int line;
@@ -262,11 +276,12 @@ struct Digital : virtual Base {
     }
 
     [[nodiscard]] std::string loc() const {
-        return this->dev + "/port" + std::to_string(this->port) + "/line" +
+        return this->dev_loc + "/port" + std::to_string(this->port) + "/line" +
                std::to_string(this->line);
     }
 };
 
+/// @brief configuration for a digital input channel.
 struct DI final : Digital, Input {
     explicit DI(xjson::Parser &cfg):
         Base(cfg),
@@ -275,7 +290,7 @@ struct DI final : Digital, Input {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateDIChan(
@@ -287,13 +302,14 @@ struct DI final : Digital, Input {
     }
 };
 
+/// @brief configuration for a digital output channel.
 struct DO final : Digital, Output {
     explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {
     }
 
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateDOChan(
@@ -305,6 +321,7 @@ struct DO final : Digital, Output {
     }
 };
 
+/// @brief base class for all analog channels (AO, DO)
 class Analog : virtual Base {
 public:
     const int port;
@@ -328,6 +345,7 @@ public:
     }
 };
 
+/// @brief base class for analog channels that can have a custom scale applied.
 struct AnalogCustomScale : virtual Analog {
     std::unique_ptr<Scale> scale;
 
@@ -338,7 +356,7 @@ struct AnalogCustomScale : virtual Analog {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         auto [scale_key, err] = this->scale->apply(dmx);
@@ -351,30 +369,33 @@ struct AnalogCustomScale : virtual Analog {
     }
 
     virtual xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const = 0;
 };
 
+/// @brief base class for analog input channels.
 struct AI : virtual Analog, Input {
     explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {
     }
 
     [[nodiscard]] std::string loc() const {
-        return this->dev + "/ai" + std::to_string(this->port);
+        return this->dev_loc + "/ai" + std::to_string(this->port);
     }
 };
 
+/// @brief base class for analog output channels.
 struct AO : virtual Analog, Output {
     explicit AO(xjson::Parser &cfg): Analog(cfg), Output(cfg) {
     }
 
     [[nodiscard]] std::string loc() const {
-        return this->dev + "/ao" + std::to_string(this->port);
+        return this->dev_loc + "/ao" + std::to_string(this->port);
     }
 };
 
+/// @brief base class for analog channels that can have a custom scale applied.
 struct AICustomScale : AI, AnalogCustomScale {
     explicit AICustomScale(xjson::Parser &cfg):
         AI(cfg),
@@ -382,6 +403,7 @@ struct AICustomScale : AI, AnalogCustomScale {
     }
 };
 
+/// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg):
         AO(cfg),
@@ -400,7 +422,7 @@ struct AIVoltage : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -422,7 +444,7 @@ struct AIVoltageRMS final : AIVoltage {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -454,7 +476,7 @@ struct AIVoltageWithExcit final : AIVoltage {
     ~AIVoltageWithExcit() override = default;
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -497,7 +519,7 @@ struct AICurrent : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -524,7 +546,7 @@ struct AICurrentRMS final : AICurrent {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -573,7 +595,7 @@ struct AIRTD final : AI {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIRTDChan(
@@ -636,7 +658,7 @@ struct AIThermocouple final : AI {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmcplChan(
@@ -662,10 +684,10 @@ struct AITempBuiltIn final : AI {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
-        const auto i_name = this->dev + "/_boardTempSensor_vs_aignd";
+        const auto i_name = this->dev_loc + "/_boardTempSensor_vs_aignd";
         return dmx->CreateAITempBuiltInSensorChan(
             task_handle,
             i_name.c_str(),
@@ -694,7 +716,7 @@ struct AIThermistorIEX final : AI {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmstrChanIex(
@@ -735,7 +757,7 @@ class AIThermistorVex final : public AI {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIThrmstrChanVex(
@@ -775,7 +797,7 @@ struct AIAccel : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -804,7 +826,7 @@ struct AIAccel4WireDCVoltage final : AIAccel {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -841,7 +863,7 @@ class AIAccelCharge final : public AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -874,7 +896,7 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -905,7 +927,7 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -959,7 +981,7 @@ struct AIStrainGauge final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1043,7 +1065,7 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAIRosetteStrainGageChan(
@@ -1084,7 +1106,7 @@ struct AIMicrophone final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1103,11 +1125,10 @@ struct AIMicrophone final : AICustomScale {
     }
 };
 
-class AIFrequencyVoltage final : public AICustomScale {
-    double threshold_level;
-    double hysteresis;
+struct AIFrequencyVoltage final : AICustomScale {
+    const double threshold_level;
+    const double hysteresis;
 
-public:
     explicit AIFrequencyVoltage(xjson::Parser &cfg) :
         Analog(cfg),
         Base(cfg),
@@ -1117,11 +1138,11 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        const auto port = this->dev + "ctr" + std::to_string(this->port);
+        const auto port = this->dev_loc + "ctr" + std::to_string(this->port);
         return dmx->CreateAIFreqVoltageChan(
             task_handle,
             port.c_str(),
@@ -1149,7 +1170,7 @@ struct AIPressureBridgeTwoPointLin final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1188,7 +1209,7 @@ struct AIPressureBridgeTable final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1214,11 +1235,9 @@ struct AIPressureBridgeTable final : AICustomScale {
     }
 };
 
-class AIPressureBridgePolynomial final : public AICustomScale {
+struct AIPressureBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
-
-public:
     explicit AIPressureBridgePolynomial(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
@@ -1228,7 +1247,7 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1254,11 +1273,10 @@ public:
     }
 };
 
-class AIForceBridgePolynomial final : public AICustomScale {
+struct AIForceBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-public:
     explicit AIForceBridgePolynomial(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
@@ -1268,7 +1286,7 @@ public:
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1307,7 +1325,7 @@ struct AIForceBridgeTable final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1346,7 +1364,7 @@ struct AIForceBridgeTwoPointLin final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
 
         const char *scale_key
@@ -1395,7 +1413,7 @@ struct AIVelocityIEPE final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1429,7 +1447,7 @@ struct AITorqueBridgeTwoPointLin final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1468,7 +1486,7 @@ struct AITorqueBridgePolynomial final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1507,7 +1525,7 @@ struct AITorqueBridgeTable final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1550,7 +1568,7 @@ struct AIForceIEPE final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1582,7 +1600,7 @@ struct AICharge final : AICustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1607,7 +1625,7 @@ struct AOVoltage final : AOCustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1631,7 +1649,7 @@ struct AOCurrent final : AOCustomScale {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
@@ -1674,7 +1692,7 @@ struct AOFunctionGenerator final : AO {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<SugaredDAQmx> &dmx,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
         return dmx->CreateAOFuncGenChan(

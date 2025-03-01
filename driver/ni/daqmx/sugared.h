@@ -9,17 +9,24 @@
 
 #pragma once
 
-#include <memory>
-
-#include "driver/ni/daqmx/daqmx.h"
+/// module
 #include "x/cpp/xerrors/errors.h"
 
-class SugaredDAQmx {
-    std::shared_ptr<DAQmx> dmx;
+/// internal
+#include "driver/errors/errors.h"
+#include "driver/ni/daqmx/api.h"
+
+namespace daqmx {
+const xerrors::Error BASE_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
+const xerrors::Error FIELD_ERROR = BASE_ERROR.sub("field");
+const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = BASE_ERROR.sub("200561");
+const xerrors::Error APPLICATION_TOO_SLOW = BASE_ERROR.sub("200729");
+class SugaredAPI {
+    std::shared_ptr<API> dmx;
 
     xerrors::Error process_error(int32 status) const;
  public:
-    explicit SugaredDAQmx(std::shared_ptr<DAQmx> dmx) : dmx(std::move(dmx)) {}
+    explicit SugaredAPI(std::shared_ptr<API> dmx) : dmx(std::move(dmx)) {}
 
   xerrors::Error AddCDAQSyncConnection(const char portList[]);
   xerrors::Error AddGlobalChansToTask(TaskHandle task, const char channelNames[]);
@@ -416,3 +423,4 @@ class SugaredDAQmx {
   xerrors::Error WriteToTEDSFromFile(const char physicalChannel[], const char filePath[], int32 basicTEDSOptions);
 
 };
+}

@@ -1,6 +1,7 @@
 #include "driver/ni/syscfg/sugared.h"
 
-xerrors::Error SugaredSysCfg::process_error(NISysCfgStatus status) const {
+namespace syscfg {
+xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
     if (status == NISysCfg_OK) return xerrors::Error();
     const auto desc_status = this->syscfg->GetStatusDescriptionW(
@@ -14,7 +15,7 @@ xerrors::Error SugaredSysCfg::process_error(NISysCfgStatus status) const {
     return xerrors::Error(std::string(str.begin(), str.end()));
 }
 
-xerrors::Error SugaredSysCfg::InitializeSession(
+xerrors::Error SugaredAPI::InitializeSession(
     const char *targetName,
     const char *username,
     const char *password,
@@ -32,7 +33,7 @@ xerrors::Error SugaredSysCfg::InitializeSession(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::CreateFilter(
+xerrors::Error SugaredAPI::CreateFilter(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterHandle *filterHandle
 ) {
@@ -40,7 +41,7 @@ xerrors::Error SugaredSysCfg::CreateFilter(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::SetFilterProperty(
+xerrors::Error SugaredAPI::SetFilterProperty(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     ...
@@ -52,12 +53,12 @@ xerrors::Error SugaredSysCfg::SetFilterProperty(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::CloseHandle(void *syscfgHandle) {
+xerrors::Error SugaredAPI::CloseHandle(void *syscfgHandle) {
     auto status = syscfg->CloseHandle(syscfgHandle);
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::FindHardware(
+xerrors::Error SugaredAPI::FindHardware(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterMode filterMode,
     NISysCfgFilterHandle filterHandle,
@@ -71,7 +72,7 @@ xerrors::Error SugaredSysCfg::FindHardware(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::NextResource(
+xerrors::Error SugaredAPI::NextResource(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
@@ -82,7 +83,7 @@ xerrors::Error SugaredSysCfg::NextResource(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::GetResourceProperty(
+xerrors::Error SugaredAPI::GetResourceProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgResourceProperty propertyID,
     void *value
@@ -93,7 +94,7 @@ xerrors::Error SugaredSysCfg::GetResourceProperty(
     return process_error(status);
 }
 
-xerrors::Error SugaredSysCfg::GetResourceIndexedProperty(
+xerrors::Error SugaredAPI::GetResourceIndexedProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgIndexedProperty propertyID,
     unsigned int index,
@@ -103,4 +104,5 @@ xerrors::Error SugaredSysCfg::GetResourceIndexedProperty(
         resourceHandle, propertyID, index, value
     );
     return process_error(status);
+}
 }

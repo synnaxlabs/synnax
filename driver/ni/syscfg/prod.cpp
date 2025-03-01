@@ -17,8 +17,8 @@
 
 /// internal.
 #include "driver/ni/syscfg/nisyscfg.h"
-#include "driver/ni/syscfg/syscfg_prod.h"
-#include "driver/ni/syscfg/syscfg_errors.h"
+#include "driver/ni/syscfg/prod.h"
+#include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32
@@ -27,19 +27,20 @@ static const std::string LIB_NAME = "nisyscfg.dll";
 static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
+namespace syscfg {
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
     "failed to load ni system configuration library. is it installed?"
 );
 
-std::pair<std::shared_ptr<SysCfg>, xerrors::Error> SysCfgProd::load() {
+std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     if (xos::get() == "macOS") return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
-    return {std::make_shared<SysCfgProd>(lib), xerrors::NIL};
+    return {std::make_shared<ProdAPI>(lib), xerrors::NIL};
 }
 
-SysCfgProd::SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_) : lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_) : lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgInitializeSession")));
@@ -72,7 +73,7 @@ SysCfgProd::SysCfgProd(std::unique_ptr<xlib::SharedLib> &lib_) : lib(std::move(l
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgFreeDetailedStringW")));
 }
 
-NISYSCFGCFUNC SysCfgProd::InitializeSession(
+NISYSCFGCFUNC ProdAPI::InitializeSession(
     const char *targetName,
     const char *username,
     const char *password,
@@ -94,14 +95,14 @@ NISYSCFGCFUNC SysCfgProd::InitializeSession(
     );
 }
 
-NISYSCFGCFUNC SysCfgProd::CreateFilter(
+NISYSCFGCFUNC ProdAPI::CreateFilter(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterHandle *filterHandle
 ) {
     return function_pointers_.CreateFilter(sessionHandle, filterHandle);
 }
 
-NISYSCFGCDECL SysCfgProd::SetFilterPropertyV(
+NISYSCFGCDECL ProdAPI::SetFilterPropertyV(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     va_list args
@@ -109,7 +110,7 @@ NISYSCFGCDECL SysCfgProd::SetFilterPropertyV(
     return function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
 }
 
-NISYSCFGCDECL SysCfgProd::SetFilterProperty(
+NISYSCFGCDECL ProdAPI::SetFilterProperty(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     ...
@@ -121,13 +122,13 @@ NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     return status;
 }
 
-NISYSCFGCFUNC SysCfgProd::CloseHandle(
+NISYSCFGCFUNC ProdAPI::CloseHandle(
     void *syscfgHandle
 ) {
     return function_pointers_.CloseHandle(syscfgHandle);
 }
 
-NISYSCFGCFUNC SysCfgProd::FindHardware(
+NISYSCFGCFUNC ProdAPI::FindHardware(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterMode filterMode,
     NISysCfgFilterHandle filterHandle,
@@ -143,7 +144,7 @@ NISYSCFGCFUNC SysCfgProd::FindHardware(
     );
 }
 
-NISYSCFGCFUNC SysCfgProd::NextResource(
+NISYSCFGCFUNC ProdAPI::NextResource(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
@@ -151,7 +152,7 @@ NISYSCFGCFUNC SysCfgProd::NextResource(
     return function_pointers_.NextResource(sessionHandle, resourceEnumHandle, resourceHandle);
 }
 
-NISYSCFGCFUNC SysCfgProd::GetResourceProperty(
+NISYSCFGCFUNC ProdAPI::GetResourceProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgResourceProperty propertyID,
     void *value
@@ -159,7 +160,7 @@ NISYSCFGCFUNC SysCfgProd::GetResourceProperty(
     return function_pointers_.GetResourceProperty(resourceHandle, propertyID, value);
 }
 
-NISYSCFGCFUNC SysCfgProd::GetResourceIndexedProperty(
+NISYSCFGCFUNC ProdAPI::GetResourceIndexedProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgIndexedProperty propertyID,
     unsigned int index,
@@ -168,11 +169,12 @@ NISYSCFGCFUNC SysCfgProd::GetResourceIndexedProperty(
     return function_pointers_.GetResourceIndexedProperty(resourceHandle, propertyID, index, value);
 }
 
-NISysCfgStatus SysCfgProd::GetStatusDescriptionW(NISysCfgSessionHandle sessionHandle,
+NISysCfgStatus ProdAPI::GetStatusDescriptionW(NISysCfgSessionHandle sessionHandle,
     NISysCfgStatus status, wchar_t **detailedDescription) {
     return function_pointers_.GetStatusDescriptionW(sessionHandle, status, detailedDescription);
 }
 
-NISYSCFGCFUNC SysCfgProd::FreeDetailedStringW(wchar_t str[]) {
+NISYSCFGCFUNC ProdAPI::FreeDetailedStringW(wchar_t str[]) {
     return function_pointers_.FreeDetailedStringW(str);
+}
 }
