@@ -25,7 +25,9 @@ export const stateZ = z.object({
   key: z.string().optional(),
   details: z
     .record(z.unknown())
-    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
+    .or(
+      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
+    )
     .or(z.array(z.unknown()))
     .or(z.null()),
 });

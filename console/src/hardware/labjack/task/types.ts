@@ -242,9 +242,12 @@ export type ChannelType = Channel["type"];
 
 // Tasks
 
-export interface BaseStateDetails {
-  running: boolean;
-}
+const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Common.Device.keyZ });
+interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+const ZERO_BASE_CONFIG: BaseConfig = {
+  dataSaving: true,
+  device: "",
+};
 
 const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
   const portToIndexMap = new Map<string, number>();
@@ -263,27 +266,28 @@ const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx)
   });
 };
 
+export interface BaseStateDetails {
+  running: boolean;
+}
+
 // Read Task
 
-export const readConfigZ = z
-  .object({
-    device: Common.Device.keyZ,
-    sampleRate: z.number().positive().max(50000),
-    streamRate: z.number().positive().max(50000),
+export const readConfigZ = baseConfigZ
+  .extend({
     channels: z
       .array(inputChannelZ)
       .superRefine(Common.Task.validateReadChannels)
       .superRefine(validateUniquePorts),
-    dataSaving: z.boolean(),
+    sampleRate: z.number().positive().max(50000),
+    streamRate: z.number().positive().max(50000),
   })
   .refine(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
-  device: "",
+  ...ZERO_BASE_CONFIG,
+  channels: [],
   sampleRate: 10,
   streamRate: 5,
-  channels: [],
-  dataSaving: true,
 };
 
 export interface ReadStateDetails extends BaseStateDetails {
@@ -314,8 +318,7 @@ interface IndexAndType {
   type: "cmd" | "state";
 }
 
-export const writeConfigZ = z.object({
-  device: Common.Device.keyZ,
+export const writeConfigZ = baseConfigZ.extend({
   channels: z
     .array(outputChannelZ)
     .superRefine(Common.Task.validateChannels)
@@ -348,14 +351,12 @@ export const writeConfigZ = z.object({
         } else channelsToIndexMap.set(stateKey, { index: i, type: "state" });
       });
     }),
-  dataSaving: z.boolean(),
   stateRate: z.number().positive().max(50000),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 const ZERO_WRITE_CONFIG: WriteConfig = {
-  device: "",
+  ...ZERO_BASE_CONFIG,
   channels: [],
-  dataSaving: true,
   stateRate: 10,
 };
 

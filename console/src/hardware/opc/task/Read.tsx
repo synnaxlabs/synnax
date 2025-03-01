@@ -132,7 +132,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
   // getting the index channels of all opc read tasks channels
   const existingTasks = (await client.hardware.tasks.list()).filter(
     (t) => t.type === READ_TYPE,
-  ) as ReadTask[];
+  ) as unknown as ReadTask[];
   // check if this task already exists
   const existingTask = existingTasks.find((t) => t.key === taskKey);
   // if it does exist, grab the index channel of all of the keys in the task

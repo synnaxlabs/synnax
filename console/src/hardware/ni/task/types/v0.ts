@@ -7,29 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
-export const VERSION = "0.0.0";
 export const PREFIX = "ni";
 
 // Channels
 
-const baseChannelZ = z.object({
-  key: z.string(),
-  port: z.number().int().positive(),
-  enabled: z.boolean(),
-});
-interface BaseChannel extends z.infer<typeof baseChannelZ> {}
-const ZERO_BASE_CHANNEL: BaseChannel = { key: "", port: 0, enabled: true };
+const portZ = z.number().int().nonnegative();
+const lineZ = z.number().int().nonnegative();
+
+const analogChannelExtensionShape = { port: portZ };
+interface AnalogChannelExtension
+  extends z.infer<z.ZodObject<typeof analogChannelExtensionShape>> {}
+const ZERO_ANALOG_CHANNEL_EXTENSION: AnalogChannelExtension = { port: 0 };
+
+const digitalChannelExtensionShape = { port: portZ, line: lineZ };
+interface DigitalChannelExtension
+  extends z.infer<z.ZodObject<typeof digitalChannelExtensionShape>> {}
+const ZERO_DIGITAL_CHANNEL_EXTENSION: DigitalChannelExtension = { port: 0, line: 0 };
 
 // Analog Input Channels
 
-const baseAIChanZ = baseChannelZ.extend({ name: z.string(), channel: channel.keyZ });
+const baseAIChanZ = Common.Task.readChannelZ.extend(analogChannelExtensionShape);
 interface BaseAIChan extends z.infer<typeof baseAIChanZ> {}
-const ZERO_BASE_AI_CHAN: BaseAIChan = { ...ZERO_BASE_CHANNEL, name: "", channel: 0 };
+const ZERO_BASE_AI_CHAN: BaseAIChan = {
+  ...Common.Task.ZERO_READ_CHANNEL,
+  ...ZERO_ANALOG_CHANNEL_EXTENSION,
+};
 
 const minMaxValShape = { minVal: z.number(), maxVal: z.number() };
 interface MinMaxVal extends z.infer<z.ZodObject<typeof minMaxValShape>> {}
@@ -303,7 +310,7 @@ export const aiBridgeChanZ = baseAIChanZ.extend({
     .number()
     .refine((val) => val > 0, { message: "Value must be greater than 0" }),
 });
-interface AIBridgeChan extends z.infer<typeof aiBridgeChanZ> {}
+export interface AIBridgeChan extends z.infer<typeof aiBridgeChanZ> {}
 export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -325,9 +332,9 @@ const shuntResistorLocZ = z.enum([
 ]);
 export type ShuntResistorLoc = z.infer<typeof shuntResistorLocZ>;
 
-const shuntResistorValZ = z.number().refine((val) => val > 0, {
-  message: "Value must be greater than 0",
-});
+const shuntResistorValZ = z
+  .number()
+  .positive({ message: "Value must be greater than 0" });
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html
 export const AI_CURRENT_CHAN_TYPE = "ai_current";
@@ -340,7 +347,7 @@ export const aiCurrentChanZ = baseAIChanZ.extend({
   shuntResistorLoc: shuntResistorLocZ,
   extShuntResistorVal: shuntResistorValZ,
 });
-interface AICurrentChan extends z.infer<typeof aiCurrentChanZ> {}
+export interface AICurrentChan extends z.infer<typeof aiCurrentChanZ> {}
 export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_TERMINAL,
@@ -376,7 +383,8 @@ export const aiForceBridgeTableChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   physicalUnits: forceUnitsZ,
 });
-interface AIForceBridgeTableChan extends z.infer<typeof aiForceBridgeTableChanZ> {}
+export interface AIForceBridgeTableChan
+  extends z.infer<typeof aiForceBridgeTableChanZ> {}
 export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -417,7 +425,7 @@ export const aiForceBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   physicalUnits: forceUnitsZ,
 });
-interface AIForceBridgeTwoPointLinChan
+export interface AIForceBridgeTwoPointLinChan
   extends z.infer<typeof aiForceBridgeTwoPointLinChanZ> {}
 export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   ...ZERO_BASE_AI_CHAN,
@@ -447,7 +455,7 @@ export const aiForceIEPEChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   sensitivityUnits: forceSensitivityUnitsZ,
 });
-interface AIForceIEPEChan extends z.infer<typeof aiForceIEPEChanZ> {}
+export interface AIForceIEPEChan extends z.infer<typeof aiForceIEPEChanZ> {}
 export const ZERO_AI_FORCE_IEPE_CHAN: AIForceIEPEChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_TERMINAL,
@@ -471,7 +479,7 @@ export const aiMicrophoneChanZ = baseAIChanZ.extend({
   micSensitivity: z.number(),
   maxSndPressLevel: z.number(),
 });
-interface AIMicrophoneChan extends z.infer<typeof aiMicrophoneChanZ> {}
+export interface AIMicrophoneChan extends z.infer<typeof aiMicrophoneChanZ> {}
 export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_TERMINAL,
@@ -498,7 +506,7 @@ export const aiPressureBridgeTableChanZ = baseAIChanZ.extend({
   units: pressureUnitsZ,
   physicalUnits: pressureUnitsZ,
 });
-interface AIPressureBridgeTableChan
+export interface AIPressureBridgeTableChan
   extends z.infer<typeof aiPressureBridgeTableChanZ> {}
 export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
@@ -525,7 +533,7 @@ export const aiPressureBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   units: pressureUnitsZ,
   physicalUnits: pressureUnitsZ,
 });
-interface AIPressureBridgeTwoPointLinChan
+export interface AIPressureBridgeTwoPointLinChan
   extends z.infer<typeof aiPressureBridgeTwoPointLinChanZ> {}
 export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan =
   {
@@ -563,7 +571,7 @@ export const aiResistanceChanZ = baseAIChanZ.extend({
   type: z.literal(AI_RESISTANCE_CHAN_TYPE),
   units: z.literal(OHMS),
 });
-interface AIResistanceChan extends z.infer<typeof aiResistanceChanZ> {}
+export interface AIResistanceChan extends z.infer<typeof aiResistanceChanZ> {}
 export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -596,7 +604,7 @@ export const aiRTDChanZ = baseAIChanZ.extend({
   rtdType: rtdTypeZ,
   r0: z.number(),
 });
-interface AIRTDChan extends z.infer<typeof aiRTDChanZ> {}
+export interface AIRTDChan extends z.infer<typeof aiRTDChanZ> {}
 export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -640,7 +648,7 @@ export const aiStrainGageChanZ = baseAIChanZ.extend({
   poissonRatio: z.number(),
   leadWireResistance: z.number(),
 });
-interface AIStrainGageChan extends z.infer<typeof aiStrainGageChanZ> {}
+export interface AIStrainGageChan extends z.infer<typeof aiStrainGageChanZ> {}
 export const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -662,7 +670,7 @@ export const aiTempBuiltInChanZ = baseAIChanZ.extend({
   type: z.literal(AI_TEMP_BUILT_IN_CHAN_TYPE),
   units: temperatureUnitsZ,
 });
-interface AITempBuiltInChan extends z.infer<typeof aiTempBuiltInChanZ> {}
+export interface AITempBuiltInChan extends z.infer<typeof aiTempBuiltInChanZ> {}
 export const ZERO_AI_TEMP_BUILT_IN_CHAN: AITempBuiltInChan = {
   ...ZERO_BASE_AI_CHAN,
   type: AI_TEMP_BUILT_IN_CHAN_TYPE,
@@ -689,21 +697,35 @@ const thermocoupleTypeZ = z.enum([
 ]);
 
 const BUILT_IN = "BuiltIn";
-export const CONST_VAL = "ConstVal";
-export const CHAN = "Chan";
-const cjcSourceZ = z.enum([BUILT_IN, CONST_VAL, CHAN]);
+const CONST_VAL = "ConstVal";
+const CHAN = "Chan";
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html
 export const AI_THRMCPL_CHAN_TYPE = "ai_thermocouple";
-export const aiThrmcplChanZ = baseAIChanZ.extend(minMaxValShape).extend({
+const baseAIThrmcplChanZ = baseAIChanZ.extend(minMaxValShape).extend({
   type: z.literal(AI_THRMCPL_CHAN_TYPE),
   units: temperatureUnitsZ,
   thermocoupleType: thermocoupleTypeZ,
-  cjcSource: cjcSourceZ,
-  cjcVal: z.number(),
-  cjcPort: z.number(),
 });
-interface AIThrmcplChan extends z.infer<typeof aiThrmcplChanZ> {}
+
+const aiThrmcplChanWithBuiltInCJCSourceZ = baseAIThrmcplChanZ.extend({
+  cjcSource: z.literal(BUILT_IN),
+});
+const aiThrmcplChanWithConstCJCSourceZ = baseAIThrmcplChanZ.extend({
+  cjcSource: z.literal(CONST_VAL),
+  cjcVal: z.number().finite(),
+});
+const aiThrmcplChanWithChanCJCSourceZ = baseAIThrmcplChanZ.extend({
+  cjcSource: z.literal(CHAN),
+  cjcPort: z.number().int().nonnegative(),
+});
+
+export const aiThrmcplChanZ = z.union([
+  aiThrmcplChanWithBuiltInCJCSourceZ,
+  aiThrmcplChanWithConstCJCSourceZ,
+  aiThrmcplChanWithChanCJCSourceZ,
+]);
+export type AIThrmcplChan = z.infer<typeof aiThrmcplChanZ>;
 export const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -711,8 +733,6 @@ export const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   units: DEG_C,
   thermocoupleType: J_TYPE_TC,
   cjcSource: BUILT_IN,
-  cjcVal: 0,
-  cjcPort: 0,
 };
 
 const torqueUnitsZ = z.enum([NEWTON_METERS, IN_OZ, INCH_LBS, FT_LBS]);
@@ -730,7 +750,8 @@ export const aiTorqueBridgeTableChanZ = baseAIChanZ.extend({
   units: torqueUnitsZ,
   physicalUnits: torqueUnitsZ,
 });
-interface AITorqueBridgeTableChan extends z.infer<typeof aiTorqueBridgeTableChanZ> {}
+export interface AITorqueBridgeTableChan
+  extends z.infer<typeof aiTorqueBridgeTableChanZ> {}
 export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -795,7 +816,7 @@ export const aiVelocityIEPEChanZ = baseAIChanZ.extend({
   units: velocityUnitsZ,
   sensitivityUnits: velocitySensitivityUnitsZ,
 });
-interface AIVelocityIEPEChan extends z.infer<typeof aiVelocityIEPEChanZ> {}
+export interface AIVelocityIEPEChan extends z.infer<typeof aiVelocityIEPEChanZ> {}
 export const ZERO_AI_VELOCITY_IEPE_CHAN: AIVelocityIEPEChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_TERMINAL,
@@ -817,7 +838,7 @@ export const aiVoltageChanZ = baseAIChanZ.extend({
   type: z.literal(AI_VOLTAGE_CHAN_TYPE),
   units: z.literal(VOLTS),
 });
-interface AIVoltageChan extends z.infer<typeof aiVoltageChanZ> {}
+export interface AIVoltageChan extends z.infer<typeof aiVoltageChanZ> {}
 export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_TERMINAL,
@@ -874,15 +895,11 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
 
 // Analog Output Channels
 
-const baseAOChanZ = baseChannelZ.extend({
-  cmdChannel: channel.keyZ,
-  stateChannel: channel.keyZ,
-});
+const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
-  ...ZERO_BASE_CHANNEL,
-  cmdChannel: 0,
-  stateChannel: 0,
+  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...ZERO_ANALOG_CHANNEL_EXTENSION,
 };
 
 export const AO_CURRENT_CHAN_TYPE = "ao_current";
@@ -972,54 +989,60 @@ export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
   [AO_FUNC_GEN_CHAN_TYPE]: ZERO_AO_FUNC_GEN_CHAN,
   [AO_VOLTAGE_CHAN_TYPE]: ZERO_AO_VOLTAGE_CHAN,
 };
-
 export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
 
 // Digital Input Channels
 
-const DI_CHANNEL_TYPE = "digital_input";
-const diChannelZ = baseChannelZ.extend({
-  type: z.literal(DI_CHANNEL_TYPE),
-  line: z.number(),
-  channel: channel.keyZ,
-});
+const diChannelZ = Common.Task.readChannelZ.extend(digitalChannelExtensionShape);
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 export const ZERO_DI_CHANNEL: DIChannel = {
-  ...ZERO_BASE_CHANNEL,
-  type: DI_CHANNEL_TYPE,
-  line: 0,
-  channel: 0,
+  ...Common.Task.ZERO_READ_CHANNEL,
+  ...ZERO_DIGITAL_CHANNEL_EXTENSION,
 };
 
 // Digital Output Channels
 
-const DO_CHANNEL_TYPE = "digital_output";
-const doChannelZ = baseChannelZ.extend({
-  type: z.literal(DO_CHANNEL_TYPE),
-  cmdChannel: channel.keyZ,
-  stateChannel: channel.keyZ,
-  line: z.number(),
-});
+const doChannelZ = Common.Task.writeChannelZ.extend(digitalChannelExtensionShape);
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 export const ZERO_DO_CHANNEL: DOChannel = {
-  ...ZERO_BASE_CHANNEL,
-  type: DO_CHANNEL_TYPE,
-  cmdChannel: 0,
-  stateChannel: 0,
-  line: 0,
+  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...ZERO_DIGITAL_CHANNEL_EXTENSION,
 };
 
-export type Channel = AIChannel | AOChannel | DIChannel | DOChannel;
+// Digital Channels
 
-// Tasks
+export type DigitalChannel = DIChannel | DOChannel;
+
+// Base Tasks
 
 const baseConfigZ = z.object({ device: Common.Device.keyZ, dataSaving: z.boolean() });
 interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 const ZERO_BASE_CONFIG: BaseConfig = { device: "", dataSaving: true };
 
-export type BaseStateDetails = { running: boolean };
+const baseReadConfigZ = baseConfigZ.extend({
+  sampleRate: z.number().positive().max(50000),
+  streamRate: z.number().positive().max(50000),
+});
+interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
+  ...ZERO_BASE_CONFIG,
+  sampleRate: 10,
+  streamRate: 5,
+};
 
-const validateAnalogPorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
+const baseWriteConfigZ = baseConfigZ.extend({
+  stateRate: z.number().positive().max(50000),
+});
+interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
+const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
+  ...ZERO_BASE_CONFIG,
+  stateRate: 10,
+};
+
+export const validateAnalogPorts = (
+  channels: { port: number }[],
+  { addIssue }: z.RefinementCtx,
+) => {
   const portsToIndexMap = new Map<number, number>();
   channels.forEach(({ port }, i) => {
     if (!portsToIndexMap.has(port)) {
@@ -1035,40 +1058,60 @@ const validateAnalogPorts = (channels: Channel[], { addIssue }: z.RefinementCtx)
     addIssue({ ...baseIssue, path: [i, "port"] });
   });
 };
+
+const validateDigitalPortsAndLines = (
+  channels: DigitalChannel[],
+  { addIssue }: z.RefinementCtx,
+) => {
+  const portLineToIndexMap = new Map<string, number>();
+  channels.forEach(({ line, port }, i) => {
+    const key = `${port}/${line}`;
+    if (!portLineToIndexMap.has(key)) {
+      portLineToIndexMap.set(key, i);
+      return;
+    }
+    const index = portLineToIndexMap.get(key) as number;
+    const baseIssue = {
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port}, line ${line} has already been used on another channel`,
+    };
+    addIssue({ ...baseIssue, path: [index, "line"] });
+    addIssue({ ...baseIssue, path: [i, "line"] });
+  });
+};
+
+export interface BaseStateDetails {
+  running: boolean;
+}
+
 // Analog Read Task
 
-export const analogReadConfigZ = baseConfigZ
-  .extend({
-    version: z.literal(VERSION).optional().default(VERSION),
-    sampleRate: z.number().positive().max(50000),
-    streamRate: z.number().positive().max(50000),
-    channels: z
-      .array(aiChannelZ)
-      .length(1, "Must specify at least one channel")
-      .superRefine(Common.Task.validateUniqueChannelKeys)
-      .refine(Common.Task.validateSomeChannelsEnabled)
-      .superRefine(validateAnalogPorts)
-      .superRefine(Common.Task.validateReadChannels),
-  })
-  .refine(Common.Task.validateStreamRate);
+export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
+  channels: z
+    .array(aiChannelZ)
+    .superRefine(Common.Task.validateReadChannels)
+    .superRefine(validateAnalogPorts),
+});
+
+export const analogReadConfigZ = baseAnalogReadConfigZ.refine(
+  Common.Task.validateStreamRate,
+);
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
-  ...ZERO_BASE_CONFIG,
-  version: VERSION,
-  sampleRate: 10,
-  streamRate: 5,
+  ...ZERO_BASE_READ_CONFIG,
   channels: [],
 };
 
-export type AnalogReadStateDetails = BaseStateDetails & {
+export interface AnalogReadStateDetails extends BaseStateDetails {
   message: string;
   errors?: { message: string; path: string }[];
-};
+}
+export interface AnalogReadState extends task.State<AnalogReadStateDetails> {}
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
-export interface AnalogReadPayload
+interface AnalogReadPayload
   extends task.Payload<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
@@ -1079,24 +1122,20 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 
 // Analog Write Task
 
-export const analogWriteConfigZ = baseConfigZ.extend({
-  stateRate: z.number().positive().max(50000),
+export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(aoChannelZ)
-    .length(1, "Must specify at least one channel")
-    .superRefine(Common.Task.validateUniqueChannelKeys)
-    .refine(Common.Task.validateSomeChannelsEnabled)
-    .superRefine(validateAnalogPorts)
-    .superRefine(Common.Task.validateWriteChannels),
+    .superRefine(Common.Task.validateWriteChannels)
+    .superRefine(validateAnalogPorts),
 });
 export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
 const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
-  ...ZERO_BASE_CONFIG,
-  stateRate: 10,
+  ...ZERO_BASE_WRITE_CONFIG,
   channels: [],
 };
 
 export interface AnalogWriteStateDetails extends BaseStateDetails {}
+export interface AnalogWriteState extends task.State<AnalogWriteStateDetails> {}
 
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 export type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
@@ -1110,44 +1149,21 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   type: ANALOG_WRITE_TYPE,
 };
 
-// Digital Read Task
+export interface AnalogWriteTask
+  extends task.Task<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
+export interface NewAnalogWriteTask
+  extends task.New<AnalogWriteConfig, AnalogWriteType> {}
 
-const validateDigitalChannels = (
-  channels: DIChannel[] | DOChannel[],
-  { addIssue }: z.RefinementCtx,
-) => {
-  const portLineToIndexMap = new Map<string, number>();
-  channels.forEach(({ port, line }, i) => {
-    const key = JSON.stringify({ port, line });
-    if (!portLineToIndexMap.has(key)) {
-      portLineToIndexMap.set(key, i);
-      return;
-    }
-    const index = portLineToIndexMap.get(key) as number;
-    addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port}, line ${line} has already been used on another channel`,
-      path: [index, "line"],
-    });
-    addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port}, line ${line} has already been used on another channel`,
-      path: [i, "line"],
-    });
-  });
-};
+// Digital Read Task
 
 export const digitalReadConfigZ = baseConfigZ
   .extend({
-    sampleRate: z.number().positive().max(50000),
-    streamRate: z.number().positive().max(50000),
     channels: z
       .array(diChannelZ)
-      .length(1, "Must specify at least one channel")
-      .superRefine(Common.Task.validateUniqueChannelKeys)
-      .refine(Common.Task.validateSomeChannelsEnabled)
-      .superRefine(validateDigitalChannels)
-      .superRefine(Common.Task.validateReadChannels),
+      .superRefine(Common.Task.validateReadChannels)
+      .superRefine(validateDigitalPortsAndLines),
+    sampleRate: z.number().positive().max(50000),
+    streamRate: z.number().positive().max(50000),
   })
   .refine(Common.Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
@@ -1159,6 +1175,7 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
 };
 
 export interface DigitalReadStateDetails extends BaseStateDetails {}
+export interface DigitalReadState extends task.State<DigitalReadStateDetails> {}
 
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export type DigitalReadType = typeof DIGITAL_READ_TYPE;
@@ -1172,26 +1189,27 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   type: DIGITAL_READ_TYPE,
 };
 
+export interface DigitalReadTask
+  extends task.Task<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
+export interface NewDigitalReadTask
+  extends task.New<DigitalReadConfig, DigitalReadType> {}
+
 // Digital Write Task
 
-export const digitalWriteConfigZ = baseConfigZ.extend({
+export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(doChannelZ)
-    .length(1, "Must specify at least one channel")
-    .superRefine(Common.Task.validateUniqueChannelKeys)
-    .refine(Common.Task.validateSomeChannelsEnabled)
-    .superRefine(validateDigitalChannels)
-    .superRefine(Common.Task.validateWriteChannels),
-  stateRate: z.number().positive().max(50000),
+    .superRefine(Common.Task.validateWriteChannels)
+    .superRefine(validateDigitalPortsAndLines),
 });
 export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
 const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
-  ...ZERO_BASE_CONFIG,
-  stateRate: 10,
+  ...ZERO_BASE_WRITE_CONFIG,
   channels: [],
 };
 
 export interface DigitalWriteStateDetails extends BaseStateDetails {}
+export interface DigitalWriteState extends task.State<DigitalWriteStateDetails> {}
 
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
@@ -1209,7 +1227,28 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   type: DIGITAL_WRITE_TYPE,
 };
 
+export interface DigitalWriteTask
+  extends task.Task<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType> {}
+export interface NewDigitalWriteTask
+  extends task.New<DigitalWriteConfig, DigitalWriteType> {}
+
 // Scan Task
 
-export const SCAN_TASK_NAME = "ni scanner";
 export type ScanConfig = { enabled: boolean };
+
+export interface ScanStateDetails {
+  error?: string;
+  message?: string;
+}
+export interface ScanState extends task.State<ScanStateDetails> {}
+
+export const SCAN_TYPE = `${PREFIX}_scanner`;
+export type ScanType = typeof SCAN_TYPE;
+
+export const SCAN_NAME = "ni scanner";
+
+export interface ScanPayload
+  extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
+
+export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}
+export interface NewScanTask extends task.New<ScanConfig, ScanType> {}

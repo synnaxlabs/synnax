@@ -139,7 +139,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.id() }],
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.generate() }],
   },
 });
 
