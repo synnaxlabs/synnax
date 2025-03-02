@@ -738,6 +738,8 @@ public:
 
     bool operator!=(const DataType &other) const { return value != other.value; }
 
+    bool operator!=(const std::string &other) const { return value != other; }
+
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
     friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {

@@ -215,9 +215,9 @@ public:
     /// @brief waits the appropriate duration before returning the starting timestamp
     /// of the next read.
     telem::TimeStamp wait(breaker::Breaker &breaker) {
-        if (!this->software_timed) return telem::TimeStamp::now();
+        if (this->software_timed) return telem::TimeStamp::now();
         this->timer.wait(breaker);
-        return telem::TimeStamp::now();
+        return this->high_water;
     }
 
     /// @brief returns the ending timestamp of the read based on the number of samples
