@@ -64,6 +64,7 @@
     "@eslint/compat": "^1.2.5",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@tauri-apps/cli": "^2.2.4",
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.3",
     "@types/uuid": "^10.0.0",

@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import {
   DigitalChannelList,
-  type NameComponentProps,
+  type NameProps,
 } from "@/hardware/ni/task/DigitalChannelList";
 import { generateDOChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
@@ -58,21 +58,19 @@ const Properties = () => (
 
 const NameComponent = ({
   entry: { cmdChannel, stateChannel },
-}: NameComponentProps<DOChannel>) => (
+}: NameProps<DOChannel>) => (
   <>
     <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
     <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
   </>
 );
 
+const name = componentRenderProp(NameComponent);
+
 const Form: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
 > = (props) => (
-  <DigitalChannelList
-    {...props}
-    generateChannel={generateDOChannel}
-    NameComponent={(p) => <NameComponent {...p} />}
-  />
+  <DigitalChannelList {...props} generateChannel={generateDOChannel} name={name} />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
@@ -186,7 +184,9 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
   return [config, dev.rack];
 };
 
-export const DigitalWrite = Common.Task.wrapForm(() => <Properties />, Form, {
+export const DigitalWrite = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: digitalWriteConfigZ,
   getInitialPayload,
   onConfigure,

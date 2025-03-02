@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import "@/hardware/opc/device/Browser.css";
+
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,6 +24,7 @@ import { type Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_NAME,
@@ -53,7 +55,7 @@ export const Browser = ({ device }: BrowserProps) => {
     queryKey: [client?.key],
     queryFn: async () => {
       if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(rack.DEFAULT_CHANNEL_NAME);
+      const rck = await client.hardware.racks.retrieve(device.rack);
       return await rck.retrieveTaskByName(SCAN_NAME);
     },
   });
@@ -124,9 +126,11 @@ export const Browser = ({ device }: BrowserProps) => {
     <Tree.Tree loading={loading} {...treeProps} />
   );
   return (
-    <Align.Space empty grow>
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Browser</Header.Title>
+    <Align.Space empty className={CSS.B("opc-browser")}>
+      <Header.Header level="p">
+        <Header.Title weight={500} shade={8}>
+          Browser
+        </Header.Title>
         <Header.Actions>
           <Button.Icon onClick={refresh} disabled={scanTask == null || initialLoading}>
             <Icon.Refresh style={{ color: "var(--pluto-gray-l9)" }} />

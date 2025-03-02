@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/opc/task/Form.css";
+
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -14,10 +16,11 @@ import {
   Haul,
   Header as PHeader,
   List,
+  type RenderProp,
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { type ReactNode, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -28,14 +31,14 @@ import {
 
 type ChannelConfig = ReadChannelConfig | WriteChannelConfig;
 
-interface ChildrenProps {
+export interface ExtraItemProps {
   path: string;
   snapshot: boolean;
 }
 
 interface ChannelListItemProps<C extends ChannelConfig>
   extends Common.Task.ChannelListItemProps<C> {
-  children: (props: ChildrenProps) => ReactNode | null;
+  children: RenderProp<ExtraItemProps>;
 }
 
 const ChannelListItem = ({
@@ -85,8 +88,10 @@ const ChannelListItem = ({
 };
 
 const Header = () => (
-  <PHeader.Header level="h4">
-    <PHeader.Title weight={500}>Channels</PHeader.Title>
+  <PHeader.Header level="p">
+    <PHeader.Title weight={500} shade={8}>
+      Channels
+    </PHeader.Title>
   </PHeader.Header>
 );
 
@@ -104,7 +109,7 @@ const CHANNELS_PATH = "config.channels";
 
 interface ChannelListProps<C extends ChannelConfig>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot"> {
-  children: (props: ChildrenProps) => ReactNode | null;
+  children: RenderProp<ExtraItemProps>;
   device: Device.Device;
 }
 
@@ -161,6 +166,12 @@ const ChannelList = <C extends ChannelConfig>({
   const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
 
   const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
+  const listItem = useCallback(
+    (p: Common.Task.ChannelListItemProps<C>) => (
+      <ChannelListItem {...p}>{children}</ChannelListItem>
+    ),
+    [children],
+  );
   return (
     <Common.Task.ChannelList
       {...rest}
@@ -172,7 +183,8 @@ const ChannelList = <C extends ChannelConfig>({
       header={<Header />}
       selected={selected}
       isDragging={isDragging}
-      ListItem={(p) => <ChannelListItem {...p}>{children}</ChannelListItem>}
+      listItem={listItem}
+      grow
       {...haulProps}
     />
   );
@@ -180,7 +192,7 @@ const ChannelList = <C extends ChannelConfig>({
 
 export interface FormProps {
   isSnapshot: boolean;
-  children?: (props: ChildrenProps) => ReactNode | null;
+  children?: RenderProp<ExtraItemProps>;
 }
 
 export const Form = <C extends ChannelConfig>({

@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import {
   DigitalChannelList,
-  type NameComponentProps,
+  type NameProps,
 } from "@/hardware/ni/task/DigitalChannelList";
 import { generateDIChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
@@ -57,9 +57,11 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ entry: { channel } }: NameComponentProps<DIChannel>) => (
+const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
   <Common.Task.ChannelName channel={channel} />
 );
+
+const name = componentRenderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
@@ -67,7 +69,7 @@ const Form: FC<
   <DigitalChannelList<DIChannel>
     {...props}
     generateChannel={generateDIChannel}
-    NameComponent={(p) => <NameComponent {...p} />}
+    name={name}
   />
 );
 
@@ -144,7 +146,9 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   return [config, dev.rack];
 };
 
-export const DigitalRead = Common.Task.wrapForm(Properties, Form, {
+export const DigitalRead = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: digitalReadConfigZ,
   getInitialPayload,
   onConfigure,
