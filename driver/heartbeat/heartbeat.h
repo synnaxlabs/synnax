@@ -107,7 +107,13 @@ public:
             .channels = {ch.key},
             .start = telem::TimeStamp::now(),
         };
-        auto breaker_config = breaker::default_config(task.name);
+        auto breaker_config = breaker::Config{
+            .name = "heartbeat",
+            .base_interval = 1 * telem::SECOND,
+            .scale = 1.05,
+            .max_interval = 5 * telem::SECOND,
+            .max_retries = breaker::RETRY_INFINITELY,
+        };
         return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);
     }
 };

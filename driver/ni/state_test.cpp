@@ -52,12 +52,15 @@ TEST(TestTaskStateHandler, testSendWarning) {
     const auto first = ctx->states[0];
     EXPECT_EQ(first.task, task.key);
     EXPECT_EQ(first.variant, "warning");
-    EXPECT_EQ(first.details["running"], true);
     EXPECT_EQ(first.details["message"], "Test warning message");
 
     handler.error(xerrors::VALIDATION);
     handler.send_warning("This warning should not be sent");
-    ASSERT_EQ(ctx->states.size(), 1); // No new state should be added
+    ASSERT_EQ(ctx->states.size(), 2);
+    const auto second = ctx->states[1];
+    EXPECT_EQ(second.task, task.key);
+    EXPECT_EQ(second.variant, "error");
+    EXPECT_EQ(second.details["message"], "[sy.validation] ");
 }
 
 TEST(TestTaskStateHandler, testStopCommunication) {

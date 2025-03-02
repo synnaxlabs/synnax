@@ -95,12 +95,11 @@ struct TaskStateHandler {
     /// @brief sends the provided warning string to the task. If the task is in error
     /// state, the warning will not be sent.
     void send_warning(const std::string &warning) {
-        // If theres already an error bound, communicate it instead.
+        // If there's already an error bound, communicate it instead.
         if (!this->err) {
             this->wrapped.variant = "warning";
-            this->wrapped.details["running"] = true;
             this->wrapped.details["message"] = warning;
-        }
+        } else this->wrapped.details["message"] = this->err.message();
         this->ctx->set_state(this->wrapped);
     }
 
@@ -125,8 +124,8 @@ struct TaskStateHandler {
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. Regardless of the error state, the task
     /// will be marked as not running.
-    void send_stop(const std::string &key) {
-        this->wrapped.key = key;
+    void send_stop(const std::string &cmd_key) {
+        this->wrapped.key = cmd_key;
         this->wrapped.details["running"] = false;
         if (this->err) {
             this->wrapped.variant = "error";

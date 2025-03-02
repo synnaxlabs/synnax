@@ -26,6 +26,8 @@
 
 
 namespace breaker {
+/// @brief tells the breaker to retry infinitely.
+constexpr int RETRY_INFINITELY = -1;
 /// @brief struct for configuring a breaker.
 struct Config {
     /// @brief the name of the breaker.
@@ -35,7 +37,7 @@ struct Config {
     /// scale.
     telem::TimeSpan base_interval = 1 * telem::SECOND;
     /// @brief sets the maximum number of retries before the wait() method returns false.
-    uint32_t max_retries = 50;
+    int max_retries = 50;
     /// @brief sets the rate at which the base_interval will scale on each successive
     /// call to wait(). We do not recommend setting this factor lower than 1.
     float scale = 1.1;
@@ -117,22 +119,23 @@ public:
             return false;
         }
         this->retries++;
-        if (this->retries > this->config.max_retries) {
+        if (this->config.max_retries != -1 && this->retries > this->config.max_retries) {
             LOG(ERROR) << "[" << this->config.name <<
                     "] exceeded the maximum retry count of "
                     << this->config.max_retries << ". Exiting." << "Error: " << message
-                    <<
-                    ".";
+                    << ".";
             reset();
             return false;
         }
-        LOG(ERROR) << "[" << this->config.name << "] failed " << this->retries << "/" <<
-                this->config.
-                max_retries
-                << " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
+
+        std::string retry_count_msg = this->config.max_retries == -1 ?
+            std::to_string(this->retries) + "/∞" :
+            std::to_string(this->retries) + "/" + std::to_string(this->config.max_retries);
+
+        LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg <<
+                " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
                 this->interval.seconds() << " seconds. "
-                <<
-                "Error: " << message << ".";
+                << "Error: " << message << ".";
         // keeps the formatter happy
         {
             std::unique_lock lock(this->start_stop_mu);

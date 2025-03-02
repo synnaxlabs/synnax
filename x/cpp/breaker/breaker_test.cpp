@@ -61,3 +61,33 @@ TEST(BreakerTests, testDestructorShuttingDown) {
     // now safe to destroy the object
     b.reset();
 }
+
+/// @brief it should correctly handle infinite retries
+TEST(BreakerTests, testInfiniteRetries) {
+    auto b = breaker::Breaker(breaker::Config{
+        "my-breaker", 
+        10 * telem::MICROSECOND, 
+        breaker::RETRY_INFINITELY,  // Set to infinite retries
+        1.1
+    });
+    b.start();
+    
+    // Create a counter to track number of retries
+    int retry_count = 0;
+    std::thread t([&b, &retry_count]() {
+        while (b.wait("testInfiniteRetries breaker")) {
+            retry_count++;
+            if (retry_count >= 100) break;  // Safety break to prevent infinite test
+        }
+    });
+
+    // Let it run for a bit
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    b.stop();
+    t.join();
+
+    // Verify that we got multiple retries and didn't stop at the default max (50)
+    ASSERT_GT(retry_count, 50);
+}
+
+//
