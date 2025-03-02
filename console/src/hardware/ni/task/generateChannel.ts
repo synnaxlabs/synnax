@@ -26,7 +26,7 @@ const generateDigitalChannel = <C extends DigitalChannel>(
   channels: C[],
   zeroChannel: C,
 ): C => {
-  const line = Math.max(0, ...channels.map(({ line }) => line)) + 1;
+  const line = channels.length ? Math.max(...channels.map(({ line }) => line)) + 1 : 0;
   return { ...zeroChannel, key: id.generate(), line };
 };
 

@@ -65,7 +65,10 @@ const aiChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(AI_CHANNEL_TYPE),
   range: z.number().finite().optional(),
   scale: scaleZ,
-  port: digitalPortZ,
+  port: portZ.regex(
+    Device.AIN_PORT_REGEX,
+    "Invalid port, ports must start with AIN and end with an integer",
+  ),
 });
 interface AIChannel extends z.infer<typeof aiChannelZ> {}
 const ZERO_AI_CHANNEL: AIChannel = {
