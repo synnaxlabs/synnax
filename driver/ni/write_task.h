@@ -103,8 +103,10 @@ struct WriteTaskConfig {
         }
         auto [state_channels, ch_err] = client->channels.retrieve(state_keys);
         if (ch_err) {
-            cfg.field_err("channels",
-                          "failed to retrieve state channels: " + ch_err.message());
+            cfg.field_err(
+                "channels",
+                "failed to retrieve state channels: " + ch_err.message()
+            );
             return;
         }
         for (const auto &state_ch: state_channels) {
@@ -159,6 +161,8 @@ struct WriteTaskConfig {
     }
 };
 
+/// @brief a write task that can write to both digital and analog output channels,
+/// and communicate their state back to Synnax.
 template<typename T>
 class WriteTask final : public task::Task {
     /// @brief the configuration for the task.
