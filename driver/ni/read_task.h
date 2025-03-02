@@ -38,6 +38,69 @@ static xerrors::Error translate_error(const xerrors::Error &err) {
     return err;
 }
 
+/// @brief used to regulate the acquisition speed of a task, and provide timing
+/// information for generating timestamps.
+struct SampleClock {
+    virtual ~SampleClock() = default;
+    /// @brief resets the sample clock, making it ready for task startup.
+    virtual void reset() {};
+    /// @brief waits for the next acquisition loop to begin, returning the timestamp
+    /// of the first sample.
+    virtual telem::TimeStamp wait(breaker::Breaker &breaker) = 0;
+    /// @brief ends the acquisition loop, interpolating an ending timestamp based
+    /// on the number of samples read.
+    virtual telem::TimeStamp end(size_t n_read) = 0;
+};
+
+/// @brief a sample clock that regulates the acquisition rate at the application
+/// layer by using a software timer.
+class SoftwareTimedSampleClock final : public SampleClock {
+    /// @brief the timer used to regulate the acquisition rate.
+    loop::Timer timer;
+public:
+    explicit SoftwareTimedSampleClock(const telem::Rate &stream_rate):
+        timer(stream_rate) {
+    }
+
+    telem::TimeStamp wait(breaker::Breaker &breaker) override {
+        this->timer.wait(breaker);
+        return telem::TimeStamp::now();
+    }
+
+    telem::TimeStamp end(const size_t _) override {
+        return telem::TimeStamp::now();
+    }
+};
+
+/// @brief a sample clock that relies on an external, steady hardware clock to
+/// regulate the acquisition rate. Timestamps are interpolated based on a fixed
+/// sample rate.
+class HardwareTimedSampleClock final : public SampleClock {
+    /// @brief the sample rate of the task.
+    const telem::Rate sample_rate;
+    /// @brief the high water-mark for the next acquisition loop.
+    telem::TimeStamp high_water{};
+
+
+    explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
+        sample_rate(sample_rate) {
+    }
+
+    void reset() override {
+        this->high_water = telem::TimeStamp::now();
+    }
+
+    telem::TimeStamp wait(breaker::Breaker &_) override {
+        return this->high_water;
+    }
+
+    telem::TimeStamp end(const size_t n_read) override {
+        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
+        this->high_water = end + this->sample_rate.period();
+        return end;
+    }
+};
+
 /// @brief the configuration for a read task.
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -184,51 +247,15 @@ struct ReadTaskConfig {
             .enable_auto_commit = true
         };
     }
-};
 
-/// @brief used to regulate the speed of software timed tasks and generate timing
-/// information for use in index channels.
-class SampleClock {
-    /// @brief whether the task is software timed and the sample clock should be
-    /// in charge of regulating acquisition rates.
-    const bool software_timed;
-    /// @brief the same rate of the task.
-    const telem::Rate sample_rate;
-    /// @brief a timer used for waiting in software timed tasks.
-    loop::Timer timer;
-    /// @brief a high-water mark used to interpolate timestamp values in non-software
-    /// timed tasks.
-    telem::TimeStamp high_water{};
-
-public:
-    explicit SampleClock(const ReadTaskConfig &cfg):
-        software_timed(cfg.software_timed),
-        sample_rate(cfg.sample_rate),
-        timer(cfg.stream_rate) {
-    }
-
-    /// @brief resets the sample clock.
-    void reset() {
-        this->high_water = telem::TimeStamp::now();
-    }
-
-    /// @brief waits the appropriate duration before returning the starting timestamp
-    /// of the next read.
-    telem::TimeStamp wait(breaker::Breaker &breaker) {
-        if (this->software_timed) return telem::TimeStamp::now();
-        this->timer.wait(breaker);
-        return this->high_water;
-    }
-
-    /// @brief returns the ending timestamp of the read based on the number of samples
-    /// read.
-    telem::TimeStamp end(const size_t n_read) {
-        if (this->software_timed) return telem::TimeStamp::now();
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
-        this->high_water = end + this->sample_rate.period();
-        return end;
+    [[nodiscard]] std::unique_ptr<SampleClock> sample_clock() const {
+        return this->software_timed
+                   ? std::make_unique<SoftwareTimedSampleClock>(this->stream_rate)
+                   : std::make_unique<HardwareTimedSampleClock>(this->sample_rate);
     }
 };
+
+
 
 /// @brief a read task that can pull from both analog and digital channels.
 template<typename T>
@@ -245,7 +272,7 @@ class ReadTask final : public task::Task {
     std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
-    SampleClock sample_clock;
+    std::unique_ptr<SampleClock> sample_clock;
     /// @brief handles communicating the task state back to the cluster.
     ni::TaskStateHandler state;
 
@@ -280,13 +307,13 @@ class ReadTask final : public task::Task {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            auto start = this->p.sample_clock.wait(breaker);
+            auto start = this->p.sample_clock->wait(breaker);
             const auto [n, err] = this->p.hw_reader->read(
                 this->p.cfg.samples_per_chan,
                 buffer
             );
             if (err) return {Frame(), translate_error(err)};
-            auto end = this->p.sample_clock.end(n);
+            auto end = this->p.sample_clock->end(n);
             synnax::Frame f(this->p.cfg.channels.size());
             size_t i = 0;
             for (const auto &ch: this->p.cfg.channels)
@@ -324,7 +351,7 @@ public:
            breaker_cfg
        ),
        hw_reader(std::move(reader)),
-       sample_clock(this->cfg),
+       sample_clock(this->cfg.sample_clock()),
        state(ctx, task) {
         this->pipe.use(this->tare_mw);
     }
