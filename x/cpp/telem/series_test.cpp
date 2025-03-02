@@ -100,6 +100,21 @@ TEST(TestSeries, testStringVectorConstruction) {
         ASSERT_EQ(v[i], vals[i]);
 }
 
+TEST(TestSeries, testTimeStampVectorConstruction) {
+    const std::vector<telem::TimeStamp> vals = {
+        telem::TimeStamp(telem::MILLISECOND * 1),
+        telem::TimeStamp(telem::MILLISECOND * 2),
+        telem::TimeStamp(telem::MILLISECOND * 3)
+    };
+    const telem::Series s{vals};
+    ASSERT_EQ(s.data_type, telem::TIMESTAMP_T);
+    ASSERT_EQ(s.size(), 3);
+    ASSERT_EQ(s.byte_size(), 24);
+    ASSERT_EQ(s.at<int64_t>(0), telem::MILLISECOND.nanoseconds());
+    ASSERT_EQ(s.at<int64_t>(1), telem::MILLISECOND.nanoseconds() * 2);
+    ASSERT_EQ(s.at<int64_t>(2), telem::MILLISECOND.nanoseconds() * 3);
+}
+
 TEST(TestSeries, testStringConstruction) {
     const std::string val = "hello";
     const telem::Series s{val};
