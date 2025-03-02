@@ -250,7 +250,7 @@ public:
         this->data = std::make_unique<std::byte[]>(byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
-            memcpy(this->data.get() + offset, s.data), s.size());
+            memcpy(this->data.get() + offset, s.data(), s.size());
             offset += s.size();
             this->data[offset] = NEWLINE_TERMINATOR;
             offset++;
