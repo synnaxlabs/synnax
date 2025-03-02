@@ -26,6 +26,7 @@ extern "C" {
 
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
+#include "driver/task/task.h"
 
 using json = nlohmann::json;
 

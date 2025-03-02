@@ -38,7 +38,7 @@ ReaderConfig::ReaderConfig(
    array_size(parser.optional<std::size_t>("array_size", 1)),
    data_saving(parser.optional<bool>("data_saving", true)) {
     if(array_size <= 0) array_size = 1;
-    if (stream_rate.value <= 0) stream_rate = telem::Rate(1);
+    if (stream_rate.hz() <= 0) stream_rate = telem::Rate(1);
     parser.iter("channels", [&](xjson::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);

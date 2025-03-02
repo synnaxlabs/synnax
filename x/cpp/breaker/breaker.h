@@ -28,6 +28,7 @@
 namespace breaker {
 /// @brief tells the breaker to retry infinitely.
 constexpr int RETRY_INFINITELY = -1;
+
 /// @brief struct for configuring a breaker.
 struct Config {
     /// @brief the name of the breaker.
@@ -100,7 +101,6 @@ public:
     }
 
 
-
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true. Also Logs information about the breaker trigger.
@@ -119,7 +119,8 @@ public:
             return false;
         }
         this->retries++;
-        if (this->config.max_retries != -1 && this->retries > this->config.max_retries) {
+        if (this->config.max_retries != -1 && this->retries > this->config.
+            max_retries) {
             LOG(ERROR) << "[" << this->config.name <<
                     "] exceeded the maximum retry count of "
                     << this->config.max_retries << ". Exiting." << "Error: " << message
@@ -128,23 +129,21 @@ public:
             return false;
         }
 
-        std::string retry_count_msg = this->config.max_retries == -1 ?
-            std::to_string(this->retries) + "/∞" :
-            std::to_string(this->retries) + "/" + std::to_string(this->config.max_retries);
+        const std::string retry_count_msg = this->config.max_retries == -1
+                                          ? std::to_string(this->retries) + "/∞"
+                                          : std::to_string(this->retries) + "/" +
+                                            std::to_string(this->config.max_retries);
 
         LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg <<
                 " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
                 this->interval.seconds() << " seconds. "
                 << "Error: " << message << ".";
-        // keeps the formatter happy
-        {
-            std::unique_lock lock(this->start_stop_mu);
-            shutdown_cv.wait_for(lock, this->interval.chrono());
-            if (!this->running()) {
-                LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
-                reset();
-                return false;
-            }
+        std::unique_lock lock(this->start_stop_mu);
+        shutdown_cv.wait_for(lock, this->interval.chrono());
+        if (!this->running()) {
+            LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
+            reset();
+            return false;
         }
         this->interval = this->interval * this->config.scale;
         if (this->interval > this->config.max_interval)
@@ -173,6 +172,7 @@ public:
 
     class Starter {
         Breaker *breaker;
+
     public:
         explicit Starter(Breaker *b) : breaker(b) {
             this->breaker->start_stop_mu.lock();
