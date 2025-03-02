@@ -159,6 +159,23 @@ public:
                 "cannot pre-allocate a series with a variable data type");
     }
 
+       /// @brief constructs a series from the given array of numeric data and a length.
+    /// @param d the array of numeric data to be used.
+    /// @param size_ the number of samples to be used.
+    /// @param dt the data type of the series.
+    template<typename NumericType>
+    Series(const NumericType *d, const size_t size_, const DataType &dt = UNKNOWN_T):
+        data_type(telem::DataType::infer<NumericType>(dt)),
+        cap(size_),
+        size_(size_),
+        data(std::make_unique<std::byte[]>(size_ * this->data_type.density())) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        memcpy(this->data.get(), d, size_ * this->data_type.density());
+    }
+
     /// @brief constructs a series from the given vector of numeric data and an optional
     /// data type.
     /// @param d the vector of numeric data to be used.
@@ -170,7 +187,15 @@ public:
     explicit Series(
         const std::vector<NumericType> &d,
         const DataType &dt = UNKNOWN_T
-    ): Series(d.data(), d.size(), dt) {
+    ): data_type(telem::DataType::infer<NumericType>(dt)),
+        cap(d.size()),
+        size_(d.size()),
+        data(std::make_unique<std::byte[]>(d.size() * this->data_type.density())) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        memcpy(this->data.get(), d.data(), d.size() * this->data_type.density());
     }
 
     explicit Series(const std::vector<telem::TimeStamp> &d):
@@ -184,22 +209,7 @@ public:
         }
     }
 
-    /// @brief constructs a series from the given array of numeric data and a length.
-    /// @param d the array of numeric data to be used.
-    /// @param size_ the number of samples to be used.
-    /// @param dt the data type of the series.
-    template<typename NumericType>
-    Series(const NumericType *d, const size_t size_, const DataType dt = UNKNOWN_T):
-        data_type(telem::DataType::infer<NumericType>(dt)),
-        cap(size_),
-        size_(size_),
-        data(std::make_unique<std::byte[]>(size_ * this->data_type.density())) {
-        static_assert(
-            std::is_arithmetic_v<NumericType>,
-            "NumericType must be a numeric type"
-        );
-        memcpy(this->data.get(), d, size_ * this->data_type.density());
-    }
+
 
     /// @brief constructs a series of size 1 with a data type of TIMESTAMP from the
     /// given timestamp.
