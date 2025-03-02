@@ -20,7 +20,7 @@ class XTestTest : public ::testing::Test {
 protected:
     std::atomic<int> counter{0};
     
-    void incrementCounter() {
+    void inc_counter() {
         ++this->counter;
     }
 
@@ -30,15 +30,12 @@ protected:
 };
 
 TEST_F(XTestTest, TestEventuallyEQ) {
-    // Start a thread that increments counter to 5
     std::thread t([this] {
         for (int i = 0; i < 5; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            incrementCounter();
+            inc_counter();
         }
     });
-
-    // Should eventually equal 5
     ASSERT_EVENTUALLY_EQ(counter.load(), 5);
     t.join();
 }
@@ -47,11 +44,9 @@ TEST_F(XTestTest, TestEventuallyGE) {
     std::thread t([this] {
         for (int i = 0; i < 10; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            incrementCounter();
+            inc_counter();
         }
     });
-
-    // Should eventually be greater than or equal to 5
     ASSERT_EVENTUALLY_GE(counter.load(), 5);
     t.join();
 }
@@ -64,8 +59,6 @@ TEST_F(XTestTest, TestEventuallyLE) {
             --this->counter;
         }
     });
-
-    // Should eventually be less than or equal to 5
     ASSERT_EVENTUALLY_LE(counter.load(), 5);
     t.join();
 }
@@ -76,7 +69,6 @@ TEST_F(XTestTest, TestEventuallyEQWithCustomTimeout) {
         counter = 5;
     });
 
-    // Should fail with default timeout (1s), but succeed with 2s timeout
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
         counter.load(), 
         5,
@@ -118,11 +110,8 @@ TEST_F(XTestTest, TestEventuallyLEWithCustomTimeout) {
 }
 
 TEST_F(XTestTest, TestMustSucceedSuccess) {
-    // Create a pair that simulates a successful operation
-    auto successfulOp = []() -> std::pair<int, xerrors::Error> {
+    auto successful_op = []() -> std::pair<int, xerrors::Error> {
         return {42, xerrors::NIL};
     };
-
-    // Should extract the value from a successful operation
-    EXPECT_EQ(MUST_SUCCEED(successfulOp()), 42);
+    EXPECT_EQ(ASSERT_NIL_P(successful_op()), 42);
 }

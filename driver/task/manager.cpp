@@ -164,8 +164,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
 }
 
 void task::Manager::stop_all_tasks() {
-    for (auto &[task_key, task]: this->tasks)
-        task->stop(false);
+    for (auto &[task_key, task]: this->tasks) task->stop(false);
     this->tasks.clear();
 }
 

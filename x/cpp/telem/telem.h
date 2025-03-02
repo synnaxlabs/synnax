@@ -678,34 +678,16 @@ public:
         return this->matches(_priv::VARIABLE_TYPES);
     }
 
-    /// @brief Checks if this data type matches another data type.
-    /// @param other The data type to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const DataType &other) const {
-        if (value.empty() || other.value.empty()) return true;
-        return *this == other;
-    }
-
-    /// @brief Checks if this data type matches a string data type identifier.
-    /// @param other The data type string to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const std::string &other) const {
-        if (value.empty() || other.empty()) return true;
-        return value == other;
-    }
-
     /// @brief Checks if this data type matches any of the provided data types.
     /// @param others Vector of data types to compare against
     /// @returns true if this data type matches any in the vector, false otherwise
     [[nodiscard]] bool matches(const std::vector<DataType> &others) const {
-        if (value.empty()) return true;
-        for (const auto &other: others) if (matches(other)) return true;
+        for (const auto &other: others) if (other == *this) return true;
         return false;
     }
 
     [[nodiscard]] bool matches(const std::vector<std::string> &others) const {
-        if (value.empty()) return true;
-        for (const auto &other: others) if (matches(other)) return true;
+        for (const auto &other: others) if (other == this->value) return true;
         return false;
     }
 
