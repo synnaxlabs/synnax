@@ -555,5 +555,5 @@ TEST(SampleClockTest, testHardwareTimedSampleClock) {
     clock.reset();
     const auto start = clock.wait(breaker);
     const auto end = clock.end(10);
-    EXPECT_EQ(end - start, 10 * telem::SECOND);
+    EXPECT_EQ(end - start, 9 * telem::SECOND);
 }

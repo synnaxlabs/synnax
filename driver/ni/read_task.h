@@ -44,8 +44,7 @@ struct SampleClock {
     virtual ~SampleClock() = default;
 
     /// @brief resets the sample clock, making it ready for task startup.
-    virtual void reset() {
-    };
+    virtual void reset() {}
 
     /// @brief waits for the next acquisition loop to begin, returning the timestamp
     /// of the first sample.
@@ -164,7 +163,7 @@ struct ReadTaskConfig {
            "channels",
            [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
        bool> {
-               auto ch = channel::parse_input(ch_cfg, {});
+               auto ch = channel::parse_input(ch_cfg);
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
@@ -303,6 +302,7 @@ class ReadTask final : public task::Task {
         /// @brief the buffer used to read data from the hardware. This vector is
         /// pre-allocated and reused.
         std::vector<T> buffer;
+        loop::Gauge gauge;
 
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
@@ -312,10 +312,14 @@ class ReadTask final : public task::Task {
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             auto start = this->p.sample_clock->wait(breaker);
+            gauge.stop();
             const auto [n, err] = this->p.hw_reader->read(
                 this->p.cfg.samples_per_chan,
                 buffer
             );
+            gauge.start();
+            if (gauge.iterations() % 100 == 0)
+                LOG(INFO) << gauge.average();
             if (err) return {Frame(), translate_error(err)};
             auto end = this->p.sample_clock->end(n);
             synnax::Frame f(this->p.cfg.channels.size());
