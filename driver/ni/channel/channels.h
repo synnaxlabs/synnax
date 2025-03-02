@@ -56,6 +56,36 @@ static int32_t get_excitation_src(const std::string &s) {
     return DAQmx_Val_None;
 }
 
+static int32_t get_strain_config(const std::string &s) {
+    if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
+    if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
+    if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
+    if (s == "HalfBridgeI") return DAQmx_Val_HalfBridgeI;
+    if (s == "HalfBridgeII") return DAQmx_Val_HalfBridgeII;
+    if (s == "QuarterBridgeI") return DAQmx_Val_QuarterBridgeI;
+    if (s == "QuarterBridgeII") return DAQmx_Val_QuarterBridgeII;
+    return DAQmx_Val_FullBridgeI;
+}
+
+static int32_t get_rosette_type(const std::string &s) {
+    if (s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
+    if (s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
+    if (s == "TeeRosette") return DAQmx_Val_TeeRosette;
+    return DAQmx_Val_RectangularRosette;
+}
+
+static int32_t get_rosette_meas_type(const std::string &s) {
+    if (s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
+    if (s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
+    if (s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
+    if (s == "CartesianStrainX") return DAQmx_Val_CartesianStrainX;
+    if (s == "CartesianStrainY") return DAQmx_Val_CartesianStrainY;
+    if (s == "CartesianShearStrainXY") return DAQmx_Val_CartesianShearStrainXY;
+    if (s == "MaxShearStrain") return DAQmx_Val_MaxShearStrain;
+    if (s == "MaxShearStrainAngle") return DAQmx_Val_MaxShearStrainAngle;
+    return DAQmx_Val_PrincipalStrain1;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -296,7 +326,7 @@ struct DI final : Digital, Input {
         return dmx->CreateDIChan(
             task_handle,
             this->loc().c_str(),
-            "",
+            this->cfg_path.c_str(),
             DAQmx_Val_ChanPerLine
         );
     }
@@ -315,39 +345,31 @@ struct DO final : Digital, Output {
         return dmx->CreateDOChan(
             task_handle,
             this->loc().c_str(),
-            "",
+            this->cfg_path.c_str(),
             DAQmx_Val_ChanPerLine
         );
     }
 };
 
 /// @brief base class for all analog channels (AO, DO)
-class Analog : virtual Base {
-public:
+struct Analog : virtual Base {
     const int port;
     const double min_val;
     const double max_val;
     int32_t units;
 
-    int32_t static parse_units(xjson::Parser &cfg, const std::string &path) {
-        const auto str_units = cfg.optional<std::string>(path, "Volts");
-        const auto units = UNITS_MAP.find(str_units);
-        if (units == UNITS_MAP.end())
-            cfg.field_err(path, "invalid units: " + str_units);
-        return units->second;
-    }
 
     explicit Analog(xjson::Parser &cfg):
         port(cfg.required<int>("port")),
         min_val(cfg.optional<float>("min_val", 0)),
         max_val(cfg.optional<float>("max_val", 0)),
-        units(channel::Analog::parse_units(cfg, "units")) {
+        units(parse_units(cfg, "units")) {
     }
 };
 
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AnalogCustomScale : virtual Analog {
-    std::unique_ptr<Scale> scale;
+    const std::unique_ptr<Scale> scale;
 
     explicit AnalogCustomScale(xjson::Parser &cfg):
         Analog(cfg),
@@ -691,7 +713,7 @@ struct AITempBuiltIn final : AI {
         return dmx->CreateAITempBuiltInSensorChan(
             task_handle,
             i_name.c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->units
         );
     }
@@ -736,7 +758,7 @@ struct AIThermistorIEX final : AI {
     }
 };
 
-class AIThermistorVex final : public AI {
+struct AIThermistorVex final : AI {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
     const double a;
@@ -848,7 +870,7 @@ struct AIAccel4WireDCVoltage final : AIAccel {
     }
 };
 
-class AIAccelCharge final : public AICustomScale {
+struct AIAccelCharge final : AICustomScale {
     const double sensitivity;
     const int32_t sensitivity_units;
     const int32 terminal_config;
@@ -882,11 +904,10 @@ class AIAccelCharge final : public AICustomScale {
     }
 };
 
-class AIResistance final : public AICustomScale {
+struct AIResistance final : AICustomScale {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
 
-public:
     explicit AIResistance(xjson::Parser &cfg) :
         Analog(cfg),
         Base(cfg),
@@ -915,9 +936,8 @@ public:
     }
 };
 
-class AIBridge final : public AICustomScale {
-public:
-    BridgeConfig bridge_config;
+struct AIBridge final : AICustomScale {
+    const BridgeConfig bridge_config;
 
     explicit AIBridge(xjson::Parser &cfg) :
         Analog(cfg),
@@ -955,17 +975,6 @@ struct AIStrainGauge final : AICustomScale {
     const double nominal_gage_resistance;
     const double poisson_ratio;
     const double lead_wire_resistance;
-
-    static int32_t get_strain_config(const std::string &s) {
-        if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
-        if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
-        if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
-        if (s == "HalfBridgeI") return DAQmx_Val_HalfBridgeI;
-        if (s == "HalfBridgeII") return DAQmx_Val_HalfBridgeII;
-        if (s == "QuarterBridgeI") return DAQmx_Val_QuarterBridgeI;
-        if (s == "QuarterBridgeII") return DAQmx_Val_QuarterBridgeII;
-        return DAQmx_Val_FullBridgeI;
-    }
 
     explicit AIStrainGauge(xjson::Parser &cfg) :
         Analog(cfg),
@@ -1005,7 +1014,7 @@ struct AIStrainGauge final : AICustomScale {
     }
 };
 
-class AIRosetteStrainGauge final : public AI {
+struct AIRosetteStrainGauge final : AI {
     const int32_t rosette_type;
     const double gage_orientation;
     const int32 rosette_meas_type;
@@ -1015,37 +1024,6 @@ class AIRosetteStrainGauge final : public AI {
     const double nominal_gage_resistance;
     const double poisson_ratio;
     const double lead_wire_resistance;
-
-public:
-    static int32_t get_strain_config(const std::string &s) {
-        if (s == "FullBridgeI") return DAQmx_Val_FullBridgeI;
-        if (s == "FullBridgeII") return DAQmx_Val_FullBridgeII;
-        if (s == "FullBridgeIII") return DAQmx_Val_FullBridgeIII;
-        if (s == "HalfBridgeI") return DAQmx_Val_HalfBridgeI;
-        if (s == "HalfBridgeII") return DAQmx_Val_HalfBridgeII;
-        if (s == "QuarterBridgeI") return DAQmx_Val_QuarterBridgeI;
-        if (s == "QuarterBridgeII") return DAQmx_Val_QuarterBridgeII;
-        return DAQmx_Val_FullBridgeI;
-    }
-
-    static int32_t get_rosette_type(const std::string &s) {
-        if (s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
-        if (s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
-        if (s == "TeeRosette") return DAQmx_Val_TeeRosette;
-        return DAQmx_Val_RectangularRosette;
-    }
-
-    static int32_t get_rosette_meas_type(const std::string &s) {
-        if (s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
-        if (s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
-        if (s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
-        if (s == "CartesianStrainX") return DAQmx_Val_CartesianStrainX;
-        if (s == "CartesianStrainY") return DAQmx_Val_CartesianStrainY;
-        if (s == "CartesianShearStrainXY") return DAQmx_Val_CartesianShearStrainXY;
-        if (s == "MaxShearStrain") return DAQmx_Val_MaxShearStrain;
-        if (s == "MaxShearStrainAngle") return DAQmx_Val_MaxShearStrainAngle;
-        return DAQmx_Val_PrincipalStrain1;
-    }
 
     explicit AIRosetteStrainGauge(xjson::Parser &cfg):
         Analog(cfg),
@@ -1238,6 +1216,7 @@ struct AIPressureBridgeTable final : AICustomScale {
 struct AIPressureBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
+
     explicit AIPressureBridgePolynomial(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
@@ -1401,15 +1380,10 @@ struct AIVelocityIEPE final : AICustomScale {
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
-        sensitivity_units(
-            channel::AIVelocityIEPE::parse_units(cfg, "sensitivity_units")),
-        sensitivity(
-            cfg.required<double>(
-                "sensitivity")),
-        excitation_config(
-            cfg, CURR_EXCIT_PREFIX),
-        terminal_config(
-            parse_terminal_config(cfg)) {
+        sensitivity_units(parse_units(cfg, "sensitivity_units")),
+        sensitivity(cfg.required<double>("sensitivity")),
+        excitation_config(cfg, CURR_EXCIT_PREFIX),
+        terminal_config(parse_terminal_config(cfg)) {
     }
 
     xerrors::Error apply(
@@ -1561,7 +1535,7 @@ struct AIForceIEPE final : AICustomScale {
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
-        sensitivity_units(channel::AIForceIEPE::parse_units(cfg, "sensitivity_units")),
+        sensitivity_units(parse_units(cfg, "sensitivity_units")),
         sensitivity(cfg.required<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {
@@ -1607,7 +1581,7 @@ struct AICharge final : AICustomScale {
         return dmx->CreateAIChargeChan(
             task_handle,
             this->loc().c_str(),
-            "",
+            this->cfg_path.c_str(),
             this->terminal_config,
             this->min_val,
             this->max_val,
@@ -1777,4 +1751,4 @@ inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
 #undef FACTORY
 #undef FACTORY
 #undef FACTORY_WITH_CJC_SOURCES
-};
+}

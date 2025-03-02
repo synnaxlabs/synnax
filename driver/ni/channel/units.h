@@ -11,6 +11,8 @@
 
 #include <string>
 
+#include "driver/ni/daqmx/nidaqmx.h"
+
 namespace channel {
 inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
@@ -61,4 +63,12 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
+
+int32_t inline parse_units(xjson::Parser &cfg, const std::string &path) {
+    const auto str_units = cfg.optional<std::string>(path, "Volts");
+    const auto units = UNITS_MAP.find(str_units);
+    if (units == UNITS_MAP.end())
+        cfg.field_err(path, "invalid units: " + str_units);
+    return units->second;
+}
 }

@@ -12,22 +12,17 @@
 /// std
 #include <string>
 #include <vector>
-#include <cstdint>
-#include <map>
-
-/// external
-#include "nlohmann/json.hpp"
-#include "glog/logging.h"
 
 /// module
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/ni/channel/units.h"
-#include "driver/ni/daqmx/nidaqmx.h"
+#include "driver/ni/daqmx/sugared.h"
 
 namespace channel {
-/// @brief uses an atomic counter to generate new scale keys;
+/// @brief Generates a unique scale key using an atomic counter
+/// @return A unique string identifier for a scale in the format "scale_<number>"
 static std::string next_scale_key() {
     static std::atomic<size_t> counter = 0;
     return "scale_" + std::to_string(counter++);
@@ -49,19 +44,25 @@ struct Scale {
 
 /// @brief base scale data structure for all scale types.
 struct BaseScale : Scale {
-    const std::string type, pre_scaled_units, scaled_units;
+    const std::string type, scaled_units;
+    const int pre_scaled_units;
 
     bool is_none() override { return false; }
 
     explicit BaseScale(xjson::Parser &cfg):
         type(cfg.required<std::string>("type")),
-        pre_scaled_units(cfg.optional<std::string>("pre_scaled_units", "Volts")),
+        pre_scaled_units(parse_units(cfg, "pre_scaled_units")),
         scaled_units(cfg.optional<std::string>("scaled_units", "Volts")) {
     }
 };
 
+/// @brief Linear scaling that applies y = mx + b transformation
+/// @details Transforms values using a linear equation with configurable slope and y-intercept
 struct LinearScale final : BaseScale {
-    const float64 slope, offset;
+    /// @brief The slope (m) in the linear equation
+    const double slope;
+    /// @brief The y-intercept (b) in the linear equation
+    const double offset;
 
     explicit LinearScale(xjson::Parser &cfg) :
         BaseScale(cfg),
@@ -78,15 +79,24 @@ struct LinearScale final : BaseScale {
                 key.c_str(),
                 this->slope,
                 this->offset,
-                UNITS_MAP.at(this->pre_scaled_units),
+                this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
         };
     }
 };
 
+/// @brief Map scaling that performs linear interpolation between configured ranges
+/// @details Maps values from one range [pre_scaled_min, pre_scaled_max] to another range [scaled_min, scaled_max]
 struct MapScale final : BaseScale {
-    const float64 pre_scaled_min, pre_scaled_max, scaled_min, scaled_max;
+    /// @brief Minimum value in the pre-scaled range
+    const double pre_scaled_min;
+    /// @brief Maximum value in the pre-scaled range
+    const double pre_scaled_max;
+    /// @brief Minimum value in the scaled range
+    const double scaled_min;
+    /// @brief Maximum value in the scaled range
+    const double scaled_max;
 
     explicit MapScale(xjson::Parser &cfg):
         BaseScale(cfg),
@@ -107,81 +117,80 @@ struct MapScale final : BaseScale {
                 this->pre_scaled_max,
                 this->scaled_min,
                 this->scaled_max,
-                channel::UNITS_MAP.at(this->pre_scaled_units),
+                this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
         };
     }
 };
 
+/// @brief the default mode for calculating the reverse polynomial is to use the same
+/// number of coefficients as the forward polynomial.
+constexpr int REVERSE_POLY_ORDER_SAME_AS_FORWARD = -1;
+
+/// @brief Polynomial scaling that applies an nth-order polynomial transformation
+/// @details Transforms values using both forward and reverse polynomial coefficients
 struct PolynomialScale final : BaseScale {
-    std::vector<double> forward_coeffs, reverse_coeffs;
-    const uint32_t num_coeffs;
-    const float64 min_x, max_x;
-    const int32 num_points, poly_order;
+    /// @brief Coefficients for the forward polynomial transformation
+    std::vector<double> forward_coeffs;
+    /// @brief Minimum input value for the polynomial
+    const double min_x;
+    /// @brief Maximum input value for the polynomial
+    const double max_x;
+    /// @brief Order of the reverse polynomial (or -1 to match forward order)
+    const int reverse_poly_order;
+    /// @brief Number of points used to compute reverse coefficients
+    const size_t num_points_to_compute;
 
     explicit PolynomialScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        forward_coeffs(num_coeffs * 2),
-        reverse_coeffs(num_coeffs * 2),
-        num_coeffs(cfg.required<int>("num_coeffs")),
+        forward_coeffs(cfg.required_vec<double>("forward_coeffs")),
         min_x(cfg.required<double>("min_x")),
         max_x(cfg.required<double>("max_x")),
-        num_points(cfg.optional<int>("num_reverse_coeffs", 0)),
-        poly_order(cfg.required<int>("poly_order")) {
-        if (!cfg.ok()) {
-            LOG(ERROR) <<
-                    "[ni.analog] failed to parse custom polynomial scale configuration";
-            return;
-        }
-
-        //TODO: handle if there is reverse coeffs of different size than forward coeffs
-        json j = cfg.get_json();
-        // get forward coeffs (prescale -> scale conversions)
-        if (!j.contains("coeffs")) {
-            LOG(ERROR) <<
-                    "[ni.analog] failed to parse custom polynomial scale configuration: missing coeffs";
-            return;
-        }
-
-        for (int i = 0; i < num_coeffs; i++) forward_coeffs[i] = j["coeffs"][i];
-    }
+        reverse_poly_order(cfg.optional<int>("poly_order", -1)),
+        num_points_to_compute(cfg.optional<size_t>("num_points_to_compute", 100)) {
+   }
 
     std::pair<std::string, xerrors::Error> apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
-        dmx->CalculateReversePolyCoeff(
+        std::vector<double> reverse_coeffs(this->forward_coeffs.size());
+        if (const auto err = dmx->CalculateReversePolyCoeff(
             this->forward_coeffs.data(),
-            this->num_coeffs,
+            this->forward_coeffs.size(),
             this->min_x,
             this->max_x,
-            this->num_coeffs,
-            -1,
-            this->reverse_coeffs.data()
-        );
+            this->num_points_to_compute,
+            this->reverse_poly_order,
+            reverse_coeffs.data()
+        )) return {key, err};
         return {
             key,
             dmx->CreatePolynomialScale(
                 key.c_str(),
                 this->forward_coeffs.data(),
-                this->num_coeffs,
-                this->reverse_coeffs.data(),
-                this->num_coeffs,
-                channel::UNITS_MAP.at(this->pre_scaled_units),
+                this->forward_coeffs.size(),
+                reverse_coeffs.data(),
+                reverse_coeffs.size(),
+                this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
         };
     }
 };
 
-class TableScale final : public BaseScale {
-    std::vector<double> pre_scaled, scaled;
+/// @brief Table scaling that performs lookup-based transformation
+/// @details Transforms values using a lookup table with linear interpolation between points
+struct TableScale final : BaseScale {
+    /// @brief Input values for the lookup table
+    const std::vector<double> pre_scaled;
+    /// @brief Output values for the lookup table
+    const std::vector<double> scaled;
 
-public:
     explicit TableScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        pre_scaled(cfg.required_vec<double>("pre_scaled_units")),
-        scaled(cfg.required_vec<double>("scaled_units")) {
+        pre_scaled(cfg.required_vec<double>("pre_scaled")),
+        scaled(cfg.required_vec<double>("scaled")) {
         if (pre_scaled.size() == scaled.size()) return;
         cfg.field_err("pre_scaled_vals",
                       "pre_scaled and scaled values must be the same size");
@@ -198,13 +207,17 @@ public:
                 this->pre_scaled.size(),
                 this->scaled.data(),
                 this->pre_scaled.size(),
-                channel::UNITS_MAP.at(this->pre_scaled_units),
+                this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
         };
     }
 };
 
+/// @brief Creates a Scale object based on configuration
+/// @param parent_cfg The parent configuration parser
+/// @param path The path to the scale configuration within the parent
+/// @return A unique pointer to the created Scale object
 inline std::unique_ptr<Scale> parse_scale(
     const xjson::Parser &parent_cfg,
     const std::string &path
@@ -215,8 +228,8 @@ inline std::unique_ptr<Scale> parse_scale(
     if (type == "map") return std::make_unique<MapScale>(cfg);
     if (type == "polynomial") return std::make_unique<PolynomialScale>(cfg);
     if (type == "table") return std::make_unique<TableScale>(cfg);
-    if (type != "none")
-        cfg.field_err("type", "invalid scale type");
-    return std::make_unique<Scale>();
+    if (type == "none") return std::make_unique<Scale>();
+    cfg.field_err("type", "invalid scale type");
+    return nullptr;
 }
 }
