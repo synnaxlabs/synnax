@@ -46,16 +46,16 @@ TEST(FramerTests, testWriteBasic) {
     auto frame = synnax::Frame(2);
     frame.emplace(
         time.key,
-        telem::Series(std::vector{
-                          (now.value + telem::SECOND).value,
-                          (now + telem::SECOND * 2).value,
-                          (now + telem::SECOND * 3).value,
-                          (now + telem::SECOND * 4).value,
-                          (now + telem::SECOND * 5).value,
-                          (now + telem::SECOND * 6).value,
-                          (now + telem::SECOND * 7).value,
-                          (now + telem::SECOND * 8).value,
-                      }, telem::TIMESTAMP_T)
+        telem::Series(std::vector<telem::TimeStamp>{
+                          (now + telem::SECOND),
+                          (now + telem::SECOND * 2),
+                          (now + telem::SECOND * 3),
+                          (now + telem::SECOND * 4),
+                          (now + telem::SECOND * 5),
+                          (now + telem::SECOND * 6),
+                          (now + telem::SECOND * 7),
+                          (now + telem::SECOND * 8),
+                      })
     );
     frame.emplace(
         data.key,
@@ -66,7 +66,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_TRUE(writer.write(frame));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
-    ASSERT_EQ(end.value, (now + (telem::SECOND * 8 + 1)).value);
+    ASSERT_EQ(end, now + (telem::SECOND * 8 + 1));
     ASSERT_NIL(writer.close());
 }
 

@@ -25,9 +25,7 @@ class Base {
         } catch (...) {
             LOG(ERROR) << "[control] Unhandled unknown exception";
         }
-        /// instead of calling stop() here, simply mark the breaker as stoppe, as theres
-        /// no waiting for the thread to join.
-        this->breaker.mark_stopped();
+        breaker.mark_stopped();
     }
 
 protected:
@@ -55,9 +53,9 @@ public:
     /// idempotent, and is safe to call multiple times without starting the pipeline
     /// again.
     virtual bool stop() {
-        if (!this->breaker.stop()) return false;
+        auto stopped = this->breaker.stop();
         if (this->thread.joinable()) this->thread.join();
-        return true;
+        return stopped;
     }
 
     /// @brief returns true if the pipeline is currently running. This method may return

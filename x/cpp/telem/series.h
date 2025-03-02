@@ -170,6 +170,17 @@ public:
     ): Series(d.data(), d.size(), dt) {
     }
 
+    explicit Series(const std::vector<telem::TimeStamp> &d):
+        data_type(telem::TIMESTAMP_T),
+        cap(d.size()),
+        size_(d.size()),
+        data(std::make_unique<std::byte[]>(d.size() * this->data_type.density())) {
+        for (size_t i = 0; i < d.size(); i++) {
+            const auto ov = d[i].nanoseconds();
+            memcpy(data.get() + i * this->data_type.density(), &ov, this->data_type.density());
+        }
+    }
+
     /// @brief constructs a series from the given array of numeric data and a length.
     /// @param d the array of numeric data to be used.
     /// @param size_ the number of samples to be used.
@@ -410,7 +421,7 @@ public:
     /// @returns 1 if the number was written, 0 if the series is at capacity and the
     /// sample was not written.
     template<typename T>
-    size_t write(const T d) {
+    size_t write(const T& d) {
         if constexpr (std::is_same_v<T, std::string> ||
                       std::is_same_v<T, const char *> ||
                       std::is_same_v<T, char *>) {
@@ -458,6 +469,10 @@ public:
             this->size_++;
             return 1;
         }
+    }
+
+    size_t write(const telem::TimeStamp &ts) {
+        return this->write<int64_t>(ts.nanoseconds());
     }
 
     /// @brief writes the given array of numeric data to the series.
@@ -664,9 +679,8 @@ public:
         if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
-        const auto step = (end.nanoseconds() - start.nanoseconds()) / (count - 1);
-        for (size_t i = 0; i < count; i++)
-            s.write<int64_t>(start.nanoseconds() + step * i);
+        const auto step = (end  - start) / (count - 1);
+        for (size_t i = 0; i < count; i++) s.write(start + step * i);
         s.size_ = count;
         return s;
     }
