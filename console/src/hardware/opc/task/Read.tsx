@@ -9,7 +9,12 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
+import {
+  Align,
+  componentRenderProp,
+  Form as PForm,
+  type Haul,
+} from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -76,7 +81,14 @@ const Properties = (): ReactElement => {
       <Device.Select />
       <Align.Space direction="x" grow>
         <Common.Task.Fields.SampleRate />
-        <PForm.SwitchField label="Array Sampling" path="config.arrayMode" />
+        <PForm.SwitchField
+          label="Array Sampling"
+          path="config.arrayMode"
+          onChange={(value, { set }) => {
+            if (value) set("config.arraySize", 1);
+            else set("config.streamRate", 25);
+          }}
+        />
         {arrayMode ? (
           <PForm.NumericField label="Array Size" path="config.arraySize" />
         ) : (
@@ -88,9 +100,28 @@ const Properties = (): ReactElement => {
   );
 };
 
+const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
+  const nodeId = data?.nodeId as string;
+  const name = data?.name as string;
+  return {
+    key: nodeId,
+    name,
+    nodeName: name,
+    nodeId,
+    channel: 0,
+    enabled: true,
+    useAsIndex: false,
+    dataType: (data?.dataType as string) ?? "float32",
+  };
+};
+
 const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
   isSnapshot,
-}) => <Form isSnapshot={isSnapshot}>{isIndexItem}</Form>;
+}) => (
+  <Form isSnapshot={isSnapshot} convertHaulItemToChannel={convertHaulItemToChannel}>
+    {isIndexItem}
+  </Form>
+);
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,

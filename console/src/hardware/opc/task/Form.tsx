@@ -24,16 +24,14 @@ import { useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import { type ReadChannel, type WriteChannel } from "@/hardware/opc/task/types";
-
-type ChannelConfig = ReadChannel | WriteChannel;
+import { type Channel } from "@/hardware/opc/task/types";
 
 export interface ExtraItemProps {
   path: string;
   snapshot: boolean;
 }
 
-interface ChannelListItemProps<C extends ChannelConfig>
+interface ChannelListItemProps<C extends Channel>
   extends Common.Task.ChannelListItemProps<C> {
   children: RenderProp<ExtraItemProps>;
 }
@@ -43,7 +41,7 @@ const ChannelListItem = ({
   children,
   isSnapshot,
   ...rest
-}: ChannelListItemProps<ChannelConfig>) => {
+}: ChannelListItemProps<Channel>) => {
   const {
     entry: { name, nodeName, nodeId },
   } = rest;
@@ -104,15 +102,22 @@ const EmptyContent = () => (
 
 const CHANNELS_PATH = "config.channels";
 
-interface ChannelListProps<C extends ChannelConfig>
+interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot"> {
   children: RenderProp<ExtraItemProps>;
   device: Device.Device;
+  convertHaulItemToChannel: (item: Haul.Item) => C;
 }
 
-const ChannelList = <C extends ChannelConfig>({
+const filterHaulItem = (item: Haul.Item): boolean =>
+  item.type === Device.HAUL_TYPE && item.data?.nodeClass === "Variable";
+
+const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
+
+const ChannelList = <C extends Channel>({
   device,
   children,
+  convertHaulItemToChannel,
   ...rest
 }: ChannelListProps<C>) => {
   const { value, push, remove } = PForm.useFieldArray<C>({
@@ -120,38 +125,18 @@ const ChannelList = <C extends ChannelConfig>({
     updateOnChildren: true,
   });
   const valueRef = useSyncedRef(value);
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const dropped = items.filter(
-      (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
-    );
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          // Todo: different for write, read channels
-          key: nodeId,
-          name,
-          nodeName: name,
-          channel: 0,
-          enabled: true,
-          nodeId,
-          useAsIndex: false,
-          dataType: (i.data?.dataType as string) ?? "float32",
-        };
-      });
-    // @ts-expect-error fix later
-    push(toAdd);
-    return dropped;
-  }, []);
-
-  const canDrop = useCallback(
-    (state: Haul.DraggingState): boolean =>
-      state.items.some(
-        (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
-      ),
-    [],
+  const handleDrop = useCallback(
+    ({ items }: Haul.OnDropProps): Haul.Item[] => {
+      const dropped = items.filter(filterHaulItem);
+      const toAdd = dropped
+        .filter(
+          ({ data }) => !valueRef.current.some(({ nodeId }) => nodeId === data?.nodeId),
+        )
+        .map(convertHaulItemToChannel);
+      push(toAdd);
+      return dropped;
+    },
+    [push],
   );
 
   const haulProps = Haul.useDrop({
@@ -187,15 +172,17 @@ const ChannelList = <C extends ChannelConfig>({
   );
 };
 
-export interface FormProps {
+export interface FormProps<C extends Channel> {
   isSnapshot: boolean;
   children?: RenderProp<ExtraItemProps>;
+  convertHaulItemToChannel: (item: Haul.Item) => C;
 }
 
-export const Form = <C extends ChannelConfig>({
+export const Form = <C extends Channel>({
   isSnapshot,
+  convertHaulItemToChannel,
   children = () => null,
-}: FormProps) => (
+}: FormProps<C>) => (
   <Common.Device.Provider<Device.Properties, Device.Make>
     canConfigure={!isSnapshot}
     configureLayout={Device.CONNECT_LAYOUT}
@@ -203,7 +190,11 @@ export const Form = <C extends ChannelConfig>({
     {({ device }) => (
       <>
         {!isSnapshot && <Device.Browser device={device} />}
-        <ChannelList<C> device={device} isSnapshot={isSnapshot}>
+        <ChannelList<C>
+          device={device}
+          isSnapshot={isSnapshot}
+          convertHaulItemToChannel={convertHaulItemToChannel}
+        >
           {children}
         </ChannelList>
       </>

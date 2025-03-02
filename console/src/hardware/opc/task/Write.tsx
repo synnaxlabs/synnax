@@ -9,7 +9,9 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
+import { type Haul } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -44,6 +46,26 @@ const Properties = () => (
     <Device.Select />
     <Common.Task.Fields.DataSaving />
   </>
+);
+
+const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
+  const nodeId = data?.nodeId as string;
+  const name = data?.name as string;
+  return {
+    key: nodeId,
+    name,
+    nodeName: name,
+    nodeId,
+    cmdChannel: 0,
+    enabled: true,
+    dataType: (data?.dataType as string) ?? "float32",
+  };
+};
+
+const TaskForm: FC<
+  Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
+> = ({ isSnapshot }) => (
+  <Form isSnapshot={isSnapshot} convertHaulItemToChannel={convertHaulItemToChannel} />
 );
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
@@ -113,7 +135,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 
 export const Write = Common.Task.wrapForm({
   Properties,
-  Form,
+  Form: TaskForm,
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   getInitialPayload,

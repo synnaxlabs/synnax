@@ -17,7 +17,8 @@ export const PREFIX = "opc";
 
 // Base Channels
 
-const baseChannelZ = Common.Task.channelZ.extend({
+const baseChannelZ = Common.Task.baseChannelZ.extend({
+  key: z.string(),
   name: z.string(),
   nodeId: z.string(),
   nodeName: z.string(),
@@ -104,7 +105,7 @@ const arraySamplingConfigZ = baseReadConfigZ
 
 export const readConfigZ = z.union([nonArraySamplingConfigZ, arraySamplingConfigZ]);
 export type ReadConfig = z.infer<typeof readConfigZ>;
-export const ZERO_READ_CONFIG: ReadConfig = {
+const ZERO_READ_CONFIG: ReadConfig = {
   ...ZERO_BASE_CONFIG,
   arrayMode: false,
   channels: [],
