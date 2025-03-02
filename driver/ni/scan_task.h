@@ -68,28 +68,33 @@ struct Device : synnax::Device {
     }
 };
 
+/// @brief the default rate for scanning for devices.
 const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+/// @brief the default pattern for ignoring certain models.
 const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^O.*", "^cRIO.*", "^nown.*"};
 
 /// @brief configuration for opening a scan task.
 struct ScanTaskConfig {
+    /// @brief the rate at which we'll can for devices.
     const telem::Rate rate;
+    /// @brief whether the scan task is enabled.
     const bool enabled;
+    /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
     explicit ScanTaskConfig(
         xjson::Parser &cfg
     ): rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
        enabled(cfg.optional<bool>("enabled", true)) {
-        const auto ignored = cfg.optional_array<std::string>(
+        const auto i = cfg.optional_vec<std::string>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
         );
-        for (const auto &pattern: ignored)
-            ignored_models.emplace_back(pattern);
+        for (const auto &pattern: i) ignored_models.emplace_back(pattern);
     }
 };
 
+/// @brief a task that scans for NI devices.
 class ScanTask final : public task::Task {
     /// @brief the raw synnax task configuration.
     const synnax::Task task;
@@ -127,7 +132,11 @@ class ScanTask final : public task::Task {
     /// @brief updates the list of devices in the synnax cluster.
     xerrors::Error update_remote();
 
+    /// @brief the main scan task run loop.
     void run();
+
+    /// @brief initializes the syscfg session and filters for the scan task.
+    xerrors::Error initialize_syscfg_session();
 public:
     explicit ScanTask(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
@@ -136,18 +145,24 @@ public:
         ScanTaskConfig cfg
     );
 
+    /// @brief implements task::Task to execute commands on the task.
     void exec(task::Command &cmd) override;
 
-    xerrors::Error initialize_syscfg_session();
-
+    /// @brief stops the scan task.
     void stop(bool will_reconfigure) override;
 
-    xerrors::Error start();
+    /// @brief starts the scan task
+    void start();
 
+    /// @brief performs a single scan of the hardware, creating and updating devices
+    /// that are no longer in Synnax.
     xerrors::Error scan();
 
+    /// @brief returns the name of the task.
     std::string name() override { return task.name; }
 
+    /// @brief creates a new scan task from the given configuration. If the configuration
+    /// is invalid, an error is returned.
     static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         const std::shared_ptr<task::Context> &ctx,

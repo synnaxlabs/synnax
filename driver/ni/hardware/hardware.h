@@ -9,8 +9,10 @@
 
 #pragma once
 
+/// external
 #include "glog/logging.h"
 
+/// internal
 #include "driver/ni/daqmx/sugared.h"
 
 namespace hardware {
@@ -40,15 +42,18 @@ struct Reader : virtual Hardware {
     ) = 0;
 };
 
+/// @brief Writer interface for hardware that supports writing data.
+/// @tparam T The data type to write (uint8_t for digital, double for analog)
 template<typename T>
 struct Writer : virtual Hardware {
+    /// @brief writes data to the hardware.
+    /// @param data vector of values to write to the hardware
+    /// @return error if the write operation failed
     [[nodiscard]] virtual xerrors::Error write(const std::vector<T> &data) = 0;
 };
 
-
 namespace daqmx {
-/// @brief a base implementation of the hardware interface that uses the NI DAQMX
-/// in the background.
+/// @brief Base DAQmx hardware implementation that manages task lifecycle
 struct Base : virtual Hardware {
 protected:
     /// @brief the handle for the task.
@@ -69,7 +74,11 @@ public:
     xerrors::Error stop() override;
 };
 
+/// @brief Implementation of digital output writing using DAQmx
 struct DigitalWriter final : Base, Writer<uint8_t> {
+    /// @brief Constructs a new digital writer
+    /// @param dmx The DAQmx API interface
+    /// @param task_handle Handle to the DAQmx task
     DigitalWriter(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
@@ -77,7 +86,11 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
     xerrors::Error write(const std::vector<uint8_t> &data) override;
 };
 
+/// @brief Implementation of analog output writing using DAQmx
 struct AnalogWriter final : Base, Writer<double> {
+    /// @brief Constructs a new analog writer
+    /// @param dmx The DAQmx API interface
+    /// @param task_handle Handle to the DAQmx task
     AnalogWriter(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
@@ -104,17 +117,22 @@ struct AnalogReader final : Base, Reader<double> {
         TaskHandle task_handle
     );
     std::pair<size_t, xerrors::Error> read(
-        const size_t samples_per_channel,
+        size_t samples_per_channel,
         std::vector<double> &data
     ) override;
 };
 }
 
 namespace mock {
+/// @brief Base mock implementation for testing hardware interfaces
 struct Base : virtual hardware::Hardware {
+    /// @brief Errors to return from start() calls in sequence
     std::vector<xerrors::Error> start_errors;
+    /// @brief Errors to return from stop() calls in sequence
     std::vector<xerrors::Error> stop_errors;
+    /// @brief Number of times start() was called
     size_t start_call_count;
+    /// @brief Number of times stop() was called
     size_t stop_call_count;
 
 protected:
@@ -128,11 +146,20 @@ public:
     xerrors::Error stop() override;
 };
 
+/// @brief Mock implementation of Reader interface for testing
+/// @tparam T The data type to read (uint8_t for digital, double for analog)
 template<typename T>
 class Reader final : public Base, public hardware::Reader<T> {
 public:
+    /// @brief Predefined responses for read() calls
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
+    /// @brief Number of times read() was called
     size_t read_call_count;
+    
+    /// @brief Constructs a new mock reader
+    /// @param start_errors Sequence of errors to return from start()
+    /// @param stop_errors Sequence of errors to return from stop()
+    /// @param read_responses Sequence of data and errors to return from read()
     explicit Reader(
         const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
         const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL},
@@ -145,12 +172,23 @@ public:
     ) override;
 };
 
+/// @brief Mock implementation of Writer interface for testing
+/// @tparam T The data type to write (uint8_t for digital, double for analog)
 template<typename T>
 class Writer final : public Base, public hardware::Writer<T> {
 public:
+    /// @brief Errors to return from write() calls in sequence
     std::vector<xerrors::Error> write_responses;
+    /// @brief Number of times write() was called
     size_t write_call_count;
+    /// @brief Storage for data written through this mock
     std::shared_ptr<std::vector<std::vector<T>>> written_data;
+
+    /// @brief Constructs a new mock writer
+    /// @param written_data Shared pointer to store written data
+    /// @param start_errors Sequence of errors to return from start()
+    /// @param stop_errors Sequence of errors to return from stop()
+    /// @param write_responses Sequence of errors to return from write()
     explicit Writer(
         std::shared_ptr<std::vector<std::vector<T>>> written_data = std::make_shared<std::vector<std::vector<T>>>(),
         const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},

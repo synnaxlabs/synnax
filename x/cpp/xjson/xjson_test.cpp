@@ -347,7 +347,7 @@ TEST(testConfig, testOptionalArray) {
         {"array", {1, 2, 3, 4, 5}}
     };
     xjson::Parser parser(j);
-    auto values = parser.optional_array<int>("array", {6, 7, 8});
+    auto values = parser.optional_vec<int>("array", {6, 7, 8});
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
     ASSERT_EQ(values[0], 1);

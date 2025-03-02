@@ -169,17 +169,16 @@ void ni::ScanTask::stop(bool will_reconfigure) {
     this->ctx->set_state(this->state);
 }
 
-xerrors::Error ni::ScanTask::start() {
+void ni::ScanTask::start() {
     this->breaker.start();
     this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
-    return xerrors::NIL;
 }
 
 void ni::ScanTask::exec(task::Command &cmd) {
     this->state.key = cmd.key;
     if (cmd.type == "stop") return this->stop(false);
     xerrors::Error err = xerrors::NIL;
-    if (cmd.type == "start") err = this->start();
+    if (cmd.type == "start") this->start();
     else if (cmd.type == "scan") err = this->scan();
     if (!err) return;
     this->state.variant = "error";

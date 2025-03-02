@@ -148,7 +148,7 @@ public:
     /// @param default_value The default value to return if the path is not found.
     template<typename T>
     std::vector<T>
-    optional_array(const std::string &path, std::vector<T> default_value) {
+    optional_vec(const std::string &path, std::vector<T> default_value) {
         if (noop) return default_value;
         const auto iter = config.find(path);
         if (iter == config.end()) return default_value;
