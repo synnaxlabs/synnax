@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <iostream>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -151,6 +152,8 @@ public:
         cap(cap),
         size_(0),
         data(std::make_unique<std::byte[]>(cap * data_type.density())) {
+        if (data_type == UNKNOWN_T && cap > 0)
+            throw std::runtime_error("cannot allocate a series with an unknown data type");
         if (data_type.is_variable())
             throw std::runtime_error(
                 "cannot pre-allocate a series with a variable data type");
@@ -247,7 +250,7 @@ public:
         this->data = std::make_unique<std::byte[]>(byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
-            memcpy(this->data.get() + offset, s.data(), s.size());
+            memcpy(this->data.get() + offset, s.data), s.size());
             offset += s.size();
             this->data[offset] = NEWLINE_TERMINATOR;
             offset++;
@@ -526,6 +529,7 @@ public:
             "template argument to values() must be a numeric type"
         );
         std::vector<NumericType> v(this->size());
+        std::cout << this->data_type << std::endl;
         memcpy(v.data(), this->data.get(), this->byte_size());
         return v;
     }
