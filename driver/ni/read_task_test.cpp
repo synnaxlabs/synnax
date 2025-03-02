@@ -547,3 +547,13 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1); // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
+
+/// @brief it should interpolate timestamps between clock start and end times.
+TEST(SampleClockTest, testHardwareTimedSampleClock) {
+    ni::HardwareTimedSampleClock clock(1 * telem::HZ);
+    breaker::Breaker breaker;
+    clock.reset();
+    const auto start = clock.wait(breaker);
+    const auto end = clock.end(10);
+    EXPECT_EQ(end - start, 10 * telem::SECOND);
+}

@@ -42,11 +42,15 @@ static xerrors::Error translate_error(const xerrors::Error &err) {
 /// information for generating timestamps.
 struct SampleClock {
     virtual ~SampleClock() = default;
+
     /// @brief resets the sample clock, making it ready for task startup.
-    virtual void reset() {};
+    virtual void reset() {
+    };
+
     /// @brief waits for the next acquisition loop to begin, returning the timestamp
     /// of the first sample.
     virtual telem::TimeStamp wait(breaker::Breaker &breaker) = 0;
+
     /// @brief ends the acquisition loop, interpolating an ending timestamp based
     /// on the number of samples read.
     virtual telem::TimeStamp end(size_t n_read) = 0;
@@ -57,6 +61,7 @@ struct SampleClock {
 class SoftwareTimedSampleClock final : public SampleClock {
     /// @brief the timer used to regulate the acquisition rate.
     loop::Timer timer;
+
 public:
     explicit SoftwareTimedSampleClock(const telem::Rate &stream_rate):
         timer(stream_rate) {
@@ -81,7 +86,7 @@ class HardwareTimedSampleClock final : public SampleClock {
     /// @brief the high water-mark for the next acquisition loop.
     telem::TimeStamp high_water{};
 
-
+public:
     explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
         sample_rate(sample_rate) {
     }
@@ -249,12 +254,11 @@ struct ReadTaskConfig {
     }
 
     [[nodiscard]] std::unique_ptr<SampleClock> sample_clock() const {
-        return this->software_timed
-                   ? std::make_unique<SoftwareTimedSampleClock>(this->stream_rate)
-                   : std::make_unique<HardwareTimedSampleClock>(this->sample_rate);
+        if (this->software_timed)
+            return std::make_unique<SoftwareTimedSampleClock>(this->stream_rate);
+        return std::make_unique<HardwareTimedSampleClock>(this->sample_rate);
     }
 };
-
 
 
 /// @brief a read task that can pull from both analog and digital channels.
@@ -266,8 +270,6 @@ class ReadTask final : public task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
     /// @brief tare middleware used for taring values.
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
-    /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
-    pipeline::Acquisition pipe;
     /// @brief interface used to read data from the hardware.
     std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
@@ -275,6 +277,8 @@ class ReadTask final : public task::Task {
     std::unique_ptr<SampleClock> sample_clock;
     /// @brief handles communicating the task state back to the cluster.
     ni::TaskStateHandler state;
+    /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
+    pipeline::Acquisition pipe;
 
     /// @brief an internal source that we pass to the acquisition pipeline that manages
     /// the lifecycle of this task.
@@ -344,15 +348,15 @@ public:
        tare_mw(std::make_shared<pipeline::TareMiddleware>(
            this->cfg.writer().channels
        )),
+       hw_reader(std::move(reader)),
+       sample_clock(this->cfg.sample_clock()),
+       state(ctx, task),
        pipe(
            factory,
            this->cfg.writer(),
            std::make_shared<Source>(*this),
            breaker_cfg
-       ),
-       hw_reader(std::move(reader)),
-       sample_clock(this->cfg.sample_clock()),
-       state(ctx, task) {
+       ) {
         this->pipe.use(this->tare_mw);
     }
 
@@ -399,7 +403,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         if (this->pipe.running()) return;
-        this->sample_clock.reset();
+        this->sample_clock->reset();
         if (const auto ok = this->state.error(this->hw_reader->start()); !ok)
             this->pipe.start();
         this->state.send_start(cmd_key);
