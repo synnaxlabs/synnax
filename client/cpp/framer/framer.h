@@ -112,19 +112,17 @@ public:
         throw std::runtime_error("channel not found");
     }
 
-    void at(const ChannelKey &key, const int &index, std::string &value) const;
-
     [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
 
-    size_t length() const {
+    [[nodiscard]] size_t length() const {
         if (series == nullptr || series->empty()) return 0;
         return series->at(0).size();
     }
 
-    bool contains(const ChannelKey &key) const {
+    [[nodiscard]] bool contains(const ChannelKey &key) const {
         return std::find(channels->begin(), channels->end(), key) != channels->end();
     }
 

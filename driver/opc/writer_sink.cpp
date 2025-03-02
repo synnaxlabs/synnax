@@ -109,7 +109,7 @@ xerrors::Error opc::WriterSink::write(const synnax::Frame &frame) {
         auto ch = this->cmd_channel_map[key];
 
         UA_Variant *val = UA_Variant_new();
-        auto data_Type = frame.series->at(frame_index).data_type;
+        auto data_Type = frame.series->at(frame_index).data_type();
         this->set_variant(val, frame, frame_index, data_Type);
         UA_StatusCode retval; {
             std::lock_guard<std::mutex> lock(this->client_mutex);

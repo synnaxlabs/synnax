@@ -102,12 +102,8 @@ Frame::Frame(const Frame &other) :
 Frame::Frame(Frame &&other) noexcept :
     channels(std::move(other.channels)),
     series(std::move(other.series)) {
-}
-
-void Frame::at(const ChannelKey &key, const int &index, std:: string &value) const {
-    for (size_t i = 0; i < channels->size(); i++)
-        if (channels->at(i) == key) return series->at(i).at(index, value);
-    throw std::runtime_error("channel not found");
+    other.channels = nullptr;
+    other.series = nullptr;
 }
 
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {

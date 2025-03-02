@@ -75,7 +75,7 @@ Acquisition::Acquisition(
 /// back to the
 telem::TimeStamp resolve_start(const synnax::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
-        if (frame.series->at(i).data_type == telem::TIMESTAMP_T) {
+        if (frame.series->at(i).data_type() == telem::TIMESTAMP_T) {
             const auto ts = frame.series->at(i).at<int64_t>(0);
             if (ts != 0) return telem::TimeStamp(ts);
         }
