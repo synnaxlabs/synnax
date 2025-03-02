@@ -187,15 +187,7 @@ public:
     explicit Series(
         const std::vector<NumericType> &d,
         const DataType &dt = UNKNOWN_T
-    ): data_type(telem::DataType::infer<NumericType>(dt)),
-        cap(d.size()),
-        size_(d.size()),
-        data(std::make_unique<std::byte[]>(d.size() * this->data_type.density())) {
-        static_assert(
-            std::is_arithmetic_v<NumericType>,
-            "NumericType must be a numeric type"
-        );
-        memcpy(this->data.get(), d.data(), d.size() * this->data_type.density());
+    ): Series(d.data(), d.size(), dt) {
     }
 
     explicit Series(const std::vector<telem::TimeStamp> &d):
