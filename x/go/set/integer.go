@@ -33,6 +33,13 @@ func (r intRange[T]) size() T {
 // required for consecutive number of integers.
 type Integer[T constraints.Integer] []intRange[T]
 
+// NewInteger creates a new Integer set and inserts the provided nums.
+func NewInteger[T constraints.Integer](nums ...T) *Integer[T] {
+	s := &Integer[T]{}
+	s.Insert(nums...)
+	return s
+}
+
 // Insert inserts the integers nums into the set s.
 func (s *Integer[T]) Insert(nums ...T) {
 	if len(nums) == 0 {
