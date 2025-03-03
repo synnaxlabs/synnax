@@ -20,7 +20,9 @@ TEST(FramerTests, testConstructionFromSize) {
 
 /// @brief it should construct a frame from a single series and channel.
 TEST(FramerTests, testConstructionFromSingleSeriesAndChannel) {
-    const auto f = synnax::Frame(65537, std::move(telem::Series(std::vector<float>{1, 2, 3}, telem::FLOAT32_T)));
+    auto s = telem::Series(std::vector<float>{1, 2, 3}, telem::FLOAT32_T);
+    ASSERT(s.at<float>(0), 1);
+    const auto f = synnax::Frame(65537, std::move(s));
     std::cout << f << std::endl;
     ASSERT_EQ(f.size(), 1);
     ASSERT_EQ(f.channels->at(0), 65537);
