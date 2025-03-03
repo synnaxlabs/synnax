@@ -250,7 +250,9 @@ struct DIChan final : InputChan {
     xerrors::Error apply(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
         const std::string &device_type
-    ) override {};
+    ) override {
+        return xerrors::NIL;
+    };
 };
 
 template<typename T>
