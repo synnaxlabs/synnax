@@ -31,7 +31,6 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
-        "//vendor/mbedtls",
         "@com_google_googletest//:gtest_main",
     ],
 )
