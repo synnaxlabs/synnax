@@ -248,7 +248,7 @@ struct DIChan final : InputChan {
     xerrors::Error apply(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
         const std::string &device_type
-    ) override;
+    ) override {};
 };
 
 template<typename T>
@@ -257,14 +257,19 @@ using F = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 #define FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-inline std::map<std::string, F<InputChan>> FACTORY_MAP = {
+inline std::map<std::string, F<InputChan>> INPUTS = {
     FACTORY("TC", ThermocoupleChan),
     FACTORY("AI", AIChan),
     FACTORY("DI", DIChan)
 };
 
-std::unique_ptr<InputChan> parse_channel(xjson::Parser &parser);
-
+inline std::unique_ptr<InputChan> parse_channel(xjson::Parser &cfg) {
+    const auto type = cfg.required<std::string>("type");
+    const auto input = INPUTS.find(type);
+    if (input != INPUTS.end()) return input->second(cfg);
+    cfg.field_err("type", "unknown channel type: " + type);
+    return nullptr;
+}
 
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.

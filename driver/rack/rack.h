@@ -17,9 +17,6 @@
 #include <windows.h>
 #endif
 
-#ifdef _WIN32
-#include "driver/labjack/labjack.h"
-#endif
 
 /// module
 #include "x/cpp/xlog/xlog.h"
@@ -30,6 +27,7 @@
 
 /// internal
 #include "driver/ni/ni.h"
+#include "driver/labjack/labjack.h"
 #include "driver/sequence/sequence.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/opc/opc.h"

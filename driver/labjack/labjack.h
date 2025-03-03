@@ -21,7 +21,22 @@ const std::string T8 = "LJM_dtT8";
 class Factory final : public task::Factory {
     std::shared_ptr<ljm::DeviceManager> device_manager;
 public:
-    Factory(): device_manager(std::make_shared<ljm::DeviceManager>()) {}
+    explicit Factory(const std::shared_ptr<ljm::DeviceManager> &device_manager):
+        device_manager(device_manager) {
+    }
+
+    /// @brief creates a new NI factory, loading the DAQmx and system configuration
+    /// libraries.
+    static std::unique_ptr<Factory> create();
+
+
+    /// @brief checks whether the factory is healthy and capable of creating tasks.
+    /// If not, the factory will automatically send an error back through the
+    /// task state and return false.
+    [[nodiscard]] bool check_health(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) const;
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

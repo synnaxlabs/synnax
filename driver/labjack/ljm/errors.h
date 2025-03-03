@@ -949,7 +949,7 @@ inline xerrors::Error parse_error(
     if (err == 0) return xerrors::NIL;
 
     char err_msg[LJM_MAX_NAME_SIZE];
-    LJM_ErrorToString(err, err_msg);
+    ljm->ErrorToString(err, err_msg);
 
     // Get additional description if available
     std::string description = "";

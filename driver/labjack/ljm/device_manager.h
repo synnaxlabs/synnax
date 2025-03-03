@@ -199,9 +199,8 @@ class DeviceManager {
     std::mutex mu;
     std::map<std::string, std::shared_ptr<DeviceAPI>> device_handles;
     std::shared_ptr<ljm::API> ljm;
-
 public:
-    DeviceManager() {
+    explicit DeviceManager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {
     }
 
     xerrors::Error ListAll(

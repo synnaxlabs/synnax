@@ -14,6 +14,9 @@
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/write_task.h"
 
+const std::string NO_LIBS_MSG =
+        "Cannot create task because the LJM Libraries are not installed on this System.";
+
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<ljm::DeviceManager> &devs,
     const std::shared_ptr<task::Context> &ctx,
@@ -24,7 +27,9 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {nullptr, d_err};
     std::unique_ptr<common::Source> source;
-    if (cfg.has_tcs()) source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
+    if (cfg.has_tcs())
+        source = std::make_unique<labjack::UnarySource>(
+            dev, std::move(cfg));
     else source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
     return {
         std::make_unique<common::ReadTask>(
@@ -53,8 +58,21 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
             breaker::default_config(task.name),
             std::make_unique<labjack::WriteSink>(dev, std::move(cfg))
         ),
-        xerrors::Error()
+        xerrors::NIL
     };
+}
+
+bool labjack::Factory::check_health(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) const {
+    if (this->device_manager != nullptr) return true;
+    ctx->set_state({
+        .task = task.key,
+        .variant = "error",
+        .details = json{{"message", NO_LIBS_MSG,}}
+    });
+    return false;
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
@@ -87,6 +105,16 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         });
     return {std::move(tsk), false};
 }
+
+std::unique_ptr<labjack::Factory> labjack::Factory::create() {
+    auto [ljm, ljm_err] = ljm::API::load();
+    if (ljm_err)
+        LOG(WARNING) << ljm_err;
+    return std::make_unique<labjack::Factory>(
+        ljm != nullptr ? std::make_shared<ljm::DeviceManager>(ljm) : nullptr
+    );
+}
+
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 labjack::Factory::configure_initial_tasks(

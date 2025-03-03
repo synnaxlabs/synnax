@@ -36,14 +36,8 @@ void configure_heartbeat(const rack::Config &config, FactoryList &factories) {
 }
 
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
-#ifdef _WIN32
-    if (
-        !config.integration_enabled(labjack::INTEGRATION_NAME) ||
-        !labjack::dlls_available()
-    ) return;
-    factories.push_back(std::make_unique<labjack::Factory>());
-    return;
-#endif
+    if (!config.integration_enabled(labjack::INTEGRATION_NAME)) return;
+    factories.push_back(labjack::Factory::create());
 }
 
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {
