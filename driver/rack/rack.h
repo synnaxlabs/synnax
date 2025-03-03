@@ -183,10 +183,10 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     breaker::Breaker breaker = breaker::Breaker({
         .name = "driver",
-        .base_interval = telem::TimeSpan::seconds(1),
+        .base_interval = telem::SECOND,
         .max_retries = 200,
         .scale = 1.1,
-        .max_interval = telem::TimeSpan::minutes(1)
+        .max_interval = telem::MINUTE,
     });
     xerrors::Error run_err = xerrors::NIL;
 
