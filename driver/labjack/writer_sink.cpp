@@ -36,7 +36,7 @@ telem::Series val_to_series(double val, telem::DataType data_type) {
 }
 
 double series_to_val(const telem::Series &series) {
-    telem::DataType data_type = series.data_type;
+    telem::DataType data_type = series.data_type();
     if (data_type == telem::FLOAT64_T)
         return static_cast<double>(series.values<double>()[0]);
     if (data_type == telem::FLOAT32_T)
@@ -83,7 +83,7 @@ synnax::Frame labjack::StateSource::get_state() {
         this->state_map.size() + this->state_index_keys.size());
 
     for (auto key: this->state_index_keys) {
-        auto t = telem::Series(telem::TimeStamp::now().value, telem::TIMESTAMP_T);
+        auto t = telem::Series(telem::TimeStamp::now().nanoseconds(), telem::TIMESTAMP_T);
         state_frame.emplace(key, std::move(t));
     }
     for (auto &[key, value]: this->state_map) {

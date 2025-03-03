@@ -141,8 +141,8 @@ void labjack::ReaderSource::init_tcs() {
 void labjack::ReaderSource::init_stream() {
     if (!this->reader_config.tc_channels.empty()) return;
 
-    double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
-    int SCANS_PER_READ = static_cast<int>(INIT_SCAN_RATE / this->reader_config.stream_rate.value);
+    double INIT_SCAN_RATE = this->reader_config.sample_rate.hz();
+    int SCANS_PER_READ = static_cast<int>(INIT_SCAN_RATE / this->reader_config.stream_rate.hz());
     double scanRate = INIT_SCAN_RATE;
 
     this->num_samples_per_chan = SCANS_PER_READ;
@@ -289,7 +289,7 @@ std::pair<Frame, xerrors::Error> labjack::ReaderSource::read_cmd_response(breake
 
     for (auto index_key: this->reader_config.index_keys) {
         auto t = telem::Series(telem::TIMESTAMP_T, 1);
-        t.write(telem::TimeStamp::now().value);
+        t.write(telem::TimeStamp::now().nanoseconds());
         f.emplace(index_key, std::move(t));
     }
 
@@ -373,7 +373,7 @@ void labjack::ReaderSource::write_to_series(
     else if (data_type == telem::UINT64_T) series.write(static_cast<uint64_t>(data));
     else if (data_type == telem::INT64_T) series.write(static_cast<int64_t>(data));
     else {
-        LOG(ERROR) << "Unsupported data type: " << data_type.value;
+        LOG(ERROR) << "Unsupported data type: " << data_type.name();
     }
 }
 
@@ -387,7 +387,7 @@ void labjack::ReaderSource::acquire_data() {
     while (this->breaker.running() && this->ok()) {
         DataPacket data_packet;
         data_packet.data.resize(this->buffer_size);
-        data_packet.t0 = telem::TimeStamp::now().value;
+        data_packet.t0 = telem::TimeStamp::now().nanoseconds();
         if (check_err(
             LJM_eStreamRead(
                 this->handle,
@@ -395,7 +395,7 @@ void labjack::ReaderSource::acquire_data() {
                 &numSkippedScans,
                 &deviceScanBacklog
             ), "acquire_data.LJM_eStreamRead")) break;
-        data_packet.tf = telem::TimeStamp::now().value;
+        data_packet.tf = telem::TimeStamp::now().nanoseconds();
         data_queue.enqueue(data_packet);
     }
     check_err(LJM_eStreamStop(handle), "acquire_data.LJM_eStreamStop");
