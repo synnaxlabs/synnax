@@ -79,9 +79,10 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    // if (task.type == "labjack_scan")
-    //     return {labjack::ScanTask::configure(ctx, task, this->device_manager), true};
+    if (!this->check_health(ctx, task)) return {nullptr, false};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
+    if (task.type == "labjack_scan")
+        res = labjack::ScanTask::configure(ctx, task, this->device_manager);
     if (task.type == "labjack_read")
         res = configure_read(this->device_manager, ctx, task);
     if (task.type == "labjack_write")

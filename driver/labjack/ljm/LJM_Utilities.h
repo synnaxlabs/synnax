@@ -12,9 +12,7 @@
  * Desc: Provides some basic helper functions
 **/
 
-#ifndef LJM_UTILITIES
-#define LJM_UTILITIES
-
+#pragma once
 
 #ifdef _WIN32
 	#ifndef WIN32_LEAN_AND_MEAN
@@ -180,26 +178,6 @@ void EnableLoggingLevel(double logLevel);
 int GetDeviceType(int handle);
 
 /**
- * Name: NumberToDeviceType
- * Desc: Takes an integer representing a device type and returns the device name
- *       as a string
- * Para: deviceType, the device type whose name will be returned
- * Retr: the device name, or "Unknown device type" if deviceType is not
- *       recognized
-**/
-const char * NumberToDeviceType(int deviceType);
-
-/**
- * Name: NumberToConnectionType
- * Desc: Takes an integer representing a connection type and returns the 
- *       connection type as a string
- * Para: connectionType, the connection type whose name will be returned
- * Retr: the connection type, or "Unknown connection type" if connectionType is
- *       not recognized
-**/
-const char * NumberToConnectionType(int connectionType);
-
-/**
  * Name: NumberToDebugLogMode
  * Desc: Takes an integer representing a LJM_DEBUG_LOG_MODE and returns the mode
  *       name as a string
@@ -250,7 +228,7 @@ int IsNetwork(int connectionType);
 **/
 int DoesDeviceHaveWiFi(int handle);
 
-const char * NumberToConnectionType(int connectionType)
+inline const char * NumberToConnectionType(int connectionType)
 {
 	switch (connectionType) {
 	case LJM_ctANY:          return "LJM_ctANY";
@@ -268,7 +246,7 @@ const char * NumberToConnectionType(int connectionType)
 	}
 }
 
-const char * NumberToDeviceType(int deviceType)
+inline const char * NumberToDeviceType(int deviceType)
 {
 	switch (deviceType) {
 	case LJM_dtANY:     return "LJM_dtANY";
@@ -287,5 +265,3 @@ const char * NumberToDeviceType(int deviceType)
 		return "Unknown device type";
 	}
 }
-
-#endif // #define LJM_UTILITIES
