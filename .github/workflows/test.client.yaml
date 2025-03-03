@@ -120,9 +120,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
-          bazelisk-cache: false
-          disk-cache: false
-          repository-cache: false
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
 
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results

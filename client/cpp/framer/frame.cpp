@@ -31,6 +31,7 @@ Frame::Frame(const ChannelKey &chan, telem::Series &&ser) :
     channels(std::make_unique<std::vector<ChannelKey> >(1, chan)),
     series(std::make_unique<std::vector<telem::Series> >()) {
     series->reserve(1);
+    std::cout << ser << std::endl;
     series->emplace_back(std::move(ser));
 }
 
@@ -90,7 +91,7 @@ void Frame::reserve(const size_t &size) const {
     this->series->reserve(size);
 }
 
-Frame Frame::deep_copy() const { return {*this}; }
+Frame Frame::deep_copy() const { return Frame(*this); }
 
 Frame::Frame(const Frame &other) :
     channels(std::make_unique<std::vector<ChannelKey>>(*other.channels)),

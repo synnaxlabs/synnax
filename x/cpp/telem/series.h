@@ -695,6 +695,6 @@ public:
     /// @brief deep copies the series, including all of its data. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
-    [[nodiscard]] Series deep_copy() const { return {*this}; }
+    [[nodiscard]] Series deep_copy() const { return Series(*this); }
 }; // class Series
 } // namespace telem
