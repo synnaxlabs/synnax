@@ -145,15 +145,17 @@ protected:
         mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<ni::WriteTask<double>> create_task(
+    std::unique_ptr<common::WriteTask> create_task(
         std::unique_ptr<hardware::mock::Writer<double>> mock_hw
     ) {
-        return std::make_unique<ni::WriteTask<double>>(
+        return std::make_unique<common::WriteTask>(
             task,
             ctx,
-            std::move(*cfg),
             breaker::default_config(task.name),
-            std::move(mock_hw),
+            std::make_unique<ni::WriteTaskSink<double>>(
+                std::move(*cfg),
+                std::move(mock_hw)
+            ),
             mock_writer_factory,
             mock_streamer_factory
         );

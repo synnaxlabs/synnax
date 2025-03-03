@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "driver/task/task.h"
+
 /// @brief a utility structure for managing the state of national instruments tasks.
 struct TaskStateHandler {
     /// @brief the task context used to communicate state changes back to Synnax.

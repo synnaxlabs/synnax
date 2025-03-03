@@ -101,7 +101,9 @@ struct WriteTaskConfig {
             return;
         }
         this->dev_model = dev.model;
-        const auto state_channels = this->state_channels();
+        std::vector<synnax::ChannelKey> state_channels;
+        state_channels.reserve(this->channels.size());
+        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch_key);
         const auto [channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
             parser.field_err("channels",
@@ -123,14 +125,16 @@ struct WriteTaskConfig {
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
-    [[nodiscard]] std::vector<synnax::ChannelKey> state_channels() const {
-        std::vector<synnax::ChannelKey> keys(this->channels.size());
-        for (const auto &[_, ch]: this->channels) keys.push_back(ch->state_ch_key);
-        return keys;
+    [[nodiscard]] std::vector<synnax::Channel> state_channels() const {
+        std::vector<synnax::Channel> state_channels;
+        state_channels.reserve(this->state_index_keys.size());
+        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch);
+        return state_channels;
     }
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() const {
-        std::vector<synnax::ChannelKey> keys(this->channels.size());
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels) keys.push_back(ch->cmd_ch_key);
         return keys;
     }

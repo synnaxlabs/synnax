@@ -33,13 +33,16 @@ class ReadTask final : public task::Task {
     /// @brief handles communicating the task state back to the cluster.
     TaskStateHandler state;
 
-    class WrappedSource final : public pipeline::Source {
+    /// @brief a wrapped source that gracefully handles shutdown when a hardware
+    /// read fails or the pipeline fails to write to Synnax.
+    class InternalSource final : public pipeline::Source {
+        /// @brief the parent read task.
         ReadTask &p;
-
     public:
+        /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;
 
-        WrappedSource(
+        InternalSource(
             ReadTask &p,
             std::unique_ptr<common::Source> internal
         ): p(p), internal(std::move(internal)) {
@@ -55,7 +58,7 @@ class ReadTask final : public task::Task {
         }
     };
 
-    std::shared_ptr<WrappedSource> source;
+    std::shared_ptr<InternalSource> source;
 
     /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
     pipeline::Acquisition pipe;
@@ -73,7 +76,7 @@ public:
         tare_mw(std::make_shared<pipeline::TareMiddleware>(
             source->writer_config().channels)),
         state(ctx, task),
-        source(std::make_shared<WrappedSource>(*this, std::move(source))),
+        source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
             factory,
             this->source->internal->writer_config(),
@@ -124,7 +127,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         if (this->pipe.running()) return;
-        if (const auto ok = this->state.error(this->source->internal->start()); ok)
+        if (!this->state.error(this->source->internal->start()))
             this->pipe.start();
         this->state.send_start(cmd_key);
     }

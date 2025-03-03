@@ -18,9 +18,6 @@
 #include "nlohmann/json.hpp"
 #include <include/gtest/gtest.h>
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                          Functional Tests                                                    //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(LabjackScannerTests, test_valid_scan) {
     std::cout << "Running test_valid_scan" << std::endl;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

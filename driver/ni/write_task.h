@@ -115,10 +115,11 @@ struct WriteTaskConfig {
 
     /// @brief returns the configuration necessary for opening the writer
     /// to communicate state values back to Synnax.
-    [[nodiscard]] std::vector<synnax::ChannelKey> state_channels() {
-        std::vector<synnax::ChannelKey> keys(channels.size());
-        for (const auto &[_, ch]: channels) keys.push_back(ch->state_ch_key);
-        return keys;
+    [[nodiscard]] std::vector<synnax::Channel> state_channels() {
+        std::vector<synnax::Channel> state_channels;
+        state_channels.reserve(this->channels.size());
+        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch);
+        return state_channels;
     }
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() {

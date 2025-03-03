@@ -23,7 +23,6 @@ const auto LOAD_ERROR = xerrors::Error(
     "failed load LJM shared libraries. Are they installed?"
 );
 
-
 class API {
     struct FunctionPointers {
         decltype(&LJM_eStreamRead) eStreamRead;

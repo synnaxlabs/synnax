@@ -97,6 +97,8 @@ struct InputChan {
     ) = 0;
 };
 
+const std::string TC_SUFFIX = "_EF_READ_A";
+
 struct ThermocoupleChan final : InputChan {
     ///@brief The thermocouple type
     // Supported TC types are:
@@ -140,7 +142,7 @@ struct ThermocoupleChan final : InputChan {
         cjc_slope(parser.required<float>("cjc_slope")),
         cjc_offset(parser.required<float>("cjc_offset")),
         units(parser.required<std::string>("units")) {
-        this->loc = "AIN" + std::to_string(this->pos_chan) + "_EF_READ_A";
+        this->loc = "AIN" + std::to_string(this->pos_chan) + TC_SUFFIX;
     }
 
     xerrors::Error apply(
@@ -263,7 +265,7 @@ inline std::map<std::string, F<InputChan>> INPUTS = {
     FACTORY("DI", DIChan)
 };
 
-inline std::unique_ptr<InputChan> parse_channel(xjson::Parser &cfg) {
+inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
     const auto type = cfg.required<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
@@ -318,7 +320,7 @@ struct ReadTaskConfig {
            static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))
        ) {
         parser.iter("channels", [this](xjson::Parser &p) {
-            auto ch = parse_channel(p);
+            auto ch = parse_input_chan(p);
             if (ch->enabled) this->channels.push_back(std::move(ch));
         });
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);

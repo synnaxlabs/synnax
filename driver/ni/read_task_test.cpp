@@ -154,7 +154,8 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 }
 
 /// @brief it should return a validation error if no channels in the task are enabled.
-TEST(ReadTaskConfigTest, testNoEnabledChannels) {}
+TEST(ReadTaskConfigTest, testNoEnabledChannels) {
+}
 
 class AnalogReadTest : public ::testing::Test {
 protected:
@@ -245,15 +246,17 @@ protected:
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<ni::ReadTask<double>> create_task(
+    std::unique_ptr<common::ReadTask> create_task(
         std::unique_ptr<hardware::mock::Reader<double>> mock_hw
     ) {
-        return std::make_unique<ni::ReadTask<double>>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
-            std::move(*cfg),
             breaker::default_config(task.name),
-            std::move(mock_hw),
+            std::make_unique<ni::ReadTaskSource<double>>(
+                std::move(*cfg),
+                std::move(mock_hw)
+            ),
             mock_factory
         );
     }
@@ -332,7 +335,8 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
 }
 
 /// @brief it should communicate an error when the hardware fails to read.
-TEST_F(AnalogReadTest, testErrorOnRead) {}
+TEST_F(AnalogReadTest, testErrorOnRead) {
+}
 
 /// @brief it should correctly coerce read data types to the channel data type.
 TEST_F(AnalogReadTest, testDataTypeCoersion) {
@@ -497,15 +501,17 @@ protected:
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<ni::ReadTask<uint8_t>> create_task(
+    std::unique_ptr<common::ReadTask> create_task(
         std::unique_ptr<hardware::mock::Reader<uint8_t>> mock_hw
     ) {
-        return std::make_unique<ni::ReadTask<uint8_t>>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
-            std::move(*cfg),
             breaker::default_config(task.name),
-            std::move(mock_hw),
+            std::make_unique<ni::ReadTaskSource<uint8_t>>(
+                std::move(*cfg),
+                std::move(mock_hw)
+            ),
             mock_factory
         );
     }

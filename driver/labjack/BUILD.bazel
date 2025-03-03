@@ -40,3 +40,16 @@ cc_library(
         "@nlohmann_json//:json",
     ],
 )
+
+cc_test(
+    name = "labjack_test",
+    srcs = [
+        "read_task_test.cpp",
+    ],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/labjack",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

@@ -23,7 +23,7 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::ChannelKey> cmd_channels;
     /// @brief the vector of channels to write state updates for.
-    const std::vector<synnax::ChannelKey> state_channels;
+    const std::vector<synnax::Channel> state_channels;
     /// @brief the index keys of the state channels.
     const std::set<synnax::ChannelKey> state_indexes;
     /// @brief whether data saving is enabled for the task.
@@ -33,13 +33,13 @@ public:
     /// @brief used to lock concurrent access to the channel state.
     std::mutex chan_state_lock;
     /// @brief the current state of all the outputs. This is shared between
-/// the command sink and state source.
+    /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
 
     Sink(
         const telem::Rate state_rate,
         std::set<synnax::ChannelKey> state_indexes,
-        std::vector<synnax::ChannelKey> state_channels,
+        std::vector<synnax::Channel> state_channels,
         std::vector<synnax::ChannelKey> cmd_channels,
         const bool data_saving
     ): state_timer(state_rate),
@@ -47,6 +47,8 @@ public:
        state_channels(std::move(state_channels)),
        state_indexes(std::move(state_indexes)),
        data_saving(data_saving) {
+        for (const auto &ch: this->state_channels)
+            this->chan_state[ch.key] = ch.data_type.cast(0);
     }
 
     virtual xerrors::Error start() = 0;
@@ -54,7 +56,8 @@ public:
     virtual xerrors::Error stop() = 0;
 
     synnax::StreamerConfig streamer_config() const {
-        return synnax::StreamerConfig{.channels = this->state_channels};
+        const auto keys = keys_from_channels(this->state_channels);
+        return synnax::StreamerConfig{.channels = keys};
     }
 
     synnax::WriterConfig writer_config() const {
