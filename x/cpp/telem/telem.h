@@ -411,7 +411,7 @@ class Rate {
     float value;
 
 public:
-    float hz() const { return this->value; }
+    [[nodiscard]] float hz() const { return this->value; }
 
     explicit Rate(const float i) : value(i) {
     }
@@ -552,19 +552,16 @@ template<typename T>
 [[nodiscard]] T cast(const SampleValue &value) {
     if (std::holds_alternative<T>(value)) return std::get<T>(value);
     if constexpr (std::is_same_v<T, std::string>) {
-        // Handle conversion to string
         return std::visit([]<typename IT>(IT &&arg) -> std::string {
             if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
-                return arg; // Already a string, just return it
-            else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>) {
-                return std::to_string(arg.nanoseconds()); // Convert TimeStamp to string
-            } else {
+                return arg;
+            else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>)
+                return std::to_string(arg.nanoseconds());
+            else
                 return std::to_string(arg);
-            }
         }, value);
     }
     if constexpr (std::is_same_v<T, TimeStamp>) {
-        // Handle conversion to TimeStamp
         return std::visit([]<typename IT>(IT &&arg) -> TimeStamp {
             if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
                 return TimeStamp(static_cast<std::int64_t>(arg));
@@ -579,34 +576,27 @@ template<typename T>
             throw std::runtime_error("invalid type conversion to TimeStamp");
         }, value);
     }
-    if (std::holds_alternative<TimeStamp>(value)) {
-        const auto &ts = std::get<TimeStamp>(value);
+    if (std::holds_alternative<TimeStamp>(value))
         if constexpr (std::is_arithmetic_v<T>)
-            return static_cast<T>(ts.nanoseconds());
-    }
+            return static_cast<T>(std::get<TimeStamp>(value).nanoseconds());
     if (std::holds_alternative<std::string>(value)) {
-        // Handle string conversion specially
         const auto &str = std::get<std::string>(value);
         if constexpr (std::is_arithmetic_v<T>) {
             try {
-                if constexpr (std::is_floating_point_v<T>) {
+                if constexpr (std::is_floating_point_v<T>)
                     return static_cast<T>(std::stod(str));
-                } else if constexpr (std::is_signed_v<T>) {
+                else if constexpr (std::is_signed_v<T>)
                     return static_cast<T>(std::stoll(str));
-                } else {
+                else
                     return static_cast<T>(std::stoull(str));
-                }
             } catch (...) {
                 throw std::runtime_error("failed to convert string to numeric type");
             }
         }
     }
-    // For non-string conversions between numeric types
     return std::visit([]<typename IT>(IT &&arg) -> T {
-        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<
-                          IT>>) {
+        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>)
             return static_cast<T>(arg);
-        }
         throw std::runtime_error("invalid type conversion");
     }, value);
 }
@@ -655,7 +645,7 @@ public:
     }
 
     DataType static infer(const SampleValue &value) {
-        return std::visit([]<typename IT>(IT &&arg) -> DataType {
+        return std::visit([]<typename IT>(IT &&) -> DataType {
             using T = std::decay_t<IT>;
             if constexpr (std::is_same_v<T, double>) return DataType(_priv::FLOAT64_T);
             if constexpr (std::is_same_v<T, float>) return DataType(_priv::FLOAT32_T);
@@ -667,10 +657,12 @@ public:
             if constexpr (std::is_same_v<T, uint32_t>) return DataType(_priv::UINT32_T);
             if constexpr (std::is_same_v<T, uint16_t>) return DataType(_priv::UINT16_T);
             if constexpr (std::is_same_v<T, uint8_t>) return DataType(_priv::UINT8_T);
-            if constexpr (std::is_same_v<T, TimeStamp>) return DataType(
-                _priv::TIMESTAMP_T);
-            if constexpr (std::is_same_v<T, std::string>) return DataType(
-                _priv::STRING_T);
+            if constexpr (std::is_same_v<T, TimeStamp>)
+                return DataType(
+                    _priv::TIMESTAMP_T);
+            if constexpr (std::is_same_v<T, std::string>)
+                return DataType(
+                    _priv::STRING_T);
             return DataType(_priv::UNKNOWN_T);
         }, value);
     }
@@ -788,6 +780,9 @@ private:
         {std::type_index(typeid(TimeStamp)), _priv::TIMESTAMP_T},
     };
 };
+
+/// Note for future editors of these types, using `inline const` is dangerous as it
+/// causes problems with density lookups.
 
 /// @brief identifier for an unknown data type in a Synnax cluster.
 const DataType UNKNOWN_T(_priv::UNKNOWN_T);

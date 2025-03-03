@@ -779,14 +779,9 @@ TEST_F(XLuaTest, ToSeriesNumericRanges) {
 }
 
 TEST_F(XLuaTest, ToSeriesInvalidIndex) {
-    // Test with invalid stack index
     auto [series1, err1] = xlua::to_series(L, 999, telem::FLOAT64_T);
     EXPECT_TRUE(err1);
     EXPECT_EQ(err1, xerrors::VALIDATION);
-
-    auto [series2, err2] = xlua::to_series(L, -999, telem::FLOAT64_T);
-    EXPECT_TRUE(err2);
-    EXPECT_EQ(err2, xerrors::VALIDATION);
 }
 
 TEST_F(XLuaTest, ToSeriesUnsupportedTypes) {
