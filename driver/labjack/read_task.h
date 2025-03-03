@@ -8,32 +8,27 @@
 // included in the file licenses/APL.txt.
 #pragma once
 
+/// std
 #include <string>
-#include <utility>
 #include <vector>
 #include <map>
 #include <thread>
-#include <utility>
 #include <set>
 #include <stdio.h>
 
-#include "nlohmann/json.hpp"
-
+/// module
 #include "client/cpp/synnax.h"
-
 #include "x/cpp/xjson/xjson.h"
-#include "driver/errors/errors.h"
-#include "driver/task/task.h"
-#include "driver/pipeline/acquisition.h"
-#include "driver/pipeline/middleware.h"
-#include "driver/queue/ts_queue.h"
 #include "x/cpp/breaker/breaker.h"
-#include "driver/labjack/util.h"
-#include "driver/pipeline/control.h"
-#include "ljm/api.h"
-#include "ljm/LabJackM.h"
-#include "ljm/LabJackMModbusMap.h"
-#include "ljm/LJM_Utilities.h"
+
+/// internal
+#include "driver/labjack/device_manager.h"
+#include "driver/task/common/read_task.h"
+#include "driver/pipeline/middleware.h"
+#include "driver/labjack/ljm/api.h"
+#include "driver/labjack/ljm/LabJackM.h"
+#include "driver/labjack/ljm/LabJackMModbusMap.h"
+#include "driver/labjack/ljm/LJM_Utilities.h"
 
 
 namespace labjack {
@@ -80,8 +75,8 @@ inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
     return 0;
 }
 
-struct BaseChan {
-    virtual ~BaseChan() = default;
+struct InputChan {
+    virtual ~InputChan() = default;
 
     const bool enabled;
     std::string loc;
@@ -90,7 +85,7 @@ struct BaseChan {
     const int neg_chan;
     const int pos_chan;
 
-    explicit BaseChan(xjson::Parser &parser)
+    explicit InputChan(xjson::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
           loc(parser.required<std::string>("port")),
           synnax_key(parser.required<uint32_t>("channel")),
@@ -105,7 +100,7 @@ struct BaseChan {
     ) = 0;
 };
 
-struct ThermocoupleChan final : BaseChan {
+struct ThermocoupleChan final : InputChan {
     ///@brief The thermocouple type
     // Supported TC types are:
     //     LJM_ttB (val=6001)
@@ -142,7 +137,7 @@ struct ThermocoupleChan final : BaseChan {
 
 
     explicit ThermocoupleChan(xjson::Parser &parser):
-        BaseChan(parser),
+        InputChan(parser),
         type(parse_tc_type(parser, "thermocouple_type")),
         cjc_addr(parse_cjc_addr(parser, "cjc_source")),
         cjc_slope(parser.required<float>("cjc_slope")),
@@ -218,11 +213,11 @@ struct ThermocoupleChan final : BaseChan {
     };
 };
 
-struct AIChan final : BaseChan {
+struct AIChan final : InputChan {
     const double range;
 
     explicit AIChan(xjson::Parser &parser):
-        BaseChan(parser),
+        InputChan(parser),
         range(parser.optional<double>("range", 10.0)) {
     }
 
@@ -254,80 +249,94 @@ struct AIChan final : BaseChan {
     }
 };
 
-class DIChan final : BaseChan {
+class DIChan final : InputChan {
     explicit DIChan(xjson::Parser &parser):
-        BaseChan(parser) {
+        InputChan(parser) {
+    }
+
+    xerrors::Error apply(const std::shared_ptr<ljm::SugaredAPI> &ljm, const std::string &device_type, int handle) override {
+
     }
 };
 
 template<typename T>
-using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
+using F = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
 #define FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-std::map<std::string, Factory<BaseChan>> FACTORY_MAP = {
+std::map<std::string, F<InputChan>> FACTORY_MAP = {
     FACTORY("TC", ThermocoupleChan),
     FACTORY("AI", AIChan),
     FACTORY("DI", DIChan)
 };
 
-std::unique_ptr<BaseChan> parse_channel(xjson::Parser &parser);
+std::unique_ptr<InputChan> parse_channel(xjson::Parser &parser);
 
 const std::string T4 = "LJM_dtT4";
 const std::string T7 = "LJM_dtT7";
 const std::string T8 = "LJM_dtT8";
 
-
 struct ReadTaskConfig {
+    /// @brief whether data saving is enabled for the task.
     const bool data_saving;
+    /// @brief the key of the device to read from.
     const std::string device_key;
-    std::string device_type;
-    telem::Rate sample_rate;
-    telem::Rate stream_rate;
+    /// @brief how fast to sample data from the device.
+    const telem::Rate sample_rate;
+    /// @brief how fast to push sampled data to synnax.
+    const telem::Rate stream_rate;
+    /// @brief the connection method used to communicate with the device.
+    std::string conn_method;
     std::set<uint32_t> indexes;
-    std::string serial_number; // used to open devices
-    std::string connection_type; // used to open devices
-    std::vector<std::unique_ptr<BaseChan>> channels;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
+    /// @brief the configurations for each channel in the task.
+    std::vector<std::unique_ptr<InputChan>> channels;
+    /// @brief the model of device being read from.
+    std::string dev_model;
+
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    )
-        : data_saving(parser.optional<bool>("data_saving", false)),
-          device_key(parser.required<std::string>("device")),
-          device_type(parser.optional<std::string>("type", "")),
-          sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
-          stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
-          serial_number(parser.required<std::string>("device")),
-          connection_type(parser.optional<std::string>("connection_type", "")),
-          channels(parser.map("channels",
-                              [&](xjson::Parser &p)-> std::pair<std::unique_ptr<
-                          BaseChan>, bool> {
-                                  auto ch = parse_channel(p);
-                                  return {std::move(ch), ch->enabled};
-                              })) {
+    ): data_saving(parser.optional<bool>("data_saving", false)),
+       device_key(parser.required<std::string>("device")),
+       sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
+       stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
+       conn_method(parser.optional<std::string>("conn_method", "")),
+       samples_per_chan(static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))),
+       channels(parser.map("channels",
+                           [&](xjson::Parser &p)-> std::pair<std::unique_ptr<
+                       InputChan>, bool> {
+                               auto ch = parse_channel(p);
+                               return {std::move(ch), ch->enabled};
+                           })) {
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
         }
-        this->device_type = dev.model;
+        this->dev_model = dev.model;
+    }
+
+    static std::pair<ReadTaskConfig, xerrors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::Task &task
+    ) {
+        auto parser = xjson::Parser(task.config);
+        return {ReadTaskConfig(client, parser), parser.error()};
     }
 };
 
-class UnarySource : public pipeline::Source {
-    ReadTaskConfig cfg;
-    std::shared_ptr<ljm::SugaredAPI> ljm;
-    int handle;
+class UnarySource : public common::Source {
+    const ReadTaskConfig cfg;
+    const std::shared_ptr<DeviceAPI> dev;
+    const int interval_handle;
 
-    xerrors::Error init() {
-        return this->ljm->LJM_StartInterval(
-            this->handle,
-            this->cfg.sample_rate.period().microseconds()
-        );
+    xerrors::Error start() override {
+        return this->dev->StartInterval(this->interval_handle,
+                                        this->cfg.sample_rate.period().microseconds());
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -337,11 +346,11 @@ class UnarySource : public pipeline::Source {
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->loc.c_str());
         int SkippedIntervals;
-        if (const auto err = ljm->LJM_WaitForNextInterval(handle, &SkippedIntervals))
+        if (const auto err = this->dev->LJM_WaitForNextInterval(
+            this->interval_handle, &SkippedIntervals))
             return {Frame(), err};
         values.resize(locations.size());
-        if (const auto err = ljm->LJM_eReadNames(
-            this->handle,
+        if (const auto err = this->dev->LJM_eReadNames(
             locations.size(),
             locations.data(),
             values.data(),
@@ -365,18 +374,24 @@ class UnarySource : public pipeline::Source {
     }
 };
 
-class StreamSource : public pipeline::Source {
+class StreamSource final : public common::Source {
     ReadTaskConfig cfg;
-    std::shared_ptr<ljm::SugaredAPI> ljm;
-    int handle;
     std::vector<double> data;
+    std::shared_ptr<DeviceAPI> dev;
 
-    xerrors::Error start() {
+    StreamSource(
+        const std::shared_ptr<DeviceAPI> &dev,
+        const ReadTaskConfig &cfg
+    ): cfg(std::move(cfg)),
+       data(this->cfg.samples_per_chan * this->cfg.channels.size()), dev(dev) {
+    }
+
+    xerrors::Error start() override {
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels(this->cfg.channels.size());
         for (const auto &channel: this->cfg.channels)
             physical_channels.push_back(channel->loc.c_str());
-        if (const auto err = this->ljm->LJM_NamesToAddresses(
+        if (const auto err = this->dev->NamesToAddresses(
             this->cfg.channels.size(),
             physical_channels.data(),
             temp_ports.data(),
@@ -384,8 +399,7 @@ class StreamSource : public pipeline::Source {
         ))
             return err;
         auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
-        return this->ljm->LJM_eStreamStart(
-            this->handle,
+        return this->dev->eStreamStart(
             this->cfg.samples_per_chan,
             this->cfg.channels.size(),
             temp_ports.data(),
@@ -393,8 +407,8 @@ class StreamSource : public pipeline::Source {
         );
     }
 
-    xerrors::Error stop() {
-        this->ljm->LJM_eStreamStop(this->handle);
+    xerrors::Error stop() override {
+        return this->dev->eStreamStop();
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -402,8 +416,7 @@ class StreamSource : public pipeline::Source {
         const auto start = telem::TimeStamp::now();
         int num_skipped_scans;
         int scan_backlog;
-        if (const auto err = ljm->LJM_eStreamRead(
-            this->handle,
+        if (const auto err = this->dev->eStreamRead(
             data.data.data(),
             &num_skipped_scans,
             &scan_backlog
@@ -427,38 +440,4 @@ class StreamSource : public pipeline::Source {
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 };
-
-class ReaderTask final : public task::Task {
-    const ReadTaskConfig cfg;
-
-    std::shared_ptr<task::Context> ctx;
-    pipeline::Acquisition pipe;
-    std::shared_ptr<labjack::ReaderSource> source;
-    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
-
-public:
-    explicit ReaderTask(
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        std::shared_ptr<labjack::ReaderSource> labjack_source,
-        std::shared_ptr<pipeline::Source> source,
-        const breaker::Config breaker_config
-    );
-
-    void exec(task::Command &cmd) override;
-
-    void stop(bool will_reconfigure) override;
-
-    void stop(const std::string &cmd_key);
-
-    void start(const std::string &cmd_key);
-
-    std::string name() override { return task.name; }
-
-    static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        std::shared_ptr<labjack::DeviceManager> device_manager
-    );
-}; // class ReaderTask
 }

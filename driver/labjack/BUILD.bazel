@@ -1,51 +1,16 @@
 cc_library(
-    name = "labjack_headers",
-    hdrs = select({
-        "@platforms//os:windows": [
-            "LJM_StreamUtilities.h",
-            "LJM_Utilities.h",
-            "LabJackM.h",
-            "LabJackMModbusMap.h",
-        ],
-        "//conditions:default": [],
-    }),
-    visibility = ["//visibility:public"],
-)
-
-cc_library(
-    name = "labjack_lib",
-    visibility = ["//visibility:public"],
-    deps = select({
-        "@platforms//os:windows": ["@labjack//:labjackm_lib"],
-        "//conditions:default": [],
-    }),
-)
-
-cc_library(
     name = "labjack",
-    srcs = select({
-        "@platforms//os:windows": [
-            "factory.cpp",
-            "reader_source.cpp",
-            "reader_task.cpp",
-            "scanner.cpp",
-            "writer_sink.cpp",
-            "writer_task.cpp",
-        ],
-        "//conditions:default": [],
-    }),
-    hdrs = select({
-        "@platforms//os:windows": [
-            "dll_check_windows.h",
-            "errors.h",
-            "labjack.h",
-            "reader.h",
-            "scanner.h",
-            "util.h",
-            "writer.h",
-        ],
-        "//conditions:default": [],
-    }),
+    srcs = [
+        "factory.cpp",
+        "scan_task.cpp",
+    ],
+    hdrs = [
+        "device_manager.h",
+        "labjack.h",
+        "read_task.h",
+        "scan_task.h",
+        "write_task.h",
+    ],
     copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
@@ -61,21 +26,16 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
-    deps = select({
-        "@platforms//os:windows": [
-            ":labjack_headers",
-            ":labjack_lib",
-            "//client/cpp:synnax",
-            "//driver/errors",
-            "//driver/pipeline",
-            "//driver/queue",
-            "//driver/task",
-            "//x/cpp/breaker",
-            "//x/cpp/loop",
-            "//x/cpp/xjson",
-            "@com_github_google_glog//:glog",
-            "@nlohmann_json//:json",
-        ],
-        "//conditions:default": [],
-    }),
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/errors",
+        "//driver/pipeline",
+        "//driver/queue",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/loop",
+        "//x/cpp/xjson",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
 )

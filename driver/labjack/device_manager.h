@@ -16,22 +16,27 @@
 #pragma once
 
 #include <mutex>
-#include <thread>
 #include <map>
+#include <_virtual_includes/glog/glog/logging.h>
 
-#include "driver/labjack/errors.h"
-#include "LJM_Utilities.h"
+#include "driver/labjack/ljm/errors.h"
+#include "driver/labjack/ljm/LabJackM.h"
 
 namespace labjack {
 // An internal namespace for special labjack methods that cannot be called concurrently.
 namespace locked {
 // This mutex is reserved for internal use to the namespace only.
-inline std::mutex _priv_device_mutex;
 
-inline int LJM_ListAll_wrapped(int DeviceType, int ConnectionType,
-                               int *NumFound, int *aDeviceTypes, int *aConnectionTypes,
-                               int *aSerialNumbers, int *aIPAddresses) {
-    std::lock_guard<std::mutex> lock(_priv_device_mutex);
+inline int LJM_ListAll_wrapped(
+    int DeviceType,
+    int ConnectionType,
+    int *NumFound,
+    int *aDeviceTypes,
+    int *aConnectionTypes,
+    int *aSerialNumbers,
+    int *aIPAddresses
+) {
+    std::lock_guard lock(_priv_device_mutex);
     return LJM_ListAll(
         DeviceType,
         ConnectionType,
@@ -50,51 +55,40 @@ inline int LJM_Open_wrapped(int DeviceType, int ConnectionType,
 }
 }
 
-inline int check_err_internal(
-    int err,
-    std::string caller,
-    std::string prefix,
-    std::shared_ptr<task::Context> ctx,
-    bool &ok_state,
-    synnax::TaskKey task_key
-) {
-    if (err == 0) return 0;
 
-    char err_msg[LJM_MAX_NAME_SIZE];
-    LJM_ErrorToString(err, err_msg);
-
-    // Get additional description if available
-    std::string description = "";
-    const auto &error_map = GetErrorDescriptions(); // Changed this line
-    if (auto it = error_map.find(err_msg); it != error_map.end()) {
-        description = ": " + it->second;
-    }
-
-    if(ok_state) {
-        ctx->set_state({
-            .task = task_key,
-            .variant = "error",
-            .details = {
-                {"running", false},
-                {"message", std::string(err_msg) + description}
-            }
-        });
-        ok_state = false;
-        return -1;
-    }
-
-    LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << "(" << err << ")" << description << " (" << caller << ")";
-
-    return -1;
-}
+class DeviceAPI {
+public:
+     xerrors::Error eStreamRead(
+        double *aData,
+        int *DeviceScanBacklog,
+        int *LJMScanBacklog
+    );
+    xerrors::Error eStreamStop();
+    xerrors::Error LJM_eWriteAddress(int Address, int Type, double Value);
+    xerrors::Error LJM_eWriteAddresses(int NumFrames,
+	const int * aAddresses, const int * aTypes, const double * aValues,
+	int * ErrorAddress);
+    xerrors::Error StartInterval(int IntervalHandle, int Microseconds);
+    xerrors::Error LJM_eWriteName(const char *Name, double Value);
+    xerrors::Error LJM_eWriteNames(int NumFrames,
+	const char ** aNames, const double * aValues, int * ErrorAddress);
+    xerrors::Error NamesToAddresses(int NumFrames, const char **aNames, int *aAddresses, int *aTypes);
+    xerrors::Error LJM_WaitForNextInterval(int IntervalHandle, int *skippedIntervals);
+    xerrors::Error LJM_eReadNames(int NumFrames,
+	const char ** aNames, double * aValues, int * ErrorAddress);
+    xerrors::Error eStreamStart(int ScansPerRead,
+	int NumAddresses, const int * aScanList, double * ScanRate);
+};
 
 class DeviceManager {
+    std::mutex mu;
+    std::map<std::string, int> device_handles;
 public:
-    DeviceManager() : device_handles() {
+    DeviceManager() {
     }
 
-    int get_device_handle(std::string serial_number) {
-        std::lock_guard<std::mutex> lock(mu);
+    std::pair<std::shared_ptr<DeviceAPI>, xerrors::Error> get_device_handle(std::string serial_number) {
+        std::lock_guard lock(mu);
         if (this->device_handles.find(serial_number) == device_handles.end()) {
             int handle;
             int err = locked::LJM_Open_wrapped(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
@@ -110,16 +104,12 @@ public:
     }
 
     void close_device(std::string serial_number) {
-        std::lock_guard<std::mutex> lock(mu);
+        std::lock_guard lock(mu);
         if (this->device_handles.find(serial_number) != device_handles.end()) {
             int handle = device_handles[serial_number];
             LJM_Close(handle);
             device_handles.erase(serial_number);
         }
     }
-
-private:
-    std::mutex mu;
-    std::map<std::string, int> device_handles;
 };
 }

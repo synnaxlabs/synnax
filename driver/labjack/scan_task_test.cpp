@@ -13,7 +13,7 @@
 
 #include "driver/testutil/testutil.h"
 #include "client/cpp/synnax.h"
-#include "driver/labjack/scanner.h"
+#include "driver/labjack/scan_task.h"
 
 #include "nlohmann/json.hpp"
 #include <include/gtest/gtest.h>

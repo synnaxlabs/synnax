@@ -11,10 +11,10 @@
 #include <utility>
 #include "nlohmann/json.hpp"
 
-#include "scanner.h"
+#include "scan_task.h"
 #include "glog/logging.h"
 #include "x/cpp/xjson/xjson.h"
-#include "driver/labjack/util.h"
+#include "driver/labjack/device_manager.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////

@@ -16,17 +16,14 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/ni/channel/channels.h"
-#include "driver/ni/ni.h"
 #include "driver/ni/hardware/hardware.h"
-#include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
-#include "driver/task/task.h"
+#include "driver/task/common/write_task.h"
 
 namespace ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
@@ -44,7 +41,7 @@ struct WriteTaskConfig {
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
-    std::set<synnax::ChannelKey> state_indexes;
+    std::set<synnax::ChannelKey> state_indexes_;
     /// @brief a map of channel keys to their index positions within the tasks
     /// write buffer. This map is only valid after apply() has been called on the
     /// configuration.
@@ -56,7 +53,7 @@ struct WriteTaskConfig {
         state_rate(other.state_rate),
         data_saving(other.data_saving),
         channels(std::move(other.channels)),
-        state_indexes(std::move(other.state_indexes)),
+        state_indexes_(std::move(other.state_indexes_)),
         buf_indexes(std::move(other.buf_indexes)) {
     }
 
@@ -112,32 +109,28 @@ struct WriteTaskConfig {
         for (const auto &state_ch: state_channels) {
             auto &ch = this->channels[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch, dev.location);
-            if (state_ch.index != 0) this->state_indexes.insert(state_ch.index);
+            if (state_ch.index != 0) this->state_indexes_.insert(state_ch.index);
         }
     }
 
     /// @brief returns the configuration necessary for opening the writer
     /// to communicate state values back to Synnax.
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size() + state_indexes.size());
+    [[nodiscard]] std::vector<synnax::ChannelKey> state_channels() {
+        std::vector<synnax::ChannelKey> keys(channels.size());
         for (const auto &[_, ch]: channels) keys.push_back(ch->state_ch_key);
-        for (const auto &idx: state_indexes) keys.push_back(idx);
-        return synnax::WriterConfig{
-            .channels = keys,
-            .start = telem::TimeStamp::now(),
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true
-        };
+        return keys;
+    }
+
+    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() {
+        std::vector<synnax::ChannelKey> keys(channels.size());
+        for (const auto &[_, ch]: channels) keys.push_back(ch->cmd_ch_key);
+        return keys;
     }
 
     /// @brief returns the configuration necessary for opening a streamer to
     /// receive values form Synnax.
-    [[nodiscard]] synnax::StreamerConfig streamer_config() const {
-        std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size());
-        for (const auto &[_, ch]: channels) keys.push_back(ch->cmd_ch_key);
-        return synnax::StreamerConfig{.channels = keys};
+    [[nodiscard]] std::set<synnax::ChannelKey> state_indexes() {
+        return this->state_indexes_;
     }
 
     /// @brief parses the task from the given configuration, returning an error
@@ -161,220 +154,71 @@ struct WriteTaskConfig {
     }
 };
 
-/// @brief a write task that can write to both digital and analog output channels,
-/// and communicate their state back to Synnax.
+
+/// @brief sink is passed to the command pipeline in order to receive incoming
+/// data from Synnax, write it to the device, and update the state.
 template<typename T>
-class WriteTask final : public task::Task {
-    /// @brief the configuration for the task.
+class CommandTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    /// @brief the pipeline used to receive commands from Synnax and write them to
-    /// the device.
-    pipeline::Control cmd_write_pipe;
-    /// @brief the pipeline used to receive state changes from the device and write
-    /// to Synnax.
-    pipeline::Acquisition state_write_pipe;
-    /// @brief the hardware interface for writing data
-    std::unique_ptr<hardware::Writer<T>> hw_writer;
-    /// @brief the current state of all the outputs. This is shared between
-    /// the command sink and state source.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
-    /// @brief used to lock concurrent access to the channel state.
-    std::mutex chan_state_lock;
-    /// @brief the current state of the task.
-    ni::TaskStateHandler state;
-
-
-    /// @brief StateSource is passed to the state pipeline in order to continually
-    /// communicate the current output states to Synnax.
-    class StateSource final : public pipeline::Source {
-    public:
-        /// @brief constructs a StateSource bound to the parent WriteTask.
-        explicit StateSource(WriteTask &parent):
-            p(parent), state_timer(parent.cfg.state_rate) {
-        }
-
-    private:
-        /// @brief the parent write task.
-        WriteTask &p;
-        /// @brief a timer that is used to control the rate at which the state is
-        /// propagated.
-        loop::Timer state_timer;
-
-        /// @brief called when the write() function returns a critical hardware error
-        /// or when the pipeline fails to read samples from the cluster. In any case,
-        /// we register the error in state, and then stop the entire task by calling
-        /// the parent stop() method. This ensures that we stop the acquisition pipeline
-        /// used for state values as well.
-        void stopped_with_err(const xerrors::Error &err) override {
-            this->p.state.error(err);
-            this->p.stop("", false);
-        }
-
-        /// @brief implements pipeline::Source to return the current state of the
-        /// outputs in teh task.
-        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            this->state_timer.wait(breaker);
-            std::lock_guard lock{this->p.chan_state_lock};
-            auto fr = synnax::Frame(
-                this->p.chan_state,
-                this->p.chan_state.size() + this->p.cfg.state_indexes.size()
-            );
-            if (!this->p.cfg.state_indexes.empty()) {
-                const auto idx_ser = telem::Series(telem::TimeStamp::now());
-                for (const auto idx: this->p.cfg.state_indexes)
-                    fr.emplace(idx, idx_ser.deep_copy());
-            }
-            return {std::move(fr), xerrors::NIL};
-        }
-    };
-
-    /// @brief sink is passed to the command pipeline in order to receive incoming
-    /// data from Synnax, write it to the device, and update the state.
-    class CommandSink final : public pipeline::Sink {
-    public:
-        /// @brief constructs a CommandSink bound to the provided parent WriteTask.
-        explicit CommandSink(WriteTask &parent):
-            p(parent),
-            buf(parent.cfg.channels.size()) {
-        }
-
-    private:
-        /// @brief automatically infer the data type from the template parameter. This
-        /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
-        /// the data read from the hardware.
-        const telem::DataType data_type = telem::DataType::infer<T>();
-        /// @brief the parent write task.
-        WriteTask &p;
-        /// @brief a pre-allocated write buffer that is flushed to the device every
-        /// time a command is provided.
-        std::vector<T> buf;
-
-        /// @brief called when the write() function returns a critical hardware error
-        /// or when the pipeline fails to read samples from the cluster. In any case,
-        /// we register the error in state, and then stop the entire task by calling
-        /// the parent stop() method. This ensures that we stop the acquisition pipeline
-        /// used for state values as well.
-        void stopped_with_err(const xerrors::Error &err) override {
-            this->p.state.error(err);
-            this->p.stop("", false);
-        }
-
-        /// @brief implements pipeline::Sink to write the incoming frame to the
-        /// underlying hardware. If the values are successfully written, updates
-        /// the write tasks state to match the output values.
-        xerrors::Error write(const synnax::Frame &frame) override {
-            if (frame.empty()) return xerrors::NIL;
-            for (const auto &[key, series]: frame) {
-                auto it = this->p.cfg.buf_indexes.find(key);
-                if (it != this->p.cfg.buf_indexes.end())
-                    buf[it->second] = telem::cast<T>(series.at(-1));
-            }
-            if (const auto err = this->p.hw_writer->write(buf)) {
-                if (daqmx::ANALOG_WRITE_OUT_OF_BOUNDS.matches(err)) {
-                    this->p.state.send_warning(err.message());
-                    return xerrors::NIL;
-                }
-                return err;
-            }
-
-            std::lock_guard lock{this->p.chan_state_lock};
-            for (const auto &[key, series]: frame) {
-                const auto it = this->p.cfg.channels.find(key);
-                if (it != this->p.cfg.channels.end()) {
-                    this->p.chan_state[it->second->state_ch_key] = it->second->state_ch.
-                            data_type.cast(series.at(-1));
-                }
-            }
-            return xerrors::NIL;
-        }
-    };
-
 public:
-    /// @brief base constructor that takes in pipeline factories to allow the
-    /// caller to stub cluster communication during tests.
-    explicit WriteTask(
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx,
-        WriteTaskConfig cfg,
-        const breaker::Config &breaker_cfg,
-        std::unique_ptr<hardware::Writer<T>> hw_writer,
-        const std::shared_ptr<pipeline::WriterFactory> &writer_factory,
-        const std::shared_ptr<pipeline::StreamerFactory> &streamer_factory
-    ):
+    /// @brief constructs a CommandSink bound to the provided parent WriteTask.
+    explicit CommandTaskSink(WriteTaskConfig &cfg):
+        Sink(
+            cfg.state_rate,
+            cfg.state_indexes(),
+            cfg.state_channels(),
+            cfg.cmd_channels(),
+            cfg.data_saving
+        ),
         cfg(std::move(cfg)),
-        cmd_write_pipe(
-            streamer_factory,
-            this->cfg.streamer_config(),
-            std::make_shared<CommandSink>(*this),
-            breaker_cfg
-        ),
-        state_write_pipe(
-            writer_factory,
-            this->cfg.writer_config(),
-            std::make_shared<StateSource>(*this),
-            breaker_cfg
-        ),
-        hw_writer(std::move(hw_writer)),
-        state(ctx, task) {
-        chan_state.reserve(this->cfg.channels.size());
-        for (const auto &[_, ch]: this->cfg.channels)
-            chan_state[ch->state_ch_key] = ch->state_ch.data_type.cast(0);
+        buf(cfg.channels.size()) {
     }
 
-    /// @brief primary constructor that uses the task context's Synnax client for
-    /// cluster communication.
-    explicit WriteTask(
-        synnax::Task task,
-        const std::shared_ptr<task::Context> &ctx,
-        WriteTaskConfig cfg,
-        const breaker::Config &breaker_cfg,
-        std::unique_ptr<hardware::Writer<T>> hw_writer
-    ): WriteTask(
-        std::move(task),
-        ctx,
-        std::move(cfg),
-        breaker_cfg,
-        std::move(hw_writer),
-        std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
-        std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
-    ) {
+private:
+    /// @brief automatically infer the data type from the template parameter. This
+    /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
+    /// the data read from the hardware.
+    const telem::DataType data_type = telem::DataType::infer<T>();
+    /// @brief the parent write task.
+    /// @brief a pre-allocated write buffer that is flushed to the device every
+    /// time a command is provided.
+    std::vector<T> buf;
+    std::unique_ptr<hardware::Writer<T>> hw_writer;
+
+    xerrors::Error start() override {
+        return this->hw_writer->start();
     }
 
-    /// @brief implements task::Task to execute teh provided command on the task.
-    void exec(task::Command &cmd) override {
-        if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key, false);
+    xerrors::Error stop() override {
+        return this->hw_writer->stop();
     }
 
-    /// @brief implements task::Task to stop the task.
-    void stop(const bool will_reconfigure) override {
-        this->stop("", will_reconfigure);
-    }
-
-    /// @brief stops the task.
-    /// @param cmd_key - A reference to the command key used to execute the stop. Will
-    /// be used internally to communicate the task state.
-    /// @param will_reconfigure whether the task will be reconfigured after it was stopped.
-    void stop(const std::string &cmd_key, const bool will_reconfigure) {
-        this->cmd_write_pipe.stop();
-        this->state_write_pipe.stop();
-        this->state.error(this->hw_writer->stop());
-        if (will_reconfigure) return;
-        this->state.send_stop(cmd_key);
-    }
-
-    /// @brief starts the task.
-    /// @param cmd_key - A reference to the command key used to execute the start. Will
-    /// be used internally to communicate the task state.
-    void start(const std::string &cmd_key) {
-        if (!this->state.error(this->hw_writer->start())) {
-            this->cmd_write_pipe.start();
-            this->state_write_pipe.start();
+    /// @brief implements pipeline::Sink to write the incoming frame to the
+    /// underlying hardware. If the values are successfully written, updates
+    /// the write tasks state to match the output values.
+    xerrors::Error write(const synnax::Frame &frame) override {
+        if (frame.empty()) return xerrors::NIL;
+        for (const auto &[key, series]: frame) {
+            auto it = this->cfg.buf_indexes.find(key);
+            if (it != this->cfg.buf_indexes.end())
+                buf[it->second] = telem::cast<T>(series.at(-1));
         }
-        this->state.send_start(cmd_key);
-    }
+        if (const auto err = this->hw_writer->write(buf)) {
+            if (daqmx::ANALOG_WRITE_OUT_OF_BOUNDS.matches(err)) {
+                return xerrors::NIL;
+            }
+            return err;
+        }
 
-    /// @brief implements task::Task to return the task's name.
-    std::string name() override { return this->state.task.name; }
+        std::lock_guard lock{this->chan_state_lock};
+        for (const auto &[key, series]: frame) {
+            const auto it = this->cfg.channels.find(key);
+            if (it != this->cfg.channels.end()) {
+                this->chan_state[it->second->state_ch_key] = it->second->state_ch.
+                        data_type.cast(series.at(-1));
+            }
+        }
+        return xerrors::NIL;
+    }
 };
 }

@@ -26,7 +26,7 @@
 const std::string NO_LIBS_MSG =
         "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
 
-template<typename Hardware, typename TaskType, typename ConfigType>
+template<typename Hardware, typename ConfigType, typename SourceType, typename TaskType>
 static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<task::Context> &ctx,
@@ -35,8 +35,11 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     auto [cfg, cfg_err] = ConfigType::parse(ctx->client, task);
     if (cfg_err) return {nullptr, cfg_err};
     TaskHandle handle;
-    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +")";
-    if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle)) return {nullptr, err};
+    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
+    if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle))
+        return {
+            nullptr, err
+        };
     // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
     // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
     // sure it gets cleared.
@@ -50,9 +53,8 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
         std::make_unique<TaskType>(
             task,
             ctx,
-            std::move(cfg),
             breaker::default_config(task.name),
-            std::move(hw)
+            std::make_shared<SourceType>(cfg)
         ),
         xerrors::NIL
     };
@@ -90,6 +92,35 @@ std::unique_ptr<ni::Factory> ni::Factory::create() {
     );
 }
 
+using configure_ni_analog_read = configure<
+    hardware::daqmx::AnalogReader,
+    ni::ReadTaskConfig,
+    ni::ReadTaskSource<double>,
+    common::ReadTask
+>;
+
+using configure_ni_digital_read = configure<
+    hardware::daqmx::DigitalReader,
+    ni::ReadTaskConfig,
+    ni::CommandTaskSink<uint8_t>,
+    common::ReadTask
+>;
+
+using configure_ni_analog_write = configure<
+    hardware::daqmx::AnalogWriter,
+    ni::WriteTaskConfig,
+    ni::CommandTaskSink<double>,
+    common::WriteTask
+>;
+
+using configure_ni_digital_write = configure<
+    hardware::daqmx::DigitalWriter,
+    ni::WriteTaskConfig,
+    ni::CommandTaskSink<uint8_t>,
+    common::WriteTask
+>;
+
+
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -99,13 +130,13 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == "ni_scanner")
         res = ni::ScanTask::configure(this->syscfg, ctx, task);
     else if (task.type == "ni_analog_read")
-        res = configure<hardware::daqmx::AnalogReader, ReadTask<double>, ReadTaskConfig>(dmx, ctx, task);
+        res = configure_ni_analog_read(dmx, ctx, task);
     else if (task.type == "ni_digital_read")
-        res = configure<hardware::daqmx::DigitalReader, ReadTask<uint8_t>, ReadTaskConfig>(dmx, ctx, task);
+        res = configure_ni_digital_read(dmx, ctx, task);
     else if (task.type == "ni_analog_write")
-        res = configure<hardware::daqmx::AnalogWriter, WriteTask<double>, WriteTaskConfig>(dmx, ctx, task);
+        res = configure_ni_analog_write(dmx, ctx, task);
     else if (task.type == "ni_digital_write")
-        res = configure<hardware::daqmx::DigitalWriter, WriteTask<uint8_t>, WriteTaskConfig>(dmx, ctx, task);
+        res = configure_ni_digital_write(dmx, ctx, task);
     else return {nullptr, false};
     auto [tsk, err] = std::move(res);
     if (err)
@@ -128,13 +159,13 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
 }
 
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
     if (!this->check_health(ctx, synnax::Task())) return {};
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
     auto [existing, err] = rack.tasks.list();
     if (err) {
@@ -160,7 +191,7 @@ ni::Factory::configure_initial_tasks(
         return tasks;
     }
     tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task> >({
+        std::pair<synnax::Task, std::unique_ptr<task::Task>>({
             sy_task,
             std::move(task)
         })

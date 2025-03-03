@@ -7,8 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #include <unordered_map>
 #include <string>
+
+
+inline int check_err_internal(
+    int err,
+    std::string caller,
+    std::string prefix,
+    std::shared_ptr<task::Context> ctx,
+    bool &ok_state,
+    synnax::TaskKey task_key
+) {
+    if (err == 0) return 0;
+
+    char err_msg[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, err_msg);
+
+    // Get additional description if available
+    std::string description = "";
+    const auto &error_map = GetErrorDescriptions(); // Changed this line
+    if (auto it = error_map.find(err_msg); it != error_map.end()) {
+        description = ": " + it->second;
+    }
+
+    if(ok_state) {
+        ctx->set_state({
+            .task = task_key,
+            .variant = "error",
+            .details = {
+                {"running", false},
+                {"message", std::string(err_msg) + description}
+            }
+        });
+        ok_state = false;
+        return -1;
+    }
+
+    LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << "(" << err << ")" << description << " (" << caller << ")";
+
+    return -1;
+}
 
 inline const std::unordered_map<std::string, std::string> &GetErrorDescriptions() {
     static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {

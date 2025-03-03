@@ -11,8 +11,8 @@
 
 #include "client/cpp/synnax.h"
 #include "driver/labjack/read_task.h"
-#include "driver/labjack/writer.h"
-#include "driver/labjack/scanner.h"
+#include "driver/labjack/write_task.h"
+#include "driver/labjack/scan_task.h"
 #include "driver/testutil/testutil.h"
 
 #include <include/gtest/gtest.h>

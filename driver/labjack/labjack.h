@@ -11,7 +11,7 @@
 
 #include "driver/task/task.h"
 #include "driver/labjack/dll_check_windows.h"
-#include "driver/labjack/util.h"
+#include "driver/labjack/device_manager.h"
 
 namespace labjack {
 const std::string INTEGRATION_NAME = "labjack";
@@ -34,21 +34,4 @@ public:
 private:
     std::shared_ptr<labjack::DeviceManager> device_manager = std::make_shared<labjack::DeviceManager>();
 };
-
-static inline bool dlls_available() {
-    std::vector<std::string> dlls = {
-        "LabjackM.dll",
-        "LabJackWUSB.dll",
-    };
-
-    bool all_present = true;
-    for (const auto &dll: dlls)
-        if (!labjack::does_dll_exist(dll.c_str()))
-            all_present = false;
-
-    if (!all_present)
-        LOG(ERROR) << "[labjack] Required Labjack DLLs not found.";
-
-    return all_present;
-} // dlls_available
 } // namespace labjack

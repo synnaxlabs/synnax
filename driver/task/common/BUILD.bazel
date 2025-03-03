@@ -1,0 +1,10 @@
+cc_library(
+    name = "common",
+    hdrs = [
+        "read_task.h",
+        "state.h",
+        "write_task.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["//driver/task"],
+)

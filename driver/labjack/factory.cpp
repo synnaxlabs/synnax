@@ -8,11 +8,36 @@
 // included in the file licenses/APL.txt.
 
 
+#include "labjack.h"
 #include "glog/logging.h"
-#include "driver/labjack/labjack.h"
-#include "driver/labjack/scanner.h"
+#include "driver/labjack/scan_task.h"
 #include "driver/labjack/read_task.h"
-#include "driver/labjack/writer.h"
+#include "driver/labjack/write_task.h"
+
+template<typename Configure, typename Task>
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
+    const std::shared_ptr<labjack::DeviceManager> &devs,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto [cfg, err] = Configure::parse(ctx->client, task);
+    if (err) return {nullptr, err};
+    auto [dev, d_err] = devs->get_device_handle(cfg.device_key);
+    if (d_err) return {nullptr, d_err};
+    return {
+        std::make_unique<Task>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            dev,
+            std::move(cfg)
+        ),
+        xerrors::Error()
+    };
+}
+
+using configure_read = configure<labjack::ReadTaskConfig, common::ReadTask>;
+using configure_write = configure<labjack::WriteTaskConfig, common::WriteTask>;
 
 std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
@@ -20,19 +45,37 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
 ) {
     if (task.type == "labjack_scan")
         return {labjack::ScannerTask::configure(ctx, task, this->device_manager), true};
+    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "labjack_read")
-        return {labjack::ReaderTask::configure(ctx, task, this->device_manager), true};
+        res = configure_read(this->device_manager, ctx, task);
     if (task.type == "labjack_write")
-        return {labjack::WriterTask::configure(ctx, task, this->device_manager), true};
-    return {nullptr, false};
+        res = configure_write(this->device_manager, ctx, task);
+    auto [tsk, err] = std::move(res);
+    if (err)
+        ctx->set_state({
+            .task = task.key,
+            .variant = "error",
+            .details = json{
+                {"message", err.message()}
+            }
+        });
+    else
+        ctx->set_state({
+            .task = task.key,
+            .variant = "success",
+            .details = json{
+                {"message", "Task configured successfully"},
+            }
+        });
+    return {std::move(tsk), false};
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 labjack::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
     auto [existing, err] = rack.tasks.retrieveByType("labjack_scan");
     if (err.matches(xerrors::NOT_FOUND)) {

@@ -24,7 +24,7 @@
 #include "driver/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
 #include "driver/task/task.h"
-#include "driver/labjack/util.h"
+#include "driver/labjack/device_manager.h"
 
 // Currently supports: T7, T4, T5, Digit products.
 
