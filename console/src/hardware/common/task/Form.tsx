@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
+import { type StartOrStopCommand } from "@/hardware/common/task//types";
 import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
@@ -104,7 +105,7 @@ export const wrapForm = <
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
-    const [state, setLoading] = useState(tsk.key, tsk.state ?? undefined);
+    const [state, triggerLoading] = useState(tsk.key, tsk.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
@@ -119,10 +120,10 @@ export const wrapForm = <
       },
       onError: (e) => handleException(e, `Failed to configure ${values.name}`),
     });
-    const startOrStopMutation = useMutation<void, Error, "start" | "stop">({
-      mutationFn: async (command) => {
+    const startOrStopMutation = useMutation({
+      mutationFn: async (command: StartOrStopCommand) => {
         if (!configured) throw new UnexpectedError("Task has not been configured");
-        setLoading();
+        triggerLoading();
         await tsk.executeCommand(command);
       },
       onError: (e, command) => handleException(e, `Failed to ${command} task`),
