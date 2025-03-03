@@ -1,7 +1,15 @@
 cc_library(
     name = "ljm",
-    hdrs = ["api.h"],
-    deps = [],
+    hdrs = [
+        "api.h",
+        "device_manager.h",
+        "errors.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/labjack/ljm:ljm_official",
+    ],
 )
 
 cc_library(
@@ -13,5 +21,4 @@ cc_library(
         "LabJackM.h",
         "LabJackMModbusMap.h",
     ],
-    deps = [],
 )

@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
-#include "state.h"
-#include "driver/ni/write_task.h"
+
+/// internal
+#include "driver/task/common/state.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/pipeline/control.h"
 #include "driver/task/task.h"
 
 namespace common {

@@ -14,7 +14,6 @@
 #pragma once
 
 #include "driver/labjack/ljm/LabJackM.h"
-#include "x/cpp/xerrors/errors.h"
 
 namespace ljm {
 class API {

@@ -285,6 +285,21 @@ struct ReadTaskConfig {
     /// @brief the model of device being read from.
     std::string dev_model;
 
+    ReadTaskConfig(ReadTaskConfig &&other) noexcept:
+        data_saving(other.data_saving),
+        device_key(other.device_key),
+        sample_rate(other.sample_rate),
+        stream_rate(other.stream_rate),
+        conn_method(other.conn_method),
+        indexes(std::move(other.indexes)),
+        samples_per_chan(other.samples_per_chan),
+        channels(std::move(other.channels)),
+        dev_model(std::move(other.dev_model)) {
+    }
+
+    ReadTaskConfig(const ReadTaskConfig &) = delete;
+    const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
+
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -351,8 +366,8 @@ class UnarySource final: public common::Source {
 
     UnarySource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        const ReadTaskConfig &cfg
-    ): cfg(cfg), dev(dev), interval_handle(0) {
+        ReadTaskConfig &cfg
+    ): cfg(std::move(cfg)), dev(dev), interval_handle(0) {
     }
 
     xerrors::Error start() override {
@@ -412,7 +427,7 @@ class StreamSource final : public common::Source {
 
     StreamSource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        const ReadTaskConfig &cfg
+        ReadTaskConfig &cfg
     ): cfg(std::move(cfg)),
        data(this->cfg.samples_per_chan * this->cfg.channels.size()), dev(dev) {
     }
@@ -452,15 +467,14 @@ class StreamSource final : public common::Source {
         int num_skipped_scans;
         int scan_backlog;
         if (const auto err = this->dev->eStreamRead(
-            data.data.data(),
+            this->data.data(),
             &num_skipped_scans,
             &scan_backlog
         ))
             return {Frame(), err};
         const auto end = telem::TimeStamp::now();
 
-        const auto f = synnax::Frame(
-            this->cfg.channels.size() + this->cfg.indexes.size());
+        auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.indexes.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)
             f.emplace(
@@ -472,7 +486,7 @@ class StreamSource final : public common::Source {
             for (const auto &idx: this->cfg.indexes)
                 f.emplace(idx, std::move(index_data.deep_copy()));
         }
-        return std::make_pair(std::move(f), xerrors::NIL);
+        return {std::move(f), xerrors::NIL};
     }
 };
 }

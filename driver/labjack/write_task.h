@@ -28,7 +28,7 @@ struct OutputChan {
     bool enabled;
     synnax::ChannelKey cmd_ch_key;
     synnax::ChannelKey state_ch_key;
-    std::string type = "";
+    std::string type;
     synnax::Channel state_ch;
 
     explicit OutputChan(xjson::Parser &parser)
@@ -49,6 +49,20 @@ struct WriteTaskConfig {
     std::unordered_map<synnax::ChannelKey, OutputChan> channels;
     std::set<synnax::ChannelKey> state_index_keys;
 
+    WriteTaskConfig(
+        WriteTaskConfig &&other
+    ) noexcept: data_saving(other.data_saving),
+                device_key(other.device_key),
+                state_rate(other.state_rate),
+                conn_method(other.conn_method),
+                dev_model(std::move(other.dev_model)),
+                channels(std::move(other.channels)),
+                state_index_keys(std::move(other.state_index_keys)) {
+    }
+
+    WriteTaskConfig(const WriteTaskConfig &) = delete;
+    const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
+
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
@@ -60,7 +74,7 @@ struct WriteTaskConfig {
             "channels",
             [this](xjson::Parser &p) {
                 const auto ch = OutputChan(p);
-                if (ch.enabled) this->channels[ch.cmd_ch_key] = ch;
+                // if (ch.enabled) this->channels[ch.cmd_ch_key] = std::move(ch);
             }
         );
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
@@ -78,7 +92,7 @@ struct WriteTaskConfig {
         }
         for (const auto &ch: channels) {
             if (ch.index != 0) this->state_index_keys.insert(ch.key);
-            this->channels[ch.key].state_ch = ch;
+            // this->channels[ch.key].state_ch = ch;
         }
     }
 
@@ -110,7 +124,7 @@ class WriteSink final : public common::Sink {
 public:
     explicit WriteSink(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        const WriteTaskConfig &cfg
+        WriteTaskConfig &cfg
     ): Sink(
            cfg.state_rate,
            cfg.state_index_keys,

@@ -123,7 +123,8 @@ class ScanTask final : public task::Task {
     /// @returns the device and an SKIP_DEVICE_ERR error if the device should be skipped.
     /// @returns an empty device and an error if the device could not be parsed.
     std::pair<ni::Device, xerrors::Error> parse_device(
-        NISysCfgResourceHandle resource) const;
+        NISysCfgResourceHandle resource
+    ) const;
 
     /// @brief scans the hardware for devices.
     xerrors::Error find_devices();

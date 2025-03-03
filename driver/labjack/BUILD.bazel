@@ -5,7 +5,6 @@ cc_library(
         "scan_task.cpp",
     ],
     hdrs = [
-        "device_manager.h",
         "labjack.h",
         "read_task.h",
         "scan_task.h",
@@ -29,9 +28,11 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/errors",
+        "//driver/labjack/ljm",
         "//driver/pipeline",
         "//driver/queue",
         "//driver/task",
+        "//driver/task/common",
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/xjson",

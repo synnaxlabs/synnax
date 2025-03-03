@@ -14,42 +14,37 @@
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/write_task.h"
 
-template<typename Configure, typename Task>
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-    const std::shared_ptr<labjack::DeviceManager> &devs,
+    const std::shared_ptr<ljm::DeviceManager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    auto [cfg, err] = Configure::parse(ctx->client, task);
+    auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task);
     if (err) return {nullptr, err};
-    auto [dev, d_err] = devs->get_device_handle(cfg.device_key);
+    auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {nullptr, d_err};
     return {
-        std::make_unique<Task>(
+        std::make_unique<common::ReadTask>(
             task,
             ctx,
             breaker::default_config(task.name),
-            dev,
-            std::move(cfg)
+            std::make_shared<labjack::StreamSource>(dev, cfg)
         ),
         xerrors::Error()
     };
 }
 
-using configure_read = configure<labjack::ReadTaskConfig, common::ReadTask>;
-using configure_write = configure<labjack::WriteTaskConfig, common::WriteTask>;
-
 std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "labjack_scan")
-        return {labjack::ScannerTask::configure(ctx, task, this->device_manager), true};
+    // if (task.type == "labjack_scan")
+    //     return {labjack::ScanTask::configure(ctx, task, this->device_manager), true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "labjack_read")
-        res = configure_read(this->device_manager, ctx, task);
-    if (task.type == "labjack_write")
-        res = configure_write(this->device_manager, ctx, task);
+        res = configure(this->device_manager, ctx, task);
+    // if (task.type == "labjack_write")
+    //     res = configure<labjack::WriteTaskConfig, WriteSink, common::WriteTask>(this->device_manager, ctx, task);
     auto [tsk, err] = std::move(res);
     if (err)
         ctx->set_state({
