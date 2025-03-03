@@ -24,7 +24,6 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
-import { type StartOrStopCommand } from "@/hardware/common/task//types";
 import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
@@ -34,6 +33,7 @@ import {
   wrap,
   type WrapOptions,
 } from "@/hardware/common/task/Task";
+import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { type StateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
@@ -129,7 +129,8 @@ export const wrapForm = <
       onError: (e, command) => handleException(e, `Failed to ${command} task`),
     });
     const isSnapshot = configured ? tsk.snapshot : false;
-    const isRunning = configured && !isSnapshot ? state.status === "running" : false;
+    const isRunning =
+      configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
     const formProps = {
       methods,
       configured,

@@ -143,8 +143,8 @@ const Internal = ({
     base?.key,
     base?.state ?? undefined,
   );
-  const isLoading = state.status === "loading";
-  const isRunning = state.status === "running";
+  const isLoading = state.status === Common.Task.LOADING_STATUS;
+  const isRunning = state.status === Common.Task.RUNNING_STATUS;
   const isSnapshot = base?.snapshot ?? false;
 
   useEffect(() => {

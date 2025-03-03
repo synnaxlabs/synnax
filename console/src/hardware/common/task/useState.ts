@@ -30,6 +30,12 @@ export interface State {
   variant?: PStatus.Variant;
 }
 
+const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
+  status: state?.details?.running ? RUNNING_STATUS : PAUSED_STATUS,
+  message: state?.details?.message,
+  variant: parseVariant(state?.variant),
+});
+
 /**
  * Explicit return type for the useState hook.
  * The tuple consists of:
@@ -55,11 +61,7 @@ export const useState = <D extends StateDetails>(
   key: task.Key,
   initialState?: task.State<D>,
 ): UseStateReturn => {
-  const [state, setState] = useReactState<State>({
-    status: initialState?.details?.running ? RUNNING_STATUS : PAUSED_STATUS,
-    message: initialState?.details?.message,
-    variant: parseVariant(initialState?.variant),
-  });
+  const [state, setState] = useReactState<State>(parseState(initialState));
   const client = Synnax.use();
   const status = state.status;
   Observe.useListener({
@@ -75,12 +77,7 @@ export const useState = <D extends StateDetails>(
     open: async () => client?.hardware.tasks.openStateObserver(),
     onChange: (state) => {
       if (state.task !== key) return;
-      const { details, variant } = state as task.State<D>;
-      setState({
-        status: details?.running ? RUNNING_STATUS : PAUSED_STATUS,
-        message: details?.message,
-        variant: parseVariant(variant),
-      });
+      setState(parseState(state as task.State<D>));
     },
   });
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
