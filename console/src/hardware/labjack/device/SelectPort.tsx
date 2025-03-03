@@ -26,17 +26,20 @@ export interface SelectPortProps
 }
 
 const COLUMNS: List.ColumnSpec<string, Port>[] = [
-  { key: "key", name: "Port" },
+  { key: "port", name: "Port", stringer: ({ alias, key }) => alias ?? key },
   {
     key: "aliases",
     name: "Aliases",
-    render: ({ entry: { aliases } }) => (
-      <Text.Text level="small" shade={8}>
-        {aliases.join(", ")}
-      </Text.Text>
-    ),
+    render: ({ entry: { alias, key } }) =>
+      alias != null ? (
+        <Text.Text level="small" shade={8}>
+          {key}
+        </Text.Text>
+      ) : null,
   },
 ];
+
+const getEntryRenderKey = ({ alias, key }: Port) => alias ?? key;
 
 export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
   <Select.Single<string, Port>
@@ -44,6 +47,6 @@ export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
     {...rest}
     columns={COLUMNS}
     data={DEVICES[model].ports[portType]}
-    entryRenderKey="key"
+    entryRenderKey={getEntryRenderKey}
   />
 );
