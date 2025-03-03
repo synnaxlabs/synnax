@@ -298,8 +298,8 @@ struct ReadTaskConfig {
     }
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
-    const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
 
+    const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -357,24 +357,30 @@ struct ReadTaskConfig {
         auto parser = xjson::Parser(task.config);
         return {ReadTaskConfig(client, parser), parser.error()};
     }
+
+    [[nodiscard]] bool has_tcs() const {
+        for (const auto &ch: this->channels)
+            if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
+        return false;
+    }
 };
 
-class UnarySource final: public common::Source {
+class UnarySource final : public common::Source {
     const ReadTaskConfig cfg;
     const std::shared_ptr<ljm::DeviceAPI> dev;
     const int interval_handle;
-
+public:
     UnarySource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        ReadTaskConfig &cfg
+        ReadTaskConfig cfg
     ): cfg(std::move(cfg)), dev(dev), interval_handle(0) {
     }
 
     xerrors::Error start() override {
         return this->dev->StartInterval(
             this->interval_handle,
-            this->cfg.sample_rate.period().microseconds()
-            );
+            static_cast<int>(this->cfg.sample_rate.period().microseconds())
+        );
     }
 
     xerrors::Error stop() override {
@@ -424,15 +430,15 @@ class StreamSource final : public common::Source {
     ReadTaskConfig cfg;
     std::vector<double> data;
     std::shared_ptr<ljm::DeviceAPI> dev;
-
+public:
     StreamSource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        ReadTaskConfig &cfg
+        ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        data(this->cfg.samples_per_chan * this->cfg.channels.size()), dev(dev) {
     }
 
-    synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 

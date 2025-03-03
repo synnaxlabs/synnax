@@ -24,29 +24,43 @@
 
 namespace labjack {
 struct OutputChan {
-    std::string loc;
-    bool enabled;
-    synnax::ChannelKey cmd_ch_key;
-    synnax::ChannelKey state_ch_key;
-    std::string type;
+    /// @brief the port location of the output channel e.g. "DIO4"
+    const std::string port;
+    /// @brief whether the channel is enabled.
+    const bool enabled;
+    /// @brief the key of the synnax channel to receive commands from.
+    const synnax::ChannelKey cmd_ch_key;
+    //// @brief the key fo the synnax channel to propagate state changes to.
+    const synnax::ChannelKey state_ch_key;
+    /// @brief the synnax channel object for the state channel.
     synnax::Channel state_ch;
 
     explicit OutputChan(xjson::Parser &parser)
-        : loc(parser.optional<std::string>("port", "")),
+        : port(parser.optional<std::string>("port", "")),
           enabled(parser.optional<bool>("enabled", true)),
           cmd_ch_key(parser.required<uint32_t>("cmd_key")),
-          state_ch_key(parser.required<uint32_t>("state_key")),
-          type(parser.optional<std::string>("type", "")) {
+          state_ch_key(parser.required<uint32_t>("state_key")) {
+    }
+
+    void bind_remote_info(const synnax::Channel &state_ch) {
+        this->state_ch = state_ch;
     }
 };
 
 struct WriteTaskConfig {
+    /// @brief whether data saving is enabled for the task.
     const bool data_saving;
+    /// @brief the device key to write to.
     const std::string device_key;
+    /// @brief the rate at which to propagate state updates back to Synnax.
     const telem::Rate state_rate;
+    /// @brief the connection method to the device.
     const std::string conn_method;
+    /// @brief the model of the device.
     std::string dev_model;
-    std::unordered_map<synnax::ChannelKey, OutputChan> channels;
+    /// @brief configurations for the enabled channels on the device.
+    std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
+    /// @brief the set of index channel keys for the state channels.
     std::set<synnax::ChannelKey> state_index_keys;
 
     WriteTaskConfig(
@@ -61,6 +75,7 @@ struct WriteTaskConfig {
     }
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
+
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
 
     explicit WriteTaskConfig(
@@ -70,11 +85,14 @@ struct WriteTaskConfig {
        device_key(parser.required<std::string>("device")),
        state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
        conn_method(parser.optional<std::string>("connection_type", "")) {
+        std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
         parser.iter(
             "channels",
-            [this](xjson::Parser &p) {
-                const auto ch = OutputChan(p);
-                // if (ch.enabled) this->channels[ch.cmd_ch_key] = std::move(ch);
+            [this, &state_to_cmd](xjson::Parser &p) {
+                auto ch = std::make_unique<OutputChan>(p);
+                if (!ch->enabled) return;
+                this->channels[ch->cmd_ch_key] = std::move(ch);
+                state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
             }
         );
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
@@ -90,9 +108,10 @@ struct WriteTaskConfig {
                              "failed to retrieve channels: " + ch_err.message());
             return;
         }
-        for (const auto &ch: channels) {
-            if (ch.index != 0) this->state_index_keys.insert(ch.key);
-            // this->channels[ch.key].state_ch = ch;
+        for (const auto &state_ch: channels) {
+            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.key);
+            auto &ch = this->channels[state_to_cmd[state_ch.key]];
+            ch->bind_remote_info(state_ch);
         }
     }
 
@@ -104,15 +123,15 @@ struct WriteTaskConfig {
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
-    std::vector<synnax::ChannelKey> state_channels() const {
+    [[nodiscard]] std::vector<synnax::ChannelKey> state_channels() const {
         std::vector<synnax::ChannelKey> keys(this->channels.size());
-        for (const auto &[_, ch]: this->channels) keys.push_back(ch.state_ch_key);
+        for (const auto &[_, ch]: this->channels) keys.push_back(ch->state_ch_key);
         return keys;
     }
 
-    std::vector<synnax::ChannelKey> cmd_channels() const {
+    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() const {
         std::vector<synnax::ChannelKey> keys(this->channels.size());
-        for (const auto &[_, ch]: this->channels) keys.push_back(ch.cmd_ch_key);
+        for (const auto &[_, ch]: this->channels) keys.push_back(ch->cmd_ch_key);
         return keys;
     }
 };
@@ -124,7 +143,7 @@ class WriteSink final : public common::Sink {
 public:
     explicit WriteSink(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
-        WriteTaskConfig &cfg
+        WriteTaskConfig cfg
     ): Sink(
            cfg.state_rate,
            cfg.state_index_keys,
@@ -142,7 +161,7 @@ public:
         locs.reserve(this->cfg.channels.size());
         values.reserve(this->cfg.channels.size());
         for (const auto &[_, ch]: this->cfg.channels) {
-            locs.push_back(ch.loc.c_str());
+            locs.push_back(ch->port.c_str());
             values.push_back(0);
         }
         return this->write(locs, values);
@@ -157,7 +176,7 @@ public:
         const std::vector<double> &values
     ) const {
         return this->dev->eWriteNames(
-            locs.size(),
+            static_cast<int>(locs.size()),
             locs.data(),
             values.data(),
             nullptr
@@ -173,17 +192,17 @@ public:
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
-            const auto ch = it->second;
-            locs.push_back(ch.loc.c_str());
+            const auto &ch = it->second;
+            locs.push_back(ch->port.c_str());
             values.push_back(telem::cast<double>(s.at(-1)));
         }
         if (const auto err = this->write(locs, values)) return err;
         std::lock_guard lock{this->chan_state_lock};
         for (const auto &[key, s]: frame) {
             const auto it = this->cfg.channels.find(key);
-            if (it != this->cfg.channels.end())
-                this->chan_state[it->second.state_ch_key] = it->second.state_ch.
-                        data_type.cast(s.at(-1));
+            if (it == this->cfg.channels.end()) continue;
+            const auto state_ch = it->second->state_ch;
+            this->chan_state[state_ch.key] = state_ch.data_type.cast(s.at(-1));
         }
         return xerrors::NIL;
     }

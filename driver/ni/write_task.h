@@ -158,11 +158,14 @@ struct WriteTaskConfig {
 /// @brief sink is passed to the command pipeline in order to receive incoming
 /// data from Synnax, write it to the device, and update the state.
 template<typename T>
-class CommandTaskSink final : public common::Sink {
+class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
 public:
     /// @brief constructs a CommandSink bound to the provided parent WriteTask.
-    explicit CommandTaskSink(WriteTaskConfig &cfg):
+    explicit WriteTaskSink(
+        WriteTaskConfig cfg,
+        std::unique_ptr<hardware::Writer<T>> hw_writer
+    ):
         Sink(
             cfg.state_rate,
             cfg.state_indexes(),
@@ -171,7 +174,8 @@ public:
             cfg.data_saving
         ),
         cfg(std::move(cfg)),
-        buf(cfg.channels.size()) {
+        buf(this->cfg.channels.size()),
+        hw_writer(std::move(hw_writer)) {
     }
 
 private:

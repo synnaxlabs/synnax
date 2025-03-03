@@ -267,13 +267,12 @@ template<typename T>
 class ReadTaskSource final : public common::Source {
 public:
     /// @brief constructs a source bound to the provided parent read task.
-    explicit ReadTaskSource(ReadTaskConfig &cfg, std::unique_ptr<hardware::Reader<T>> hw_reader):
+    explicit ReadTaskSource(ReadTaskConfig cfg, std::unique_ptr<hardware::Reader<T>> hw_reader):
         cfg(std::move(cfg)),
-        buffer(cfg.samples_per_chan * cfg.channels.size()),
+        buffer(this->cfg.samples_per_chan * this->cfg.channels.size()),
         hw_reader(std::move(hw_reader)),
-        sample_clock(cfg.sample_clock()) {
+        sample_clock(this->cfg.sample_clock()) {
     }
-
 private:
     /// @brief automatically infer the data type from the template parameter. This
     /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
@@ -299,7 +298,7 @@ private:
         return this->hw_reader->stop();
     }
 
-    synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 

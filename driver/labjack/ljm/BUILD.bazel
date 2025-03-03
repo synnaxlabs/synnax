@@ -9,6 +9,7 @@ cc_library(
     deps = [
         "//driver/errors",
         "//driver/labjack/ljm:ljm_official",
+        "//x/cpp/xlib",
     ],
 )
 

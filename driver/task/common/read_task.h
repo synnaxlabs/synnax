@@ -14,14 +14,16 @@
 #include "driver/pipeline/acquisition.h"
 
 namespace common {
+/// @brief a source that can be used to read data from a hardware device.
 class Source : public pipeline::Source {
 public:
+    /// @brief starts the source.
     virtual xerrors::Error start() = 0;
+
     virtual xerrors::Error stop() = 0;
+
     virtual synnax::WriterConfig writer_config() const = 0;
 };
-
-
 
 /// @brief a read task that can pull from both analog and digital channels.
 class ReadTask final : public task::Task {
@@ -30,9 +32,34 @@ class ReadTask final : public task::Task {
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
     /// @brief handles communicating the task state back to the cluster.
     TaskStateHandler state;
+
+    class WrappedSource final : public pipeline::Source {
+        ReadTask &p;
+
+    public:
+        std::unique_ptr<common::Source> internal;
+
+        WrappedSource(
+            ReadTask &p,
+            std::unique_ptr<common::Source> internal
+        ): p(p), internal(std::move(internal)) {
+        }
+
+        void stopped_with_err(const xerrors::Error &err) override {
+            this->p.state.error(err);
+            this->p.stop("", false);
+        }
+
+        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+            return this->internal->read(breaker);
+        }
+    };
+
+    std::shared_ptr<WrappedSource> source;
+
     /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
     pipeline::Acquisition pipe;
-    std::shared_ptr<Source> source;
+
 public:
     /// @brief base constructor that takes in a pipeline writer factory to allow the
     /// caller to stub cluster communication during tests.
@@ -40,15 +67,17 @@ public:
         const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
-        const std::shared_ptr<Source> &source,
+        std::unique_ptr<Source> source,
         const std::shared_ptr<pipeline::WriterFactory> &factory
     ):
-        tare_mw(std::make_shared<pipeline::TareMiddleware>(source->writer_config().channels)),
+        tare_mw(std::make_shared<pipeline::TareMiddleware>(
+            source->writer_config().channels)),
         state(ctx, task),
+        source(std::make_shared<WrappedSource>(*this, std::move(source))),
         pipe(
             factory,
-            source->writer_config(),
-            source,
+            this->source->internal->writer_config(),
+            this->source,
             breaker_cfg
         ) {
         this->pipe.use(this->tare_mw);
@@ -60,7 +89,7 @@ public:
         synnax::Task task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
-        std::shared_ptr<Source> source
+        std::unique_ptr<Source> source
     ): ReadTask(
         std::move(task),
         ctx,
@@ -86,7 +115,7 @@ public:
     /// communicating success state.
     void stop(const std::string &cmd_key, const bool will_reconfigure) {
         if (const auto was_running = this->pipe.stop(); !was_running) return;
-        this->state.error(this->source->stop());
+        this->state.error(this->source->internal->stop());
         if (will_reconfigure) return;
         this->state.send_stop(cmd_key);
     }
@@ -95,7 +124,7 @@ public:
     /// communicating task state.
     void start(const std::string &cmd_key) {
         if (this->pipe.running()) return;
-        if (const auto ok = this->state.error(this->source->start()); ok)
+        if (const auto ok = this->state.error(this->source->internal->start()); ok)
             this->pipe.start();
         this->state.send_start(cmd_key);
     }
