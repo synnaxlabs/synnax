@@ -25,9 +25,7 @@ class Base {
         } catch (...) {
             LOG(ERROR) << "[control] Unhandled unknown exception";
         }
-        /// instead of calling stop() here, simply mark the breaker as stoppe, as theres
-        /// no waiting for the thread to join.
-        this->breaker.mark_stopped();
+        breaker.mark_stopped();
     }
 
 protected:
@@ -43,22 +41,22 @@ public:
     /// @brief the main run loop for the pipeline.
     virtual void run() = 0;
 
-    /// @brief starts the control pipeline if it has not already been started. start is
+    /// @brief starts the control pipeline if it has not already been started. Start is
     /// idempotent, and is safe to call multiple times without stopping the pipeline.
     virtual bool start() {
-        if (this->breaker.running()) return false;
-        auto started = this->breaker.start_guard();
+        if (!this->breaker.start()) return false;
         this->thread = std::thread(&Base::run_internal, this);
         return true;
     }
 
+    /// @brief stops the control pipeline if it has not already been stopped. Stop is
+    /// idempotent, and is safe to call multiple times without starting the pipeline
+    /// again.
     virtual bool stop() {
-        const bool was_running = this->breaker.running();
-        auto stopper = this->breaker.stop_guard();
+        auto stopped = this->breaker.stop();
         if (this->thread.joinable()) this->thread.join();
-        return was_running;
+        return stopped;
     }
-
 
     /// @brief returns true if the pipeline is currently running. This method may return
     /// true if the pipeline is in a transient state i.e. start has been called but the

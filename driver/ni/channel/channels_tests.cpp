@@ -14,12 +14,7 @@
 
 using json = nlohmann::json;
 
-class ChannelsTest : public ::testing::Test {
-protected:
-    std::map<int32_t, std::string> port_to_channel;
-};
-
-TEST_F(ChannelsTest, ParseAIAccelChan) {
+TEST(ChannelsTest, ParseAIAccelChan) {
     json j = {
         {"type","ai_accel"},
         {"key","ks1VnWdrSVA"},
@@ -40,7 +35,7 @@ TEST_F(ChannelsTest, ParseAIAccelChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto accel_chan = dynamic_cast<channel::AIAccel*>(chan.get());
@@ -58,7 +53,7 @@ TEST_F(ChannelsTest, ParseAIAccelChan) {
     EXPECT_EQ(accel_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIBridgeChan) {
+TEST(ChannelsTest, ParseAIBridgeChan) {
     json j = {
         {"type", "ai_bridge"},
         {"key", "ks1VnWdrSVA"},
@@ -78,7 +73,7 @@ TEST_F(ChannelsTest, ParseAIBridgeChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto bridge_chan = dynamic_cast<channel::AIBridge*>(chan.get());
@@ -91,7 +86,7 @@ TEST_F(ChannelsTest, ParseAIBridgeChan) {
     EXPECT_EQ(bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAICurrentChan) {
+TEST(ChannelsTest, ParseAICurrentChan) {
     json j = {
         {"type", "ai_current"},
         {"key", "ks1VnWdrSVA"},
@@ -110,7 +105,7 @@ TEST_F(ChannelsTest, ParseAICurrentChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto current_chan = dynamic_cast<channel::AICurrent*>(chan.get());
@@ -124,7 +119,7 @@ TEST_F(ChannelsTest, ParseAICurrentChan) {
     EXPECT_EQ(current_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIForceBridgeTableChan) {
+TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     json j = {
         {"type", "ai_force_bridge_table"},
         {"key", "ks1VnWdrSVA"},
@@ -148,7 +143,7 @@ TEST_F(ChannelsTest, ParseAIForceBridgeTableChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable*>(chan.get());
@@ -165,7 +160,7 @@ TEST_F(ChannelsTest, ParseAIForceBridgeTableChan) {
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
+TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     json j = {
         {"type", "ai_force_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
@@ -191,7 +186,7 @@ TEST_F(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTwoPointLin*>(chan.get());
@@ -208,7 +203,7 @@ TEST_F(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIForceIEPEChan) {
+TEST(ChannelsTest, ParseAIForceIEPEChan) {
     json j = {
         {"type", "ai_force_iepe"},
         {"key", "ks1VnWdrSVA"},
@@ -229,7 +224,7 @@ TEST_F(ChannelsTest, ParseAIForceIEPEChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto force_iepe_chan = dynamic_cast<channel::AIForceIEPE*>(chan.get());
@@ -244,7 +239,7 @@ TEST_F(ChannelsTest, ParseAIForceIEPEChan) {
     EXPECT_EQ(force_iepe_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIMicrophoneChan) {
+TEST(ChannelsTest, ParseAIMicrophoneChan) {
     json j = {
         {"type", "ai_microphone"},
         {"key", "ks1VnWdrSVA"},
@@ -263,7 +258,7 @@ TEST_F(ChannelsTest, ParseAIMicrophoneChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto mic_chan = dynamic_cast<channel::AIMicrophone*>(chan.get());
@@ -277,7 +272,7 @@ TEST_F(ChannelsTest, ParseAIMicrophoneChan) {
     EXPECT_EQ(mic_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIPressureBridgeTableChan) {
+TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
     json j = {
         {"type", "ai_pressure_bridge_table"},
         {"key", "ks1VnWdrSVA"},
@@ -301,7 +296,7 @@ TEST_F(ChannelsTest, ParseAIPressureBridgeTableChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTable*>(chan.get());
@@ -316,7 +311,7 @@ TEST_F(ChannelsTest, ParseAIPressureBridgeTableChan) {
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
+TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     json j = {
         {"type", "ai_pressure_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
@@ -342,7 +337,7 @@ TEST_F(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTwoPointLin*>(chan.get());
@@ -359,7 +354,7 @@ TEST_F(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIRTDChan) {
+TEST(ChannelsTest, ParseAIRTDChan) {
     json j = {
         {"type", "ai_rtd"},
         {"key", "ks1VnWdrSVA"},
@@ -379,7 +374,7 @@ TEST_F(ChannelsTest, ParseAIRTDChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto rtd_chan = dynamic_cast<channel::AIRTD*>(chan.get());
@@ -395,7 +390,7 @@ TEST_F(ChannelsTest, ParseAIRTDChan) {
     EXPECT_EQ(rtd_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIStrainGaugeChan) {
+TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     json j = {
         {"type", "ai_strain_gauge"},
         {"key", "ks1VnWdrSVA"},
@@ -419,7 +414,7 @@ TEST_F(ChannelsTest, ParseAIStrainGaugeChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto strain_chan = dynamic_cast<channel::AIStrainGauge*>(chan.get());
@@ -438,7 +433,7 @@ TEST_F(ChannelsTest, ParseAIStrainGaugeChan) {
     EXPECT_EQ(strain_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAITempBuiltInChan) {
+TEST(ChannelsTest, ParseAITempBuiltInChan) {
     json j = {
         {"type", "ai_temp_builtin"},
         {"key", "ks1VnWdrSVA"},
@@ -451,7 +446,7 @@ TEST_F(ChannelsTest, ParseAITempBuiltInChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto temp_chan = dynamic_cast<channel::AITempBuiltIn*>(chan.get());
@@ -461,41 +456,46 @@ TEST_F(ChannelsTest, ParseAITempBuiltInChan) {
     EXPECT_EQ(temp_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIThermoChan) {
+TEST(ChannelsTest, ParseAIThermoChan) {
     json j = {
-        {"type", "ai_thermocouple"},
-        {"key", "ks1VnWdrSVA"},
-        {"port", 0},
-        {"enabled", true},
-        {"name", ""},
-        {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
-        {"units", "DegC"},
-        {"thermocouple_type", "J"},
-        {"cjc_source", "BuiltIn"},
-        {"cjc_val", 0},
-        {"cjc_port", 0},
-        {"device", "cdaq1Mod2"}
+        {
+            "channels.0", {
+            {"type", "ai_thermocouple"},
+            {"key", "ks1VnWdrSVA"},
+            {"port", 0},
+            {"enabled", true},
+            {"name", ""},
+            {"channel", 0},
+            {"min_val", 0},
+            {"max_val", 1},
+            {"units", "DegC"},
+            {"thermocouple_type", "J"},
+            {"cjc_source", "Chan"},
+            {"cjc_val", 0},
+            {"cjc_port", 1},
+            {"device", "cdaq1Mod2"}
+            }
+        }
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    auto child = p.child("channels.0");
+    const auto chan = channel::parse_input(child);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto thermo_chan = dynamic_cast<channel::AIThermocouple*>(chan.get());
     ASSERT_NE(thermo_chan, nullptr);
     EXPECT_EQ(thermo_chan->thermocouple_type, DAQmx_Val_J_Type_TC);
-    EXPECT_EQ(thermo_chan->cjc_source, DAQmx_Val_BuiltIn);
+    EXPECT_EQ(thermo_chan->cjc_source, DAQmx_Val_Chan);
     EXPECT_EQ(thermo_chan->cjc_val, 0);
-    EXPECT_EQ(thermo_chan->cjc_port, "");
+    EXPECT_EQ(thermo_chan->cjc_port, "channels_1");
     EXPECT_EQ(thermo_chan->min_val, 0);
     EXPECT_EQ(thermo_chan->max_val, 1);
     thermo_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(thermo_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAITorqueBridgeTableChan) {
+TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
     json j = {
         {"type", "ai_torque_bridge_table"},
         {"key", "ks1VnWdrSVA"},
@@ -519,7 +519,7 @@ TEST_F(ChannelsTest, ParseAITorqueBridgeTableChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTable*>(chan.get());
@@ -534,7 +534,7 @@ TEST_F(ChannelsTest, ParseAITorqueBridgeTableChan) {
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
+TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     json j = {
         {"type", "ai_torque_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
@@ -560,7 +560,7 @@ TEST_F(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTwoPointLin*>(chan.get());
@@ -577,7 +577,7 @@ TEST_F(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIVelocityIEPEChan) {
+TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     json j = {
         {"type", "ai_velocity_iepe"},
         {"key", "ks1VnWdrSVA"},
@@ -598,7 +598,7 @@ TEST_F(ChannelsTest, ParseAIVelocityIEPEChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto velocity_chan = dynamic_cast<channel::AIVelocityIEPE*>(chan.get());
@@ -613,7 +613,7 @@ TEST_F(ChannelsTest, ParseAIVelocityIEPEChan) {
     EXPECT_EQ(velocity_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAIVoltageChan) {
+TEST(ChannelsTest, ParseAIVoltageChan) {
     json j = {
         {"type", "ai_voltage"},
         {"key", "ks1VnWdrSVA"},
@@ -630,7 +630,7 @@ TEST_F(ChannelsTest, ParseAIVoltageChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto voltage_chan = dynamic_cast<channel::AIVoltage*>(chan.get());
@@ -642,7 +642,7 @@ TEST_F(ChannelsTest, ParseAIVoltageChan) {
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
-TEST_F(ChannelsTest, ParseAOVoltageChan) {
+TEST(ChannelsTest, ParseAOVoltageChan) {
     json j = {
         {"type", "ao_voltage"},
         {"key", "XBQejNmAyaO"},
@@ -669,7 +669,7 @@ TEST_F(ChannelsTest, ParseAOVoltageChan) {
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ao0");
 }
 
-TEST_F(ChannelsTest, ParseAOFuncGenChan) {
+TEST(ChannelsTest, ParseAOFuncGenChan) {
     json j = {
         {"type", "ao_func_gen"},
         {"key", "AepqBDjsgwx"},
@@ -697,7 +697,7 @@ TEST_F(ChannelsTest, ParseAOFuncGenChan) {
     EXPECT_EQ(func_gen_chan->loc(), "cDAQ1Mod2/ao1");
 }
 
-TEST_F(ChannelsTest, ParseDIChan) {
+TEST(ChannelsTest, ParseDIChan) {
     json j = {
         {"type", "digital_input"},
         {"key", "ks1VnWdrSVA"},
@@ -709,7 +709,7 @@ TEST_F(ChannelsTest, ParseDIChan) {
     };
 
     xjson::Parser p(j);
-    const auto chan = channel::parse_input(p, port_to_channel);
+    const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto di_chan = dynamic_cast<channel::DI*>(chan.get());
@@ -721,7 +721,7 @@ TEST_F(ChannelsTest, ParseDIChan) {
     EXPECT_EQ(di_chan->loc(), "cDAQ1Mod2/port0/line1");
 }
 
-TEST_F(ChannelsTest, ParseDOChan) {
+TEST(ChannelsTest, ParseDOChan) {
     json j = {
         {"type", "digital_output"},
         {"key", "XBQejNmAyaO"},

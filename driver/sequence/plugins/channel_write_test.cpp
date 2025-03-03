@@ -62,8 +62,7 @@ protected:
         op->after_next(L);
         ASSERT_EQ(sink->writes->size(), 1);
         const telem::Series ser = std::move(sink->writes->at(0).series->at(0));
-        std::string value;
-        ser.at(0, value);
+        const auto value = ser.at<std::string>(0);
         ASSERT_EQ(value, expected_value);
     }
 

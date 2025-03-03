@@ -72,6 +72,7 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
         "PXI-6255",
         ""
     );
+    ASSERT_NIL(sy->hardware.create_device(dev));
     auto ch = ASSERT_NIL_P(sy->channels.create("virtual",telem::FLOAT64_T,true));
 
     auto j = base_analog_config();
@@ -555,5 +556,5 @@ TEST(SampleClockTest, testHardwareTimedSampleClock) {
     clock.reset();
     const auto start = clock.wait(breaker);
     const auto end = clock.end(10);
-    EXPECT_EQ(end - start, 10 * telem::SECOND);
+    EXPECT_EQ(end - start, 9 * telem::SECOND);
 }

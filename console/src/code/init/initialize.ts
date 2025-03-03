@@ -34,8 +34,6 @@ const getWorker = (_: string, label: string) => {
   throw new Error(`Worker ${label} not found`);
 };
 
-self.MonacoEnvironment = { getWorker };
-
 export type Service = () => Promise<AsyncDestructor>;
 export type Extension = () => Promise<void>;
 
@@ -56,6 +54,7 @@ export const initializeMonaco = async ({
   extensions,
   services,
 }: InitializeProps): Promise<InitializeReturn> => {
+  self.MonacoEnvironment = { getWorker };
   await initializationState.mu.acquire();
   if (initializationState.initialized) {
     initializationState.mu.release();

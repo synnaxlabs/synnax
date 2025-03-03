@@ -44,7 +44,7 @@ void labjack::ScannerTask::exec(task::Command &cmd) {
         this->scan();
         return this->create_devices();
     } else if (cmd.type == STOP_CMD_TYPE) {
-        return this->stop();
+        return this->stop(false);
     }
 }
 

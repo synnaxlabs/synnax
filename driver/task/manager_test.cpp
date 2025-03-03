@@ -16,7 +16,7 @@
 
 /// internal
 #include "driver/task/task.h"
-#include "driver/testutil/testutil.h"
+#include "client/cpp/testutil/testutil.h"
 
 
 using json = nlohmann::json;
@@ -136,8 +136,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto [f, r_err] = streamer.read();
     ASSERT_FALSE(r_err) << r_err;
     ASSERT_EQ(f.size(), 1);
-    std::string state_str;
-    f.at(sy_task_state.key, 0, state_str);
+    auto state_str = f.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
@@ -178,8 +177,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto [f2, r_err2] = streamer.read();
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
-    std::string state_str;
-    f2.at(sy_task_state.key, 0, state_str);
+    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
@@ -230,8 +228,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto [f2, r_err2] = streamer.read();
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
-    std::string state_str;
-    f2.at(sy_task_state.key, 0, state_str);
+    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
     auto [task, key, variant, details] = task::State::parse(parser);
     ASSERT_EQ(task, echo_task.key);
@@ -319,8 +316,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
 
-    std::string state_str;
-    f2.at(sy_task_state.key, 0, state_str);
+    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
 

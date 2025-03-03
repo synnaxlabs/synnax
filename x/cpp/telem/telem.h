@@ -36,42 +36,28 @@ constexpr int64_t DAY = HOUR * 24;
 class TimeSpan {
     /// @property value holds the internal, primitive value of the timespan.
     std::int64_t value;
-public:
-    TimeSpan(): value(0) {}
 
+public:
+    TimeSpan(): value(0) {
+    }
+
+    /// @brief returns the absolute value of the timespan.
     [[nodiscard]] TimeSpan abs() const {
         return TimeSpan(std::abs(value));
     }
 
-    /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
-    /// timespan.
+    /// @brief Constructs a timespan from the given int64, interpreting it as a
+    /// nanosecond-precision timespan.
     explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
-    explicit TimeSpan(
-        const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
-        duration.count()) {
+    /// @brief returns a new TimeSpan from the given chrono duration.
+    explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) :
+        value(duration.count()) {
     }
 
-    [[nodiscard]] std::int64_t nanoseconds() const {
-        return this->value;
-    }
-
-    static TimeSpan days(const double &days) {
-        return TimeSpan(static_cast<std::int64_t>(days * _priv::DAY));
-    }
-
-    static TimeSpan hours(const double &hours) {
-        return TimeSpan(static_cast<std::int64_t>(hours * _priv::HOUR));
-    }
-
-    static TimeSpan minutes(const double &minutes) {
-        return TimeSpan(static_cast<std::int64_t>(minutes * _priv::MINUTE));
-    }
-
-    static TimeSpan seconds(const double &seconds) {
-        return TimeSpan(static_cast<std::int64_t>(seconds * _priv::SECOND));
-    }
+    /// @brief returns the number of nanoseconds in the timespan.
+    [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
@@ -195,26 +181,38 @@ public:
         return *this - other;
     }
 
+    /// @brief returns the exact number of days in the timespan as double-precision
+    /// floating point.
     [[nodiscard]] double days() const {
         return static_cast<double>(value) / _priv::DAY;
     }
 
+    /// @brief returns the exact number of hours in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double hours() const {
         return static_cast<double>(value) / _priv::HOUR;
     }
 
+    /// @brief returns the exact number of minutes in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double minutes() const {
         return static_cast<double>(value) / _priv::MINUTE;
     }
 
+    /// @brief returns the exact number of seconds in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / _priv::SECOND;
     }
 
+    /// @brief returns the exact number of milliseconds in the timespan as a
+    /// double-precision floating point value.
     [[nodiscard]] double milliseconds() const {
         return static_cast<double>(value) / _priv::MILLISECOND;
     }
 
+    /// @brief returns the exact number of microseconds in the timespan as a
+    /// double precision floating point value.
     [[nodiscard]] double microseconds() const {
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
@@ -222,6 +220,7 @@ public:
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
+    /// @brief returns a pretty-printed string representation of the timespan.
     [[nodiscard]] std::string to_string() const {
         const auto total_days = this->truncate(TimeSpan(_priv::DAY));
         const auto total_hours = this->truncate(TimeSpan(_priv::HOUR));
@@ -260,7 +259,7 @@ public:
         return os;
     }
 
-
+    /// @brief returns the timespan as a chrono duration.
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
@@ -270,6 +269,7 @@ public:
 class TimeStamp {
     /// @property value holds the internal, primitive value of the timestamp.
     std::int64_t value;
+
 public:
     TimeStamp() = default;
 
@@ -278,7 +278,8 @@ public:
     explicit TimeStamp(const std::int64_t value) : value(value) {
     }
 
-    std::int64_t nanoseconds() const {return this->value;}
+    /// @brief returns the number of nanoseconds in the timestamp.
+    [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts) : value(ts.nanoseconds()) {
@@ -406,8 +407,9 @@ public:
 
 class Rate {
     float value;
+
 public:
-    float hz() const { return this->value; }
+    [[nodiscard]] float hz() const { return this->value; }
 
     explicit Rate(const float i) : value(i) {
     }
@@ -469,7 +471,8 @@ public:
     Rate operator*(const float &other) const { return Rate(value * other); }
 
     [[nodiscard]] TimeSpan period() const {
-        return TimeSpan(static_cast<std::int64_t>(1 / value * static_cast<double>(_priv::SECOND)));
+        return TimeSpan(
+            static_cast<std::int64_t>(1 / value * static_cast<double>(_priv::SECOND)));
     }
 
     ////////////////////////////////// DIVISION /////////////////////////////////
@@ -547,19 +550,16 @@ template<typename T>
 [[nodiscard]] T cast(const SampleValue &value) {
     if (std::holds_alternative<T>(value)) return std::get<T>(value);
     if constexpr (std::is_same_v<T, std::string>) {
-        // Handle conversion to string
         return std::visit([]<typename IT>(IT &&arg) -> std::string {
             if constexpr (std::is_same_v<std::decay_t<IT>, std::string>)
-                return arg; // Already a string, just return it
-            else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>) {
-                return std::to_string(arg.nanoseconds()); // Convert TimeStamp to string
-            } else {
+                return arg;
+            else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>)
+                return std::to_string(arg.nanoseconds());
+            else
                 return std::to_string(arg);
-            }
         }, value);
     }
     if constexpr (std::is_same_v<T, TimeStamp>) {
-        // Handle conversion to TimeStamp
         return std::visit([]<typename IT>(IT &&arg) -> TimeStamp {
             if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
                 return TimeStamp(static_cast<std::int64_t>(arg));
@@ -574,34 +574,27 @@ template<typename T>
             throw std::runtime_error("invalid type conversion to TimeStamp");
         }, value);
     }
-    if (std::holds_alternative<TimeStamp>(value)) {
-        const auto &ts = std::get<TimeStamp>(value);
+    if (std::holds_alternative<TimeStamp>(value))
         if constexpr (std::is_arithmetic_v<T>)
-            return static_cast<T>(ts.nanoseconds());
-    }
+            return static_cast<T>(std::get<TimeStamp>(value).nanoseconds());
     if (std::holds_alternative<std::string>(value)) {
-        // Handle string conversion specially
         const auto &str = std::get<std::string>(value);
         if constexpr (std::is_arithmetic_v<T>) {
             try {
-                if constexpr (std::is_floating_point_v<T>) {
+                if constexpr (std::is_floating_point_v<T>)
                     return static_cast<T>(std::stod(str));
-                } else if constexpr (std::is_signed_v<T>) {
+                else if constexpr (std::is_signed_v<T>)
                     return static_cast<T>(std::stoll(str));
-                } else {
+                else
                     return static_cast<T>(std::stoull(str));
-                }
             } catch (...) {
                 throw std::runtime_error("failed to convert string to numeric type");
             }
         }
     }
-    // For non-string conversions between numeric types
     return std::visit([]<typename IT>(IT &&arg) -> T {
-        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<
-                          IT>>) {
+        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>)
             return static_cast<T>(arg);
-        }
         throw std::runtime_error("invalid type conversion");
     }, value);
 }
@@ -638,8 +631,10 @@ public:
     explicit DataType(std::string data_type): value(std::move(data_type)) {
     }
 
-    /// @returns infers the data type from a given C++ type along with an optional
+    /// @brief Infers the data type from a given C++ type along with an optional
     /// override.
+    /// @returns the inferred data type if the override is not provided, otherwise
+    /// returns the override.
     template<typename T>
     DataType static infer(const DataType &override = DataType(_priv::UNKNOWN_T)) {
         if (override != _priv::UNKNOWN_T) return override;
@@ -649,8 +644,9 @@ public:
         throw std::runtime_error("cannot infer data type from unknown C++ type");
     }
 
+    /// @brief Infers the data type from a given sample value.
     DataType static infer(const SampleValue &value) {
-        return std::visit([]<typename IT>(IT&& arg) -> DataType {
+        return std::visit([]<typename IT>(IT &&) -> DataType {
             using T = std::decay_t<IT>;
             if constexpr (std::is_same_v<T, double>) return DataType(_priv::FLOAT64_T);
             if constexpr (std::is_same_v<T, float>) return DataType(_priv::FLOAT32_T);
@@ -662,8 +658,10 @@ public:
             if constexpr (std::is_same_v<T, uint32_t>) return DataType(_priv::UINT32_T);
             if constexpr (std::is_same_v<T, uint16_t>) return DataType(_priv::UINT16_T);
             if constexpr (std::is_same_v<T, uint8_t>) return DataType(_priv::UINT8_T);
-            if constexpr (std::is_same_v<T, TimeStamp>) return DataType(_priv::TIMESTAMP_T);
-            if constexpr (std::is_same_v<T, std::string>) return DataType(_priv::STRING_T);
+            if constexpr (std::is_same_v<T, TimeStamp>)
+                return DataType(_priv::TIMESTAMP_T);
+            if constexpr (std::is_same_v<T, std::string>)
+                return DataType(_priv::STRING_T);
             return DataType(_priv::UNKNOWN_T);
         }, value);
     }
@@ -671,41 +669,23 @@ public:
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }
 
-    /// @property Essentially how many bytes in memory the datatype holds.
-    [[nodiscard]] uint32_t density() const { return DENSITIES[value]; }
+    /// @property how many bytes in memory the data type holds.
+    [[nodiscard]] size_t density() const { return DENSITIES[value]; };
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(_priv::VARIABLE_TYPES);
-    }
-
-    /// @brief Checks if this data type matches another data type.
-    /// @param other The data type to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const DataType &other) const {
-        if (value.empty() || other.value.empty()) return true;
-        return *this == other;
-    }
-
-    /// @brief Checks if this data type matches a string data type identifier.
-    /// @param other The data type string to compare against
-    /// @returns true if the data types match, false otherwise
-    [[nodiscard]] bool matches(const std::string &other) const {
-        if (value.empty() || other.empty()) return true;
-        return value == other;
     }
 
     /// @brief Checks if this data type matches any of the provided data types.
     /// @param others Vector of data types to compare against
     /// @returns true if this data type matches any in the vector, false otherwise
     [[nodiscard]] bool matches(const std::vector<DataType> &others) const {
-        if (value.empty()) return true;
-        for (const auto &other: others) if (matches(other)) return true;
+        for (const auto &other: others) if (other == *this) return true;
         return false;
     }
 
     [[nodiscard]] bool matches(const std::vector<std::string> &others) const {
-        if (value.empty()) return true;
-        for (const auto &other: others) if (matches(other)) return true;
+        for (const auto &other: others) if (other == this->value) return true;
         return false;
     }
 
@@ -748,30 +728,23 @@ public:
     }
 
 private:
-    /// @brief Maps the data type to the 'density' of the object.
-    static std::unordered_map<std::string, uint32_t> init_densities() {
-        return {
-            {_priv::UNKNOWN_T, 0},
-            {_priv::FLOAT64_T, 8},
-            {_priv::FLOAT32_T, 4},
-            {_priv::INT8_T, 1},
-            {_priv::INT16_T, 2},
-            {_priv::INT32_T, 4},
-            {_priv::INT64_T, 8},
-            {_priv::UINT8_T, 1},
-            {_priv::UINT16_T, 2},
-            {_priv::UINT32_T, 4},
-            {_priv::UINT64_T, 8},
-            {_priv::UINT128_T, 16},
-            {_priv::TIMESTAMP_T, 8},
-            {_priv::UUID_T, 16},
-            {_priv::STRING_T, 0},
-            {_priv::JSON_T, 0},
-        };
-    }
-
-    inline static std::unordered_map<std::string, uint32_t> DENSITIES =
-            init_densities();
+    inline static std::unordered_map<std::string, size_t> DENSITIES = {
+        {_priv::FLOAT64_T, 8},
+        {_priv::FLOAT32_T, 4},
+        {_priv::INT8_T, 1},
+        {_priv::INT16_T, 2},
+        {_priv::INT32_T, 4},
+        {_priv::INT64_T, 8},
+        {_priv::UINT8_T, 1},
+        {_priv::UINT16_T, 2},
+        {_priv::UINT32_T, 4},
+        {_priv::UINT64_T, 8},
+        {_priv::UINT128_T, 16},
+        {_priv::TIMESTAMP_T, 8},
+        {_priv::UUID_T, 16},
+        {_priv::STRING_T, 0},
+        {_priv::JSON_T, 0},
+    };
 
     /// @brief stores a map of C++ type indexes to their corresponding synnax data
     /// type identifiers.
@@ -807,40 +780,43 @@ private:
     };
 };
 
+/// Note for future editors of these types, using `inline const` is dangerous as it
+/// causes problems with density lookups.
+
 /// @brief identifier for an unknown data type in a Synnax cluster.
-inline const DataType UNKNOWN_T(_priv::UNKNOWN_T);
+const DataType UNKNOWN_T(_priv::UNKNOWN_T);
 /// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
-inline const DataType FLOAT64_T(_priv::FLOAT64_T);
+const DataType FLOAT64_T(_priv::FLOAT64_T);
 /// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
-inline const DataType FLOAT32_T(_priv::FLOAT32_T);
+const DataType FLOAT32_T(_priv::FLOAT32_T);
 /// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
-inline const DataType INT8_T(_priv::INT8_T);
+const DataType INT8_T(_priv::INT8_T);
 /// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
-inline const DataType INT16_T(_priv::INT16_T);
+const DataType INT16_T(_priv::INT16_T);
 /// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
-inline const DataType INT32_T(_priv::INT32_T);
+const DataType INT32_T(_priv::INT32_T);
 /// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
-inline const DataType INT64_T(_priv::INT64_T);
+const DataType INT64_T(_priv::INT64_T);
 /// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
-inline const DataType TIMESTAMP_T(_priv::TIMESTAMP_T);
+const DataType TIMESTAMP_T(_priv::TIMESTAMP_T);
 /// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
-inline const DataType UINT8_T(_priv::UINT8_T);
+const DataType UINT8_T(_priv::UINT8_T);
 /// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
-inline const DataType UINT16_T(_priv::UINT16_T);
+const DataType UINT16_T(_priv::UINT16_T);
 /// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
-inline const DataType UINT32_T(_priv::UINT32_T);
+const DataType UINT32_T(_priv::UINT32_T);
 /// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
-inline const DataType UINT64_T(_priv::UINT64_T);
+const DataType UINT64_T(_priv::UINT64_T);
 /// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
-inline const DataType UINT128_T(_priv::UINT128_T);
+const DataType UINT128_T(_priv::UINT128_T);
 /// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
-inline const DataType UUID_T(_priv::UUID_T);
+const DataType UUID_T(_priv::UUID_T);
 /// @brief identifier for a newline separated, variable-length string data type in a
 /// Synnax cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
-inline const DataType STRING_T(_priv::STRING_T);
+const DataType STRING_T(_priv::STRING_T);
 /// @brief identifier for a newline separated, stringified JSON data type in a Synnax
 /// cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
-inline const DataType JSON_T(_priv::JSON_T);
+const DataType JSON_T(_priv::JSON_T);
 }

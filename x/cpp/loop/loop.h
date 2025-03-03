@@ -118,4 +118,42 @@ private:
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
 };
+
+class Gauge {
+    size_t count = 0;
+    telem::TimeSpan total_duration{0};
+    telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
+    telem::TimeSpan max_duration{0};
+    telem::TimeStamp curr_start = telem::TimeStamp(0);
+
+public:
+    void start() {
+        curr_start = telem::TimeStamp::now();
+    }
+
+    void stop() {
+        if (curr_start == telem::TimeStamp(0)) return;
+        const auto duration = telem::TimeStamp::now() - curr_start;
+        total_duration += duration;
+        min_duration = std::min(min_duration, duration);
+        max_duration = std::max(max_duration, duration);
+        count++;
+    }
+
+    [[nodiscard]] telem::TimeSpan average() const {
+        if (count == 0) return telem::TimeSpan(0);
+        return total_duration / count;
+    }
+
+    [[nodiscard]] telem::TimeSpan min() const { return min_duration; }
+    [[nodiscard]] telem::TimeSpan max() const { return max_duration; }
+    [[nodiscard]] size_t iterations() const { return count; }
+
+    void reset() {
+        count = 0;
+        total_duration = telem::TimeSpan(0);
+        min_duration = telem::TimeSpan(std::numeric_limits<int64_t>::max());
+        max_duration = telem::TimeSpan(0);
+    }
+};
 }

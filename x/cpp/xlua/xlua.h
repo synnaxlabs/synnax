@@ -173,19 +173,17 @@ inline xerrors::Error set_globals_from_json_object(lua_State *L, const json &obj
     const telem::DataType &data_type
 ) {
     // Check if the index contains any value (even nil)
-    if (lua_isnone(L, index)) {
+    if (lua_isnone(L, index))
         return {
             telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(xerrors::VALIDATION, "Invalid stack index")
         };
-    }
 
-    if (lua_isnil(L, index)) {
+    if (lua_isnil(L, index))
         return {
             telem::Series(telem::UNKNOWN_T, 0),
             xerrors::Error(xerrors::VALIDATION, "Expected value but received nil")
         };
-    }
 
     const bool is_numeric = lua_isnumber(L, index) || lua_isinteger(L, index);
     const bool is_boolean = lua_isboolean(L, index);

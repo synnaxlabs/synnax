@@ -132,52 +132,52 @@ size_t opc::ReaderSource::write_to_series(
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
         const auto *data = static_cast<UA_Float *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::FLOAT32_T) return s.write(data, length);
+        if (s.data_type() == telem::FLOAT32_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DOUBLE])) {
         const UA_Double *data = static_cast<UA_Double *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::FLOAT64_T) return s.write(data, length);
+        if (s.data_type() == telem::FLOAT64_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT16])) {
         const UA_Int16 *data = static_cast<UA_Int16 *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::INT16_T) return s.write(data, length);
+        if (s.data_type() == telem::INT16_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT32])) {
         const UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::INT32_T) return s.write(data, length);
+        if (s.data_type() == telem::INT32_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT64])) {
         const UA_Int64 *data = static_cast<UA_Int64 *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::INT64_T) return s.write(data, length);
+        if (s.data_type() == telem::INT64_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT32])) {
         const UA_UInt32 *data = static_cast<UA_UInt32 *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::UINT32_T) return s.write(data, length);
+        if (s.data_type() == telem::UINT32_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT64])) {
         const UA_UInt64 *data = static_cast<UA_UInt64 *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::UINT64_T) return s.write(data, length);
+        if (s.data_type() == telem::UINT64_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BYTE])) {
         const UA_Byte *data = static_cast<UA_Byte *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::UINT8_T) return s.write(data, length);
+        if (s.data_type() == telem::UINT8_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_SBYTE])) {
         const UA_SByte *data = static_cast<UA_SByte *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::INT8_T) return s.write(data, length);
+        if (s.data_type() == telem::INT8_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BOOLEAN])) {
         const UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == telem::UINT8_T) return s.write(data, length);
+        if (s.data_type() == telem::UINT8_T) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
         const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
@@ -189,202 +189,202 @@ size_t opc::ReaderSource::write_to_series(
     }
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
-        if (s.data_type == telem::FLOAT32_T) return s.write(value);
-        if (s.data_type == telem::FLOAT64_T)
+        if (s.data_type() == telem::FLOAT32_T) return s.write(value);
+        if (s.data_type() == telem::FLOAT64_T)
             return s.write(
                 static_cast<double>(value));
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
         const auto value = *static_cast<UA_Double *>(val->data);
-        if (s.data_type == telem::FLOAT32_T)
+        if (s.data_type() == telem::FLOAT32_T)
             return s.write(
                 static_cast<float>(value));
-        if (s.data_type == telem::FLOAT64_T) return s.write(value);
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::FLOAT64_T) return s.write(value);
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT16]) {
         const auto value = *static_cast<UA_Int16 *>(val->data);
-        if (s.data_type == telem::INT16_T) return s.write(value);
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT16_T) return s.write(value);
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int16_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::UINT16_T)
+        if (s.data_type() == telem::UINT16_T)
             return s.write(
                 static_cast<uint16_t>(value));
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
         const auto value = *static_cast<UA_Int32 *>(val->data);
-        if (s.data_type == telem::INT32_T) return s.write(value);
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT32_T) return s.write(value);
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
         const auto value = *static_cast<UA_Int64 *>(val->data);
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T) return s.write(value);
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::INT64_T) return s.write(value);
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
-        if (s.data_type == telem::TIMESTAMP_T)
+        if (s.data_type() == telem::TIMESTAMP_T)
             return s.write(static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
         const auto value = *static_cast<UA_UInt32 *>(val->data);
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
         // Potential data loss
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::UINT32_T) return s.write(value);
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT32_T) return s.write(value);
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
         const auto value = *static_cast<UA_UInt64 *>(val->data);
-        if (s.data_type == telem::UINT64_T) return s.write(value);
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::UINT64_T) return s.write(value);
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
         // Potential data loss
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
         // Potential data loss
-        if (s.data_type == telem::TIMESTAMP_T)
+        if (s.data_type() == telem::TIMESTAMP_T)
             s.write(static_cast<uint64_t>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
         const auto value = *static_cast<UA_Byte *>(val->data);
-        if (s.data_type == telem::UINT8_T) return s.write(value);
-        if (s.data_type == telem::UINT16_T)
+        if (s.data_type() == telem::UINT8_T) return s.write(value);
+        if (s.data_type() == telem::UINT16_T)
             return s.write(
                 static_cast<uint16_t>(value));
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
-        if (s.data_type == telem::INT8_T) return s.write(static_cast<int8_t>(value));
-        if (s.data_type == telem::INT16_T)
+        if (s.data_type() == telem::INT8_T) return s.write(static_cast<int8_t>(value));
+        if (s.data_type() == telem::INT16_T)
             return s.write(
                 static_cast<int16_t>(value));
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::FLOAT32_T)
+        if (s.data_type() == telem::FLOAT32_T)
             return s.write(
                 static_cast<float>(value));
-        if (s.data_type == telem::FLOAT64_T)
+        if (s.data_type() == telem::FLOAT64_T)
             return s.write(
                 static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
         const auto value = *static_cast<UA_SByte *>(val->data);
-        if (s.data_type == telem::INT8_T) return s.write(value);
-        if (s.data_type == telem::INT16_T)
+        if (s.data_type() == telem::INT8_T) return s.write(value);
+        if (s.data_type() == telem::INT16_T)
             return s.write(
                 static_cast<int16_t>(value));
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::FLOAT32_T)
+        if (s.data_type() == telem::FLOAT32_T)
             return s.write(
                 static_cast<float>(value));
-        if (s.data_type == telem::FLOAT64_T)
+        if (s.data_type() == telem::FLOAT64_T)
             return s.write(
                 static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
         const auto value = *static_cast<UA_Boolean *>(val->data);
-        if (s.data_type == telem::UINT8_T)
+        if (s.data_type() == telem::UINT8_T)
             return s.write(
                 static_cast<uint8_t>(value));
-        if (s.data_type == telem::UINT16_T)
+        if (s.data_type() == telem::UINT16_T)
             return s.write(
                 static_cast<uint16_t>(value));
-        if (s.data_type == telem::UINT32_T)
+        if (s.data_type() == telem::UINT32_T)
             return s.write(
                 static_cast<uint32_t>(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(value));
-        if (s.data_type == telem::INT8_T) return s.write(static_cast<int8_t>(value));
-        if (s.data_type == telem::INT16_T)
+        if (s.data_type() == telem::INT8_T) return s.write(static_cast<int8_t>(value));
+        if (s.data_type() == telem::INT16_T)
             return s.write(
                 static_cast<int16_t>(value));
-        if (s.data_type == telem::INT32_T)
+        if (s.data_type() == telem::INT32_T)
             return s.write(
                 static_cast<int32_t>(value));
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == telem::FLOAT32_T)
+        if (s.data_type() == telem::FLOAT32_T)
             return s.write(
                 static_cast<float>(value));
-        if (s.data_type == telem::FLOAT64_T)
+        if (s.data_type() == telem::FLOAT64_T)
             return s.write(
                 static_cast<double>(value));
     }
     if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
         const auto value = *static_cast<UA_DateTime *>(val->data);
-        if (s.data_type == telem::INT64_T)
+        if (s.data_type() == telem::INT64_T)
             return s.write(
                 ua_datetime_to_unix_nano(value));
-        if (s.data_type == telem::TIMESTAMP_T)
+        if (s.data_type() == telem::TIMESTAMP_T)
             return s.write(
                 ua_datetime_to_unix_nano(value));
-        if (s.data_type == telem::UINT64_T)
+        if (s.data_type() == telem::UINT64_T)
             return s.write(
                 static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
-        if (s.data_type == telem::FLOAT32_T)
+        if (s.data_type() == telem::FLOAT32_T)
             return s.write(
                 static_cast<float>(value));
-        if (s.data_type == telem::FLOAT64_T)
+        if (s.data_type() == telem::FLOAT64_T)
             return s.write(
                 static_cast<double>(value));
     }

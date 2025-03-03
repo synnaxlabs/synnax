@@ -217,7 +217,15 @@ struct TwoPointLinConfig {
 inline std::string format_cfg_path(const std::string &path) {
     auto formatted = path;
     std::replace(formatted.begin(), formatted.end(), '.', '_');
+    if (formatted.empty()) return formatted;
+    formatted.pop_back();
     return formatted;
+}
+
+inline std::string format_cjc_port(const std::string &path, const std::int32_t port) {
+    const auto last_underscore = path.find_last_of('_');
+    if (last_underscore == std::string::npos) return path;
+    return path.substr(0, last_underscore) + "_" + std::to_string(port);
 }
 
 /// @brief base channel class that all NI channels inherit from.
@@ -665,18 +673,17 @@ struct AIThermocouple final : AI {
         return DAQmx_Val_BuiltIn;
     }
 
-    explicit AIThermocouple(
-        xjson::Parser &cfg,
-        const std::map<std::int32_t, std::string> &cjc_sources
-    ) : Analog(cfg),
-        Base(cfg),
-        AI(cfg),
-        thermocouple_type(parse_type(cfg)),
-        cjc_source(parse_cjc_source(cfg)),
-        cjc_val(cfg.optional<double>("cjc_val", 0)) {
-        const auto cjc_port = cfg.required<std::int32_t>("cjc_port");
-        if (cjc_sources.find(cjc_port) == cjc_sources.end()) this->cjc_port = "";
-        else this->cjc_port = cjc_sources.at(cjc_port);
+    explicit AIThermocouple(xjson::Parser &cfg)
+        : Analog(cfg),
+          Base(cfg),
+          AI(cfg),
+          thermocouple_type(parse_type(cfg)),
+          cjc_source(parse_cjc_source(cfg)),
+          cjc_val(cfg.optional<double>("cjc_val", 0)),
+          cjc_port(
+              format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))) {
+        this->cjc_port = format_cjc_port(this->cfg_path,
+                                         cfg.optional<int32_t>("cjc_port", 0));
     }
 
     xerrors::Error apply(
@@ -1682,16 +1689,10 @@ struct AOFunctionGenerator final : AO {
 };
 
 template<typename T>
-using Factory = std::function<std::unique_ptr<T>(
-        xjson::Parser &cfg,
-        const std::map<int32_t, std::string> &port_to_channel)
->;
+using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
 #define FACTORY(type, class) \
-    {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg); }}
-
-#define FACTORY_WITH_CJC_SOURCES(type, class) \
-    {type, [](xjson::Parser& cfg, const auto& ptc) { return std::make_unique<class>(cfg, ptc); }}
+    {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
     FACTORY("ao_current", AOCurrent),
@@ -1718,7 +1719,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     FACTORY("ai_rtd", AIRTD),
     FACTORY("ai_strain_gauge", AIStrainGauge),
     FACTORY("ai_temp_builtin", AITempBuiltIn),
-    FACTORY_WITH_CJC_SOURCES("ai_thermocouple", AIThermocouple),
+    FACTORY("ai_thermocouple", AIThermocouple),
     FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
     FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
     FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
@@ -1728,14 +1729,10 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     FACTORY("digital_input", DI)
 };
 
-inline std::unique_ptr<Input> parse_input(
-    xjson::Parser &cfg,
-    const std::map<int32_t, std::string> &port_to_channel
-) {
+inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
     const auto type = cfg.required<std::string>("type");
     const auto input = INPUTS.find(type);
-    if (input != INPUTS.end())
-        return input->second(cfg, port_to_channel);
+    if (input != INPUTS.end()) return input->second(cfg);
     cfg.field_err("type", "unknown channel type: " + type);
     return nullptr;
 }
@@ -1743,8 +1740,7 @@ inline std::unique_ptr<Input> parse_input(
 inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
     const auto type = cfg.required<std::string>("type");
     const auto output = OUTPUTS.find(type);
-    if (output != OUTPUTS.end())
-        return output->second(cfg, {});
+    if (output != OUTPUTS.end()) return output->second(cfg);
     return nullptr;
 }
 

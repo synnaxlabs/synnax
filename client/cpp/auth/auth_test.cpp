@@ -72,7 +72,8 @@ TEST(TestAuth, testLoginRetry) {
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon"
+        "seldon",
+        5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{
             {1, 1},
@@ -107,7 +108,8 @@ protected:
         mw = std::make_shared<AuthMiddleware>(
             std::move(mock_login_client),
             "synnax",
-            "seldon"
+            "seldon",
+            5 * telem::SECOND
         );
         mock_client = MockUnaryClient<int, int>{
             {1, 1},
