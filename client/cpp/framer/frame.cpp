@@ -31,7 +31,6 @@ Frame::Frame(const ChannelKey &chan, telem::Series &&ser) :
     channels(std::make_unique<std::vector<ChannelKey> >(1, chan)),
     series(std::make_unique<std::vector<telem::Series> >()) {
     series->reserve(1);
-    std::cout << ser << std::endl;
     series->emplace_back(std::move(ser));
 }
 

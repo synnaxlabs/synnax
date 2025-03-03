@@ -41,39 +41,23 @@ public:
     TimeSpan(): value(0) {
     }
 
+    /// @brief returns the absolute value of the timespan.
     [[nodiscard]] TimeSpan abs() const {
         return TimeSpan(std::abs(value));
     }
 
-    /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
-    /// timespan.
+    /// @brief Constructs a timespan from the given int64, interpreting it as a
+    /// nanosecond-precision timespan.
     explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
-    explicit TimeSpan(
-        const std::chrono::duration<std::int64_t, std::nano> &duration) : value(
-        duration.count()) {
+    /// @brief returns a new TimeSpan from the given chrono duration.
+    explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) :
+        value(duration.count()) {
     }
 
-    [[nodiscard]] std::int64_t nanoseconds() const {
-        return this->value;
-    }
-
-    static TimeSpan days(const double &days) {
-        return TimeSpan(static_cast<std::int64_t>(days * _priv::DAY));
-    }
-
-    static TimeSpan hours(const double &hours) {
-        return TimeSpan(static_cast<std::int64_t>(hours * _priv::HOUR));
-    }
-
-    static TimeSpan minutes(const double &minutes) {
-        return TimeSpan(static_cast<std::int64_t>(minutes * _priv::MINUTE));
-    }
-
-    static TimeSpan seconds(const double &seconds) {
-        return TimeSpan(static_cast<std::int64_t>(seconds * _priv::SECOND));
-    }
+    /// @brief returns the number of nanoseconds in the timespan.
+    [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
@@ -197,26 +181,38 @@ public:
         return *this - other;
     }
 
+    /// @brief returns the exact number of days in the timespan as double-precision
+    /// floating point.
     [[nodiscard]] double days() const {
         return static_cast<double>(value) / _priv::DAY;
     }
 
+    /// @brief returns the exact number of hours in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double hours() const {
         return static_cast<double>(value) / _priv::HOUR;
     }
 
+    /// @brief returns the exact number of minutes in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double minutes() const {
         return static_cast<double>(value) / _priv::MINUTE;
     }
 
+    /// @brief returns the exact number of seconds in the timespan as double-precision
+    /// floating point value.
     [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / _priv::SECOND;
     }
 
+    /// @brief returns the exact number of milliseconds in the timespan as a
+    /// double-precision floating point value.
     [[nodiscard]] double milliseconds() const {
         return static_cast<double>(value) / _priv::MILLISECOND;
     }
 
+    /// @brief returns the exact number of microseconds in the timespan as a
+    /// double precision floating point value.
     [[nodiscard]] double microseconds() const {
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
@@ -224,6 +220,7 @@ public:
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
+    /// @brief returns a pretty-printed string representation of the timespan.
     [[nodiscard]] std::string to_string() const {
         const auto total_days = this->truncate(TimeSpan(_priv::DAY));
         const auto total_hours = this->truncate(TimeSpan(_priv::HOUR));
@@ -262,7 +259,7 @@ public:
         return os;
     }
 
-
+    /// @brief returns the timespan as a chrono duration.
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
@@ -281,7 +278,8 @@ public:
     explicit TimeStamp(const std::int64_t value) : value(value) {
     }
 
-    std::int64_t nanoseconds() const { return this->value; }
+    /// @brief returns the number of nanoseconds in the timestamp.
+    [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts) : value(ts.nanoseconds()) {
@@ -633,8 +631,10 @@ public:
     explicit DataType(std::string data_type): value(std::move(data_type)) {
     }
 
-    /// @returns infers the data type from a given C++ type along with an optional
+    /// @brief Infers the data type from a given C++ type along with an optional
     /// override.
+    /// @returns the inferred data type if the override is not provided, otherwise
+    /// returns the override.
     template<typename T>
     DataType static infer(const DataType &override = DataType(_priv::UNKNOWN_T)) {
         if (override != _priv::UNKNOWN_T) return override;
@@ -644,6 +644,7 @@ public:
         throw std::runtime_error("cannot infer data type from unknown C++ type");
     }
 
+    /// @brief Infers the data type from a given sample value.
     DataType static infer(const SampleValue &value) {
         return std::visit([]<typename IT>(IT &&) -> DataType {
             using T = std::decay_t<IT>;
@@ -658,11 +659,9 @@ public:
             if constexpr (std::is_same_v<T, uint16_t>) return DataType(_priv::UINT16_T);
             if constexpr (std::is_same_v<T, uint8_t>) return DataType(_priv::UINT8_T);
             if constexpr (std::is_same_v<T, TimeStamp>)
-                return DataType(
-                    _priv::TIMESTAMP_T);
+                return DataType(_priv::TIMESTAMP_T);
             if constexpr (std::is_same_v<T, std::string>)
-                return DataType(
-                    _priv::STRING_T);
+                return DataType(_priv::STRING_T);
             return DataType(_priv::UNKNOWN_T);
         }, value);
     }

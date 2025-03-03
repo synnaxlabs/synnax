@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 #include <variant>
-#include <iostream>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -81,7 +80,7 @@ class Series {
     /// @brief validates the input index is within the bounds of the series. If the
     /// write size is provided, it will also validate that the write does not exceed
     /// the capacity of the series.
-    [[nodiscard]] int validate_bounds(
+    [[nodiscard]] size_t validate_bounds(
         const int &index,
         const size_t write_size = 0
     ) const {
@@ -112,6 +111,12 @@ public:
     /// @brief returns the number of samples in the series.
     [[nodiscard]] size_t size() const { return this->size_; }
 
+    /// @brief returns the size of the series in bytes.
+    [[nodiscard]] size_t byte_size() const {
+        if (this->data_type().is_variable()) return this->cached_byte_size;
+        return this->size() * this->data_type().density();
+    }
+
     /// @brief returns true if the series is empty.
     [[nodiscard]] bool empty() const { return this->size_ == 0; }
 
@@ -120,7 +125,14 @@ public:
 
     /// @brief returns the capacity of the series in number of samples. If the series
     /// was not pre-allocated, this is the same as size().
-    [[nodiscard]] size_t cap() const { return this->cap_; };
+    [[nodiscard]] size_t cap() const { return this->cap_; }
+
+    /// @brief returns the capacity of the series in bytes.
+    [[nodiscard]] size_t byte_cap() const {
+        if (this->cap() == 0 || this->data_type().is_variable())
+            return this->cached_byte_size;
+        return this->cap() * this->data_type().density();
+    }
 
     /// @brief move constructor.
     Series(Series &&other) noexcept:
@@ -131,21 +143,6 @@ public:
         data(std::move(other.data)),
         time_range(other.time_range) {
         other.data = nullptr;
-    }
-
-    /// @brief constructor that conditionally casts that provided data array to the
-    /// given data type.
-    /// @param data_type - the data type of the series.
-    /// @param data - the data to write to the series. If data_type is the same as
-    /// the inferred type of this data, then it will be directly written to the series.
-    /// Otherwise, each sample in data will be cast to the correct data type.
-    /// @param size - the number of samples in the data array.
-    template<typename T>
-    static Series cast(const DataType &data_type, T *data, const size_t size) {
-        auto s = Series(data_type, size);
-        if (DataType::infer<T>() == data_type) s.write(data, size);
-        else for (size_t i = 0; i < size; i++) s.write(data_type.cast(data[i]));
-        return s;
     }
 
     /// @brief allocates a series with the given data type and capacity (in samples).
@@ -175,7 +172,8 @@ public:
         data_type_(telem::DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
-        data(std::make_unique<std::byte[]>(this->size() * this->data_type().density())) {
+        data(std::make_unique<std::byte[]>(
+            this->size() * this->data_type().density())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -197,6 +195,8 @@ public:
     ): Series(d.data(), d.size(), dt) {
     }
 
+    /// @brief constructs a series with data type TIMESTAMP containing the given vector
+    /// of timestamps.
     explicit Series(const std::vector<telem::TimeStamp> &d):
         data_type_(telem::TIMESTAMP_T),
         cap_(d.size()),
@@ -211,7 +211,6 @@ public:
             );
         }
     }
-
 
     /// @brief constructs a series of size 1 with a data type of TIMESTAMP from the
     /// given timestamp.
@@ -259,7 +258,7 @@ public:
             throw std::runtime_error("expected data type to be STRING or JSON");
         this->cached_byte_size = 0;
         for (const auto &s: d) this->cached_byte_size += s.size() + 1;
-        this->data = std::make_unique<std::byte[]>(byte_size());
+        this->data = std::make_unique<std::byte[]>(this->byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
             memcpy(this->data.get() + offset, s.data(), s.size());
@@ -306,26 +305,21 @@ public:
 
     /// @brief constructs a series of size 1 from the given SampleValue.
     /// @param v the SampleValue to be used.
-    explicit Series(const SampleValue &v) {
-        if (std::holds_alternative<std::string>(v)) {
+    explicit Series(const SampleValue &v):
+        data_type_(DataType::infer(v)),
+        cap_(1),
+        size_(1) {
+        if (this->data_type().is_variable()) {
             const auto &str = std::get<std::string>(v);
-            data_type_ = STRING_T;
-            cap_ = 1;
-            size_ = 1;
             cached_byte_size = str.size() + 1;
-            data = std::make_unique<std::byte[]>(byte_size());
-            memcpy(data.get(), str.data(), str.size());
-            data[byte_size() - 1] = NEWLINE_TERMINATOR;
+            this->data = std::make_unique<std::byte[]>(this->byte_size());
+            memcpy(this->data.get(), str.data(), str.size());
+            this->data[this->byte_size() - 1] = NEWLINE_TERMINATOR;
             return;
         }
-
         std::visit([this]<typename IT>(IT &&arg) {
-            using T = std::decay_t<IT>;
-            data_type_ = DataType::infer<T>();
-            cap_ = 1;
-            size_ = 1;
-            data = std::make_unique<std::byte[]>(byte_size());
-            memcpy(data.get(), &arg, byte_size());
+            this->data = std::make_unique<std::byte[]>(this->byte_size());
+            memcpy(data.get(), &arg, this->byte_size());
         }, v);
     }
 
@@ -376,16 +370,7 @@ public:
     /// @throws std::runtime_error if the index is out of bounds or the write would
     template<typename NumericType>
     void set(const std::vector<NumericType> &d, const int &index) {
-        static_assert(
-            std::is_arithmetic_v<NumericType>,
-            "NumericType must be a numeric type"
-        );
-        const auto adjusted = this->validate_bounds(index, d.size());
-        memcpy(
-            this->data.get() + adjusted * this->data_type().density(),
-            d.data(),
-            d.size() * this->data_type().density()
-        );
+        this->set(d.data(), index, d.size());
     }
 
     /// @brief writes the given vector of numeric data to the series.
@@ -424,6 +409,10 @@ public:
         }
     }
 
+    /// @brief writes the given SampleValue to the series.
+    /// @param value the SampleValue to be written.
+    /// @returns 1 if the value was written, 0 if the series is at capacity and the
+    /// sample was not written.
     size_t write(const telem::SampleValue &value) {
         if (std::holds_alternative<std::string>(value))
             return write(std::get<std::string>(value));
@@ -487,6 +476,9 @@ public:
         }
     }
 
+    /// @brief writes the given timestamp to the series. If the series is at capacity,
+    /// returns 0 and does not write the timestamp. If the series is not at capacity,
+    /// writes the timestamp and returns 1.
     size_t write(const telem::TimeStamp &ts) {
         return this->write<int64_t>(ts.nanoseconds());
     }
@@ -590,19 +582,18 @@ public:
 
     /// @returns the value at the given index.
     [[nodiscard]] SampleValue at(const int &index) const {
-        const auto adjusted = validate_bounds(index);
         const auto dt = this->data_type();
-        if (dt == FLOAT64_T) return this->at<double>(adjusted);
-        if (dt == FLOAT32_T) return this->at<float>(adjusted);
-        if (dt == INT64_T) return this->at<int64_t>(adjusted);
-        if (dt == INT32_T) return this->at<int32_t>(adjusted);
-        if (dt == INT16_T) return this->at<int16_t>(adjusted);
-        if (dt == INT8_T) return this->at<int8_t>(adjusted);
-        if (dt == UINT64_T) return this->at<uint64_t>(adjusted);
-        if (dt == UINT32_T) return this->at<uint32_t>(adjusted);
-        if (dt == UINT16_T) return this->at<uint16_t>(adjusted);
-        if (dt == UINT8_T) return this->at<uint8_t>(adjusted);
-        if (dt == STRING_T || dt == JSON_T) return this->at<std::string>(adjusted);
+        if (dt == FLOAT64_T) return this->at<double>(index);
+        if (dt == FLOAT32_T) return this->at<float>(index);
+        if (dt == INT64_T) return this->at<int64_t>(index);
+        if (dt == INT32_T) return this->at<int32_t>(index);
+        if (dt == INT16_T) return this->at<int16_t>(index);
+        if (dt == INT8_T) return this->at<int8_t>(index);
+        if (dt == UINT64_T) return this->at<uint64_t>(index);
+        if (dt == UINT32_T) return this->at<uint32_t>(index);
+        if (dt == UINT16_T) return this->at<uint16_t>(index);
+        if (dt == UINT8_T) return this->at<uint8_t>(index);
+        if (dt == STRING_T || dt == JSON_T) return this->at<std::string>(index);
         throw std::runtime_error(
             "unsupported data type for value_at: " + dt.name()
         );
@@ -620,7 +611,7 @@ public:
     }
 
     friend std::ostream &operator<<(std::ostream &os, const telem::Series &s) {
-        auto dt = s.data_type();
+        const auto dt = s.data_type();
         os << "Series(type: " << dt.name() << ", size: " << s.size()
                 << ", cap: "
                 << s.cap() << ", data: [";
@@ -649,19 +640,6 @@ public:
         return os;
     }
 
-    /// @brief returns the size of the series in bytes.
-    [[nodiscard]] size_t byte_size() const {
-        if (this->data_type().is_variable()) return this->cached_byte_size;
-        return this->size() * this->data_type().density();
-    }
-
-    /// @brief returns the capacity of the series in bytes.
-    [[nodiscard]] size_t byte_cap() const {
-        if (this->cap() == 0 || this->data_type().is_variable())
-            return this->cached_byte_size;
-        return this->cap() * this->data_type().density();
-    }
-
     template<typename NumericType>
     void map_inplace(const std::function<NumericType(const NumericType &)> &func) {
         static_assert(
@@ -674,7 +652,8 @@ public:
         set(vals.data(), 0, vals.size());
     }
 
-    /// @brief Creates a timestamp series with evenly spaced values between start and end (inclusive).
+    /// @brief Creates a timestamp series with evenly spaced values between start and 
+    /// end (inclusive).
     /// @param start The starting timestamp
     /// @param end The ending timestamp
     /// @param count The number of points to generate
@@ -687,15 +666,30 @@ public:
         if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
-        const auto step = (end - start) / (count - 1);
+        const auto step = (end - start) / (static_cast<int64_t>(count) - 1);
         for (size_t i = 0; i < count; i++) s.write(start + step * i);
         s.size_ = count;
+        return s;
+    }
+
+    /// @brief constructor that conditionally casts that provided data array to the
+    /// given data type.
+    /// @param data_type - the data type of the series.
+    /// @param data - the data to write to the series. If data_type is the same as
+    /// the inferred type of this data, then it will be directly written to the series.
+    /// Otherwise, each sample in data will be cast to the correct data type.
+    /// @param size - the number of samples in the data array.
+    template<typename T>
+    static Series cast(const DataType &data_type, T *data, const size_t size) {
+        auto s = Series(data_type, size);
+        if (DataType::infer<T>() == data_type) s.write(data, size);
+        else for (size_t i = 0; i < size; i++) s.write(data_type.cast(data[i]));
         return s;
     }
 
     /// @brief deep copies the series, including all of its data. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
-    [[nodiscard]] Series deep_copy() const { return Series(*this); }
+    [[nodiscard]] Series deep_copy() const { return {*this}; }
 }; // class Series
 } // namespace telem

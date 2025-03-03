@@ -72,6 +72,7 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
         "PXI-6255",
         ""
     );
+    ASSERT_NIL(sy->hardware.create_device(dev));
     auto ch = ASSERT_NIL_P(sy->channels.create("virtual",telem::FLOAT64_T,true));
 
     auto j = base_analog_config();
