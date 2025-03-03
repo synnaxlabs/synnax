@@ -130,6 +130,7 @@ public:
         size_(other.size_),
         data(std::move(other.data)),
         time_range(other.time_range) {
+        other.data = nullptr;
     }
 
     /// @brief constructor that conditionally casts that provided data array to the
@@ -167,19 +168,19 @@ public:
 
     /// @brief constructs a series from the given array of numeric data and a length.
  /// @param d the array of numeric data to be used.
- /// @param size_ the number of samples to be used.
+ /// @param size the number of samples to be used.
  /// @param dt the data type of the series.
     template<typename NumericType>
-    Series(const NumericType *d, const size_t size_, const DataType &dt = UNKNOWN_T):
+    Series(const NumericType *d, const size_t size, const DataType &dt = UNKNOWN_T):
         data_type_(telem::DataType::infer<NumericType>(dt)),
-        cap_(size_),
-        size_(size_),
-        data(std::make_unique<std::byte[]>(size_ * this->data_type().density())) {
+        cap_(size),
+        size_(size),
+        data(std::make_unique<std::byte[]>(this->size() * this->data_type().density())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        memcpy(this->data.get(), d, size_ * this->data_type().density());
+        memcpy(this->data.get(), d, this->size() * this->data_type().density());
     }
 
     /// @brief constructs a series from the given vector of numeric data and an optional
@@ -566,9 +567,9 @@ public:
                     j++;
                 } else value += static_cast<char>(this->data[i]);
             return value;
-        } else if constexpr (std::is_same_v<T, TimeStamp>) 
+        } else if constexpr (std::is_same_v<T, TimeStamp>)
             return TimeStamp(this->at<int64_t>(index));
-         else {
+        else {
             static_assert(
                 std::is_arithmetic_v<T>,
                 "template argument to at must be a numeric type or string"
