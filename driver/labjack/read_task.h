@@ -22,7 +22,8 @@
 #include "x/cpp/breaker/breaker.h"
 
 /// internal
-#include "driver/labjack/device_manager.h"
+#include "labjack.h"
+#include "ljm/device_manager.h"
 #include "driver/task/common/read_task.h"
 #include "driver/pipeline/middleware.h"
 #include "driver/labjack/ljm/api.h"
@@ -32,9 +33,6 @@
 
 
 namespace labjack {
-///////////////////////////////////////////////////////////////////////////////////
-//                            Thermocouple Config                                //
-///////////////////////////////////////////////////////////////////////////////////
 constexpr int SINGLE_ENDED = 199; // default negative channel for single ended signals
 
 ///@brief look up table mapping LJM TC Type to TC AIN_EF index
@@ -81,7 +79,7 @@ struct InputChan {
     const bool enabled;
     std::string loc;
     const synnax::ChannelKey synnax_key;
-    const synnax::Channel ch;
+    synnax::Channel ch;
     const int neg_chan;
     const int pos_chan;
 
@@ -94,9 +92,8 @@ struct InputChan {
     }
 
     virtual xerrors::Error apply(
-        const std::shared_ptr<ljm::SugaredAPI> &ljm,
-        const std::string &device_type,
-        int handle
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::string &device_type
     ) = 0;
 };
 
@@ -147,20 +144,17 @@ struct ThermocoupleChan final : InputChan {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<ljm::SugaredAPI> &ljm,
-        const std::string &device_type,
-        const int handle
-    ) {
-        if (const auto err = ljm->LJM_eWriteAddress(
-            handle,
+        const std::shared_ptr<ljm::DeviceAPI> &ljm,
+        const std::string &device_type
+    ) override {
+        if (const auto err = ljm->eWriteAddress(
             41500 + this->pos_chan,
             LJM_UINT16,
             0
         ))
             return err;
-        if (device_type == "T7") {
-            if (const auto err = ljm->LJM_eWriteAddress(
-                handle,
+        if (device_type == T7) {
+            if (const auto err = ljm->eWriteAddress(
                 41000 + this->pos_chan,
                 LJM_UINT16,
                 this->neg_chan
@@ -201,8 +195,7 @@ struct ThermocoupleChan final : InputChan {
             aTypes[4] = LJM_FLOAT32;
             aValues[4] = this->cjc_offset;
 
-            return ljm->LJM_eWriteAddresses(
-                handle,
+            return ljm->eWriteAddresses(
                 NUM_FRAMES,
                 aAddresses,
                 aTypes,
@@ -210,6 +203,7 @@ struct ThermocoupleChan final : InputChan {
                 &err_addr
             );
         }
+        return xerrors::NIL;
     };
 };
 
@@ -222,41 +216,39 @@ struct AIChan final : InputChan {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<ljm::SugaredAPI> &ljm,
-        const std::string &device_type,
-        const int handle
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::string &device_type
     ) override {
-        if (const auto err = ljm->LJM_eWriteName(
-            handle,
+        if (const auto err = dev->eWriteName(
             (this->loc + "_RESOLUTION_INDEX").c_str(),
             0
         ))
             return err;
-        if (device_type == "T7" || device_type == "T8") {
-            if (const auto err = ljm->LJM_eWriteName(
-                handle,
+        if (device_type == T7 || device_type == T8) {
+            if (const auto err = dev->eWriteName(
                 (this->loc + "_RANGE").c_str(),
                 0
             ))
                 return err;
         }
-        if (device_type == "T7")
-            ljm->LJM_eWriteName(
-                handle,
+        if (device_type == T7)
+            dev->eWriteName(
                 (this->loc + "_NEGATIVE_CH").c_str(),
                 this->neg_chan
             );
+        return xerrors::NIL;
     }
 };
 
-class DIChan final : InputChan {
+struct DIChan final : InputChan {
     explicit DIChan(xjson::Parser &parser):
         InputChan(parser) {
     }
 
-    xerrors::Error apply(const std::shared_ptr<ljm::SugaredAPI> &ljm, const std::string &device_type, int handle) override {
-
-    }
+    xerrors::Error apply(
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::string &device_type
+    ) override;
 };
 
 template<typename T>
@@ -265,7 +257,7 @@ using F = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 #define FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-std::map<std::string, F<InputChan>> FACTORY_MAP = {
+inline std::map<std::string, F<InputChan>> FACTORY_MAP = {
     FACTORY("TC", ThermocoupleChan),
     FACTORY("AI", AIChan),
     FACTORY("DI", DIChan)
@@ -273,9 +265,6 @@ std::map<std::string, F<InputChan>> FACTORY_MAP = {
 
 std::unique_ptr<InputChan> parse_channel(xjson::Parser &parser);
 
-const std::string T4 = "LJM_dtT4";
-const std::string T7 = "LJM_dtT7";
-const std::string T8 = "LJM_dtT8";
 
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -305,19 +294,45 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
        stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
-       samples_per_chan(static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))),
-       channels(parser.map("channels",
-                           [&](xjson::Parser &p)-> std::pair<std::unique_ptr<
-                       InputChan>, bool> {
-                               auto ch = parse_channel(p);
-                               return {std::move(ch), ch->enabled};
-                           })) {
+       samples_per_chan(
+           static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))
+       ) {
+        parser.iter("channels", [this](xjson::Parser &p) {
+            auto ch = parse_channel(p);
+            if (ch->enabled) this->channels.push_back(std::move(ch));
+        });
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
         }
         this->dev_model = dev.model;
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size());
+        for (const auto &ch: this->channels) keys.push_back(ch->synnax_key);
+        const auto [sy_channels, ch_err] = client->channels.retrieve(keys);
+        if (ch_err) {
+            parser.field_err("channels",
+                             "failed to retrieve channels: " + ch_err.message());
+            return;
+        }
+        size_t i = 0;
+        for (const auto &ch: sy_channels) {
+            if (ch.index != 0) this->indexes.insert(ch.key);
+            this->channels[i++]->ch = ch;
+        }
+    }
+
+    [[nodiscard]] synnax::WriterConfig writer() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size() + this->indexes.size());
+        for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
+        for (const auto &idx: this->indexes) keys.push_back(idx);
+        return synnax::WriterConfig{
+            .channels = keys,
+            .mode = synnax::data_saving_writer_mode(this->data_saving),
+            .enable_auto_commit = true
+        };
     }
 
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
@@ -329,14 +344,26 @@ struct ReadTaskConfig {
     }
 };
 
-class UnarySource : public common::Source {
+class UnarySource final: public common::Source {
     const ReadTaskConfig cfg;
-    const std::shared_ptr<DeviceAPI> dev;
+    const std::shared_ptr<ljm::DeviceAPI> dev;
     const int interval_handle;
 
+    UnarySource(
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const ReadTaskConfig &cfg
+    ): cfg(cfg), dev(dev), interval_handle(0) {
+    }
+
     xerrors::Error start() override {
-        return this->dev->StartInterval(this->interval_handle,
-                                        this->cfg.sample_rate.period().microseconds());
+        return this->dev->StartInterval(
+            this->interval_handle,
+            this->cfg.sample_rate.period().microseconds()
+            );
+    }
+
+    xerrors::Error stop() override {
+        return xerrors::NIL;
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -346,11 +373,11 @@ class UnarySource : public common::Source {
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->loc.c_str());
         int SkippedIntervals;
-        if (const auto err = this->dev->LJM_WaitForNextInterval(
+        if (const auto err = this->dev->WaitForNextInterval(
             this->interval_handle, &SkippedIntervals))
             return {Frame(), err};
         values.resize(locations.size());
-        if (const auto err = this->dev->LJM_eReadNames(
+        if (const auto err = this->dev->eReadNames(
             locations.size(),
             locations.data(),
             values.data(),
@@ -372,18 +399,26 @@ class UnarySource : public common::Source {
         }
         return std::make_pair(std::move(f), xerrors::NIL);
     }
+
+    synnax::WriterConfig writer_config() const override {
+        return this->cfg.writer();
+    }
 };
 
 class StreamSource final : public common::Source {
     ReadTaskConfig cfg;
     std::vector<double> data;
-    std::shared_ptr<DeviceAPI> dev;
+    std::shared_ptr<ljm::DeviceAPI> dev;
 
     StreamSource(
-        const std::shared_ptr<DeviceAPI> &dev,
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
         const ReadTaskConfig &cfg
     ): cfg(std::move(cfg)),
        data(this->cfg.samples_per_chan * this->cfg.channels.size()), dev(dev) {
+    }
+
+    synnax::WriterConfig writer_config() const override {
+        return this->cfg.writer();
     }
 
     xerrors::Error start() override {

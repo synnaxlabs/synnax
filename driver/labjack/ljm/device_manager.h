@@ -7,109 +7,255 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
 #pragma once
 
 #include <mutex>
 #include <map>
-#include <_virtual_includes/glog/glog/logging.h>
 
-#include "driver/labjack/ljm/errors.h"
+#include "api.h"
+#include "errors.h"
 #include "driver/labjack/ljm/LabJackM.h"
 
-namespace labjack {
-// An internal namespace for special labjack methods that cannot be called concurrently.
-namespace locked {
-// This mutex is reserved for internal use to the namespace only.
-
-inline int LJM_ListAll_wrapped(
-    int DeviceType,
-    int ConnectionType,
-    int *NumFound,
-    int *aDeviceTypes,
-    int *aConnectionTypes,
-    int *aSerialNumbers,
-    int *aIPAddresses
-) {
-    std::lock_guard lock(_priv_device_mutex);
-    return LJM_ListAll(
-        DeviceType,
-        ConnectionType,
-        NumFound,
-        aDeviceTypes,
-        aConnectionTypes,
-        aSerialNumbers,
-        aIPAddresses
-    );
-}
-
-inline int LJM_Open_wrapped(int DeviceType, int ConnectionType,
-                            const char *Identifier, int *Handle) {
-    std::lock_guard<std::mutex> lock(_priv_device_mutex);
-    return LJM_Open(DeviceType, ConnectionType, Identifier, Handle);
-}
-}
-
-
+namespace ljm {
 class DeviceAPI {
+    std::shared_ptr<ljm::API> ljm;
+
 public:
-     xerrors::Error eStreamRead(
+    const int handle;
+
+    DeviceAPI(const std::shared_ptr<ljm::API> &ljm, const int handle):
+        ljm(ljm), handle(handle) {
+    }
+
+    xerrors::Error eStreamRead(
         double *aData,
         int *DeviceScanBacklog,
         int *LJMScanBacklog
-    );
-    xerrors::Error eStreamStop();
-    xerrors::Error LJM_eWriteAddress(int Address, int Type, double Value);
-    xerrors::Error LJM_eWriteAddresses(int NumFrames,
-	const int * aAddresses, const int * aTypes, const double * aValues,
-	int * ErrorAddress);
-    xerrors::Error StartInterval(int IntervalHandle, int Microseconds);
-    xerrors::Error LJM_eWriteName(const char *Name, double Value);
-    xerrors::Error LJM_eWriteNames(int NumFrames,
-	const char ** aNames, const double * aValues, int * ErrorAddress);
-    xerrors::Error NamesToAddresses(int NumFrames, const char **aNames, int *aAddresses, int *aTypes);
-    xerrors::Error LJM_WaitForNextInterval(int IntervalHandle, int *skippedIntervals);
-    xerrors::Error LJM_eReadNames(int NumFrames,
-	const char ** aNames, double * aValues, int * ErrorAddress);
-    xerrors::Error eStreamStart(int ScansPerRead,
-	int NumAddresses, const int * aScanList, double * ScanRate);
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eStreamRead(
+                handle,
+                aData,
+                DeviceScanBacklog,
+                LJMScanBacklog
+            )
+        );
+    }
+
+    xerrors::Error eStreamStop() const {
+        return parse_error(
+            ljm,
+            ljm->eStreamStop(handle)
+        );
+    }
+
+    xerrors::Error eWriteAddress(
+        const int Address,
+        const int Type,
+        const double Value
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eWriteAddress(
+                handle,
+                Address,
+                Type,
+                Value
+            )
+        );
+    }
+
+    xerrors::Error eWriteAddresses(
+        const int NumFrames,
+        const int *aAddresses,
+        const int *aTypes,
+        const double *aValues,
+        int *ErrorAddress
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eWriteAddresses(
+                handle,
+                NumFrames,
+                aAddresses,
+                aTypes,
+                aValues,
+                ErrorAddress
+            )
+        );
+    }
+
+    xerrors::Error StartInterval(
+        const int IntervalHandle,
+        const int Microseconds
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->StartInterval(
+                IntervalHandle,
+                Microseconds
+            )
+        );
+    }
+
+    xerrors::Error eWriteName(const char *Name, const double Value) const {
+        return parse_error(
+            ljm,
+            ljm->eWriteName(
+                handle,
+                Name,
+                Value
+            )
+        );
+    }
+
+    xerrors::Error eWriteNames(
+        const int NumFrames,
+        const char **aNames,
+        const double *aValues,
+        int *ErrorAddress
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eWriteNames(
+                handle,
+                NumFrames,
+                aNames,
+                aValues,
+                ErrorAddress
+            )
+        );
+    }
+
+    xerrors::Error NamesToAddresses(
+        const int NumFrames,
+        const char **aNames,
+        int *aAddresses,
+        int *aTypes
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->NamesToAddresses(
+                NumFrames,
+                aNames,
+                aAddresses,
+                aTypes
+            )
+        );
+    }
+
+    xerrors::Error WaitForNextInterval(
+        const int IntervalHandle,
+        int *skippedIntervals
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->WaitForNextInterval(
+                IntervalHandle,
+                skippedIntervals
+            )
+        );
+    }
+
+    xerrors::Error eReadNames(
+        const int NumFrames,
+        const char **aNames,
+        double *aValues,
+        int *ErrorAddress
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eReadNames(
+                handle,
+                NumFrames,
+                aNames,
+                aValues,
+                ErrorAddress
+            )
+        );
+    }
+
+    xerrors::Error eStreamStart(
+        const int ScansPerRead,
+        const int NumAddresses,
+        const int *aScanList,
+        double *ScanRate
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->eStreamStart(
+                handle,
+                ScansPerRead,
+                NumAddresses,
+                aScanList,
+                ScanRate
+            )
+        );
+    }
 };
 
 class DeviceManager {
     std::mutex mu;
-    std::map<std::string, int> device_handles;
+    std::map<std::string, std::shared_ptr<DeviceAPI>> device_handles;
+    std::shared_ptr<ljm::API> ljm;
+
 public:
     DeviceManager() {
     }
 
-    std::pair<std::shared_ptr<DeviceAPI>, xerrors::Error> get_device_handle(std::string serial_number) {
-        std::lock_guard lock(mu);
-        if (this->device_handles.find(serial_number) == device_handles.end()) {
-            int handle;
-            int err = locked::LJM_Open_wrapped(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
-            if (err != 0) {
-                char err_msg[LJM_MAX_NAME_SIZE];
-                LJM_ErrorToString(err, err_msg);
-                LOG(ERROR) << "[labjack.reader] LJM_Open error: " << err_msg << "(" << err << ")";
-                return -1;
-            }
-            device_handles[serial_number] = handle;
-        }
-        return device_handles[serial_number];
+    xerrors::Error ListAll(
+        const int DeviceType,
+        const int ConnectionType,
+        int *NumFound,
+        int *aDeviceTypes,
+        int *aConnectionTypes,
+        int *aSerialNumbers,
+        int *aIPAddresses
+    ) const {
+        return parse_error(
+            ljm,
+            ljm->ListAll(
+                DeviceType,
+                ConnectionType,
+                NumFound,
+                aDeviceTypes,
+                aConnectionTypes,
+                aSerialNumbers,
+                aIPAddresses
+            )
+        );
     }
 
-    void close_device(std::string serial_number) {
+
+    std::pair<std::shared_ptr<DeviceAPI>, xerrors::Error> acquire(
+        const std::string &serial_number
+    ) {
         std::lock_guard lock(mu);
-        if (this->device_handles.find(serial_number) != device_handles.end()) {
-            int handle = device_handles[serial_number];
-            LJM_Close(handle);
-            device_handles.erase(serial_number);
+        const auto it = this->device_handles.find(serial_number);
+        auto dev = it->second;
+        if (it == device_handles.end()) {
+            int handle;
+            const int err = ljm->Open(
+                LJM_dtANY,
+                LJM_ctANY,
+                serial_number.c_str(),
+                &handle
+            );
+            if (err != 0) return {nullptr, parse_error(ljm, err)};
+            dev = std::make_shared<DeviceAPI>(ljm, handle);
+            device_handles[serial_number] = dev;
         }
+        return {dev, xerrors::NIL};
+    }
+
+    xerrors::Error release(const std::string &serial_number) {
+        std::lock_guard lock(mu);
+        const auto it = this->device_handles.find(serial_number);
+        if (it == device_handles.end()) return xerrors::NIL;
+        const auto error = ljm->Close(it->second->handle);
+        device_handles.erase(serial_number);
+        return parse_error(ljm, error);
     }
 };
 }

@@ -24,7 +24,7 @@
 #include "driver/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
 #include "driver/task/task.h"
-#include "driver/labjack/device_manager.h"
+#include "ljm/device_manager.h"
 
 // Currently supports: T7, T4, T5, Digit products.
 
@@ -83,6 +83,6 @@ private:
     telem::Rate scan_rate = telem::Rate(0.5);
     int tcp_scan_multiplier = 10;
     bool ok_state = true;
-    std::shared_ptr<labjack::DeviceManager> device_manager;
+    std::shared_ptr<ljm::DeviceManager> device_manager;
 };
 };

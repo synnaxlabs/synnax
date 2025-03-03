@@ -14,7 +14,7 @@
 #include "scan_task.h"
 #include "glog/logging.h"
 #include "x/cpp/xjson/xjson.h"
-#include "driver/labjack/device_manager.h"
+#include "ljm/device_manager.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////

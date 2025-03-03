@@ -19,7 +19,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/labjack/device_manager.h"
+#include "driver/labjack/ljm/device_manager.h"
 #include "driver/task/common/write_task.h"
 
 namespace labjack {
@@ -42,27 +42,44 @@ struct OutputChan {
 
 struct WriteTaskConfig {
     const bool data_saving;
-    const std::string dev_module;
     const std::string device_key;
     const telem::Rate state_rate;
     const std::string conn_method;
+    std::string dev_model;
     std::unordered_map<synnax::ChannelKey, OutputChan> channels;
     std::set<synnax::ChannelKey> state_index_keys;
 
     explicit WriteTaskConfig(
-        const std::shared_ptr<synnax::Synnax> client,
+        const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    )
-        : data_saving(parser.optional<bool>("data_saving", false)),
-          dev_module(parser.optional<std::string>("type", "")),
-          device_key(parser.required<std::string>("device")),
-          state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
-          conn_method(parser.optional<std::string>("connection_type", "")) {
-        parser.iter("channels",
-                    [this](xjson::Parser &p) {
-                        const auto ch = OutputChan(p);
-                        if (ch.enabled) this->channels[ch.cmd_ch_key] = ch;
-                    });
+    ): data_saving(parser.optional<bool>("data_saving", false)),
+       device_key(parser.required<std::string>("device")),
+       state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
+       conn_method(parser.optional<std::string>("connection_type", "")) {
+        parser.iter(
+            "channels",
+            [this](xjson::Parser &p) {
+                const auto ch = OutputChan(p);
+                if (ch.enabled) this->channels[ch.cmd_ch_key] = ch;
+            }
+        );
+        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        if (err) {
+            parser.field_err("device", "failed to retrieve device: " + err.message());
+            return;
+        }
+        this->dev_model = dev.model;
+        const auto state_channels = this->state_channels();
+        const auto [channels, ch_err] = client->channels.retrieve(state_channels);
+        if (ch_err) {
+            parser.field_err("channels",
+                             "failed to retrieve channels: " + ch_err.message());
+            return;
+        }
+        for (const auto &ch: channels) {
+            if (ch.index != 0) this->state_index_keys.insert(ch.key);
+            this->channels[ch.key].state_ch = ch;
+        }
     }
 
     static std::pair<WriteTaskConfig, xerrors::Error> parse(
@@ -88,11 +105,11 @@ struct WriteTaskConfig {
 
 class WriteSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<DeviceAPI> dev;
+    std::shared_ptr<ljm::DeviceAPI> dev;
 
 public:
     explicit WriteSink(
-        const std::shared_ptr<DeviceAPI> &dev,
+        const std::shared_ptr<ljm::DeviceAPI> &dev,
         const WriteTaskConfig &cfg
     ): Sink(
            cfg.state_rate,
@@ -106,7 +123,7 @@ public:
     }
 
     xerrors::Error start() override {
-        std::vector<const char*> locs;
+        std::vector<const char *> locs;
         std::vector<double> values;
         locs.reserve(this->cfg.channels.size());
         values.reserve(this->cfg.channels.size());
@@ -125,7 +142,7 @@ public:
         std::vector<const char *> &locs,
         const std::vector<double> &values
     ) const {
-        return this->dev->LJM_eWriteNames(
+        return this->dev->eWriteNames(
             locs.size(),
             locs.data(),
             values.data(),
@@ -135,7 +152,7 @@ public:
 
     xerrors::Error write(const synnax::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
-        std::vector<const char*> locs;
+        std::vector<const char *> locs;
         std::vector<double> values;
         locs.reserve(frame.size());
         values.reserve(frame.size());
@@ -150,10 +167,9 @@ public:
         std::lock_guard lock{this->chan_state_lock};
         for (const auto &[key, s]: frame) {
             const auto it = this->cfg.channels.find(key);
-            if (it != this->cfg.channels.end()) {
+            if (it != this->cfg.channels.end())
                 this->chan_state[it->second.state_ch_key] = it->second.state_ch.
                         data_type.cast(s.at(-1));
-            }
         }
         return xerrors::NIL;
     }

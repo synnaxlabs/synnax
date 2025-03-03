@@ -10,15 +10,18 @@
 #pragma once
 
 #include "driver/task/task.h"
-#include "driver/labjack/dll_check_windows.h"
-#include "driver/labjack/device_manager.h"
+#include "ljm/device_manager.h"
 
 namespace labjack {
 const std::string INTEGRATION_NAME = "labjack";
+const std::string T4 = "LJM_dtT4";
+const std::string T7 = "LJM_dtT7";
+const std::string T8 = "LJM_dtT8";
 
 class Factory final : public task::Factory {
+    std::shared_ptr<ljm::DeviceManager> device_manager;
 public:
-    Factory() = default;
+    Factory(): device_manager(std::make_shared<ljm::DeviceManager>()) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -30,8 +33,5 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
-
-private:
-    std::shared_ptr<labjack::DeviceManager> device_manager = std::make_shared<labjack::DeviceManager>();
 };
 } // namespace labjack
