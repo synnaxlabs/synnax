@@ -1,0 +1,17 @@
+cc_library(
+    name = "ljm",
+    hdrs = ["api.h"],
+    deps = [],
+)
+
+cc_library(
+    name = "ljm_official",
+    srcs = [],
+    hdrs = [
+        "LJM_StreamUtilities.h",
+        "LJM_Utilities.h",
+        "LabJackM.h",
+        "LabJackMModbusMap.h",
+    ],
+    deps = [],
+)

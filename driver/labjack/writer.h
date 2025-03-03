@@ -70,7 +70,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriterChannelConfig                         //
 ///////////////////////////////////////////////////////////////////////////////////
-struct WriterChannelConfig {
+struct OutputChan {
     std::string location;
     bool enabled = true;
     telem::DataType data_type;
@@ -78,9 +78,9 @@ struct WriterChannelConfig {
     uint32_t state_key;
     std::string channel_type = "";
 
-    WriterChannelConfig() = default;
+    OutputChan() = default;
 
-    explicit WriterChannelConfig(xjson::Parser &parser)
+    explicit OutputChan(xjson::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
           data_type(parser.optional<std::string>("data_type", "uint8")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
@@ -98,7 +98,7 @@ struct WriterChannelConfig {
 struct WriterConfig {
     std::string device_type;
     std::string device_key;
-    std::vector<WriterChannelConfig> channels;
+    std::vector<OutputChan> channels;
     telem::Rate state_rate = telem::Rate(1);
     std::string serial_number; // used to open devices
     std::string connection_type;
@@ -125,7 +125,7 @@ struct WriterConfig {
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
 
         parser.iter("channels", [this, ctx](xjson::Parser &channel_parser) {
-            auto channel = WriterChannelConfig(channel_parser);
+            auto channel = OutputChan(channel_parser);
 
             if (channel.enabled) channels.emplace_back(channel);
             else return;

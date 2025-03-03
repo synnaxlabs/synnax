@@ -82,10 +82,9 @@ struct ScanTaskConfig {
     /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
-    explicit ScanTaskConfig(
-        xjson::Parser &cfg
-    ): rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
-       enabled(cfg.optional<bool>("enabled", true)) {
+    explicit ScanTaskConfig(xjson::Parser &cfg):
+        rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
+        enabled(cfg.optional<bool>("enabled", true)) {
         const auto i = cfg.optional_vec<std::string>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
@@ -137,6 +136,7 @@ class ScanTask final : public task::Task {
 
     /// @brief initializes the syscfg session and filters for the scan task.
     xerrors::Error initialize_syscfg_session();
+
 public:
     explicit ScanTask(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,

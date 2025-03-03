@@ -13,50 +13,6 @@
 #include <algorithm>
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    Helpers                                    //
-///////////////////////////////////////////////////////////////////////////////////
-telem::Series val_to_series(double val, telem::DataType data_type) {
-    if (data_type == telem::FLOAT64_T)
-        return telem::Series(static_cast<double>(val), telem::FLOAT64_T);
-    if (data_type == telem::FLOAT32_T)
-        return telem::Series(static_cast<float>(val), telem::FLOAT32_T);
-    if (data_type == telem::INT32_T)
-        return telem::Series(static_cast<int32_t>(val), telem::INT32_T);
-    if (data_type == telem::INT16_T)
-        return telem::Series(static_cast<int16_t>(val), telem::INT16_T);
-    if (data_type == telem::INT8_T)
-        return telem::Series(static_cast<int8_t>(val), telem::INT8_T);
-    if (data_type == telem::UINT32_T)
-        return telem::Series(static_cast<uint32_t>(val), telem::UINT32_T);
-    if (data_type == telem::UINT16_T)
-        return telem::Series(static_cast<uint16_t>(val), telem::UINT16_T);
-    if (data_type == telem::UINT8_T)
-        return telem::Series(static_cast<uint8_t>(val), telem::UINT8_T);
-    LOG(ERROR) << "[labjack.writer] Invalid data type";
-}
-
-double series_to_val(const telem::Series &series) {
-    telem::DataType data_type = series.data_type;
-    if (data_type == telem::FLOAT64_T)
-        return static_cast<double>(series.values<double>()[0]);
-    if (data_type == telem::FLOAT32_T)
-        return static_cast<double>(series.values<float>()[0]);
-    if (data_type == telem::INT32_T)
-        return static_cast<double>(series.values<int32_t>()[0]);
-    if (data_type == telem::INT16_T)
-        return static_cast<double>(series.values<int16_t>()[0]);
-    if (data_type == telem::INT8_T)
-        return static_cast<double>(series.values<int8_t>()[0]);
-    if (data_type == telem::UINT32_T)
-        return static_cast<double>(series.values<uint32_t>()[0]);
-    if (data_type == telem::UINT16_T)
-        return static_cast<double>(series.values<uint16_t>()[0]);
-    if (data_type == telem::UINT8_T)
-        return static_cast<double>(series.values<uint8_t>()[0]);
-    LOG(ERROR) << "[labjack.writer] Invalid data type";
-}
-
-///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
@@ -78,26 +34,21 @@ std::pair<synnax::Frame, xerrors::Error> labjack::StateSource::read(
 }
 
 synnax::Frame labjack::StateSource::get_state() {
-    // frame size = # monitored states + # index channels for the states
     auto state_frame = synnax::Frame(
         this->state_map.size() + this->state_index_keys.size());
-
     for (auto key: this->state_index_keys) {
-        auto t = telem::Series(telem::TimeStamp::now().value, telem::TIMESTAMP_T);
+        auto t = telem::Series(telem::TimeStamp::now());
         state_frame.emplace(key, std::move(t));
     }
-    for (auto &[key, value]: this->state_map) {
-        auto s = val_to_series(value.state, value.data_type);
-        state_frame.emplace(value.state_key, std::move(s));
-    }
-
+    for (auto &[key, value]: this->state_map)
+        state_frame.emplace(value.state_key, telem::Series(value.data_type.cast(value.state)));
     return state_frame;
 }
 
 void labjack::StateSource::update_state(const synnax::Frame &frame) {
-    std::unique_lock<std::mutex> lock(this->state_mutex);
+    std::unique_lock lock(this->state_mutex);
     auto frame_index = 0;
-    for (auto key: *(frame.channels)) {
+    for (auto key: frame.channels) {
         if (std::find(
                 state_index_keys.begin(),
                 state_index_keys.end(),

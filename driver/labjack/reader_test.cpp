@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 #include "client/cpp/synnax.h"
-#include "driver/labjack/reader.h"
+#include "driver/labjack/read_task.h"
 #include "driver/labjack/writer.h"
 #include "driver/labjack/scanner.h"
 #include "driver/testutil/testutil.h"

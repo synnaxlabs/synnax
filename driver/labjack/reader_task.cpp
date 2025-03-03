@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/labjack/reader.h"
+#include "driver/labjack/read_task.h"
 #include "driver/labjack/writer.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -79,7 +79,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto breaker_config = breaker::default_config(task.name);
 
     auto parser = xjson::Parser(task.config);
-    ReaderConfig reader_config(parser);
+    ReadTaskConfig reader_config(parser);
 
     auto control_subject = telem::ControlSubject{
             .name = task.name,
