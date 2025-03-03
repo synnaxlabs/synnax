@@ -41,6 +41,13 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 
+const parseState = (state?: task.State): Common.Task.State => ({
+  status: state?.details?.running
+    ? Common.Task.RUNNING_STATUS
+    : Common.Task.PAUSED_STATUS,
+  variant: parseVariant(state?.variant),
+});
+
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => {
@@ -78,20 +85,20 @@ const Content = () => {
   const handleException = Status.useExceptionHandler();
   const handleRename = useMutation({
     onMutate: ({ name, key }: RenameArgs) => {
-      const taskIndex = tasks.findIndex((t) => t.key === key);
-      if (taskIndex === -1) return "task";
+      const existingTask = tasks.find((t) => t.key === key);
+      if (existingTask == null) return "task";
       setTasks((prev) =>
-        prev.map((t, i) => {
-          if (i === taskIndex) t.name = name;
+        prev.map((t) => {
+          if (t.key === key) t.name = name;
           return t;
         }),
       );
-      return tasks[taskIndex].name;
+      return existingTask.name;
     },
     mutationFn: async ({ name, key }) => {
       const tsk = tasks.find((t) => t.key === key);
       if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-      if (states[key].status === "running") {
+      if (states[key].status === Common.Task.RUNNING_STATUS) {
         const confirmed = await confirm({
           message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
           description: `This will cause ${tsk.name} to stop and be reconfigured.`,
@@ -131,12 +138,7 @@ const Content = () => {
     setTasks(shownTasks);
     const startingStates: Record<task.Key, Common.Task.State> = {};
     shownTasks.forEach(({ key, state }) => {
-      startingStates[key] = {
-        status: state?.details?.running
-          ? Common.Task.RUNNING_STATUS
-          : Common.Task.PAUSED_STATUS,
-        variant: parseVariant(state?.variant),
-      };
+      startingStates[key] = parseState(state);
     });
     setStates(startingStates);
   }, [client?.key]);
@@ -153,15 +155,7 @@ const Content = () => {
       });
       setStates((prev) => {
         const prevTsk = prev[key];
-        if (prevTsk == null) return prev;
-        const next = { ...prev };
-        next[key] = {
-          status: state.details?.running
-            ? Common.Task.RUNNING_STATUS
-            : Common.Task.PAUSED_STATUS,
-          variant: parseVariant(state.variant),
-        };
-        return next;
+        return prevTsk == null ? prev : { ...prev, [key]: parseState(state) };
       });
     },
   });
@@ -176,42 +170,35 @@ const Content = () => {
       const addedOrUpdated = update
         .filter(({ variant }) => variant === "set")
         .map(({ key }) => key);
-      client.hardware.tasks
-        .retrieve(addedOrUpdated)
-        .then((changedTasks) => {
-          const changedTasksRecord: Record<task.Key, task.Task> = {};
-          changedTasks.forEach((task) => {
-            changedTasksRecord[task.key] = task;
+      handleException(async () => {
+        const changedTasks = await client.hardware.tasks.retrieve(addedOrUpdated);
+        const changedTasksRecord: Record<task.Key, task.Task> = {};
+        changedTasks.forEach((task) => {
+          changedTasksRecord[task.key] = task;
+        });
+        setTasks((prev) => {
+          const next = prev
+            .filter(({ key }) => !removed.has(key))
+            .map((t) => changedTasksRecord[t.key] ?? t);
+          const existingKeys = new Set(next.map(({ key }) => key));
+          return [
+            ...next,
+            ...changedTasks.filter(
+              ({ key, internal, snapshot }) =>
+                !internal && !snapshot && !existingKeys.has(key),
+            ),
+          ];
+        });
+        setSelected((prev) => prev.filter((k) => !removed.has(k)));
+        setStates((prev) => {
+          const next = { ...prev };
+          removed.forEach((k) => delete next[k]);
+          addedOrUpdated.forEach((k) => {
+            next[k] = parseState(changedTasksRecord[k].state);
           });
-          setTasks((prev) => {
-            const next = prev
-              .filter(({ key }) => !removed.has(key))
-              .map((t) => changedTasksRecord[t.key] ?? t);
-            const existingKeys = new Set(next.map(({ key }) => key));
-            return [
-              ...next,
-              ...changedTasks.filter(
-                ({ key, internal, snapshot }) =>
-                  !internal && !snapshot && !existingKeys.has(key),
-              ),
-            ];
-          });
-          setSelected((prev) => prev.filter((k) => !removed.has(k)));
-          setStates((prev) => {
-            const next = { ...prev };
-            removed.forEach((k) => delete next[k]);
-            addedOrUpdated.forEach((k) => {
-              next[k] = {
-                status: changedTasksRecord[k].state?.details?.running
-                  ? Common.Task.RUNNING_STATUS
-                  : Common.Task.PAUSED_STATUS,
-                variant: parseVariant(changedTasksRecord[k].state?.variant),
-              };
-            });
-            return next;
-          });
-        })
-        .catch((e) => handleException(e, "Failed to update task toolbar"));
+          return next;
+        });
+      }, "Failed to update task toolbar");
     },
   });
   Observe.useListener({
@@ -221,11 +208,7 @@ const Content = () => {
       const status = states[task]?.status;
       if (status == null) return;
       if (Common.Task.shouldExecuteCommand(status, type))
-        setStates((prev) => {
-          const next = { ...prev };
-          next[task] = Common.Task.LOADING_STATE;
-          return next;
-        });
+        setStates((prev) => ({ ...prev, [task]: Common.Task.LOADING_STATE }));
     },
   });
   const confirm = Modals.useConfirm();
@@ -263,7 +246,7 @@ const Content = () => {
     () => [{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }],
     [placeLayout],
   );
-  const handleStartStop = useMutation({
+  const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const filteredKeys = new Set(
@@ -286,12 +269,12 @@ const Content = () => {
     onError: (e, { command }) => handleException(e, `Failed to ${command} tasks`),
   }).mutate;
   const handleStart = useCallback(
-    (keys: string[]) => handleStartStop({ command: Common.Task.START_COMMAND, keys }),
-    [handleStartStop],
+    (keys: string[]) => startOrStop({ command: Common.Task.START_COMMAND, keys }),
+    [startOrStop],
   );
   const handleStop = useCallback(
-    (keys: string[]) => handleStartStop({ command: Common.Task.STOP_COMMAND, keys }),
-    [handleStartStop],
+    (keys: string[]) => startOrStop({ command: Common.Task.STOP_COMMAND, keys }),
+    [startOrStop],
   );
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -310,11 +293,7 @@ const Content = () => {
   const handleListItemStopStart = useCallback(
     (command: Common.Task.StartOrStopCommand, key: task.Key) => {
       if (Common.Task.shouldExecuteCommand(statesRef.current[key].status, command))
-        setStates((prev) => {
-          const next = { ...prev };
-          next[key] = Common.Task.LOADING_STATE;
-          return next;
-        });
+        setStates((prev) => ({ ...prev, [key]: Common.Task.LOADING_STATE }));
     },
     [],
   );
@@ -378,12 +357,11 @@ const TaskListItem = ({
   const handleClick: NonNullable<Button.IconProps["onClick"]> = useCallback(
     (e) => {
       e.stopPropagation();
-      if (isLoading) return;
       const command = isRunning ? Common.Task.STOP_COMMAND : Common.Task.START_COMMAND;
       onStopStart(command);
-      tsk
-        .executeCommand(command)
-        .catch((e) => handleException(e, `Failed to ${command} task`));
+      handleException(async () => {
+        await tsk.executeCommand(command);
+      }, `Failed to ${command} task`);
     },
     [tsk, desiredState, onStopStart, handleException],
   );
@@ -459,10 +437,10 @@ const ContextMenu = ({
   const selectedTasks = tasks.filter(({ key }) => selectedKeys.has(key));
 
   const canStart = selectedTasks.some(
-    ({ key }) => desiredStates[key].status === "paused",
+    ({ key }) => desiredStates[key].status === Common.Task.PAUSED_STATUS,
   );
   const canStop = selectedTasks.some(
-    ({ key }) => desiredStates[key].status === "running",
+    ({ key }) => desiredStates[key].status === Common.Task.RUNNING_STATUS,
   );
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
