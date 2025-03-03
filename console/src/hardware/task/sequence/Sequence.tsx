@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, rack, task } from "@synnaxlabs/client";
+import { type channel, rack, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -139,13 +139,19 @@ const Internal = ({
     onHasTouched: handleUnsavedChanges,
   });
   const create = Common.Task.useCreate(layoutKey);
-  const [state, setState] = Common.Task.useState(base?.key, base?.state ?? undefined);
+  const [state, triggerLoading] = Common.Task.useState(
+    base?.key,
+    base?.state ?? undefined,
+  );
+  const isLoading = state.status === "loading";
+  const isRunning = state.status === "running";
+  const isSnapshot = base?.snapshot ?? false;
 
   useEffect(() => {
     dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
   }, [layoutKey]);
 
-  const configureMutation = useMutation({
+  const { isPending: isConfiguring, mutate: configure } = useMutation({
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!(await methods.validateAsync())) return;
@@ -156,31 +162,25 @@ const Internal = ({
       }
       await create({ key: base.key, name, type: TYPE, config }, rack);
       methods.setCurrentStateAsInitialValues();
-      setState();
     },
     onError: (e) => handleException(e, `Failed to configure ${base.name}`),
   });
+  const handleConfigure = useCallback(() => configure(), [configure]);
+  const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
 
-  const startOrStopMutation = useMutation({
-    mutationFn: async () => {
-      if (!configured) throw new Error("Sequence has not been configured");
-      if (state.status === "loading")
-        throw new Error(
-          "State is loading, should not be able to start or stop sequence",
-        );
-      await base.executeCommand(state.status === "running" ? "stop" : "start");
+  const startOrStop = useMutation({
+    mutationFn: async (command: Common.Task.StartOrStopCommand) => {
+      if (!configured) throw new UnexpectedError("Sequence has not been configured");
+      triggerLoading();
+      await base.executeCommand(command);
     },
-    onError: (e) =>
-      handleException(
-        e,
-        `Failed to ${state.status === "running" ? "stop" : state.status === "paused" ? "start" : "start or stop"} task`,
-      ),
-  });
-  const isSnapshot = base?.snapshot ?? false;
-
-  const isLoading = state.status === "loading";
-  const isConfiguring = configureMutation.isPending;
-  const isDisabled = isLoading || isConfiguring || isSnapshot;
+    onError: (e, command) => handleException(e, `Failed to ${command} task`),
+  }).mutate;
+  const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
+  const handleStartOrStop = useCallback(
+    () => startOrStop(isRunning ? Common.Task.STOP_COMMAND : Common.Task.START_COMMAND),
+    [startOrStop, isRunning],
+  );
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -288,18 +288,18 @@ const Internal = ({
             </Align.Space>
             <Button.Button
               loading={isConfiguring}
-              disabled={isDisabled}
-              onClick={() => configureMutation.mutate()}
+              disabled={!canConfigure}
+              onClick={handleConfigure}
             >
               Configure
             </Button.Button>
             <Button.Icon
               loading={isLoading}
-              disabled={isDisabled}
-              onClick={() => startOrStopMutation.mutate()}
+              disabled={!canStartOrStop}
+              onClick={handleStartOrStop}
               variant="outlined"
             >
-              {state.status === "running" ? <Icon.Pause /> : <Icon.Play />}
+              {isRunning ? <Icon.Pause /> : <Icon.Play />}
             </Button.Icon>
           </Align.Space>
         </Align.Pack>
