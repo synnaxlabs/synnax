@@ -45,16 +45,17 @@ const (
 )
 
 func newLeaseProxy(
+	ctx context.Context,
 	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
-	c, err := openCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
+	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
 	}
 	externalCounterKey := []byte(cfg.HostResolver.HostKey().String() + externalCounterSuffix)
-	extCtr, err := openCounter(context.TODO(), cfg.ClusterDB, externalCounterKey)
+	extCtr, err := openCounter(ctx, cfg.ClusterDB, externalCounterKey)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func newLeaseProxy(
 		NewRetrieve[Key, Channel]().
 		Where(func(c *Channel) bool { return !c.Internal && !c.Virtual }).
 		Entries(&externalNonVirtualChannels).
-		Exec(context.TODO(), tx); err != nil {
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	extCtr.set(LocalKey(len(externalNonVirtualChannels)))
@@ -88,7 +89,7 @@ func newLeaseProxy(
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
-		c, err := openCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
+		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
 		}

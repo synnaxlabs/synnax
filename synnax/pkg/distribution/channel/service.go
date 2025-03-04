@@ -106,7 +106,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, g)
+	proxy, err := newLeaseProxy(ctx, cfg, g)
 	if err != nil {
 		return nil, err
 	}
