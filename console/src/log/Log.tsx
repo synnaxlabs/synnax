@@ -133,7 +133,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  create: async () => create(),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;

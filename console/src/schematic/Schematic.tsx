@@ -442,7 +442,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  create: async () => create(),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
