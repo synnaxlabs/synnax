@@ -12,6 +12,7 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -29,7 +30,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
+import { box, deep, id, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -441,18 +442,18 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+  create: async () => create(),
 };
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =
-  (initial: CreateArg): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

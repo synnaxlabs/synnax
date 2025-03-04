@@ -10,6 +10,7 @@
 import "@/table/Table.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -26,7 +27,6 @@ import {
   clamp,
   dimensions,
   type location,
-  primitiveIsZero,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
@@ -365,11 +365,13 @@ interface CellContainerProps {
   cellKey: string;
 }
 
+export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    const key = table.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
     return {
       key,
@@ -386,7 +388,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+  create: async () => create(),
 };
 
 interface ColResizerProps {
