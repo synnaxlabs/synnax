@@ -61,12 +61,11 @@ func newLeaseProxy(
 	}
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
 	externalNonVirtualChannels := make([]Channel, 0)
-	tx := cfg.ClusterDB.OpenTx()
 	if err := gorp.
 		NewRetrieve[Key, Channel]().
 		Where(func(c *Channel) bool { return !c.Internal && !c.Virtual }).
 		Entries(&externalNonVirtualChannels).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, cfg.ClusterDB); err != nil {
 		return nil, err
 	}
 	extCtr.set(LocalKey(len(externalNonVirtualChannels)))
