@@ -8,16 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const baseChannelZ = z.object({ enabled: z.boolean() });
-export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
-export const ZERO_BASE_CHANNEL: BaseChannel = { enabled: true };
-
-export const channelZ = baseChannelZ.extend({ key: id.schema });
+export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
-export const ZERO_CHANNEL: Channel = { ...ZERO_BASE_CHANNEL, key: "" };
+export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
 
 export const validateChannels = (
   channels: Channel[],
@@ -35,7 +30,7 @@ export const validateChannels = (
       code: z.ZodIssueCode.custom,
       message: "At least one channel must be enabled",
     });
-  const keyToIndexMap = new Map<id.ID, number>();
+  const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {
       keyToIndexMap.set(key, i);

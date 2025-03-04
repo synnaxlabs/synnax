@@ -17,8 +17,7 @@ export const PREFIX = "opc";
 
 // Base Channels
 
-const baseChannelZ = Common.Task.baseChannelZ.extend({
-  key: z.string(),
+const baseChannelZ = Common.Task.channelZ.extend({
   name: z.string(),
   nodeId: z.string(),
   nodeName: z.string(),
