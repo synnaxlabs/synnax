@@ -27,6 +27,7 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
+import { Rack } from "@/hardware/common/task/Rack";
 import {
   type ConfigSchema,
   type TaskProps,
@@ -158,11 +159,14 @@ export const wrapForm = <
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
-              <CopyButtons
-                getConfig={() => methods.get("config").value}
-                getName={() => methods.get<string>("name").value}
-                taskKey={tsk.key}
-              />
+              <Align.Space align="end" size="small">
+                <CopyButtons
+                  getConfig={() => methods.get("config").value}
+                  getName={() => methods.get<string>("name").value}
+                  taskKey={tsk.key}
+                />
+                <Rack taskKey={tsk.key} />
+              </Align.Space>
             </Align.Space>
             {configured && <ParentRangeButton<Config, Details, Type> task={tsk} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">

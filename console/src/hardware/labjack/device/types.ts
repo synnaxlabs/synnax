@@ -32,7 +32,7 @@ export type Model = T4Model | T7Model | T8Model;
 
 export interface BasePort {
   key: string;
-  aliases: string[];
+  alias?: string;
 }
 
 export const AI_PORT_TYPE = "AI";
@@ -72,51 +72,39 @@ interface AltConfig {
   offset: number;
 }
 
-const mapAltConfigsToAliases = (altConfigs: AltConfig[], port: number): string[] =>
-  altConfigs.map((config) => `${config.prefix}${port - config.offset}`);
+const convertAltConfigToAlias = ({ prefix, offset }: AltConfig, port: number): string =>
+  `${prefix}${port - offset}`;
 
-const aiFactory = (
-  b: bounds.Bounds,
-  voltageRange: bounds.Bounds,
-  altConfigs: AltConfig[] = [],
-): AIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
-    const port = i + b.lower;
-    return {
-      key: `AIN${port}`,
-      type: AI_PORT_TYPE,
-      voltageRange,
-      aliases: mapAltConfigsToAliases(altConfigs, port),
-    };
-  });
+const aiFactory = (b: bounds.Bounds, voltageRange: bounds.Bounds): AIPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
+    key: `AIN${i + b.lower}`,
+    type: AI_PORT_TYPE,
+    voltageRange,
+  }));
 
-const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
-    const port = i + b.lower;
-    return {
-      key: `DAC${port}`,
-      type: AO_PORT_TYPE,
-      aliases: mapAltConfigsToAliases(altConfigs, port),
-    };
-  });
+const aoFactory = (b: bounds.Bounds): AOPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
+    key: `DAC${i + b.lower}`,
+    type: AO_PORT_TYPE,
+  }));
 
-const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
+const diFactory = (b: bounds.Bounds, altConfig: AltConfig): DIPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
     return {
       key: `DIO${port}`,
       type: DI_PORT_TYPE,
-      aliases: mapAltConfigsToAliases(altConfigs, port),
+      alias: convertAltConfigToAlias(altConfig, port),
     };
   });
 
-const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
+const doFactory = (b: bounds.Bounds, altConfig: AltConfig): DOPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
     return {
       key: `DIO${port}`,
       type: DO_PORT_TYPE,
-      aliases: mapAltConfigsToAliases(altConfigs, port),
+      alias: convertAltConfigToAlias(altConfig, port),
     };
   });
 
@@ -138,12 +126,12 @@ const T4_AI_PORTS: AIPort[] = [
 ];
 const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T4_DI_PORTS: DIPort[] = [
-  ...diFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...diFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...diFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
 ];
 const T4_DO_PORTS: DOPort[] = [
-  ...doFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...doFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
 ];
 const T4_PORTS: Ports = {
   [AI_PORT_TYPE]: T4_AI_PORTS,
@@ -157,16 +145,16 @@ const T4_PORTS: Ports = {
 const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AI_HIGH_VOLTAGE);
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [
-  ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
-  ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
-  ...diFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
+  ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...diFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...diFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
+  ...diFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
 const T7_DO_PORTS: DOPort[] = [
-  ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
-  ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
-  ...doFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
+  ...doFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
+  ...doFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
 const T7_PORTS: Ports = {
   [AI_PORT_TYPE]: T7_AI_PORTS,
@@ -180,14 +168,14 @@ const T7_PORTS: Ports = {
 const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AI_HIGH_VOLTAGE);
 const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T8_DI_PORTS: DIPort[] = [
-  ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
-  ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+  ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...diFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...diFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
 ];
 const T8_DO_PORTS: DOPort[] = [
-  ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
-  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
-  ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+  ...doFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
 ];
 const T8_PORTS: Ports = {
   [AI_PORT_TYPE]: T8_AI_PORTS,
