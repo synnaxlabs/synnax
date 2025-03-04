@@ -101,7 +101,7 @@ class ScanTask final : public task::Task {
     /// @brief the task context to communicate state updates
     std::shared_ptr<task::Context> ctx;
     /// @brief the scan thread
-    std::shared_ptr<std::thread> thread;
+    std::thread thread;
     /// @brief the current list of scanned devices
     std::unordered_map<std::string, Device> devices;
     /// @brief the device manager for handling LabJack connections

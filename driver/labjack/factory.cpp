@@ -104,7 +104,7 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
                 {"message", "Task configured successfully"},
             }
         });
-    return {std::move(tsk), false};
+    return {std::move(tsk), true};
 }
 
 std::unique_ptr<labjack::Factory> labjack::Factory::create() {

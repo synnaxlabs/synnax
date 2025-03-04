@@ -156,22 +156,14 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::ScanTask::configure(
     return {std::move(tsk), xerrors::NIL};
 }
 
-void ni::ScanTask::stop(bool will_reconfigure) {
-    this->breaker.stop();
-    this->thread->join();
-    const auto f_err = this->syscfg->CloseHandle(this->filter);
-    const auto s_err = this->syscfg->CloseHandle(this->session);
-    if (f_err || s_err) {
-        this->state.variant = "error";
-        if (f_err) this->state.details["message"] = f_err.message();
-        else if (s_err) this->state.details["message"] = s_err.message();
-    }
-    this->ctx->set_state(this->state);
+void ni::ScanTask::start() {
+    if (!this->breaker.start()) return;
+    this->thread = std::thread(&ni::ScanTask::run, this);
 }
 
-void ni::ScanTask::start() {
-    this->breaker.start();
-    this->thread = std::make_shared<std::thread>(&ni::ScanTask::run, this);
+void ni::ScanTask::stop(bool will_reconfigure) {
+    if (!this->breaker.stop()) return;
+    this->thread.join();
 }
 
 void ni::ScanTask::exec(task::Command &cmd) {
@@ -248,4 +240,7 @@ void ni::ScanTask::run() {
     }
     this->state.variant = "success";
     this->state.details["message"] = "scan task stopped";
+    this->ctx->set_state(this->state);
+    const auto f_err = this->syscfg->CloseHandle(this->filter);
+    const auto s_err = this->syscfg->CloseHandle(this->session);
 }

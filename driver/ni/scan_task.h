@@ -106,7 +106,7 @@ class ScanTask final : public task::Task {
     /// @brief the task context to communicate state updates and device changes.
     std::shared_ptr<task::Context> ctx;
     /// @brief the scan thread that will scan for devices.
-    std::shared_ptr<std::thread> thread;
+    std::thread thread;
     /// @brief the current list of scanned devices.
     std::unordered_map<std::string, ni::Device> devices;
     /// @brief the NI system configuration library.

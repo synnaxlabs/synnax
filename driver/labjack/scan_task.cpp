@@ -119,16 +119,13 @@ xerrors::Error ScanTask::scan() {
 }
 
 void ScanTask::start() {
-    this->breaker.start();
-    this->thread = std::make_shared<std::thread>(&ScanTask::run, this);
+    if (!this->breaker.start()) return;
+    this->thread = std::thread(&ScanTask::run, this);
 }
 
 void ScanTask::stop(bool will_reconfigure) {
-    this->breaker.stop();
-    if (this->thread && this->thread->joinable() && 
-        std::this_thread::get_id() != this->thread->get_id()) {
-        this->thread->join();
-    }
+    if (!this->breaker.stop()) return;
+    this->thread.join();
 }
 
 void ScanTask::exec(task::Command &cmd) {
