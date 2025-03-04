@@ -477,7 +477,7 @@ public:
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
-    Rate operator/(const Rate &other) const { return Rate(value / other.value); }
+    size_t operator/(const Rate &other) const { return value / other.value; }
 
     Rate operator/(const float &other) const { return Rate(value / other); }
 

@@ -9,17 +9,22 @@
 
 #pragma once
 
+#include "driver/labjack/device/device.h"
 #include "driver/task/task.h"
-#include "ljm/device_manager.h"
 
 namespace labjack {
+/// @brief labjack integration name.
 const std::string INTEGRATION_NAME = "labjack";
+/// @brief T4 model name.
 const std::string T4 = "LJM_dtT4";
+/// @brief T7 model name.
 const std::string T7 = "LJM_dtT7";
+/// @brief T8 model name.
 const std::string T8 = "LJM_dtT8";
 
+/// @brief factory for creating and operating labjack tasks.
 class Factory final : public task::Factory {
-    std::shared_ptr<ljm::DeviceManager> device_manager;
+    std::shared_ptr<device::Manager> dev_manager;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -29,8 +34,8 @@ class Factory final : public task::Factory {
         const synnax::Task &task
     ) const;
 public:
-    explicit Factory(const std::shared_ptr<ljm::DeviceManager> &device_manager):
-        device_manager(device_manager) {
+    explicit Factory(const std::shared_ptr<device::Manager> &dev_manager):
+        dev_manager(dev_manager) {
     }
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration

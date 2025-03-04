@@ -17,9 +17,8 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opc_scan"){
+    if (task.type == "opc_scan")
         return {std::make_unique<Scanner>(ctx, task), true};
-    }
     if (task.type == "opc_read")
         return {ReaderTask::configure(ctx, task), true};
     if (task.type == "opc_write")

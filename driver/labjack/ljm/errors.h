@@ -10,6 +10,7 @@
 #include <string>
 
 #include "api.h"
+#include "driver/errors/errors.h"
 
 static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"LJ_SUCCESS", ""},
@@ -942,6 +943,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_END_OF_CWD", "There are no more files in the current working directory."}
 };
 
+const xerrors::Error BASE_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
+
 inline xerrors::Error parse_error(
     const std::shared_ptr<ljm::API> &ljm,
     const int err
@@ -949,17 +952,13 @@ inline xerrors::Error parse_error(
     if (err == 0) return xerrors::NIL;
 
     char err_msg[LJM_MAX_NAME_SIZE];
-    ljm->ErrorToString(err, err_msg);
+    ljm->err_to_string(err, err_msg);
 
-    // Get additional description if available
-    std::string description = "";
+    std::string description;
     const auto &error_map = ERROR_DESCRIPTIONS;
-    if (const auto it = error_map.find(err_msg); it != error_map.end()) {
+    if (const auto it = error_map.find(err_msg); it != error_map.end())
         description = ": " + it->second;
-    }
-    return xerrors::Error(
-        description
-    );
+    return xerrors::Error(BASE_ERROR, description);
 }
 
 

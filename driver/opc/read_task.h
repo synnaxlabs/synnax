@@ -14,31 +14,25 @@
 #include "x/cpp/xjson/xjson.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/task/common/read_task.h"
 #include "x/cpp/loop/loop.h"
 
 namespace opc {
-///////////////////////////////////////////////////////////////////////////////////
-//                              ReaderChannelConfig                              //
-///////////////////////////////////////////////////////////////////////////////////
-struct ReaderChannelConfig {
-    /// @brief the node id.
-    std::string node_id;
-    UA_NodeId node;
+struct ReadChannel {
+    const bool enabled;
+    /// @brief the OPC UA node id.
+    const UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node from.
-    ChannelKey channel;
+    const ChannelKey synnax_key;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
     Channel ch;
-    bool enabled;
 
-    ReaderChannelConfig() = default;
-
-    explicit ReaderChannelConfig(
+    explicit ReadChannel(
         xjson::Parser &parser
-    ) : node_id(parser.required<std::string>("node_id")),
+    ) : enabled(parser.optional<bool>("enabled", true)),
         node(parse_node_id("node_id", parser)),
-        channel(parser.required<ChannelKey>("channel")),
-        enabled(parser.optional<bool>("enabled", true)) {
+        synnax_key(parser.required<ChannelKey>("channel")) {
     }
 };
 
@@ -58,7 +52,7 @@ struct ReaderConfig {
     bool data_saving;
 
     /// @brief the list of channels to read from the server.
-    std::vector<ReaderChannelConfig> channels;
+    std::vector<ReadChannel> channels;
 
     ReaderConfig() = default;
 
@@ -66,15 +60,12 @@ struct ReaderConfig {
 
     [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
-        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
+        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].synnax_key;
         return keys;
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Reader Source                              //
-///////////////////////////////////////////////////////////////////////////////////
-class ReaderSource final : public pipeline::Source {
+class ReaderSource final : public common::Source {
 public:
     ReaderConfig cfg;
     std::shared_ptr<UA_Client> client;
@@ -83,7 +74,7 @@ public:
     synnax::Task task;
 
     UA_ReadRequest req;
-    std::vector<UA_ReadValueId> readValueIds;
+    std::vector<UA_ReadValueId> read_value_ids;
     loop::Timer timer;
     synnax::Frame fr;
     std::unique_ptr<int64_t[]> timestamp_buf;

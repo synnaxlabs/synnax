@@ -83,7 +83,6 @@ telem::TimeStamp resolve_start(const synnax::Frame &frame) {
 }
 
 void Acquisition::run() {
-    VLOG(1) << "[acquisition] acquisition thread started";
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
     xerrors::Error writer_err;

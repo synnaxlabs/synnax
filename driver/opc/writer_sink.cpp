@@ -48,28 +48,29 @@ opc::WriterSink::WriterSink(
 inline void opc::WriterSink::set_variant(
     UA_Variant *val, const synnax::Frame &frame,
     const uint32_t &series_index,
-    const telem::DataType &type) {
+    const telem::DataType &type
+) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
     if (type == telem::FLOAT64_T) {
-        double data = frame.series->at(series_index).values<double>()[0];
+        const double data = frame.series->at(series_index).values<double>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
     } else if (type == telem::FLOAT32_T) {
-        float data = frame.series->at(series_index).values<float>()[0];
+        const float data = frame.series->at(series_index).values<float>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
     } else if (type == telem::INT32_T) {
-        int32_t data = frame.series->at(series_index).values<int32_t>()[0];
+        const int32_t data = frame.series->at(series_index).values<int32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT32]);
     } else if (type == telem::INT16_T) {
-        int16_t data = frame.series->at(series_index).values<int16_t>()[0];
+        const int16_t data = frame.series->at(series_index).values<int16_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT16]);
     } else if (type == telem::INT8_T) {
-        int8_t data = frame.series->at(series_index).values<int8_t>()[0];
+        const int8_t data = frame.series->at(series_index).values<int8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
     } else if (type == telem::UINT64_T) {
-        uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
+        const uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
     } else if (type == telem::UINT32_T) {
-        uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
+        const uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
     } else if (type == telem::UINT16_T) {
         uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];

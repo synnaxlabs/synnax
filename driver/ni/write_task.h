@@ -202,27 +202,14 @@ private:
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
     xerrors::Error write(const synnax::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
         for (const auto &[key, series]: frame) {
             auto it = this->cfg.buf_indexes.find(key);
             if (it != this->cfg.buf_indexes.end())
                 buf[it->second] = telem::cast<T>(series.at(-1));
         }
-        if (const auto err = this->hw_writer->write(buf)) {
-            if (daqmx::ANALOG_WRITE_OUT_OF_BOUNDS.matches(err)) {
-                return xerrors::NIL;
-            }
-            return err;
-        }
-
-        std::lock_guard lock{this->chan_state_lock};
-        for (const auto &[key, series]: frame) {
-            const auto it = this->cfg.channels.find(key);
-            if (it != this->cfg.channels.end()) {
-                this->chan_state[it->second->state_ch_key] = it->second->state_ch.
-                        data_type.cast(series.at(-1));
-            }
-        }
+        if (const auto err = this->hw_writer->write(buf))
+            return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
+        this->set_state(frame);;
         return xerrors::NIL;
     }
 };

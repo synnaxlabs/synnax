@@ -11,8 +11,6 @@
 
 /// std
 #include <string>
-#include <vector>
-#include <map>
 #include <thread>
 
 #include "nlohmann/json.hpp"
@@ -21,8 +19,8 @@
 #include "x/cpp/breaker/breaker.h"
 
 /// internal
+#include "device/device.h"
 #include "driver/task/task.h"
-#include "driver/labjack/ljm/device_manager.h"
 
 // Currently supports: T7, T4, T5, Digit products.
 
@@ -33,7 +31,7 @@ const std::string STOP_CMD_TYPE = "stop";
 /// @brief an extension of the default synnax device that includes LabJack properties
 struct Device : synnax::Device {
     /// @brief the serial number of the device
-    int serial_number;
+    int serial_number = 0;
     /// @brief the device type (T7, T4, etc)
     std::string device_type;
     /// @brief the connection type (USB, TCP, etc) 
@@ -53,7 +51,7 @@ struct Device : synnax::Device {
     }
 
     /// @brief returns the synnax device representation with json properties
-    synnax::Device to_synnax() const {
+    [[nodiscard]] synnax::Device to_synnax() const {
         return synnax::Device(
             this->key,
             this->name,
@@ -105,7 +103,7 @@ class ScanTask final : public task::Task {
     /// @brief the current list of scanned devices
     std::unordered_map<std::string, Device> devices;
     /// @brief the device manager for handling LabJack connections
-    std::shared_ptr<ljm::DeviceManager> device_manager;
+    std::shared_ptr<device::Manager> device_manager;
     /// @brief the current task state
     task::State state;
 
@@ -130,7 +128,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         ScanTaskConfig cfg,
-        std::shared_ptr<ljm::DeviceManager> device_manager
+        std::shared_ptr<device::Manager> device_manager
     );
 
     /// @brief implements task::Task to execute commands
@@ -148,7 +146,7 @@ public:
     static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
-        std::shared_ptr<ljm::DeviceManager> device_manager
+        const std::shared_ptr<device::Manager>& dev_manager
     );
 };
 };

@@ -158,8 +158,7 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "")),
-       samples_per_chan(
-           static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))),
+       samples_per_chan(sample_rate / stream_rate),
        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
@@ -267,12 +266,14 @@ template<typename T>
 class ReadTaskSource final : public common::Source {
 public:
     /// @brief constructs a source bound to the provided parent read task.
-    explicit ReadTaskSource(ReadTaskConfig cfg, std::unique_ptr<hardware::Reader<T>> hw_reader):
+    explicit ReadTaskSource(ReadTaskConfig cfg,
+                            std::unique_ptr<hardware::Reader<T>> hw_reader):
         cfg(std::move(cfg)),
         buffer(this->cfg.samples_per_chan * this->cfg.channels.size()),
         hw_reader(std::move(hw_reader)),
         sample_clock(this->cfg.sample_clock()) {
     }
+
 private:
     /// @brief automatically infer the data type from the template parameter. This
     /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast

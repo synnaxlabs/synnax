@@ -37,9 +37,7 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     TaskHandle handle;
     const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
     if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle))
-        return {
-            nullptr, err
-        };
+        return {nullptr, err};
     // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
     // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
     // sure it gets cleared.
@@ -97,7 +95,8 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (!this->check_health(ctx, task)) return {nullptr, false};
+    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "ni_scanner")
         res = ni::ScanTask::configure(this->syscfg, ctx, task);

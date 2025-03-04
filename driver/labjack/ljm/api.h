@@ -19,7 +19,7 @@
 
 namespace ljm {
 #ifdef __APPLE__
-const char* const LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
+const auto LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
 #else
 const char* const LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
@@ -29,7 +29,9 @@ const auto LOAD_ERROR = xerrors::Error(
     "failed load LJM shared libraries. Are they installed?"
 );
 
+/// @brief API wrapped on top of LJM functions that the Synnax driver requires.
 class API {
+    /// @brief Function pointers to the LJM functions.
     struct FunctionPointers {
         decltype(&LJM_eStreamRead) eStreamRead;
         decltype(&LJM_eStreamStop) eStreamStop;
@@ -48,173 +50,221 @@ class API {
         decltype(&LJM_eStreamStart) eStreamStart;
     };
 
+    /// @brief Shared library handle.
     std::unique_ptr<xlib::SharedLib> lib;
-    FunctionPointers function_pointers_;
-
+    FunctionPointers func_ptrs;
 
 public:
     explicit API(std::unique_ptr<xlib::SharedLib> lib_) : lib(std::move(lib_)) {
-        memset(&function_pointers_, 0, sizeof(function_pointers_));
-        function_pointers_.eStreamRead = reinterpret_cast<decltype(&LJM_eStreamRead)>(
+        memset(&func_ptrs, 0, sizeof(func_ptrs));
+        func_ptrs.eStreamRead = reinterpret_cast<decltype(&LJM_eStreamRead)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamRead")));
-        function_pointers_.eStreamStop = reinterpret_cast<decltype(&LJM_eStreamStop)>(
+        func_ptrs.eStreamStop = reinterpret_cast<decltype(&LJM_eStreamStop)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamStop")));
-        function_pointers_.eWriteAddress = reinterpret_cast<decltype(&LJM_eWriteAddress
+        func_ptrs.eWriteAddress = reinterpret_cast<decltype(&LJM_eWriteAddress
         )>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteAddress")));
-        function_pointers_.eWriteAddresses = reinterpret_cast<decltype(&
+        func_ptrs.eWriteAddresses = reinterpret_cast<decltype(&
             LJM_eWriteAddresses)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteAddresses")));
-        function_pointers_.StartInterval = reinterpret_cast<decltype(&LJM_StartInterval
+        func_ptrs.StartInterval = reinterpret_cast<decltype(&LJM_StartInterval
         )>(
             const_cast<void *>(lib->get_func_ptr("LJM_StartInterval")));
-        function_pointers_.eWriteName = reinterpret_cast<decltype(&LJM_eWriteName)>(
+        func_ptrs.eWriteName = reinterpret_cast<decltype(&LJM_eWriteName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteName")));
-        function_pointers_.NamesToAddresses = reinterpret_cast<decltype(&
+        func_ptrs.NamesToAddresses = reinterpret_cast<decltype(&
             LJM_NamesToAddresses)>(
             const_cast<void *>(lib->get_func_ptr("LJM_NamesToAddresses")));
-        function_pointers_.ErrorToString = reinterpret_cast<decltype(&LJM_ErrorToString
+        func_ptrs.ErrorToString = reinterpret_cast<decltype(&LJM_ErrorToString
         )>(
             const_cast<void *>(lib->get_func_ptr("LJM_ErrorToString")));
-        function_pointers_.eWriteNames = reinterpret_cast<decltype(&LJM_eWriteNames)>(
+        func_ptrs.eWriteNames = reinterpret_cast<decltype(&LJM_eWriteNames)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteNames")));
-        function_pointers_.ListAll = reinterpret_cast<decltype(&LJM_ListAll)>(
+        func_ptrs.ListAll = reinterpret_cast<decltype(&LJM_ListAll)>(
             const_cast<void *>(lib->get_func_ptr("LJM_ListAll")));
-        function_pointers_.Open = reinterpret_cast<decltype(&LJM_Open)>(
+        func_ptrs.Open = reinterpret_cast<decltype(&LJM_Open)>(
             const_cast<void *>(lib->get_func_ptr("LJM_Open")));
-        function_pointers_.Close = reinterpret_cast<decltype(&LJM_Close)>(
+        func_ptrs.Close = reinterpret_cast<decltype(&LJM_Close)>(
             const_cast<void *>(lib->get_func_ptr("LJM_Close")));
-        function_pointers_.eReadNames = reinterpret_cast<decltype(&LJM_eReadNames)>(
+        func_ptrs.eReadNames = reinterpret_cast<decltype(&LJM_eReadNames)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eReadNames")));
-        function_pointers_.WaitForNextInterval = reinterpret_cast<decltype(&
+        func_ptrs.WaitForNextInterval = reinterpret_cast<decltype(&
             LJM_WaitForNextInterval)>(
             const_cast<void *>(lib->get_func_ptr("LJM_WaitForNextInterval")));
-        function_pointers_.eStreamStart = reinterpret_cast<decltype(&LJM_eStreamStart)>(
+        func_ptrs.eStreamStart = reinterpret_cast<decltype(&LJM_eStreamStart)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamStart")));
     }
 
 
     static std::pair<std::shared_ptr<API>, xerrors::Error> load() {
-        LOG(INFO) << "loading LJM shared libraries" << LJM_LIBRARY_NAME;
         auto lib = std::make_unique<xlib::SharedLib>(LJM_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), xerrors::NIL};
     }
 
-    LJM_ERROR_RETURN eStreamRead(
-        int Handle,
-        double *aData,
-        int *DeviceScanBacklog,
-        int *LJMScanBacklog
-    ) {
-        return function_pointers_.eStreamRead(Handle, aData, DeviceScanBacklog,
-                                              LJMScanBacklog);
+    [[nodiscard]] LJM_ERROR_RETURN e_stream_read(
+        const int dev_handle,
+        double *data,
+        int *dev_scan_backlog,
+        int *ljm_scan_backlog
+    ) const {
+        return this->func_ptrs.eStreamRead(
+            dev_handle,
+            data,
+            dev_scan_backlog,
+            ljm_scan_backlog
+        );
     }
 
-    LJM_ERROR_RETURN eStreamStop(int Handle) {
-        return function_pointers_.eStreamStop(Handle);
+    [[nodiscard]] LJM_ERROR_RETURN e_stream_stop(const int dev_handle) const {
+        return this->func_ptrs.eStreamStop(dev_handle);
     }
 
-    LJM_ERROR_RETURN eWriteAddress(int Handle, int Address, int Type, double Value) {
-        return function_pointers_.eWriteAddress(Handle, Address, Type, Value);
+    [[nodiscard]] LJM_ERROR_RETURN e_write_addr(
+        const int dev_handle,
+        const int addr,
+        const int type,
+        const double value
+    ) const {
+        return this->func_ptrs.eWriteAddress(dev_handle, addr, type, value);
     }
 
-    LJM_ERROR_RETURN eWriteAddresses(
-        int Handle,
-        int NumFrames,
-        const int *aAddresses,
-        const int *aTypes,
-        const double *aValues,
-        int *ErrorAddress
-    ) {
-        return function_pointers_.eWriteAddresses(Handle, NumFrames, aAddresses, aTypes,
-                                                  aValues, ErrorAddress);
+    [[nodiscard]] LJM_ERROR_RETURN e_write_addrs(
+        const int dev_handle,
+        const int num_frames,
+        const int *addrs,
+        const int *types,
+        const double *values,
+        int *error_addr
+    ) const {
+        return this->func_ptrs.eWriteAddresses(
+            dev_handle,
+            num_frames,
+            addrs,
+            types,
+            values,
+            error_addr
+        );
     }
 
-    LJM_ERROR_RETURN StartInterval(int IntervalHandle, int Microseconds) {
-        return function_pointers_.StartInterval(IntervalHandle, Microseconds);
+    [[nodiscard]] LJM_ERROR_RETURN start_interval(
+        const int interval_handle,
+        const int microseconds
+    ) const {
+        return this->func_ptrs.StartInterval(interval_handle, microseconds);
     }
 
-    LJM_ERROR_RETURN eWriteName(int Handle, const char *Name, double Value) {
-        return function_pointers_.eWriteName(Handle, Name, Value);
+    [[nodiscard]] LJM_ERROR_RETURN e_write_name(
+        const int dev_handle,
+        const char *name,
+        const double value
+    ) const {
+        return this->func_ptrs.eWriteName(dev_handle, name, value);
     }
 
-    LJM_ERROR_RETURN NamesToAddresses(
-        int NumFrames,
-        const char **aNames,
-        int *aAddresses,
-        int *aTypes
-    ) {
-        return function_pointers_.NamesToAddresses(NumFrames, aNames, aAddresses,
-                                                   aTypes);
+    [[nodiscard]] LJM_ERROR_RETURN names_to_addrs(
+        const int num_frames,
+        const char **names,
+        int *addrs,
+        int *types
+    ) const {
+        return this->func_ptrs.NamesToAddresses(
+            num_frames,
+            names,
+            addrs,
+            types
+        );
     }
 
-    LJM_VOID_RETURN ErrorToString(int ErrorCode, char *ErrorString) {
-        return function_pointers_.ErrorToString(ErrorCode, ErrorString);
+    LJM_VOID_RETURN err_to_string(const int err_code, char *err_string) const {
+        return this->func_ptrs.ErrorToString(err_code, err_string);
     }
 
-    LJM_ERROR_RETURN eWriteNames(
-        int Handle,
-        int NumFrames,
-        const char **aNames,
-        const double *aValues,
-        int *ErrorAddress
-    ) {
-        return function_pointers_.eWriteNames(Handle, NumFrames, aNames, aValues,
-                                              ErrorAddress);
+    [[nodiscard]] LJM_ERROR_RETURN e_write_names(
+        const int dev_handle,
+        const int num_frames,
+        const char **names,
+        const double *values,
+        int *err_addr
+    ) const {
+        return this->func_ptrs.eWriteNames(
+            dev_handle,
+            num_frames,
+            names,
+            values,
+            err_addr
+        );
     }
 
-    LJM_ERROR_RETURN ListAll(
-        int DeviceType,
-        int ConnectionType,
-        int *NumFound,
-        int *aDeviceTypes,
-        int *aConnectionTypes,
-        int *aSerialNumbers,
-        int *aIPAddresses
-    ) {
-        return function_pointers_.ListAll(DeviceType, ConnectionType, NumFound,
-                                          aDeviceTypes, aConnectionTypes,
-                                          aSerialNumbers, aIPAddresses);
+    [[nodiscard]] LJM_ERROR_RETURN list_all(
+        const int dev_type,
+        const int conn_type,
+        int *num_found,
+        int *dev_types,
+        int *conn_types,
+        int *serial_numbers,
+        int *a_ip_addrs
+    ) const {
+        return this->func_ptrs.ListAll(
+            dev_type,
+            conn_type,
+            num_found,
+            dev_types,
+            conn_types,
+            serial_numbers, a_ip_addrs
+        );
     }
 
-    LJM_ERROR_RETURN Open(
-        int DeviceType,
-        int ConnectionType,
-        const char *Identifier,
-        int *Handle
-    ) {
-        return function_pointers_.Open(DeviceType, ConnectionType, Identifier, Handle);
+    [[nodiscard]] LJM_ERROR_RETURN open(
+        const int dev_type,
+        const int conn_type,
+        const char *id,
+        int *dev_handle
+    ) const {
+        return func_ptrs.Open(dev_type, conn_type, id, dev_handle);
     }
 
-    LJM_ERROR_RETURN Close(int Handle) {
-        return function_pointers_.Close(Handle);
+    [[nodiscard]] LJM_ERROR_RETURN close(const int dev_handle) const {
+        return func_ptrs.Close(dev_handle);
     }
 
-    LJM_ERROR_RETURN eReadNames(
-        int Handle,
-        int NumFrames,
-        const char **aNames,
-        double *aValues,
-        int *ErrorAddress
-    ) {
-        return function_pointers_.eReadNames(Handle, NumFrames, aNames, aValues,
-                                             ErrorAddress);
+    LJM_ERROR_RETURN e_read_names(
+        const int dev_handle,
+        const int num_frames,
+        const char **a_names,
+        double *a_values,
+        int *err_addr
+    ) const {
+        return this->func_ptrs.eReadNames(
+            dev_handle,
+            num_frames,
+            a_names,
+            a_values,
+            err_addr
+        );
     }
 
-    LJM_ERROR_RETURN WaitForNextInterval(int IntervalHandle, int *SkippedIntervals) {
-        return function_pointers_.WaitForNextInterval(IntervalHandle, SkippedIntervals);
+    [[nodiscard]] LJM_ERROR_RETURN wait_for_next_interval(
+        const int interval_handle,
+        int *skipped_intervals
+    ) const {
+        return this->func_ptrs.WaitForNextInterval(interval_handle, skipped_intervals);
     }
 
-    LJM_ERROR_RETURN eStreamStart(
-        int Handle,
-        int ScansPerRead,
-        int NumAddresses,
-        const int *aScanList,
-        double *ScanRate
-    ) {
-        return function_pointers_.eStreamStart(Handle, ScansPerRead, NumAddresses,
-                                               aScanList, ScanRate);
+    [[nodiscard]] LJM_ERROR_RETURN e_stream_start(
+        const int dev_handle,
+        const int scans_per_read,
+        const int num_addrs,
+        const int *scan_list,
+        double *scan_rate
+    ) const {
+        return this->func_ptrs.eStreamStart(
+            dev_handle,
+            scans_per_read,
+            num_addrs,
+            scan_list,
+            scan_rate
+        );
     }
 };
 }

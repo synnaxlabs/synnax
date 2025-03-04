@@ -12,9 +12,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <thread>
 #include <set>
-#include <stdio.h>
 
 /// module
 #include "client/cpp/synnax.h"
@@ -23,7 +21,7 @@
 
 /// internal
 #include "labjack.h"
-#include "ljm/device_manager.h"
+#include "device/device.h"
 #include "driver/task/common/read_task.h"
 #include "driver/pipeline/middleware.h"
 #include "driver/labjack/ljm/api.h"
@@ -92,7 +90,7 @@ struct InputChan {
     }
 
     virtual xerrors::Error apply(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         const std::string &device_type
     ) = 0;
 };
@@ -146,17 +144,17 @@ struct ThermocoupleChan final : InputChan {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<ljm::DeviceAPI> &ljm,
+        const std::shared_ptr<device::Device> &ljm,
         const std::string &device_type
     ) override {
-        if (const auto err = ljm->eWriteAddress(
+        if (const auto err = ljm->e_write_addr(
             41500 + this->pos_chan,
             LJM_UINT16,
             0
         ))
             return err;
         if (device_type == T7) {
-            if (const auto err = ljm->eWriteAddress(
+            if (const auto err = ljm->e_write_addr(
                 41000 + this->pos_chan,
                 LJM_UINT16,
                 this->neg_chan
@@ -197,7 +195,7 @@ struct ThermocoupleChan final : InputChan {
             aTypes[4] = LJM_FLOAT32;
             aValues[4] = this->cjc_offset;
 
-            return ljm->eWriteAddresses(
+            return ljm->e_write_addrs(
                 NUM_FRAMES,
                 aAddresses,
                 aTypes,
@@ -218,26 +216,26 @@ struct AIChan final : InputChan {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         const std::string &device_type
     ) override {
-        if (const auto err = dev->eWriteName(
+        if (const auto err = dev->e_write_name(
             (this->loc + "_RESOLUTION_INDEX").c_str(),
             0
         ))
             return err;
         if (device_type == T7 || device_type == T8) {
-            if (const auto err = dev->eWriteName(
+            if (const auto err = dev->e_write_name(
                 (this->loc + "_RANGE").c_str(),
                 0
             ))
                 return err;
         }
         if (device_type == T7)
-            dev->eWriteName(
+            if (const auto err = dev->e_write_name(
                 (this->loc + "_NEGATIVE_CH").c_str(),
                 this->neg_chan
-            );
+            )) return err;
         return xerrors::NIL;
     }
 };
@@ -248,7 +246,7 @@ struct DIChan final : InputChan {
     }
 
     xerrors::Error apply(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         const std::string &device_type
     ) override {
         return xerrors::NIL;
@@ -318,9 +316,7 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
        stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
-       samples_per_chan(
-           static_cast<size_t>(std::floor((sample_rate / stream_rate).hz()))
-       ) {
+       samples_per_chan(sample_rate / stream_rate) {
         parser.iter("channels", [this](xjson::Parser &p) {
             auto ch = parse_input_chan(p);
             if (ch->enabled) this->channels.push_back(std::move(ch));
@@ -376,18 +372,18 @@ struct ReadTaskConfig {
 
 class UnarySource final : public common::Source {
     const ReadTaskConfig cfg;
-    const std::shared_ptr<ljm::DeviceAPI> dev;
+    const std::shared_ptr<device::Device> dev;
     const int interval_handle;
 
 public:
     UnarySource(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)), dev(dev), interval_handle(0) {
     }
 
     xerrors::Error start() override {
-        return this->dev->StartInterval(
+        return this->dev->start_interval(
             this->interval_handle,
             static_cast<int>(this->cfg.sample_rate.period().microseconds())
         );
@@ -404,11 +400,11 @@ public:
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->loc.c_str());
         int SkippedIntervals;
-        if (const auto err = this->dev->WaitForNextInterval(
+        if (const auto err = this->dev->wait_for_next_interval(
             this->interval_handle, &SkippedIntervals))
             return {Frame(), err};
         values.resize(locations.size());
-        if (const auto err = this->dev->eReadNames(
+        if (const auto err = this->dev->e_read_names(
             locations.size(),
             locations.data(),
             values.data(),
@@ -431,7 +427,7 @@ public:
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 
-    synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 };
@@ -454,7 +450,7 @@ public:
         this->high_water = telem::TimeStamp::now();
     }
 
-    telem::TimeStamp wait(breaker::Breaker &_) {
+    telem::TimeStamp wait(breaker::Breaker &_) const {
         return this->high_water;
     }
 
@@ -468,12 +464,12 @@ public:
 class StreamSource final : public common::Source {
     ReadTaskConfig cfg;
     std::vector<double> data;
-    std::shared_ptr<ljm::DeviceAPI> dev;
+    std::shared_ptr<device::Device> dev;
     HardwareTimedSampleClock sample_clock;
 
 public:
     StreamSource(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        data(this->cfg.samples_per_chan * this->cfg.channels.size()),
@@ -486,20 +482,21 @@ public:
     }
 
     xerrors::Error start() override {
+        this->stop();
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
         for (const auto &channel: this->cfg.channels)
             physical_channels.push_back(channel->loc.c_str());
-        if (const auto err = this->dev->NamesToAddresses(
+        if (const auto err = this->dev->names_to_addrs(
             this->cfg.channels.size(),
             physical_channels.data(),
             temp_ports.data(),
-            NULL
+            nullptr
         ))
             return err;
         auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
-        if (const auto err = this->dev->eStreamStart(
+        if (const auto err = this->dev->e_stream_start(
             this->cfg.samples_per_chan,
             this->cfg.channels.size(),
             temp_ports.data(),
@@ -510,7 +507,7 @@ public:
     }
 
     xerrors::Error stop() override {
-        return this->dev->eStreamStop();
+        return this->dev->e_stream_stop();
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -518,7 +515,7 @@ public:
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
-        if (const auto err = this->dev->eStreamRead(
+        if (const auto err = this->dev->e_stream_read(
             this->data.data(),
             &num_skipped_scans,
             &scan_backlog

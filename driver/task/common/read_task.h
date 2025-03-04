@@ -89,12 +89,12 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client in order
     /// to communicate with the cluster.
     explicit ReadTask(
-        synnax::Task task,
+        const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<Source> source
     ): ReadTask(
-        std::move(task),
+        task,
         ctx,
         breaker_cfg,
         std::move(source),

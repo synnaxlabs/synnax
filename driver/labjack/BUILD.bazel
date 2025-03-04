@@ -28,6 +28,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/errors",
+        "//driver/labjack/device",
         "//driver/labjack/ljm",
         "//driver/pipeline",
         "//driver/queue",

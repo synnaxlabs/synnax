@@ -19,7 +19,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/labjack/ljm/device_manager.h"
+#include "driver/labjack/device/device.h"
 #include "driver/task/common/write_task.h"
 
 namespace labjack {
@@ -91,8 +91,8 @@ struct WriteTaskConfig {
             [this, &state_to_cmd](xjson::Parser &p) {
                 auto ch = std::make_unique<OutputChan>(p);
                 if (!ch->enabled) return;
-                this->channels[ch->cmd_ch_key] = std::move(ch);
                 state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
+                this->channels[ch->cmd_ch_key] = std::move(ch);
             }
         );
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
@@ -103,7 +103,8 @@ struct WriteTaskConfig {
         this->dev_model = dev.model;
         std::vector<synnax::ChannelKey> state_channels;
         state_channels.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch_key);
+        for (const auto &[_, ch]: this->channels) state_channels.push_back(
+            ch->state_ch_key);
         const auto [channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
             parser.field_err("channels",
@@ -111,7 +112,7 @@ struct WriteTaskConfig {
             return;
         }
         for (const auto &state_ch: channels) {
-            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.key);
+            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
             auto &ch = this->channels[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch);
         }
@@ -128,7 +129,8 @@ struct WriteTaskConfig {
     [[nodiscard]] std::vector<synnax::Channel> state_channels() const {
         std::vector<synnax::Channel> state_channels;
         state_channels.reserve(this->state_index_keys.size());
-        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch);
+        for (const auto &[_, ch]: this->channels) state_channels.
+                push_back(ch->state_ch);
         return state_channels;
     }
 
@@ -142,11 +144,13 @@ struct WriteTaskConfig {
 
 class WriteSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<ljm::DeviceAPI> dev;
+    std::shared_ptr<device::Device> dev;
+    std::vector<const char *> locs;
+    std::vector<double> values;
 
 public:
     explicit WriteSink(
-        const std::shared_ptr<ljm::DeviceAPI> &dev,
+        const std::shared_ptr<device::Device> &dev,
         WriteTaskConfig cfg
     ): Sink(
            cfg.state_rate,
@@ -159,55 +163,44 @@ public:
        dev(dev) {
     }
 
+    void reset_buffer(const size_t alloc) {
+        this->locs.clear();
+        this->values.clear();
+        this->locs.reserve(alloc);
+        this->values.reserve(alloc);
+    }
+
     xerrors::Error start() override {
-        std::vector<const char *> locs;
-        std::vector<double> values;
-        locs.reserve(this->cfg.channels.size());
-        values.reserve(this->cfg.channels.size());
+        this->reset_buffer(this->cfg.channels.size());
         for (const auto &[_, ch]: this->cfg.channels) {
             locs.push_back(ch->port.c_str());
             values.push_back(0);
         }
-        return this->write(locs, values);
+        return this->flush();
     }
 
-    xerrors::Error stop() override {
-        return xerrors::NIL;
-    }
-
-    xerrors::Error write(
-        std::vector<const char *> &locs,
-        const std::vector<double> &values
-    ) const {
-        return this->dev->eWriteNames(
-            static_cast<int>(locs.size()),
+    xerrors::Error flush() const {
+        int err_addr = 0;
+        auto locs = this->locs;
+        return this->dev->e_write_names(
+            static_cast<int>(this->locs.size()),
             locs.data(),
-            values.data(),
-            nullptr
+            this->values.data(),
+            &err_addr
         );
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
-        std::vector<const char *> locs;
-        std::vector<double> values;
-        locs.reserve(frame.size());
-        values.reserve(frame.size());
+        this->reset_buffer(this->cfg.channels.size());
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
             const auto &ch = it->second;
-            locs.push_back(ch->port.c_str());
-            values.push_back(telem::cast<double>(s.at(-1)));
+            this->locs.push_back(ch->port.c_str());
+            this->values.push_back(telem::cast<double>(s.at(-1)));
         }
-        if (const auto err = this->write(locs, values)) return err;
-        std::lock_guard lock{this->chan_state_lock};
-        for (const auto &[key, s]: frame) {
-            const auto it = this->cfg.channels.find(key);
-            if (it == this->cfg.channels.end()) continue;
-            const auto state_ch = it->second->state_ch;
-            this->chan_state[state_ch.key] = state_ch.data_type.cast(s.at(-1));
-        }
+        if (const auto err = this->flush()) return err;
+        this->set_state(frame);
         return xerrors::NIL;
     }
 };

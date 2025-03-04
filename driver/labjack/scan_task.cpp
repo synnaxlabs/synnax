@@ -26,23 +26,23 @@ ScanTask::ScanTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task,
     ScanTaskConfig cfg,
-    std::shared_ptr<ljm::DeviceManager> device_manager
+    std::shared_ptr<device::Manager> device_manager
 ) : task(std::move(task)),
     cfg(std::move(cfg)),
     ctx(ctx),
     device_manager(std::move(device_manager)) {
-    state.key = task.key;
+    state.task = this->task.key;
 }
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> ScanTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    std::shared_ptr<ljm::DeviceManager> device_manager
+    const std::shared_ptr<device::Manager>& dev_manager
 ) {
     auto parser = xjson::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
     if (parser.error()) return {nullptr, parser.error()};
-    auto tsk = std::make_unique<ScanTask>(ctx, task, cfg, device_manager);
+    auto tsk = std::make_unique<ScanTask>(ctx, task, cfg, dev_manager);
     if (cfg.enabled) tsk->start();
     return {std::move(tsk), xerrors::NIL};
 }
@@ -54,7 +54,7 @@ xerrors::Error ScanTask::scan_for(const int device_type, const int connection_ty
     int ip_addresses[LJM_LIST_ALL_SIZE];
     int num_found = 0;
 
-    if (const auto err = device_manager->ListAll(
+    if (const auto err = device_manager->list_all(
         device_type,
         connection_type,
         &num_found,
@@ -69,8 +69,7 @@ xerrors::Error ScanTask::scan_for(const int device_type, const int connection_ty
         const auto device_type_str = std::string(NumberToDeviceType(device_types[i]));
         const auto conn_type_str = std::string(NumberToConnectionType(connection_types[i]));
         
-        // Create base synnax device
-        auto last_four = serial_str.length() >= 4 ? 
+        auto last_four = serial_str.length() >= 4 ?
             serial_str.substr(serial_str.length() - 4) : serial_str;
         auto name = device_type_str + "-" + last_four;
 

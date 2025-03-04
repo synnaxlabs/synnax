@@ -58,7 +58,7 @@ private:
 /// @brief middleware to tare data written to channels based on the last frame processed at the time of taring
 /// This middleware should added to the pipeline middleware chain first so that it can tare the data before any other middleware
 /// can process it.
-class TareMiddleware : public Middleware {
+class TareMiddleware final: public Middleware {
 public:
     explicit TareMiddleware(std::vector<synnax::ChannelKey> keys) {
         for (auto &key: keys) {

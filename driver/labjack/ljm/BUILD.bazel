@@ -2,7 +2,6 @@ cc_library(
     name = "ljm",
     hdrs = [
         "api.h",
-        "device_manager.h",
         "errors.h",
     ],
     visibility = ["//visibility:public"],

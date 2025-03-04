@@ -23,7 +23,7 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::ChannelKey> cmd_channels;
     /// @brief the vector of channels to write state updates for.
-    const std::vector<synnax::Channel> state_channels;
+    std::unordered_map<synnax::ChannelKey, synnax::Channel> state_channels;
     /// @brief the index keys of the state channels.
     const std::set<synnax::ChannelKey> state_indexes;
     /// @brief whether data saving is enabled for the task.
@@ -39,33 +39,44 @@ public:
     Sink(
         const telem::Rate state_rate,
         std::set<synnax::ChannelKey> state_indexes,
-        std::vector<synnax::Channel> state_channels,
+        const std::vector<synnax::Channel> &state_channels,
         std::vector<synnax::ChannelKey> cmd_channels,
         const bool data_saving
     ): state_timer(state_rate),
        cmd_channels(std::move(cmd_channels)),
-       state_channels(std::move(state_channels)),
        state_indexes(std::move(state_indexes)),
        data_saving(data_saving) {
-        for (const auto &ch: this->state_channels)
+        for (const auto &ch: state_channels) {
             this->chan_state[ch.key] = ch.data_type.cast(0);
+            this->state_channels[ch.key] = ch;
+        }
     }
 
-    virtual xerrors::Error start() = 0;
+    virtual xerrors::Error start() { return xerrors::NIL; }
 
-    virtual xerrors::Error stop() = 0;
+    virtual xerrors::Error stop() { return xerrors::NIL; }
 
-    synnax::StreamerConfig streamer_config() const {
-        const auto keys = keys_from_channels(this->state_channels);
-        return synnax::StreamerConfig{.channels = keys};
+    [[nodiscard]] synnax::StreamerConfig streamer_config() const {
+        return synnax::StreamerConfig{.channels = this->cmd_channels};
     }
 
-    synnax::WriterConfig writer_config() const {
+    [[nodiscard]] synnax::WriterConfig writer_config() const {
+        auto keys = keys_from_channels(this->state_channels);
+        for (const auto idx: this->state_indexes) keys.push_back(idx);
         return synnax::WriterConfig{
-            .channels = this->cmd_channels,
+            .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
             .enable_auto_commit = true,
         };
+    }
+
+    void set_state(const synnax::Frame &frame) {
+        std::lock_guard lock{this->chan_state_lock};
+        for (const auto &[key, s]: frame) {
+            const auto it = this->state_channels.find(key);
+            if (it == this->state_channels.end()) continue;
+            this->chan_state[it->second.key] = it->second.data_type.cast(s.at(-1));
+        }
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -110,6 +121,7 @@ class WriteTask final : public task::Task {
         }
 
         xerrors::Error write(const synnax::Frame &frame) override {
+            if (frame.empty()) return xerrors::NIL;
             return this->wrapped->write(frame);
         }
     };

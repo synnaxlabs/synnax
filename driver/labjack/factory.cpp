@@ -18,7 +18,7 @@ const std::string NO_LIBS_MSG =
         "Cannot create task because the LJM Libraries are not installed on this System.";
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
-    const std::shared_ptr<ljm::DeviceManager> &devs,
+    const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -43,7 +43,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
 }
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
-    const std::shared_ptr<ljm::DeviceManager> &devs,
+    const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -66,7 +66,7 @@ bool labjack::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) const {
-    if (this->device_manager != nullptr) return true;
+    if (this->dev_manager != nullptr) return true;
     ctx->set_state({
         .task = task.key,
         .variant = "error",
@@ -79,14 +79,15 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
+    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, false};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == "labjack_scan")
-        res = labjack::ScanTask::configure(ctx, task, this->device_manager);
+        res = labjack::ScanTask::configure(ctx, task, this->dev_manager);
     if (task.type == "labjack_read")
-        res = configure_read(this->device_manager, ctx, task);
+        res = configure_read(this->dev_manager, ctx, task);
     if (task.type == "labjack_write")
-        res = configure_write(this->device_manager, ctx, task);
+        res = configure_write(this->dev_manager, ctx, task);
     auto [tsk, err] = std::move(res);
     if (err)
         ctx->set_state({
@@ -112,7 +113,7 @@ std::unique_ptr<labjack::Factory> labjack::Factory::create() {
     if (ljm_err)
         LOG(WARNING) << ljm_err;
     return std::make_unique<labjack::Factory>(
-        ljm != nullptr ? std::make_shared<ljm::DeviceManager>(ljm) : nullptr
+        ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr
     );
 }
 

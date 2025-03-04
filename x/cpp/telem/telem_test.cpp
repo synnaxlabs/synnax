@@ -337,8 +337,8 @@ TEST(RateTests, testMultiplication) {
 TEST(RateTests, testDivision) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
-    const auto r3 = r / r2;
-    ASSERT_EQ(r3.hz(), 1);
+    const auto multiple = r / r2;
+    ASSERT_EQ(multiple, 1);
 
     const auto r4 = Rate(5);
     const auto r5 = r4 / 5;
