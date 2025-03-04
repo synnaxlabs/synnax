@@ -378,6 +378,7 @@ class UnarySource final : public common::Source {
     const ReadTaskConfig cfg;
     const std::shared_ptr<ljm::DeviceAPI> dev;
     const int interval_handle;
+
 public:
     UnarySource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
@@ -435,16 +436,49 @@ public:
     }
 };
 
+/// @brief a sample clock that relies on an external, steady hardware clock to
+/// regulate the acquisition rate. Timestamps are interpolated based on a fixed
+/// sample rate.
+class HardwareTimedSampleClock {
+    /// @brief the sample rate of the task.
+    const telem::Rate sample_rate;
+    /// @brief the high water-mark for the next acquisition loop.
+    telem::TimeStamp high_water{};
+
+public:
+    explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
+        sample_rate(sample_rate) {
+    }
+
+    void reset() {
+        this->high_water = telem::TimeStamp::now();
+    }
+
+    telem::TimeStamp wait(breaker::Breaker &_) {
+        return this->high_water;
+    }
+
+    telem::TimeStamp end(const size_t n_read) {
+        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
+        this->high_water = end + this->sample_rate.period();
+        return end;
+    }
+};
+
 class StreamSource final : public common::Source {
     ReadTaskConfig cfg;
     std::vector<double> data;
     std::shared_ptr<ljm::DeviceAPI> dev;
+    HardwareTimedSampleClock sample_clock;
+
 public:
     StreamSource(
         const std::shared_ptr<ljm::DeviceAPI> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
-       data(this->cfg.samples_per_chan * this->cfg.channels.size()), dev(dev) {
+       data(this->cfg.samples_per_chan * this->cfg.channels.size()),
+       dev(dev),
+       sample_clock(this->cfg.sample_rate) {
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
@@ -465,12 +499,14 @@ public:
         ))
             return err;
         auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
-        return this->dev->eStreamStart(
+        if (const auto err = this->dev->eStreamStart(
             this->cfg.samples_per_chan,
             this->cfg.channels.size(),
             temp_ports.data(),
             &scan_rate
-        );
+        )) return err;
+        this->sample_clock.reset();
+        return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
@@ -479,7 +515,7 @@ public:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         const auto n = this->cfg.samples_per_chan;
-        const auto start = telem::TimeStamp::now();
+        const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
         if (const auto err = this->dev->eStreamRead(
@@ -488,7 +524,7 @@ public:
             &scan_backlog
         ))
             return {Frame(), err};
-        const auto end = telem::TimeStamp::now();
+        const auto end = this->sample_clock.end(n);
 
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.indexes.size());
         int i = 0;
