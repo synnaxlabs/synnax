@@ -222,10 +222,11 @@ const ChannelsForm = ({
     [device],
   );
   const listItem = useCallback(
-    (p: Common.Task.ChannelListItemProps<InputChannel>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps<InputChannel>) => (
       <ChannelListItem
         {...p}
         onTare={tare}
+        key={key}
         isRunning={isRunning}
         deviceModel={device.model}
       />
