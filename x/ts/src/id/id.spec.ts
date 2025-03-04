@@ -37,4 +37,55 @@ describe("id", () => {
       }
     });
   });
+
+  describe("validate", () => {
+    it("should return true for valid IDs", () => {
+      const validID = "abc123DEF45";
+      expect(id.validate(validID)).toBe(true);
+    });
+
+    it("should return false for IDs with invalid length", () => {
+      expect(id.validate("abc")).toBe(false);
+      expect(id.validate("abcdefghijkl")).toBe(false);
+    });
+
+    it("should return false for IDs with non-alphanumeric characters", () => {
+      expect(id.validate("abc!@#defghi")).toBe(false);
+      expect(id.validate("abc def ghi")).toBe(false);
+    });
+
+    it("should return false for empty string", () => {
+      expect(id.validate("")).toBe(false);
+    });
+
+    it("should accept strings with only numbers", () => {
+      expect(id.validate("12345678901")).toBe(true);
+    });
+
+    it("should accept strings with only lowercase letters", () => {
+      expect(id.validate("abcdefghijk")).toBe(true);
+    });
+
+    it("should accept strings with only uppercase letters", () => {
+      expect(id.validate("ABCDEFGHIJK")).toBe(true);
+    });
+
+    it("should return false for strings with whitespace padding", () => {
+      expect(id.validate(" ABCDEFGHIJ ")).toBe(false);
+      expect(id.validate("\tABCDEFGHIJ")).toBe(false);
+      expect(id.validate("ABCDEFGHIJ\n")).toBe(false);
+    });
+  });
+
+  describe("schema", () => {
+    it("should validate valid IDs", () => {
+      const validID = id.generate();
+      expect(id.schema.safeParse(validID).success).toBe(true);
+    });
+
+    it("should reject invalid IDs", () => {
+      const invalidID = "invalid-id";
+      expect(id.schema.safeParse(invalidID).success).toBe(false);
+    });
+  });
 });

@@ -23,9 +23,22 @@ export const generate = (): string => generator();
 
 const REGEX = /^[0-9A-Za-z]{11}$/;
 
+/**
+ * Validates an ID.
+ *
+ * @param {string} id - The ID to validate.
+ * @returns {boolean} True if the ID is valid, false otherwise.
+ */
 export const validate = (id: string): boolean => REGEX.test(id);
 
+/**
+ * The Zod schema for an ID.
+ */
 export const schema = z
   .string()
   .regex(REGEX, "Invalid ID, must be exactly 11 characters and alphanumeric");
+
+/**
+ * The type for an ID.
+ */
 export type ID = z.infer<typeof schema>;
