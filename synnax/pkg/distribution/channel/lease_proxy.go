@@ -28,20 +28,18 @@ import (
 
 type leaseProxy struct {
 	ServiceConfig
-	createRouter    proxy.BatchFactory[Channel]
-	renameRouter    proxy.BatchFactory[renameBatchEntry]
-	keyRouter       proxy.BatchFactory[Key]
-	leasedCounter   *counter
-	freeCounter     *counter
-	externalCounter *counter
-	group           group.Group
-	external        *set.Integer[LocalKey]
+	createRouter  proxy.BatchFactory[Channel]
+	renameRouter  proxy.BatchFactory[renameBatchEntry]
+	keyRouter     proxy.BatchFactory[Key]
+	leasedCounter *counter
+	freeCounter   *counter
+	group         group.Group
+	external      *set.Integer[Key]
 }
 
 const (
-	leasedCounterSuffix   = ".distribution.channel.leasedCounter"
-	freeCounterSuffix     = ".distribution.channel.counter.free"
-	externalCounterSuffix = ".distribution.channel.externalCounter"
+	leasedCounterSuffix = ".distribution.channel.leasedCounter"
+	freeCounterSuffix   = ".distribution.channel.counter.free"
 )
 
 func newLeaseProxy(
@@ -54,11 +52,6 @@ func newLeaseProxy(
 	if err != nil {
 		return nil, err
 	}
-	externalCounterKey := []byte(cfg.HostResolver.HostKey().String() + externalCounterSuffix)
-	extCtr, err := openCounter(ctx, cfg.ClusterDB, externalCounterKey)
-	if err != nil {
-		return nil, err
-	}
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
 	externalNonVirtualChannels := make([]Channel, 0)
 	if err := gorp.
@@ -68,23 +61,17 @@ func newLeaseProxy(
 		Exec(ctx, cfg.ClusterDB); err != nil {
 		return nil, err
 	}
-	extCtr.set(LocalKey(len(externalNonVirtualChannels)))
-	startingKeys := keyRouter.Batch(KeysFromChannels(externalNonVirtualChannels))
-	gatewayLocalKeys := make([]LocalKey, 0, len(startingKeys.Gateway))
-	for _, ch := range startingKeys.Gateway {
-		gatewayLocalKeys = append(gatewayLocalKeys, ch.LocalKey())
-	}
-	externalNonVirtualSet := set.NewInteger(gatewayLocalKeys...)
+	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
+	externalNonVirtualSet := set.NewInteger(externalNonVirtualKeys...)
 
 	p := &leaseProxy{
-		ServiceConfig:   cfg,
-		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:       keyRouter,
-		renameRouter:    proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter:   leasedCtr,
-		group:           group,
-		externalCounter: extCtr,
-		external:        externalNonVirtualSet,
+		ServiceConfig: cfg,
+		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		keyRouter:     keyRouter,
+		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		leasedCounter: leasedCtr,
+		group:         group,
+		external:      externalNonVirtualSet,
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
@@ -140,6 +127,18 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			channels[i].LocalKey = 0
 		}
 	}
+
+	externalCreatedKeys := make([]Key, 0, len(channels))
+	for _, ch := range channels {
+		if !ch.Internal && !ch.Virtual {
+			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
+		}
+	}
+	if err := lp.IntOverflowCheck(ctx, xtypes.Uint20(len(externalCreatedKeys))); err != nil {
+		return err
+	}
+	lp.external.Insert(externalCreatedKeys...)
+
 	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
@@ -323,25 +322,7 @@ func (lp *leaseProxy) createGateway(
 	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
-		return err
-	}
-
-	externalCreatedKeys := make([]LocalKey, 0, len(toCreate))
-	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
-			externalCreatedKeys = append(externalCreatedKeys, ch.LocalKey)
-		}
-	}
-	newExternalChannelsCount := LocalKey(len(externalCreatedKeys))
-	totalExternalChannelsCount := newExternalChannelsCount +
-		lp.externalCounter.value()
-	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(totalExternalChannelsCount)); err != nil {
-		return err
-	}
-	lp.external.Insert(externalCreatedKeys...)
-	_, err = lp.externalCounter.add(newExternalChannelsCount)
-	return err
+	return gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -398,24 +379,37 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 
 func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
-		var internalChannels []Channel
-		err := gorp.
+		internalChannels := make([]Channel, 0, len(keys))
+		if err := gorp.
 			NewRetrieve[Key, Channel]().
 			WhereKeys(keys...).
 			Where(func(c *Channel) bool { return c.Internal }).
 			Entries(&internalChannels).
-			Exec(ctx, tx)
-		if err != nil {
+			Exec(ctx, tx); err != nil {
 			return err
 		}
-		var names = make([]string, 0, len(internalChannels))
-		if len(internalChannels) > 0 {
-			for _, ch := range internalChannels {
-				names = append(names, ch.Name)
-			}
-			return errors.Newf("can't delete internal channel(s): %v", names)
+		if len(internalChannels) == 0 {
+			return nil
 		}
+		var names = make([]string, 0, len(internalChannels))
+		for _, ch := range internalChannels {
+			names = append(names, ch.Name)
+		}
+		return errors.Newf("can't delete internal channel(s): %v", names)
 	}
+
+	// external channels
+	externalChannels := make([]Channel, 0, len(keys))
+	if err := gorp.
+		NewRetrieve[Key, Channel]().
+		WhereKeys(keys...).
+		Where(func(c *Channel) bool { return !c.Internal && !c.Virtual }).
+		Entries(&externalChannels).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	externalKeys := KeysFromChannels(externalChannels)
+	lp.external.Remove(externalKeys...)
 
 	batch := lp.keyRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
@@ -441,26 +435,12 @@ func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channel
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	deletedChannels := make([]Channel, 0, len(keys))
-	if err := gorp.
-		NewRetrieve[Key, Channel]().
-		WhereKeys(keys...).
-		Entries(&deletedChannels).Exec(ctx, tx); err != nil {
-		return err
-	}
 	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
-	numExternalDeleted := lo.CountBy(deletedChannels, func(ch Channel) bool {
-		return !ch.Internal && !ch.Virtual
-	})
-	if _, err := lp.externalCounter.sub(LocalKey(numExternalDeleted)); err != nil {
-		return err
-	}
-	lp.external.Remove(keys.Local()...)
 	// It's very important that this goes last, as it's the only operation that can fail
 	// without an atomic guarantee.
 	return lp.TSChannel.DeleteChannels(keys.Storage())

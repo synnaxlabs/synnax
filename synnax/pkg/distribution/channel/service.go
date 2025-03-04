@@ -141,8 +141,8 @@ func (s *service) NewRetrieve() Retrieve {
 func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
 	res = make([]Channel, 0, len(channels))
 	for i, key := range KeysFromChannels(channels) {
-		if s.proxy.external.Contains(key.LocalKey()) {
-			channelNumber := s.proxy.external.NumLessThan(key.LocalKey()) + 1
+		if s.proxy.external.Contains(key) {
+			channelNumber := s.proxy.external.NumLessThan(key) + 1
 			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(channelNumber)); err != nil {
 				return
 			}
