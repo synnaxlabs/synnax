@@ -10,8 +10,9 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"go/types"
+
+	"github.com/synnaxlabs/freighter"
 )
 
 type (
