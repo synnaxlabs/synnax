@@ -342,7 +342,7 @@ struct ReadTaskConfig {
         }
         size_t i = 0;
         for (const auto &ch: sy_channels) {
-            if (ch.index != 0) this->indexes.insert(ch.key);
+            if (ch.index != 0) this->indexes.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
     }
@@ -453,14 +453,15 @@ public:
 
     xerrors::Error start() override {
         std::vector<int> temp_ports(this->cfg.channels.size());
-        std::vector<const char *> physical_channels(this->cfg.channels.size());
+        std::vector<const char *> physical_channels;
+        physical_channels.reserve(this->cfg.channels.size());
         for (const auto &channel: this->cfg.channels)
             physical_channels.push_back(channel->loc.c_str());
         if (const auto err = this->dev->NamesToAddresses(
             this->cfg.channels.size(),
             physical_channels.data(),
             temp_ports.data(),
-            nullptr
+            NULL
         ))
             return err;
         auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());

@@ -232,7 +232,6 @@ public:
     ) {
         std::lock_guard lock(mu);
         const auto it = this->device_handles.find(serial_number);
-        auto dev = it->second;
         if (it == device_handles.end()) {
             int handle;
             const int err = ljm->Open(
@@ -242,10 +241,11 @@ public:
                 &handle
             );
             if (err != 0) return {nullptr, parse_error(ljm, err)};
-            dev = std::make_shared<DeviceAPI>(ljm, handle);
+            auto dev = std::make_shared<DeviceAPI>(ljm, handle);
             device_handles[serial_number] = dev;
+            return {dev, xerrors::NIL};
         }
-        return {dev, xerrors::NIL};
+        return {it->second, xerrors::NIL};
     }
 
     xerrors::Error release(const std::string &serial_number) {
