@@ -50,7 +50,7 @@ func newLeaseProxy(
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
-	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
+	leasedCtr, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func newLeaseProxy(
 		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:       keyRouter,
 		renameRouter:    proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter:   c,
+		leasedCounter:   leasedCtr,
 		group:           group,
 		externalCounter: extCtr,
 		external:        externalNonVirtualSet,
@@ -333,15 +333,14 @@ func (lp *leaseProxy) createGateway(
 			externalCreatedKeys = append(externalCreatedKeys, ch.LocalKey)
 		}
 	}
-	newExternalChannels := len(externalCreatedKeys)
-	totalExternalChannels := LocalKey(newExternalChannels) + lp.externalCounter.value()
-	if newExternalChannels != 0 {
-		if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(totalExternalChannels)); err != nil {
-			return err
-		}
+	newExternalChannelsCount := LocalKey(len(externalCreatedKeys))
+	totalExternalChannelsCount := newExternalChannelsCount +
+		lp.externalCounter.value()
+	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(totalExternalChannelsCount)); err != nil {
+		return err
 	}
 	lp.external.Insert(externalCreatedKeys...)
-	_, err = lp.externalCounter.add(LocalKey(newExternalChannels))
+	_, err = lp.externalCounter.add(newExternalChannelsCount)
 	return err
 }
 
