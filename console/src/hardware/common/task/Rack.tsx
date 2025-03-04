@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Synnax, Text } from "@synnaxlabs/pluto";
+import { Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 
 interface RackProps {
@@ -23,15 +23,20 @@ export const Rack = ({ taskKey }: RackProps) => {
     queryKey: ["rack", rackKey, client?.key],
     queryFn: () => client?.hardware.racks.retrieve(rackKey),
   }).data;
-  return rack == null ? null : (
-    <Text.WithIcon
-      startIcon={<Icon.Rack />}
-      level="p"
-      shade={7}
-      // Right padding aligns this better with the copy buttons.
-      style={{ paddingRight: 3 }}
-    >
-      {rack?.name}
-    </Text.WithIcon>
+  if (rack == null) return null;
+  return (
+    <Tooltip.Dialog>
+      <Text.Text level="small" shade={8} weight={450}>
+        Task is deployed to {rack.name}
+      </Text.Text>
+      <Text.WithIcon
+        startIcon={<Icon.Rack />}
+        level="p"
+        shade={7}
+        style={{ paddingRight: "0.5rem" }}
+      >
+        {rack?.name}
+      </Text.WithIcon>
+    </Tooltip.Dialog>
   );
 };
