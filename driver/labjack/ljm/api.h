@@ -18,6 +18,12 @@
 #include "x/cpp/xos/xos.h"
 
 namespace ljm {
+#ifdef __APPLE__
+const char* const LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
+#else
+const char* const LJM_LIBRARY_NAME = "LabjackM.dll";
+#endif
+
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
     "failed load LJM shared libraries. Are they installed?"
@@ -89,8 +95,8 @@ public:
 
 
     static std::pair<std::shared_ptr<API>, xerrors::Error> load() {
-        if (xos::get() != xos::WINDOWS) return {nullptr, xerrors::NIL};
-        auto lib = std::make_unique<xlib::SharedLib>("LabjackM.dll");
+        LOG(INFO) << "loading LJM shared libraries" << LJM_LIBRARY_NAME;
+        auto lib = std::make_unique<xlib::SharedLib>(LJM_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), xerrors::NIL};
     }

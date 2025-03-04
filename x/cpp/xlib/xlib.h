@@ -82,6 +82,8 @@ public:
         if (this->handle != nullptr || name.empty())
             return false;
         this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (this->handle == nullptr)
+            std::cout << "Error loading library: " << ::dlerror() << std::endl;
         return this->handle != nullptr;
     }
 
