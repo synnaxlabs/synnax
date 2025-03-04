@@ -74,7 +74,7 @@ const formSchema = z.object({
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
 
-interface InternalProps extends Layout.RendererProps {
+interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClose"> {
   initialValues: FormSchema;
   properties?: Properties;
 }
@@ -275,12 +275,10 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const [initialValues, properties] = data;
   return (
     <Internal
-      focused
       initialValues={initialValues}
       layoutKey={layoutKey}
       onClose={onClose}
       properties={properties}
-      visible
     />
   );
 };
