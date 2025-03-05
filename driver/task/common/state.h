@@ -83,3 +83,20 @@ struct TaskStateHandler {
         this->ctx->set_state(this->wrapped);
     }
 };
+
+inline void handle_config_err(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task,
+    const xerrors::Error &err
+) {
+    task::State state;
+    state.task = task.key;
+    if (err) {
+        state.variant = "error";
+        state.details["message"] = err.message();
+    } else {
+        state.variant = "success";
+        state.details["message"] = "Task configured successfully";
+    }
+    ctx->set_state(state);
+}

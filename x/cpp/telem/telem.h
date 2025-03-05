@@ -599,6 +599,15 @@ template<typename T>
     }, value);
 }
 
+[[nodiscard]] inline void *cast_to_void_ptr(const SampleValue &value) {
+    return std::visit([]<typename T>(const T& arg) -> void* {
+        if constexpr (std::is_same_v<T, std::string>)
+            return const_cast<void*>(static_cast<const void*>(arg.data()));
+        else
+            return const_cast<void*>(static_cast<const void*>(&arg));
+    }, value);
+}
+
 namespace _priv {
 const std::string UNKNOWN_T;
 const std::string FLOAT64_T = "float64";
@@ -710,6 +719,29 @@ public:
             "cannot cast sample value to unknown data type " + this->value);
     }
 
+    /// @brief Casts a void pointer to a sample value of the appropriate type.
+    /// @param value The void pointer to cast
+    /// @param value_type
+    /// @returns A new sample value of the appropriate type
+    /// @throws std::runtime_error if the data type is not numeric
+    SampleValue cast(const void *value, const DataType &value_type) const {
+        if (value_type == _priv::FLOAT64_T) return this->cast(*static_cast<const double*>(value));
+        if (value_type == _priv::FLOAT32_T) return this->cast(*static_cast<const float*>(value));
+        if (value_type == _priv::INT64_T) return this->cast(*static_cast<const int64_t*>(value));
+        if (value_type == _priv::INT32_T) return this->cast(*static_cast<const int32_t*>(value));
+        if (value_type == _priv::INT16_T) return this->cast(*static_cast<const int16_t*>(value));
+        if (value_type == _priv::INT8_T) return this->cast(*static_cast<const int8_t*>(value));
+        if (value_type == _priv::UINT8_T) return this->cast(*static_cast<const uint8_t*>(value));
+        if (value_type == _priv::UINT16_T) return this->cast(*static_cast<const uint16_t*>(value));
+        if (value_type == _priv::UINT32_T) return this->cast(*static_cast<const uint32_t*>(value));
+        if (value_type == _priv::UINT64_T) return this->cast(*static_cast<const uint64_t*>(value));
+        if (value_type == _priv::TIMESTAMP_T) return this->cast(*static_cast<const TimeStamp*>(value));
+        if (value_type == _priv::STRING_T) return this->cast(*static_cast<const std::string*>(value));
+        if (value_type == _priv::JSON_T) return this->cast(*static_cast<const std::string*>(value));
+        throw std::runtime_error(
+            "cannot cast sample value to unknown data type " + this->value);
+    }
+
     /////////////////////////////////// COMPARISON H///////////////////////////////////
 
     bool operator==(const DataType &other) const { return value == other.value; }
@@ -720,12 +752,31 @@ public:
 
     bool operator!=(const std::string &other) const { return value != other; }
 
+    bool operator<(const DataType &other) const { return value < other.value; }
+
+    bool operator<(const std::string &other) const { return value < other; }
+
+    bool operator>(const DataType &other) const { return value > other.value; }
+
+    bool operator>(const std::string &other) const { return value > other; }
+
+    bool operator<=(const DataType &other) const { return value <= other.value; }
+
+    bool operator<=(const std::string &other) const { return value <= other; }
+
+    bool operator>=(const DataType &other) const { return value >= other.value; }
+
+    bool operator>=(const std::string &other) const { return value >= other; }
+
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
     friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {
         os << dt.value;
         return os;
     }
+
+    // Add hash support for DataType
+    friend struct std::hash<telem::DataType>;
 
 private:
     inline static std::unordered_map<std::string, size_t> DENSITIES = {
@@ -819,4 +870,14 @@ const DataType STRING_T(_priv::STRING_T);
 /// cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
 const DataType JSON_T(_priv::JSON_T);
+}
+
+// Add hash specialization in std namespace
+namespace std {
+template<>
+struct hash<telem::DataType> {
+    size_t operator()(const telem::DataType& dt) const {
+        return hash<string>()(dt.value);
+    }
+};
 }

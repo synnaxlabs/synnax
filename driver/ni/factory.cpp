@@ -98,55 +98,38 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
-    if (task.type == "ni_scanner")
+    if (task.type == SCAN_TASK_TYPE)
         res = ni::ScanTask::configure(this->syscfg, ctx, task);
-    else if (task.type == "ni_analog_read")
+    else if (task.type == ANALOG_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<double>,
             common::ReadTask
         >(dmx, ctx, task);
-    else if (task.type == "ni_digital_read")
+    else if (task.type == DIGITAL_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
             common::ReadTask
         >(dmx, ctx, task);
-    else if (task.type == "ni_analog_write")
+    else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<double>,
             common::WriteTask
         >(dmx, ctx, task);
-    else if (task.type == "ni_digital_write")
+    else if (task.type == DIGITAL_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask
         >(dmx, ctx, task);
-    else return {nullptr, false};
-    auto [tsk, err] = std::move(res);
-    if (err)
-        ctx->set_state({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", err.message()}
-            }
-        });
-    else
-        ctx->set_state({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"message", "Task configured successfully"},
-            }
-        });
-    return {std::move(tsk), true};
+    handle_config_err(ctx, task, res.second);
+    return {std::move(res.first), true};
 }
 
 

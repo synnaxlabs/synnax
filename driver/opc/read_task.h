@@ -19,10 +19,9 @@
 #include "x/cpp/loop/loop.h"
 
 /// internal
-#include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
-#include "driver/opc/util.h"
+#include "driver/opc/util/util.h"
 
 namespace opc {
 struct InputChan {
@@ -38,14 +37,11 @@ struct InputChan {
     explicit InputChan(
         xjson::Parser &parser
     ) : enabled(parser.optional<bool>("enabled", true)),
-        node(parse_node_id("node_id", parser)),
+        node(util::parse_node_id("node_id", parser)),
         synnax_key(parser.required<ChannelKey>("channel")) {
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                 ReaderConfig                                  //
-///////////////////////////////////////////////////////////////////////////////////
 struct ReadTaskConfig {
     /// @brief whether to enable data saving for this task.
     const bool data_saving;
@@ -58,7 +54,7 @@ struct ReadTaskConfig {
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
-    ConnectionConfig conn;
+    util::ConnectionConfig conn;
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
     std::vector<InputChan> channels;
@@ -82,7 +78,7 @@ struct ReadTaskConfig {
             return;
         }
         const auto properties = xjson::Parser(dev.properties);
-        this->conn = ConnectionConfig(properties.child("connection"));
+        this->conn = util::ConnectionConfig(properties.child("connection"));
         if (properties.error())
             parser.
                     field_err("device", properties.error().message());
@@ -112,6 +108,14 @@ struct ReadTaskConfig {
             .mode = synnax::data_saving_writer_mode(this->data_saving),
             .enable_auto_commit = true
         };
+    }
+
+    static std::pair<ReadTaskConfig, xerrors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::Task &task
+    ) {
+        auto parser = xjson::Parser(task.config);
+        return {ReadTaskConfig(client, parser), parser.error()};
     }
 };
 
@@ -146,8 +150,6 @@ struct ReadResponse {
     }
 };
 
-
-
 class BaseReadTaskSource: public common::Source {
 protected:
     ReadTaskConfig cfg;
@@ -171,6 +173,7 @@ protected:
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
+public:
     ArrayReadTaskSource(
         const std::shared_ptr<UA_Client> &client,
         const ReadTaskConfig &cfg
@@ -182,11 +185,13 @@ class ArrayReadTaskSource final : public BaseReadTaskSource {
         UA_ReadResponse res = UA_Client_Service_read(client.get(), this->request.req);
         auto fr = Frame(cfg.channels.size() + cfg.index_keys.size());
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
-            if (const auto err = parse_error(res.results[i].status))
-                return {Frame(), err};
+            if (const auto err = util::parse_error(res.results[i].status))
+                return {std::move(fr), err};
             UA_Variant *value = &res.results[i].value;
             const auto &ch = cfg.channels[i];
-            fr.emplace(ch.synnax_key, val_to_series(value, ch.ch.data_type));
+            auto [s, err] = util::ua_array_to_series(ch.ch.data_type, value);
+            if (err) return {std::move(fr), err};
+            fr.emplace(ch.synnax_key, std::move(s));
         }
         if (!cfg.index_keys.empty()) {
             auto start = telem::TimeStamp::now();
@@ -215,13 +220,13 @@ public:
             fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
         for (std::size_t i = 0; i < samples_per_chan; i++) {
             UA_ReadResponse res = UA_Client_Service_read(client.get(), this->request.req);
-            if (const auto err = parse_error(res.responseHeader.serviceResult))
+            if (const auto err = util::parse_error(res.responseHeader.serviceResult))
                 return {std::move(fr), err};
             for (std::size_t j = 0; j < res.resultsSize; ++j) {
-                auto result = res.results[j];
-                if (const auto err = parse_error(result.status))
+                UA_DataValue result = res.results[j];
+                if (const auto err = util::parse_error(result.status))
                     return {std::move(fr), err};
-                write_to_series(result.value, fr.series->at(j));
+                util::write_to_series(fr.series->at(j), result.value);
             }
             const auto now = telem::TimeStamp::now();
             for (std::size_t j = cfg.channels.size(); j < fr.size(); j++)
@@ -232,28 +237,3 @@ public:
     }
 };
 }
-
-
-size_t opc::ReaderSource::cap_array_length(
-    const size_t i,
-    const size_t length
-) {
-    if (i + length > cfg.array_size) {
-        if (curr_state.variant != "warning") {
-            curr_state.variant = "warning";
-            curr_state.details = json{
-                {
-                    "message",
-                    "Received array of length " + std::to_string(length) +
-                    " from OPC UA server, which is larger than the configured size of "
-                    + std::to_string(cfg.array_size) + ". Truncating array."
-                },
-                {"running", true}
-            };
-            ctx->set_state(curr_state);
-        }
-        return cfg.array_size - i;
-    }
-    return length;
-}
-

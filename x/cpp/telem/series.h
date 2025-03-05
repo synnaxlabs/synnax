@@ -687,6 +687,26 @@ public:
         return s;
     }
 
+    static Series cast(
+        const DataType &target_type,
+        const void *data,
+        const size_t size,
+        const DataType &source_type
+    ) {
+        auto s = Series(target_type, size);
+        if (source_type == target_type) s.write(static_cast<const std::uint8_t *>(data),
+                                               size);
+        else {
+            const size_t element_size = source_type.density();
+            const auto byte_data = static_cast<const std::byte *>(data);
+            for (size_t i = 0; i < size; i++) {
+                const void *element_ptr = byte_data + i * element_size;
+                s.write(target_type.cast(element_ptr, source_type));
+            }
+        }
+        return s;
+    }
+
     /// @brief deep copies the series, including all of its data. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.

@@ -18,7 +18,7 @@
 #include "driver/task/task.h"
 #include "x/cpp/xjson/xjson.h"
 #include "open62541/types.h"
-#include "driver/opc/util.h"
+#include "driver/opc/util/util.h"
 
 using json = nlohmann::json;
 
@@ -29,11 +29,10 @@ struct ScannerScanCommandArgs {
     std::string node_id;
     UA_NodeId node{};
 
-    explicit ScannerScanCommandArgs(xjson::Parser parser) : connection(
-                                                                 ConnectionConfig(parser.child("connection"))),
-                                                             node_id(
-                                                                 parser.optional<std::string>(
-                                                                     "node_id", "")) {
+    explicit ScannerScanCommandArgs(
+        xjson::Parser &parser
+    ) : connection(ConnectionConfig(parser.child("connection"))),
+        node_id(parser.optional<std::string>("node_id", "")) {
         if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
         else node = parse_node_id("node_id", parser);
     }
@@ -42,12 +41,9 @@ struct ScannerScanCommandArgs {
 const std::string SCAN_CMD_TYPE = "scan";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Scanner Task                               //
-///////////////////////////////////////////////////////////////////////////////////
-class Scanner final : public task::Task {
+class ScanTask final : public task::Task {
 public:
-    explicit Scanner(
+    explicit ScanTask(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task) : ctx(std::move(ctx)), task(std::move(task)) {
     }
@@ -59,12 +55,10 @@ public:
 
     std::string name() override { return task.name; }
 
-    ///@brief Executes the command on the task. Possible commands are SCAN_CMD_TYPE and TEST_CONNECTION_CMD_TYPE
     void exec(task::Command &cmd) override;
 
     void stop(bool will_reconfigure) override {
     }
-
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;

@@ -82,30 +82,14 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, false};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
-    if (task.type == "labjack_scan")
+    if (task.type == SCAN_TASK_TYPE)
         res = labjack::ScanTask::configure(ctx, task, this->dev_manager);
-    if (task.type == "labjack_read")
+    if (task.type == READ_TASK_TYPE)
         res = configure_read(this->dev_manager, ctx, task);
-    if (task.type == "labjack_write")
+    if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task);
-    auto [tsk, err] = std::move(res);
-    if (err)
-        ctx->set_state({
-            .task = task.key,
-            .variant = "error",
-            .details = json{
-                {"message", err.message()}
-            }
-        });
-    else
-        ctx->set_state({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"message", "Task configured successfully"},
-            }
-        });
-    return {std::move(tsk), true};
+    handle_config_err(ctx, task, res.second);
+    return {std::move(res.first), true};
 }
 
 std::unique_ptr<labjack::Factory> labjack::Factory::create() {
@@ -116,7 +100,6 @@ std::unique_ptr<labjack::Factory> labjack::Factory::create() {
         ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr
     );
 }
-
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 labjack::Factory::configure_initial_tasks(

@@ -7,44 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <map>
-
-#include "client/cpp/synnax.h"
-#include "driver/opc/opc.h"
-#include "driver/opc/util.h"
-
-#include "open62541/plugin/log_stdout.h"
-#include "open62541/client_config_default.h"
+/// external
+#include "open62541/common.h"
 #include "open62541/client_highlevel.h"
-
+#include "open62541/client_config_default.h"
+#include "glog/logging.h"
 #include "mbedtls/x509_crt.h"
-#include "mbedtls/pem.h"
 #include "mbedtls/error.h"
 
-#include "glog/logging.h"
-#include "vendor/mbedtls/mbedtls/include/mbedtls/asn1.h"
-#include "vendor/mbedtls/mbedtls/include/mbedtls/error.h"
-#include "vendor/mbedtls/mbedtls/include/mbedtls/x509_crt.h"
+/// module
+#include "x/cpp/xerrors/errors.h"
 
-/// @brief maps opc data types to their corresponding Synnax types.
-std::map<UA_UInt16, telem::DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN, telem::UINT8_T},
-    {UA_NS0ID_SBYTE, telem::INT8_T},
-    {UA_NS0ID_BYTE, telem::UINT8_T},
-    {UA_NS0ID_INT16, telem::INT16_T},
-    {UA_NS0ID_UINT16, telem::UINT16_T},
-    {UA_NS0ID_INT32, telem::INT32_T},
-    {UA_NS0ID_UINT32, telem::UINT32_T},
-    {UA_NS0ID_INT64, telem::INT64_T},
-    {UA_NS0ID_UINT64, telem::UINT64_T},
-    {UA_NS0ID_FLOAT, telem::FLOAT32_T},
-    {UA_NS0ID_DOUBLE, telem::FLOAT64_T},
-    {UA_NS0ID_STRING, telem::STRING_T},
-    {UA_NS0ID_DATETIME, telem::TIMESTAMP_T},
-    {UA_NS0ID_GUID, telem::UINT128_T},
-};
+/// internal
+#include "driver/opc/util/util.h"
+#include "driver/task/task.h"
 
-opc::ClientDeleter client_deleter() {
+namespace util {
+using ClientDeleter = void (*)(UA_Client *);
+
+ClientDeleter client_deleter() {
     return [](UA_Client *client) {
         if (client == nullptr) return;
         UA_Client_disconnect(client);
@@ -55,12 +36,12 @@ opc::ClientDeleter client_deleter() {
 /// @brief intercepts OPC UA log messages and forwards them to glog. Also inserts a prefix
 /// for each message that is extracted from the log context. This function will fail silently
 /// if the log context is not a string.
-void customLogger(
-    void *logContext,
-    UA_LogLevel level,
-    UA_LogCategory category,
+void custom_logger(
+    void *_,
+    const UA_LogLevel level,
+    UA_LogCategory __,
     const char *msg,
-    va_list args
+    const va_list args
 ) {
     const std::string prefix = "[opc] ";
     char buffer[1024];
@@ -83,7 +64,7 @@ void customLogger(
     }
 }
 
-UA_ByteString loadFile(const char *const path) {
+UA_ByteString load_file(const char *const path) {
     UA_ByteString fileContents = UA_STRING_NULL;
     FILE *fp = fopen(path, "rb");
     if (!fp) {
@@ -91,12 +72,13 @@ UA_ByteString loadFile(const char *const path) {
         return fileContents;
     }
     fseek(fp, 0, SEEK_END);
-    fileContents.length = (size_t) ftell(fp);
-    fileContents.data = (UA_Byte *) UA_malloc(fileContents.length * sizeof(UA_Byte));
+    fileContents.length = static_cast<size_t>(ftell(fp));
+    fileContents.data = static_cast<UA_Byte *>(UA_malloc(
+        fileContents.length * sizeof(UA_Byte)));
     if (fileContents.data) {
         fseek(fp, 0, SEEK_SET);
-        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length,
-                            fp);
+        const size_t read = fread(fileContents.data, sizeof(UA_Byte),
+                                  fileContents.length, fp);
         if (read != fileContents.length)
             UA_ByteString_clear(&fileContents);
     } else {
@@ -106,10 +88,11 @@ UA_ByteString loadFile(const char *const path) {
     return fileContents;
 }
 
-UA_ByteString convertStringToUAByteString(const std::string &certString) {
+UA_ByteString ua_byte_string(const std::string &certString) {
     UA_ByteString byteString;
     byteString.length = certString.size();
-    byteString.data = (UA_Byte *) UA_malloc(byteString.length * sizeof(UA_Byte));
+    byteString.data = static_cast<UA_Byte *>(UA_malloc(
+        byteString.length * sizeof(UA_Byte)));
     if (byteString.data)
         memcpy(byteString.data, certString.data(), byteString.length);
     return byteString;
@@ -124,12 +107,12 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
 #endif
 
 
-std::string extractApplicationUriFromCert(const std::string &certPath) {
+std::string app_uri_from_cert(const std::string &certPath) {
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
 
     // Load the certificate
-    UA_ByteString certData = loadFile(certPath.c_str());
+    UA_ByteString certData = load_file(certPath.c_str());
     if (certData.length == 0) {
         LOG(ERROR) << "Failed to load certificate from " << certPath;
         return "";
@@ -149,7 +132,9 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     std::string applicationUri;
     const mbedtls_asn1_sequence *cur = &crt.subject_alt_names;
     while (cur != nullptr) {
-        if (cur->buf.tag == (MBEDTLS_ASN1_CONTEXT_SPECIFIC | MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
+        if (cur->buf.tag == (
+                MBEDTLS_ASN1_CONTEXT_SPECIFIC |
+                MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER)) {
             applicationUri.assign(reinterpret_cast<char *>(cur->buf.p), cur->buf.len);
             break;
         }
@@ -167,22 +152,20 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
     return applicationUri;
 }
 
-UA_StatusCode privateKeyPasswordCallBack(
-    UA_ClientConfig *cc,
-    UA_ByteString *password
+UA_StatusCode priv_key_pass_callback(
+    UA_ClientConfig *_,
+    [[maybe_unused]] UA_ByteString *__
 ) {
     return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
 }
 
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
-// TODO: make this clearer to read through
 xerrors::Error configure_encryption(
-    opc::ConnectionConfig &cfg,
-    std::shared_ptr<UA_Client> client
+    const ConnectionConfig &cfg,
+    const std::shared_ptr<UA_Client> &client
 ) {
-    auto client_config = UA_Client_getConfig(client.get());
-
+    const auto client_config = UA_Client_getConfig(client.get());
     if (cfg.security_mode == "Sign")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGN;
     else if (cfg.security_mode == "SignAndEncrypt")
@@ -190,32 +173,32 @@ xerrors::Error configure_encryption(
     else client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
     if (cfg.security_policy == "None") return xerrors::NIL;
 
-    client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
+    client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
-    std::string uri = SECURITY_URI_BASE + cfg.security_policy;
+    const std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     UA_String_clear(&client_config->clientDescription.applicationUri);
 
-    std::string app_uri = extractApplicationUriFromCert(cfg.client_cert);
+    std::string app_uri = app_uri_from_cert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
     client_config->clientDescription.applicationUri = UA_STRING_ALLOC(app_uri.c_str());
 
-    UA_ByteString certificate = loadFile(cfg.client_cert.c_str());
-    UA_ByteString privateKey = loadFile(cfg.client_private_key.c_str());
+    const UA_ByteString certificate = load_file(cfg.client_cert.c_str());
+    const UA_ByteString priv_key = load_file(cfg.client_private_key.c_str());
 
-    size_t trustListSize = 0;
-    UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
+    constexpr size_t trust_list_size = 0;
+    UA_STACKARRAY(UA_ByteString, trustList, trust_list_size + 1);
     if (!cfg.server_cert.empty())
-        trustList[0] = loadFile(cfg.server_cert.c_str());
+        trustList[0] = load_file(cfg.server_cert.c_str());
 
-    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
+    const UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
         client_config,
         certificate,
-        privateKey,
+        priv_key,
         trustList,
-        trustListSize,
-        NULL,
+        trust_list_size,
+        nullptr,
         0
     );
 
@@ -224,29 +207,32 @@ xerrors::Error configure_encryption(
                 UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
         return xerrors::Error(freighter::TYPE_UNREACHABLE,
-                                "Failed to configure encryption: " + std::string(
-                                    status_name));
+                              "Failed to configure encryption: " + std::string(
+                                  status_name));
     }
     return xerrors::NIL;
 }
 
-void fetchEndpointDiagnosticInfo(
-    std::shared_ptr<UA_Client> client,
-    std::string endpoint
+void fetch_endpoint_diagnostic_info(
+    const std::shared_ptr<UA_Client> &client,
+    const std::string &endpoint
 ) {
-    size_t endpointCount = 0;
-    UA_EndpointDescription *endpointArray = NULL;
-    UA_StatusCode retval = UA_Client_getEndpoints(client.get(), endpoint.c_str(),
-                                                  &endpointCount, &endpointArray);
+    size_t endpoint_count = 0;
+    UA_EndpointDescription *endpoints = nullptr;
+    const UA_StatusCode retval = UA_Client_getEndpoints(
+        client.get(),
+        endpoint.c_str(),
+        &endpoint_count,
+        &endpoints
+    );
     if (retval != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.scanner] Failed to get endpoints: " << std::string(
             UA_StatusCode_name(retval));
         return;
     }
     // get the client config
-    auto client_config = UA_Client_getConfig(client.get());
-    for (size_t i = 0; i < endpointCount; i++) {
-        auto ep = endpointArray[i];
+    for (size_t i = 0; i < endpoint_count; i++) {
+        const auto ep = endpoints[i];
         LOG(INFO) << "[opc.scanner] Endpoint " << i << std::endl;
         // if the security policy uri is not null, then the endpoint is secure
         // get the client config
@@ -254,7 +240,7 @@ void fetchEndpointDiagnosticInfo(
         if (ep.securityPolicyUri.data)
             LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.
                     securityPolicyUri.data;
-        auto security_mode = ep.securityMode;
+        const auto security_mode = ep.securityMode;
         if (security_mode == UA_MESSAGESECURITYMODE_NONE)
             LOG(INFO) << "[opc.scanner] \t security: unencrypted";
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGN)
@@ -262,10 +248,8 @@ void fetchEndpointDiagnosticInfo(
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
 
-        // const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
-
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
-            UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
+            const UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
                 LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME)
@@ -282,53 +266,38 @@ void fetchEndpointDiagnosticInfo(
 }
 
 
-///@ connect returns a new UA_Client object which is connected to the specified endpoint
-std::pair<std::shared_ptr<UA_Client>, xerrors::Error> opc::connect(
-    opc::ConnectionConfig &cfg,
+std::pair<std::shared_ptr<UA_Client>, xerrors::Error> connect(
+    const ConnectionConfig &cfg,
     std::string log_prefix
 ) {
-    auto client = std::shared_ptr<UA_Client>(
-        UA_Client_new(),
-        client_deleter()
-    );
+    auto client = std::shared_ptr<UA_Client>(UA_Client_new(), client_deleter());
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
-    config->logging->log = customLogger;
+    config->logging->log = custom_logger;
     config->logging->context = &log_prefix;
 
-    // Set Timeouts
-    config->secureChannelLifeTime = 7200000; // (ms) 2 hours
-    config->requestedSessionTimeout = 14400000; // (ms) 4 hours (default had it double the secure channel lifetime)
-    config->timeout = 7200000; // (ms) 2 hours
+    config->secureChannelLifeTime = (telem::HOUR * 2).milliseconds();
+    config->requestedSessionTimeout = config->secureChannelLifeTime * 2;
+    config->timeout = config->secureChannelLifeTime;
     configure_encryption(cfg, client);
-    UA_StatusCode status;
     if (!cfg.username.empty() || !cfg.password.empty()) {
-        status = UA_ClientConfig_setAuthenticationUsername(
+        if (const auto err = parse_error(UA_ClientConfig_setAuthenticationUsername(
             config,
             cfg.username.c_str(),
             cfg.password.c_str()
-        );
-        if (status != UA_STATUSCODE_GOOD) {
-            LOG(ERROR) << "[opc.scanner] Failed to set authentication: " <<
-                    UA_StatusCode_name(status);
-            return {
-                std::move(client),
-                xerrors::Error(freighter::TYPE_UNREACHABLE,
-                                 "Failed to set authentication: " + std::string(
-                                     UA_StatusCode_name(status)))
-            };
-        }
+        )))
+            return {nullptr, err};
     }
 
+    const auto err = parse_error(UA_Client_connect(client.get(), cfg.endpoint.c_str()));
+    return {std::move(client), err};
+}
 
-    // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
-    status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
-    if (status == UA_STATUSCODE_GOOD) return {std::move(client), xerrors::NIL};
-
-    const auto status_name = UA_StatusCode_name(status);
-    LOG(WARNING) << "[opc.scanner] failed to connect: " << std::string(status_name);
-    return {
-        std::move(client),
-        xerrors::Error(freighter::TYPE_UNREACHABLE,
-                         "failed to connect: " + std::string(status_name))
-    };
+xerrors::Error reconnect(
+    const std::shared_ptr<UA_Client> &client,
+    const std::string &endpoint
+) {
+    const auto err = parse_error(UA_Client_connect(client.get(), endpoint.c_str()));
+    if (!err) return xerrors::NIL;
+    return parse_error(UA_Client_connect(client.get(), endpoint.c_str()));
+}
 }

@@ -67,7 +67,8 @@ public:
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
-        auto keys = keys_from_channels(this->state_channels);
+        std::vector<synnax::ChannelKey> keys;
+        for (const auto &[key, _]: this->state_channels) keys.push_back(key);
         for (const auto idx: this->state_indexes) keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,

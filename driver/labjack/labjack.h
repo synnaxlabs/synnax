@@ -21,6 +21,9 @@ const std::string T4 = "LJM_dtT4";
 const std::string T7 = "LJM_dtT7";
 /// @brief T8 model name.
 const std::string T8 = "LJM_dtT8";
+const std::string SCAN_TASK_TYPE = "labjack_scan";
+const std::string READ_TASK_TYPE = "labjack_read";
+const std::string WRITE_TASK_TYPE = "labjack_write";
 
 /// @brief factory for creating and operating labjack tasks.
 class Factory final : public task::Factory {
