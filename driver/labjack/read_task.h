@@ -284,7 +284,7 @@ struct ReadTaskConfig {
     const telem::Rate stream_rate;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
-    std::set<uint32_t> indexes;
+    std::set<synnax::ChannelKey> index_keys;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
@@ -298,7 +298,7 @@ struct ReadTaskConfig {
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
         conn_method(other.conn_method),
-        indexes(std::move(other.indexes)),
+        index_keys(std::move(other.index_keys)),
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
         dev_model(std::move(other.dev_model)) {
@@ -338,16 +338,16 @@ struct ReadTaskConfig {
         }
         size_t i = 0;
         for (const auto &ch: sy_channels) {
-            if (ch.index != 0) this->indexes.insert(ch.index);
+            if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
     }
 
     [[nodiscard]] synnax::WriterConfig writer() const {
         std::vector<synnax::ChannelKey> keys;
-        keys.reserve(this->channels.size() + this->indexes.size());
+        keys.reserve(this->channels.size() + this->index_keys.size());
         for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
-        for (const auto &idx: this->indexes) keys.push_back(idx);
+        for (const auto &idx: this->index_keys) keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
@@ -412,16 +412,16 @@ public:
         ))
             return {Frame(), err};
 
-        auto f = synnax::Frame(locations.size() + this->cfg.indexes.size());
+        auto f = synnax::Frame(locations.size() + this->cfg.index_keys.size());
         int index = 0;
         for (const auto &chan: this->cfg.channels) {
             f.emplace(chan->synnax_key,
                       telem::Series(chan->ch.data_type.cast(values[index])));
             index++;
         }
-        if (!this->cfg.indexes.empty()) {
+        if (!this->cfg.index_keys.empty()) {
             const auto index_data = telem::Series(telem::TimeStamp::now());
-            for (const auto &idx: this->cfg.indexes)
+            for (const auto &idx: this->cfg.index_keys)
                 f.emplace(idx, std::move(index_data.deep_copy()));
         }
         return std::make_pair(std::move(f), xerrors::NIL);
@@ -523,16 +523,16 @@ public:
             return {Frame(), err};
         const auto end = this->sample_clock.end(n);
 
-        auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.indexes.size());
+        auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
                 telem::Series::cast(ch->ch.data_type, data.data() + i++ * n, n)
             );
-        if (!this->cfg.indexes.empty()) {
+        if (!this->cfg.index_keys.empty()) {
             const auto index_data = telem::Series::linspace(start, end, n);
-            for (const auto &idx: this->cfg.indexes)
+            for (const auto &idx: this->cfg.index_keys)
                 f.emplace(idx, std::move(index_data.deep_copy()));
         }
         return {std::move(f), xerrors::NIL};

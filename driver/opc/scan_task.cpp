@@ -11,7 +11,7 @@
 #include <utility>
 #include "nlohmann/json.hpp"
 
-#include "scanner.h"
+#include "scan_task.h"
 #include "glog/logging.h"
 #include "x/cpp/xjson/xjson.h"
 #include "open62541/statuscodes.h"
@@ -44,7 +44,7 @@ static UA_StatusCode node_iter(UA_NodeId child_id, UA_Boolean is_inverse,
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    std::shared_ptr<std::vector<DeviceNodeProperties> > channels;
+    std::shared_ptr<std::vector<NodeProperties> > channels;
 };
 
 // Function to recursively iterate through all children
@@ -131,7 +131,7 @@ static UA_StatusCode node_iter(
             is_array = is_arr;
             UA_Variant_clear(&value);
         } else if (nodeClass == UA_NODECLASS_VARIABLE) {
-            LOG(ERROR) << "[opc.scannner] No value for " << name;
+            LOG(ERROR) << "[opc.scanner] No value for " << name;
         }
         ctx->channels->emplace_back(
             data_type,
@@ -167,7 +167,7 @@ void Scanner::scan(const task::Command &cmd) const {
 
     const auto scan_ctx = new ScanContext{
         ua_client,
-        std::make_shared<std::vector<DeviceNodeProperties> >(),
+        std::make_shared<std::vector<NodeProperties> >(),
     };
     iterateChildren(scan_ctx, args.node);
     ctx->set_state({

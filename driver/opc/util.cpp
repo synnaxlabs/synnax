@@ -22,6 +22,9 @@
 #include "mbedtls/error.h"
 
 #include "glog/logging.h"
+#include "vendor/mbedtls/mbedtls/include/mbedtls/asn1.h"
+#include "vendor/mbedtls/mbedtls/include/mbedtls/error.h"
+#include "vendor/mbedtls/mbedtls/include/mbedtls/x509_crt.h"
 
 /// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, telem::DataType> data_type_map = {
@@ -41,7 +44,7 @@ std::map<UA_UInt16, telem::DataType> data_type_map = {
     {UA_NS0ID_GUID, telem::UINT128_T},
 };
 
-opc::ClientDeleter getDefaultClientDeleter() {
+opc::ClientDeleter client_deleter() {
     return [](UA_Client *client) {
         if (client == nullptr) return;
         UA_Client_disconnect(client);
@@ -132,7 +135,7 @@ std::string extractApplicationUriFromCert(const std::string &certPath) {
         return "";
     }
 
-    int ret = mbedtls_x509_crt_parse(&crt, certData.data, certData.length);
+    const int ret = mbedtls_x509_crt_parse(&crt, certData.data, certData.length);
     if (ret != 0) {
         char errBuf[100];
         mbedtls_strerror(ret, errBuf, sizeof(errBuf));
@@ -286,7 +289,7 @@ std::pair<std::shared_ptr<UA_Client>, xerrors::Error> opc::connect(
 ) {
     auto client = std::shared_ptr<UA_Client>(
         UA_Client_new(),
-        getDefaultClientDeleter()
+        client_deleter()
     );
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;

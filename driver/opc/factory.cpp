@@ -9,9 +9,9 @@
 
 #include "glog/logging.h"
 #include "driver/opc/opc.h"
-#include "driver/opc/scanner.h"
-#include "driver/opc/reader.h"
-#include "driver/opc/writer.h"
+#include "driver/opc/scan_task.h"
+#include "driver/opc/read_task.h"
+#include "driver/opc/write_task.h"
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,

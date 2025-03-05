@@ -36,6 +36,12 @@ public:
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
 
+    explicit  Sink(std::vector<synnax::ChannelKey> cmd_channels):
+        state_timer(telem::Rate(0)),
+        cmd_channels(std::move(cmd_channels)),
+        state_indexes({}),
+        data_saving(false) {}
+
     Sink(
         const telem::Rate state_rate,
         std::set<synnax::ChannelKey> state_indexes,
@@ -208,7 +214,8 @@ public:
     void start(const std::string &cmd_key) {
         if (!this->state.error(this->sink->wrapped->start())) {
             this->cmd_write_pipe.start();
-            this->state_write_pipe.start();
+            if (!this->sink->wrapped->writer_config().channels.empty())
+                this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);
     }

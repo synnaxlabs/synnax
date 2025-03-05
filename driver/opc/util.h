@@ -9,9 +9,12 @@
 
 #pragma once
 
-#include "opc.h"
-#include "driver/errors/errors.h"
-#include "client/cpp/synnax.h"
+/// std
+#include <string>
+#include <sstream>
+#include <regex>
+
+/// external
 #include "open62541/types.h"
 #include "open62541/nodeids.h"
 #include "open62541/types.h"
@@ -19,10 +22,15 @@
 #include "open62541/client_config_default.h"
 #include "open62541/client.h"
 #include "open62541/statuscodes.h"
-#include <string>
-#include <sstream>
-#include <regex>
-#include <iostream>
+
+// module
+#include "client/cpp/synnax.h"
+
+/// internal
+#include "driver/opc/opc.h"
+#include "driver/errors/errors.h"
+
+using json = nlohmann::json;
 
 namespace opc {
 /// @brief the configuration for an OPC UA connection.
@@ -73,35 +81,32 @@ struct ConnectionConfig {
     }
 };
 
-struct DeviceNodeProperties {
+struct NodeProperties {
     telem::DataType data_type;
     std::string node_class;
     std::string name;
     std::string node_id;
     bool is_array;
 
-    DeviceNodeProperties(
-        telem::DataType data_type,
-        std::string name,
-        std::string node_id,
-        std::string node_class,
-        bool is_array
-    ) : data_type(data_type), name(name), node_id(node_id), node_class(node_class),
+    NodeProperties(
+        const telem::DataType &data_type,
+        const std::string &name,
+        const std::string &node_id,
+        const std::string &node_class,
+        const bool is_array
+    ) : data_type(data_type),
+        node_class(node_class),
+        name(name),
+        node_id(node_id),
         is_array(is_array) {
     }
 
-    explicit DeviceNodeProperties(xjson::Parser parser) : data_type(
-                                                               telem::DataType(
-                                                                   parser.required<std::string>("data_type"))),
-                                                           name(
-                                                               parser.required<std::string>(
-                                                                   "name")),
-                                                           node_id(
-                                                               parser.required<std::string>(
-                                                                   "node_id")),
-                                                           is_array(
-                                                               parser.optional<bool>(
-                                                                   "is_array", false)) {
+    explicit NodeProperties(
+        xjson::Parser &p
+    ) : data_type(telem::DataType(p.required<std::string>("data_type"))),
+        name(p.required<std::string>("name")),
+        node_id(p.required<std::string>("node_id")),
+        is_array(p.optional<bool>("is_array", false)) {
     }
 
     json to_json() const {
@@ -117,19 +122,18 @@ struct DeviceNodeProperties {
 
 struct DeviceProperties {
     ConnectionConfig connection;
-    std::vector<DeviceNodeProperties> channels;
+    std::vector<NodeProperties> channels;
 
     DeviceProperties(
-        ConnectionConfig connection,
-        std::vector<DeviceNodeProperties> channels
+        const ConnectionConfig &connection,
+        const std::vector<NodeProperties> &channels
     ) : connection(connection), channels(channels) {
     }
 
     explicit DeviceProperties(
-        xjson::Parser parser
-    ) : connection(parser.child("connection")),
-        channels({}) {
-        parser.iter("channels", [&](const xjson::Parser &cb) {
+        const xjson::Parser &parser
+    ) : connection(parser.child("connection")) {
+        parser.iter("channels", [&](xjson::Parser &cb) {
             channels.emplace_back(cb);
         });
     }
@@ -145,6 +149,7 @@ struct DeviceProperties {
 };
 
 using ClientDeleter = void (*)(UA_Client *);
+using VariantDeleter = void (*)(UA_Variant *);
 
 
 std::pair<std::shared_ptr<UA_Client>, xerrors::Error> connect(
@@ -152,15 +157,14 @@ std::pair<std::shared_ptr<UA_Client>, xerrors::Error> connect(
     std::string log_prefix
 );
 
-static inline xerrors::Error refresh_connection(
-    std::shared_ptr<UA_Client> client,
-    std::string endpoint
+static xerrors::Error refresh_connection(
+    const std::shared_ptr<UA_Client> &client,
+    const std::string &endpoint
 ) {
-    // tru running run iterate
-    UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
+    const UA_StatusCode status = UA_Client_connect(client.get(), endpoint.c_str());
     if (status != UA_STATUSCODE_GOOD) {
-        // attempt again to reestablish if timed out
-        UA_StatusCode status_retry = UA_Client_connect(client.get(), endpoint.c_str());
+        const UA_StatusCode status_retry = UA_Client_connect(
+            client.get(), endpoint.c_str());
         if (status_retry != UA_STATUSCODE_GOOD) {
             return xerrors::Error(
                 "Failed to connect to OPC UA server: " +
@@ -171,183 +175,48 @@ static inline xerrors::Error refresh_connection(
 }
 
 ///@brief Define constants for the conversion
-static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601 to 1970
-static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
+static constexpr int64_t UNIX_EPOCH_START_1601 = 11644473600LL;
+// Seconds from 1601 to 1970
+static constexpr int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // 100-nanosecond intervals per second
+constexpr int64_t UNIX_EPOCH_START_IN_100_NANO_INTERVALS =
+        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
 
-///@brief Function to convert UA_DateTime to Unix timestamp in nanoseconds
-inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
-    int64_t unixEpochStartIn100NanoIntervals =
-            UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
-    return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
-}
-
-///@brief this function converts a UA_Variant to a telem::Series
-inline telem::Series val_to_series(UA_Variant *val, telem::DataType dt) {
-    if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
-        const auto value = *static_cast<UA_Float *>(val->data);
-        if (dt == telem::FLOAT32_T) return telem::Series(value);
-        if (dt == telem::FLOAT64_T) return telem::Series(static_cast<double>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-        const auto value = *static_cast<UA_Double *>(val->data);
-        // TODO - warn on potential precision drop here
-        if (dt == telem::FLOAT32_T) return telem::Series(static_cast<float>(value));
-        if (dt == telem::FLOAT64_T) return telem::Series(value);
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
-        const auto value = *static_cast<UA_Int32 *>(val->data);
-        if (dt == telem::INT32_T) return telem::Series(value);
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::UINT32_T) return telem::Series(static_cast<uint32_t>(value));
-        if (dt == telem::UINT64_T) return telem::Series(static_cast<uint64_t>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
-        const auto value = *static_cast<UA_Int64 *>(val->data);
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        if (dt == telem::INT64_T) return telem::Series(value);
-        if (dt == telem::UINT32_T) return telem::Series(static_cast<uint32_t>(value));
-        if (dt == telem::UINT64_T) return telem::Series(static_cast<uint64_t>(value));
-        if (dt == telem::TIMESTAMP_T) return telem::Series(static_cast<uint64_t>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
-        const auto value = *static_cast<UA_UInt32 *>(val->data);
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        // Potential data loss
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::UINT32_T) return telem::Series(value);
-        if (dt == telem::UINT64_T)
-            return telem::Series(static_cast<uint64_t>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
-        const auto value = *static_cast<UA_UInt64 *>(val->data);
-        if (dt == telem::UINT64_T) return telem::Series(value);
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        // Potential data loss
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::UINT32_T)
-            return telem::Series(static_cast<uint32_t>(value));
-        // Potential data loss
-        if (dt == telem::TIMESTAMP_T)
-            return
-                    telem::Series(static_cast<uint64_t>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
-        const auto value = *static_cast<UA_Byte *>(val->data);
-        if (dt == telem::UINT8_T) return telem::Series(value);
-        if (dt == telem::UINT16_T)
-            return telem::Series(static_cast<uint16_t>(value));
-        if (dt == telem::UINT32_T)
-            return telem::Series(static_cast<uint32_t>(value));
-        if (dt == telem::UINT64_T)
-            return telem::Series(static_cast<uint64_t>(value));
-        if (dt == telem::INT8_T) return telem::Series(static_cast<int8_t>(value));
-        if (dt == telem::INT16_T) return telem::Series(static_cast<int16_t>(value));
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::FLOAT32_T) return telem::Series(static_cast<float>(value));
-        if (dt == telem::FLOAT64_T)
-            return telem::Series(static_cast<double>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
-        const auto value = *static_cast<UA_SByte *>(val->data);
-        if (dt == telem::INT8_T) return telem::Series(value);
-        if (dt == telem::INT16_T) return telem::Series(static_cast<int16_t>(value));
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::FLOAT32_T) return telem::Series(static_cast<float>(value));
-        if (dt == telem::FLOAT64_T)
-            return telem::Series(static_cast<double>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
-        const auto value = *static_cast<UA_Boolean *>(val->data);
-        if (dt == telem::UINT8_T) return telem::Series(static_cast<uint8_t>(value));
-        if (dt == telem::UINT16_T)
-            return telem::Series(static_cast<uint16_t>(value));
-        if (dt == telem::UINT32_T)
-            return telem::Series(static_cast<uint32_t>(value));
-        if (dt == telem::UINT64_T)
-            return telem::Series(static_cast<uint64_t>(value));
-        if (dt == telem::INT8_T) return telem::Series(static_cast<int8_t>(value));
-        if (dt == telem::INT16_T) return telem::Series(static_cast<int16_t>(value));
-        if (dt == telem::INT32_T) return telem::Series(static_cast<int32_t>(value));
-        if (dt == telem::INT64_T) return telem::Series(static_cast<int64_t>(value));
-        if (dt == telem::FLOAT32_T) return telem::Series(static_cast<float>(value));
-        if (dt == telem::FLOAT64_T)
-            return telem::Series(static_cast<double>(value));
-    }
-    if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
-        const auto value = *static_cast<UA_DateTime *>(val->data);
-        if (dt == telem::INT64_T) return telem::Series(ua_datetime_to_unix_nano(value));
-        if (dt == telem::TIMESTAMP_T)
-            return telem::Series(
-                ua_datetime_to_unix_nano(value));
-        if (dt == telem::UINT64_T)
-            return telem::Series(
-                static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
-        if (dt == telem::FLOAT32_T) return telem::Series(static_cast<float>(value));
-        if (dt == telem::FLOAT64_T)
-            return telem::Series(static_cast<double>(value));
-    }
-    LOG(INFO) << "test";
-    return telem::Series(1);
+inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
+    return (dateTime - UNIX_EPOCH_START_IN_100_NANO_INTERVALS) * 100;
 }
 
 ///@brief this function returns the appropriate synnax data type that corresponds to
 /// the OPCUA data type
 inline std::pair<telem::DataType, bool> variant_data_type(const UA_Variant &val) {
-    if(!val.type) {
+    if (!val.type) {
         LOG(ERROR) << "[opc.scanner] opc node type is null.";
         return {telem::UNKNOWN_T, false};
     }
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT]))
-        return {
-            telem::FLOAT32_T, true
-        };
+        return {telem::FLOAT32_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE]))
-        return {
-            telem::FLOAT64_T, true
-        };
+        return {telem::FLOAT64_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16]))
-        return {
-            telem::INT16_T, true
-        };
+        return {telem::INT16_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32]))
-        return {
-            telem::INT32_T, true
-        };
+        return {telem::INT32_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64]))
-        return {
-            telem::INT64_T, true
-        };
+        return {telem::INT64_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16]))
-        return {
-            telem::UINT16_T, true
-        };
+        return {telem::UINT16_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32]))
-        return {
-            telem::UINT32_T, true
-        };
+        return {telem::UINT32_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64]))
-        return {
-            telem::UINT64_T, true
-        };
+        return {telem::UINT64_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING]))
-        return {
-            telem::STRING_T, true
-        };
+        return {telem::STRING_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME]))
-        return {
-            telem::TIMESTAMP_T, true
-        };
+        return {telem::TIMESTAMP_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID]))
-        return {
-            telem::UINT128_T, true
-        };
+        return {telem::UINT128_T, true};
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_BOOLEAN]))
-        return {
-            telem::UINT8_T, true
-        };
+        return {telem::UINT8_T, true};
     if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {telem::FLOAT32_T, false};
     if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {telem::FLOAT64_T, false};
     if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) return {telem::INT8_T, false};
@@ -414,7 +283,7 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
                 &data4[0], &data4[1], &data4[2], &data4[3],
                 &data4[4], &data4[5], &data4[6], &data4[7]);
     for (int i = 0; i < 8; ++i)
-        guid.data4[i] = (UA_Byte) data4[i];
+        guid.data4[i] = static_cast<UA_Byte>(data4[i]);
     return guid;
 }
 
@@ -463,32 +332,31 @@ inline UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
         UA_Guid guid = string_to_guid(identifier);
         nodeId = UA_NODEID_GUID(nsIndex, guid);
     } else if (type == "B") {
-        // Allocate memory for ByteString
         size_t len = identifier.length() / 2;
-        auto *data = (UA_Byte *) UA_malloc(len);
+        auto *data = static_cast<UA_Byte *>(UA_malloc(len));
         for (size_t i = 0; i < len; ++i) {
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
         }
-        nodeId = UA_NODEID_BYTESTRING(nsIndex, (char *) data);
-        UA_free(data); // Free the temporary buffer
+        nodeId = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
+        UA_free(data);
     }
 
     return nodeId;
 }
 
 
-///@brief Function to build a string identifier from a UA_NodeId
 inline std::string node_id_to_string(const UA_NodeId &nodeId) {
     std::ostringstream nodeIdStr;
     nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
-
     switch (nodeId.identifierType) {
         case UA_NODEIDTYPE_NUMERIC:
             nodeIdStr << "I=" << nodeId.identifier.numeric;
             break;
         case UA_NODEIDTYPE_STRING:
-            nodeIdStr << "S=" << std::string((char *) nodeId.identifier.string.data,
-                                             nodeId.identifier.string.length);
+            nodeIdStr << "S=" << std::string(
+                reinterpret_cast<char *>(nodeId.identifier.string.data),
+                nodeId.identifier.string.length
+            );
             break;
         case UA_NODEIDTYPE_GUID:
             nodeIdStr << "G=" << guid_to_string(nodeId.identifier.guid);
@@ -498,22 +366,19 @@ inline std::string node_id_to_string(const UA_NodeId &nodeId) {
             nodeIdStr << "B=";
             for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
                 nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
-                        << (int) nodeId.identifier.byteString.data[i];
+                        << static_cast<int>(nodeId.identifier.byteString.data[i]);
             }
             break;
         default:
             nodeIdStr << "Unknown";
     }
-
     return nodeIdStr.str();
 }
 
-// TODO: Explain what a UAByteString is here
 inline UA_ByteString string_to_ua_byte_string(const std::string &str) {
-    size_t len = str.length();
-    const UA_Byte *strData = reinterpret_cast<const UA_Byte *>(str.data());
-
-    UA_Byte *data = static_cast<UA_Byte *>(malloc(len * sizeof(UA_Byte)));
+    const size_t len = str.length();
+    const auto strData = reinterpret_cast<const UA_Byte *>(str.data());
+    const auto data = static_cast<UA_Byte *>(malloc(len * sizeof(UA_Byte)));
 
     if (data == nullptr) {
         return UA_BYTESTRING_NULL;
@@ -527,4 +392,133 @@ inline UA_ByteString string_to_ua_byte_string(const std::string &str) {
     };
 
     return b;
+}
+
+inline xerrors::Error parse_error(
+    const UA_StatusCode &status
+) {
+    const std::string status_name = UA_StatusCode_name(status);
+    return {
+        driver::CRITICAL_HARDWARE_ERROR.type,
+        status_name
+    };
+}
+
+inline telem::Series from_ua_array(
+    const telem::DataType &data_type,
+    const UA_Variant *val
+) {
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
+        const auto *data = static_cast<UA_Float *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DOUBLE])) {
+        const UA_Double *data = static_cast<UA_Double *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT16])) {
+        const UA_Int16 *data = static_cast<UA_Int16 *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT32])) {
+        const UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT64])) {
+        const UA_Int64 *data = static_cast<UA_Int64 *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT32])) {
+        const UA_UInt32 *data = static_cast<UA_UInt32 *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT64])) {
+        const UA_UInt64 *data = static_cast<UA_UInt64 *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BYTE])) {
+        const UA_Byte *data = static_cast<UA_Byte *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_SBYTE])) {
+        const UA_SByte *data = static_cast<UA_SByte *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BOOLEAN])) {
+        const UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
+        return telem::Series::cast(data_type, data, val->arrayLength);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
+        const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
+        auto s = telem::Series(data_type, val->arrayLength);
+        size_t acc = 0;
+        for (size_t j = 0; j < val->arrayLength; ++j)
+            acc += s.write(opc::ua_datetime_to_unix_nano(data[j]));
+        return s;
+    }
+}
+
+inline size_t write_to_series(
+    const UA_Variant &val,
+    telem::Series &s
+) {
+    if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) {
+        const auto value = *static_cast<UA_Float *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+        const auto value = *static_cast<UA_Double *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_INT16]) {
+        const auto value = *static_cast<UA_Int16 *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_INT32]) {
+        const auto value = *static_cast<UA_Int32 *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_INT64]) {
+        const auto value = *static_cast<UA_Int64 *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_UINT32]) {
+        const auto value = *static_cast<UA_UInt32 *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_UINT64]) {
+        const auto value = *static_cast<UA_UInt64 *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_BYTE]) {
+        const auto value = *static_cast<UA_Byte *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) {
+        const auto value = *static_cast<UA_SByte *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
+        const auto value = *static_cast<UA_Boolean *>(val.data);
+        return s.write(s.data_type().cast(value));
+    }
+    if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) {
+        const auto value = *static_cast<UA_DateTime *>(val.data);
+        return s.write(opc::ua_datetime_to_unix_nano(value));
+    }
+    return 0;
+}
+
+
+std::pair<std::unique_ptr<UA_Variant>, xerrors::Error> series_to_variant(
+    const telem::Series &s) {
+    auto variant = std::unique_ptr<UA_Variant, opc::VariantDeleter>(
+        UA_Variant_new(), UA_Variant_delete
+    );
+    auto status = UA_Variant_setScalarCopy(
+        variant.get(),
+        s.at(-1),
+        &UA_TYPES[s.data_type()]
+    );
+    return {parse_error(status), std::move(variant)};
 }

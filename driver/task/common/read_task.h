@@ -18,9 +18,9 @@ namespace common {
 class Source : public pipeline::Source {
 public:
     /// @brief starts the source.
-    virtual xerrors::Error start() = 0;
+    virtual xerrors::Error start() { return xerrors::NIL; }
 
-    virtual xerrors::Error stop() = 0;
+    virtual xerrors::Error stop() { return xerrors::NIL; }
 
     virtual synnax::WriterConfig writer_config() const = 0;
 };
