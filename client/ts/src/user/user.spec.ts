@@ -23,24 +23,24 @@ const sort = (a: SortType, b: SortType) => a.username.localeCompare(b.username);
 const client = newClient();
 
 const userOne: user.New = {
-  username: id.generate(),
+  username: id.create(),
   password: "test",
   firstName: "George",
   lastName: "Washington",
 };
 
-const userTwo: user.New = { username: id.generate(), password: "test" };
+const userTwo: user.New = { username: id.create(), password: "test" };
 
 const userThree: user.New = {
-  username: id.generate(),
+  username: id.create(),
   password: "test",
   firstName: "John",
   lastName: "Adams",
 };
 
 const userArray: user.New[] = [
-  { username: id.generate(), password: "secondTest", firstName: "Steve" },
-  { username: id.generate(), password: "testArray" },
+  { username: id.create(), password: "secondTest", firstName: "Steve" },
+  { username: id.create(), password: "testArray" },
 ].sort(sort);
 
 describe("User", () => {
@@ -109,7 +109,7 @@ describe("User", () => {
           expect(res.lastName).toEqual(userOne.lastName);
         });
         test("not found", async () =>
-          await expect(client.user.retrieveByName(id.generate())).rejects.toThrow(
+          await expect(client.user.retrieveByName(id.create())).rejects.toThrow(
             NotFoundError,
           ));
       });
@@ -127,13 +127,13 @@ describe("User", () => {
           });
         });
         test("not found", async () => {
-          const res = await client.user.retrieveByName([id.generate()]);
+          const res = await client.user.retrieveByName([id.create()]);
           expect(res).toEqual([]);
         });
         test("extra names getting deleted", async () => {
           const res = await client.user.retrieveByName([
             ...userArray.map((u) => u.username),
-            id.generate(),
+            id.create(),
           ]);
           expect(res.sort(sort)).toHaveLength(2);
           res.forEach((u, i) => {
@@ -207,7 +207,7 @@ describe("User", () => {
   });
   describe("Change Username", () => {
     test("Successful", async () => {
-      const newUsername = id.generate();
+      const newUsername = id.create();
       await expect(
         client.user.changeUsername(userOne.key as string, newUsername),
       ).resolves.toBeUndefined();
@@ -223,12 +223,12 @@ describe("User", () => {
         client.user.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
     test("Repeated usernames fail", async () => {
-      const oldUsername = id.generate();
+      const oldUsername = id.create();
       const user = await client.user.create({
         username: oldUsername,
         password: "test",
       });
-      const newUsername = id.generate();
+      const newUsername = id.create();
       await client.user.changeUsername(user.key, newUsername);
       await expect(
         client.user.create({ username: newUsername, password: "test" }),

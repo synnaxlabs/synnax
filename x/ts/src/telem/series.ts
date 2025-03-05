@@ -186,7 +186,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = id.generate(),
+      key = id.create(),
     } = props;
     const data = props.data ?? [];
     if (
@@ -291,7 +291,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return arr;
   }
 
-  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
+  static createTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
     const timeRange = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
     for (let i = 0; i < length; i++)

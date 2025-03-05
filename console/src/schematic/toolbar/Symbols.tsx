@@ -48,7 +48,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
       dispatch(
         addElement({
           key: layoutKey,
-          elKey: id.generate(),
+          elKey: id.create(),
           node: {
             zIndex: spec.zIndex,
           },

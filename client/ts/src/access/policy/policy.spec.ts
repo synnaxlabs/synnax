@@ -185,8 +185,8 @@ describe("Policy", () => {
       await client.access.policy.delete([policies[0].key, policies[1].key]);
     });
     test("by subject", async () => {
-      const key1 = id.generate();
-      const key2 = id.generate();
+      const key1 = id.create();
+      const key2 = id.create();
       const created = await client.access.policy.create([
         {
           subjects: [
@@ -216,9 +216,9 @@ describe("Policy", () => {
   });
   describe("delete", async () => {
     test("one", async () => {
-      const id1 = id.generate();
-      const id2 = id.generate();
-      const id3 = id.generate();
+      const id1 = id.create();
+      const id2 = id.create();
+      const id3 = id.create();
       const policies: policy.New[] = [
         {
           subjects: [
@@ -250,9 +250,9 @@ describe("Policy", () => {
       await client.access.policy.delete(created[1].key);
     });
     test("many", async () => {
-      const id1 = id.generate();
-      const id2 = id.generate();
-      const id3 = id.generate();
+      const id1 = id.create();
+      const id2 = id.create();
+      const id3 = id.create();
       const policies: policy.New[] = [
         {
           subjects: [
@@ -288,7 +288,7 @@ describe("Policy", () => {
 
 describe("privilege", async () => {
   test("new user", async () => {
-    const username = id.generate();
+    const username = id.create();
     const user2 = await client.user.create({ username, password: "pwd1" });
     expect(user2).toBeDefined();
     const client2 = new Synnax({
@@ -298,7 +298,7 @@ describe("privilege", async () => {
       password: "pwd1",
     });
     await expect(
-      client2.user.create({ username: id.generate(), password: id.generate() }),
+      client2.user.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.policy.create({
@@ -307,11 +307,11 @@ describe("privilege", async () => {
       actions: ["create"],
     });
 
-    const newUsername = id.generate();
+    const newUsername = id.create();
 
     const newUser = await client2.user.create({
       username: newUsername,
-      password: id.generate(),
+      password: id.create(),
     });
 
     expect(newUser.username).toEqual(newUsername);
@@ -320,7 +320,7 @@ describe("privilege", async () => {
     await client.access.policy.delete(policy.key);
 
     await expect(
-      client2.user.create({ username: id.generate(), password: id.generate() }),
+      client2.user.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
   });
 });

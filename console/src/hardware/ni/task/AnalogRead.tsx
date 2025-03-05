@@ -16,7 +16,7 @@ import { type FC, useCallback } from "react";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
-import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
+import { createAIChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_NAMES,
@@ -119,7 +119,7 @@ const Form: FC<
     <Common.Task.Layouts.ListAndDetails<AIChannel>
       listItem={listItem}
       details={channelDetails}
-      generateChannel={generateAIChannel}
+      createChannel={createAIChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}
@@ -139,7 +139,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.generate() }],
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
   },
 });
 

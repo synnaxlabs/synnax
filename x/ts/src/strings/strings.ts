@@ -35,28 +35,28 @@ export const naturalLanguageJoin = (
 };
 
 /**
- * Generates a list of short identifiers from a given name.
+ * Creates a list of short identifiers from a given name.
  *
- * @param name - The name to generate identifiers from.
+ * @param name - The name to create identifiers from.
  * @returns An array of unique short identifiers.
  *
  * @example
  * ```typescript
- * generateShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
- * generateShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
- * generateShortIdentifiers("Bob"); // ["bob"]
+ * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
+ * createShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
-export const generateShortIdentifiers = (name: string): string[] => {
+export const createShortIdentifiers = (name: string): string[] => {
   const words = name.split(" ");
   const identifiers = new Set<string>();
 
-  // Generate initials
+  // create initials
   const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
   identifiers.add(initials.replace(/-/g, "_"));
   identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
 
-  // Generate combinations with numbers
+  // create combinations with numbers
   const regex = /\d+/g;
   const hasNumbers = name.match(regex);
 
@@ -73,7 +73,7 @@ export const generateShortIdentifiers = (name: string): string[] => {
       }
     });
 
-  // Generate other potential combinations
+  // create other potential combinations
   const wordAbbreviations = words.map((word) =>
     (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
   );

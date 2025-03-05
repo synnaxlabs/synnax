@@ -29,7 +29,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   add(spec: CrudeSpec): void {
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.generate() }],
+      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.create() }],
     }));
   }
 }

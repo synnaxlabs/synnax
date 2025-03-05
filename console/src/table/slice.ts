@@ -141,14 +141,14 @@ const addRowInternal = (
   // as well.
   if (table.layout.rows.length === 0)
     if (table.layout.columns.length == 0) {
-      const cellKey = id.generate();
+      const cellKey = id.create();
       table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
       newRow = { cells: [{ key: cellKey }], size: BASE_ROW_SIZE };
       table.layout.columns = [{ size: BASE_COL_SIZE }];
     } else
       newRow = {
         cells: table.layout.columns.map(() => {
-          const key = id.generate();
+          const key = id.create();
           table.cells[key] = { ...ZERO_CELL_STATE, key };
           return { key };
         }),
@@ -158,7 +158,7 @@ const addRowInternal = (
   else
     newRow = {
       cells: table.layout.rows[0].cells.map(() => {
-        const key = id.generate();
+        const key = id.create();
         table.cells[key] = { ...ZERO_CELL_STATE, key };
         return { key };
       }),
@@ -194,7 +194,7 @@ export const addColInternal = (
     const pos = findCellPosition(table, cellKey);
     if (pos == null) return;
     table.layout.rows.forEach((row) => {
-      const cellKey = id.generate();
+      const cellKey = id.create();
       if (loc === "left") row.cells.splice(pos.x, 0, { key: cellKey });
       else if (loc === "right") row.cells.splice(pos.x + 1, 0, { key: cellKey });
       table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
@@ -204,7 +204,7 @@ export const addColInternal = (
   }
 
   table.layout.rows.forEach((row) => {
-    const cellKey = id.generate();
+    const cellKey = id.create();
     if (index == null) row.cells.push({ key: cellKey });
     else if (loc !== "left") row.cells.splice(index + 1, 0, { key: cellKey });
     else row.cells.splice(index, 0, { key: cellKey });

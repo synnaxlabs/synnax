@@ -211,7 +211,7 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
-        const key: string = id.generate();
+        const key: string = id.create();
         schematic.props[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
@@ -222,7 +222,7 @@ export const { actions, reducer } = createSlice({
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
-        const key: string = id.generate();
+        const key: string = id.create();
         return {
           ...edge,
           key,

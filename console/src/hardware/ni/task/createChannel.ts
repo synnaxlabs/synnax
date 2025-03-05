@@ -22,26 +22,26 @@ import {
   ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
 
-const generateDigitalChannel = <C extends DigitalChannel>(
+const createDigitalChannel = <C extends DigitalChannel>(
   channels: C[],
   zeroChannel: C,
 ): C => {
   const line = channels.length ? Math.max(...channels.map(({ line }) => line)) + 1 : 0;
-  return { ...zeroChannel, key: id.generate(), line };
+  return { ...zeroChannel, key: id.create(), line };
 };
 
-export const generateDIChannel = (channels: DIChannel[]): DIChannel =>
-  generateDigitalChannel(channels, ZERO_DI_CHANNEL);
+export const createDIChannel = (channels: DIChannel[]): DIChannel =>
+  createDigitalChannel(channels, ZERO_DI_CHANNEL);
 
-export const generateDOChannel = (channels: DOChannel[]): DOChannel =>
-  generateDigitalChannel(channels, ZERO_DO_CHANNEL);
+export const createDOChannel = (channels: DOChannel[]): DOChannel =>
+  createDigitalChannel(channels, ZERO_DO_CHANNEL);
 
-const generateAnalogChannel = <C extends AnalogChannel>(
+const createAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
   index: number,
   zeroChannel: C,
 ): C => {
-  const key = id.generate();
+  const key = id.create();
   let template: C;
   if (channels.length === 0) template = deep.copy(zeroChannel);
   else if (index === -1) template = deep.copy(channels[0]);
@@ -52,8 +52,8 @@ const generateAnalogChannel = <C extends AnalogChannel>(
   return { ...template, channel: 0, key, port };
 };
 
-export const generateAIChannel = (channels: AIChannel[], index: number): AIChannel =>
-  generateAnalogChannel(channels, index, ZERO_AI_CHANNEL);
+export const createAIChannel = (channels: AIChannel[], index: number): AIChannel =>
+  createAnalogChannel(channels, index, ZERO_AI_CHANNEL);
 
-export const generateAOChannel = (channels: AOChannel[], index: number): AOChannel =>
-  generateAnalogChannel(channels, index, ZERO_AO_CHANNEL);
+export const createAOChannel = (channels: AOChannel[], index: number): AOChannel =>
+  createAnalogChannel(channels, index, ZERO_AO_CHANNEL);

@@ -60,13 +60,13 @@ export type ChannelListProps<C extends Channel> = Omit<
   CoreProps<C>,
   "channels" | "header" | "emptyContent" | "path" | "remove"
 > & {
-  generateChannel: (channels: C[]) => C | null;
+  createChannel: (channels: C[]) => C | null;
   path?: string;
 };
 
 export const ChannelList = <C extends Channel>({
   isSnapshot,
-  generateChannel,
+  createChannel,
   onSelect,
   path = "config.channels",
   ...rest
@@ -77,11 +77,11 @@ export const ChannelList = <C extends Channel>({
     remove,
   } = Form.useFieldArray<C>({ path, updateOnChildren: true });
   const handleAdd = useCallback(() => {
-    const channel = generateChannel(channels);
+    const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
     onSelect([channel.key], channels.length);
-  }, [push, channels, generateChannel, onSelect]);
+  }, [push, channels, createChannel, onSelect]);
   return (
     <Core
       header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}

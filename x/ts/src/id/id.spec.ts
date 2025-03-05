@@ -12,26 +12,26 @@ import { describe, expect, it } from "vitest";
 import { id } from "@/id";
 
 describe("id", () => {
-  describe("generate", () => {
-    it("should generate a string", () => {
-      const newID = id.generate();
+  describe("create", () => {
+    it("should create a string", () => {
+      const newID = id.create();
       expect(typeof newID).toBe("string");
     });
 
-    it("should generate a string of length 11", () => {
-      const newID = id.generate();
+    it("should create a string of length 11", () => {
+      const newID = id.create();
       expect(newID.length).toBe(11);
     });
 
     it("should only contain alphanumeric characters", () => {
-      const newID = id.generate();
+      const newID = id.create();
       expect(newID).toMatch(/^[0-9A-Za-z]+$/);
     });
 
-    it("should generate unique IDs", () => {
+    it("should create unique IDs", () => {
       const ids = new Set<string>();
       for (let i = 0; i < 100; i++) {
-        const newID = id.generate();
+        const newID = id.create();
         expect(ids.has(newID)).toBe(false);
         ids.add(newID);
       }
