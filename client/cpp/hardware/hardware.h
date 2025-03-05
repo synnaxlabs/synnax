@@ -152,7 +152,7 @@ public:
     std::pair<Task, xerrors::Error> retrieve(std::uint64_t key) const;
 
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieveByType(const std::string &type) const;
+    std::pair<Task, xerrors::Error> retrieve_by_type(const std::string &type) const;
 
     [[nodiscard]]
     std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
@@ -163,7 +163,7 @@ public:
     ) const;
 
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieveByType(
+    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
         const std::vector<std::string> &types
     ) const;
 

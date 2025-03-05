@@ -24,15 +24,17 @@
 
 namespace opc {
 struct OutputChan {
+    /// @brief whether output for the channel is enabled.
     const bool enabled;
+    /// @brief the OPC UA node id.
     const UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node from.
-    const ChannelKey cmd_channel;
+    const synnax::ChannelKey cmd_channel;
 
     explicit OutputChan(xjson::Parser &parser) :
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
-        cmd_channel(parser.required<ChannelKey>("channel")) {
+        cmd_channel(parser.required<synnax::ChannelKey>("channel")) {
     }
 };
 
@@ -43,8 +45,6 @@ struct WriteTaskConfig {
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
     util::ConnectionConfig conn;
-
-    WriteTaskConfig() = default;
 
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -94,39 +94,39 @@ public:
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
-        const auto client = this->client.get();
-        UA_WriteRequest request;
-        UA_WriteRequest_init(&request);
-        request.nodesToWrite = static_cast<UA_WriteValue *>(UA_Array_new(
+        UA_WriteRequest req;
+        UA_WriteRequest_init(&req);
+        req.nodesToWrite = static_cast<UA_WriteValue *>(UA_Array_new(
             frame.size(),
             &UA_TYPES[UA_TYPES_WRITEVALUE]
         ));
-        request.nodesToWriteSize = 0;
+        req.nodesToWriteSize = 0;
+        x::defer clear_req([&req] {
+            UA_Array_delete(
+                req.nodesToWrite,
+                req.nodesToWriteSize,
+                &UA_TYPES[UA_TYPES_WRITEVALUE]
+            );
+            UA_WriteRequest_clear(&req);
+        });
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
             const auto &ch = it->second;
             const auto [val, err] = util::series_to_variant(s);
             if (err != xerrors::NIL) continue;
-            UA_WriteValue *node = &request.nodesToWrite[request.nodesToWriteSize];
-            node->attributeId = UA_ATTRIBUTEID_VALUE;
-            node->nodeId = ch->node;
-            node->value.hasValue = true;
-            node->value.value = val;
-            request.nodesToWriteSize++;
+            UA_WriteValue &node = req.nodesToWrite[req.nodesToWriteSize];
+            node.attributeId = UA_ATTRIBUTEID_VALUE;
+            node.nodeId = ch->node;
+            node.value.hasValue = true;
+            node.value.value = val;
+            req.nodesToWriteSize++;
         }
-        if (request.nodesToWriteSize == 0) return xerrors::NIL;
-        UA_WriteResponse res = UA_Client_Service_write(client, request);
-        UA_Array_delete(
-            request.nodesToWrite, request.nodesToWriteSize,
-            &UA_TYPES[UA_TYPES_WRITEVALUE]
-        );
-        UA_Array_delete(
-            request.nodesToWrite,
-            request.nodesToWriteSize,
-            &UA_TYPES[UA_TYPES_WRITEVALUE]
-        );
-        return util::parse_error(res.responseHeader.serviceResult);
+        if (req.nodesToWriteSize == 0) return xerrors::NIL;
+        UA_WriteResponse res = UA_Client_Service_write(this->client.get(), req);
+        auto err = util::parse_error(res.responseHeader.serviceResult);
+        UA_WriteResponse_clear(&res);
+        return err;
     }
 };
 }

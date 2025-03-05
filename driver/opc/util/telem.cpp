@@ -36,7 +36,7 @@ telem::DataType ua_to_data_type(const UA_DataType *dt) {
     return telem::UNKNOWN_T;
 }
 
-UA_DataType* data_type_to_ua(const telem::DataType &data_type) {
+UA_DataType *data_type_to_ua(const telem::DataType &data_type) {
     if (data_type == telem::FLOAT32_T) return &UA_TYPES[UA_TYPES_FLOAT];
     if (data_type == telem::FLOAT64_T) return &UA_TYPES[UA_TYPES_DOUBLE];
     if (data_type == telem::INT8_T) return &UA_TYPES[UA_TYPES_SBYTE];
@@ -68,8 +68,18 @@ inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
 
 std::pair<telem::Series, xerrors::Error> ua_array_to_series(
     const telem::DataType &target_type,
-    const UA_Variant *val
+    const UA_Variant *val,
+    const size_t target_size
 ) {
+    if (val->arrayLength < target_size)
+        return {
+            telem::Series(0),
+            xerrors::Error(xerrors::VALIDATION,
+                           "OPC UA array is too small for configured array size of " +
+                           std::to_string(target_size))
+        };
+    size_t size = val->arrayLength;
+    if (size > target_size) size = target_size;
     if (UA_Variant_isScalar(val))
         return {
             telem::Series(0),
@@ -83,13 +93,17 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
             acc += s.write(ua_datetime_to_unix_nano(data[j]));
         return {std::move(s), xerrors::NIL};
     }
-    return {telem::Series::cast(
-        target_type,
-        val->data,
-        val->arrayLength,
-        ua_to_data_type(val->type)
-    ), xerrors::NIL};
+    return {
+        telem::Series::cast(
+            target_type,
+            val->data,
+            size,
+            ua_to_data_type(val->type)
+        ),
+        xerrors::NIL
+    };
 }
+
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) {
     UA_Variant v;
     UA_Variant_init(&v);

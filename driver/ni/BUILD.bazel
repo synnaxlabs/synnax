@@ -43,8 +43,8 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        "ni",
         "//client/cpp/testutil",
+        "//driver/ni",
         "//driver/pipeline/mock",
         "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",

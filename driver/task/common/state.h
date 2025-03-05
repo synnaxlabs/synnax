@@ -84,6 +84,8 @@ struct TaskStateHandler {
     }
 };
 
+/// @brief a utility function that appropriately handles configuration errors and
+/// communicates them back to Synnax in the standard format.
 inline void handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
@@ -91,6 +93,7 @@ inline void handle_config_err(
 ) {
     task::State state;
     state.task = task.key;
+    state.details["running"] = false;
     if (err) {
         state.variant = "error";
         state.details["message"] = err.message();

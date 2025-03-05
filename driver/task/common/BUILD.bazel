@@ -8,3 +8,14 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = ["//driver/task"],
 )
+
+cc_test(
+    name = "common_test",
+    srcs = ["read_task_test.cpp"],
+    deps = [
+        "//driver/pipeline/mock",
+        "//driver/task/common",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

@@ -235,7 +235,8 @@ struct AIChan final : InputChan {
             if (const auto err = dev->e_write_name(
                 (this->loc + "_NEGATIVE_CH").c_str(),
                 this->neg_chan
-            )) return err;
+            ))
+                return err;
         return xerrors::NIL;
     }
 };
@@ -399,9 +400,10 @@ public:
         std::vector<double> values;
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->loc.c_str());
-        int SkippedIntervals;
+        int skipped_intervals;
         if (const auto err = this->dev->wait_for_next_interval(
-            this->interval_handle, &SkippedIntervals))
+            this->interval_handle, &skipped_intervals
+        ))
             return {Frame(), err};
         values.resize(locations.size());
         if (const auto err = this->dev->e_read_names(
@@ -501,7 +503,8 @@ public:
             this->cfg.channels.size(),
             temp_ports.data(),
             &scan_rate
-        )) return err;
+        ))
+            return err;
         this->sample_clock.reset();
         return xerrors::NIL;
     }

@@ -25,7 +25,6 @@ class Base {
         } catch (...) {
             LOG(ERROR) << "[control] Unhandled unknown exception";
         }
-        breaker.mark_stopped();
     }
 
 protected:
@@ -53,7 +52,7 @@ public:
     /// idempotent, and is safe to call multiple times without starting the pipeline
     /// again.
     virtual bool stop() {
-        auto stopped = this->breaker.stop();
+        const auto stopped = this->breaker.stop();
         if (this->thread.joinable()) this->thread.join();
         return stopped;
     }

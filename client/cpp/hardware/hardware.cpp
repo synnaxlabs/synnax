@@ -205,7 +205,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve(
 }
 
 
-std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
+std::pair<Task, xerrors::Error> TaskClient::retrieve_by_type(
     const std::string &type
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
@@ -221,7 +221,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
     return {Task(res.tasks(0)), err};
 }
 
-std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieveByType(
+std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve_by_type(
     const std::vector<std::string> &types
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();

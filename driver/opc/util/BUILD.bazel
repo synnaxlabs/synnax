@@ -2,7 +2,7 @@ cc_library(
     name = "util",
     srcs = [
         "conn.cpp",
-        "node_id.cpp",
+        "node.cpp",
         "telem.cpp",
     ],
     hdrs = ["util.h"],
@@ -22,8 +22,13 @@ cc_library(
 
 cc_test(
     name = "util_test",
-    srcs = ["test_telem.cpp"],
+    srcs = [
+        "conn_test.cpp",
+        "node_test.cpp",
+        "telem_test.cpp",
+    ],
     deps = [
+        "//driver/opc/mock",
         "//driver/opc/util",
         "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",

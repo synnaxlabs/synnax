@@ -188,8 +188,11 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s);
 
 std::pair<telem::Series, xerrors::Error> ua_array_to_series(
     const telem::DataType &target_type,
-    const UA_Variant *val
+    const UA_Variant *val,
+    size_t target_size
 );
 
 UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser);
+std::string node_id_to_string(const UA_NodeId &node_id);
+std::string node_class_to_string(const UA_NodeClass &node_class);
 }

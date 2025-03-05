@@ -38,7 +38,7 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
 
 
 ///@brief Helper function to convert a GUID to a string
-inline std::string guid_to_string(const UA_Guid &guid) {
+std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
     stream << std::hex << std::setfill('0')
             << std::setw(8) << guid.data1 << "-"
@@ -55,7 +55,7 @@ inline std::string guid_to_string(const UA_Guid &guid) {
     return stream.str();
 }
 
-///@brief Parses a string NodeId into a UA_NodeId object
+/// @brief Parses a string NodeId into a UA_NodeId object
 UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
@@ -71,56 +71,66 @@ UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
     std::string type = matches[2].str();
     std::string identifier = matches[3].str();
 
-    UA_NodeId nodeId = UA_NODEID_NULL;
-
-    if (type == "I") {
-        nodeId = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
-    } else if (type == "S") {
-        nodeId = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
-    } else if (type == "G") {
-        UA_Guid guid = string_to_guid(identifier);
-        nodeId = UA_NODEID_GUID(nsIndex, guid);
-    } else if (type == "B") {
+    UA_NodeId node_id = UA_NODEID_NULL;
+    if (type == "I")
+        node_id = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
+    else if (type == "S")
+        node_id = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
+    else if (type == "G")
+        node_id = UA_NODEID_GUID(nsIndex, string_to_guid(identifier));
+    else if (type == "B") {
         size_t len = identifier.length() / 2;
         auto *data = static_cast<UA_Byte *>(UA_malloc(len));
-        for (size_t i = 0; i < len; ++i) {
+        for (size_t i = 0; i < len; ++i)
             sscanf(&identifier[2 * i], "%2hhx", &data[i]);
-        }
-        nodeId = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
+        node_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
         UA_free(data);
     }
-
-    return nodeId;
+    return node_id;
 }
 
 
-inline std::string node_id_to_string(const UA_NodeId &nodeId) {
-    std::ostringstream nodeIdStr;
-    nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
-    switch (nodeId.identifierType) {
+std::string node_id_to_string(const UA_NodeId &node_id) {
+    std::ostringstream node_id_str;
+    node_id_str << "NS=" << node_id.namespaceIndex << ";";
+    switch (node_id.identifierType) {
         case UA_NODEIDTYPE_NUMERIC:
-            nodeIdStr << "I=" << nodeId.identifier.numeric;
-        break;
+            node_id_str << "I=" << node_id.identifier.numeric;
+            break;
         case UA_NODEIDTYPE_STRING:
-            nodeIdStr << "S=" << std::string(
-                reinterpret_cast<char *>(nodeId.identifier.string.data),
-                nodeId.identifier.string.length
+            node_id_str << "S=" << std::string(
+                reinterpret_cast<char *>(node_id.identifier.string.data),
+                node_id.identifier.string.length
             );
-        break;
+            break;
         case UA_NODEIDTYPE_GUID:
-            nodeIdStr << "G=" << guid_to_string(nodeId.identifier.guid);
-        break;
+            node_id_str << "G=" << guid_to_string(node_id.identifier.guid);
+            break;
         case UA_NODEIDTYPE_BYTESTRING:
-            // Convert ByteString to a base64 or similar readable format if needed
-                nodeIdStr << "B=";
-        for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
-            nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
-                    << static_cast<int>(nodeId.identifier.byteString.data[i]);
-        }
-        break;
+            node_id_str << "B=";
+            for (std::size_t i = 0; i < node_id.identifier.byteString.length; ++i) {
+                node_id_str << std::setfill('0') << std::setw(2) << std::hex
+                        << static_cast<int>(node_id.identifier.byteString.data[i]);
+            }
+            break;
         default:
-            nodeIdStr << "Unknown";
+            node_id_str << "Unknown";
     }
-    return nodeIdStr.str();
+    return node_id_str.str();
+}
+
+static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
+    {UA_NODECLASS_OBJECT, "Object"},
+    {UA_NODECLASS_VARIABLE, "Variable"},
+    {UA_NODECLASS_METHOD, "Method"},
+    {UA_NODECLASS_OBJECTTYPE, "ObjectType"},
+    {UA_NODECLASS_VARIABLETYPE, "VariableType"},
+    {UA_NODECLASS_DATATYPE, "DataType"},
+    {UA_NODECLASS_REFERENCETYPE, "ReferenceType"},
+    {UA_NODECLASS_VIEW, "View"}
+};
+
+std::string node_class_to_string(const UA_NodeClass &node_class) {
+    return NODE_CLASS_MAP.at(node_class);
 }
 }

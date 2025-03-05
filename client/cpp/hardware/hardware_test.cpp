@@ -87,7 +87,7 @@ TEST(HardwareTests, testRetrieveTaskByType) {
     const auto rand_type = std::to_string(gen_rand());
     auto t = Task(r.key, "test_module", rand_type, "config");
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieveByType(rand_type));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
 }

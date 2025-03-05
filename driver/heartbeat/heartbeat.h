@@ -134,7 +134,7 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-        auto [existing, err] = rack.tasks.retrieveByType("heartbeat");
+        auto [existing, err] = rack.tasks.retrieve_by_type("heartbeat");
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,

@@ -7,22 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <memory>
 #include <utility>
-#include "nlohmann/json.hpp"
 
-#include "scan_task.h"
+/// external
+#include "nlohmann/json.hpp"
 #include "glog/logging.h"
-#include "x/cpp/xjson/xjson.h"
-#include "open62541/statuscodes.h"
 #include "open62541/types.h"
-#include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/client.h"
-#include "driver/opc/util.h"
 
-using namespace opc;
+/// module
+#include "x/cpp/xjson/xjson.h"
 
+/// internal
+#include "driver/opc/scan_task.h"
+#include "driver/opc/util/util.h"
+#include "x/cpp/defer/defer.h"
+
+namespace opc {
 std::unique_ptr<task::Task> ScanTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
@@ -36,59 +40,19 @@ void ScanTask::exec(task::Command &cmd) {
     LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;
 }
 
-
-// Forward declaration of the callback function for recursive calls
-static UA_StatusCode node_iter(
-    UA_NodeId child_id,
-    UA_Boolean is_inverse,
-    UA_NodeId reference_type_id,
-    void *handle
-);
-
-
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    std::shared_ptr<std::vector<NodeProperties>> channels;
+    std::shared_ptr<std::vector<util::NodeProperties>> channels;
 };
 
-// Function to recursively iterate through all children
-void iter_children(ScanContext *ctx, const UA_NodeId &node_id) {
-    UA_Client_forEachChildNodeCall(ctx->client.get(), node_id, node_iter, ctx);
-}
-
-std::string node_class_to_string(const UA_NodeClass node_cls) {
-    switch (node_cls) {
-        case UA_NODECLASS_OBJECT:
-            return "Object";
-        case UA_NODECLASS_VARIABLE:
-            return "Variable";
-        case UA_NODECLASS_METHOD:
-            return "Method";
-        case UA_NODECLASS_OBJECTTYPE:
-            return "ObjectType";
-        case UA_NODECLASS_VARIABLETYPE:
-            return "VariableType";
-        case UA_NODECLASS_DATATYPE:
-            return "DataType";
-        case UA_NODECLASS_REFERENCETYPE:
-            return "ReferenceType";
-        case UA_NODECLASS_VIEW:
-            return "View";
-        default:
-            return "Unknown";
-    }
-}
-
-
-// Callback function to handle each child node
 static UA_StatusCode node_iter(
     UA_NodeId child_id,
     UA_Boolean is_inverse,
-    UA_NodeId reference_type_id,
-    void *handle
+    UA_NodeId _,
+    void *raw_ctx
 ) {
     if (is_inverse) return UA_STATUSCODE_GOOD;
-    auto *ctx = static_cast<ScanContext *>(handle);
+    auto ctx = static_cast<ScanContext *>(raw_ctx);
     const auto ua_client = ctx->client.get();
 
     UA_ReadValueId ids[3];
@@ -102,56 +66,46 @@ static UA_StatusCode node_iter(
     ids[1].attributeId = UA_ATTRIBUTEID_BROWSENAME;
     ids[2].attributeId = UA_ATTRIBUTEID_VALUE;
 
-    UA_ReadRequest request;
-    UA_ReadRequest_init(&request);
-    request.nodesToRead = ids;
-    request.nodesToReadSize = 3;
+    UA_ReadRequest req;
+    req.nodesToRead = ids;
+    req.nodesToReadSize = 3;
 
-    UA_ReadResponse response = UA_Client_Service_read(ua_client, request);
-    UA_StatusCode status = response.responseHeader.serviceResult;
-
-    if (status == UA_STATUSCODE_GOOD) {
-        if (!response.results[0].hasValue) return response.results[0].status;
-        if (!response.results[1].hasValue) return response.results[1].status;
-        UA_NodeClass nodeClass = *static_cast<UA_NodeClass *>(
-            response.results[0].value.data
-        );
-        UA_QualifiedName browseName = *static_cast<UA_QualifiedName *>(
-            response.results[1].value.data
-        );
-        auto name = std::string(
-            reinterpret_cast<char *>(browseName.name.data),
-            browseName.name.length
-        );
-        auto data_type = telem::UNKNOWN_T;
-        bool is_array = false;
-        if (nodeClass == UA_NODECLASS_VARIABLE && response.results[2].hasValue) {
-            UA_Variant value;
-            UA_Variant_init(&value);
-            UA_Variant_copy(&response.results[2].value, &value);
-            auto [dt, is_arr] = variant_data_type(value);
-            data_type = dt;
-            is_array = is_arr;
-            UA_Variant_clear(&value);
-        } else if (nodeClass == UA_NODECLASS_VARIABLE) {
-            LOG(ERROR) << "[opc.scanner] No value for " << name;
-        }
-        ctx->channels->emplace_back(
-            data_type,
-            name,
-            node_id_to_string(child_id),
-            node_class_to_string(nodeClass),
-            is_array
-        );
-    }
-
-    UA_ReadResponse_clear(&response);
+    UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
+    x::defer clear([&res, &req] {
+        UA_ReadRequest_clear(&req);
+        UA_ReadResponse_clear(&res);
+    });
+    UA_StatusCode status = res.responseHeader.serviceResult;
+    if (status != UA_STATUSCODE_GOOD) return status;
+    if (!res.results[0].hasValue) return res.results[0].status;
+    if (!res.results[1].hasValue) return res.results[1].status;
+    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
+    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
+        res.results[1].value.data
+    );
+    const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
+    auto data_type = telem::UNKNOWN_T;
+    bool is_array = false;
+    if (cls == UA_NODECLASS_VARIABLE && res.results[2].hasValue) {
+        auto value = res.results[2].value;
+        data_type = util::ua_to_data_type(value.type);
+        is_array = !UA_Variant_isScalar(&value);
+        UA_Variant_clear(&value);
+    } else if (cls == UA_NODECLASS_VARIABLE)
+        LOG(ERROR) << "[opc.scanner] No value for " << name;
+    ctx->channels->emplace_back(
+        data_type,
+        name,
+        util::node_id_to_string(child_id),
+        util::node_class_to_string(cls),
+        is_array
+    );
     return status;
 }
 
 void ScanTask::scan(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
-    ScannerScanCommandArgs args(parser);
+    const ScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->set_state({
             .task = task.key,
@@ -170,22 +124,29 @@ void ScanTask::scan(const task::Command &cmd) const {
 
     const auto scan_ctx = new ScanContext{
         ua_client,
-        std::make_shared<std::vector<NodeProperties>>(),
+        std::make_shared<std::vector<util::NodeProperties>>(),
     };
-    iter_children(scan_ctx, args.node);
+    UA_Client_forEachChildNodeCall(
+        scan_ctx->client.get(),
+        args.node,
+        node_iter,
+        scan_ctx
+    );
     ctx->set_state({
         .task = task.key,
         .key = cmd.key,
         .variant = "success",
-        .details = DeviceProperties(args.connection,
-                                    *scan_ctx->channels).to_json(),
+        .details = util::DeviceProperties(
+            args.connection,
+            *scan_ctx->channels
+        ).to_json(),
     });
     delete scan_ctx;
 }
 
 void ScanTask::test_connection(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
-    ScannerScanCommandArgs args(parser);
+    const ScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->set_state({
             .task = task.key,
@@ -205,4 +166,5 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         .variant = "success",
         .details = {{"message", "Connection successful"}},
     });
+}
 }

@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// external
 #include "glog/logging.h"
+
+/// internal
 #include "driver/opc/opc.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/read_task.h"
@@ -19,7 +22,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
 ) {
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
     if (err) return {nullptr, err};
-    auto [client, c_err] = util::connect(cfg.conn, "ABC");
+    auto [client, c_err] = util::connect(cfg.conn, "[opc.read]");
     if (c_err) return {nullptr, err};
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
@@ -43,7 +46,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
 ) {
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
     if (err) return {nullptr, err};
-    auto [client, c_err] = util::connect(cfg.conn, "ABC");
+    auto [client, c_err] = util::connect(cfg.conn, "[opc.write]");
     if (c_err) return {nullptr, err};
     return {
         std::make_unique<common::WriteTask>(
@@ -80,8 +83,8 @@ opc::Factory::configure_initial_tasks(
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
-    auto [old_scanner, err2] = rack.tasks.retrieveByType("opcScanner");
-    if (err2 == xerrors::NIL) {
+    auto [old_scanner, res_err] = rack.tasks.retrieve_by_type("opcScanner");
+    if (res_err == xerrors::NIL) {
         LOG(INFO) << "[opc] Removing old scanner task";
         if (auto del_err = rack.tasks.del(old_scanner.key)) {
             LOG(ERROR) << "[opc] Failed to delete old scanner task: " << del_err;
@@ -89,16 +92,10 @@ opc::Factory::configure_initial_tasks(
         }
     }
 
-    auto [existing, err] = rack.tasks.retrieveByType("opc_scan");
+    auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
     if (err.matches(xerrors::NOT_FOUND)) {
         LOG(INFO) << "[opc] creating scanner task";
-        auto sy_task = synnax::Task(
-            rack.key,
-            "opc Scanner",
-            SCAN_TASK_TYPE,
-            "",
-            true
-        );
+        auto sy_task = synnax::Task(rack.key, "OPC Scanner", SCAN_TASK_TYPE, "", true);
         if (const auto c_err = rack.tasks.create(sy_task)) {
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;

@@ -22,6 +22,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/opc/util/util.h"
+#include "x/cpp/defer/defer.h"
 
 namespace opc {
 struct InputChan {
@@ -55,9 +56,12 @@ struct ReadTaskConfig {
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
     util::ConnectionConfig conn;
+    /// @brief keys of the index channels for the input channels.
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
     std::vector<InputChan> channels;
+    /// @brief the number of samples to read on each iteration.
+    const size_t samples_per_chan;
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -67,9 +71,10 @@ struct ReadTaskConfig {
         device_key(parser.required<std::string>("device")),
         sample_rate(parser.required<float>("sample_rate")),
         stream_rate(parser.required<float>("stream_rate")),
-        array_size(parser.optional<std::size_t>("array_size", 1)) {
-        parser.iter("channels", [&](xjson::Parser &channel_builder) {
-            const auto ch = InputChan(channel_builder);
+        array_size(parser.optional<std::size_t>("array_size", 1)),
+        samples_per_chan(this->sample_rate / this->stream_rate) {
+        parser.iter("channels", [&](xjson::Parser &cp) {
+            const auto ch = InputChan(cp);
             if (ch.enabled) channels.push_back(ch);
         });
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
@@ -79,16 +84,19 @@ struct ReadTaskConfig {
         }
         const auto properties = xjson::Parser(dev.properties);
         this->conn = util::ConnectionConfig(properties.child("connection"));
-        if (properties.error())
-            parser.
-                    field_err("device", properties.error().message());
+        if (properties.error()) {
+            parser.field_err("device", properties.error().message());
+            return;
+        }
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
         for (const auto &ch: this->channels) keys.push_back(ch.synnax_key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err("channels",
-                             "failed to retrieve channels: " + ch_err.message());
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.message()
+            );
             return;
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
@@ -100,9 +108,10 @@ struct ReadTaskConfig {
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
         std::vector<synnax::ChannelKey> channel_keys;
-        channel_keys.reserve(this->channels.size());
+        channel_keys.reserve(this->channels.size() + this->index_keys.size());
         for (const auto &ch: this->channels)
             channel_keys.push_back(ch.synnax_key);
+        for (const auto &idx: this->index_keys) channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
@@ -120,11 +129,11 @@ struct ReadTaskConfig {
 };
 
 struct ReadRequest {
-    UA_ReadRequest req;
+    UA_ReadRequest base;
     std::vector<UA_ReadValueId> read_value_ids;
 
     explicit ReadRequest(const ReadTaskConfig &cfg) {
-        UA_ReadRequest_init(&this->req);
+        UA_ReadRequest_init(&this->base);
         read_value_ids.reserve(cfg.channels.size());
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
@@ -134,23 +143,17 @@ struct ReadRequest {
             rvid.attributeId = UA_ATTRIBUTEID_VALUE;
             read_value_ids.push_back(rvid);
         }
-        req.nodesToRead = read_value_ids.data();
-        req.nodesToReadSize = read_value_ids.size();
+        base.nodesToRead = read_value_ids.data();
+        base.nodesToReadSize = read_value_ids.size();
+    }
+
+    ~ReadRequest() {
+        UA_ReadRequest_clear(&this->base);
+        for (auto &id: this->read_value_ids) UA_ReadValueId_clear(&id);
     }
 };
 
-struct ReadResponse {
-    UA_ReadResponse resp;
-
-    explicit ReadResponse(const UA_ReadResponse &resp) : resp(resp) {
-    }
-
-    ~ReadResponse() {
-        UA_ReadResponse_clear(&resp);
-    }
-};
-
-class BaseReadTaskSource: public common::Source {
+class BaseReadTaskSource : public common::Source {
 protected:
     ReadTaskConfig cfg;
     std::shared_ptr<UA_Client> client;
@@ -163,7 +166,7 @@ protected:
         const telem::Rate rate
     ): cfg(std::move(cfg)),
        client(client),
-       request(cfg),
+       request(this->cfg),
        timer(rate) {
     }
 
@@ -181,23 +184,28 @@ public:
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        timer.wait(breaker);
-        UA_ReadResponse res = UA_Client_Service_read(client.get(), this->request.req);
-        auto fr = Frame(cfg.channels.size() + cfg.index_keys.size());
+        this->timer.wait(breaker);
+        UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
+        x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
+        auto fr = Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
-            if (const auto err = util::parse_error(res.results[i].status))
+            auto &result = res.results[i];
+            if (const auto err = util::parse_error(result.status))
                 return {std::move(fr), err};
-            UA_Variant *value = &res.results[i].value;
             const auto &ch = cfg.channels[i];
-            auto [s, err] = util::ua_array_to_series(ch.ch.data_type, value);
+            auto [s, err] = util::ua_array_to_series(
+                ch.ch.data_type,
+                &result.value,
+                this->cfg.array_size
+            );
             if (err) return {std::move(fr), err};
             fr.emplace(ch.synnax_key, std::move(s));
         }
-        if (!cfg.index_keys.empty()) {
+        if (!this->cfg.index_keys.empty()) {
             auto start = telem::TimeStamp::now();
-            auto end = start + cfg.array_size * cfg.sample_rate.period();
-            auto s = telem::Series::linspace(start, end, cfg.array_size);
-            for (const auto &idx: cfg.index_keys) fr.emplace(idx, s.deep_copy());
+            auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+            auto s = telem::Series::linspace(start, end, this->cfg.array_size);
+            for (const auto &idx: this->cfg.index_keys) fr.emplace(idx, s.deep_copy());
         }
         return {std::move(fr), xerrors::NIL};
     }
@@ -213,25 +221,37 @@ public:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + cfg.index_keys.size());
-        const auto samples_per_chan = cfg.sample_rate / cfg.stream_rate;
         for (const auto &ch: cfg.channels)
-            fr.emplace(ch.synnax_key, telem::Series(ch.ch.data_type, samples_per_chan));
+            fr.emplace(
+                ch.synnax_key,
+                telem::Series(ch.ch.data_type, this->cfg.samples_per_chan)
+            );
         for (const auto &idx: cfg.index_keys)
-            fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
-        for (std::size_t i = 0; i < samples_per_chan; i++) {
-            UA_ReadResponse res = UA_Client_Service_read(client.get(), this->request.req);
+            fr.emplace(
+                idx,
+                telem::Series(telem::TIMESTAMP_T, this->cfg.samples_per_chan)
+            );
+
+        for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
+            const auto start = telem::TimeStamp::now();
+            UA_ReadResponse res = UA_Client_Service_read(
+                this->client.get(),
+                this->request.base
+            );
+            x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
             if (const auto err = util::parse_error(res.responseHeader.serviceResult))
                 return {std::move(fr), err};
             for (std::size_t j = 0; j < res.resultsSize; ++j) {
-                UA_DataValue result = res.results[j];
+                UA_DataValue &result = res.results[j];
                 if (const auto err = util::parse_error(result.status))
                     return {std::move(fr), err};
                 util::write_to_series(fr.series->at(j), result.value);
             }
-            const auto now = telem::TimeStamp::now();
-            for (std::size_t j = cfg.channels.size(); j < fr.size(); j++)
-                fr.series->at(j).write(now);
-            timer.wait(breaker);
+            const auto end = telem::TimeStamp::now();
+            const auto ts = telem::TimeStamp::midpoint(start, end);
+            for (std::size_t j = this->cfg.channels.size(); j < fr.size(); j++)
+                fr.series->at(j).write(ts);
+            this->timer.wait(breaker);
         }
         return std::make_pair(std::move(fr), xerrors::NIL);
     }

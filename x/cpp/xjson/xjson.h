@@ -90,7 +90,7 @@ public:
 
 
     /// @brief default constructor constructs a parser that will fail fast.
-    Parser() : errors(nullptr), noop(true) {
+    Parser(): errors(nullptr), noop(true) {
     }
 
 

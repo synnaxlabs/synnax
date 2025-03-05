@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// external
 #include "gtest/gtest.h"
 
-#include "driver/opc/util/util.h"
+/// module
 #include "x/cpp/xtest/xtest.h"
+
+/// internal
+#include "driver/opc/util/util.h"
 
 TEST(OPCUtilTest, testUAToDataType) {
     EXPECT_EQ(util::ua_to_data_type(&UA_TYPES[UA_TYPES_FLOAT]), telem::FLOAT32_T);

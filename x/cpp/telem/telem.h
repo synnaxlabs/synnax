@@ -293,6 +293,9 @@ public:
         ).count());
     }
 
+    TimeStamp static midpoint(const TimeStamp &start, const TimeStamp &end) {
+        return TimeStamp(start + (end - start) / 2);
+    }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 

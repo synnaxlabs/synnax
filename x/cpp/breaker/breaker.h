@@ -16,6 +16,7 @@
 #include <atomic>
 #include <iomanip>
 #include <memory>
+#include <cassert>
 
 /// external
 #include "glog/logging.h"
@@ -68,7 +69,7 @@ class Breaker {
     /// @brief a condition variable used to notify the breaker to shut down immediately.
     std::condition_variable shutdown_cv;
     /// @brief used to protect the condition variable.
-    std::mutex start_stop_mu;
+    std::mutex mu;
 
 public:
     explicit Breaker(const Config &config)
@@ -138,7 +139,7 @@ public:
                 " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
                 this->interval.seconds() << " seconds. "
                 << "Error: " << message << ".";
-        std::unique_lock lock(this->start_stop_mu);
+        std::unique_lock lock(this->mu);
         shutdown_cv.wait_for(lock, this->interval.chrono());
         if (!this->running()) {
             LOG(INFO) << "[" << this->config.name << "] is shutting down. Exiting.";
@@ -166,7 +167,7 @@ public:
     /// @param time the time to wait for in nanoseconds.
     void wait_for(const std::chrono::nanoseconds &time) {
         if (!this->running()) return;
-        std::unique_lock lock(this->start_stop_mu);
+        std::unique_lock lock(this->mu);
         this->shutdown_cv.wait_for(lock, time);
     }
 
@@ -183,7 +184,7 @@ public:
     /// already stopped.
     bool stop() {
         if (!this->mark_stopped()) return false;
-        std::lock_guard lock(this->start_stop_mu);
+        std::lock_guard lock(this->mu);
         this->shutdown_cv.notify_all();
         return true;
     }

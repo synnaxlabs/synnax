@@ -149,11 +149,10 @@ ni::Factory::configure_initial_tasks(
 
     bool has_scanner = false;
     for (const auto &t: existing)
-        if (t.type == "ni_scanner") has_scanner = true;
-
+        if (t.type == SCAN_TASK_TYPE) has_scanner = true;
     if (has_scanner) return tasks;
 
-    auto sy_task = synnax::Task(rack.key, "ni scanner", "ni_scanner", "", true);
+    auto sy_task = synnax::Task(rack.key, "NI Scanner", SCAN_TASK_TYPE, "", true);
     const auto c_err = rack.tasks.create(sy_task);
     if (c_err) {
         LOG(ERROR) << "[ni] failed to create scanner task: " << c_err;

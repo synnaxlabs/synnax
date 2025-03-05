@@ -12,39 +12,46 @@
 
 #pragma once
 
+/// std
 #include <string>
 #include <atomic>
 #include <thread>
-#include <open62541/server.h>
 
-using namespace std;
+/// external
+#include "open62541/server.h"
 
-struct MockServerChannel {
+namespace mock {
+struct ServerChannel {
     std::int32_t ns;
     std::string node;
 };
 
-struct MockServerConfig {
-    std::vector<MockServerChannel> channels;
+struct ServerConfig {
+    std::vector<ServerChannel> channels;
 };
 
-class MockServer {
+class Server {
 public:
-    MockServerConfig cfg;
+    ServerConfig cfg;
     volatile bool *running = new bool(false);
     std::thread thread;
 
-    explicit MockServer(const MockServerConfig &cfg) : cfg(cfg) {
+    explicit Server(const ServerConfig &cfg) : cfg(cfg) {
     }
 
     void start() {
         running = new bool(true);
-        thread = std::thread(&MockServer::run, this);
+        thread = std::thread(&Server::run, this);
     }
 
-    void stop(bool will_reconfigure) {
+    void stop() {
         *running = false;
         thread.join();
+    }
+
+    ~Server() {
+        if (*running)
+            this->stop();
     }
 
     void run() const {
@@ -70,3 +77,4 @@ public:
         UA_Server_delete(server);
     }
 };
+}

@@ -108,7 +108,7 @@ labjack::Factory::configure_initial_tasks(
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
-    auto [existing, err] = rack.tasks.retrieveByType("labjack_scan");
+    auto [existing, err] = rack.tasks.retrieve_by_type("labjack_scan");
     if (err.matches(xerrors::NOT_FOUND)) {
         VLOG(1) << "[labjack] Creating scanner task";
         auto sy_task = synnax::Task(

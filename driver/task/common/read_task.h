@@ -15,14 +15,16 @@
 
 namespace common {
 /// @brief a source that can be used to read data from a hardware device.
-class Source : public pipeline::Source {
-public:
-    /// @brief starts the source.
+struct Source : pipeline::Source {
+    /// @brief the configuration used to open a writer for the source.
+    virtual synnax::WriterConfig writer_config() const = 0;
+    /// @brief an optional function called to start the source.
+    /// @returns an error if the source fails to start, at which point the task
+    /// will not proceed with the rest of startup.
     virtual xerrors::Error start() { return xerrors::NIL; }
 
+    /// @brief an optional function called to stop the source.
     virtual xerrors::Error stop() { return xerrors::NIL; }
-
-    virtual synnax::WriterConfig writer_config() const = 0;
 };
 
 /// @brief a read task that can pull from both analog and digital channels.
@@ -50,7 +52,7 @@ class ReadTask final : public task::Task {
 
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
-            this->p.stop("", false);
+            this->p.state.send_stop("");
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -116,20 +118,22 @@ public:
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
-    void stop(const std::string &cmd_key, const bool will_reconfigure) {
-        if (const auto was_running = this->pipe.stop(); !was_running) return;
+    bool stop(const std::string &cmd_key, const bool will_reconfigure) {
+        if (const auto was_running = this->pipe.stop(); !was_running) return false;
         this->state.error(this->source->internal->stop());
-        if (will_reconfigure) return;
+        if (will_reconfigure) return true;
         this->state.send_stop(cmd_key);
+        return true;
     }
 
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
-    void start(const std::string &cmd_key) {
-        if (this->pipe.running()) return;
-        if (!this->state.error(this->source->internal->start()))
-            this->pipe.start();
+    bool start(const std::string &cmd_key) {
+        if (this->pipe.running()) return false;
+        const auto start_ok = !this->state.error(this->source->internal->start());
+        if (start_ok) this->pipe.start();
         this->state.send_start(cmd_key);
+        return start_ok;
     }
 
     /// @brief implements task::Task.
