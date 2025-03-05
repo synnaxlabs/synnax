@@ -129,6 +129,7 @@ public:
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
     bool start(const std::string &cmd_key) {
+        this->state.reset();
         if (this->pipe.running()) return false;
         const auto start_ok = !this->state.error(this->source->internal->start());
         if (start_ok) this->pipe.start();

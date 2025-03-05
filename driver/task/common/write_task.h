@@ -9,6 +9,9 @@
 
 #pragma once
 
+/// module
+#include "x/cpp/loop/loop.h"
+
 /// internal
 #include "driver/task/common/state.h"
 #include "driver/pipeline/acquisition.h"
@@ -52,9 +55,11 @@ public:
        cmd_channels(std::move(cmd_channels)),
        state_indexes(std::move(state_indexes)),
        data_saving(data_saving) {
+        auto idx = 0;
         for (const auto &ch: state_channels) {
             this->chan_state[ch.key] = ch.data_type.cast(0);
-            this->state_channels[ch.key] = ch;
+            this->state_channels[this->cmd_channels[idx]] = ch;
+            idx++;
         }
     }
 
@@ -201,24 +206,28 @@ public:
     /// @param cmd_key - A reference to the command key used to execute the stop. Will
     /// be used internally to communicate the task state.
     /// @param will_reconfigure whether the task will be reconfigured after it was stopped.
-    void stop(const std::string &cmd_key, const bool will_reconfigure) {
-        this->cmd_write_pipe.stop();
-        this->state_write_pipe.stop();
+    bool stop(const std::string &cmd_key, const bool will_reconfigure) {
+        const auto write_pipe_stopped = this->cmd_write_pipe.stop();
+        const auto state_pipe_stopped = this->state_write_pipe.stop();
+        const auto stopped = write_pipe_stopped || state_pipe_stopped;
         this->state.error(this->sink->wrapped->stop());
-        if (will_reconfigure) return;
+        if (will_reconfigure) return stopped;
         this->state.send_stop(cmd_key);
+        return stopped;
     }
 
     /// @brief starts the task.
     /// @param cmd_key - A reference to the command key used to execute the start. Will
     /// be used internally to communicate the task state.
-    void start(const std::string &cmd_key) {
-        if (!this->state.error(this->sink->wrapped->start())) {
+    bool start(const std::string &cmd_key) {
+        const auto start_ok = !this->state.error(this->sink->wrapped->start());
+        if (start_ok) {
             this->cmd_write_pipe.start();
             if (!this->sink->wrapped->writer_config().channels.empty())
                 this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);
+        return start_ok;
     }
 
     /// @brief implements task::Task to return the task's name.

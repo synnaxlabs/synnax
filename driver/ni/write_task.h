@@ -123,8 +123,8 @@ struct WriteTaskConfig {
     }
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() {
-        std::vector<synnax::ChannelKey> keys(channels.size());
-        for (const auto &[_, ch]: channels) keys.push_back(ch->cmd_ch_key);
+        std::vector<synnax::ChannelKey> keys(this->channels.size());
+        for (const auto &[_, ch]: this->channels) keys.push_back(ch->cmd_ch_key);
         return keys;
     }
 

@@ -53,7 +53,7 @@ public:
     }
 };
 
-TEST(TestCommonReadTask, testBasicStartup) {
+TEST(TestCommonReadTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::Task t;
     t.key = 12345;
@@ -260,4 +260,136 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_EQ(run_err.details["message"], "[base] read error");
 
     ASSERT_TRUE(read_task.stop("stop_cmd", false));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
+    auto stop_state = ctx->states[2];
+    EXPECT_EQ(stop_state.key, "stop_cmd");
+    EXPECT_EQ(stop_state.task, t.key);
+    EXPECT_EQ(stop_state.variant, "error");
+    EXPECT_EQ(stop_state.details["message"], "[base] read error");
+}
+
+TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    synnax::Task t;
+    t.key = 12345;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto s = telem::Series(telem::TimeStamp::now());
+    reads->emplace_back(synnax::Frame(0, std::move(s)));
+    
+    // Create a source that fails on first start but succeeds on second start
+    auto mock_source = std::make_unique<MockSource>(
+        reads,
+        nullptr,
+        std::vector{xerrors::Error("base", "first start error"), xerrors::NIL}
+    );
+    
+    common::ReadTask read_task(
+        t,
+        ctx,
+        breaker::default_config("cat"),
+        std::move(mock_source),
+        mock_writer_factory
+    );
+    
+    // First start attempt - should fail
+    const std::string start_cmd_key1 = "start_cmd1";
+    ASSERT_FALSE(read_task.start(start_cmd_key1));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 1);
+    auto start_state1 = ctx->states[0];
+    EXPECT_EQ(start_state1.key, start_cmd_key1);
+    EXPECT_EQ(start_state1.task, t.key);
+    EXPECT_EQ(start_state1.variant, "error");
+    EXPECT_EQ(start_state1.details["message"], "[base] first start error");
+    
+    // Second start attempt - should succeed
+    const std::string start_cmd_key2 = "start_cmd2";
+    ASSERT_TRUE(read_task.start(start_cmd_key2));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
+    auto start_state2 = ctx->states[1];
+    EXPECT_EQ(start_state2.key, start_cmd_key2);
+    EXPECT_EQ(start_state2.task, t.key);
+    EXPECT_EQ(start_state2.variant, "success");
+    EXPECT_EQ(start_state2.details["message"], "Task started successfully");
+    
+    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    
+    // Stop the task
+    const std::string stop_cmd_key = "stop_cmd";
+    ASSERT_TRUE(read_task.stop(stop_cmd_key, false));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
+    auto stop_state = ctx->states[2];
+    EXPECT_EQ(stop_state.key, stop_cmd_key);
+    EXPECT_EQ(stop_state.task, t.key);
+    EXPECT_EQ(stop_state.variant, "success");
+}
+
+TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    synnax::Task t;
+    t.key = 12345;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto s = telem::Series(telem::TimeStamp::now());
+    // Give the pipeline essentially infinite reads.
+    for (int i = 0; i < 30; i++)
+        reads->emplace_back(synnax::Frame(0, s.deep_copy()));
+    
+    // Create a source that fails on first stop but succeeds on second stop
+    auto mock_source = std::make_unique<MockSource>(
+        reads,
+        nullptr,
+        std::vector<xerrors::Error>{},  // No start errors
+        std::vector{xerrors::Error("base", "first stop error"), xerrors::NIL}  // First stop fails, second succeeds
+    );
+    
+    common::ReadTask read_task(
+        t,
+        ctx,
+        breaker::default_config("cat"),
+        std::move(mock_source),
+        mock_writer_factory
+    );
+    
+    // Start the task
+    const std::string start_cmd_key = "start_cmd";
+    ASSERT_TRUE(read_task.start(start_cmd_key));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 1);
+    auto start_state = ctx->states[0];
+    EXPECT_EQ(start_state.key, start_cmd_key);
+    EXPECT_EQ(start_state.task, t.key);
+    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.details["message"], "Task started successfully");
+    
+    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    
+    // First stop attempt - should report error but return true
+    const std::string stop_cmd_key1 = "stop_cmd1";
+    ASSERT_TRUE(read_task.stop(stop_cmd_key1, false));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
+    auto stop_state1 = ctx->states[1];
+    EXPECT_EQ(stop_state1.key, stop_cmd_key1);
+    EXPECT_EQ(stop_state1.task, t.key);
+    EXPECT_EQ(stop_state1.variant, "error");
+    EXPECT_EQ(stop_state1.details["message"], "[base] first stop error");
+    
+    // Start the task again
+    const std::string start_cmd_key2 = "start_cmd2";
+    ASSERT_TRUE(read_task.start(start_cmd_key2));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
+    auto start_state2 = ctx->states[2];
+    EXPECT_EQ(start_state2.key, start_cmd_key2);
+    EXPECT_EQ(start_state2.task, t.key);
+    EXPECT_EQ(start_state2.variant, "success");
+    
+    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
+    
+    // Second stop attempt - should succeed
+    const std::string stop_cmd_key2 = "stop_cmd2";
+    ASSERT_TRUE(read_task.stop(stop_cmd_key2, false));
+    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 4);
+    auto stop_state2 = ctx->states[3];
+    EXPECT_EQ(stop_state2.key, stop_cmd_key2);
+    EXPECT_EQ(stop_state2.task, t.key);
+    EXPECT_EQ(stop_state2.variant, "success");
 }

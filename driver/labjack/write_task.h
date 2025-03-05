@@ -59,7 +59,7 @@ struct WriteTaskConfig {
     /// @brief the model of the device.
     std::string dev_model;
     /// @brief configurations for the enabled channels on the device.
-    std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
+    std::map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the set of index channel keys for the state channels.
     std::set<synnax::ChannelKey> state_index_keys;
 

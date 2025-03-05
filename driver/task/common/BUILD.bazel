@@ -6,12 +6,18 @@ cc_library(
         "write_task.h",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//driver/task"],
+    deps = [
+        "//driver/task",
+        "//x/cpp/loop",
+    ],
 )
 
 cc_test(
     name = "common_test",
-    srcs = ["read_task_test.cpp"],
+    srcs = [
+        "read_task_test.cpp",
+        "write_task_test.cpp",
+    ],
     deps = [
         "//driver/pipeline/mock",
         "//driver/task/common",

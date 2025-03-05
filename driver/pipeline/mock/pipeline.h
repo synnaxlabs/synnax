@@ -240,6 +240,12 @@ public:
              write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
     }
 
+    Sink(
+        const std::shared_ptr<std::vector<synnax::Frame> > &writes,
+        const std::shared_ptr<std::vector<xerrors::Error> > &write_errors
+    ): writes(writes), write_errors(write_errors) {
+    }
+
     xerrors::Error write(const synnax::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());

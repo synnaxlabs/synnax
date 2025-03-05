@@ -30,6 +30,12 @@ struct TaskStateHandler {
         this->wrapped.variant = "success";
     }
 
+    /// @brief resets the state handler to its initial state.
+    void reset() {
+        this->wrapped.variant = "success";
+        this->err = xerrors::NIL;
+    }
+
     /// @brief register the provided error in the task state. If err is nil, then it
     /// will be ignored, and false will be returned. Otherwise, the provided error will
     /// override any other accumulated errors.
