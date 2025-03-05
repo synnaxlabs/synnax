@@ -167,8 +167,10 @@ const ChannelList = <C extends ChannelConfig>({
 
   const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
   const listItem = useCallback(
-    (p: Common.Task.ChannelListItemProps<C>) => (
-      <ChannelListItem {...p}>{children}</ChannelListItem>
+    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+      <ChannelListItem key={key} {...p}>
+        {children}
+      </ChannelListItem>
     ),
     [children],
   );

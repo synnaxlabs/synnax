@@ -19,9 +19,12 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
+export const statusZ = z.enum(["info", "success", "error", "warning"]);
+export type Status = z.infer<typeof statusZ>;
+
 export const stateZ = z.object({
   task: keyZ,
-  variant: z.string(),
+  variant: statusZ,
   key: z.string().optional(),
   details: z
     .record(z.unknown())

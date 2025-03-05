@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Observe, Status as PStatus, Synnax } from "@synnaxlabs/pluto";
-import { useCallback, useMemo, useState as useReactState } from "react";
+import { Observe, type Status as PStatus, Synnax } from "@synnaxlabs/pluto";
+import { useCallback, useState as useReactState } from "react";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
 import {
@@ -33,7 +33,7 @@ export interface State {
 const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
   status: state?.details?.running ? RUNNING_STATUS : PAUSED_STATUS,
   message: state?.details?.message,
-  variant: parseVariant(state?.variant),
+  variant: state?.variant,
 });
 
 /**
@@ -81,13 +81,7 @@ export const useState = <D extends StateDetails>(
     },
   });
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
-  return useMemo<UseStateReturn>(
-    () => [state, triggerLoading],
-    [state, triggerLoading],
-  );
+  return [state, triggerLoading];
 };
-
-const parseVariant = (variant?: string): PStatus.Variant | undefined =>
-  PStatus.variantZ.safeParse(variant).data ?? undefined;
 
 export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };
