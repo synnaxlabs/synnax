@@ -82,6 +82,7 @@ export const wrap = <
   Wrapped: FC<TaskProps<Config, Details, Type>>,
   options: WrapOptions<Config, Details, Type>,
 ): Layout.Renderer => {
+  const { configSchema, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
     const client = Synnax.use();
@@ -89,7 +90,6 @@ export const wrap = <
       TaskProps<Config, Details, Type>
     >({
       queryFn: async () => {
-        const { configSchema, getInitialPayload } = options;
         if (taskKey == null)
           return {
             configured: false,
