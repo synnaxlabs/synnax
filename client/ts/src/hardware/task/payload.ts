@@ -11,6 +11,7 @@ import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
+import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([
   z.string(),
@@ -25,11 +26,9 @@ export const stateZ = z.object({
   key: z.string().optional(),
   details: z
     .record(z.unknown())
-    .or(
-      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
-    )
+    .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
-    .or(z.null()),
+    .or(z.null()) as z.ZodType<UnknownRecord>,
 });
 export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
@@ -43,9 +42,7 @@ export const taskZ = z.object({
   internal: z.boolean().optional(),
   config: z
     .record(z.unknown())
-    .or(
-      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
-    ) as z.ZodType<UnknownRecord>,
+    .or(z.string().transform(parseWithoutKeyConversion)) as z.ZodType<UnknownRecord>,
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
@@ -77,7 +74,7 @@ export const commandZ = z.object({
   key: z.string(),
   args: z
     .record(z.unknown())
-    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
+    .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
@@ -87,8 +84,7 @@ export interface Command<Args extends {} = UnknownRecord>
   args?: Args;
 }
 
-export interface StateObservable<Details extends {} = UnknownRecord>
-  extends observe.ObservableAsyncCloseable<State<Details>> {}
+export interface StateObservable extends observe.ObservableAsyncCloseable<State> {}
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
