@@ -144,7 +144,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
 	channels, vErr := r.validateRetrievedChannels(ctx, entries)
-	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
+	gorp.SetEntries(r.gorp.Params, &channels)
 	return errors.Combine(err, vErr)
 }
 
@@ -162,7 +162,7 @@ func formatNameMatcher(name string) func(name string) bool {
 	rx, err := regexp.Compile(name)
 	if err != nil {
 		return func(s string) bool { return s == name }
-	} else {
-		return rx.MatchString
 	}
+	return rx.MatchString
+
 }

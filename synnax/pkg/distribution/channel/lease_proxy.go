@@ -127,7 +127,6 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			channels[i].LocalKey = 0
 		}
 	}
-
 	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
@@ -307,6 +306,22 @@ func (lp *leaseProxy) createGateway(
 	if err != nil {
 		return err
 	}
+
+	externalCreatedKeys := make(Keys, 0, len(toCreate))
+	for _, ch := range toCreate {
+		if !ch.Internal && !ch.Virtual {
+			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
+		}
+	}
+	newExternalNonVirtualSet := lp.externalNonVirtualSet.Copy()
+	newExternalNonVirtualSet.Insert(externalCreatedKeys...)
+	if err := lp.IntOverflowCheck(
+		ctx,
+		xtypes.Uint20(newExternalNonVirtualSet.Size()),
+	); err != nil {
+		return err
+	}
+
 	storageChannels := toStorage(toCreate)
 	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
@@ -315,23 +330,6 @@ func (lp *leaseProxy) createGateway(
 		NewCreate[Key, Channel]().
 		Entries(&toCreate).
 		Exec(ctx, tx); err != nil {
-		return err
-	}
-	externalCreatedKeys := make([]Key, 0, len(toCreate))
-	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
-			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
-		}
-	}
-	// this number shouldn't be len(externalCreatedKeys), but rather the size of the set
-	// after inserting the keys. However, we don't want to actually insert the keys into
-	// the set until we've checked for overflow.
-	newExternalNonVirtualSet := lp.externalNonVirtualSet.Copy()
-	newExternalNonVirtualSet.Insert(externalCreatedKeys...)
-	if err := lp.IntOverflowCheck(
-		ctx,
-		xtypes.Uint20(newExternalNonVirtualSet.Size()),
-	); err != nil {
 		return err
 	}
 	lp.externalNonVirtualSet = &newExternalNonVirtualSet
@@ -401,14 +399,13 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		if len(internalChannels) == 0 {
-			return nil
+		if len(internalChannels) > 0 {
+			names := make([]string, 0, len(internalChannels))
+			for _, ch := range internalChannels {
+				names = append(names, ch.Name)
+			}
+			return errors.Newf("can't delete internal channel(s): %v", names)
 		}
-		var names = make([]string, 0, len(internalChannels))
-		for _, ch := range internalChannels {
-			names = append(names, ch.Name)
-		}
-		return errors.Newf("can't delete internal channel(s): %v", names)
 	}
 
 	batch := lp.keyRouter.Batch(keys)

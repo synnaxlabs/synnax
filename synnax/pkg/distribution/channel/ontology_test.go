@@ -30,7 +30,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
 	)
-	BeforeAll(func() { builder, services = provisionServices() })
+	BeforeAll(func() { builder, services, _ = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
