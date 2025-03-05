@@ -69,7 +69,6 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       channel={cmdChannel}
       portMaxChars={2}
       canTare={false}
-      onTare={() => {}}
       isSnapshot={isSnapshot}
       path={path}
       name={AO_CHANNEL_TYPE_NAMES[type]}
