@@ -12,7 +12,6 @@
 #include <functional>
 
 namespace x {
-
 /**
  * @brief A utility class that executes a function when it goes out of scope.
  * 
@@ -54,5 +53,4 @@ public:
     defer(const defer&) = delete;
     defer& operator=(const defer&) = delete;
 };
-
 }

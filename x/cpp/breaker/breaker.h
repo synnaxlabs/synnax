@@ -10,8 +10,6 @@
 #pragma once
 
 /// std
-#include <thread>
-#include <mutex>
 #include <condition_variable>
 #include <atomic>
 #include <iomanip>
@@ -24,7 +22,6 @@
 /// module
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
-
 
 namespace breaker {
 /// @brief tells the breaker to retry infinitely.
@@ -48,7 +45,11 @@ struct Config {
 
     [[nodiscard]] Config child(const std::string &name) const {
         return Config{
-            this->name + "." + name, base_interval, max_retries, scale, max_interval
+            this->name + "." + name,
+            base_interval,
+            max_retries,
+            scale,
+            max_interval
         };
     }
 };
@@ -101,13 +102,14 @@ public:
         return this->is_running.exchange(false);
     }
 
-
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true. Also Logs information about the breaker trigger.
     bool wait() { return wait(""); }
 
-    bool wait(const xerrors::Error &err) { return wait(err.message()); }
+    /// @brief triggers the breaker and logs the provided error as its message.
+    /// @see wait() for more information.
+    bool wait(const xerrors::Error &err) { return this->wait(err.message()); }
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
@@ -131,9 +133,10 @@ public:
         }
 
         const std::string retry_count_msg = this->config.max_retries == -1
-                                          ? std::to_string(this->retries) + "/∞"
-                                          : std::to_string(this->retries) + "/" +
-                                            std::to_string(this->config.max_retries);
+                                                ? std::to_string(this->retries) + "/∞"
+                                                : std::to_string(this->retries) + "/" +
+                                                  std::to_string(
+                                                      this->config.max_retries);
 
         LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg <<
                 " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<

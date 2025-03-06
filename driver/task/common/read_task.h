@@ -9,8 +9,10 @@
 
 #pragma once
 
-#include "state.h"
+/// internal
+#include "driver/task/common/state.h"
 #include "driver/task/task.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
 namespace common {
@@ -60,7 +62,7 @@ class ReadTask final : public task::Task {
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning(err);
+                this->p.state.send_warning(err.message());
             return {std::move(fr), err};
         }
     };

@@ -23,7 +23,7 @@ class MockSink final : public common::Sink, public pipeline::mock::Sink {
 public:
     MockSink(
         const telem::Rate state_rate,
-        std::set<synnax::ChannelKey> state_indexes,
+        const std::set<synnax::ChannelKey> &state_indexes,
         const std::vector<synnax::Channel> &state_channels,
         const std::vector<synnax::ChannelKey> &cmd_channels,
         const bool data_saving,
@@ -124,7 +124,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EVENTUALLY_EQ_F(check_state_writes, 1);
 
     const std::string stop_cmd_key = "stop_cmd";
-    ASSERT_TRUE(write_task.stop(stop_cmd_key, false));
+    ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);

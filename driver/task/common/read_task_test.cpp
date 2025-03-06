@@ -78,7 +78,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(start_state.variant, "success");
     EXPECT_EQ(start_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
-    read_task.stop("stop_cmd", false);
+    read_task.stop("stop_cmd", true);
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
@@ -113,7 +113,7 @@ TEST(TestCommonReadTask, testErrorOnStartup) {
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
     EXPECT_EQ(start_state.variant, "error");
-    EXPECT_EQ(start_state.details["message"], "[base] start error");
+    EXPECT_EQ(start_state.details["message"], "start error");
 }
 
 TEST(TestCommonReadTask, testErrorOnStop) {
@@ -146,13 +146,13 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     EXPECT_EQ(start_state.variant, "success");
     
     const std::string stop_cmd_key = "stop_cmd";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
     EXPECT_EQ(stop_state.task, t.key);
     EXPECT_EQ(stop_state.variant, "error");
-    EXPECT_EQ(stop_state.details["message"], "[base] stop error");
+    EXPECT_EQ(stop_state.details["message"], "stop error");
 }
 
 TEST(TestCommonReadTask, testMultiStartStop) {
@@ -187,7 +187,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
 
     const std::string stop_cmd_key1 = "stop_cmd1";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key1, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state1 = ctx->states[1];
     EXPECT_EQ(stop_state1.key, stop_cmd_key1);
@@ -206,7 +206,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
     const std::string stop_cmd_key2 = "stop_cmd2";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key2, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 4);
     auto stop_state2 = ctx->states[3];
     EXPECT_EQ(stop_state2.key, stop_cmd_key2);
@@ -257,15 +257,15 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_EQ(run_err.key, "");
     ASSERT_EQ(run_err.task, t.key);
     ASSERT_EQ(run_err.variant, "error");
-    ASSERT_EQ(run_err.details["message"], "[base] read error");
+    ASSERT_EQ(run_err.details["message"], "read error");
 
-    ASSERT_FALSE(read_task.stop("stop_cmd", false));
+    ASSERT_FALSE(read_task.stop("stop_cmd", true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.task, t.key);
     EXPECT_EQ(stop_state.variant, "error");
-    EXPECT_EQ(stop_state.details["message"], "[base] read error");
+    EXPECT_EQ(stop_state.details["message"], "read error");
 }
 
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
@@ -300,7 +300,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state1.key, start_cmd_key1);
     EXPECT_EQ(start_state1.task, t.key);
     EXPECT_EQ(start_state1.variant, "error");
-    EXPECT_EQ(start_state1.details["message"], "[base] first start error");
+    EXPECT_EQ(start_state1.details["message"], "first start error");
     
     // Second start attempt - should succeed
     const std::string start_cmd_key2 = "start_cmd2";
@@ -316,7 +316,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     
     // Stop the task
     const std::string stop_cmd_key = "stop_cmd";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
@@ -365,13 +365,13 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     
     // First stop attempt - should report error but return true
     const std::string stop_cmd_key1 = "stop_cmd1";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key1, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state1 = ctx->states[1];
     EXPECT_EQ(stop_state1.key, stop_cmd_key1);
     EXPECT_EQ(stop_state1.task, t.key);
     EXPECT_EQ(stop_state1.variant, "error");
-    EXPECT_EQ(stop_state1.details["message"], "[base] first stop error");
+    EXPECT_EQ(stop_state1.details["message"], "first stop error");
     
     // Start the task again
     const std::string start_cmd_key2 = "start_cmd2";
@@ -386,7 +386,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     
     // Second stop attempt - should succeed
     const std::string stop_cmd_key2 = "stop_cmd2";
-    ASSERT_TRUE(read_task.stop(stop_cmd_key2, false));
+    ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 4);
     auto stop_state2 = ctx->states[3];
     EXPECT_EQ(stop_state2.key, stop_cmd_key2);
