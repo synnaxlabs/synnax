@@ -57,6 +57,13 @@ struct TaskStateHandler {
         this->ctx->set_state(this->wrapped);
     }
 
+    void clear_warning() {
+        if (this->wrapped.variant != "warning") return;
+        this->wrapped.variant = "success";
+        this->wrapped.details["message"] = "Task started successfully";
+        this->ctx->set_state(this->wrapped);
+    }
+
     /// @brief sends a start message to the task state, using the provided command
     /// key as part of the state. If an error has been accumulated, then the error
     /// will be sent as part of the state. If the error is nil, then the task will

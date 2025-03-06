@@ -20,8 +20,8 @@
 #include "x/cpp/breaker/breaker.h"
 
 /// internal
-#include "labjack.h"
 #include "device/device.h"
+#include "driver/labjack/labjack.h"
 #include "driver/task/common/read_task.h"
 #include "driver/pipeline/middleware.h"
 #include "driver/labjack/ljm/api.h"
@@ -483,7 +483,9 @@ public:
         return this->cfg.writer();
     }
 
-    xerrors::Error start() override {
+    xerrors::Error start() override { return this->restart(); }
+
+    xerrors::Error restart() {
         this->stop();
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
@@ -518,12 +520,17 @@ public:
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
-        if (const auto err = this->dev->e_stream_read(
+        if (auto err = this->dev->e_stream_read(
             this->data.data(),
             &num_skipped_scans,
             &scan_backlog
-        ))
+        )) {
+            if (err.matches(UNREACHABLE_ERRORS)) {
+                this->start();
+                err = ljm::TEMPORARILY_UNREACHABLE;
+            }
             return {Frame(), err};
+        }
         const auto end = this->sample_clock.end(n);
 
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());

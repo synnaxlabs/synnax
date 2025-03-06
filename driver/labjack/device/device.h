@@ -84,12 +84,19 @@ public:
         int *error_addr
     ) const = 0;
 
+    [[nodiscard]] virtual xerrors::Error e_read_name(
+        const char *name,
+        double *value
+    ) const = 0;
+
     [[nodiscard]] virtual xerrors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
         double *scan_rate
     ) const = 0;
+
+    [[nodiscard]] virtual xerrors::Error check_health() const = 0;
 };
 
 class LJMDevice final: public Device {
@@ -260,6 +267,20 @@ public:
         );
     }
 
+    [[nodiscard]] xerrors::Error e_read_name(
+        const char *name,
+        double *value
+    ) const override {
+        return parse_error(
+            this->ljm,
+            this->ljm->e_read_name(
+                this->dev_handle,
+                name,
+                value
+            )
+        );
+    }
+
     [[nodiscard]] xerrors::Error e_stream_start(
         const size_t scans_per_read,
         const size_t num_addrs,
@@ -276,6 +297,11 @@ public:
                 scan_rate
             )
         );
+    }
+
+    [[nodiscard]] xerrors::Error check_health() const override {
+        double value;
+        return this->e_read_name("FIRMWARE_VERSION", &value);
     }
 };
 
@@ -314,6 +340,7 @@ public:
     }
 
 
+
     std::pair<std::shared_ptr<Device>, xerrors::Error> acquire(
         const std::string &serial_number
     ) {
@@ -321,9 +348,12 @@ public:
 
         const auto it = this->handles.find(serial_number);
         if (it != handles.end()) {
-            if (auto existing = it->second.lock(); existing != nullptr)
-                return {existing, xerrors::NIL};
-            handles.erase(it);
+            const auto existing = it->second.lock();
+            if (existing == nullptr || existing.use_count() == 1) {
+                this->handles.erase(it);
+                this->acquire(serial_number);
+            }
+            return {existing, xerrors::NIL};
         }
 
         int dev_handle;

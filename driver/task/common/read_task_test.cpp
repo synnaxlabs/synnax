@@ -259,7 +259,7 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_EQ(run_err.variant, "error");
     ASSERT_EQ(run_err.details["message"], "[base] read error");
 
-    ASSERT_TRUE(read_task.stop("stop_cmd", false));
+    ASSERT_FALSE(read_task.stop("stop_cmd", false));
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 3);
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, "stop_cmd");

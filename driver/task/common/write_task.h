@@ -17,6 +17,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
+#include "driver/errors/errors.h"
 
 namespace common {
 class Sink : public pipeline::Sink, public pipeline::Source {
@@ -73,7 +74,7 @@ public:
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
         std::vector<synnax::ChannelKey> keys;
-        for (const auto &[key, _]: this->state_channels) keys.push_back(key);
+        for (const auto &[_, ch]: this->state_channels) keys.push_back(ch.key);
         for (const auto idx: this->state_indexes) keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
@@ -125,7 +126,7 @@ class WriteTask final : public task::Task {
 
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
-            this->p.stop("");
+            this->p.stop("", true);
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -134,7 +135,12 @@ class WriteTask final : public task::Task {
 
         xerrors::Error write(const synnax::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
-            return this->wrapped->write(frame);
+            auto err = this->wrapped->write(frame);
+            if (!err)
+                this->p.state.clear_warning();
+            else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
+                this->p.state.send_warning(err.message());
+            return err;
         }
     };
 
@@ -194,25 +200,24 @@ public:
     /// @brief implements task::Task to execute teh provided command on the task.
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key, false);
+        else if (cmd.type == "stop") this->stop(cmd.key, true);
     }
 
     /// @brief implements task::Task to stop the task.
     void stop(const bool will_reconfigure) override {
-        this->stop("", will_reconfigure);
+        this->stop("", !will_reconfigure);
     }
 
     /// @brief stops the task.
     /// @param cmd_key - A reference to the command key used to execute the stop. Will
     /// be used internally to communicate the task state.
-    /// @param will_reconfigure whether the task will be reconfigured after it was stopped.
-    bool stop(const std::string &cmd_key, const bool will_reconfigure) {
+    /// @param propagate_state whether the task will be reconfigured after it was stopped.
+    bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto write_pipe_stopped = this->cmd_write_pipe.stop();
         const auto state_pipe_stopped = this->state_write_pipe.stop();
-        const auto stopped = write_pipe_stopped || state_pipe_stopped;
-        this->state.error(this->sink->wrapped->stop());
-        if (will_reconfigure) return stopped;
-        this->state.send_stop(cmd_key);
+        const auto stopped = write_pipe_stopped && state_pipe_stopped;
+        if (stopped) this->state.error(this->sink->wrapped->stop());
+        if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
 
@@ -220,14 +225,15 @@ public:
     /// @param cmd_key - A reference to the command key used to execute the start. Will
     /// be used internally to communicate the task state.
     bool start(const std::string &cmd_key) {
-        const auto start_ok = !this->state.error(this->sink->wrapped->start());
-        if (start_ok) {
+        this->stop("", false);
+        const auto sink_started = !this->state.error(this->sink->wrapped->start());
+        if (sink_started) {
             this->cmd_write_pipe.start();
             if (!this->sink->wrapped->writer_config().channels.empty())
                 this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);
-        return start_ok;
+        return sink_started;
     }
 
     /// @brief implements task::Task to return the task's name.

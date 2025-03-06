@@ -53,7 +53,10 @@ public:
     /// again.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
-        if (this->thread.joinable()) this->thread.join();
+        if (
+            this->thread.get_id() != std::this_thread::get_id() &&
+            this->thread.joinable()
+        ) this->thread.join();
         return stopped;
     }
 

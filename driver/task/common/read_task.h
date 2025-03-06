@@ -52,11 +52,16 @@ class ReadTask final : public task::Task {
 
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
-            this->p.state.send_stop("");
+            this->p.stop("", true);
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            return this->internal->read(breaker);
+            auto [fr, err] = this->internal->read(breaker);
+            if (!err)
+                this->p.state.clear_warning();
+            else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
+                this->p.state.send_warning(err.message());
+            return {std::move(fr), err};
         }
     };
 
@@ -107,28 +112,28 @@ public:
     /// @brief executes the given command on the task.
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key, false);
+        else if (cmd.type == "stop") this->stop(cmd.key, true);
         else if (cmd.type == "tare") this->tare_mw->tare(cmd.args);
     }
 
     /// @brief stops the task.
     void stop(const bool will_reconfigure) override {
-        this->stop("", will_reconfigure);
+        this->stop("", !will_reconfigure);
     }
 
     /// @brief stops the task, using the given command key as reference for
     /// communicating success state.
-    bool stop(const std::string &cmd_key, const bool will_reconfigure) {
-        if (const auto was_running = this->pipe.stop(); !was_running) return false;
-        this->state.error(this->source->internal->stop());
-        if (will_reconfigure) return true;
-        this->state.send_stop(cmd_key);
-        return true;
+    bool stop(const std::string &cmd_key, const bool propagate_state) {
+        const auto stopped = this->pipe.stop();
+        if (stopped) this->state.error(this->source->internal->stop());
+        if (propagate_state) this->state.send_stop(cmd_key);
+        return stopped;
     }
 
     /// @brief starts the task, using the given command key as a reference for
     /// communicating task state.
     bool start(const std::string &cmd_key) {
+        this->stop("", false);
         this->state.reset();
         if (this->pipe.running()) return false;
         const auto start_ok = !this->state.error(this->source->internal->start());

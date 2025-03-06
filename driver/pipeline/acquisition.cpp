@@ -103,6 +103,7 @@ void Acquisition::run() {
                 continue;
             break;
         }
+        if (source_err) source_err = xerrors::NIL;
         if (frame.empty()) continue;
         this->middleware.exec(frame);
         // Open the writer after receiving the first frame so we can resolve the start

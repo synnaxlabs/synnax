@@ -12,16 +12,9 @@
 #include "api.h"
 #include "driver/errors/errors.h"
 
+namespace ljm {
 static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"LJ_SUCCESS", ""},
-    {
-        "LJME_WARNINGS_BEGIN",
-        "This indicates where the warning codes start is not a real warning code."
-    },
-    {
-        "LJME_WARNINGS_END",
-        "This indicates where the warning codes end is not a real warning code."
-    },
     {
         "LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE",
         "Some read/write operation(s) were not sent to the device because the Feedback command being created was too large for the device, given the current connection type."
@@ -193,11 +186,11 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     },
     {
         "LJME_NO_RESPONSE_BYTES_RECEIVED",
-        "No Modbus response bytes could be received from the device during the timeout period. Likely indicates some failure/unreliability with the communication method. See the Timeout Configs page in the LJM User's Guide for related information."
+        "No Modbus response bytes could be received from the device during the timeout period. Likely indicates some failure/unreliability with the communication method."
     },
     {
         "LJME_INCORRECT_NUM_RESPONSE_BYTES_RECEIVED",
-        "An incorrect/unexpected number of Modbus response bytes were received from the device during the timeout period. Likely indicates some failure/unreliability with the communication method. See the Timeout Configs page in the LJM User's Guide for related information."
+        "An incorrect/unexpected number of Modbus response bytes were received from the device during the timeout period. Likely indicates some failure/unreliability with the communication method."
     },
     {
         "LJME_MIXED_FORMAT_IP_ADDRESS",
@@ -943,7 +936,15 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_END_OF_CWD", "There are no more files in the current working directory."}
 };
 
-const xerrors::Error BASE_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
+const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
+const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("labjack");
+const xerrors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
+const xerrors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub("LJME_NO_RESPONSE_BYTES_RECEIVED");
+const xerrors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub("LJME_STREAM_NOT_INITIALIZED");
+const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
+    TEMPORARY_ERROR.sub("unreachable"),
+    "The device is temporarily unreachable. Will keep trying"
+);
 
 inline xerrors::Error parse_error(
     const std::shared_ptr<ljm::API> &ljm,
@@ -955,10 +956,8 @@ inline xerrors::Error parse_error(
     ljm->err_to_string(err, err_msg);
 
     std::string description;
-    const auto &error_map = ERROR_DESCRIPTIONS;
-    if (const auto it = error_map.find(err_msg); it != error_map.end())
-        description = ": " + it->second;
-    return xerrors::Error(BASE_ERROR, description);
+    if (const auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end())
+        description = it->second;
+    return xerrors::Error(CRITICAL_ERROR.sub(err_msg), description);
 }
-
-
+}

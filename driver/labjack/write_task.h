@@ -19,6 +19,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "driver/labjack/labjack.h"
 #include "driver/labjack/device/device.h"
 #include "driver/task/common/write_task.h"
 
@@ -199,7 +200,11 @@ public:
             this->locs.push_back(ch->port.c_str());
             this->values.push_back(telem::cast<double>(s.at(-1)));
         }
-        if (const auto err = this->flush()) return err;
+        if (const auto err = this->flush()) {
+            if (err.matches(UNREACHABLE_ERRORS))
+                return ljm::TEMPORARILY_UNREACHABLE;
+            return err;
+        }
         this->set_state(frame);
         return xerrors::NIL;
     }

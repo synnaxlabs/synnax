@@ -67,6 +67,12 @@ public:
         return xerrors::Error(type + "." + type_extension);
     }
 
+    [[nodiscard]] xerrors::Error reparent(const xerrors::Error& parent) const {
+        const auto pos = type.rfind('.');
+        if (pos == std::string::npos) return *this;
+        return {parent.type + type.substr(pos), this->data};
+    }
+
     /// @brief copy constructor.
     Error(const Error &other) = default;
 
