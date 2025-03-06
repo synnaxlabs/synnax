@@ -14,8 +14,6 @@ import { Common } from "@/hardware/common";
 
 export const PREFIX = "ni";
 
-// Channels
-
 const portZ = z.number().int().nonnegative();
 const lineZ = z.number().int().nonnegative();
 
@@ -28,8 +26,6 @@ const digitalChannelExtensionShape = { port: portZ, line: lineZ };
 interface DigitalChannelExtension
   extends z.infer<z.ZodObject<typeof digitalChannelExtensionShape>> {}
 const ZERO_DIGITAL_CHANNEL_EXTENSION: DigitalChannelExtension = { port: 0, line: 0 };
-
-// Analog Input Channels
 
 const baseAIChanZ = Common.Task.readChannelZ.extend(analogChannelExtensionShape);
 interface BaseAIChan extends z.infer<typeof baseAIChanZ> {}
@@ -893,8 +889,6 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-// Analog Output Channels
-
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
@@ -991,16 +985,12 @@ export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
 };
 export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
 
-// Digital Input Channels
-
 const diChannelZ = Common.Task.readChannelZ.extend(digitalChannelExtensionShape);
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 export const ZERO_DI_CHANNEL: DIChannel = {
   ...Common.Task.ZERO_READ_CHANNEL,
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
 };
-
-// Digital Output Channels
 
 const doChannelZ = Common.Task.writeChannelZ.extend(digitalChannelExtensionShape);
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
@@ -1009,11 +999,7 @@ export const ZERO_DO_CHANNEL: DOChannel = {
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
 };
 
-// Digital Channels
-
 export type DigitalChannel = DIChannel | DOChannel;
-
-// Base Tasks
 
 const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   sampleRate: z.number().positive().max(50000),
@@ -1080,8 +1066,6 @@ export interface BaseStateDetails {
   running: boolean;
 }
 
-// Analog Read Task
-
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
   channels: z
     .array(aiChannelZ)
@@ -1116,8 +1100,6 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   type: ANALOG_READ_TYPE,
 };
 
-// Analog Write Task
-
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(aoChannelZ)
@@ -1149,8 +1131,6 @@ export interface AnalogWriteTask
   extends task.Task<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
 export interface NewAnalogWriteTask
   extends task.New<AnalogWriteConfig, AnalogWriteType> {}
-
-// Digital Read Task
 
 export const digitalReadConfigZ = baseReadConfigZ
   .extend({
@@ -1185,8 +1165,6 @@ export interface DigitalReadTask
   extends task.Task<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
 export interface NewDigitalReadTask
   extends task.New<DigitalReadConfig, DigitalReadType> {}
-
-// Digital Write Task
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1223,8 +1201,6 @@ export interface DigitalWriteTask
   extends task.Task<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType> {}
 export interface NewDigitalWriteTask
   extends task.New<DigitalWriteConfig, DigitalWriteType> {}
-
-// Scan Task
 
 export type ScanConfig = { enabled: boolean };
 

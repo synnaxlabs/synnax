@@ -15,18 +15,12 @@ import { Device } from "@/hardware/labjack/device";
 
 export const PREFIX = "labjack";
 
-// Base Channels
-
 const portZ = z.string().min(1, "Port must be specified");
-
-// Digital Channels
 
 const digitalPortZ = portZ.regex(
   Device.DIO_PORT_REGEX,
   "Invalid port, port must start with DIO and end with an integer",
 );
-
-// Analog Input Channels
 
 export const LINEAR_SCALE_TYPE = "linear";
 export type LinearScaleType = typeof LINEAR_SCALE_TYPE;
@@ -79,8 +73,6 @@ const ZERO_AI_CHANNEL: AIChannel = {
   scale: ZERO_SCALES[NO_SCALE_TYPE],
 };
 
-// Digital Input Channels
-
 export const DI_CHANNEL_TYPE = "DI";
 export type DIChannelType = typeof DI_CHANNEL_TYPE;
 
@@ -94,8 +86,6 @@ const ZERO_DI_CHANNEL: DIChannel = {
   port: "DIO4",
   type: DI_CHANNEL_TYPE,
 };
-
-// Thermocouple Channels
 
 export const TC_CHANNEL_TYPE = "TC";
 export type TCChannelType = typeof TC_CHANNEL_TYPE;
@@ -155,8 +145,6 @@ const ZERO_TC_CHANNEL: TCChannel = {
   scale: NO_SCALE,
 };
 
-// Input Channels
-
 const inputChannelZ = z.union([aiChannelZ, diChannelZ, tcChannelZ]);
 export type InputChannel = z.infer<typeof inputChannelZ>;
 export type InputChannelType = InputChannel["type"];
@@ -175,8 +163,6 @@ export const ZERO_INPUT_CHANNELS: Record<InputChannelType, InputChannel> = {
 };
 export const ZERO_INPUT_CHANNEL: InputChannel = ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE];
 
-// Base Output Channels
-
 const baseOutputChannelZ = Common.Task.channelZ.extend({
   cmdKey: channel.keyZ,
   stateKey: channel.keyZ,
@@ -187,8 +173,6 @@ const ZERO_BASE_OUTPUT_CHANNEL: BaseOutputChannel = {
   cmdKey: 0,
   stateKey: 0,
 };
-
-// Analog Output Channels
 
 export const AO_CHANNEL_TYPE = "AO";
 export type AOChannelType = typeof AO_CHANNEL_TYPE;
@@ -207,8 +191,6 @@ const ZERO_AO_CHANNEL: AOChannel = {
   port: "DAC0",
 };
 
-// Digital Output Channels
-
 export const DO_CHANNEL_TYPE = "DO";
 export type DOChannelType = typeof DO_CHANNEL_TYPE;
 
@@ -226,8 +208,6 @@ const ZERO_DO_CHANNEL: DOChannel = {
   port: "DIO4",
 };
 
-// Output Channels
-
 const outputChannelZ = z.union([aoChannelZ, doChannelZ]);
 export type OutputChannel = z.infer<typeof outputChannelZ>;
 export type OutputChannelType = OutputChannel["type"];
@@ -238,12 +218,8 @@ export const ZERO_OUTPUT_CHANNELS: Record<OutputChannelType, OutputChannel> = {
 };
 export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNEL_TYPE];
 
-// Channels
-
 export type Channel = InputChannel | OutputChannel;
 export type ChannelType = Channel["type"];
-
-// Tasks
 
 const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
   const portToIndexMap = new Map<string, number>();
@@ -265,8 +241,6 @@ const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx)
 export interface BaseStateDetails {
   running: boolean;
 }
-
-// Read Task
 
 export const readConfigZ = Common.Task.baseConfigZ
   .extend({
@@ -306,8 +280,6 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 
 export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
 export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
-
-// Write Task
 
 interface IndexAndType {
   index: number;

@@ -15,15 +15,11 @@ import { type Device } from "@/hardware/opc/device";
 
 export const PREFIX = "opc";
 
-// Base Channels
-
 const baseChannelZ = Common.Task.channelZ.extend({
   name: z.string(),
   nodeId: z.string(),
   nodeName: z.string(),
 });
-
-// Read Channels
 
 const readChannelZ = baseChannelZ.extend({
   channel: z.number(),
@@ -32,19 +28,13 @@ const readChannelZ = baseChannelZ.extend({
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-// Write Channels
-
 const writeChannelZ = baseChannelZ.extend({
   cmdChannel: z.number(),
   dataType: z.string(),
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
 
-// Channels
-
 export type Channel = ReadChannel | WriteChannel;
-
-// Tasks
 
 const validateNodeIDs = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
   const nodeIds = new Map<string, number>();
@@ -64,8 +54,6 @@ interface BaseStateDetails {
   message?: string;
   running: boolean;
 }
-
-// Read Task
 
 const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
@@ -120,20 +108,18 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
 export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
 
-// Scan Task
-
 export type ScanConfig = {};
 export const ZERO_SCAN_CONFIG: ScanConfig = {};
 
 export const SCAN_COMMAND_TYPE = "scan";
 
-export type ScannedNode = {
+export interface ScannedNode {
   dataType: string;
   isArray: boolean;
   name: string;
   nodeClass: string;
   nodeId: string;
-};
+}
 export interface ScanCommandResponse {
   channels: ScannedNode[];
   connection: Device.ConnectionConfig;
@@ -159,8 +145,6 @@ export interface ScanPayload
   extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
 export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}
 export interface NewScanTask extends task.New<ScanConfig, ScanType> {}
-
-// Write Task
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z

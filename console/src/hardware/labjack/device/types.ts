@@ -12,12 +12,8 @@ import { bounds } from "@synnaxlabs/x";
 
 import { type Common } from "@/hardware/common";
 
-// Make
-
 export const MAKE = "LabJack";
 export type Make = typeof MAKE;
-
-// Models
 
 export const T4_MODEL = "LJM_dtT4";
 export type T4Model = typeof T4_MODEL;
@@ -124,8 +120,6 @@ interface Ports {
   [DO_PORT_TYPE]: DOPort[];
 }
 
-// T4
-
 const T4_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 0, upper: 4 }, AI_HIGH_VOLTAGE),
   ...aiFactory({ lower: 5, upper: 11 }, AI_LOW_VOLTAGE),
@@ -145,8 +139,6 @@ const T4_PORTS: Ports = {
   [DI_PORT_TYPE]: T4_DI_PORTS,
   [DO_PORT_TYPE]: T4_DO_PORTS,
 };
-
-// T7
 
 const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AI_HIGH_VOLTAGE);
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
@@ -168,8 +160,6 @@ const T7_PORTS: Ports = {
   [DI_PORT_TYPE]: T7_DI_PORTS,
   [DO_PORT_TYPE]: T7_DO_PORTS,
 };
-
-// T8
 
 const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AI_HIGH_VOLTAGE);
 const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
@@ -196,7 +186,6 @@ export interface ModelInfo {
 }
 
 export interface Devices extends Record<Model, ModelInfo> {}
-
 export const DEVICES: Devices = {
   [T4_MODEL]: { name: "T4", ports: T4_PORTS },
   [T7_MODEL]: { name: "T7", ports: T7_PORTS },
@@ -226,3 +215,4 @@ export const ZERO_PROPERTIES: Properties = {
 };
 
 export interface Device extends device.Device<Properties, Make, Model> {}
+export interface New extends device.New<Properties, Make, Model> {}

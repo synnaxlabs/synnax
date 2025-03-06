@@ -12,8 +12,6 @@ import * as v1 from "@/hardware/ni/task/types/v1";
 
 export const PREFIX = v0.PREFIX;
 
-// Units
-
 export type AccelSensitivityUnits = v0.AccelSensitivityUnits;
 export type ForceUnits = v0.ForceUnits;
 export type ElectricalUnits = v0.ElectricalUnits;
@@ -25,8 +23,6 @@ export type VelocityUnits = v0.VelocityUnits;
 export type VelocitySensitivityUnits = v0.VelocitySensitivityUnits;
 export type Units = v0.Units;
 
-// Scales
-
 export const LINEAR_SCALE_TYPE = v0.LINEAR_SCALE_TYPE;
 export const MAP_SCALE_TYPE = v0.MAP_SCALE_TYPE;
 export const TABLE_SCALE_TYPE = v0.TABLE_SCALE_TYPE;
@@ -36,15 +32,11 @@ export type ScaleType = v0.ScaleType;
 export const ZERO_SCALES = v0.ZERO_SCALES;
 export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
 
-// Wave Types
-
 export const SINE_WAVE_TYPE = v0.SINE_WAVE_TYPE;
 export const TRIANGLE_WAVE_TYPE = v0.TRIANGLE_WAVE_TYPE;
 export const SQUARE_WAVE_TYPE = v0.SQUARE_WAVE_TYPE;
 export const SAWTOOTH_WAVE_TYPE = v0.SAWTOOTH_WAVE_TYPE;
 export type WaveType = v0.WaveType;
-
-// Channels
 
 export type AIChannel = v1.AIChannel;
 export type AIChannelType = v0.AIChannelType;
@@ -74,8 +66,6 @@ export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
 export type DigitalChannel = v0.DigitalChannel;
 
 export type Channel = v1.Channel;
-
-// Tasks
 
 export const analogReadConfigZ = v1.analogReadConfigZ;
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
