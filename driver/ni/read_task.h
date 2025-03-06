@@ -29,7 +29,9 @@
 
 namespace ni {
 static xerrors::Error translate_error(const xerrors::Error &err) {
-    if (daqmx::APPLICATION_TOO_SLOW.matches(err))
+    if (err.matches(RETRY_ON_ERRORS))
+        return daqmx::TEMPORARILY_UNREACHABLE;
+    if (err.matches(daqmx::APPLICATION_TOO_SLOW))
         return {
             xerrors::Error(
                 driver::CRITICAL_HARDWARE_ERROR,
@@ -292,6 +294,7 @@ private:
     std::unique_ptr<SampleClock> sample_clock;
 
     xerrors::Error start() override {
+        this->sample_clock->reset();
         return this->hw_reader->start();
     }
 

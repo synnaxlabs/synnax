@@ -25,6 +25,10 @@ const std::string ANALOG_READ_TASK_TYPE = "ni_analog_read";
 const std::string DIGITAL_READ_TASK_TYPE = "ni_digital_read";
 const std::string ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
 const std::string DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
+const std::vector RETRY_ON_ERRORS = {
+    daqmx::DEVICE_DISCONNECTED,
+    daqmx::RESOURCE_NOT_AVAILABLE
+};
 
 /// @brief a factory for instantiating and operating NI data acquisition, control,
 /// and device scanning tasks.

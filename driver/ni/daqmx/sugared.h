@@ -17,10 +17,18 @@
 #include "driver/ni/daqmx/api.h"
 
 namespace daqmx {
-const xerrors::Error BASE_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
-const xerrors::Error FIELD_ERROR = BASE_ERROR.sub("field");
-const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = BASE_ERROR.sub("200561");
-const xerrors::Error APPLICATION_TOO_SLOW = BASE_ERROR.sub("200729");
+const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
+const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("ni");
+const xerrors::Error FIELD_ERROR = CRITICAL_ERROR.sub("field");
+const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = CRITICAL_ERROR.sub("200561");
+const xerrors::Error APPLICATION_TOO_SLOW = CRITICAL_ERROR.sub("200729");
+const xerrors::Error DEVICE_DISCONNECTED = CRITICAL_ERROR.sub("88710");
+const xerrors::Error RESOURCE_NOT_AVAILABLE = CRITICAL_ERROR.sub("88708");
+const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
+    TEMPORARY_ERROR,
+    "The device is temporarily unreachable. Will keep trying"
+);
+
 class SugaredAPI {
     std::shared_ptr<API> dmx;
 

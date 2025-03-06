@@ -212,11 +212,12 @@ xerrors::Error ni::ScanTask::initialize_syscfg_session() {
         NISysCfgBoolFalse
     ))
         return err;
-    return this->syscfg->SetFilterProperty(
+    if (const auto err = this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsNIProduct,
         NISysCfgBoolTrue
-    );
+    )) return err;
+    return xerrors::NIL;
 }
 
 void ni::ScanTask::run() {

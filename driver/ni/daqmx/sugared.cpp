@@ -25,7 +25,7 @@ static xerrors::Error parse_error(
 ) {
     if (status == 0) return xerrors::NIL;
     const auto err_msg = get_error_msg(dmx);
-    return xerrors::Error{BASE_ERROR.sub(std::to_string(status).substr(1)), err_msg};
+    return xerrors::Error{CRITICAL_ERROR.sub(std::to_string(status).substr(1)), err_msg};
 }
 
 xerrors::Error SugaredAPI::process_error(const int32 status) const {

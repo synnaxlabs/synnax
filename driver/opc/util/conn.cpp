@@ -41,7 +41,7 @@ void custom_logger(
     const UA_LogLevel level,
     UA_LogCategory __,
     const char *msg,
-    const va_list args
+    va_list args
 ) {
     const std::string prefix = "[opc] ";
     char buffer[1024];
