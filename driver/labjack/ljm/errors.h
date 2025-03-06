@@ -941,6 +941,7 @@ const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("lab
 const xerrors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
 const xerrors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub("LJME_NO_RESPONSE_BYTES_RECEIVED");
 const xerrors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub("LJME_STREAM_NOT_INITIALIZED");
+const xerrors::Error SYNCHRONIZATION_TIMEOUT = CRITICAL_ERROR.sub("LJME_SYNCHRONIZATION_TIMEOUT");
 const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
     TEMPORARY_ERROR.sub("unreachable"),
     "The device is temporarily unreachable. Will keep trying"

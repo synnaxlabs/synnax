@@ -184,9 +184,10 @@ const retrieveReqZ = z.object({
   rack: rackKeyZ.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
+  types: z.string().array().optional(),
+  includeState: z.boolean().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
-  includeState: z.boolean().optional(),
 });
 
 const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
@@ -194,7 +195,10 @@ const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "rack" | "offset" | "limit" | "includeState"> {}
+  extends Pick<
+    RetrieveRequest,
+    "rack" | "offset" | "limit" | "includeState" | "types"
+  > {}
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
@@ -383,8 +387,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver<D extends {} = UnknownRecord>(): Promise<StateObservable<D>> {
-    return new framer.ObservableStreamer<State<D>>(
+  async openStateObserver(): Promise<StateObservable> {
+    return new framer.ObservableStreamer<State>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);

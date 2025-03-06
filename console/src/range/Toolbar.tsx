@@ -304,9 +304,9 @@ const List = (): ReactElement => {
 
     const rangeExists = rng != null;
 
-    const handleSelect: Record<string, () => void> = {
+    const handleSelect: PMenu.MenuProps["onChange"] = {
       rename: () => Text.edit(`text-${key}`),
-      create: () => handleCreate(),
+      create: handleCreate,
       remove: () => rangeExists && handleRemove([rng.key]),
       delete: () => rangeExists && del.mutate(rng.key),
       details: () => rangeExists && handleViewDetails(rng.key),

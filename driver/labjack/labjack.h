@@ -28,7 +28,8 @@ const std::string WRITE_TASK_TYPE = "labjack_write";
 const std::vector UNREACHABLE_ERRORS = {
     ljm::NO_RESPONSE_BYTES_RECEIVED,
     ljm::STREAM_NOT_INITIALIZED,
-    ljm::RECONNECT_FAILED
+    ljm::RECONNECT_FAILED,
+    ljm::SYNCHRONIZATION_TIMEOUT
 };
 
 /// @brief factory for creating and operating labjack tasks.

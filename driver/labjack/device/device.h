@@ -95,8 +95,6 @@ public:
         const int *scan_list,
         double *scan_rate
     ) const = 0;
-
-    [[nodiscard]] virtual xerrors::Error check_health() const = 0;
 };
 
 class LJMDevice final: public Device {
@@ -298,11 +296,6 @@ public:
             )
         );
     }
-
-    [[nodiscard]] xerrors::Error check_health() const override {
-        double value;
-        return this->e_read_name("FIRMWARE_VERSION", &value);
-    }
 };
 
 /// @brief manager handles the lifecycle of labjack devices, allowing callers to acquire
@@ -349,11 +342,9 @@ public:
         const auto it = this->handles.find(serial_number);
         if (it != handles.end()) {
             const auto existing = it->second.lock();
-            if (existing == nullptr || existing.use_count() == 1) {
-                this->handles.erase(it);
-                this->acquire(serial_number);
-            }
-            return {existing, xerrors::NIL};
+            if (existing != nullptr)
+                return {existing, xerrors::NIL};
+            this->handles.erase(it);
         }
 
         int dev_handle;

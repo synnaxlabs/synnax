@@ -19,9 +19,12 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
+export const statusZ = z.enum(["info", "success", "error", "warning"]);
+export type Status = z.infer<typeof statusZ>;
+
 export const stateZ = z.object({
   task: keyZ,
-  variant: z.string(),
+  variant: statusZ,
   key: z.string().optional(),
   details: z
     .record(z.unknown())
@@ -85,8 +88,7 @@ export interface Command<Args extends {} = UnknownRecord>
   args?: Args;
 }
 
-export interface StateObservable<Details extends {} = UnknownRecord>
-  extends observe.ObservableAsyncCloseable<State<Details>> {}
+export interface StateObservable extends observe.ObservableAsyncCloseable<State> {}
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
