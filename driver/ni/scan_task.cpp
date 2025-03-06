@@ -168,10 +168,11 @@ void ni::ScanTask::stop(bool will_reconfigure) {
 
 void ni::ScanTask::exec(task::Command &cmd) {
     this->state.key = cmd.key;
-    if (cmd.type == "stop") return this->stop(false);
+    if (cmd.type == STOP_CMD) return this->stop(false);
     xerrors::Error err = xerrors::NIL;
-    if (cmd.type == "start") this->start();
-    else if (cmd.type == "scan") err = this->scan();
+    if (cmd.type == START_CMD) this->start();
+    else if (cmd.type == SCAN_CMD) err = this->scan();
+    else if (cmd.type == RESET_DEVICE_CMD) err = this->reset_device(cmd);
     if (!err) return;
     this->state.variant = "error";
     this->state.details["message"] = err.message();
@@ -216,9 +217,24 @@ xerrors::Error ni::ScanTask::initialize_syscfg_session() {
         this->filter,
         NISysCfgFilterPropertyIsNIProduct,
         NISysCfgBoolTrue
-    )) return err;
+    ))
+        return err;
     return xerrors::NIL;
 }
+
+xerrors::Error ni::ScanTask::reset_device(const task::Command &cmd) const {
+    auto parser = xjson::Parser(cmd.args);
+    ResetDeviceCommandArgs args(parser);
+    if (parser.error()) return parser.error();
+    auto [devs, err] = this->ctx->client->hardware.retrieve_devices(args.device_keys);
+    if (err) return err;
+    auto accumulated_err = xerrors::NIL;
+    for (const auto &dev: devs)
+        if (const auto reset_err = this->dmx->ResetDevice(dev.location.c_str()))
+            accumulated_err = reset_err;
+    return accumulated_err;
+}
+
 
 void ni::ScanTask::run() {
     if (const auto err = this->initialize_syscfg_session()) {

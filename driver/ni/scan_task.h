@@ -30,6 +30,20 @@
 #include "driver/ni/syscfg/sugared.h"
 
 namespace ni {
+const std::string SCAN_CMD = "scan";
+const std::string START_CMD = "start";
+const std::string STOP_CMD = "stop";
+const std::string RESET_DEVICE_CMD = "reset_device";
+
+struct ResetDeviceCommandArgs {
+    std::vector<std::string> device_keys;
+
+    explicit ResetDeviceCommandArgs(xjson::Parser &parser)
+        : device_keys(parser.required_vec<std::string>("device_keys")) {
+    }
+};
+
+
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
 struct Device : synnax::Device {
@@ -111,6 +125,7 @@ class ScanTask final : public task::Task {
     std::unordered_map<std::string, ni::Device> devices;
     /// @brief the NI system configuration library.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
+    std::shared_ptr<daqmx::SugaredAPI> dmx;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices;
@@ -138,6 +153,7 @@ class ScanTask final : public task::Task {
     /// @brief initializes the syscfg session and filters for the scan task.
     xerrors::Error initialize_syscfg_session();
 
+    xerrors::Error reset_device(const task::Command &cmd) const;
 public:
     explicit ScanTask(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
