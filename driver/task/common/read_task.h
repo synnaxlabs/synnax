@@ -60,7 +60,7 @@ class ReadTask final : public task::Task {
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning(err.message());
+                this->p.state.send_warning(err);
             return {std::move(fr), err};
         }
     };

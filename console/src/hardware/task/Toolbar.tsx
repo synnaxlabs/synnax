@@ -86,7 +86,13 @@ const updateTaskStatus = (tsk: SugaredTask, state: task.State): SugaredTask => {
       : running === false
         ? Common.Task.PAUSED_STATUS
         : tsk.state.details.status;
-  tsk.state.details.status = newStatus;
+  tsk.state = {
+    ...state,
+    details: {
+      ...state.details,
+      status: newStatus,
+    },
+  };
   return tsk;
 };
 
@@ -369,6 +375,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     },
     type,
   } = rest.entry;
+  console.log("rest.entry", rest.entry);
   const icon = getIcon(type);
   const isLoading = status === Common.Task.LOADING_STATUS;
   const isRunning = status === Common.Task.RUNNING_STATUS;
