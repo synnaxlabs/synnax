@@ -56,7 +56,7 @@ export const createShortIdentifiers = (name: string): string[] => {
   identifiers.add(initials.replace(/-/g, "_"));
   identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
 
-  // create combinations with numbers
+  // Create combinations with numbers
   const regex = /\d+/g;
   const hasNumbers = name.match(regex);
 
@@ -73,7 +73,7 @@ export const createShortIdentifiers = (name: string): string[] => {
       }
     });
 
-  // create other potential combinations
+  // Create other potential combinations
   const wordAbbreviations = words.map((word) =>
     (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
   );
