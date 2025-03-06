@@ -46,16 +46,6 @@ export type Channel = ReadChannel | WriteChannel;
 
 // Tasks
 
-const baseConfigZ = z.object({
-  dataSaving: z.boolean().optional().default(true),
-  device: Common.Device.keyZ,
-});
-interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-const ZERO_BASE_CONFIG: BaseConfig = {
-  dataSaving: true,
-  device: "",
-};
-
 const validateNodeIDs = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
   const nodeIds = new Map<string, number>();
   channels.forEach(({ nodeId }) => nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1));
@@ -77,7 +67,7 @@ interface BaseStateDetails {
 
 // Read Task
 
-const baseReadConfigZ = baseConfigZ.extend({
+const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
     .array(readChannelZ)
     .superRefine(Common.Task.validateReadChannels)
@@ -105,7 +95,7 @@ const arraySamplingConfigZ = baseReadConfigZ
 export const readConfigZ = z.union([nonArraySamplingConfigZ, arraySamplingConfigZ]);
 export type ReadConfig = z.infer<typeof readConfigZ>;
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   arrayMode: false,
   channels: [],
   sampleRate: 50,
@@ -172,7 +162,7 @@ export interface NewScanTask extends task.New<ScanConfig, ScanType> {}
 
 // Write Task
 
-export const writeConfigZ = baseConfigZ.extend({
+export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
     .array(writeChannelZ)
     .superRefine(Common.Task.validateChannels)
@@ -199,7 +189,7 @@ export const writeConfigZ = baseConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 export const ZERO_WRITE_CONFIG: WriteConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
 };
 

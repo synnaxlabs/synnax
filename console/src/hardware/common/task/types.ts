@@ -10,6 +10,8 @@
 import { channel } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { Device } from "@/hardware/common/device";
+
 export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
 export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
@@ -116,6 +118,10 @@ export const validateWriteChannels = (
     } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
   });
 };
+
+export const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Device.keyZ });
+export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+export const ZERO_BASE_CONFIG: BaseConfig = { dataSaving: true, device: "" };
 
 interface ConfigWithSampleRateAndStreamRate {
   sampleRate: number;

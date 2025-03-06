@@ -1015,27 +1015,23 @@ export type DigitalChannel = DIChannel | DOChannel;
 
 // Base Tasks
 
-const baseConfigZ = z.object({ device: Common.Device.keyZ, dataSaving: z.boolean() });
-interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-const ZERO_BASE_CONFIG: BaseConfig = { device: "", dataSaving: true };
-
-const baseReadConfigZ = baseConfigZ.extend({
+const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   sampleRate: z.number().positive().max(50000),
   streamRate: z.number().positive().max(50000),
 });
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
 const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   sampleRate: 10,
   streamRate: 5,
 };
 
-const baseWriteConfigZ = baseConfigZ.extend({
+const baseWriteConfigZ = Common.Task.baseConfigZ.extend({
   stateRate: z.number().positive().max(50000),
 });
 interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   stateRate: 10,
 };
 
@@ -1156,22 +1152,18 @@ export interface NewAnalogWriteTask
 
 // Digital Read Task
 
-export const digitalReadConfigZ = baseConfigZ
+export const digitalReadConfigZ = baseReadConfigZ
   .extend({
     channels: z
       .array(diChannelZ)
       .superRefine(Common.Task.validateReadChannels)
       .superRefine(validateDigitalPortsAndLines),
-    sampleRate: z.number().positive().max(50000),
-    streamRate: z.number().positive().max(50000),
   })
   .refine(Common.Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...ZERO_BASE_READ_CONFIG,
   channels: [],
-  sampleRate: 50,
-  streamRate: 25,
 };
 
 export interface DigitalReadStateDetails extends BaseStateDetails {}

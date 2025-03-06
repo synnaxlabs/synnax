@@ -245,13 +245,6 @@ export type ChannelType = Channel["type"];
 
 // Tasks
 
-const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Common.Device.keyZ });
-interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-const ZERO_BASE_CONFIG: BaseConfig = {
-  dataSaving: true,
-  device: "",
-};
-
 const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
   const portToIndexMap = new Map<string, number>();
   channels.forEach(({ port }, i) => {
@@ -275,7 +268,7 @@ export interface BaseStateDetails {
 
 // Read Task
 
-export const readConfigZ = baseConfigZ
+export const readConfigZ = Common.Task.baseConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
@@ -287,7 +280,7 @@ export const readConfigZ = baseConfigZ
   .refine(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
@@ -321,7 +314,7 @@ interface IndexAndType {
   type: "cmd" | "state";
 }
 
-export const writeConfigZ = baseConfigZ.extend({
+export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
     .array(outputChannelZ)
     .superRefine(Common.Task.validateChannels)
@@ -358,7 +351,7 @@ export const writeConfigZ = baseConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 const ZERO_WRITE_CONFIG: WriteConfig = {
-  ...ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
   stateRate: 10,
 };
