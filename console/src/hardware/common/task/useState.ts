@@ -86,7 +86,7 @@ export const useState = <D extends StateDetails>(
   });
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
   const triggerError = useCallback(
-    (message: string) => setState((prev) => ({ ...prev, message, variant: "error" })),
+    (message: string) => setState({ status: "paused", message, variant: "error" }),
     [],
   );
   return [state, triggerLoading, triggerError];
