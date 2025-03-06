@@ -19,7 +19,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "create-table",
   name: "Create Table",
   icon: <Icon.Table />,
-  onSelect: ({ placeLayout }) => placeLayout(Table.create({})),
+  onSelect: ({ placeLayout }) => placeLayout(Table.create()),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
