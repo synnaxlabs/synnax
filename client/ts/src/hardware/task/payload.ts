@@ -81,16 +81,18 @@ export const commandZ = z.object({
     .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
     .or(z.array(z.unknown()))
     .or(z.null())
-    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
+    .optional(),
 });
 export interface Command<Args extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: Args;
 }
 
-export interface StateObservable extends observe.ObservableAsyncCloseable<State> {}
+export interface StateObservable<Details extends {} = UnknownRecord>
+  extends observe.ObservableAsyncCloseable<State<Details>> {}
 
-export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
+export interface CommandObservable<Args extends {} = UnknownRecord>
+  extends observe.ObservableAsyncCloseable<Command<Args>> {}
 
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;

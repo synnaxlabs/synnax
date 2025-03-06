@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type FC } from "react";
 import { z } from "zod";
@@ -106,7 +106,10 @@ export const wrapForm = <
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
-    const [state, triggerLoading] = useState(tsk.key, tsk.state ?? undefined);
+    const [state, triggerLoading, triggerError] = useState(
+      tsk.key,
+      tsk.state ?? undefined,
+    );
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
@@ -125,7 +128,12 @@ export const wrapForm = <
       mutationFn: async (command: StartOrStopCommand) => {
         if (!configured) throw new UnexpectedError("Task has not been configured");
         triggerLoading();
-        await tsk.executeCommand(command);
+        try {
+          await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+        } catch (e) {
+          if (e instanceof Error) triggerError(e.message);
+          throw e;
+        }
       },
       onError: (e, command) => handleException(e, `Failed to ${command} task`),
     });

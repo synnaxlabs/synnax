@@ -19,7 +19,7 @@ import {
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { unique } from "@synnaxlabs/x";
+import { TimeSpan, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -139,7 +139,7 @@ const Internal = ({
     onHasTouched: handleUnsavedChanges,
   });
   const create = Common.Task.useCreate(layoutKey);
-  const [state, triggerLoading] = Common.Task.useState(
+  const [state, triggerLoading, triggerError] = Common.Task.useState(
     base?.key,
     base?.state ?? undefined,
   );
@@ -172,7 +172,12 @@ const Internal = ({
     mutationFn: async (command: Common.Task.StartOrStopCommand) => {
       if (!configured) throw new UnexpectedError("Sequence has not been configured");
       triggerLoading();
-      await base.executeCommand(command);
+      try {
+        await base.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+      } catch (e) {
+        if (e instanceof Error) triggerError(e.message);
+        throw e;
+      }
     },
     onError: (e, command) => handleException(e, `Failed to ${command} task`),
   }).mutate;
