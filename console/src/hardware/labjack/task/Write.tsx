@@ -175,8 +175,8 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     [device],
   );
   const listItem = useCallback(
-    (p: Common.Task.ChannelListItemProps<OutputChannel>) => (
-      <ChannelListItem {...p} device={device} />
+    ({ key, ...p }: Common.Task.ChannelListItemProps<OutputChannel>) => (
+      <ChannelListItem key={key} {...p} device={device} />
     ),
     [device],
   );
