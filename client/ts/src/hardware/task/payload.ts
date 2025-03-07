@@ -28,7 +28,7 @@ export const stateZ = z.object({
     .record(z.unknown())
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
-    .or(z.null()) as z.ZodType<UnknownRecord>,
+    .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
 });
 export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
@@ -40,9 +40,7 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z
-    .record(z.unknown())
-    .or(z.string().transform(parseWithoutKeyConversion)) as z.ZodType<UnknownRecord>,
+  config: z.record(z.unknown()).or(z.string().transform(parseWithoutKeyConversion)),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
@@ -56,7 +54,7 @@ export interface Payload<
   state?: State<Details> | null;
 }
 
-export const newZ = taskZ.omit({ key: true, state: true }).extend({
+export const newZ = taskZ.omit({ key: true }).extend({
   key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
@@ -74,7 +72,7 @@ export const commandZ = z.object({
   key: z.string(),
   args: z
     .record(z.unknown())
-    .or(z.string().transform(parseWithoutKeyConversion))
+    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
     .or(z.array(z.unknown()))
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,

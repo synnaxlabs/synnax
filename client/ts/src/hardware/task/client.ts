@@ -132,9 +132,9 @@ export class Task<
     return res;
   }
 
-  async openStateObserver(): Promise<StateObservable> {
+  async openStateObserver<D extends {} = UnknownRecord>(): Promise<StateObservable<D>> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<State>(
+    return new framer.ObservableStreamer<State<D>>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);
@@ -146,14 +146,16 @@ export class Task<
         }
         const state = parse.data;
         if (state.task !== this.key) return [null, false];
-        return [state, true];
+        return [state as State<D>, true];
       },
     );
   }
 
-  async openCommandObserver(): Promise<CommandObservable> {
+  async openCommandObserver<Args extends {} = UnknownRecord>(): Promise<
+    CommandObservable<Args>
+  > {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<Command>(
+    return new framer.ObservableStreamer<Command<Args>>(
       await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(COMMAND_CHANNEL_NAME);
@@ -165,7 +167,7 @@ export class Task<
         }
         const cmd = parse.data;
         if (cmd.task !== this.key) return [null, false];
-        return [cmd, true];
+        return [cmd as Command<Args>, true];
       },
     );
   }
