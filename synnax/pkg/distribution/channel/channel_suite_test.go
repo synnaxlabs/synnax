@@ -43,7 +43,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 		builder  = mock.NewCoreBuilder(core.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
-		builder2 = mock.NewCoreBuilder(distribution.Config{
+		builder2 = mock.NewCoreBuilder(core.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
 		core1 = builder.New()
