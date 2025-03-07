@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,8 +25,9 @@ var _ = Describe("getAttributes", Ordered, func() {
 	var (
 		services map[aspen.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
+		limit    int
 	)
-	BeforeAll(func() { builder, services = provisionServices() })
+	BeforeAll(func() { builder, services, limit = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
@@ -202,6 +205,46 @@ var _ = Describe("getAttributes", Ordered, func() {
 				Exists(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
+		})
+	})
+	Context("Channel Limit", func() {
+		It("Should allow retrieving channels even at the limit", func() {
+			// Create channels up to the limit
+			createdChannels := make([]channel.Channel, int(limit))
+			for i := range limit {
+				ch := channel.Channel{
+					Rate:        10 * telem.Hz,
+					DataType:    telem.Float64T,
+					Name:        fmt.Sprintf("LimitTest%d", i),
+					Leaseholder: 1,
+				}
+				Expect(services[3].Create(ctx, &ch)).To(Succeed())
+				createdChannels[i] = ch
+			}
+
+			// Try to create one more channel over the limit
+			overLimitCh := channel.Channel{
+				Rate:        10 * telem.Hz,
+				DataType:    telem.Float64T,
+				Name:        "OverLimit",
+				Leaseholder: 1,
+			}
+			err := services[3].Create(ctx, &overLimitCh)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+
+			// Retrieve all channels - this should work fine even at the limit
+			var retrievedChannels []channel.Channel
+			retrieve := services[3].NewRetrieve()
+			err = retrieve.Entries(&retrievedChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrievedChannels).To(HaveLen(int(limit)))
+
+			// Retrieve a specific channel by name
+			var singleChannel channel.Channel
+			err = retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 		})
 	})
 })

@@ -42,7 +42,11 @@ const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
  *  - state: The current state of the task.
  *  - triggerLoading: A function to set the state to "loading".
  */
-export type UseStateReturn = [state: State, triggerLoading: () => void];
+export type UseStateReturn = [
+  state: State,
+  triggerLoading: () => void,
+  triggerError: (message: string) => void,
+];
 
 /**
  * useState takes in a task key and an optional initial state.
@@ -81,7 +85,11 @@ export const useState = <D extends StateDetails>(
     },
   });
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
-  return [state, triggerLoading];
+  const triggerError = useCallback(
+    (message: string) => setState({ status: "paused", message, variant: "error" }),
+    [],
+  );
+  return [state, triggerLoading, triggerError];
 };
 
 export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };

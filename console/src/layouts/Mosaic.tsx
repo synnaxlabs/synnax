@@ -33,7 +33,7 @@ import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Nav } from "@/layouts/nav";
-import { SELECTOR_LAYOUT } from "@/layouts/Selector";
+import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
@@ -155,7 +155,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
+        placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -173,7 +173,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             addStatus,
             handleException,
           });
-        } else placeLayout({ ...SELECTOR_LAYOUT, tab: { mosaicKey, location } });
+        } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
     },
     [placeLayout, store, client, addStatus],

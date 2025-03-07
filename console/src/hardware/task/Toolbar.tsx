@@ -23,7 +23,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, strings, type UnknownRecord } from "@synnaxlabs/x";
+import { errors, strings, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -86,13 +86,7 @@ const updateTaskStatus = (tsk: SugaredTask, state: task.State): SugaredTask => {
       : running === false
         ? Common.Task.PAUSED_STATUS
         : tsk.state.details.status;
-  tsk.state = {
-    ...state,
-    details: {
-      ...state.details,
-      status: newStatus,
-    },
-  };
+  tsk.state = { ...tsk.state, details: { ...tsk.state.details, status: newStatus } };
   return tsk;
 };
 
@@ -289,11 +283,20 @@ const Content = () => {
         prev.map((tsk) => (filteredKeys.has(tsk.key) ? setLoading(tsk) : tsk)),
       );
       const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
-      await Promise.all(
-        tasksToExecute.map(async (t) => {
-          await t.executeCommand(command);
-        }),
-      );
+      tasksToExecute.forEach((t) => {
+        t.executeCommandSync(command, {}, TimeSpan.fromSeconds(10)).catch((e) => {
+          const status: task.State = {
+            variant: "error",
+            task: t.key,
+            details: { message: e.message },
+          };
+          setTasks((prev) =>
+            prev.map((tsk) =>
+              tsk.key === t.key ? updateTaskStatus(tsk, status) : tsk,
+            ),
+          );
+        });
+      });
     },
     onError: (e, { command }) => handleException(e, `Failed to ${command} tasks`),
   }).mutate;
@@ -375,7 +378,6 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     },
     type,
   } = rest.entry;
-  console.log("rest.entry", rest.entry);
   const icon = getIcon(type);
   const isLoading = status === Common.Task.LOADING_STATUS;
   const isRunning = status === Common.Task.RUNNING_STATUS;

@@ -17,7 +17,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { SELECTOR_LAYOUT } from "@/vis/Selector";
+import { createSelectorLayout } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 
 interface ToolbarProps {
@@ -33,6 +33,9 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
 
 const NoVis = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const handleCreateNewVisualization = () => {
+    placeLayout(createSelectorLayout());
+  };
   return (
     <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
       <Toolbar.Header>
@@ -42,7 +45,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+        <Text.Link level="p" onClick={handleCreateNewVisualization}>
           create a new one.
         </Text.Link>
       </Align.Center>

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
@@ -135,11 +136,13 @@ export const SELECTABLE: Selector.Selectable = {
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
+export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    const key = log.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
