@@ -24,6 +24,7 @@ import (
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 )
@@ -35,15 +36,20 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "Channel Suite")
 }
 
-func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
+func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, int) {
 	var (
 		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
 		builder  = mock.NewCoreBuilder(core.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
+		builder2 = mock.NewCoreBuilder(distribution.Config{
+			Storage: storage.Config{MemBacked: config.Bool(true)},
+		})
 		core1 = builder.New()
 		core2 = builder.New()
+		core3 = builder2.New()
+		limit = 5
 	)
 	otg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB: core1.Storage.Gorpify(),
@@ -63,6 +69,15 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		Ontology: otg2,
 	}))
 	builder.AttachCloser(g2)
+	otg3 := MustSucceed(ontology.Open(ctx, ontology.Config{
+		DB: core3.Storage.Gorpify(),
+	}))
+	builder2.AttachCloser(otg3)
+	g3 := MustSucceed(group.OpenService(group.Config{
+		DB:       core3.Storage.Gorpify(),
+		Ontology: otg3,
+	}))
+	builder2.AttachCloser(g3)
 	services[1] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
 		HostResolver:     core1.Cluster,
 		ClusterDB:        core1.Storage.Gorpify(),
@@ -81,9 +96,25 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		Ontology:         otg2,
 		Group:            g2,
 	}))
+	services[3] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
+		HostResolver: core3.Cluster,
+		ClusterDB:    core3.Storage.Gorpify(),
+		TSChannel:    core3.Storage.TS,
+		Transport:    net.New(core3.Config.AdvertiseAddress),
+		IntOverflowCheck: func(ctx context.Context, count types.Uint20) error {
+			if count > types.Uint20(limit) {
+				return errors.New("channel limit exceeded")
+			}
+			return nil
+		},
+		Ontology: otg3,
+		Group:    g3,
+	}))
 	Eventually(func(g Gomega) {
 		g.Expect(core1.Cluster.Nodes()).To(HaveLen(2))
+		g.Expect(core2.Cluster.Nodes()).To(HaveLen(2))
+		g.Expect(core3.Cluster.Nodes()).To(HaveLen(1))
 	}).Should(Succeed())
-	return builder, services
+	return builder, services, limit
 
 }
