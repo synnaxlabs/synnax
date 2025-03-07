@@ -334,6 +334,29 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
 
 /// @brief it should communicate an error when the hardware fails to read.
 TEST_F(AnalogReadTest, testErrorOnRead) {
+    parse_config();
+    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
+        std::vector{xerrors::NIL},
+        std::vector{xerrors::NIL},
+        std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+            {{}, xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to read hardware")}
+        }
+    ));
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto start_state = ctx->states[0];
+    EXPECT_EQ(start_state.variant, "success");
+
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto read_err_state = ctx->states[1];
+    EXPECT_EQ(read_err_state.variant, "error");
+    EXPECT_EQ(read_err_state.details["message"], "Failed to read hardware");
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
+    const auto stop_state = ctx->states[2];
+    EXPECT_EQ(stop_state.variant, "error");
+    EXPECT_EQ(stop_state.details["message"], "Failed to read hardware");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.

@@ -53,6 +53,7 @@ struct StateHandler {
     /// @brief sends the provided warning string to the task. If the task is in error
     /// state, the warning will not be sent.
     void send_warning(const std::string &warning) {
+        this->wrapped.key = "";
         // If there's already an error bound, communicate it instead.
         if (!this->err) {
             this->wrapped.variant = "warning";

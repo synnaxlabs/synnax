@@ -28,8 +28,8 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
 /// @brief it should correctly rely on steady sample spacing to time samples.
 TEST(TestSampleClock, testHardwareTimedSampleClock) {
     auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
-    clock.reset();
     const auto now = telem::TimeStamp::now();
+    clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
     ASSERT_GE(start, now);
