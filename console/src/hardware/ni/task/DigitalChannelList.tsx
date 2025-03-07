@@ -88,7 +88,9 @@ export const DigitalChannelList = <C extends DigitalChannel>({
   ...rest
 }: DigitalChannelListProps<C>) => {
   const listItem = useCallback(
-    (p: Common.Task.ChannelListItemProps<C>) => <ListItem {...p} name={name} />,
+    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+      <ListItem key={key} {...p} name={name} />
+    ),
     [name],
   );
 
