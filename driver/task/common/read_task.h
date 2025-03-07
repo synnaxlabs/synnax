@@ -35,7 +35,7 @@ class ReadTask final : public task::Task {
     /// @brief tare middleware used for taring values.
     std::shared_ptr<pipeline::TareMiddleware> tare_mw;
     /// @brief handles communicating the task state back to the cluster.
-    TaskStateHandler state;
+    StateHandler state;
 
     /// @brief a wrapped source that gracefully handles shutdown when a hardware
     /// read fails or the pipeline fails to write to Synnax.

@@ -12,7 +12,7 @@
 #include "driver/task/task.h"
 
 /// @brief a utility structure for managing the state of national instruments tasks.
-struct TaskStateHandler {
+struct StateHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<task::Context> ctx;
     /// @brief the raw synnax task.
@@ -22,7 +22,7 @@ struct TaskStateHandler {
     /// @brief the wrapped raw task state that will be sent back to Synnax.
     task::State wrapped;
 
-    TaskStateHandler(
+    StateHandler(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) : ctx(ctx), task(task) {

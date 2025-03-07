@@ -9,11 +9,15 @@
 
 #pragma once
 
+/// std
+#include <thread>
+
+/// module
 #include "x/cpp/breaker/breaker.h"
 
 namespace pipeline {
 class Base {
-    /// @brief the primary thread that runs the control pipeline.
+    /// @brief the primary thread that runs the pipeline.
     std::thread thread;
 
     /// @brief an internal run
@@ -40,17 +44,25 @@ public:
     /// @brief the main run loop for the pipeline.
     virtual void run() = 0;
 
-    /// @brief starts the control pipeline if it has not already been started. Start is
-    /// idempotent, and is safe to call multiple times without stopping the pipeline.
+    /// @brief starts the control pipeline. This method is idempotent.
+    /// @returns true if this is the first call to start() ever or the first call to
+    /// start() since the pipeline was last stopped.
+    /// @returns false otherwise.
     virtual bool start() {
         if (!this->breaker.start()) return false;
         this->thread = std::thread(&Base::run_internal, this);
         return true;
     }
 
-    /// @brief stops the control pipeline if it has not already been stopped. Stop is
-    /// idempotent, and is safe to call multiple times without starting the pipeline
-    /// again.
+    /// @brief stops the pipeline. This method is idempotent.
+    /// @returns true if this is the first call to stop() since the last call to
+    /// start().
+    /// @returns false if this is an N+1 call to stop() since the last call to start().
+    /// @details this function is safe to call from within the pipeline operation thread
+    /// itself. If done so, the pipeline breaker will be stopped, but the thread will
+    /// not be joined. If calling stop() from within the pipeline itself, it's important
+    /// that stop() be called again before the pipeline is destructed in order to properly
+    /// join the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
         if (

@@ -38,6 +38,7 @@ class API {
         decltype(&LJM_eWriteAddress) eWriteAddress;
         decltype(&LJM_eWriteAddresses) eWriteAddresses;
         decltype(&LJM_StartInterval) StartInterval;
+        decltype(&LJM_CleanInterval) CleanInterval;
         decltype(&LJM_eWriteName) eWriteName;
         decltype(&LJM_NamesToAddresses) NamesToAddresses;
         decltype(&LJM_ErrorToString) ErrorToString;
@@ -69,6 +70,9 @@ public:
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteAddresses")));
         func_ptrs.StartInterval = reinterpret_cast<decltype(&LJM_StartInterval
         )>(const_cast<void *>(lib->get_func_ptr("LJM_StartInterval")));
+        func_ptrs.CleanInterval = reinterpret_cast<decltype(&LJM_CleanInterval)>(
+            const_cast<void *>(lib->get_func_ptr("LJM_CleanInterval")
+        ));
         func_ptrs.eWriteName = reinterpret_cast<decltype(&LJM_eWriteName)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eWriteName")));
         func_ptrs.NamesToAddresses = reinterpret_cast<decltype(&
@@ -156,6 +160,12 @@ public:
         const int microseconds
     ) const {
         return this->func_ptrs.StartInterval(interval_handle, microseconds);
+    }
+
+    [[nodiscard]] LJM_ERROR_RETURN clean_interval(
+        const int interval_handle
+    ) const {
+        return this->func_ptrs.CleanInterval(interval_handle);
     }
 
     [[nodiscard]] LJM_ERROR_RETURN e_write_name(

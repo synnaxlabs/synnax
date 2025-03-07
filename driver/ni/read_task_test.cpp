@@ -275,7 +275,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(first_state.variant, "success");
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
-    rt->stop("stop_cmd", false);
+    rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
@@ -306,8 +306,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     EXPECT_EQ(state.key, "start_cmd");
     EXPECT_EQ(state.task, task.key);
     EXPECT_EQ(state.variant, "error");
-    EXPECT_EQ(state.details["message"],
-              "[sy.driver.hardware.critical] Failed to start hardware");
+    EXPECT_EQ(state.details["message"], "Failed to start hardware");
     rt->stop(false);
 }
 
@@ -324,14 +323,13 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.variant, "success");
-    rt->stop("stop_cmd", false);
+    rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.task, task.key);
     EXPECT_EQ(stop_state.variant, "error");
-    EXPECT_EQ(stop_state.details["message"],
-              "[sy.driver.hardware.critical] Failed to stop hardware");
+    EXPECT_EQ(stop_state.details["message"], "Failed to stop hardware");
 }
 
 /// @brief it should communicate an error when the hardware fails to read.
@@ -357,7 +355,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     EXPECT_EQ(start_state.variant, "success");
 
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
-    rt->stop("stop_cmd", false);
+    rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.variant, "success");
@@ -380,23 +378,23 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     EXPECT_NE(static_cast<double>(value), 1.23456789);
 }
 
-/// @brief it should not double communicate state if the task is already started.
+/// @brief it should restart the task if start is called twice.
 TEST_F(AnalogReadTest, testDoubleStart) {
     parse_config();
     const auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>());
 
-    rt->start("start_cmd1");
-    rt->start("start_cmd2"); // Second start should be ignored
+    rt->start("start_cmd");
+    rt->start("start_cmd");
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    EXPECT_EQ(ctx->states.size(), 1); // Should only have one state message
-    const auto state = ctx->states[0];
-    EXPECT_EQ(state.key, "start_cmd1");
-    EXPECT_EQ(state.task, task.key);
-    EXPECT_EQ(state.variant, "success");
-    EXPECT_EQ(state.details["message"], "Task started successfully");
-
-    rt->stop("stop_cmd", false);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    EXPECT_EQ(ctx->states.size(), 2);
+    for (auto &state: ctx->states) {
+        EXPECT_EQ(state.key, "start_cmd");
+        EXPECT_EQ(state.task, task.key);
+        EXPECT_EQ(state.variant, "success");
+        EXPECT_EQ(state.details["message"], "Task started successfully");
+    }
+    rt->stop("stop_cmd", true);
 }
 
 /// @brief it should not double communicate state if the task is already stopped.
@@ -407,17 +405,22 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
 
-    rt->stop("stop_cmd1", false);
-    rt->stop("stop_cmd2", false); // Second stop should be ignored
+    rt->stop("stop_cmd1", true);
+    rt->stop("stop_cmd2", true); // Second stop should be ignored
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
+    EXPECT_EQ(ctx->states.size(), 3);
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd1");
     EXPECT_EQ(stop_state.task, task.key);
     EXPECT_EQ(stop_state.variant, "success");
     EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
+    const auto stop_state_2 = ctx->states[2];
+    EXPECT_EQ(stop_state_2.key, "stop_cmd2");
+    EXPECT_EQ(stop_state_2.task, task.key);
+    EXPECT_EQ(stop_state_2.variant, "success");
+    EXPECT_EQ(stop_state_2.details["message"], "Task stopped successfully");
 }
 
 class DigitalReadTest : public ::testing::Test {
@@ -537,7 +540,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
 
-    rt->stop("stop_cmd", false);
+    rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
@@ -553,14 +556,4 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_TRUE(fr.contains(index_channel.key));
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1); // Verify digital high
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
-}
-
-/// @brief it should interpolate timestamps between clock start and end times.
-TEST(SampleClockTest, testHardwareTimedSampleClock) {
-    ni::HardwareTimedSampleClock clock(1 * telem::HZ);
-    breaker::Breaker breaker;
-    clock.reset();
-    const auto start = clock.wait(breaker);
-    const auto end = clock.end(10);
-    EXPECT_EQ(end - start, 9 * telem::SECOND);
 }

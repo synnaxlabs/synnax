@@ -51,7 +51,11 @@ public:
     [[nodiscard]] virtual xerrors::Error start_interval(
         int interval_handle,
         int microseconds
-    ) const =0;
+    ) const = 0;
+
+    [[nodiscard]] virtual xerrors::Error clean_interval(
+        int interval_handle
+    ) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_write_name(
         const char *Name,
@@ -97,7 +101,7 @@ public:
     ) const = 0;
 };
 
-class LJMDevice final: public Device {
+class LJMDevice final : public Device {
     /// @brief the LJM library used to communicate with the device.
     std::shared_ptr<ljm::API> ljm;
     /// @brief the underlying device handle.
@@ -182,6 +186,13 @@ public:
                 interval_handle,
                 microseconds
             )
+        );
+    }
+
+    [[nodiscard]] xerrors::Error clean_interval(const int interval_handle) const override {
+        return parse_error(
+            this->ljm,
+            this->ljm->clean_interval(interval_handle)
         );
     }
 
@@ -304,6 +315,7 @@ class Manager {
     std::mutex mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
+
 public:
     explicit Manager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {
     }
@@ -333,7 +345,6 @@ public:
     }
 
 
-
     std::pair<std::shared_ptr<Device>, xerrors::Error> acquire(
         const std::string &serial_number
     ) {
@@ -357,7 +368,7 @@ public:
         if (err != 0) return {nullptr, parse_error(ljm, err)};
 
         auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
-        this->handles[serial_number] = dev;  // Stores weak_ptr automatically
+        this->handles[serial_number] = dev; // Stores weak_ptr automatically
         return {dev, xerrors::NIL};
     }
 };

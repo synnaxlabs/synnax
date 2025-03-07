@@ -25,12 +25,21 @@ const std::string SCAN_TASK_TYPE = "labjack_scan";
 const std::string READ_TASK_TYPE = "labjack_read";
 const std::string WRITE_TASK_TYPE = "labjack_write";
 
+/// @brief LJM errors that indicate the device is currently unreachable but may be
+/// reachable again in the near future.
 const std::vector UNREACHABLE_ERRORS = {
     ljm::NO_RESPONSE_BYTES_RECEIVED,
     ljm::STREAM_NOT_INITIALIZED,
     ljm::RECONNECT_FAILED,
     ljm::SYNCHRONIZATION_TIMEOUT
 };
+
+/// @brief translates LJM errors into useful errors for managing the task lifecycle.
+inline xerrors::Error translate_error(const xerrors::Error &err) {
+    if (err.matches(UNREACHABLE_ERRORS))
+        return ljm::TEMPORARILY_UNREACHABLE;
+    return err;
+}
 
 /// @brief factory for creating and operating labjack tasks.
 class Factory final : public task::Factory {

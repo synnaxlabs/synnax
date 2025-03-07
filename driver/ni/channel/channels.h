@@ -1691,42 +1691,42 @@ struct AOFunctionGenerator final : AO {
 template<typename T>
 using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
-#define FACTORY(type, class) \
+#define INPUT_CHAN_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
-    FACTORY("ao_current", AOCurrent),
-    FACTORY("ao_voltage", AOVoltage),
-    FACTORY("ao_func_gen", AOFunctionGenerator),
-    FACTORY("digital_output", DO)
+    INPUT_CHAN_FACTORY("ao_current", AOCurrent),
+    INPUT_CHAN_FACTORY("ao_voltage", AOVoltage),
+    INPUT_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator),
+    INPUT_CHAN_FACTORY("digital_output", DO)
 };
 
 static const std::map<std::string, Factory<Input>> INPUTS = {
-    FACTORY("ai_accel", AIAccel),
-    FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
-    FACTORY("ai_bridge", AIBridge),
-    FACTORY("ai_charge", AICharge),
-    FACTORY("ai_current", AICurrent),
-    FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
-    FACTORY("ai_force_bridge_table", AIForceBridgeTable),
-    FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
-    FACTORY("ai_force_iepe", AIForceIEPE),
-    FACTORY("ai_microphone", AIMicrophone),
-    FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
-    FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
-    FACTORY("ai_pressure_bridge_two_point_lin", AIPressureBridgeTwoPointLin),
-    FACTORY("ai_resistance", AIResistance),
-    FACTORY("ai_rtd", AIRTD),
-    FACTORY("ai_strain_gauge", AIStrainGauge),
-    FACTORY("ai_temp_builtin", AITempBuiltIn),
-    FACTORY("ai_thermocouple", AIThermocouple),
-    FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
-    FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
-    FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
-    FACTORY("ai_velocity_iepe", AIVelocityIEPE),
-    FACTORY("ai_voltage", AIVoltage),
-    FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
-    FACTORY("digital_input", DI)
+    INPUT_CHAN_FACTORY("ai_accel", AIAccel),
+    INPUT_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
+    INPUT_CHAN_FACTORY("ai_bridge", AIBridge),
+    INPUT_CHAN_FACTORY("ai_charge", AICharge),
+    INPUT_CHAN_FACTORY("ai_current", AICurrent),
+    INPUT_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
+    INPUT_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
+    INPUT_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
+    INPUT_CHAN_FACTORY("ai_force_iepe", AIForceIEPE),
+    INPUT_CHAN_FACTORY("ai_microphone", AIMicrophone),
+    INPUT_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
+    INPUT_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
+    INPUT_CHAN_FACTORY("ai_pressure_bridge_two_point_lin", AIPressureBridgeTwoPointLin),
+    INPUT_CHAN_FACTORY("ai_resistance", AIResistance),
+    INPUT_CHAN_FACTORY("ai_rtd", AIRTD),
+    INPUT_CHAN_FACTORY("ai_strain_gauge", AIStrainGauge),
+    INPUT_CHAN_FACTORY("ai_temp_builtin", AITempBuiltIn),
+    INPUT_CHAN_FACTORY("ai_thermocouple", AIThermocouple),
+    INPUT_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
+    INPUT_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
+    INPUT_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
+    INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
+    INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
+    INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("digital_input", DI)
 };
 
 inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
@@ -1744,7 +1744,7 @@ inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
     return nullptr;
 }
 
-#undef FACTORY
+#undef INPUT_CHAN_FACTORY
 #undef FACTORY
 #undef FACTORY_WITH_CJC_SOURCES
 }

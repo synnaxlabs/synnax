@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/cmd/cmd.h"
+/// module
 #include "x/cpp/xargs/xargs.h"
+
+/// internal
+#include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
     bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");

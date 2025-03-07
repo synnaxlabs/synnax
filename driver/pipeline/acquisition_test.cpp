@@ -165,7 +165,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     ASSERT_EQ(source->stopped_err, xerrors::UNAUTHORIZED);
-    ASSERT_FALSE(pipeline.stop());
+    ASSERT_TRUE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.

@@ -24,6 +24,10 @@
 #include "driver/task/common/write_task.h"
 
 namespace labjack {
+
+
+
+/// @brief configuration for an output channel on a LabJack device.
 struct OutputChan {
     /// @brief the port location of the output channel e.g. "DIO4"
     const std::string port;
@@ -43,11 +47,14 @@ struct OutputChan {
           state_ch_key(parser.required<uint32_t>("state_key")) {
     }
 
+    /// @brief binds cluster information about the channel after it has been
+    /// externally fetched.
     void bind_remote_info(const synnax::Channel &state_ch) {
         this->state_ch = state_ch;
     }
 };
 
+/// @brief the configuration for opening a write task.
 struct WriteTaskConfig {
     /// @brief whether data saving is enabled for the task.
     const bool data_saving;
@@ -104,12 +111,15 @@ struct WriteTaskConfig {
         this->dev_model = dev.model;
         std::vector<synnax::ChannelKey> state_channels;
         state_channels.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels) state_channels.push_back(
-            ch->state_ch_key);
+        for (const auto &[_, ch]: this->channels)
+            state_channels.push_back(
+                ch->state_ch_key);
         const auto [channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
-            parser.field_err("channels",
-                             "failed to retrieve channels: " + ch_err.message());
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.message()
+            );
             return;
         }
         for (const auto &state_ch: channels) {
@@ -119,6 +129,9 @@ struct WriteTaskConfig {
         }
     }
 
+    /// @brief parses the configuration from the given Synnax task.
+    /// @returns a configuration and error if one occurs. If xerrors::Error is not NIL,
+    /// then validation failed and the configuration is invalid.
     static std::pair<WriteTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task
@@ -127,14 +140,16 @@ struct WriteTaskConfig {
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
+    /// @brief returns the list of state channels used in the task.
     [[nodiscard]] std::vector<synnax::Channel> state_channels() const {
         std::vector<synnax::Channel> state_channels;
-        state_channels.reserve(this->state_index_keys.size());
-        for (const auto &[_, ch]: this->channels) state_channels.
-                push_back(ch->state_ch);
+        state_channels.reserve(this->channels.size());
+        for (const auto &[_, ch]: this->channels)
+            state_channels.push_back(ch->state_ch);
         return state_channels;
     }
 
+    /// @brief returns the list of command channel keys used in the task.
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() const {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
@@ -143,12 +158,20 @@ struct WriteTaskConfig {
     }
 };
 
+/// @brief an implementation of the common task sink that writes data to a LabJack
+/// device.
 class WriteSink final : public common::Sink {
+    /// @brief the configuration for the sink.
     const WriteTaskConfig cfg;
-    std::shared_ptr<device::Device> dev;
-    std::vector<const char *> locs;
-    std::vector<double> values;
-
+    /// @brief the API of the device we're writing to.
+    const std::shared_ptr<device::Device> dev;
+    /// @brief the buffer of ports to use for the next write.
+    std::vector<const char *> ports_buf;
+    /// @brief the buffer of values to use for the next write.
+    std::vector<double> values_buf;
+    /// @brief the most recent error accumulated from writing to the device. Primarily
+    /// used to track when the device has recovered from an error.
+    xerrors::Error curr_dev_err = xerrors::NIL;
 public:
     explicit WriteSink(
         const std::shared_ptr<device::Device> &dev,
@@ -164,49 +187,65 @@ public:
        dev(dev) {
     }
 
+    /// @brief clears the current write port and values buffer and re-reserves it
+    /// to the allocated size.
     void reset_buffer(const size_t alloc) {
-        this->locs.clear();
-        this->values.clear();
-        this->locs.reserve(alloc);
-        this->values.reserve(alloc);
+        this->ports_buf.clear();
+        this->values_buf.clear();
+        this->ports_buf.reserve(alloc);
+        this->values_buf.reserve(alloc);
     }
 
+    /// @brief starts the sink, pulling values to their initial state.
     xerrors::Error start() override {
+        return this->write_curr_state_to_dev();
+    }
+
+    xerrors::Error write_curr_state_to_dev() {
+        /// pull all values to the initial state (which is the current state).
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[_, ch]: this->cfg.channels) {
-            locs.push_back(ch->port.c_str());
-            values.push_back(0);
+            this->ports_buf.push_back(ch->port.c_str());
+            this->values_buf.push_back(
+                telem::cast<double>(this->chan_state[ch->state_ch_key]));
         }
-        return this->flush();
+        return this->write_buf_to_dev();
     }
 
-    xerrors::Error flush() const {
+    /// @brief flushes the current value buffer to the labjack device, executing the write.
+    xerrors::Error write_buf_to_dev() const {
         int err_addr = 0;
-        auto locs = this->locs;
+        auto locs = this->ports_buf;
         return this->dev->e_write_names(
-            static_cast<int>(this->locs.size()),
+            static_cast<int>(this->ports_buf.size()),
             locs.data(),
-            this->values.data(),
+            this->values_buf.data(),
             &err_addr
         );
     }
 
+    /// @brief implements pipeline::Sink to write to the Labjack device.
     xerrors::Error write(const synnax::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
-        for (const auto &[key, s]: frame) {
-            auto it = this->cfg.channels.find(key);
-            if (it == this->cfg.channels.end()) continue;
-            const auto &ch = it->second;
-            this->locs.push_back(ch->port.c_str());
-            this->values.push_back(telem::cast<double>(s.at(-1)));
-        }
-        if (const auto err = this->flush()) {
-            if (err.matches(UNREACHABLE_ERRORS))
-                return ljm::TEMPORARILY_UNREACHABLE;
-            return err;
-        }
+        for (const auto &[cmd_key, s]: frame)
+            if (
+                const auto it = this->cfg.channels.find(cmd_key);
+                it != this->cfg.channels.end()
+            ) {
+                const auto &ch = it->second;
+                this->ports_buf.push_back(ch->port.c_str());
+                this->values_buf.push_back(telem::cast<double>(s.at(-1)));
+            }
+        const auto prev_flush_err = this->curr_dev_err;
+        this->curr_dev_err = translate_error(this->write_buf_to_dev());
+        if (this->curr_dev_err) return this->curr_dev_err;
         this->set_state(frame);
-        return xerrors::NIL;
+        // This means we just recovered from a temporary error, in which case
+        // we should flush the entirety of the current state to the device so that
+        // it matches our internal state again.
+        if (prev_flush_err)
+            this->curr_dev_err = translate_error(this->write_curr_state_to_dev());
+        return this->curr_dev_err;
     }
 };
 }

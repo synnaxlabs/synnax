@@ -26,89 +26,9 @@
 #include "driver/task/task.h"
 #include "driver/task/common/read_task.h"
 #include "driver/ni/ni.h"
+#include "driver/task/common/sample_clock.h"
 
 namespace ni {
-static xerrors::Error translate_error(const xerrors::Error &err) {
-    if (err.matches(RETRY_ON_ERRORS))
-        return daqmx::TEMPORARILY_UNREACHABLE;
-    if (err.matches(daqmx::APPLICATION_TOO_SLOW))
-        return {
-            xerrors::Error(
-                driver::CRITICAL_HARDWARE_ERROR,
-                "the network cannot keep up with the stream rate specified. try making the sample rate a higher multiple of the stream rate"
-            )
-        };
-    return err;
-}
-
-/// @brief used to regulate the acquisition speed of a task, and provide timing
-/// information for generating timestamps.
-struct SampleClock {
-    virtual ~SampleClock() = default;
-
-    /// @brief resets the sample clock, making it ready for task startup.
-    virtual void reset() {
-    }
-
-    /// @brief waits for the next acquisition loop to begin, returning the timestamp
-    /// of the first sample.
-    virtual telem::TimeStamp wait(breaker::Breaker &breaker) = 0;
-
-    /// @brief ends the acquisition loop, interpolating an ending timestamp based
-    /// on the number of samples read.
-    virtual telem::TimeStamp end(size_t n_read) = 0;
-};
-
-/// @brief a sample clock that regulates the acquisition rate at the application
-/// layer by using a software timer.
-class SoftwareTimedSampleClock final : public SampleClock {
-    /// @brief the timer used to regulate the acquisition rate.
-    loop::Timer timer;
-
-public:
-    explicit SoftwareTimedSampleClock(const telem::Rate &stream_rate):
-        timer(stream_rate) {
-    }
-
-    telem::TimeStamp wait(breaker::Breaker &breaker) override {
-        this->timer.wait(breaker);
-        return telem::TimeStamp::now();
-    }
-
-    telem::TimeStamp end(const size_t _) override {
-        return telem::TimeStamp::now();
-    }
-};
-
-/// @brief a sample clock that relies on an external, steady hardware clock to
-/// regulate the acquisition rate. Timestamps are interpolated based on a fixed
-/// sample rate.
-class HardwareTimedSampleClock final : public SampleClock {
-    /// @brief the sample rate of the task.
-    const telem::Rate sample_rate;
-    /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water{};
-
-public:
-    explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
-        sample_rate(sample_rate) {
-    }
-
-    void reset() override {
-        this->high_water = telem::TimeStamp::now();
-    }
-
-    telem::TimeStamp wait(breaker::Breaker &_) override {
-        return this->high_water;
-    }
-
-    telem::TimeStamp end(const size_t n_read) override {
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
-        this->high_water = end + this->sample_rate.period();
-        return end;
-    }
-};
-
 /// @brief the configuration for a read task.
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -255,10 +175,10 @@ struct ReadTaskConfig {
         };
     }
 
-    [[nodiscard]] std::unique_ptr<SampleClock> sample_clock() const {
+    [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
         if (this->software_timed)
-            return std::make_unique<SoftwareTimedSampleClock>(this->stream_rate);
-        return std::make_unique<HardwareTimedSampleClock>(this->sample_rate);
+            return std::make_unique<common::SoftwareTimedSampleClock>(this->stream_rate);
+        return std::make_unique<common::HardwareTimedSampleClock>(this->sample_rate);
     }
 };
 
@@ -277,10 +197,6 @@ public:
     }
 
 private:
-    /// @brief automatically infer the data type from the template parameter. This
-    /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
-    /// the data read from the hardware.
-    const telem::DataType data_type = telem::DataType::infer<T>();
     /// @brief the raw synnax task configuration.
     /// @brief the parsed configuration for the task.
     const ReadTaskConfig cfg;
@@ -291,7 +207,10 @@ private:
     std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
-    std::unique_ptr<SampleClock> sample_clock;
+    std::unique_ptr<common::SampleClock> sample_clock;
+    /// @brief the error accumulated from the latest read. Primarily used to determine
+    /// whether we've just recovered from an error state.
+    xerrors::Error curr_read_err = xerrors::NIL;
 
     xerrors::Error start() override {
         this->sample_clock->reset();
@@ -312,20 +231,21 @@ private:
             this->cfg.samples_per_chan,
             buffer
         );
-        if (err) return {Frame(), translate_error(err)};
+        auto prev_read_err = this->curr_read_err;
+        this->curr_read_err = translate_error(err);
+        if (this->curr_read_err) return {Frame(), this->curr_read_err};
+        // If we just recovered from an error, we need to reset the sample clock so
+        // we can start timing samples again from a steady state.
+        if (prev_read_err) this->sample_clock->reset();
         auto end = this->sample_clock->end(n);
-        synnax::Frame f(this->cfg.channels.size());
+        synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
                 telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n, n)
             );
-        if (!this->cfg.indexes.empty()) {
-            const auto index_data = telem::Series::linspace(start, end, n);
-            for (const auto &idx: this->cfg.indexes)
-                f.emplace(idx, std::move(index_data.deep_copy()));
-        }
+        common::generate_index_data(f, this->cfg.indexes, start, end, n);
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 };

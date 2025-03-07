@@ -2,6 +2,7 @@ cc_library(
     name = "common",
     hdrs = [
         "read_task.h",
+        "sample_clock.h",
         "state.h",
         "write_task.h",
     ],
@@ -17,6 +18,7 @@ cc_test(
     name = "common_test",
     srcs = [
         "read_task_test.cpp",
+        "sample_clock_test.cpp",
         "write_task_test.cpp",
     ],
     deps = [

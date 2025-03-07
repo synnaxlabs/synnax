@@ -12,9 +12,7 @@
 /// std
 #include <chrono>
 #include <cmath>
-
-/// external
-#include "glog/logging.h"
+#include <thread>
 
 /// internal
 #include "x/cpp/telem/telem.h"
@@ -41,13 +39,14 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
     static int64_t count = 1;
     while (dur > estimate) {
         auto start = hs_clock::now();
+        if (start >= end) break;
         std::this_thread::sleep_for(RESOLUTION.chrono());
         const auto curr_end = hs_clock::now();
         const auto elapsed = std::chrono::duration_cast<nanos>(curr_end - start).count();
         const telem::TimeSpan delta = elapsed - mean;
         mean += delta / count;
         M2 += delta * (elapsed - mean);
-        estimate = mean + telem::TimeSpan(static_cast<int64_t>(std::sqrt((M2 / count).nanoseconds())));
+        estimate = mean + std::sqrt((M2 / count).nanoseconds());
         count++;
     }
     // busy wait for the last bit to ensure we sleep for the correct duration

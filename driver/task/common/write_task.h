@@ -85,10 +85,11 @@ public:
 
     void set_state(const synnax::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
-        for (const auto &[key, s]: frame) {
-            const auto it = this->state_channels.find(key);
+        for (const auto &[cmd_key, s]: frame) {
+            const auto it = this->state_channels.find(cmd_key);
             if (it == this->state_channels.end()) continue;
-            this->chan_state[it->second.key] = it->second.data_type.cast(s.at(-1));
+            const auto state_key = it->second.key;
+            this->chan_state[state_key] = it->second.data_type.cast(s.at(-1));
         }
     }
 
@@ -111,11 +112,12 @@ public:
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
 class WriteTask final : public task::Task {
-    TaskStateHandler state;
-
     class WrappedSink final : public pipeline::Sink, public pipeline::Source {
     public:
+        /// @brief the parent write task.
         WriteTask &p;
+        /// @brief the underlying wrapped sink that actually executes commands on the
+        /// hardware.
         std::unique_ptr<common::Sink> wrapped;
 
         WrappedSink(
@@ -124,6 +126,7 @@ class WriteTask final : public task::Task {
         ): p(p), wrapped(std::move(sink)) {
         }
 
+        /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
             this->p.stop("", true);
@@ -144,6 +147,8 @@ class WriteTask final : public task::Task {
         }
     };
 
+    /// @brief used to manage and communicate the task's state.
+    StateHandler state;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to

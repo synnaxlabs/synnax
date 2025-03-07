@@ -181,9 +181,9 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
-    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
-    wt->stop("stop_cmd", false);
+    wt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
@@ -191,7 +191,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.variant, "success");
     ASSERT_EQ(second_state.details["message"], "Task stopped successfully");
 
-    auto first = std::move(mock_writer_factory->writes->at(0));
+    auto first = std::move(mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1));
     ASSERT_EQ(first.size(), 3);
     ASSERT_EQ(first.length(), 1);
     ASSERT_TRUE(first.contains(state_ch_1.key));

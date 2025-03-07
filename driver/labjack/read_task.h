@@ -24,10 +24,10 @@
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/read_task.h"
 #include "driver/pipeline/middleware.h"
-#include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/LabJackMModbusMap.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
+#include "driver/task/common/sample_clock.h"
 
 
 namespace labjack {
@@ -49,6 +49,8 @@ const std::map<std::string, long> TC_TYPE_LUT = {
     {"C", LJM_ttC}
 };
 
+/// @brief parses the thermocouple type from the configuration and converts it to the
+/// appropriate LJM type.
 inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
     const auto tc_type = parser.required<std::string>(path);
     const auto v = TC_TYPE_LUT.find(tc_type);
@@ -57,6 +59,7 @@ inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
     return v->second;
 }
 
+/// @brief parses the CJC address for the device.
 inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
     const auto cjc_source = parser.required<std::string>(path);
     if (cjc_source == "TEMPERATURE_DEVICE_K")
@@ -71,32 +74,39 @@ inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
     return 0;
 }
 
+/// @brief base class for an input channel configuration.
 struct InputChan {
     virtual ~InputChan() = default;
 
+    /// @brief whether data acquisition for the channel is enabled.
     const bool enabled;
-    std::string loc;
+    /// @brief the port for the channel ex. AIO0
+    std::string port;
+    /// @brief the synnax key to write channel data to.
     const synnax::ChannelKey synnax_key;
-    synnax::Channel ch;
     const int neg_chan;
     const int pos_chan;
 
+    synnax::Channel ch;
+
     explicit InputChan(xjson::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
-          loc(parser.required<std::string>("port")),
+          port(parser.required<std::string>("port")),
           synnax_key(parser.required<uint32_t>("channel")),
           neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
           pos_chan(parser.optional<int>("pos_chan", 0)) {
     }
 
+    /// @brief applies the configuration to the device.
     virtual xerrors::Error apply(
         const std::shared_ptr<device::Device> &dev,
         const std::string &device_type
-    ) = 0;
+    ) { return xerrors::NIL; }
 };
 
 const std::string TC_SUFFIX = "_EF_READ_A";
 
+/// @brief class for a thermocouple channel configuration.
 struct ThermocoupleChan final : InputChan {
     ///@brief The thermocouple type
     // Supported TC types are:
@@ -140,7 +150,7 @@ struct ThermocoupleChan final : InputChan {
         cjc_slope(parser.required<float>("cjc_slope")),
         cjc_offset(parser.required<float>("cjc_offset")),
         units(parser.required<std::string>("units")) {
-        this->loc = "AIN" + std::to_string(this->pos_chan) + TC_SUFFIX;
+        this->port = "AIN" + std::to_string(this->pos_chan) + TC_SUFFIX;
     }
 
     xerrors::Error apply(
@@ -204,10 +214,12 @@ struct ThermocoupleChan final : InputChan {
             );
         }
         return xerrors::NIL;
-    };
+    }
 };
 
+/// @brief configuration for an analog input channel.
 struct AIChan final : InputChan {
+    /// @brief the voltage range for the channel, starting at 0 and ending at range.
     const double range;
 
     explicit AIChan(xjson::Parser &parser):
@@ -220,20 +232,19 @@ struct AIChan final : InputChan {
         const std::string &device_type
     ) override {
         if (const auto err = dev->e_write_name(
-            (this->loc + "_RESOLUTION_INDEX").c_str(),
+            (this->port + "_RESOLUTION_INDEX").c_str(),
             0
         ))
             return err;
-        if (device_type == T7 || device_type == T8) {
+        if (device_type == T7 || device_type == T8)
             if (const auto err = dev->e_write_name(
-                (this->loc + "_RANGE").c_str(),
+                (this->port + "_RANGE").c_str(),
                 0
             ))
                 return err;
-        }
         if (device_type == T7)
             if (const auto err = dev->e_write_name(
-                (this->loc + "_NEGATIVE_CH").c_str(),
+                (this->port + "_NEGATIVE_CH").c_str(),
                 this->neg_chan
             ))
                 return err;
@@ -241,31 +252,28 @@ struct AIChan final : InputChan {
     }
 };
 
+/// @brief configuration for a digital input channel.
 struct DIChan final : InputChan {
     explicit DIChan(xjson::Parser &parser):
         InputChan(parser) {
     }
-
-    xerrors::Error apply(
-        const std::shared_ptr<device::Device> &dev,
-        const std::string &device_type
-    ) override {
-        return xerrors::NIL;
-    };
 };
 
 template<typename T>
-using F = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
+using InputChanFactory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
-#define FACTORY(type, class) \
+#define INPUT_CHAN_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-inline std::map<std::string, F<InputChan>> INPUTS = {
-    FACTORY("TC", ThermocoupleChan),
-    FACTORY("AI", AIChan),
-    FACTORY("DI", DIChan)
+inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
+    INPUT_CHAN_FACTORY("TC", ThermocoupleChan),
+    INPUT_CHAN_FACTORY("AI", AIChan),
+    INPUT_CHAN_FACTORY("DI", DIChan)
 };
 
+/// @brief parses the input channel from the provided configuration.
+/// @returns nullptr if the configuration is in valid, and binds any relevant
+/// field errors to the config.
 inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
     const auto type = cfg.required<std::string>("type");
     const auto input = INPUTS.find(type);
@@ -274,6 +282,7 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
     return nullptr;
 }
 
+/// @brief configuration for a LabJack read task.
 struct ReadTaskConfig {
     /// @brief whether data saving is enabled for the task.
     const bool data_saving;
@@ -320,7 +329,7 @@ struct ReadTaskConfig {
        samples_per_chan(sample_rate / stream_rate) {
         parser.iter("channels", [this](xjson::Parser &p) {
             auto ch = parse_input_chan(p);
-            if (ch->enabled) this->channels.push_back(std::move(ch));
+            if (ch != nullptr && ch->enabled) this->channels.push_back(std::move(ch));
         });
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
@@ -333,8 +342,10 @@ struct ReadTaskConfig {
         for (const auto &ch: this->channels) keys.push_back(ch->synnax_key);
         const auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err("channels",
-                             "failed to retrieve channels: " + ch_err.message());
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.message()
+            );
             return;
         }
         size_t i = 0;
@@ -344,6 +355,7 @@ struct ReadTaskConfig {
         }
     }
 
+    /// @brief returns configuration for opening a writer to write data to Synnax.
     [[nodiscard]] synnax::WriterConfig writer() const {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size() + this->index_keys.size());
@@ -356,6 +368,11 @@ struct ReadTaskConfig {
         };
     }
 
+    /// @brief parses the configuration from the provided Synnax task.
+    /// @param client - used to retrieve remote information about the task.
+    /// @param task - the raw synnax task config.
+    /// @returns the configuration an error. If the error is not NIL, the configuration
+    /// is invalid and should not be used.
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task
@@ -364,6 +381,7 @@ struct ReadTaskConfig {
         return {ReadTaskConfig(client, parser), parser.error()};
     }
 
+    /// @brief returns true if the task has any thermocouples.
     [[nodiscard]] bool has_tcs() const {
         for (const auto &ch: this->channels)
             if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
@@ -371,9 +389,15 @@ struct ReadTaskConfig {
     }
 };
 
+/// @brief a source implementation that reads from labjack devices via a unary
+/// request-response cycle on each acquisition. This source is only used when the task
+/// has thermocouples, as LJM does not support streaming of thermocouple data.
 class UnarySource final : public common::Source {
+    /// @brief the configuration for the read task.
     const ReadTaskConfig cfg;
+    /// @brief the API of the device we're reading from.
     const std::shared_ptr<device::Device> dev;
+    /// @brief a handle to the interval that is regulating the sample clock.
     const int interval_handle;
 
 public:
@@ -391,7 +415,7 @@ public:
     }
 
     xerrors::Error stop() override {
-        return xerrors::NIL;
+        return this->dev->clean_interval(this->interval_handle);
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
@@ -399,7 +423,7 @@ public:
         std::vector<const char *> locations;
         std::vector<double> values;
         for (const auto &channel: this->cfg.channels)
-            if (channel->enabled) locations.push_back(channel->loc.c_str());
+            if (channel->enabled) locations.push_back(channel->port.c_str());
         int skipped_intervals;
         if (const auto err = this->dev->wait_for_next_interval(
             this->interval_handle, &skipped_intervals
@@ -415,17 +439,15 @@ public:
             return {Frame(), err};
 
         auto f = synnax::Frame(locations.size() + this->cfg.index_keys.size());
-        int index = 0;
-        for (const auto &chan: this->cfg.channels) {
-            f.emplace(chan->synnax_key,
-                      telem::Series(chan->ch.data_type.cast(values[index])));
-            index++;
-        }
-        if (!this->cfg.index_keys.empty()) {
-            const auto index_data = telem::Series(telem::TimeStamp::now());
-            for (const auto &idx: this->cfg.index_keys)
-                f.emplace(idx, std::move(index_data.deep_copy()));
-        }
+        int i = 0;
+        for (const auto &chan: this->cfg.channels)
+            f.emplace(
+                chan->synnax_key,
+                telem::Series(chan->ch.data_type.cast(values[i++]))
+            );
+        const auto start = telem::TimeStamp::now();
+        const auto end = start;
+        common::generate_index_data(f, this->cfg.index_keys, start, end, 1);
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 
@@ -434,64 +456,45 @@ public:
     }
 };
 
-/// @brief a sample clock that relies on an external, steady hardware clock to
-/// regulate the acquisition rate. Timestamps are interpolated based on a fixed
-/// sample rate.
-class HardwareTimedSampleClock {
-    /// @brief the sample rate of the task.
-    const telem::Rate sample_rate;
-    /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water{};
-
-public:
-    explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
-        sample_rate(sample_rate) {
-    }
-
-    void reset() {
-        this->high_water = telem::TimeStamp::now();
-    }
-
-    telem::TimeStamp wait(breaker::Breaker &_) const {
-        return this->high_water;
-    }
-
-    telem::TimeStamp end(const size_t n_read) {
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
-        this->high_water = end + this->sample_rate.period();
-        return end;
-    }
-};
-
+/// @brief a source implementation that reads from labjack deices via the LJM streaming
+/// protocol. This is much higher performance than unary request/response cycles, and
+/// is preferred in cases where we don't acquire data from thermocouples.
 class StreamSource final : public common::Source {
-    ReadTaskConfig cfg;
-    std::vector<double> data;
-    std::shared_ptr<device::Device> dev;
-    HardwareTimedSampleClock sample_clock;
+    /// @brief the configuration for the read task.
+    const ReadTaskConfig cfg;
+    /// @brief the API to the device we're reading from.
+    const std::shared_ptr<device::Device> dev;
+    /// @brief sample clock used to get timestamp information for the task.
+    common::HardwareTimedSampleClock sample_clock;
+    /// @brief re-usable buffer of values we load data into before converting it to a
+    /// frame.
+    std::vector<double> buf;
 
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
-       data(this->cfg.samples_per_chan * this->cfg.channels.size()),
        dev(dev),
-       sample_clock(this->cfg.sample_rate) {
+       sample_clock(this->cfg.sample_rate),
+       buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 
+    /// @brief returns the configuration for opening the synnax writer.
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 
     xerrors::Error start() override { return this->restart(); }
 
+    /// @brief restarts the source.
     xerrors::Error restart() {
         this->stop();
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
         for (const auto &channel: this->cfg.channels)
-            physical_channels.push_back(channel->loc.c_str());
+            physical_channels.push_back(channel->port.c_str());
         if (const auto err = this->dev->names_to_addrs(
             this->cfg.channels.size(),
             physical_channels.data(),
@@ -520,31 +523,26 @@ public:
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
-        if (auto err = this->dev->e_stream_read(
-            this->data.data(),
+        if (auto err = translate_error(this->dev->e_stream_read(
+            this->buf.data(),
             &num_skipped_scans,
             &scan_backlog
-        )) {
-            if (err.matches(UNREACHABLE_ERRORS)) {
-                this->start();
-                err = ljm::TEMPORARILY_UNREACHABLE;
-            }
+        ))) {
+            // If the device is currently unreachable, try closing and reopening the
+            // stream to recover.
+            if (err.matches(ljm::TEMPORARILY_UNREACHABLE))
+                this->restart();
             return {Frame(), err};
         }
         const auto end = this->sample_clock.end(n);
-
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
-                telem::Series::cast(ch->ch.data_type, data.data() + i++ * n, n)
+                telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
             );
-        if (!this->cfg.index_keys.empty()) {
-            const auto index_data = telem::Series::linspace(start, end, n);
-            for (const auto &idx: this->cfg.index_keys)
-                f.emplace(idx, std::move(index_data.deep_copy()));
-        }
+        common::generate_index_data(f, this->cfg.index_keys, start, end, n);
         return {std::move(f), xerrors::NIL};
     }
 };

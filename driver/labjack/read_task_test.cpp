@@ -42,7 +42,7 @@ TEST(TestInputChannelParse, testAIChan) {
     ASSERT_NIL(p.error());
     const auto ai_chan = dynamic_cast<labjack::AIChan *>(chan.get());
     ASSERT_NE(ai_chan, nullptr);
-    ASSERT_EQ(ai_chan->loc, "AIN0");
+    ASSERT_EQ(ai_chan->port, "AIN0");
     ASSERT_EQ(ai_chan->enabled, true);
     ASSERT_EQ(ai_chan->synnax_key, 1);
     ASSERT_EQ(ai_chan->range, 5);
@@ -61,7 +61,7 @@ TEST(TestInputChannelParse, testDIChan) {
     ASSERT_NIL(p.error());
     const auto di_chan = dynamic_cast<labjack::DIChan *>(chan.get());
     ASSERT_NE(di_chan, nullptr);
-    ASSERT_EQ(di_chan->loc, "DIO0");
+    ASSERT_EQ(di_chan->port, "DIO0");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, 1);
 }
@@ -94,7 +94,7 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_NIL(p.error());
     const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
-    ASSERT_EQ(tc_chan->loc, "AIN0_EF_READ_A");
+    ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
@@ -197,7 +197,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan*>(cfg->channels[0].get());
     ASSERT_NE(tc_chan, nullptr);
-    ASSERT_EQ(tc_chan->loc, "AIN0_EF_READ_A");
+    ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
     ASSERT_EQ(tc_chan->synnax_key, tc_ch.key);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
@@ -210,13 +210,13 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     const auto di_chan = dynamic_cast<labjack::DIChan*>(cfg->channels[1].get());
     ASSERT_NE(di_chan, nullptr);
-    ASSERT_EQ(di_chan->loc, "DIO4");
+    ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
     const auto ai_chan = dynamic_cast<labjack::AIChan*>(cfg->channels[2].get());
     ASSERT_NE(ai_chan, nullptr);
-    ASSERT_EQ(ai_chan->loc, "AIN6");
+    ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);
     ASSERT_EQ(ai_chan->synnax_key, ai_ch.key);
     ASSERT_EQ(ai_chan->range, 0);

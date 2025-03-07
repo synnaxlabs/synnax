@@ -20,6 +20,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
+#include "ni.h"
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/pipeline/control.h"
@@ -41,7 +42,7 @@ struct WriteTaskConfig {
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
-    std::set<synnax::ChannelKey> state_indexes_;
+    std::set<synnax::ChannelKey> state_index_keys;
     /// @brief a map of channel keys to their index positions within the tasks
     /// write buffer. This map is only valid after apply() has been called on the
     /// configuration.
@@ -53,7 +54,7 @@ struct WriteTaskConfig {
         state_rate(other.state_rate),
         data_saving(other.data_saving),
         channels(std::move(other.channels)),
-        state_indexes_(std::move(other.state_indexes_)),
+        state_index_keys(std::move(other.state_index_keys)),
         buf_indexes(std::move(other.buf_indexes)) {
     }
 
@@ -109,7 +110,7 @@ struct WriteTaskConfig {
         for (const auto &state_ch: state_channels) {
             auto &ch = this->channels[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch, dev.location);
-            if (state_ch.index != 0) this->state_indexes_.insert(state_ch.index);
+            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
         }
     }
 
@@ -118,12 +119,15 @@ struct WriteTaskConfig {
     [[nodiscard]] std::vector<synnax::Channel> state_channels() {
         std::vector<synnax::Channel> state_channels;
         state_channels.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels) state_channels.push_back(ch->state_ch);
+        for (const auto &[_, ch]: this->channels)
+            state_channels.
+                    push_back(ch->state_ch);
         return state_channels;
     }
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() {
-        std::vector<synnax::ChannelKey> keys(this->channels.size());
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels) keys.push_back(ch->cmd_ch_key);
         return keys;
     }
@@ -131,7 +135,7 @@ struct WriteTaskConfig {
     /// @brief returns the configuration necessary for opening a streamer to
     /// receive values form Synnax.
     [[nodiscard]] std::set<synnax::ChannelKey> state_indexes() {
-        return this->state_indexes_;
+        return this->state_index_keys;
     }
 
     /// @brief parses the task from the given configuration, returning an error
@@ -161,6 +165,7 @@ struct WriteTaskConfig {
 template<typename T>
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
+
 public:
     /// @brief constructs a CommandSink bound to the provided parent WriteTask.
     explicit WriteTaskSink(
@@ -175,25 +180,24 @@ public:
             cfg.data_saving
         ),
         cfg(std::move(cfg)),
-        buf(this->cfg.channels.size()),
-        hw_writer(std::move(hw_writer)) {
+        hw_writer(std::move(hw_writer)),
+        buf(this->cfg.channels.size()) {
     }
 
 private:
-    /// @brief automatically infer the data type from the template parameter. This
-    /// will either be UINT8_T or FLOAT64_T. We use this to appropriately cast
-    /// the data read from the hardware.
-    const telem::DataType data_type = telem::DataType::infer<T>();
+    /// @brief the underlying DAQmx hardware we write data to.
+    const std::unique_ptr<hardware::Writer<T>> hw_writer;
     /// @brief the parent write task.
     /// @brief a pre-allocated write buffer that is flushed to the device every
     /// time a command is provided.
     std::vector<T> buf;
-    std::unique_ptr<hardware::Writer<T>> hw_writer;
 
+    /// @brief implements common::Task to start the hardware writer.
     xerrors::Error start() override {
         return this->hw_writer->start();
     }
 
+    /// @brief implements common::Task to stop the hardware writer.
     xerrors::Error stop() override {
         return this->hw_writer->stop();
     }
@@ -202,14 +206,16 @@ private:
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
     xerrors::Error write(const synnax::Frame &frame) override {
-        for (const auto &[key, series]: frame) {
-            auto it = this->cfg.buf_indexes.find(key);
-            if (it != this->cfg.buf_indexes.end())
-                buf[it->second] = telem::cast<T>(series.at(-1));
-        }
+        for (const auto &[cmd_key, series]: frame)
+            if (auto it = this->cfg.buf_indexes.find(cmd_key);
+                it != this->cfg.buf_indexes.end()
+            ) {
+                const auto buf_index = it->second;
+                buf[buf_index] = telem::cast<T>(series.at(-1));
+            }
         if (const auto err = this->hw_writer->write(buf))
-            return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
-        this->set_state(frame);;
+            return translate_error(err);
+        this->set_state(frame);
         return xerrors::NIL;
     }
 };
