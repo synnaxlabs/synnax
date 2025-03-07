@@ -24,7 +24,6 @@ var _ = Describe("Integer Set", Ordered, func() {
 		for i := 0; i < 100; i++ {
 			nums[i] = i
 		}
-
 	})
 	BeforeEach(func() {
 		s = set.Integer[int]{}
@@ -134,6 +133,128 @@ var _ = Describe("Integer Set", Ordered, func() {
 			Expect(s.Contains(0)).To(BeFalse())
 			Expect(s.NumGreaterThan(0)).To(Equal(0))
 			Expect(s.NumLessThan(0)).To(Equal(0))
+		})
+	})
+	Describe("Testing Copy method", func() {
+		It("should create a copy that is independent of the original", func() {
+			s.Insert(1, 2, 3, 4, 5)
+			copySet := s.Copy()
+			Expect(copySet.Size()).To(Equal(s.Size()))
+			// Modify the original.
+			s.Remove(3)
+			// The copy should remain unchanged.
+			Expect(copySet.Size()).To(Equal(5))
+			Expect(copySet.Contains(3)).To(BeTrue())
+		})
+		It("should return an empty set when copying an empty set", func() {
+			copySet := s.Copy()
+			Expect(copySet.Size()).To(Equal(0))
+		})
+	})
+	Describe("Testing unsorted input", func() {
+		It("should insert unsorted integers correctly", func() {
+			// Provide unsorted input.
+			s.Insert(5, 1, 4, 3, 2)
+			// The resulting set should contain numbers 1 through 5.
+			Expect(s.Size()).To(Equal(5))
+			for i := 1; i <= 5; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+			// Verify that the set has compressed the range into a single interval.
+			Expect(len(s)).To(Equal(1))
+		})
+		It("should handle unsorted input with duplicates", func() {
+			// Insert unsorted input with duplicates.
+			s.Insert(10, 5, 5, 8, 1, 3, 8, 2, 4)
+			// The expected unique set is numbers: 1, 2, 3, 4, 5, 8, 10.
+			Expect(s.Size()).To(Equal(7))
+			expected := []int{1, 2, 3, 4, 5, 8, 10}
+			for _, num := range expected {
+				Expect(s.Contains(num)).To(BeTrue())
+			}
+		})
+		It("should correctly merge intervals from unsorted input", func() {
+			// Insert unsorted input that should produce multiple intervals.
+			s.Insert(20, 18, 19, 5, 6, 7, 15)
+			// The sorted unique values are: 5,6,7,15,18,19,20.
+			// Note: 15 is isolated (not adjacent to 18), so we expect three intervals:
+			// [5,8) covering 5,6,7; [15,16) covering 15; and [18,21) covering 18,19,20.
+			Expect(s.Size()).To(Equal(7))
+			Expect(len(s)).To(Equal(3))
+			// Verify membership.
+			for i := 5; i < 8; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+			Expect(s.Contains(15)).To(BeTrue())
+			for i := 18; i < 21; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+		})
+	})
+	Describe("Comprehensive unsorted input tests", func() {
+		It("should correctly handle a completely unsorted contiguous sequence", func() {
+			// Unsorted contiguous sequence.
+			input := []int{7, 3, 4, 1, 2, 5, 6}
+			s.Insert(input...)
+			// Expected: a single interval [1,8) with size 7.
+			Expect(s.Size()).To(Equal(7))
+			Expect(len(s)).To(Equal(1))
+			for i := 1; i <= 7; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+		})
+		It("should correctly handle unsorted non-contiguous inputs", func() {
+			// Unsorted non-contiguous input.
+			input := []int{50, 20, 40, 10, 30, 70, 60, 90, 80}
+			s.Insert(input...)
+			// Since these numbers are not consecutive, each should form its own interval.
+			Expect(s.Size()).To(Equal(9))
+			Expect(len(s)).To(Equal(9))
+			for _, num := range input {
+				Expect(s.Contains(num)).To(BeTrue())
+			}
+		})
+		It("should correctly handle unsorted input with multiple contiguous groups and duplicates", func() {
+			// Unsorted input with duplicates and distinct groups.
+			input := []int{100, 102, 101, 200, 202, 201, 200, 150, 149, 151, 149, 152}
+			s.Insert(input...)
+			// Expected groups:
+			// Group 1: [100,101,102] -> 3 numbers.
+			// Group 2: [149,150,151,152] -> 4 numbers.
+			// Group 3: [200,201,202] -> 3 numbers.
+			Expect(s.Size()).To(Equal(3 + 4 + 3))
+			Expect(len(s)).To(Equal(3))
+			for i := 100; i <= 102; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+			for i := 149; i <= 152; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+			for i := 200; i <= 202; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+		})
+		It("should correctly merge unsorted input with an existing set", func() {
+			// Start with a sorted input.
+			s.Insert(10, 11, 12, 13, 14)
+			// Then insert unsorted values that extend the existing interval.
+			s.Insert(15, 9)
+			// Expected final interval is [9,16) with size 7.
+			Expect(s.Size()).To(Equal(7))
+			Expect(len(s)).To(Equal(1))
+			for i := 9; i <= 15; i++ {
+				Expect(s.Contains(i)).To(BeTrue())
+			}
+		})
+	})
+	Describe("Duplicate Insertion", func() {
+		It("should not increase the size when inserting duplicate contiguous values", func() {
+			s.Insert(1, 2, 3)
+			sizeAfterFirst := s.Size()
+			s.Insert(1, 2, 3)
+			// The size should remain the same and only one interval should exist.
+			Expect(s.Size()).To(Equal(sizeAfterFirst))
+			Expect(len(s)).To(Equal(1))
 		})
 	})
 })

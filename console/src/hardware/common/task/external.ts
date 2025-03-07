@@ -14,6 +14,7 @@ export * from "@/hardware/common/task/EnableDisableButton";
 export * from "@/hardware/common/task/fields";
 export * from "@/hardware/common/task/Form";
 export * from "@/hardware/common/task/layouts";
+export * from "@/hardware/common/task/shouldExecuteCommand";
 export * from "@/hardware/common/task/TareButton";
 export * from "@/hardware/common/task/Task";
 export * from "@/hardware/common/task/types";

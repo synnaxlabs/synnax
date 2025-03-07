@@ -64,13 +64,12 @@ export const Selector = ({
             <Button.Button
               key={key}
               variant="outlined"
-              onClick={() => {
-                create({ layoutKey, rename })
-                  .then((layout) => {
-                    if (layout != null) place(layout);
-                  })
-                  .catch((e) => handleException(e, "Failed to select layout"));
-              }}
+              onClick={() =>
+                handleException(async () => {
+                  const layout = await create({ layoutKey, rename });
+                  if (layout != null) place(layout);
+                }, `Failed to create ${title}`)
+              }
               startIcon={icon}
               style={{ flexBasis: "185px" }}
             >

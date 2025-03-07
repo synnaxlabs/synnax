@@ -20,9 +20,12 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
+export const statusZ = z.enum(["info", "success", "error", "warning"]);
+export type Status = z.infer<typeof statusZ>;
+
 export const stateZ = z.object({
   task: keyZ,
-  variant: z.string(),
+  variant: statusZ,
   key: z.string().optional(),
   details: z
     .record(z.unknown())
@@ -75,7 +78,7 @@ export const commandZ = z.object({
     .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
     .or(z.array(z.unknown()))
     .or(z.null())
-    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
+    .optional(),
 });
 export interface Command<Args extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {

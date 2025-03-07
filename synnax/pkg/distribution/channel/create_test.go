@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -25,8 +27,9 @@ var _ = Describe("Create", Ordered, func() {
 	var (
 		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
+		limit    int
 	)
-	BeforeAll(func() { builder, services = provisionServices() })
+	BeforeAll(func() { builder, services, limit = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
@@ -355,5 +358,31 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[0].Name).To(Equal("NonVirtual"))
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
+	})
+	Context("Channel Limit", func() {
+
+		It("Should not allow creating channels over the limit", func() {
+			// Create channels up to the limit
+			for i := range limit {
+				ch := channel.Channel{
+					Rate:        10 * telem.Hz,
+					DataType:    telem.Float64T,
+					Name:        fmt.Sprintf("LimitTest%d", i),
+					Leaseholder: 1,
+				}
+				Expect(services[3].Create(ctx, &ch)).To(Succeed())
+			}
+
+			// Try to create one more channel over the limit
+			overLimitCh := channel.Channel{
+				Rate:        10 * telem.Hz,
+				DataType:    telem.Float64T,
+				Name:        "OverLimit",
+				Leaseholder: 1,
+			}
+			err := services[3].Create(ctx, &overLimitCh)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		})
 	})
 })

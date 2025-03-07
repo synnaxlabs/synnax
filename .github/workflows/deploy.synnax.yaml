@@ -101,7 +101,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest' 
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2

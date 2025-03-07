@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type FC } from "react";
 import { z } from "zod";
@@ -34,41 +34,32 @@ import {
   wrap,
   type WrapOptions,
 } from "@/hardware/common/task/Task";
+import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { type BaseStateDetails, useState } from "@/hardware/common/task/useState";
+import { type StateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
 
-type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
 
 export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
-> =
+> = { methods: PForm.ContextValue<Schema<Config>> } & (
   | {
-      methods: PForm.ContextValue<Schema<Config>>;
+      configured: false;
       task: task.Payload<Config, Details, Type>;
       isSnapshot: false;
       isRunning: false;
-      configured: false;
     }
-  | {
-      methods: PForm.ContextValue<Schema<Config>>;
-      task: task.Task<Config, Details, Type>;
-      isSnapshot: false;
-      isRunning: boolean;
-      configured: true;
-    }
-  | {
-      methods: PForm.ContextValue<Schema<Config>>;
-      task: task.Task<Config, Details, Type>;
-      isSnapshot: true;
-      isRunning: false;
-      configured: true;
-    };
+  | ({ configured: true; task: task.Task<Config, Details, Type> } & (
+      | { isSnapshot: false; isRunning: boolean }
+      | { isSnapshot: true; isRunning: false }
+    ))
+);
 
 export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
   (
@@ -81,7 +72,7 @@ export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
 
 export interface WrapFormArgs<
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends WrapOptions<Config, Details, Type> {
   Properties: FC<{}>;
@@ -94,7 +85,7 @@ const nameZ = z.string().min(1, "Name is required");
 
 export const wrapForm = <
   Config extends UnknownRecord = UnknownRecord,
-  Details extends BaseStateDetails = BaseStateDetails,
+  Details extends StateDetails = StateDetails,
   Type extends string = string,
 >({
   Properties,
@@ -115,7 +106,10 @@ export const wrapForm = <
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
-    const [state, setState] = useState(tsk.key, tsk.state ?? undefined);
+    const [state, triggerLoading, triggerError] = useState(
+      tsk.key,
+      tsk.state ?? undefined,
+    );
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
@@ -126,26 +120,34 @@ export const wrapForm = <
         methods.set("config", newConfig);
         // current work around for Pluto form issues (Issue: SY-1465)
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
-        setState("paused");
       },
       onError: (e) => handleException(e, `Failed to configure ${values.name}`),
     });
     const startOrStopMutation = useMutation({
-      mutationFn: async () => {
+      mutationFn: async (command: StartOrStopCommand) => {
         if (!configured) throw new UnexpectedError("Task has not been configured");
-        if (state.state === "loading")
-          throw new Error("State is loading, should not be able to start or stop task");
-        await tsk.executeCommand(state.state === "running" ? "stop" : "start");
+        triggerLoading();
+        try {
+          await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+        } catch (e) {
+          if (e instanceof Error) triggerError(e.message);
+          throw e;
+        }
       },
-      onError: (e) =>
-        handleException(
-          e,
-          `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
-        ),
+      onError: (e, command) => handleException(e, `Failed to ${command} task`),
     });
-    const isSnapshot = tsk.snapshot ?? false;
+    const isSnapshot = configured ? tsk.snapshot : false;
+    const isRunning =
+      configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
+    const formProps = {
+      methods,
+      configured,
+      task: tsk,
+      isSnapshot,
+      isRunning,
+    } as FormProps<Config, Details, Type>;
+
     return (
       <Align.Space
         direction="y"
@@ -168,7 +170,9 @@ export const wrapForm = <
                 <Rack taskKey={tsk.key} />
               </Align.Space>
             </Align.Space>
-            {configured && <ParentRangeButton<Config, Details, Type> task={tsk} />}
+            {configured && isSnapshot && (
+              <ParentRangeButton<Config, Details, Type> task={tsk} />
+            )}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
@@ -180,13 +184,7 @@ export const wrapForm = <
               grow
               empty
             >
-              <Form
-                methods={methods}
-                task={tsk as task.Task<Config, Details, Type>}
-                isRunning={state.state === "running"}
-                isSnapshot={isSnapshot as false}
-                configured={configured as true}
-              />
+              <Form {...formProps} />
             </Align.Space>
           </PForm.Form>
           <Controls

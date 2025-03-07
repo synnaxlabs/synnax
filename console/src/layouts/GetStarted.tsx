@@ -45,7 +45,7 @@ const NoCluster = (): ReactElement => {
   const handleVisualize = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
-      placeLayout(Vis.SELECTOR_LAYOUT);
+      placeLayout(Vis.createSelectorLayout());
       dispatch(
         Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
       );

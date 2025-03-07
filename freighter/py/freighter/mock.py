@@ -15,7 +15,7 @@ from freighter.unary import UnaryClient
 
 
 class MockUnaryClient(UnaryClient, Generic[RQ, RS]):
-    """MockUnaryClient implements a mock unary client with a pre-configured set of 
+    """MockUnaryClient implements a mock unary client with a pre-configured set of
     responses.
     """
 
@@ -64,7 +64,7 @@ class MockUnaryClient(UnaryClient, Generic[RQ, RS]):
             raise RuntimeError("mock unary client has no responses left!")
 
         ctx = Context(protocol="mock", target=target, role="client")
-        
+
         def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             error = None
             if self.response_errors:
@@ -74,5 +74,5 @@ class MockUnaryClient(UnaryClient, Generic[RQ, RS]):
         _, exc = self._mw.exec(ctx, finalizer)
         if exc is not None:
             return None, exc
-        
+
         return self.responses.pop(0), None

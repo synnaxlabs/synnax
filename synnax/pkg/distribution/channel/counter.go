@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/mathutil"
@@ -31,16 +32,4 @@ func (c *counter) add(delta LocalKey) (LocalKey, error) {
 	}
 	next, err := c.wrap.Add(int64(delta))
 	return LocalKey(next), err
-}
-
-func (c *counter) sub(delta LocalKey) (LocalKey, error) {
-	if c.wrap.Value()-int64(delta) < 0 {
-		return LocalKey(0), c.wrap.Set(0)
-	}
-	next, err := c.wrap.Add(-int64(delta))
-	return LocalKey(next), err
-}
-
-func (c *counter) value() LocalKey {
-	return LocalKey(c.wrap.Value())
 }

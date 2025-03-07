@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useStore } from "react-redux";
+import { v4 as uuid } from "uuid";
 
 import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -26,12 +27,13 @@ const SELECTABLES: CoreSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
-export const SELECTOR_LAYOUT: Layout.BaseState = {
+export const createSelectorLayout = (): Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
   name: "New Visualization",
-};
+  key: uuid(),
+});
 
 export const getSelectables = (storeState: RootState): CoreSelector.Selectable[] => {
   const canCreateSchematic = Schematic.selectHasPermission(storeState);
