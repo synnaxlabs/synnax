@@ -11,9 +11,6 @@ package channel
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/observe"
-
-	"github.com/synnaxlabs/x/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -107,7 +106,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, g)
+	proxy, err := newLeaseProxy(ctx, cfg, g)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +141,8 @@ func (s *service) NewRetrieve() Retrieve {
 func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
 	res = make([]Channel, 0, len(channels))
 	for i, key := range KeysFromChannels(channels) {
-		if s.proxy.external.Contains(key.LocalKey()) {
-			channelNumber := s.proxy.external.NumLessThan(key.LocalKey()) + 1
+		if s.proxy.externalNonVirtualSet.Contains(key) {
+			channelNumber := s.proxy.externalNonVirtualSet.NumLessThan(key) + 1
 			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(channelNumber)); err != nil {
 				return
 			}
