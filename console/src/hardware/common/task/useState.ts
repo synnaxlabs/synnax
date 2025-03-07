@@ -62,10 +62,10 @@ export const useState = <D extends BaseStateDetails>(
   });
   Observe.useListener({
     key: [client?.key, setIsRunning, setState, key],
-    open: async () => client?.hardware.tasks.openStateObserver<D>(),
+    open: async () => client?.hardware.tasks.openStateObserver(),
     onChange: (state) => {
       if (state.task !== key) return;
-      const { details, variant } = state;
+      const { details, variant } = state as task.State<D>;
       const nowRunning = details?.running ?? false;
       setIsRunning(nowRunning);
       if (details?.errors != null && formMethods != null)
