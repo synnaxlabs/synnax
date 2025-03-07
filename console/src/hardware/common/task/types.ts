@@ -141,15 +141,14 @@ interface ConfigWithSampleRateAndStreamRate {
   sampleRate: number;
   streamRate: number;
 }
-
-export const validateStreamRate = ({
-  sampleRate,
-  streamRate,
-}: ConfigWithSampleRateAndStreamRate) =>
-  [
-    sampleRate >= streamRate,
-    {
-      path: ["streamRate"],
+export const validateStreamRate = (
+  { sampleRate, streamRate }: ConfigWithSampleRateAndStreamRate,
+  { addIssue }: z.RefinementCtx,
+) => {
+  if (sampleRate < streamRate)
+    addIssue({
+      code: z.ZodIssueCode.custom,
       message: "Stream rate must be less than or equal to the sample rate",
-    },
-  ] as const;
+      path: ["streamRate"],
+    });
+};

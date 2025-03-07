@@ -68,7 +68,7 @@ const nonArraySamplingConfigZ = baseReadConfigZ
     arrayMode: z.literal(false),
     streamRate: z.number().positive().max(10000),
   })
-  .refine(Common.Task.validateStreamRate);
+  .superRefine(Common.Task.validateStreamRate);
 
 const arraySamplingConfigZ = baseReadConfigZ
   .extend({

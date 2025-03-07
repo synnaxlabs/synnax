@@ -80,19 +80,22 @@ export const Browser = ({ device }: BrowserProps) => {
       if (details == null) return;
       if (!("channels" in details)) return;
       const { channels } = details;
-      const newNodes = channels.map((node) => ({
-        key: nodeKey(node.nodeId, nodeID),
-        name: node.name,
-        icon: node.isArray ? (
-          <PIcon.Icon bottomRight={<Icon.Array />}>
-            <Icon.Variable />
-          </PIcon.Icon>
-        ) : (
-          ICONS[node.nodeClass]
-        ),
-        hasChildren: true,
-        haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
-      }));
+      const newNodes = channels.map(
+        (node) =>
+          ({
+            key: nodeKey(node.nodeId, nodeID),
+            name: node.name,
+            icon: node.isArray ? (
+              <PIcon.Icon bottomRight={<Icon.Array />}>
+                <Icon.Variable />
+              </PIcon.Icon>
+            ) : (
+              ICONS[node.nodeClass]
+            ),
+            hasChildren: true,
+            haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
+          }) as unknown as Tree.Node,
+      );
       setLoading(undefined);
       setInitialLoading(false);
       if (isRoot) setNodes(newNodes);

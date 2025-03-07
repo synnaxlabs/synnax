@@ -251,7 +251,7 @@ export const readConfigZ = Common.Task.baseConfigZ
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
-  .refine(Common.Task.validateStreamRate);
+  .superRefine(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,

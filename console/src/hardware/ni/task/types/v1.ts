@@ -231,7 +231,7 @@ const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
       .superRefine(Common.Task.validateReadChannels)
       .superRefine(v0.validateAnalogPorts),
   })
-  .refine(Common.Task.validateStreamRate);
+  .superRefine(Common.Task.validateStreamRate);
 export interface AnalogReadConfig extends z.infer<typeof baseAnalogReadConfigZ> {}
 export const analogReadConfigZ = z.union([
   v0.analogReadConfigZ.transform<AnalogReadConfig>(({ channels, device, ...rest }) => ({

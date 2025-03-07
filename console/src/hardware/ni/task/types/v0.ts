@@ -1073,7 +1073,7 @@ export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
     .superRefine(validateAnalogPorts),
 });
 
-export const analogReadConfigZ = baseAnalogReadConfigZ.refine(
+export const analogReadConfigZ = baseAnalogReadConfigZ.superRefine(
   Common.Task.validateStreamRate,
 );
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
@@ -1139,7 +1139,7 @@ export const digitalReadConfigZ = baseReadConfigZ
       .superRefine(Common.Task.validateReadChannels)
       .superRefine(validateDigitalPortsAndLines),
   })
-  .refine(Common.Task.validateStreamRate);
+  .superRefine(Common.Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
