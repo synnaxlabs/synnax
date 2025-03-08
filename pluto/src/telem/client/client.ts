@@ -71,7 +71,7 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * in when disconnected from the Synnax cluster.
  */
 export class NoopClient implements Client {
-  readonly key: string = id.id();
+  readonly key: string = id.create();
 
   /** Implements ChannelClient. */
   async retrieveChannel(): Promise<channel.Payload | null> {
@@ -102,7 +102,7 @@ interface CoreProps {
  * adding a transparent caching layer.
  */
 export class Core implements Client {
-  readonly key: string = id.id();
+  readonly key: string = id.create();
   private readonly ins: alamos.Instrumentation;
 
   private readonly cache: cache.Cache;

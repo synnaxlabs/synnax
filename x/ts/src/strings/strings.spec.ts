@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { generateShortIdentifiers, naturalLanguageJoin } from "@/strings/strings";
+import { createShortIdentifiers, naturalLanguageJoin } from "@/strings/strings";
 
 describe("naturalLanguageJoin", () => {
   it("should return an empty string for an empty array", () =>
@@ -35,30 +35,30 @@ describe("naturalLanguageJoin", () => {
     ));
 });
 
-describe("generateShortIdentifiers", () => {
-  it("should generate identifiers for a single word", () =>
-    expect(generateShortIdentifiers("Bob")).toEqual(expect.arrayContaining(["bob"])));
+describe("createShortIdentifiers", () => {
+  it("should create identifiers for a single word", () =>
+    expect(createShortIdentifiers("Bob")).toEqual(expect.arrayContaining(["bob"])));
 
-  it("should generate identifiers for multiple words", () =>
-    expect(generateShortIdentifiers("John Doe")).toEqual(
+  it("should create identifiers for multiple words", () =>
+    expect(createShortIdentifiers("John Doe")).toEqual(
       expect.arrayContaining(["jd", "j_d", "johdoe", "joh_doe"]),
     ));
 
-  it("should generate identifiers for words containing numbers", () =>
-    expect(generateShortIdentifiers("Alice 123")).toEqual(
+  it("should create identifiers for words containing numbers", () =>
+    expect(createShortIdentifiers("Alice 123")).toEqual(
       expect.arrayContaining(["a1", "a_1", "ali123", "ali_123"]),
     ));
 
-  it("should generate identifiers for words longer than three characters", () =>
-    expect(generateShortIdentifiers("Jonathan")).toEqual(
+  it("should create identifiers for words longer than three characters", () =>
+    expect(createShortIdentifiers("Jonathan")).toEqual(
       expect.arrayContaining(["jon"]),
     ));
 
-  it("should generate identifiers for words shorter than three characters", () =>
-    expect(generateShortIdentifiers("Al")).toEqual(expect.arrayContaining(["al"])));
+  it("should create identifiers for words shorter than three characters", () =>
+    expect(createShortIdentifiers("Al")).toEqual(expect.arrayContaining(["al"])));
 
-  it("should generate identifiers for mixed cases", () =>
-    expect(generateShortIdentifiers("Alice Bob")).toEqual(
+  it("should create identifiers for mixed cases", () =>
+    expect(createShortIdentifiers("Alice Bob")).toEqual(
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
 });

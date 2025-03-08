@@ -51,3 +51,4 @@ export const ZERO_PROPERTIES: Properties = {
 };
 
 export interface Device extends device.Device<Properties, Make> {}
+export interface New extends device.New<Properties, Make> {}

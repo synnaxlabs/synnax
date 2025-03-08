@@ -48,7 +48,7 @@ import {
 } from "@/hardware/opc/device/types";
 import {
   SCAN_NAME,
-  TEST_CONNECTION_COMMAND,
+  TEST_CONNECTION_COMMAND_TYPE,
   type TestConnectionCommandResponse,
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
@@ -94,7 +94,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       );
       const task = await rack.retrieveTaskByName(SCAN_NAME);
       const state = await task.executeCommandSync<TestConnectionCommandResponse>(
-        TEST_CONNECTION_COMMAND,
+        TEST_CONNECTION_COMMAND_TYPE,
         { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
       );

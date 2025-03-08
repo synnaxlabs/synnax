@@ -38,6 +38,7 @@ export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 
 export interface Device extends v1.Device {}
+export interface New extends v1.New {}
 
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.propertiesMigration,

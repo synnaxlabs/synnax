@@ -46,7 +46,7 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   }
   const handleAdd: Adder = useCallback(
     (status) => {
-      const spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      const spec = { time: TimeStamp.now(), key: id.create(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
     },
     [setState],

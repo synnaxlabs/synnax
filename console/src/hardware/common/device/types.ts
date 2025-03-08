@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
 export const nameZ = z.string().min(1, "Name must be at least 1 character long");
+
+export const keyZ = device.keyZ.min(1, "Must specify a device");
 
 export const identifierZ = z
   .string()

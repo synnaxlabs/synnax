@@ -815,7 +815,13 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_thermocouple: ({ prefix }) => {
     const CJCSourceField = Form.buildDropdownButtonSelectField({
       fieldKey: "cjcSource",
-      fieldProps: { label: "CJC Source" },
+      fieldProps: {
+        label: "CJC Source",
+        onChange: (value, { set }) => {
+          if (value === "ConstVal") set(`${prefix}.cjcVal`, 0);
+          else if (value === "Chan") set(`${prefix}.cjcPort`, 0);
+        },
+      },
       inputProps: {
         columns: NAMED_KEY_COLS,
         entryRenderKey: "name",

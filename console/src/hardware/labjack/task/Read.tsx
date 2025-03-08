@@ -167,7 +167,7 @@ const getOpenChannel = (
   index: number,
   device: Device.Device,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.id() };
+  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
   const channelToCopy = channels[index];
   // preferredPortType is AI or DI
   const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
@@ -189,7 +189,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
-    key: id.id(),
+    key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
   };
@@ -216,7 +216,7 @@ const ChannelsForm = ({
     configured,
     task,
   } as Common.Task.UseTareProps<InputChannel>);
-  const generateChannel = useCallback(
+  const createChannel = useCallback(
     (channels: InputChannel[], index: number) =>
       getOpenChannel(channels, index, device),
     [device],
@@ -243,7 +243,7 @@ const ChannelsForm = ({
     <Common.Task.Layouts.ListAndDetails<InputChannel>
       listItem={listItem}
       details={details}
-      generateChannel={generateChannel}
+      createChannel={createChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}

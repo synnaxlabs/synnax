@@ -11,6 +11,7 @@ import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
+import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
@@ -25,9 +26,7 @@ export const deviceZ = z.object({
   configured: z.boolean().optional(),
   properties: z
     .record(z.unknown())
-    .or(
-      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
-    ) as z.ZodType<UnknownRecord>,
+    .or(z.string().transform(parseWithoutKeyConversion)) as z.ZodType<UnknownRecord>,
 });
 export interface Device<
   Properties extends UnknownRecord = UnknownRecord,

@@ -26,10 +26,10 @@ export const unique = <V>(values: V[] | readonly V[]): V[] => [...new Set(values
  * the first or last occurrence of each unique key. If
  *
  * @param values - An array or readonly array of values to deduplicate.
- * @param key - A function that generates a unique key for each value.
+ * @param key - A function that creates a unique key for each value.
  * @param keepFirst - An optional boolean indicating whether to keep the first instance
  *                    (`true`, default) or the last instance (`false`) of each unique key.
- * @returns A new array containing only unique values based on the generated keys.
+ * @returns A new array containing only unique values based on the created keys.
  *
  * @example
  * // Default behavior (keep first instance):

@@ -103,7 +103,7 @@ export class Canvas implements Axis {
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
     const p = ctx.position;
-    const ticks = this.tickFactory.generate({ ...ctx, size });
+    const ticks = this.tickFactory.create({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(p, "x", tick.position),
       xy.translate(p, { x: tick.position, y: -gridSize }),
@@ -130,7 +130,7 @@ export class Canvas implements Axis {
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
     const p = xy.translate(ctx.position, "y", ctx.size);
-    const ticks = this.tickFactory.generate({ ...ctx, size });
+    const ticks = this.tickFactory.create({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(p, "x", tick.position),
       xy.translate(p, { x: tick.position, y: gridSize }),
@@ -157,7 +157,7 @@ export class Canvas implements Axis {
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
     const p = xy.translate(ctx.position, "x", ctx.size);
-    const ticks = this.tickFactory.generate({ ...ctx, size });
+    const ticks = this.tickFactory.create({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(p, "y", tick.position),
       xy.translate(p, { x: gridSize, y: tick.position }),
@@ -184,7 +184,7 @@ export class Canvas implements Axis {
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
     const p = ctx.position;
-    const ticks = this.tickFactory.generate({ ...ctx, size });
+    const ticks = this.tickFactory.create({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(p, "y", tick.position),
       xy.translate(p, { x: -gridSize, y: tick.position }),

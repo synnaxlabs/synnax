@@ -243,7 +243,7 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
  * the correct component type on the worker thread. A constructor for this type must
  * exist on the registry passed into aether.render on the worker thread.
  * @param props.aetherKey - A unique key for the component that is used to identify it
- * in the aether component tree. We recommend using `Aether.wrap` to generate unique keys.
+ * in the aether component tree. We recommend using `Aether.wrap` to create unique keys.
  * @param props.schema - The zod schema for the component's state. Used to validate state
  * changes on transfer to and from the worker thread.
  * @param props.initialState - The initial state for the component. Note that this state
@@ -251,9 +251,9 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
  * in the component's state. To alter the component's state, use the setState function
  * returned by the hook.
  * @returns A triplet with the following values:
- * 1. An object containing metadata about the generated component. This object contains
- * a path property, which is an array of strings representing the path to the component
- * in the aether component tree.
+ * 1. An object containing metadata about the created component. This object contains a
+ *    path property, which is an array of strings representing the path to the component
+ *    in the aether component tree.
  * 2. The component's current state. This is synchronized with the worker thread, and
  * can be updated by both the worker and the main thread.
  * 3. A function that can be used to update the component's state. This function takes

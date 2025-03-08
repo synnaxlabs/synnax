@@ -13,11 +13,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
-
-export interface Channel {
-  key: string;
-  enabled: boolean;
-}
+import { type Channel } from "@/hardware/common/task/types";
 
 interface ContextMenuProps<C extends Channel> {
   allowTare?: (keys: string[], channels: C[]) => boolean;

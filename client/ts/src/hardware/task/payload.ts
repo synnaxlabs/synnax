@@ -11,6 +11,7 @@ import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
+import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([
   z.string(),
@@ -28,9 +29,9 @@ export const stateZ = z.object({
   key: z.string().optional(),
   details: z
     .record(z.unknown())
-    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
+    .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
-    .or(z.null()),
+    .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
 });
 export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
@@ -42,11 +43,7 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z
-    .record(z.unknown())
-    .or(
-      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
-    ) as z.ZodType<UnknownRecord>,
+  config: z.record(z.unknown()).or(z.string().transform(parseWithoutKeyConversion)),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });

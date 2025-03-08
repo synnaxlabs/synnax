@@ -15,4 +15,5 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 // respectively. This is done to ensure that the keys are consistent across all
 // languages and platforms. Sometimes items have keys that are uuids, which have dashes,
 // and those get messed up. So we just use regular JSON for these items.
-export const parseWithoutKeyConversion = (s: string): UnknownRecord => JSON.parse(s);
+export const parseWithoutKeyConversion = (s: string): UnknownRecord =>
+  s ? JSON.parse(s) : {};
