@@ -138,10 +138,10 @@ export type Units = z.infer<typeof unitsZ>;
 export const LINEAR_SCALE_TYPE = "linear";
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().refine((val) => val !== 0, { message: "Slope must be nonzero" }),
-  yIntercept: z.number(),
+  slope: z.number().finite(),
+  yIntercept: z.number().finite(),
   preScaledUnits: unitsZ,
-  scaledUnits: z.string().min(1, { message: "Scaled units must be non-empty" }),
+  scaledUnits: z.string(),
 });
 interface LinearScale extends z.infer<typeof linearScaleZ> {}
 const ZERO_LINEAR_SCALE: LinearScale = {
@@ -153,37 +153,74 @@ const ZERO_LINEAR_SCALE: LinearScale = {
 };
 
 export const MAP_SCALE_TYPE = "map";
-const mapScaleZ = z.object({
-  type: z.literal(MAP_SCALE_TYPE),
-  preScaledMin: z.number(),
-  preScaledMax: z.number(),
-  scaledMin: z.number(),
-  scaledMax: z.number(),
-  preScaledUnits: unitsZ,
-});
+const mapScaleZ = z
+  .object({
+    type: z.literal(MAP_SCALE_TYPE),
+    preScaledMin: z.number().finite(),
+    preScaledMax: z.number().finite(),
+    scaledMin: z.number().finite(),
+    scaledMax: z.number().finite(),
+    preScaledUnits: unitsZ,
+    scaledUnits: z.string(),
+  })
+  .refine(({ preScaledMin, preScaledMax }) => preScaledMin < preScaledMax, {
+    message: "Pre-scaled min must be less than pre-scaled max",
+    path: ["preScaledMin"],
+  })
+  .refine(({ scaledMin, scaledMax }) => scaledMin < scaledMax, {
+    message: "Scaled min must be less than scaled max",
+    path: ["scaledMin"],
+  });
 interface MapScale extends z.infer<typeof mapScaleZ> {}
 const ZERO_MAP_SCALE: MapScale = {
   type: MAP_SCALE_TYPE,
   preScaledMin: 0,
-  preScaledMax: 0,
+  preScaledMax: 1,
   scaledMin: 0,
-  scaledMax: 0,
+  scaledMax: 1,
   preScaledUnits: VOLTS,
+  scaledUnits: VOLTS,
 };
 
 export const TABLE_SCALE_TYPE = "table";
-const tableScaleZ = z.object({
-  type: z.literal(TABLE_SCALE_TYPE),
-  preScaledVals: z.array(z.number()),
-  scaledVals: z.array(z.number()),
-  preScaledUnits: unitsZ,
-});
+const tableScaleZ = z
+  .object({
+    type: z.literal(TABLE_SCALE_TYPE),
+    preScaledVals: z.number().finite().array(),
+    scaledVals: z.number().finite().array(),
+    preScaledUnits: unitsZ,
+    scaledUnits: z.string(),
+  })
+  .superRefine(({ preScaledVals, scaledVals }, { addIssue }) => {
+    if (preScaledVals.length !== scaledVals.length) {
+      const baseIssue = {
+        code: z.ZodIssueCode.custom,
+        message: "Pre-scaled and scaled values must have the same length",
+      };
+      addIssue({ ...baseIssue, path: ["preScaledVals"] });
+      addIssue({ ...baseIssue, path: ["scaledVals"] });
+    }
+  })
+  .superRefine(({ preScaledVals }, { addIssue }) => {
+    if (preScaledVals.length === 0) return;
+    let lastVal = preScaledVals[0];
+    for (let i = 1; i < preScaledVals.length; i++) {
+      if (preScaledVals[i] <= lastVal)
+        addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Pre-scaled values must be monotonically increasing",
+          path: ["preScaledVals"],
+        });
+      lastVal = preScaledVals[i];
+    }
+  });
 interface TableScale extends z.infer<typeof tableScaleZ> {}
 const ZERO_TABLE_SCALE: TableScale = {
   type: TABLE_SCALE_TYPE,
   preScaledVals: [],
   scaledVals: [],
   preScaledUnits: VOLTS,
+  scaledUnits: VOLTS,
 };
 
 export const NO_SCALE_TYPE = "none";

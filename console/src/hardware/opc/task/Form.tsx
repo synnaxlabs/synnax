@@ -109,8 +109,10 @@ interface ChannelListProps<C extends Channel>
   convertHaulItemToChannel: (item: Haul.Item) => C;
 }
 
+const VARIABLE_NODE_CLASS = "Variable";
+
 const filterHaulItem = (item: Haul.Item): boolean =>
-  item.type === Device.HAUL_TYPE && item.data?.nodeClass === "Variable";
+  item.type === Device.HAUL_TYPE && item.data?.nodeClass === VARIABLE_NODE_CLASS;
 
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 

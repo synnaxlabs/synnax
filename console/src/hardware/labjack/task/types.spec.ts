@@ -198,7 +198,6 @@ describe("readConfigZ", () => {
     };
 
     const result = readConfigZ.safeParse(configWithLinearScale);
-    console.log(result.error);
     expect(result.success).toBe(true);
   });
 });
