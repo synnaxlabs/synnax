@@ -68,7 +68,7 @@ Channel::Channel(
 void Channel::to_proto(api::v1::Channel *ch) const {
     ch->set_name(name);
     ch->set_data_type(data_type.name());
-    ch->set_rate(rate.value);
+    ch->set_rate(rate.hz());
     ch->set_is_index(is_index);
     ch->set_leaseholder(leaseholder);
     ch->set_index(index);
@@ -118,6 +118,19 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
+/// @brief rate based create.
+std::pair<Channel, xerrors::Error> ChannelClient::create(
+    const std::string &name,
+    const telem::DataType &data_type,
+    const bool is_virtual
+) const {
+    auto ch = Channel(name, data_type, is_virtual);
+    auto err = create(ch);
+    return {ch, err};
+}
+
+
+
 /// @brief multiple channel create.
 xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     auto req = api::v1::ChannelCreateRequest();
@@ -162,7 +175,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(
     if (res.channels_size() > 1)
         return {
             Channel(),
-            xerrors::Error(xerrors::QUERY_ERROR,
+            xerrors::Error(xerrors::QUERY,
                            "multiple channels found matching name " + name)
         };
     return {Channel(res.channels(0)), err};

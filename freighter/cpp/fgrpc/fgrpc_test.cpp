@@ -26,7 +26,6 @@ auto base_target = "localhost:8080";
 TEST(testGRPC, basicProto) {
     auto m = test::Message();
     m.set_payload("Hello");
-
     ASSERT_EQ(m.payload(), "Hello");
 }
 

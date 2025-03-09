@@ -81,7 +81,7 @@ public:
         );
     }
 
-    void stop() override { pipe.stop(); }
+    void stop(bool will_reconfigure) override { pipe.stop(); }
 };
 
 class Factory final : public task::Factory {
@@ -100,7 +100,7 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-        auto [existing, err] = rack.tasks.retrieveByType("meminfo");
+        auto [existing, err] = rack.tasks.retrieve_by_type("meminfo");
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,

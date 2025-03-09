@@ -12,9 +12,7 @@
 /// std
 #include <chrono>
 #include <cmath>
-
-/// external
-#include "glog/logging.h"
+#include <thread>
 
 /// internal
 #include "x/cpp/telem/telem.h"
@@ -27,31 +25,28 @@ namespace loop {
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
 const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
 
-const uint64_t RESOLUTION = (100 * telem::MICROSECOND).value;
+const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
 /// @brief fine grain sleep function (using Welford's online algorithm)
 /// @param dur the duration to sleep for in nanoseconds
-inline void preciseSleep(const telem::TimeSpan &dur) {
-    const auto ns = dur.chrono();
-    const auto end = hs_clock::now() + ns;
+inline void precise_sleep(const telem::TimeSpan &dur) {
+    const auto end = hs_clock::now() + dur.chrono();
     // static because variance in sleep duration is measured across each call
     // to compute a more accurate sleep time for the machine running the code
-    const uint64_t nanoseconds = ns.count();
-    static uint64_t estimate = RESOLUTION * 10; // overestimate innitially
-    static uint64_t mean = RESOLUTION * 10;
-    static uint64_t M2 = 0;
-    static uint64_t count = 1;
-    // use the welford's online algorithm to sleep for most of the time
-    // updating the estimate as we go
-    while (nanoseconds > estimate) {
+    static telem::TimeSpan estimate = RESOLUTION * 10; // overestimate initially
+    static telem::TimeSpan mean = RESOLUTION * 10;
+    static auto M2 = telem::TimeSpan(0);
+    static int64_t count = 1;
+    while (dur > estimate) {
         auto start = hs_clock::now();
-        std::this_thread::sleep_for(std::chrono::nanoseconds(RESOLUTION));
-        const auto end = hs_clock::now();
-        const auto elapsed = std::chrono::duration_cast<nanos>(end - start).count();
-        const uint64_t delta = elapsed - mean;
+        if (start >= end) break;
+        std::this_thread::sleep_for(RESOLUTION.chrono());
+        const auto curr_end = hs_clock::now();
+        const auto elapsed = std::chrono::duration_cast<nanos>(curr_end - start).count();
+        const telem::TimeSpan delta = elapsed - mean;
         mean += delta / count;
         M2 += delta * (elapsed - mean);
-        estimate = mean + 1 * std::sqrt(M2 / count);
+        estimate = mean + std::sqrt((M2 / count).nanoseconds());
         count++;
     }
     // busy wait for the last bit to ensure we sleep for the correct duration
@@ -72,7 +67,7 @@ public:
     ) : interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
     }
 
-    telem::TimeSpan elapsed(std::chrono::high_resolution_clock::time_point now) {
+    telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
         if (!last_set) {
             last_set = true;
             return telem::TimeSpan(0);
@@ -89,7 +84,7 @@ public:
             return {telem::TimeSpan(elapsed), false};
         }
         const auto remaining = interval - elapsed;
-        if (this->highRate()) preciseSleep(remaining);
+        if (this->high_rate()) precise_sleep(remaining);
         else std::this_thread::sleep_for(remaining.chrono());
         last = hs_clock::now();
         return {telem::TimeSpan(elapsed), true};
@@ -102,9 +97,9 @@ public:
             last = now;
             return {telem::TimeSpan(elapsed), false};
         }
-        const auto remaining = interval - elapsed;;
-        if (this->highRate()) preciseSleep(remaining);
-        else if (this->mediumRate())
+        const auto remaining = interval - elapsed;
+        if (this->high_rate()) precise_sleep(remaining);
+        else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else breaker.wait_for(remaining);
         last = hs_clock::now();
@@ -112,14 +107,52 @@ public:
     }
 
 private:
-    [[nodiscard]] bool highRate() const { return interval < HIGH_RES_THRESHOLD; }
+    [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
 
-    [[nodiscard]] bool mediumRate() const {
+    [[nodiscard]] bool medium_rate() const {
         return interval < MEDIUM_RES_THRESHOLD;
     }
 
     telem::TimeSpan interval{};
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
+};
+
+class Gauge {
+    size_t count = 0;
+    telem::TimeSpan total_duration{0};
+    telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
+    telem::TimeSpan max_duration{0};
+    telem::TimeStamp curr_start = telem::TimeStamp(0);
+
+public:
+    void start() {
+        curr_start = telem::TimeStamp::now();
+    }
+
+    void stop() {
+        if (curr_start == telem::TimeStamp(0)) return;
+        const auto duration = telem::TimeStamp::now() - curr_start;
+        total_duration += duration;
+        min_duration = std::min(min_duration, duration);
+        max_duration = std::max(max_duration, duration);
+        count++;
+    }
+
+    [[nodiscard]] telem::TimeSpan average() const {
+        if (count == 0) return telem::TimeSpan(0);
+        return total_duration / count;
+    }
+
+    [[nodiscard]] telem::TimeSpan min() const { return min_duration; }
+    [[nodiscard]] telem::TimeSpan max() const { return max_duration; }
+    [[nodiscard]] size_t iterations() const { return count; }
+
+    void reset() {
+        count = 0;
+        total_duration = telem::TimeSpan(0);
+        min_duration = telem::TimeSpan(std::numeric_limits<int64_t>::max());
+        max_duration = telem::TimeSpan(0);
+    }
 };
 }

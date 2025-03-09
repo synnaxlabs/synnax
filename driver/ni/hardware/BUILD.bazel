@@ -1,0 +1,13 @@
+cc_library(
+    name = "hardware",
+    srcs = [
+        "daqmx.cpp",
+        "mock.cpp",
+    ],
+    hdrs = ["hardware.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ni/daqmx",
+        "@com_github_google_glog//:glog",
+    ],
+)

@@ -16,7 +16,7 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace driver {
-const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("driver");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
 const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
 const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
 const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");

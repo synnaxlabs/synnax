@@ -17,9 +17,6 @@
 #include <windows.h>
 #endif
 
-#ifdef _WIN32
-#include "driver/labjack/labjack.h"
-#endif
 
 /// module
 #include "x/cpp/xlog/xlog.h"
@@ -30,6 +27,7 @@
 
 /// internal
 #include "driver/ni/ni.h"
+#include "driver/labjack/labjack.h"
 #include "driver/sequence/sequence.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/opc/opc.h"
@@ -57,22 +55,13 @@ struct RemoteInfo {
 };
 
 inline std::vector<std::string> default_integrations() {
-#ifdef _WIN32
-    return {
-        heartbeat::INTEGRATION_NAME,
-        opc::INTEGRATION_NAME,
-        ni::INTEGRATION_NAME,
-        labjack::INTEGRATION_NAME,
-        sequence::INTEGRATION_NAME
-    };
-#else
     return {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
-        heartbeat::INTEGRATION_NAME
+        heartbeat::INTEGRATION_NAME,
+        labjack::INTEGRATION_NAME,
     };
-#endif
 }
 
 /// @brief the configuration information necessary for running the driver. The driver
@@ -111,16 +100,20 @@ struct Config {
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "[driver] configuration:\n"
-                << "  " << xlog::SHALE() << "cluster address" << xlog::RESET() << ": " <<
+                << "  " << xlog::SHALE() << "cluster address" << xlog::RESET() << ": "
+                <<
                 cfg.connection.host << ":" << cfg.connection
                 .port << "\n"
                 << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.
                 connection.username << "\n"
-                << "  " << xlog::SHALE() << "rack" << xlog::RESET() << ": " << cfg.rack.name
+                << "  " << xlog::SHALE() << "rack" << xlog::RESET() << ": " << cfg.rack.
+                name
                 << " (" << cfg.rack.key << ")\n"
-                << "  " << xlog::SHALE() << "cluster key" << xlog::RESET() << ": " << cfg.
+                << "  " << xlog::SHALE() << "cluster key" << xlog::RESET() << ": " <<
+                cfg.
                 remote_info.cluster_key << "\n"
-                << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
+                << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() <<
+                ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";
@@ -183,10 +176,10 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     breaker::Breaker breaker = breaker::Breaker({
         .name = "driver",
-        .base_interval = telem::TimeSpan::seconds(1),
+        .base_interval = telem::SECOND,
         .max_retries = 200,
         .scale = 1.1,
-        .max_interval = telem::TimeSpan::minutes(1)
+        .max_interval = telem::MINUTE,
     });
     xerrors::Error run_err = xerrors::NIL;
 

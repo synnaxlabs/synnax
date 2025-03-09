@@ -152,7 +152,7 @@ public:
     std::pair<Task, xerrors::Error> retrieve(std::uint64_t key) const;
 
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieveByType(const std::string &type) const;
+    std::pair<Task, xerrors::Error> retrieve_by_type(const std::string &type) const;
 
     [[nodiscard]]
     std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
@@ -163,7 +163,7 @@ public:
     ) const;
 
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieveByType(
+    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
         const std::vector<std::string> &types
     ) const;
 
@@ -247,6 +247,14 @@ private:
     friend class HardwareClient;
 };
 
+inline std::unordered_map<std::string, Device> device_keys_map(
+    const std::vector<Device> &devices
+) {
+    std::unordered_map<std::string, Device> map;
+    map.reserve(devices.size());
+    for (const auto &device : devices) map[device.key] = device;
+    return map;
+}
 
 class HardwareClient {
 public:
@@ -286,6 +294,10 @@ public:
 
     [[nodiscard]]
     std::pair<Device, xerrors::Error> retrieve_device(const std::string &key) const;
+
+    std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
+        const std::vector<std::string> &keys
+    ) const;
 
     [[nodiscard]]
     xerrors::Error create_device(Device &device) const;

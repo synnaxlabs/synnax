@@ -1,0 +1,6 @@
+cc_library(
+    name = "cli",
+    hdrs = ["cli.h"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

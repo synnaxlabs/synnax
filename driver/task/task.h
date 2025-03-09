@@ -114,7 +114,7 @@ public:
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
     /// a call to the destructor.
-    virtual void stop() = 0;
+    virtual void stop(bool will_reconfigure) = 0;
 
     virtual ~Task() = default;
 };
@@ -192,8 +192,7 @@ public:
             }
             writer = std::make_unique<Writer>(std::move(su));
         }
-        auto fr = Frame(chan.key, telem::Series(state.to_json()));
-        if (writer->write(fr)) return;
+        if (writer->write(Frame(chan.key, telem::Series(state.to_json())))) return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;

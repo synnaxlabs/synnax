@@ -31,8 +31,8 @@ cc_test(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/testutil",
         "//driver/heartbeat",
-        "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

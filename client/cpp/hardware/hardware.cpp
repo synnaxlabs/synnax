@@ -205,7 +205,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve(
 }
 
 
-std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
+std::pair<Task, xerrors::Error> TaskClient::retrieve_by_type(
     const std::string &type
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
@@ -221,7 +221,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
     return {Task(res.tasks(0)), err};
 }
 
-std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieveByType(
+std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve_by_type(
     const std::vector<std::string> &types
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
@@ -273,6 +273,16 @@ std::pair<Device, xerrors::Error> HardwareClient::retrieve_device(
                            "Device matching" + key + " not found")
         };
     return {Device(res.devices(0)), err};
+}
+
+std::pair<std::vector<Device>, xerrors::Error> HardwareClient::retrieve_devices(
+    const std::vector<std::string> &keys) const {
+    auto req = api::v1::HardwareRetrieveDeviceRequest();
+    req.mutable_keys()->Add(keys.begin(), keys.end());
+    auto [res, err] = device_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    if (err) return {std::vector<Device>(), err};
+    std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
+    return {devices, err};
 }
 
 xerrors::Error HardwareClient::create_device(Device &device) const {

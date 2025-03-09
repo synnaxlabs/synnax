@@ -11,6 +11,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/heartbeat",
+        "//driver/labjack",
         "//driver/ni",
         "//driver/opc",
         "//driver/sequence",
@@ -19,10 +20,7 @@ cc_library(
         "//x/cpp/xargs",
         "//x/cpp/xlog",
         "//x/cpp/xos",
-    ] + select({
-        "@platforms//os:windows": ["//driver/labjack"],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 cc_test(
@@ -33,7 +31,6 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
-        "//vendor/mbedtls",
         "@com_google_googletest//:gtest_main",
-    ]
+    ],
 )
