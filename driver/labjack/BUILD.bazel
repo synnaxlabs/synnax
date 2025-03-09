@@ -2,7 +2,6 @@ cc_library(
     name = "labjack",
     srcs = [
         "factory.cpp",
-        "scan_task.cpp",
     ],
     hdrs = [
         "labjack.h",

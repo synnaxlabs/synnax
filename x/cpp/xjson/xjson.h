@@ -45,20 +45,20 @@ class Parser {
     template<typename T>
     T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
         try {
-            // Handle string-to-numeric conversion if needed
-            if (iter->is_string() && std::is_arithmetic_v<T>) {
-                T value;
-                std::istringstream iss(iter->get<std::string>());
-                if (!(iss >> value)) {
-                    field_err(path, "Expected a number, got " + iter->get<std::string>());
-                    return T();
+            if constexpr (std::is_arithmetic_v<T>) {
+                if (iter->is_string()) {
+                    T value;
+                    std::istringstream iss(iter->get<std::string>());
+                    if (!(iss >> value)) {
+                        this->field_err(path, "expected a number, got '" + iter->get<std::string>() + "'");
+                        return T();
+                    }
+                    return value;
                 }
-                return value;
             }
             return iter->get<T>();
         } catch (const nlohmann::json::type_error &e) {
-            // slice the error message from index 32 to remove the library error prefix.
-            field_err(path, e.what() + 32);
+            this->field_err(path, e.what() + 32);
         }
         return T();
     }

@@ -72,7 +72,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
         res = configure_read(ctx, task);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(ctx, task);
-    handle_config_err(ctx, task, res.second);
+    common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }
 
