@@ -295,6 +295,18 @@ xerrors::Error HardwareClient::create_device(Device &device) const {
     return err;
 }
 
+xerrors::Error HardwareClient::create_devices(std::vector<Device> &devs) const {
+    auto req = api::v1::HardwareCreateDeviceRequest();
+    req.mutable_devices()->Reserve(devs.size());
+    for (auto &device: devs) device.to_proto(req.add_devices());
+    auto [res, err] = device_create_client->send(CREATE_RACK_ENDPOINT, req);
+    if (err) return err;
+    if (res.devices_size() == 0) return unexpected_missing("devices");
+    for (size_t i = 0; i < res.devices_size(); i++)
+        devs[i].key = res.devices().at(i).key();
+    return err;
+}
+
 Device::Device(const api::v1::Device &device) : key(device.key()),
                                                 name(device.name()),
                                                 rack(device.rack()),

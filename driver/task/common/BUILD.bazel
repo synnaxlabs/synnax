@@ -20,6 +20,7 @@ cc_test(
     srcs = [
         "read_task_test.cpp",
         "sample_clock_test.cpp",
+        "scan_task_test.cpp",
         "write_task_test.cpp",
     ],
     deps = [

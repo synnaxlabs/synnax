@@ -27,7 +27,6 @@ struct ScannerContext {
     std::size_t count = 0;
 };
 
-
 struct Scanner {
     virtual ~Scanner() = default;
 
@@ -39,6 +38,31 @@ struct Scanner {
         const ScannerContext &ctx) = 0;
 };
 
+struct ClusterAPI {
+    virtual ~ClusterAPI() = default;
+
+    virtual std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
+        std::vector<std::string> &keys) = 0;
+
+    virtual xerrors::Error create_devices(std::vector<synnax::Device> &devs) = 0;
+};
+
+struct SynnaxClusterAPI final : ClusterAPI {
+    std::shared_ptr<synnax::Synnax> client;
+
+    SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(client) {
+    }
+
+    std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
+        std::vector<std::string> &keys) override {
+        return this->client->hardware.retrieve_devices(keys);
+    }
+
+    xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
+        return this->client->hardware.create_devices(devs);
+    }
+};
+
 class ScanTask final : public task::Task, public pipeline::Base {
     const std::string task_name;
     loop::Timer timer;
@@ -46,6 +70,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::shared_ptr<task::Context> ctx;
     task::State state;
     ScannerContext scanner_ctx;
+    std::unique_ptr<ClusterAPI> client;
+    std::unordered_map<std::string, telem::TimeStamp> last_updated;
 
 public:
     ScanTask(
@@ -53,17 +79,35 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
         const breaker::Config &breaker_config,
-        const telem::Rate scan_rate
+        const telem::Rate scan_rate,
+        std::unique_ptr<ClusterAPI> client
     ): pipeline::Base(breaker_config),
        task_name(task.name),
        timer(scan_rate),
        scanner(std::move(scanner)),
        ctx(ctx),
-       scanner_ctx() {
+       scanner_ctx(),
+       client(std::move(client)) {
         this->state.task = task.key;
         this->state.variant = "pending";
         this->state.details["message"] = "scan task pending";
         this->ctx->set_state(this->state);
+    }
+
+    ScanTask(
+        std::unique_ptr<Scanner> scanner,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        const breaker::Config &breaker_config,
+        const telem::Rate scan_rate
+    ): ScanTask(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::make_unique<SynnaxClusterAPI>(ctx->client)
+    ) {
     }
 
 
@@ -108,26 +152,43 @@ public:
         }
     }
 
+    bool update_threshold_exceeded(const std::string &dev_key) {
+        auto last_updated = telem::TimeStamp(0);
+        if (auto lc = this->last_updated.find(dev_key);
+            lc != this->last_updated.end()) {
+            last_updated = lc->second;
+        }
+        auto delta = telem::TimeStamp::now() - last_updated;
+        return delta > telem::SECOND * 30;
+    }
+
     xerrors::Error scan() {
         auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
         this->scanner_ctx.count++;
         if (err) return err;
-        const auto client = this->ctx->client;
 
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs) devices.push_back(device.key);
-        auto [remote_devs_vec, ret_err] = client->hardware.retrieve_devices(devices);
+        auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(devices);
         if (ret_err) return ret_err;
 
         auto remote_devs = synnax::device_keys_map(remote_devs_vec);
 
+        std::vector<synnax::Device> to_create;
         for (auto &scanned_dev: scanned_devs) {
-            auto remote_dev = remote_devs.find(scanned_dev.key);
-            if (remote_dev != remote_devs.end()) continue;
-            if (const auto c_err = client->hardware.create_device(remote_dev->second))
-                return c_err;
+            auto iter = remote_devs.find(scanned_dev.key);
+            if (iter == remote_devs.end()) {
+                to_create.push_back(scanned_dev);
+                continue;
+            }
+            auto remote_dev = iter->second;
+            if (scanned_dev.rack != remote_dev.rack &&
+                this->update_threshold_exceeded(scanned_dev.key)) {
+                to_create.push_back(scanned_dev);
+                this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
+            }
         }
-        return xerrors::NIL;
+        return this->client->create_devices(to_create);
     }
 
     std::string name() override { return this->task_name; }

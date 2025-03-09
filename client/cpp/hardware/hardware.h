@@ -303,6 +303,9 @@ public:
     xerrors::Error create_device(Device &device) const;
 
     [[nodiscard]]
+    xerrors::Error create_devices(std::vector<Device> &devs) const;
+
+    [[nodiscard]]
     xerrors::Error delete_rack(std::uint32_t key) const;
 
 private:

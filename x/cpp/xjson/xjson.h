@@ -13,7 +13,6 @@
 #include <sstream>
 #include <string>
 #include <fstream>
-#include <cassert>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -79,8 +78,8 @@ public:
     std::shared_ptr<std::vector<json> > errors;
 
     /// @brief constructs a parser for accessing values on the given JSON configuration.
-    explicit Parser(json config) : errors(std::make_shared<std::vector<json> >()),
-                                   config(std::move(config)) {
+    explicit Parser(json config) : config(std::move(config)),
+                                   errors(std::make_shared<std::vector<json> >()) {
     }
 
     /// @brief constructs a parser for accessing values on the given stringified
@@ -101,7 +100,7 @@ public:
 
 
     /// @brief default constructor constructs a parser that will fail fast.
-    Parser(): errors(nullptr), noop(true) {
+    Parser(): noop(true), errors(nullptr) {
     }
 
 
@@ -121,15 +120,15 @@ public:
     template<typename T, typename... Paths>
     T required(const std::string& path, const Paths&... alts) {
         if (noop) return T();
-        auto iter = config.find(path);
+        const auto iter = config.find(path);
         if (iter != config.end())
             return get<T>(path, iter);
         bool found = false;
         T result{};
-        ((found = found || [&](const std::string& path) {
-            auto it = config.find(path);
+        ((found = found || [&](const std::string& alt_path) {
+            const auto it = config.find(alt_path);
             if (it != config.end()) {
-                result = get<T>(path, it);
+                result = get<T>(alt_path, it);
                 return true;
             }
             return false;
