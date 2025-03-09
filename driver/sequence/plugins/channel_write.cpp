@@ -8,78 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/sequence/plugins/plugins.h"
-
-telem::Series lua_to_series(
-    lua_State *L,
-    const int index,
-    const synnax::Channel &ch
-) {
-    if (ch.data_type == telem::FLOAT32_T)
-        return telem::Series(
-            static_cast<float>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::FLOAT64_T)
-        return telem::Series(
-            lua_tonumber(L, index),
-            ch.data_type
-        );
-    if (ch.data_type == telem::INT8_T)
-        return telem::Series(
-            static_cast<int8_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::INT16_T)
-        return telem::Series(
-            static_cast<int16_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::INT32_T)
-        return telem::Series(
-            static_cast<int32_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::INT64_T)
-        return telem::Series(
-            lua_tointeger(L, index),
-            ch.data_type
-        );
-    if (ch.data_type == telem::UINT8_T)
-        return telem::Series(
-            static_cast<uint8_t>(lua_isnumber(L, index)
-                                     ? lua_tonumber(L, index)
-                                     : lua_toboolean(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::UINT16_T)
-        return telem::Series(
-            static_cast<uint16_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::UINT32_T)
-        return telem::Series(
-            static_cast<uint32_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::UINT64_T)
-        return telem::Series(
-            static_cast<uint64_t>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    if (ch.data_type == telem::STRING_T)
-        return telem::Series(
-            std::string(lua_tostring(L, index)),
-            telem::STRING_T
-        );
-    if (ch.data_type == telem::FLOAT32_T)
-        return telem::Series(
-            static_cast<float>(lua_tonumber(L, index)),
-            ch.data_type
-        );
-    luaL_error(L, "Unsupported data type for channel %u", ch.key);
-    return telem::Series(telem::DATA_TYPE_UNKNOWN, 0);
-}
-
+#include "x/cpp/xlua/xlua.h"
 
 /// @brief an implementation of Sink backed by a Synnax writer.
 plugins::SynnaxFrameSink::SynnaxFrameSink(
@@ -163,7 +92,11 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             luaL_error(cL, err.message().c_str());
             return 0;
         }
-        auto value = lua_to_series(cL, 2, channel);
+        auto [value, s_err] = xlua::to_series(cL, 2, channel.data_type);
+        if (s_err) {
+            luaL_error(cL, s_err.message().c_str());
+            return 0;
+        }
         op->frame.emplace(channel.key, std::move(value));
         return 0;
     }, 1);
@@ -281,4 +214,18 @@ xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
     for (const auto index: index_keys)
         frame.emplace(index, telem::Series(now));
     return this->sink->write(this->frame);
+}
+
+xerrors::Error plugins::ChannelWriteNoop::before_all(lua_State *L) {
+    lua_pushcclosure(L, [](lua_State *cL) -> int {
+        luaL_error(cL, "set() was called but no channels were passed to the write list in the sequence!");
+        return 0;
+    }, 0);
+    lua_setglobal(L, "set");
+    lua_pushcclosure(L, [](lua_State *cL) -> int {
+        luaL_error(cL, "set_authority() was called but no channels were passed to the write list in the sequence!");
+        return 0;
+    }, 0);
+    lua_setglobal(L, "set_authority");
+    return xerrors::NIL;
 }
