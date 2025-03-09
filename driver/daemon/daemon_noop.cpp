@@ -19,7 +19,8 @@ void run(const Config &config, const int argc, char *argv[]) {
 }
 
 const auto NOT_SUPPORTED = xerrors::Error(
-    "running the driver as a daemon is not supported on" + xos::get() +
+    xerrors::NOT_SUPPORTED,
+    "running the driver as a daemon is not supported on " + xos::get() +
     ". Use the -s flag to start in standalone mode");
 
 xerrors::Error install_service() { return NOT_SUPPORTED; }

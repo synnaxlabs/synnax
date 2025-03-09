@@ -17,6 +17,7 @@ This script can be run in conjuction with the `control_sequence.py` script to
 demonstrate how a control sequence can be written in Synnax.
 """
 
+import random
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -76,7 +77,7 @@ vent_vlv_state = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-loop = sy.Loop(sy.Rate.HZ * 40)
+loop = sy.Loop(sy.Rate.HZ * 100)
 
 state = {
     "daq_time": sy.TimeStamp.now(),
@@ -133,15 +134,18 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
 
             # If the press valve is open, increase the pressure.
             if state["press_vlv_state"] == 1:
-                state["press_pt"] += 1
+                state["press_pt"] += 0.1
 
             # If the vent valve is open, decrease the pressure.
             elif state["vent_vlv_state"] == 1:
-                state["press_pt"] -= 1
+                state["press_pt"] -= 0.1
 
             # If the pressure is less than 0, set it to 0.
             if state["press_pt"] < 0:
                 state["press_pt"] = 0
+
+            # inject a bit of random floating point noise into the pressure.
+            state["press_pt"] += random.uniform(-0.1, 0.1)
 
             # Update the timestamp of the state to represent the current time.
             state["daq_time"] = sy.TimeStamp.now()

@@ -6,6 +6,7 @@ cc_library(
     ],
     hdrs = [
         "acquisition.h",
+        "base.h",
         "control.h",
         "middleware.h",
     ],
@@ -29,7 +30,6 @@ cc_test(
     deps = [
         "//driver/pipeline",
         "//driver/pipeline/mock",
-        "//driver/testutil",
         "//x/cpp/xtest",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
@@ -42,7 +42,6 @@ cc_test(
     deps = [
         "//driver/pipeline",
         "//driver/pipeline/mock",
-        "//driver/testutil",
         "//x/cpp/xtest",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",

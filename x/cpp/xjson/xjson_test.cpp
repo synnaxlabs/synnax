@@ -38,7 +38,7 @@ TEST(testConfig, testParserFieldDoesnNotExist) {
         float dog{};
     };
     MyConfig v;
-    json j = {};
+    const json j = {};
     xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
@@ -55,9 +55,9 @@ TEST(testConfig, testParserFieldHasInvalidType) {
         float dog{};
     };
     MyConfig v;
-    json j = {
+    const json j = {
         {"name", "test"},
-        {"dog", "1.0"}
+        {"dog", "cat"}
     };
     xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -66,7 +66,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
+    EXPECT_EQ(err["message"], "expected a number, got 'cat'");
 }
 
 TEST(testConfig, testParserFieldChildHappyPath) {
@@ -134,7 +134,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
         {
             "child", {
                 {"name", "test"},
-                {"dog", "1.0"}
+                {"dog", "cat"}
             }
         }
     };
@@ -147,7 +147,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "child.dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
+    EXPECT_EQ(err["message"], "expected a number, got 'cat'");
 }
 
 TEST(testConfig, testIterHappyPath) {
@@ -267,7 +267,7 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
                 },
                 {
                     {"name", "test2"},
-                    {"dog", 2.0}
+                    {"dog", "red"}
                 }
             }
         }
@@ -284,8 +284,8 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
-    EXPECT_EQ(err["path"], "children.0.dog");
-    EXPECT_EQ(err["message"], "type must be number, but is string");
+    EXPECT_EQ(err["path"], "children.1.dog");
+    EXPECT_EQ(err["message"], "expected a number, got 'red'");
 }
 
 TEST(testConfig, testInterpretStringAsNumber) {
@@ -304,11 +304,11 @@ TEST(testConfig, testInterpretStringAsNumber) {
 }
 
 TEST(testConfig, testArray) {
-    json j = {
+    const json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    const auto values = parser.required_vec<int>("array");
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
     ASSERT_EQ(values[0], 1);
@@ -319,9 +319,9 @@ TEST(testConfig, testArray) {
 }
 
 TEST(testConfig, testArrayDoesNotExist) {
-    json j = {};
+    const json j = {};
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    auto values = parser.required_vec<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -330,11 +330,11 @@ TEST(testConfig, testArrayDoesNotExist) {
 }
 
 TEST(testConfig, testArrayIsNotArray) {
-    json j = {
+    const json j = {
         {"array", 1}
     };
     xjson::Parser parser(j);
-    auto values = parser.required_vector<int>("array");
+    auto values = parser.required_vec<int>("array");
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -343,11 +343,11 @@ TEST(testConfig, testArrayIsNotArray) {
 }
 
 TEST(testConfig, testOptionalArray) {
-    json j = {
+    const json j = {
         {"array", {1, 2, 3, 4, 5}}
     };
     xjson::Parser parser(j);
-    auto values = parser.optional_array<int>("array", {6, 7, 8});
+    const auto values = parser.optional_vec<int>("array", {6, 7, 8});
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(values.size(), 5);
     ASSERT_EQ(values[0], 1);
@@ -358,8 +358,8 @@ TEST(testConfig, testOptionalArray) {
 }
 
 TEST(testConfig, testNoError) {
-    json j = {};
-    xjson::Parser parser(j);
-    auto err = parser.error();
+    const json j = {};
+    const xjson::Parser parser(j);
+    const auto err = parser.error();
     ASSERT_FALSE(err);
 }

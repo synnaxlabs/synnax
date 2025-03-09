@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include <utility>
-
+/// module
 #include "client/cpp/synnax.h"
+
+/// internal
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/acquisition.h"
-#include "freighter/cpp/freighter.h"
 
 namespace pipeline::mock {
 // Configuration for a mock Streamer that allows controlling its behavior in tests.
@@ -110,7 +110,7 @@ public:
     }
 };
 
-inline std::shared_ptr<pipeline::StreamerFactory> simple_streamer_factory(
+inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
     const std::vector<synnax::ChannelKey> &keys,
     const std::shared_ptr<std::vector<synnax::Frame> > &reads
 ) {
@@ -183,7 +183,7 @@ public:
     size_t writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<synnax::Frame> > writes,
+        std::shared_ptr<std::vector<synnax::Frame> > writes = std::make_shared<std::vector<synnax::Frame> >(),
         std::vector<xerrors::Error> open_errors = {},
         std::vector<xerrors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
@@ -240,6 +240,12 @@ public:
              write_errors(std::make_shared<std::vector<xerrors::Error> >()) {
     }
 
+    Sink(
+        const std::shared_ptr<std::vector<synnax::Frame> > &writes,
+        const std::shared_ptr<std::vector<xerrors::Error> > &write_errors
+    ): writes(writes), write_errors(write_errors) {
+    }
+
     xerrors::Error write(const synnax::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());
@@ -254,4 +260,62 @@ public:
         this->stop_err = err;
     }
 };
+
+// Mock implementation of pipeline::Source for testing.
+class Source : public pipeline::Source {
+public:
+    // A sequence of frames that the Source will return on each read() call.
+    // When all frames are consumed, the Source will block briefly and return empty frames.
+    std::shared_ptr<std::vector<synnax::Frame>> reads;
+
+    // A sequence of errors to return alongside frames during read() calls.
+    // If provided, each read will return the corresponding error at the same index.
+    // If nullptr or index exceeds size, returns NIL error.
+    std::shared_ptr<std::vector<xerrors::Error>> read_errors;
+
+    // Stores the error passed to stopped_with_err
+    xerrors::Error stop_err;
+
+    // Tracks the current position in the reads sequence
+    size_t current_read = 0;
+
+    // Tracks how many times read() has been called
+    size_t read_count = 0;
+
+    explicit Source(
+        std::shared_ptr<std::vector<synnax::Frame>> reads = std::make_shared<std::vector<synnax::Frame>>(),
+        std::shared_ptr<std::vector<xerrors::Error>> read_errors = nullptr
+    ) : reads(std::move(reads)), read_errors(std::move(read_errors)) {
+    }
+
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker& breaker) override {
+        read_count++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        
+        if (current_read >= reads->size()) {
+            // block "indefinitely"
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return {synnax::Frame(0), xerrors::NIL};
+        }
+        
+        auto fr = std::move(reads->at(current_read));
+        auto err = xerrors::NIL;
+        if (read_errors != nullptr && read_errors->size() > current_read)
+            err = read_errors->at(current_read);
+        
+        current_read++;
+        return {std::move(fr), err};
+    }
+
+    void stopped_with_err(const xerrors::Error& err) override {
+        this->stop_err = err;
+    }
+};
+
+// Helper function to create a simple Source with predefined frames
+inline std::shared_ptr<pipeline::mock::Source> simple_source(
+    const std::shared_ptr<std::vector<synnax::Frame>>& reads
+) {
+    return std::make_shared<pipeline::mock::Source>(reads);
+}
 }

@@ -23,7 +23,7 @@ typedef void *LibraryHandle;
 #endif
 
 namespace xlib {
-const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("shared");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("shared");
 const xerrors::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
@@ -82,6 +82,8 @@ public:
         if (this->handle != nullptr || name.empty())
             return false;
         this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (this->handle == nullptr)
+            std::cout << "Error loading library: " << ::dlerror() << std::endl;
         return this->handle != nullptr;
     }
 

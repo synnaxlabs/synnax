@@ -205,7 +205,7 @@ TEST_F(XLuaTest, SetGlobalTelemTypeMismatchFloat64) {
         std::string("wrong type")
     );
     EXPECT_TRUE(err);
-    EXPECT_EQ(err, xerrors::VALIDATION_ERROR);
+    EXPECT_EQ(err, xerrors::VALIDATION);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnil(L, -1));
     lua_pop(L, 1);
@@ -219,7 +219,7 @@ TEST_F(XLuaTest, SetGlobalTelemTypeMismatchInt64) {
         3.14159
     );
     EXPECT_TRUE(err);
-    EXPECT_EQ(err, xerrors::VALIDATION_ERROR);
+    EXPECT_EQ(err, xerrors::VALIDATION);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnil(L, -1));
     lua_pop(L, 1);
@@ -516,8 +516,301 @@ TEST_F(XLuaTest, SetGlobalTelemJsonInvalid) {
         "invalid json"
     );
     EXPECT_FALSE(err.ok());
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION_ERROR));
+    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnil(L, -1));
     lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, ToSeriesBooleanCoercion) {
+    // Set up a boolean value in Lua
+    lua_pushboolean(L, true);
+    
+    // Test coercion to various numeric types
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT64_T);
+        EXPECT_DOUBLE_EQ(series.at<double>(0), 1.0);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT32_T);
+        EXPECT_FLOAT_EQ(series.at<float>(0), 1.0f);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT64_T);
+        EXPECT_EQ(series.at<int64_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT32_T);
+        EXPECT_EQ(series.at<int32_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT16_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT16_T);
+        EXPECT_EQ(series.at<int16_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT8_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT8_T);
+        EXPECT_EQ(series.at<int8_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::UINT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::UINT64_T);
+        EXPECT_EQ(series.at<uint64_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::UINT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::UINT32_T);
+        EXPECT_EQ(series.at<uint32_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::UINT16_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::UINT16_T);
+        EXPECT_EQ(series.at<uint16_t>(0), 1);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::UINT8_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::UINT8_T);
+        EXPECT_EQ(series.at<uint8_t>(0), 1);
+    }
+    
+    lua_pop(L, 1);
+
+    // Test false value
+    lua_pushboolean(L, false);
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT64_T);
+        EXPECT_DOUBLE_EQ(series.at<double>(0), 0.0);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT32_T);
+        EXPECT_EQ(series.at<int32_t>(0), 0);
+    }
+    
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, ToSeriesNumberCoercion) {
+    // Test integer to various numeric types
+    lua_pushinteger(L, 42);
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT64_T);
+        EXPECT_DOUBLE_EQ(series.at<double>(0), 42.0);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::INT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::INT32_T);
+        EXPECT_EQ(series.at<int32_t>(0), 42);
+    }
+    
+    lua_pop(L, 1);
+
+    // Test float to various numeric types
+    lua_pushnumber(L, 3.14159);
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT64_T);
+        EXPECT_DOUBLE_EQ(series.at<double>(0), 3.14159);
+    }
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT32_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::FLOAT32_T);
+        EXPECT_FLOAT_EQ(series.at<float>(0), 3.14159f);
+    }
+    
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, ToSeriesStringHandling) {
+    // Test string to string type
+    lua_pushstring(L, "test string");
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::STRING_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::STRING_T);
+        EXPECT_EQ(series.at<std::string>(0), "test string");
+    }
+    
+    lua_pop(L, 1);
+
+    // Test empty string
+    lua_pushstring(L, "");
+    
+    {
+        auto [series, err] = xlua::to_series(L, -1, telem::STRING_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.data_type(), telem::STRING_T);
+        EXPECT_EQ(series.at<std::string>(0), "");
+    }
+    
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, booleanToString) {
+    // Test true
+    lua_pushboolean(L, true);
+    auto [series1, err1] = xlua::to_series(L, -1, telem::STRING_T);
+    EXPECT_FALSE(err1) << err1;
+    EXPECT_EQ(series1.data_type(), telem::STRING_T);
+    EXPECT_EQ(series1.at<std::string>(0), "true");
+    lua_pop(L, 1);
+
+    // Test false
+    lua_pushboolean(L, false);
+    auto [series2, err2] = xlua::to_series(L, -1, telem::STRING_T);
+    EXPECT_FALSE(err2) << err2;
+    EXPECT_EQ(series2.data_type(), telem::STRING_T);
+    EXPECT_EQ(series2.at<std::string>(0), "false");
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, ToSeriesTypeMismatch) {
+    // Test string to numeric type
+    lua_pushstring(L, "not a number");
+    auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+    EXPECT_TRUE(err) << err;
+    EXPECT_EQ(err, xerrors::VALIDATION);
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "not a number");
+    auto [series2, err2] = xlua::to_series(L, -1, telem::INT32_T);
+    EXPECT_TRUE(err2) << err2;
+}
+
+TEST_F(XLuaTest, ToSeriesNilHandling) {
+    lua_pushnil(L);
+    
+    // Test nil to various types
+    auto [series1, err1] = xlua::to_series(L, -1, telem::FLOAT64_T);
+    EXPECT_TRUE(err1);
+    EXPECT_EQ(err1, xerrors::VALIDATION);
+    auto [series2, err2] = xlua::to_series(L, -1, telem::INT32_T);
+    EXPECT_TRUE(err2);
+    EXPECT_EQ(err2, xerrors::VALIDATION);
+    auto [series3, err3] = xlua::to_series(L, -1, telem::STRING_T);
+    EXPECT_TRUE(err3);
+    EXPECT_EQ(err3, xerrors::VALIDATION);
+    
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, ToSeriesNumericRanges) {
+    // Test integer bounds
+    {
+        lua_pushinteger(L, std::numeric_limits<int16_t>::max());
+        auto [series, err] = xlua::to_series(L, -1, telem::INT16_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.at<int16_t>(0), std::numeric_limits<int16_t>::max());
+        lua_pop(L, 1);
+    }
+    
+    {
+        lua_pushinteger(L, std::numeric_limits<int16_t>::min());
+        auto [series, err] = xlua::to_series(L, -1, telem::INT16_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(series.at<int16_t>(0), std::numeric_limits<int16_t>::min());
+        lua_pop(L, 1);
+    }
+
+    // Test floating point special values
+    {
+        lua_pushnumber(L, std::numeric_limits<double>::infinity());
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_TRUE(std::isinf(series.at<double>(0)));
+        lua_pop(L, 1);
+    }
+    
+    {
+        lua_pushnumber(L, -std::numeric_limits<double>::infinity());
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_TRUE(std::isinf(series.at<double>(0)));
+        EXPECT_LT(series.at<double>(0), 0);
+        lua_pop(L, 1);
+    }
+    
+    {
+        lua_pushnumber(L, std::numeric_limits<double>::quiet_NaN());
+        auto [series, err] = xlua::to_series(L, -1, telem::FLOAT64_T);
+        EXPECT_FALSE(err) << err;
+        EXPECT_TRUE(std::isnan(series.at<double>(0)));
+        lua_pop(L, 1);
+    }
+}
+
+TEST_F(XLuaTest, ToSeriesInvalidIndex) {
+    auto [series1, err1] = xlua::to_series(L, 999, telem::FLOAT64_T);
+    EXPECT_TRUE(err1);
+    EXPECT_EQ(err1, xerrors::VALIDATION);
+}
+
+TEST_F(XLuaTest, ToSeriesUnsupportedTypes) {
+    // Test with table
+    lua_newtable(L);
+    auto [series1, err1] = xlua::to_series(L, -1, telem::FLOAT64_T);
+    EXPECT_TRUE(err1);
+    EXPECT_EQ(err1, xerrors::VALIDATION);
+    lua_pop(L, 1);
+
+    // Test with function
+    lua_pushcfunction(L, [](lua_State*) -> int { return 0; });
+    auto [series2, err2] = xlua::to_series(L, -1, telem::FLOAT64_T);
+    EXPECT_TRUE(err2);
+    EXPECT_EQ(err2, xerrors::VALIDATION);
+    lua_pop(L, 1);
+
+    // Test with userdata
+    lua_newuserdata(L, sizeof(int));
+    auto [series3, err3] = xlua::to_series(L, -1, telem::FLOAT64_T);
+    EXPECT_TRUE(err3);
+    EXPECT_EQ(err3, xerrors::VALIDATION);
+    lua_pop(L, 1);
+}
+
+TEST_F(XLuaTest, Int64Max) {
+    lua_pushinteger(L, 9223372036854775807);
+    auto [series1, err1] = xlua::to_series(L, -1, telem::INT64_T);
+    EXPECT_FALSE(err1) << err1;
+    EXPECT_EQ(series1.at<int64_t>(0), 9223372036854775807LL);
+
 }

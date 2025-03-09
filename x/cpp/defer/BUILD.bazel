@@ -1,0 +1,14 @@
+cc_library(
+    name = "defer",
+    hdrs = ["defer.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "defer_test",
+    srcs = ["defer_test.cpp"],
+    deps = [
+        "//x/cpp/defer",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

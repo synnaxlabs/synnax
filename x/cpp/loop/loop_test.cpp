@@ -78,7 +78,9 @@ TEST(LoopTest, testWaitBreaker) {
     brker.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = telem::TimeSpan(end - start);
-    EXPECT_NEAR(elapsed.value, (telem::MILLISECOND * 10).value,
-                (telem::MILLISECOND * 10).value);
+    EXPECT_NEAR(elapsed.nanoseconds(),
+                (telem::MILLISECOND * 10).nanoseconds(),
+                (telem::MILLISECOND * 10).nanoseconds()
+    );
     t.join();
 }

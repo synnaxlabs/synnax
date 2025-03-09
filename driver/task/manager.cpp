@@ -80,13 +80,14 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
-        VLOG(1) << "[driver] received task for foreign rack: " << task_key << ", skipping";
+        VLOG(1) << "[driver] received task for foreign rack: " << task_key <<
+ ", skipping";
         return true;
     }
     return false;
 }
 
-xerrors::Error task::Manager::run(std::promise<void>* started_promise) {
+xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
     if (const auto err = this->configure_initial_tasks()) return err;
     if (const auto err = this->open_streamer()) return err;
     LOG(INFO) << xlog::GREEN() << "[driver] started successfully" << xlog::RESET();
@@ -118,7 +119,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
 
         auto task_iter = this->tasks.find(task_key);
         if (task_iter != this->tasks.end()) {
-            task_iter->second->stop();
+            task_iter->second->stop(true);
             this->tasks.erase(task_iter);
         }
 
@@ -127,7 +128,8 @@ void task::Manager::process_task_set(const telem::Series &series) {
             LOG(WARNING) << "[driver] failed to retrieve task: " << err;
             continue;
         }
-        LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key << ")";
+        LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key <<
+                ")";
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, sy_task);
         if (ok && driver_task != nullptr)
             this->tasks[task_key] = std::move(driver_task);
@@ -155,13 +157,14 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
             continue;
         }
         const std::unique_ptr<Task> &tsk = it->second;
-        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->name() << " (" << cmd.task << ")";
+        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->
+                name() << " (" << cmd.task << ")";
         tsk->exec(cmd);
     }
 }
 
 void task::Manager::stop_all_tasks() {
-    for (auto &[task_key, task]: this->tasks) task->stop();
+    for (auto &[task_key, task]: this->tasks) task->stop(false);
     this->tasks.clear();
 }
 
@@ -171,7 +174,7 @@ void task::Manager::process_task_delete(const telem::Series &series) {
         if (this->skip_foreign_rack(task_key)) continue;
         const auto it = this->tasks.find(task_key);
         if (it != this->tasks.end()) {
-            it->second->stop();
+            it->second->stop(false);
             this->tasks.erase(it);
         }
     }
