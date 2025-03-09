@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-#include "labjack.h"
+/// external
 #include "glog/logging.h"
+
+/// internal
+#include "driver/labjack/labjack.h"
 #include "driver/labjack/scan_task.h"
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/write_task.h"
@@ -27,9 +29,8 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {nullptr, d_err};
     std::unique_ptr<common::Source> source;
-    if (cfg.has_tcs())
-        source = std::make_unique<labjack::UnarySource>(
-            dev, std::move(cfg));
+    if (cfg.has_thermocouples())
+        source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
     else source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
     return {
         std::make_unique<common::ReadTask>(
@@ -51,6 +52,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
     if (err) return {nullptr, err};
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {nullptr, d_err};
+
     return {
         std::make_unique<common::WriteTask>(
             task,
@@ -60,6 +62,25 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
         ),
         xerrors::NIL
     };
+}
+
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
+    const std::shared_ptr<device::Manager> &devs,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto parser = xjson::Parser(task.config);
+    auto cfg = labjack::ScanTaskConfig(parser);
+    if (parser.error()) return {nullptr, parser.error()};
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<labjack::Scanner>(task, cfg, devs),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.rate
+    );
+    if (cfg.enabled) scan_task->start();
+    return {std::move(scan_task), xerrors::NIL};
 }
 
 bool labjack::Factory::check_health(
@@ -83,12 +104,12 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     if (!this->check_health(ctx, task)) return {nullptr, false};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = labjack::ScanTask::configure(ctx, task, this->dev_manager);
+        res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->dev_manager, ctx, task);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task);
-    handle_config_err(ctx, task, res.second);
+    common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }
 

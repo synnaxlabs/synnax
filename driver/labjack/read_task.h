@@ -382,7 +382,7 @@ struct ReadTaskConfig {
     }
 
     /// @brief returns true if the task has any thermocouples.
-    [[nodiscard]] bool has_tcs() const {
+    [[nodiscard]] bool has_thermocouples() const {
         for (const auto &ch: this->channels)
             if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
         return false;

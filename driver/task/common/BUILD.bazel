@@ -3,6 +3,7 @@ cc_library(
     hdrs = [
         "read_task.h",
         "sample_clock.h",
+        "scan_task.h",
         "state.h",
         "write_task.h",
     ],

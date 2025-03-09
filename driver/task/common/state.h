@@ -11,6 +11,10 @@
 
 #include "driver/task/task.h"
 
+namespace common {
+const std::string STOP_CMD_TYPE = "stop";
+const std::string START_CMD_TYPE = "start";
+const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of national instruments tasks.
 struct StateHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
@@ -120,4 +124,5 @@ inline void handle_config_err(
         state.details["message"] = "Task configured successfully";
     }
     ctx->set_state(state);
+}
 }

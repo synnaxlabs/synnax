@@ -21,18 +21,15 @@
 /// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/loop/loop.h"
 
 /// internal
 #include "driver/task/task.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
+#include "driver/task/common/scan_task.h"
 
 namespace ni {
-const std::string SCAN_CMD = "scan";
-const std::string START_CMD = "start";
-const std::string STOP_CMD = "stop";
 const std::string RESET_DEVICE_CMD = "reset_device";
 
 struct ResetDeviceCommandArgs {
@@ -108,29 +105,16 @@ struct ScanTaskConfig {
 };
 
 /// @brief a task that scans for NI devices.
-class ScanTask final : public task::Task {
-    /// @brief the raw synnax task configuration.
-    const synnax::Task task;
+class Scanner final : public common::Scanner {
     /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
-    /// @brief the breaker for managing the lifecycle of threads.
-    breaker::Breaker breaker;
-    /// @brief the scanner used to scan for devices.
-    loop::Timer timer;
-    /// @brief the task context to communicate state updates and device changes.
-    std::shared_ptr<task::Context> ctx;
-    /// @brief the scan thread that will scan for devices.
-    std::thread thread;
-    /// @brief the current list of scanned devices.
-    std::unordered_map<std::string, ni::Device> devices;
+    const synnax::Task task;
     /// @brief the NI system configuration library.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices;
     NISysCfgFilterHandle filter = nullptr;
-    /// @brief the current task state.
-    task::State state;
 
     /// @brief parses the device located at the specified resource handle.
     /// @returns the parsed device and xerrors::NIL error if successful.
@@ -139,48 +123,18 @@ class ScanTask final : public task::Task {
     std::pair<ni::Device, xerrors::Error> parse_device(
         NISysCfgResourceHandle resource
     ) const;
-
-    /// @brief scans the hardware for devices.
-    xerrors::Error find_devices();
-
-    /// @brief updates the list of devices in the synnax cluster.
-    xerrors::Error update_remote();
-
-    /// @brief the main scan task run loop.
-    void run();
-
-    /// @brief initializes the syscfg session and filters for the scan task.
-    xerrors::Error initialize_syscfg_session();
 public:
-    explicit ScanTask(
+    explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        ScanTaskConfig cfg
-    );
-
-    /// @brief implements task::Task to execute commands on the task.
-    void exec(task::Command &cmd) override;
-
-    /// @brief stops the scan task.
-    void stop(bool will_reconfigure) override;
-
-    /// @brief starts the scan task
-    void start();
-
-    /// @brief performs a single scan of the hardware, creating and updating devices
-    /// that are no longer in Synnax.
-    xerrors::Error scan();
-
-    /// @brief returns the name of the task.
-    std::string name() override { return task.name; }
-
-    /// @brief creates a new scan task from the given configuration. If the configuration
-    /// is invalid, an error is returned.
-    static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        const std::shared_ptr<task::Context> &ctx,
+        ScanTaskConfig cfg,
         const synnax::Task &task
     );
+
+    xerrors::Error start() override;
+
+    std::pair<std::vector<synnax::Device>, xerrors::Error> scan(const common::ScannerContext &ctx) override;
+
+    xerrors::Error stop() override;
+
 }; // class ScannerTask
 } // namespace ni

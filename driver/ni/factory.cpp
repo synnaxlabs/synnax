@@ -58,6 +58,26 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     };
 }
 
+
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
+    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto parser = xjson::Parser(task.config);
+    auto cfg = ni::ScanTaskConfig(parser);
+    if (parser.error()) return {nullptr, parser.error()};
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<ni::Scanner>(syscfg, cfg, task),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.rate
+    );
+    if (cfg.enabled) scan_task->start();
+    return {std::move(scan_task), xerrors::NIL,};
+}
+
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg
@@ -99,7 +119,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = ni::ScanTask::configure(this->syscfg, ctx, task);
+        res = configure_scan(this->syscfg, ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogReader,
@@ -128,7 +148,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask
         >(dmx, ctx, task);
-    handle_config_err(ctx, task, res.second);
+    common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }
 

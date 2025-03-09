@@ -15,7 +15,6 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
@@ -43,8 +42,8 @@ struct OutputChan {
     explicit OutputChan(xjson::Parser &parser)
         : port(parser.optional<std::string>("port", "")),
           enabled(parser.optional<bool>("enabled", true)),
-          cmd_ch_key(parser.required<uint32_t>("cmd_key")),
-          state_ch_key(parser.required<uint32_t>("state_key")) {
+          cmd_ch_key(parser.required<uint32_t>("cmd_key", "cmd_channel")),
+          state_ch_key(parser.required<uint32_t>("state_key", "state_channel")) {
     }
 
     /// @brief binds cluster information about the channel after it has been

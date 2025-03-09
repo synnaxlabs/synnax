@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <fstream>
+#include <cassert>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -44,6 +45,16 @@ class Parser {
     template<typename T>
     T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
         try {
+            // Handle string-to-numeric conversion if needed
+            if (iter->is_string() && std::is_arithmetic_v<T>) {
+                T value;
+                std::istringstream iss(iter->get<std::string>());
+                if (!(iss >> value)) {
+                    field_err(path, "Expected a number, got " + iter->get<std::string>());
+                    return T();
+                }
+                return value;
+            }
             return iter->get<T>();
         } catch (const nlohmann::json::type_error &e) {
             // slice the error message from index 32 to remove the library error prefix.
@@ -104,17 +115,28 @@ public:
             field_err(path, "This field is required");
             return T();
         }
-        if (iter->is_string() && std::is_arithmetic_v<T>) {
-            T value;
-            std::istringstream iss(iter->get<std::string>());
-            if (!(iss >> value)) {
-                field_err(path,
-                          "Expected a number, got " + iter->get<std::string>());
-                return T();
-            }
-            return value;
-        }
         return get<T>(path, iter);
+    }
+
+    template<typename T, typename... Paths>
+    T required(const std::string& path, const Paths&... alts) {
+        if (noop) return T();
+        auto iter = config.find(path);
+        if (iter != config.end())
+            return get<T>(path, iter);
+        bool found = false;
+        T result{};
+        ((found = found || [&](const std::string& path) {
+            auto it = config.find(path);
+            if (it != config.end()) {
+                result = get<T>(path, it);
+                return true;
+            }
+            return false;
+        }(alts)), ...);
+        if (found) return result;
+        field_err(path, "this field is required");
+        return T();
     }
 
     /// @brief gets the array field at the given path and returns a vector. If the field is not found,
