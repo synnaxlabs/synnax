@@ -66,7 +66,7 @@ const ChannelListItem = ({
 }: ChannelListItemProps) => {
   const {
     entry,
-    entry: { cmdKey, stateKey, type, port },
+    entry: { cmdChannel, stateChannel, type, port },
   } = rest;
   const { set } = PForm.useContext();
   return (
@@ -89,8 +89,8 @@ const ChannelListItem = ({
               Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(path, {
               ...entry,
-              cmdKey: existingCommandStatePair.command,
-              stateKey: existingCommandStatePair.state,
+              cmdChannel: existingCommandStatePair.command,
+              stateChannel: existingCommandStatePair.state,
               port: value,
             });
           }}
@@ -117,8 +117,8 @@ const ChannelListItem = ({
                       Common.Device.ZERO_COMMAND_STATE_PAIR;
                     set(path, {
                       ...entry,
-                      cmdKey: existingCommandStatePair.command,
-                      stateKey: existingCommandStatePair.state,
+                      cmdChannel: existingCommandStatePair.command,
+                      stateChannel: existingCommandStatePair.state,
                       type: value,
                       port,
                     });
@@ -133,8 +133,10 @@ const ChannelListItem = ({
         </PForm.Field>
       </Align.Pack>
       <Align.Space direction="x" align="center" justify="spaceEvenly">
-        <Common.Task.ChannelName channel={cmdKey} defaultName="No Command Channel" />
-        <Common.Task.ChannelName channel={stateKey} defaultName="No State Channel" />
+        <Common.Task.WriteChannelNames
+          cmdChannel={cmdChannel}
+          stateChannel={stateChannel}
+        />
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
@@ -145,7 +147,8 @@ const ChannelListItem = ({
 };
 
 const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
-  if (channels.length === 0) return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.id() };
+  if (channels.length === 0)
+    return { ...deep.copy(ZERO_OUTPUT_CHANNEL), key: id.create() };
   const last = channels[channels.length - 1];
   const backupType =
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
@@ -157,10 +160,10 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
   return {
     ...deep.copy(last),
     type: port.type,
-    key: id.id(),
+    key: id.create(),
     port: port.key,
-    cmdKey: existingCommandStatePair.command,
-    stateKey: existingCommandStatePair.state,
+    cmdChannel: existingCommandStatePair.command,
+    stateChannel: existingCommandStatePair.state,
   };
 };
 
@@ -170,7 +173,7 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
-  const generateChannel = useCallback(
+  const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
   );
@@ -183,7 +186,7 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   return (
     <Common.Task.Layouts.List<OutputChannel>
       isSnapshot={isSnapshot}
-      generateChannel={generateChannel}
+      createChannel={createChannel}
       listItem={listItem}
     />
   );
@@ -308,7 +311,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   if (modified) await client.hardware.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const pair = dev.properties[c.type].channels[c.port];
-    return { ...c, cmdKey: pair.command, stateKey: pair.state };
+    return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });
   return [config, dev.rack];
 };

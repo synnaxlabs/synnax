@@ -48,7 +48,7 @@ const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 
-const generateErrorDescription = (
+const createErrorDescription = (
   oldServer: boolean,
   clientVersion: string,
   nodeVersion?: string,
@@ -113,7 +113,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         connectivity.nodeVersion == null ||
         migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
 
-      const description = generateErrorDescription(
+      const description = createErrorDescription(
         oldServer,
         connectivity.clientVersion,
         connectivity.nodeVersion,

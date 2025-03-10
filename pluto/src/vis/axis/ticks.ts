@@ -17,7 +17,7 @@ export interface Tick {
 }
 
 export interface TickFactory {
-  generate: (ctx: TickFactoryContext) => Tick[];
+  create: (ctx: TickFactoryContext) => Tick[];
 }
 
 export const tickType = z.enum(["linear", "time"]);
@@ -55,7 +55,7 @@ class TimeTickFactory implements TickFactory {
     this.props = props;
   }
 
-  generate({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
+  create({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
     const range = [0, size];
     const domain = [
       new TimeStamp(scale.pos(0)).date(),
@@ -99,7 +99,7 @@ class LinearTickFactory implements TickFactory {
     this.props = props;
   }
 
-  generate({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
+  create({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
     const range = [0, size];
     const domain = [scale.pos(0), scale.pos(1)];
     const d3Scale = scaleLinear().domain(domain).range(range);

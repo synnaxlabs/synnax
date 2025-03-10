@@ -517,7 +517,7 @@ export type Payload = Action["payload"];
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
 export const createMosaicWindow = (window?: WindowProps): BaseState => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
+  key: `${MOSAIC_WINDOW_TYPE}-${id.create()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
