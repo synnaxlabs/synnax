@@ -17,6 +17,7 @@ import {
   DO_CHANNEL_TYPE,
   LINEAR_SCALE_TYPE,
   NO_SCALE_TYPE,
+  type OutputChannel,
   type ReadConfig,
   readConfigZ,
   writeConfigZ,
@@ -343,7 +344,7 @@ describe("writeConfigZ", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.length).toBeGreaterThan(0);
-      expect(result.error.issues[0].message).toContain("used on multiple channels");
+      expect(result.error.issues[0].message).toContain("used for multiple channels");
     }
   });
 
@@ -400,5 +401,45 @@ describe("writeConfigZ", () => {
 
     const result = writeConfigZ.safeParse(configWithLinearScale);
     expect(result.success).toBe(true);
+  });
+
+  it("should move a v0 configuration to the new format", () => {
+    const inputChannels = [
+      {
+        key: "1",
+        enabled: true,
+        type: "AO",
+        port: "DAC0",
+        cmdKey: 1,
+        stateKey: 2,
+        scale: { type: "NO_SCALE" },
+      },
+      {
+        key: "2",
+        enabled: true,
+        type: "DO",
+        port: "DIO0",
+        cmdKey: 3,
+        stateKey: 4,
+        scale: { type: "NO_SCALE" },
+      },
+    ];
+    const v0Config = {
+      ...Common.Task.ZERO_BASE_CONFIG,
+      device: "labjack",
+      stateRate: 1000,
+      channels: inputChannels,
+    };
+
+    const result = writeConfigZ.safeParse(v0Config);
+    expect(result.success).toBe(true);
+    expect(result.data?.channels.length).toBe(2);
+    const channels = result.data?.channels as OutputChannel[];
+    channels.forEach((ch, i) => {
+      expect(ch.cmdChannel).toBe(inputChannels[i].cmdKey);
+      expect(ch.stateChannel).toBe(inputChannels[i].stateKey);
+      expect(ch).not.toHaveProperty("cmdKey");
+      expect(ch).not.toHaveProperty("stateKey");
+    });
   });
 });

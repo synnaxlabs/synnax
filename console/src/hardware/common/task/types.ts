@@ -34,18 +34,6 @@ export const validateChannels = (
   channels: Channel[],
   { addIssue }: z.RefinementCtx,
 ) => {
-  if (channels.length === 0) {
-    addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "At least one channel must be specified",
-    });
-    return;
-  }
-  if (!channels.some(({ enabled }) => enabled))
-    addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "At least one channel must be enabled",
-    });
   const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {

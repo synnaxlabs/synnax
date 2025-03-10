@@ -36,35 +36,6 @@ describe("Hardware Task Types", () => {
       .superRefine(validateWriteChannels);
 
     describe("validateChannels", () => {
-      it("should report an error for an empty channel array", () => {
-        const result = channelsArrayZ.safeParse([]);
-
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues.length).toBe(1);
-          expect(result.error.issues[0].message).toBe(
-            "At least one channel must be specified",
-          );
-        }
-      });
-
-      it("should report an error if no channels are enabled", () => {
-        const channels: Channel[] = [
-          { ...ZERO_CHANNEL, enabled: false, key: "channel1" },
-          { ...ZERO_CHANNEL, enabled: false, key: "channel2" },
-        ];
-
-        const result = channelsArrayZ.safeParse(channels);
-
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error.issues.length).toBe(1);
-          expect(result.error.issues[0].message).toBe(
-            "At least one channel must be enabled",
-          );
-        }
-      });
-
       it("should report errors for duplicate channel keys", () => {
         const channels: Channel[] = [
           { ...ZERO_CHANNEL, enabled: true, key: "duplicate" },

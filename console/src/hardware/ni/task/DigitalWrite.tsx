@@ -59,10 +59,7 @@ const Properties = () => (
 const NameComponent = ({
   entry: { cmdChannel, stateChannel },
 }: NameProps<DOChannel>) => (
-  <>
-    <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
-    <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
-  </>
+  <Common.Task.WriteChannelNames cmdChannel={cmdChannel} stateChannel={stateChannel} />
 );
 
 const name = componentRenderProp(NameComponent);
