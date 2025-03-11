@@ -212,10 +212,13 @@ const PaletteDialog = ({
     value,
   });
 
-  const handleChange = useCallback(() => {
-    if (value.startsWith(commandSymbol)) onFilterChange(value);
-    else onSearchChange(value);
-  }, [onFilterChange, onSearchChange]);
+  const handleChange = useCallback(
+    (value: string) => {
+      if (value.startsWith(commandSymbol)) onFilterChange(value);
+      else onSearchChange(value);
+    },
+    [onFilterChange, onSearchChange],
+  );
 
   return (
     <List.Selector<Key, Entry>
