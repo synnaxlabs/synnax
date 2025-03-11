@@ -26,14 +26,12 @@ export const createResourceListItem = (
     // This null check is needed because sometimes when switching to search mode from command
     // mode, the commands are passed in as resources.
     if (id == null) return null;
-    const ontologyService = ontologyServices[id.type];
+    const { icon, onSelect, PaletteListItem } = ontologyServices[id.type];
     // return null if the ontology service does not have an onSelect method, that way we
     // don't show pointless items in the palette.
-    if (ontologyService?.onSelect == null) return null;
-    const ListItem = ontologyService?.PaletteListItem;
-    if (ListItem != null) return <ListItem {...props} />;
-    const { icon } = ontologyService;
-    return (
+    return onSelect == null ? null : PaletteListItem != null ? (
+      <PaletteListItem {...props} />
+    ) : (
       <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
         <Text.WithIcon
           startIcon={isValidElement(icon) ? icon : icon(entry)}
