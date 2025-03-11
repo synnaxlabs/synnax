@@ -15,7 +15,7 @@ import { sysAdminNav } from "@/pages/guides/sys-admin/_nav";
 import { clusterNav } from "@/pages/reference/cluster/_nav";
 import { conceptsNav } from "@/pages/reference/concepts/_nav";
 import { consoleNav } from "@/pages/reference/console/_nav";
-import { controlNav } from "@/pages/reference/control/_nav";
+import { controlNav } from "@/pages/reference/control/python/_nav";
 import { deviceDriversNav } from "@/pages/reference/device-drivers/_nav";
 import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
