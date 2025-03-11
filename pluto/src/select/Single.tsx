@@ -181,7 +181,6 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <Core<K, E>
       close={close}
       zIndex={dropdownZIndex}
-      open={open}
       data={data}
       allowMultiple={false}
       visible={visible}

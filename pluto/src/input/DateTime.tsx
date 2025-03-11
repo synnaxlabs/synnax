@@ -80,10 +80,16 @@ export const DateTime = ({
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
-  const dProps = Dropdown.use();
+  const { close, toggle, visible } = Dropdown.use();
 
   return (
-    <Dropdown.Dialog {...dProps} variant="modal" zIndex={500} keepMounted={false}>
+    <Dropdown.Dialog
+      close={close}
+      visible={visible}
+      variant="modal"
+      zIndex={500}
+      keepMounted={false}
+    >
       <InputText
         className={CSS.BE("input", "datetime")}
         variant={variant}
@@ -96,7 +102,7 @@ export const DateTime = ({
         {...rest}
       >
         <Button.Icon
-          onClick={dProps.toggle}
+          onClick={toggle}
           variant={variant === "natural" ? "text" : "outlined"}
         >
           <Icon.Calendar />
@@ -105,7 +111,7 @@ export const DateTime = ({
       <DateTimeModal
         value={tsValue}
         onChange={(next) => onChange(Number(next.valueOf()))}
-        close={dProps.close}
+        close={close}
       />
     </Dropdown.Dialog>
   );

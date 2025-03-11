@@ -524,7 +524,7 @@ export const createMosaicWindow = (window?: WindowProps): BaseState => ({
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: false,
+    navTop: true,
     visible: true,
     showTitle: false,
   },
