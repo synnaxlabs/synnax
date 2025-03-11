@@ -244,17 +244,18 @@ export const NoneConnected = (): ReactElement => {
 };
 
 export const Dropdown = (): ReactElement => {
-  const dropProps = Core.use();
+  const { close, toggle, visible } = Core.use();
   const cluster = useSelect();
   return (
     <Core.Dialog
-      {...dropProps}
+      close={close}
+      visible={visible}
       variant="floating"
       bordered={false}
       className={CSS.B("cluster-dropdown")}
     >
       <Button.Button
-        onClick={dropProps.toggle}
+        onClick={toggle}
         variant="text"
         startIcon={<Icon.Cluster />}
         justify="center"
