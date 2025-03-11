@@ -33,6 +33,7 @@ export * from "@/record";
 export * from "@/renderable";
 export * from "@/runtime";
 export * from "@/runtime";
+export * from "@/schema";
 export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/spatial";
