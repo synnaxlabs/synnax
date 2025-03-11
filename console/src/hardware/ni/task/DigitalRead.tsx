@@ -15,11 +15,11 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
+import { createDIChannel } from "@/hardware/ni/task/createChannel";
 import {
   DigitalChannelList,
   type NameProps,
 } from "@/hardware/ni/task/DigitalChannelList";
-import { generateDIChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
@@ -68,7 +68,7 @@ const Form: FC<
 > = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
-    generateChannel={generateDIChannel}
+    createChannel={createDIChannel}
     name={name}
   />
 );

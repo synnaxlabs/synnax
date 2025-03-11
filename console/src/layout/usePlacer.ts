@@ -57,7 +57,7 @@ export const usePlacer = <A = unknown>(): Placer<A> => {
       if (windowKey == null) throw new Error("windowKey is null");
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
-      const key = layout.key ?? id.id();
+      const key = layout.key ?? id.create();
       dispatch(place({ ...layout, windowKey, key }));
       return { windowKey, key };
     },

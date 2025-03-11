@@ -288,9 +288,9 @@ export const MosaicWindow = memo<Layout.Renderer>(
         }),
       );
     }, [layoutKey]);
-    return windowKey == null || mosaic == null ? null : (
+    if (windowKey == null || mosaic == null) return null;
+    return (
       <>
-        <Nav.Top />
         <Internal windowKey={windowKey} mosaic={mosaic} />
         <Nav.Drawer location="bottom" />
         <PNav.Bar

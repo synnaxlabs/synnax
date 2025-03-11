@@ -517,14 +517,14 @@ export type Payload = Action["payload"];
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
 export const createMosaicWindow = (window?: WindowProps): BaseState => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
+  key: `${MOSAIC_WINDOW_TYPE}-${id.create()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: false,
+    navTop: true,
     visible: true,
     showTitle: false,
   },

@@ -71,7 +71,7 @@ const Internal = <
         if (methods.validate("name")) {
           setStep("identifier");
           setRecommendedIds(
-            strings.generateShortIdentifiers(methods.get<string>("name").value),
+            strings.createShortIdentifiers(methods.get<string>("name").value),
           );
           setTimeout(() => identifierRef.current?.focus(), 100);
         }
@@ -119,7 +119,7 @@ const Internal = <
               <Text.Text level="p" shade={7}>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
-                channels associated with this device. We've generated some suggestions
+                channels associated with this device. We've given you some suggestions
                 below.
               </Text.Text>
               <Align.Space size="small">

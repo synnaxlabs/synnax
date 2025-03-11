@@ -27,9 +27,9 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
-  SCAN_COMMAND_NAME,
+  SCAN_COMMAND_TYPE,
   SCAN_NAME,
-  type ScanCommandResult,
+  type ScanStateDetails,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -72,26 +72,30 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanCommandResult>(
-        SCAN_COMMAND_NAME,
+      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
+        SCAN_COMMAND_TYPE,
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),
       );
       if (details == null) return;
+      if (!("channels" in details)) return;
       const { channels } = details;
-      const newNodes = channels.map((node) => ({
-        key: nodeKey(node.nodeId, nodeID),
-        name: node.name,
-        icon: node.isArray ? (
-          <PIcon.Icon bottomRight={<Icon.Array />}>
-            <Icon.Variable />
-          </PIcon.Icon>
-        ) : (
-          ICONS[node.nodeClass]
-        ),
-        hasChildren: true,
-        haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
-      }));
+      const newNodes = channels.map(
+        (node) =>
+          ({
+            key: nodeKey(node.nodeId, nodeID),
+            name: node.name,
+            icon: node.isArray ? (
+              <PIcon.Icon bottomRight={<Icon.Array />}>
+                <Icon.Variable />
+              </PIcon.Icon>
+            ) : (
+              ICONS[node.nodeClass]
+            ),
+            hasChildren: true,
+            haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
+          }) as unknown as Tree.Node,
+      );
       setLoading(undefined);
       setInitialLoading(false);
       if (isRoot) setNodes(newNodes);

@@ -40,7 +40,7 @@ const DEFAULT: State = {
   clientVersion: __VERSION__,
 };
 
-const generateWarning = (
+const createWarning = (
   nodeVersion: string | null,
   clientVersion: string,
   clientIsNewer: boolean,
@@ -110,7 +110,7 @@ export class Checker {
       if (nodeVersion == null) {
         this._state.clientServerCompatible = false;
         if (!warned) {
-          console.warn(generateWarning(null, clientVersion, true));
+          console.warn(createWarning(null, clientVersion, true));
           this.versionWarned = true;
         }
       } else if (
@@ -123,7 +123,7 @@ export class Checker {
         this._state.clientServerCompatible = false;
         if (!warned) {
           console.warn(
-            generateWarning(
+            createWarning(
               nodeVersion,
               clientVersion,
               migrate.semVerNewer(clientVersion, nodeVersion),
