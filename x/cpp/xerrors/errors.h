@@ -27,7 +27,7 @@ const std::string TYPE_UNKNOWN = "unknown";
 class Error {
 public:
     /// @brief defines the general class that this particular error belongs to. Typically
-    /// used to identify handling logic for errrors (especially ones transported over
+    /// used to identify handling logic for errors (especially ones transported over
     /// the network).
     std::string type;
     /// @brief data related to the error. This is typically a message, but can sometimes
@@ -65,6 +65,12 @@ public:
 
     [[nodiscard]] xerrors::Error sub(const std::string &type_extension) const {
         return xerrors::Error(type + "." + type_extension);
+    }
+
+    [[nodiscard]] xerrors::Error reparent(const xerrors::Error& parent) const {
+        const auto pos = type.rfind('.');
+        if (pos == std::string::npos) return *this;
+        return {parent.type + type.substr(pos), this->data};
     }
 
     /// @brief copy constructor.
@@ -135,14 +141,15 @@ public:
 
 const Error UNKNOWN = {TYPE_UNKNOWN, ""};
 const Error NIL = {TYPE_NIL, ""};
-const Error BASE_ERROR("sy");
-const Error VALIDATION_ERROR = BASE_ERROR.sub("validation");
-const Error QUERY_ERROR = BASE_ERROR.sub("query");
-const Error MULTIPLE_RESULTS = QUERY_ERROR.sub("multiple_results");
-const Error NOT_FOUND = QUERY_ERROR.sub("not_found");
+const Error SY("sy");
+const Error VALIDATION = SY.sub("validation");
+const Error QUERY = SY.sub("query");
+const Error MULTIPLE_RESULTS = QUERY.sub("multiple_results");
+const Error NOT_FOUND = QUERY.sub("not_found");
+const Error NOT_SUPPORTED = SY.sub("not_supported");
 
-const Error INTERNAL_ERROR = BASE_ERROR.sub("internal");
-const Error UNEXPECTED_ERROR = BASE_ERROR.sub("unexpected");
-const Error CONTROL_ERROR = BASE_ERROR.sub("control");
-const Error UNAUTHORIZED_ERROR = CONTROL_ERROR.sub("unauthorized");
-} // namespace freighter
+const Error INTERNAL = SY.sub("internal");
+const Error UNEXPECTED = SY.sub("unexpected");
+const Error CONTROL = SY.sub("control");
+const Error UNAUTHORIZED = CONTROL.sub("unauthorized");
+} 

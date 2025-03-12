@@ -87,7 +87,7 @@ public:
     std::string name() override { return "heartbeat"; }
 
     /// @brief stop the heartbeat process
-    void stop() override { pipe.stop(); }
+    void stop(bool will_reconfigure) override { pipe.stop(); }
 
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task> configure(
@@ -107,7 +107,13 @@ public:
             .channels = {ch.key},
             .start = telem::TimeStamp::now(),
         };
-        auto breaker_config = breaker::default_config(task.name);
+        auto breaker_config = breaker::Config{
+            .name = "heartbeat",
+            .base_interval = 1 * telem::SECOND,
+            .max_retries = breaker::RETRY_INFINITELY,
+            .scale = 1.05,
+            .max_interval = 5 * telem::SECOND,
+        };
         return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);
     }
 };
@@ -128,7 +134,7 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-        auto [existing, err] = rack.tasks.retrieveByType("heartbeat");
+        auto [existing, err] = rack.tasks.retrieve_by_type("heartbeat");
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,

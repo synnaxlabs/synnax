@@ -11,6 +11,8 @@ service AuthLoginService {
 message ClusterInfo {
     string cluster_key = 1;
     string node_version = 2;
+    uint32 node_key = 3;
+    int64 node_time = 4;
 }
 
 message LoginRequest {

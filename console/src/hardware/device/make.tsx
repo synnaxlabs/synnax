@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { type Icon as PIcon } from "@synnaxlabs/pluto";
-import { type JSX } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { LabJack } from "@/hardware/labjack";
@@ -41,7 +41,7 @@ export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
 
 const CONTEXT_MENU_ITEMS: Record<
   Make,
-  (props: Ontology.TreeContextMenuProps) => JSX.Element | null
+  (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
   [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
   [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,

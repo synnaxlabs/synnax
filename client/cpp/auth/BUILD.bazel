@@ -10,6 +10,8 @@ cc_library(
     deps = [
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//x/cpp/telem",
+        "//x/cpp/xos",
         "@com_github_grpc_grpc//:grpc++",
     ],
 )

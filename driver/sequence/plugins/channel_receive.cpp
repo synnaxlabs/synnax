@@ -27,7 +27,7 @@ plugins::ChannelReceive::ChannelReceive(
         breaker::default_config("sequence.plugins.channel_receive")
     ),
     latest_values(read_from.size()),
-    channels(synnax::channel_keys_map(read_from)) {
+    channels(synnax::map_channel_Keys(read_from)) {
 }
 
 plugins::ChannelReceive::ChannelReceive(
