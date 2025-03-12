@@ -34,6 +34,18 @@ Frame::Frame(const ChannelKey &chan, telem::Series &&ser) :
     series->emplace_back(std::move(ser));
 }
 
+Frame::Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data, size_t cap) :
+    channels(std::make_unique<std::vector<ChannelKey> >()),
+    series(std::make_unique<std::vector<telem::Series> >()) {
+    if (cap < data.size()) cap = data.size();
+    series->reserve(cap);
+    channels->reserve(cap);
+    for (auto &[key, value]: data) {
+        channels->push_back(key);
+        series->emplace_back(telem::Series(value));
+    }
+}
+
 Frame::Frame(const api::v1::Frame &f) :
     channels(std::make_unique<std::vector<ChannelKey> >(
             f.keys().begin(),
@@ -60,7 +72,7 @@ void Frame::emplace(const ChannelKey &chan, telem::Series &&ser) const {
     series->push_back(std::move(ser));
 }
 
-bool Frame::empty() const { return series->empty(); }
+bool Frame::empty() const { return series == nullptr || series->empty(); }
 
 telem::SampleValue Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
@@ -73,7 +85,9 @@ void Frame::clear() const {
     this->series->clear();
 }
 
-void Frame::reserve(const size_t &size) const {
+void Frame::reserve(const size_t &size) {
+    if (this->channels == nullptr) this->channels = std::make_unique<std::vector<ChannelKey>>();
+    if (this->series == nullptr) this->series = std::make_unique<std::vector<telem::Series>>();
     this->channels->reserve(size);
     this->series->reserve(size);
 }
@@ -90,19 +104,8 @@ Frame::Frame(const Frame &other) :
 Frame::Frame(Frame &&other) noexcept :
     channels(std::move(other.channels)),
     series(std::move(other.series)) {
-}
-
-template<typename NumericType>
-NumericType Frame::at(const ChannelKey &key, const int &index) const {
-    for (size_t i = 0; i < channels->size(); i++)
-        if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
-    throw std::runtime_error("channel not found");
-}
-
-void Frame::at(const ChannelKey &key, const int &index, std:: string &value) const {
-    for (size_t i = 0; i < channels->size(); i++)
-        if (channels->at(i) == key) return series->at(i).at(index, value);
-    throw std::runtime_error("channel not found");
+    other.channels = nullptr;
+    other.series = nullptr;
 }
 
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {

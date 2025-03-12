@@ -9,16 +9,12 @@
 
 #pragma once
 
-/// std
-#include <thread>
-#include <atomic>
-
-/// external
-#include "client/cpp/synnax.h"
-
 /// module
 #include "x/cpp/breaker/breaker.h"
-#include "driver/pipeline/middleware.h"
+#include "client/cpp/synnax.h"
+
+/// internal
+#include "driver/pipeline/base.h"
 
 namespace pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
@@ -31,11 +27,15 @@ public:
     /// error matching driver::TEMPORARY_HARDWARE_ERROR, the acquisition pipeline will
     /// trigger a breaker (temporary backoff), and then retry the read operation. Any
     /// other error type will be considered a permanent error and the pipeline will
-    /// exit.
+    /// exit. It's recommended that the caller return a sub-error of
+    /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as this
+    /// improved traceability.
     virtual std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
-    /// it to shut down or occurred during commanded shutdown.
+    /// it to shut down or occurred during commanded shutdown. Note that this method
+    /// will be called when the pipeline is stopped due to a call to read() that returns
+    /// an error.
     ///
     /// After this method is called, the pipeline will NOT make any further calls to the
     /// source (read, stopped_with_err) until the pipeline is restarted.
@@ -57,7 +57,7 @@ public:
     /// trigger a retry (see the close method).
     virtual bool write(synnax::Frame &fr) = 0;
 
-    /// @brief closes the writer, returning any error that occured during normal
+    /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error will
@@ -86,21 +86,27 @@ public:
 /// @brief an implementation of the pipeline::Writer interface that is backed
 /// by a Synnax writer that writes data to a cluster.
 class SynnaxWriter final : public pipeline::Writer {
-    std::unique_ptr<synnax::Writer> internal;
-
+    /// @brief the internal Synnax writer that this writer wraps.
+    synnax::Writer internal;
 public:
-    explicit SynnaxWriter(std::unique_ptr<synnax::Writer> internal);
+    explicit SynnaxWriter(synnax::Writer internal);
+
+    /// @brief implements pipeline::Writer to write the frame to Synnax.
     bool write(synnax::Frame &fr) override;
+
+    /// @brief implements pipeline::Writer to close the writer.
     xerrors::Error close() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is
 /// backed by an actual synnax client connected to a cluster.
 class SynnaxWriterFactory final : public WriterFactory {
+    /// @brief the Synnax client to use for opening writers.
     std::shared_ptr<synnax::Synnax> client;
-
 public:
     explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
+
+    /// @brief implements pipeline::WriterFactory to open a Synnax writer.
     std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
         const WriterConfig &config
     ) override;
@@ -110,22 +116,33 @@ public:
 /// should be used as a utility for implementing a broader acquisition task. It implements
 /// retry handling on connection loss and temporary hardware errors. The pipeline
 /// forks a thread to repeatedly read from the source and write to Synnax.
-class Acquisition {
-public:
-    Acquisition() = default;
+class Acquisition final : public Base {
+    /// @brief a factory used to instantiate Synnax writers to write acquired data to.
+    /// This is typically backed by a synnax client, but can be mocked.
+    const std::shared_ptr<WriterFactory> factory;
+    /// @brief the source that the acquisition pipeline reads from in order to push
+    /// new frames to synnax.
+    const std::shared_ptr<Source> source;
+    /// @brief the configuration for the Synnax writer.
+    WriterConfig writer_config;
 
+    /// @brief the run function passed to the pipeline thread. Automatically catches
+    /// standard exceptions to ensure the pipeline does not cause the application to
+    /// crash.
+    void run() override;
+public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax database
     /// cluster.
     /// @param client the Synnax client to use for writing data.
     /// @param writer_config the configuration for the Synnax writer. This configuration
     /// will have its start time set to the first timestamp read from the source. The
     /// pipeline will also set err_on_unauthorized to true so that multiple acquisition
-    /// pipelines cannnot write to the same channels at once.
+    /// pipelines cannot write to the same channels at once.
     /// @param source the source to read data from. See the Source interface for more
-    /// details on how to correclty implement a source.
+    /// details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or temporary
-    /// hardware erors.
+    /// hardware errors.
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
         WriterConfig writer_config,
@@ -138,9 +155,9 @@ public:
     /// @param writer_config the configuration for the Synnax writer. This configuration
     /// will have its start time set to the first timestamp read from the source. The
     /// pipeline will also set err_on_unauthorized to true so that multiple acquisition
-    /// pipelines cannnot write to the same channels at once.
+    /// pipelines cannot write to the same channels at once.
     /// @param source the source to read data from. See the Source interface for more
-    /// details on how to correclty implement a source.
+    /// details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or temporary
     Acquisition(
@@ -149,37 +166,5 @@ public:
         std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );
-
-    /// @brief starts the acquisition pipeline if it has not already been started. start
-    /// is safe to call multiple times without stopping the pipeline.
-    void start();
-
-    /// @brief stops the acquisition pipeline, blocking until the pipeline has stopped.
-    /// If the pipeline has already stopped, stop will return immediately.
-    void stop();
-
-    /// @brief adds a middleware to the acquisition pipeline that will be called on each
-    /// frame read from source
-    void add_middleware(
-        const std::shared_ptr<pipeline::Middleware> &middleware
-    ){
-        middleware_chain.add(middleware);
-    }
-
-    ~Acquisition();
-
-private:
-    std::unique_ptr<std::thread> thread;
-    std::shared_ptr<WriterFactory> factory;
-    WriterConfig writer_config;
-    breaker::Breaker breaker;
-    std::shared_ptr<Source> source;
-    pipeline::MiddlewareChain middleware_chain;
-
-    void run_internal();
-
-    void ensure_thread_joined() const;
-
-    void run();
 };
 }

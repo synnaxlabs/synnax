@@ -53,16 +53,16 @@ typedef freighter::StreamClient<
 > WriterClient;
 
 
-
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 class Frame {
     /// @brief private copy constructor that deep copies the frame.
     Frame(const Frame &other);
+
 public:
     /// @brief the channels in the frame.
-    std::unique_ptr<std::vector<ChannelKey> > channels;
+    std::unique_ptr<std::vector<ChannelKey>> channels;
     /// @brief the series in the frame.
-    std::unique_ptr<std::vector<telem::Series> > series;
+    std::unique_ptr<std::vector<telem::Series>> series;
 
     Frame() = default;
 
@@ -81,6 +81,9 @@ public:
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
     Frame(const ChannelKey &chan, telem::Series &&ser);
+
+    explicit Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data,
+                   size_t cap = 0);
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -104,30 +107,89 @@ public:
 
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
-    NumericType at(const ChannelKey &key, const int &index) const;
-
-    void at(const ChannelKey &key, const int &index, std::string &value) const;
+    NumericType at(const ChannelKey &key, const int &index) const {
+        for (size_t i = 0; i < channels->size(); i++)
+            if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
+        throw std::runtime_error("channel not found");
+    }
 
     [[nodiscard]] telem::SampleValue at(const ChannelKey &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
-    [[nodiscard]] size_t size() const { return series->size(); }
+    [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
+
+    [[nodiscard]] size_t length() const {
+        if (series == nullptr || series->empty()) return 0;
+        return series->at(0).size();
+    }
+
+    [[nodiscard]] bool contains(const ChannelKey &key) const {
+        return std::find(channels->begin(), channels->end(), key) != channels->end();
+    }
 
     /// @brief returns the number of channel-series pairs that the frame can hold before
     /// resizing.
-    [[nodiscard]] size_t capacity() const { return series->capacity(); }
+    [[nodiscard]] size_t capacity() const {
+        return channels != nullptr ? channels->capacity() : 0;
+    }
 
     /// @brief clears the frame of all channels and series, making it empty for reuse.
     void clear() const;
 
     /// @brief reserves the given number of series in the frame.
-    void reserve(const size_t &size) const;
+    void reserve(const size_t &size);
 
     /// @brief deep copies the frame, all of its series, and their data. This function
     /// must be used explicitly (instead of through a copy constructor) to avoid
     /// unintentional deep copies.
     [[nodiscard]] Frame deep_copy() const;
 
+    /// @brief implements iterator support for the frame, allowing the caller to traverse
+    /// the channel keys and series in the frame.
+    struct Iterator {
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = std::pair<ChannelKey, telem::Series &>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = value_type *;
+        using reference = value_type &;
+
+        Iterator(
+            std::vector<ChannelKey> &channels_ref, 
+            std::vector<telem::Series> &series_ref,
+            const size_t pos
+        ): channels(channels_ref), series(series_ref), pos(pos) {
+        }
+
+        value_type operator*() const {
+            return {channels.at(pos), series.at(pos)};
+        }
+
+        Iterator &operator++() {
+            pos++;
+            return *this;
+        }
+
+        bool operator!=(const Iterator &other) const {
+            return pos != other.pos;
+        }
+        
+        bool operator==(const Iterator &other) const {
+            return pos == other.pos;
+        }
+
+    private:
+        std::vector<ChannelKey> &channels;
+        std::vector<telem::Series> &series;
+        size_t pos;
+    };
+
+    [[nodiscard]] Iterator begin() const {
+        return {*channels, *series, 0};
+    }
+
+    [[nodiscard]] Iterator end() const {
+        return {*channels, *series, channels->size()};
+    }
 };
 
 /// @brief configuration for opening a new streamer.
@@ -220,6 +282,11 @@ enum WriterMode : uint8_t {
     /// @brief typically used in scenarios involving streaming writes.
     StreamOnly = 3
 };
+
+inline WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return WriterMode::PersistStream;
+    return WriterMode::StreamOnly;
+}
 
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write.

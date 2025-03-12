@@ -127,7 +127,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   }
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: getChannelByNodeID(dev.properties, c.nodeId),
+    cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
   if (modified) await client.hardware.devices.create(dev);
   return [config, dev.rack];

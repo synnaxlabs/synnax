@@ -68,7 +68,7 @@ func (c Config) format() map[string]interface{} {
 
 var (
 	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
+	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence", "heartbeat"}
 	DefaultConfig                         = Config{
 		Integrations: []string{},
 		Enabled:      config.Bool(true),

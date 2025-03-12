@@ -9,6 +9,7 @@
 
 import "@/hardware/opc/device/Browser.css";
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -28,7 +29,7 @@ import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
-  SCAN_NAME,
+  SCAN_TYPE,
   type ScanStateDetails,
 } from "@/hardware/opc/task/types";
 
@@ -56,7 +57,9 @@ export const Browser = ({ device }: BrowserProps) => {
     queryFn: async () => {
       if (client == null) return null;
       const rck = await client.hardware.racks.retrieve(device.rack);
-      return await rck.retrieveTaskByName(SCAN_NAME);
+      const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
+      if (scanTasks.length > 0) return scanTasks[0];
+      throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
     },
   });
   const [loading, setLoading] = useState<string>();

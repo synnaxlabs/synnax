@@ -150,6 +150,10 @@ export class Rack {
     return await this.tasks.retrieveByName(name, this.key);
   }
 
+  async retrieveTaskByType(type: string): Promise<task.Task[]> {
+    return await this.tasks.retrieveByType(type, this.key);
+  }
+
   async createTask<
     Config extends UnknownRecord,
     Details extends {} = UnknownRecord,
