@@ -137,7 +137,7 @@ public:
     void clear() const;
 
     /// @brief reserves the given number of series in the frame.
-    void reserve(const size_t &size) const;
+    void reserve(const size_t &size);
 
     /// @brief deep copies the frame, all of its series, and their data. This function
     /// must be used explicitly (instead of through a copy constructor) to avoid
@@ -172,6 +172,11 @@ public:
         bool operator!=(const Iterator &other) const {
             return pos != other.pos;
         }
+        
+        bool operator==(const Iterator &other) const {
+            return pos == other.pos;
+        }
+
     private:
         std::vector<ChannelKey> &channels;
         std::vector<telem::Series> &series;

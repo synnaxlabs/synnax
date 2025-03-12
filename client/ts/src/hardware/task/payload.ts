@@ -43,7 +43,11 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z.record(z.unknown()).or(z.string().transform(parseWithoutKeyConversion)),
+  config: z
+    .record(z.unknown())
+    .or(
+      z.string().transform((c) => binary.JSON_CODEC.decodeString(c) as UnknownRecord),
+    ),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });

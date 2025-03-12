@@ -74,10 +74,13 @@ public:
     }
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
+        if (this->high_water == 0)
+            throw std::runtime_error("hardware sample clock not reset before first `wait` called. Call `reset` before waiting on the sample clock.");
         return this->high_water;
     }
 
     telem::TimeStamp end(const size_t n_read) override {
+        if (n_read == 0) return this->high_water;
         const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
         this->high_water = end + this->sample_rate.period();
         return end;

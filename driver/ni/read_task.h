@@ -106,7 +106,7 @@ struct ReadTaskConfig {
                           "failed to retrieve channels for task: " + err.message());
             return;
         }
-        auto remote_channels = channel_keys_map(channel_vec);
+        auto remote_channels = map_channel_Keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, err] = client->hardware.retrieve_device(this->device_key);
@@ -126,7 +126,7 @@ struct ReadTaskConfig {
                               message());
                 return;
             }
-            devices = device_keys_map(devices_vec);
+            devices = map_device_keys(devices_vec);
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
@@ -145,6 +145,15 @@ struct ReadTaskConfig {
         auto parser = xjson::Parser(task.config);
         return {ReadTaskConfig(client, parser, task.type), parser.error()};
     }
+
+    std::vector<synnax::Channel> sy_channels() const {
+        std::vector<synnax::Channel> chs;
+        chs.reserve(this->channels.size());
+        for (const auto &ch: this->channels) chs.push_back(ch->ch);
+        return chs;
+    }
+
+    [[nodiscard]]
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -211,6 +220,10 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
+
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
+    }
 
     xerrors::Error start() override {
         this->sample_clock->reset();

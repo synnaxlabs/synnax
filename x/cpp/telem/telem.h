@@ -29,7 +29,7 @@ constexpr int64_t SECOND = MILLISECOND * 1e3;
 constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
-} // namespace _priv
+}
 
 
 /// @brief timespan is a nanosecond-precision time duration.
@@ -311,6 +311,10 @@ public:
 
     bool operator>=(const TimeStamp &other) const { return value >= other.value; }
 
+    bool operator==(const int &other) const { return value == other; }
+
+    bool operator !=(const int &other) const { return value != other; }
+
     //////////////////////////////////// ADDITION /////////////////////////////////////
 
     TimeStamp operator+(const TimeStamp &other) const {
@@ -549,6 +553,235 @@ using SampleValue = std::variant<
     std::string // STRING
 >;
 
+using NumericSampleValue = std::variant<
+    double, // FLOAT64
+    float, // FLOAT32
+    int64_t, // INT64
+    int32_t, // INT32
+    int16_t, // INT16
+    int8_t, // INT8
+    uint64_t, // UINT64
+    uint32_t, // UINT32
+    uint16_t, // UINT16
+    uint8_t, // UINT8
+    TimeStamp // TIMESTAMP
+>;
+
+[[nodiscard]] inline NumericSampleValue narrow_numeric(const SampleValue &value) {
+    if (std::holds_alternative<std::string>(value))
+        throw std::runtime_error("cannot narrow non-numeric sample value");
+
+    return std::visit([]<typename T>(T &&arg) -> NumericSampleValue {
+        if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
+            return arg;
+        else if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
+            throw std::runtime_error("cannot narrow string to numeric sample value");
+        else
+            return arg;
+    }, value);
+}
+
+inline SampleValue widen_numeric(const NumericSampleValue &value) {
+    return std::visit([]<typename T>(T &&arg) -> SampleValue {
+        if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
+            return arg;
+        else
+            return arg;
+    }, value);
+}
+
+/// @brief Subtracts the second NumericSampleValue from the first
+/// @param lhs The left-hand side operand
+/// @param rhs The right-hand side operand to subtract
+/// @returns A new NumericSampleValue containing the result of the subtraction
+/// @throws std::runtime_error if the types are incompatible for subtraction
+[[nodiscard]] inline NumericSampleValue subtract(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return std::visit([&rhs]<typename LHS>(LHS &&lhs_val) -> NumericSampleValue {
+        return std::visit([&lhs_val]<typename RHS>(RHS &&rhs_val) -> NumericSampleValue {
+            using LhsType = std::decay_t<LHS>;
+            using RhsType = std::decay_t<RHS>;
+
+            // Handle TimeStamp specially
+            if constexpr (std::is_same_v<LhsType, TimeStamp>) {
+                if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                    // TimeStamp - TimeStamp = int64_t (nanoseconds)
+                    return (lhs_val - rhs_val).nanoseconds();
+                } else if constexpr (std::is_arithmetic_v<RhsType>) {
+                    // TimeStamp - numeric = TimeStamp
+                    return TimeStamp(lhs_val.nanoseconds() - static_cast<int64_t>(rhs_val));
+                }
+            } else if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                if constexpr (std::is_arithmetic_v<LhsType>) {
+                    // numeric - TimeStamp = TimeStamp
+                    return TimeStamp(static_cast<int64_t>(lhs_val) - rhs_val.nanoseconds());
+                }
+            } else if constexpr (std::is_arithmetic_v<LhsType> && std::is_arithmetic_v<RhsType>) {
+                // For arithmetic types, if they're the same type, preserve that type
+                if constexpr (std::is_same_v<LhsType, RhsType>) {
+                    // Same type - preserve it
+                    return static_cast<LhsType>(lhs_val - rhs_val);
+                } else {
+                    // Different types - promote to the larger type
+                    using ResultType = std::common_type_t<LhsType, RhsType>;
+                    return static_cast<ResultType>(lhs_val) - static_cast<ResultType>(rhs_val);
+                }
+            }
+
+            throw std::runtime_error("incompatible types for subtraction");
+        }, rhs);
+    }, lhs);
+}
+
+/// @brief Adds two NumericSampleValues together
+/// @param lhs The left-hand side operand
+/// @param rhs The right-hand side operand to add
+/// @returns A new NumericSampleValue containing the result of the addition
+/// @throws std::runtime_error if the types are incompatible for addition
+[[nodiscard]] inline NumericSampleValue add(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return std::visit([&rhs]<typename LHS>(LHS &&lhs_val) -> NumericSampleValue {
+        return std::visit([&lhs_val]<typename RHS>(RHS &&rhs_val) -> NumericSampleValue {
+            using LhsType = std::decay_t<LHS>;
+            using RhsType = std::decay_t<RHS>;
+
+            // Handle TimeStamp specially
+            if constexpr (std::is_same_v<LhsType, TimeStamp>) {
+                if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                    // TimeStamp + TimeStamp = TimeStamp
+                    return TimeStamp(lhs_val.nanoseconds() + rhs_val.nanoseconds());
+                } else if constexpr (std::is_arithmetic_v<RhsType>) {
+                    // TimeStamp + numeric = TimeStamp
+                    return TimeStamp(lhs_val.nanoseconds() + static_cast<int64_t>(rhs_val));
+                }
+            } else if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                if constexpr (std::is_arithmetic_v<LhsType>) {
+                    // numeric + TimeStamp = TimeStamp
+                    return TimeStamp(static_cast<int64_t>(lhs_val) + rhs_val.nanoseconds());
+                }
+            } else if constexpr (std::is_arithmetic_v<LhsType> && std::is_arithmetic_v<RhsType>) {
+                // For arithmetic types, if they're the same type, preserve that type
+                if constexpr (std::is_same_v<LhsType, RhsType>) {
+                    // Same type - preserve it
+                    return static_cast<LhsType>(lhs_val + rhs_val);
+                } else {
+                    // Different types - promote to the larger type
+                    using ResultType = std::common_type_t<LhsType, RhsType>;
+                    return static_cast<ResultType>(lhs_val) + static_cast<ResultType>(rhs_val);
+                }
+            }
+
+            throw std::runtime_error("incompatible types for addition");
+        }, rhs);
+    }, lhs);
+}
+
+/// @brief Multiplies two NumericSampleValues together
+/// @param lhs The left-hand side operand
+/// @param rhs The right-hand side operand to multiply
+/// @returns A new NumericSampleValue containing the result of the multiplication
+/// @throws std::runtime_error if the types are incompatible for multiplication
+[[nodiscard]] inline NumericSampleValue multiply(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return std::visit([&rhs]<typename LHS>(LHS &&lhs_val) -> NumericSampleValue {
+        return std::visit([&lhs_val]<typename RHS>(RHS &&rhs_val) -> NumericSampleValue {
+            using LhsType = std::decay_t<LHS>;
+            using RhsType = std::decay_t<RHS>;
+
+            // Handle TimeStamp specially
+            if constexpr (std::is_same_v<LhsType, TimeStamp>) {
+                if constexpr (std::is_arithmetic_v<RhsType>) {
+                    // TimeStamp * numeric = TimeStamp
+                    return TimeStamp(lhs_val.nanoseconds() * static_cast<int64_t>(rhs_val));
+                }
+            } else if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                if constexpr (std::is_arithmetic_v<LhsType>) {
+                    // numeric * TimeStamp = TimeStamp
+                    return TimeStamp(static_cast<int64_t>(lhs_val) * rhs_val.nanoseconds());
+                }
+            } else if constexpr (std::is_arithmetic_v<LhsType> && std::is_arithmetic_v<RhsType>) {
+                // For arithmetic types, if they're the same type, preserve that type
+                if constexpr (std::is_same_v<LhsType, RhsType>) {
+                    // Same type - preserve it
+                    return static_cast<LhsType>(lhs_val * rhs_val);
+                } else {
+                    // Different types - promote to the larger type
+                    using ResultType = std::common_type_t<LhsType, RhsType>;
+                    return static_cast<ResultType>(lhs_val) * static_cast<ResultType>(rhs_val);
+                }
+            }
+
+            throw std::runtime_error("incompatible types for multiplication");
+        }, rhs);
+    }, lhs);
+}
+
+/// @brief Divides the first NumericSampleValue by the second
+/// @param lhs The left-hand side operand (dividend)
+/// @param rhs The right-hand side operand (divisor)
+/// @returns A new NumericSampleValue containing the result of the division
+/// @throws std::runtime_error if the types are incompatible for division or if dividing by zero
+[[nodiscard]] inline NumericSampleValue divide(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return std::visit([&rhs]<typename LHS>(LHS &&lhs_val) -> NumericSampleValue {
+        return std::visit([&lhs_val]<typename RHS>(RHS &&rhs_val) -> NumericSampleValue {
+            using LhsType = std::decay_t<LHS>;
+            using RhsType = std::decay_t<RHS>;
+
+            // Check for division by zero
+            if constexpr (std::is_arithmetic_v<RhsType>) {
+                if (rhs_val == 0) throw std::runtime_error("division by zero");
+            } else if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                if (rhs_val.nanoseconds() == 0) throw std::runtime_error("division by zero");
+            }
+
+            // Handle TimeStamp specially
+            if constexpr (std::is_same_v<LhsType, TimeStamp>) {
+                if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                    // TimeStamp / TimeStamp = double ratio
+                    return static_cast<double>(lhs_val.nanoseconds()) / static_cast<double>(rhs_val.nanoseconds());
+                } else if constexpr (std::is_arithmetic_v<RhsType>) {
+                    // TimeStamp / numeric = TimeStamp
+                    return TimeStamp(lhs_val.nanoseconds() / static_cast<int64_t>(rhs_val));
+                }
+            } else if constexpr (std::is_arithmetic_v<LhsType>) {
+                if constexpr (std::is_same_v<RhsType, TimeStamp>) {
+                    // numeric / TimeStamp = double
+                    return static_cast<double>(lhs_val) / static_cast<double>(rhs_val.nanoseconds());
+                } else if constexpr (std::is_arithmetic_v<RhsType>) {
+                    // For arithmetic types, if they're the same type, preserve that type
+                    if constexpr (std::is_same_v<LhsType, RhsType>) {
+                        // Same type - preserve it
+                        return static_cast<LhsType>(lhs_val / rhs_val);
+                    } else {
+                        // Different types - promote to the larger type
+                        using ResultType = std::common_type_t<LhsType, RhsType>;
+                        return static_cast<ResultType>(lhs_val) / static_cast<ResultType>(rhs_val);
+                    }
+                }
+            }
+
+            throw std::runtime_error("incompatible types for division");
+        }, rhs);
+    }, lhs);
+}
+
+// Operator overloads for NumericSampleValue
+
+[[nodiscard]] inline NumericSampleValue operator+(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return add(lhs, rhs);
+}
+
+[[nodiscard]] inline NumericSampleValue operator-(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return subtract(lhs, rhs);
+}
+
+[[nodiscard]] inline NumericSampleValue operator*(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return multiply(lhs, rhs);
+}
+
+[[nodiscard]] inline NumericSampleValue operator/(const NumericSampleValue &lhs, const NumericSampleValue &rhs) {
+    return divide(lhs, rhs);
+}
+
+
+
 template<typename T>
 [[nodiscard]] T cast(const SampleValue &value) {
     if (std::holds_alternative<T>(value)) return std::get<T>(value);
@@ -564,7 +797,7 @@ template<typename T>
     }
     if constexpr (std::is_same_v<T, TimeStamp>) {
         return std::visit([]<typename IT>(IT &&arg) -> TimeStamp {
-            if constexpr (std::is_arithmetic_v<std::decay_t<IT>>) {
+            if constexpr (std::is_arithmetic_v<std::decay_t<IT> >) {
                 return TimeStamp(static_cast<std::int64_t>(arg));
             } else if constexpr (std::is_same_v<std::decay_t<IT>,
                 std::string>) {
@@ -596,20 +829,23 @@ template<typename T>
         }
     }
     return std::visit([]<typename IT>(IT &&arg) -> T {
-        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>)
+        if constexpr (std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<
+                          IT> >)
             return static_cast<T>(arg);
         throw std::runtime_error("invalid type conversion");
     }, value);
 }
 
 [[nodiscard]] inline void *cast_to_void_ptr(const SampleValue &value) {
-    return std::visit([]<typename T>(const T& arg) -> void* {
+    return std::visit([]<typename T>(const T &arg) -> void *{
         if constexpr (std::is_same_v<T, std::string>)
-            return const_cast<void*>(static_cast<const void*>(arg.data()));
+            return const_cast<void *>(static_cast<const void *>(arg.data()));
         else
-            return const_cast<void*>(static_cast<const void*>(&arg));
+            return const_cast<void *>(static_cast<const void *>(&arg));
     }, value);
 }
+
+
 
 namespace _priv {
 const std::string UNKNOWN_T;
@@ -682,7 +918,7 @@ public:
     [[nodiscard]] std::string name() const { return value; }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return DENSITIES[value]; };
+    [[nodiscard]] size_t density() const { return DENSITIES[value]; }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(_priv::VARIABLE_TYPES);
@@ -728,19 +964,32 @@ public:
     /// @returns A new sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     SampleValue cast(const void *value, const DataType &value_type) const {
-        if (value_type == _priv::FLOAT64_T) return this->cast(*static_cast<const double*>(value));
-        if (value_type == _priv::FLOAT32_T) return this->cast(*static_cast<const float*>(value));
-        if (value_type == _priv::INT64_T) return this->cast(*static_cast<const int64_t*>(value));
-        if (value_type == _priv::INT32_T) return this->cast(*static_cast<const int32_t*>(value));
-        if (value_type == _priv::INT16_T) return this->cast(*static_cast<const int16_t*>(value));
-        if (value_type == _priv::INT8_T) return this->cast(*static_cast<const int8_t*>(value));
-        if (value_type == _priv::UINT8_T) return this->cast(*static_cast<const uint8_t*>(value));
-        if (value_type == _priv::UINT16_T) return this->cast(*static_cast<const uint16_t*>(value));
-        if (value_type == _priv::UINT32_T) return this->cast(*static_cast<const uint32_t*>(value));
-        if (value_type == _priv::UINT64_T) return this->cast(*static_cast<const uint64_t*>(value));
-        if (value_type == _priv::TIMESTAMP_T) return this->cast(*static_cast<const TimeStamp*>(value));
-        if (value_type == _priv::STRING_T) return this->cast(*static_cast<const std::string*>(value));
-        if (value_type == _priv::JSON_T) return this->cast(*static_cast<const std::string*>(value));
+        if (value_type == _priv::FLOAT64_T) return this->cast(
+            *static_cast<const double *>(value));
+        if (value_type == _priv::FLOAT32_T) return this->cast(
+            *static_cast<const float *>(value));
+        if (value_type == _priv::INT64_T) return this->cast(
+            *static_cast<const int64_t *>(value));
+        if (value_type == _priv::INT32_T) return this->cast(
+            *static_cast<const int32_t *>(value));
+        if (value_type == _priv::INT16_T) return this->cast(
+            *static_cast<const int16_t *>(value));
+        if (value_type == _priv::INT8_T) return this->cast(
+            *static_cast<const int8_t *>(value));
+        if (value_type == _priv::UINT8_T) return this->cast(
+            *static_cast<const uint8_t *>(value));
+        if (value_type == _priv::UINT16_T) return this->cast(
+            *static_cast<const uint16_t *>(value));
+        if (value_type == _priv::UINT32_T) return this->cast(
+            *static_cast<const uint32_t *>(value));
+        if (value_type == _priv::UINT64_T) return this->cast(
+            *static_cast<const uint64_t *>(value));
+        if (value_type == _priv::TIMESTAMP_T) return this->cast(
+            *static_cast<const TimeStamp *>(value));
+        if (value_type == _priv::STRING_T) return this->cast(
+            *static_cast<const std::string *>(value));
+        if (value_type == _priv::JSON_T) return this->cast(
+            *static_cast<const std::string *>(value));
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value);
     }
@@ -876,11 +1125,10 @@ const DataType JSON_T(_priv::JSON_T);
 }
 
 // Add hash specialization in std namespace
-namespace std {
 template<>
-struct hash<telem::DataType> {
-    size_t operator()(const telem::DataType& dt) const {
+struct std::hash<telem::DataType> {
+    size_t operator()(const telem::DataType &dt) const noexcept {
         return hash<string>()(dt.value);
     }
 };
-}
+

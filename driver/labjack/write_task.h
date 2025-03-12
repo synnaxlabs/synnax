@@ -102,6 +102,10 @@ struct WriteTaskConfig {
                 this->channels[ch->cmd_ch_key] = std::move(ch);
             }
         );
+        if (this->channels.empty()) {
+            parser.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());

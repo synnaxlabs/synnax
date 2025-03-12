@@ -136,5 +136,5 @@ public:
 
     xerrors::Error stop() override;
 
-}; // class ScannerTask
-} // namespace ni
+}; 
+} 

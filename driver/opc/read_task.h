@@ -77,6 +77,10 @@ struct ReadTaskConfig {
             const auto ch = InputChan(cp);
             if (ch.enabled) channels.push_back(ch);
         });
+        if (this->channels.empty()) {
+            parser.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
@@ -104,6 +108,13 @@ struct ReadTaskConfig {
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i].ch = ch;
         }
+    }
+
+    std::vector<synnax::Channel> sy_channels() const {
+        std::vector<synnax::Channel> chs;
+        chs.reserve(this->channels.size());
+        for (const auto &ch: this->channels) chs.push_back(ch.ch);
+        return chs;
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
@@ -183,6 +194,10 @@ public:
     ): BaseReadTaskSource(client, cfg, cfg.sample_rate / cfg.array_size) {
     }
 
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
+    }
+
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         this->timer.wait(breaker);
         UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
@@ -254,6 +269,10 @@ public:
             this->timer.wait(breaker);
         }
         return std::make_pair(std::move(fr), xerrors::NIL);
+    }
+
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
     }
 };
 }

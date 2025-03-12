@@ -15,7 +15,6 @@
 
 /// internal
 #include "driver/pipeline/base.h"
-#include "driver/pipeline/middleware.h"
 
 namespace pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
@@ -126,9 +125,6 @@ class Acquisition final : public Base {
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
     WriterConfig writer_config;
-    /// @brief a middleware chain that can modify frames read from the source before
-    /// they are written to Synnax.
-    pipeline::MiddlewareChain middleware;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -170,11 +166,5 @@ public:
         std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );
-
-    /// @brief adds a middleware to the acquisition pipeline that will be called on each
-    /// frame read from source
-    void use(const std::shared_ptr<pipeline::Middleware> &mw) {
-        this->middleware.add(mw);
-    }
 };
 }

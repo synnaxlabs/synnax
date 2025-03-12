@@ -28,6 +28,9 @@ class MockSource final : public pipeline::mock::Source, public common::Source {
         return synnax::WriterConfig();
     }
 
+    std::vector<synnax::Channel> channels() const override {
+        return {};
+    }
 public:
     explicit MockSource(
         const std::shared_ptr<std::vector<synnax::Frame>> &reads,

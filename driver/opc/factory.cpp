@@ -95,7 +95,7 @@ opc::Factory::configure_initial_tasks(
     auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
     if (err.matches(xerrors::NOT_FOUND)) {
         LOG(INFO) << "[opc] creating scanner task";
-        auto sy_task = synnax::Task(rack.key, "OPC Scanner", SCAN_TASK_TYPE, "", true);
+        auto sy_task = synnax::Task(rack.key, "OPC UA Scanner", SCAN_TASK_TYPE, "", true);
         if (const auto c_err = rack.tasks.create(sy_task)) {
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;

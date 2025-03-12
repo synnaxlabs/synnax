@@ -12,13 +12,14 @@
 /// module
 #include "glog/logging.h"
 
-#include "state.h"
 
+/// module
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
+#include "client/cpp/hardware/hardware.h"
 
 /// internal
-#include "client/cpp/hardware/hardware.h"
+#include "driver/task/common/state.h"
 #include "driver/pipeline/base.h"
 #include "driver/task/task.h"
 
@@ -73,6 +74,16 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, telem::TimeStamp> last_updated;
 
+    [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
+        auto last_updated = telem::TimeStamp(0);
+        if (const auto existing_last_updated = this->last_updated.find(dev_key);
+            existing_last_updated != this->last_updated.end()) {
+            last_updated = existing_last_updated->second;
+        }
+        const auto delta = telem::TimeStamp::now() - last_updated;
+        return delta > telem::SECOND * 30;
+    }
+
 public:
     ScanTask(
         std::unique_ptr<Scanner> scanner,
@@ -86,7 +97,6 @@ public:
        timer(scan_rate),
        scanner(std::move(scanner)),
        ctx(ctx),
-       scanner_ctx(),
        client(std::move(client)) {
         this->state.task = task.key;
         this->state.variant = "pending";
@@ -126,7 +136,7 @@ public:
                 this->state.variant = "warning";
                 this->state.details["message"] = err.message();
                 this->ctx->set_state(this->state);
-                LOG(WARNING) << "[ni.scan_task] failed to scan for devices: " << err;
+                LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
             }
             this->timer.wait();
         }
@@ -152,15 +162,6 @@ public:
         }
     }
 
-    bool update_threshold_exceeded(const std::string &dev_key) {
-        auto last_updated = telem::TimeStamp(0);
-        if (auto lc = this->last_updated.find(dev_key);
-            lc != this->last_updated.end()) {
-            last_updated = lc->second;
-        }
-        auto delta = telem::TimeStamp::now() - last_updated;
-        return delta > telem::SECOND * 30;
-    }
 
     xerrors::Error scan() {
         auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
@@ -170,9 +171,9 @@ public:
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs) devices.push_back(device.key);
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(devices);
-        if (ret_err) return ret_err;
+        if (ret_err && !ret_err.matches(xerrors::NOT_FOUND)) return ret_err;
 
-        auto remote_devs = synnax::device_keys_map(remote_devs_vec);
+        auto remote_devs = synnax::map_device_keys(remote_devs_vec);
 
         std::vector<synnax::Device> to_create;
         for (auto &scanned_dev: scanned_devs) {

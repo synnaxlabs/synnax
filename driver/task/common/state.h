@@ -15,7 +15,7 @@ namespace common {
 const std::string STOP_CMD_TYPE = "stop";
 const std::string START_CMD_TYPE = "start";
 const std::string SCAN_CMD_TYPE = "scan";
-/// @brief a utility structure for managing the state of national instruments tasks.
+/// @brief a utility structure for managing the state of tasks.
 struct StateHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<task::Context> ctx;
@@ -62,7 +62,7 @@ struct StateHandler {
         if (!this->err) {
             this->wrapped.variant = "warning";
             this->wrapped.details["message"] = warning;
-        } else this->wrapped.details["message"] = this->err.message();
+        } else this->wrapped.details["message"] = this->err.data;
         this->ctx->set_state(this->wrapped);
     }
 

@@ -58,8 +58,7 @@ public:
         dev_manager(dev_manager) {
     }
 
-    /// @brief creates a new NI factory, loading the DAQmx and system configuration
-    /// libraries.
+    /// @brief creates a new Labjack factory, loading the LJM library.
     static std::unique_ptr<Factory> create();
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
@@ -73,4 +72,4 @@ public:
         const synnax::Rack &rack
     ) override;
 };
-} // namespace labjack
+} 

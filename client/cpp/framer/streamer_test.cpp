@@ -21,7 +21,7 @@ void test_downsample(
 );
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
-TEST(FramerTests, testStreamBasic) {
+TEST(StreamerTests, testStreamBasic) {
     auto client = new_test_client();
     auto data = ASSERT_NIL_P(client.channels.create(
         "data",
@@ -54,7 +54,7 @@ TEST(FramerTests, testStreamBasic) {
 }
 
 ///@brief test streamer set channels after construction.
-TEST(FramerTests, testStreamSetChannels) {
+TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto data = ASSERT_NIL_P(client.channels.create(
         "data",
@@ -97,7 +97,7 @@ TEST(FramerTests, testStreamSetChannels) {
 }
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
-TEST(FramerTests, TestStreamDownsample) {
+TEST(StreamerTests, TestStreamDownsample) {
     const std::vector data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     test_downsample(data, data, 1);
@@ -221,7 +221,7 @@ void test_downsample_string(
     ASSERT_NIL(streamer.close());
 }
 
-TEST(FramerTests, TestStreamDownsampleString) {
+TEST(StreamerTests, TestStreamDownsampleString) {
     const std::vector<std::string> data = {
         "a", "b", "c", "d", "e", "f", "g", "h", "i", "j"
     };

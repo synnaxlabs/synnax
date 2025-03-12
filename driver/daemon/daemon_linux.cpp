@@ -285,4 +285,4 @@ xerrors::Error status() {
         return xerrors::Error("Service is not running");
     return xerrors::NIL;
 }
-} // namespace daemond
+} 

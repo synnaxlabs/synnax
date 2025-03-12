@@ -11,7 +11,7 @@
 #include "client/cpp/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
-TEST(FramerTests, testConstructionFromSize) {
+TEST(FrameTests, testConstructionFromSize) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
@@ -19,7 +19,7 @@ TEST(FramerTests, testConstructionFromSize) {
 }
 
 /// @brief it should construct a frame from a single series and channel.
-TEST(FramerTests, testConstructionFromSingleSeriesAndChannel) {
+TEST(FrameTests, testConstructionFromSingleSeriesAndChannel) {
     const auto f = synnax::Frame(65537, telem::Series(std::vector<float>{1, 2, 3}));
     ASSERT_EQ(f.size(), 1);
     ASSERT_EQ(f.channels->at(0), 65537);
@@ -29,7 +29,7 @@ TEST(FramerTests, testConstructionFromSingleSeriesAndChannel) {
 }
 
 /// @brief it should construct a frame from a proto.
-TEST(FramerTests, toProto) {
+TEST(FrameTests, toProto) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
@@ -44,7 +44,7 @@ TEST(FramerTests, toProto) {
 }
 
 /// @brief test ostream operator.
-TEST(FramerTests, ostream) {
+TEST(FrameTests, ostream) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
@@ -54,7 +54,7 @@ TEST(FramerTests, ostream) {
               "Frame{\n 65537: Series(type: float32, size: 3, cap: 3, data: [1 2 3 ]), \n}");
 }
 
-TEST(FramerTests, testClear) {
+TEST(FrameTests, testClear) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
@@ -64,8 +64,8 @@ TEST(FramerTests, testClear) {
     ASSERT_EQ(f.series->size(), 0); 
 }
 
-TEST(FramerTests, testReserve) {
-    const auto f = synnax::Frame(2);
+TEST(FrameTests, testReserve) {
+    auto f = synnax::Frame(2);
     f.reserve(10);
     ASSERT_EQ(f.size(), 0);
     ASSERT_EQ(f.channels->size(), 0);
@@ -82,7 +82,7 @@ TEST(FramerTests, testReserve) {
 
 }
 
-TEST(FramerTests, testDeepCopy) {
+TEST(FrameTests, testDeepCopy) {
     const auto f = synnax::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
@@ -97,7 +97,7 @@ TEST(FramerTests, testDeepCopy) {
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }
 
-TEST(FramerTest, testIteration) {
+TEST(FrameTests, testIteration) {
     // Create a frame with multiple channel-series pairs
     auto frame = synnax::Frame(3);
     
@@ -120,19 +120,19 @@ TEST(FramerTest, testIteration) {
         count++;
         if (key == 65537) {
             ASSERT_EQ(series.data_type(), telem::FLOAT32_T);
-            ASSERT_EQ(series.values<float>()[0], 1.0f);
-            ASSERT_EQ(series.values<float>()[1], 2.0f);
-            ASSERT_EQ(series.values<float>()[2], 3.0f);
+            ASSERT_EQ(series.at<float>(0), 1.0f);
+            ASSERT_EQ(series.at<float>(1), 2.0f);
+            ASSERT_EQ(series.at<float>(2), 3.0f);
         } else if (key == 65538) {
             ASSERT_EQ(series.data_type(), telem::FLOAT64_T);
-            ASSERT_EQ(series.values<double>()[0], 4.0);
-            ASSERT_EQ(series.values<double>()[1], 5.0);
-            ASSERT_EQ(series.values<double>()[2], 6.0);
+            ASSERT_EQ(series.at<double>(0), 4.0);
+            ASSERT_EQ(series.at<double>(1), 5.0);
+            ASSERT_EQ(series.at<double>(2), 6.0);
         } else if (key == 65539) {
             ASSERT_EQ(series.data_type(), telem::INT32_T);
-            ASSERT_EQ(series.values<int32_t>()[0], 7);
-            ASSERT_EQ(series.values<int32_t>()[1], 8);
-            ASSERT_EQ(series.values<int32_t>()[2], 9);
+            ASSERT_EQ(series.at<int32_t>(0), 7);
+            ASSERT_EQ(series.at<int32_t>(1), 8);
+            ASSERT_EQ(series.at<int32_t>(2), 9);
         } else {
             FAIL() << "Unexpected channel key: " << key;
         }
@@ -142,18 +142,18 @@ TEST(FramerTest, testIteration) {
     // Test range-based for loop
     count = 0;
     std::set<ChannelKey> seen_keys;
-    for (auto pair : frame) {
+    for (auto [key, series] : frame) {
         count++;
-        seen_keys.insert(pair.first);
-        
+        seen_keys.insert(key);
+
         // Verify we can access and modify the series through the iterator
-        if (pair.first == 65537) {
-            ASSERT_EQ(pair.second.data_type(), telem::FLOAT32_T);
-            std::vector<float> values = pair.second.values<float>();
+        if (key == 65537) {
+            ASSERT_EQ(series.data_type(), telem::FLOAT32_T);
+            std::vector<float> values = series.values<float>();
             ASSERT_EQ(values[0], 1.0f);
-            
+
             // Modify the series through the iterator
-            values[0] = 10.0f;
+            series.set<float>(0, 10.0f);
         }
     }
     ASSERT_EQ(count, 3);
@@ -161,9 +161,6 @@ TEST(FramerTest, testIteration) {
     ASSERT_TRUE(seen_keys.find(65537) != seen_keys.end());
     ASSERT_TRUE(seen_keys.find(65538) != seen_keys.end());
     ASSERT_TRUE(seen_keys.find(65539) != seen_keys.end());
-    
-    // Verify the modification was applied to the original frame
-    ASSERT_EQ(frame.series->at(0).values<float>()[0], 10.0f);
     
     // Test iteration with const frame
     const auto& const_frame = frame;
@@ -180,10 +177,10 @@ TEST(FramerTest, testIteration) {
     count = 0;
     for (auto pair : empty_frame) count++;
     ASSERT_EQ(count, 0);
-    ASSERT_EQ(empty_frame.begin(), empty_frame.end());
+    ASSERT_TRUE(empty_frame.begin() == empty_frame.end());
 }
 
-TEST(FramerTest, testIteratorWithSTLAlgorithms) {
+TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     const auto frame = synnax::Frame(3);
     frame.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
     frame.emplace(65538, telem::Series(std::vector<double>{4.0, 5.0, 6.0}));

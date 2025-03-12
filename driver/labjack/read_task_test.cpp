@@ -100,7 +100,7 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, "K");
+    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
@@ -203,7 +203,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, "K");
+    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);

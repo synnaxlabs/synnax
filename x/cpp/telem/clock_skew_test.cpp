@@ -20,7 +20,7 @@ telem::TimeStamp customNow() {
     return mockTime;
 }
 
-} // namespace
+} 
 
 TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     // Reset mock time to 0 for a clean test.

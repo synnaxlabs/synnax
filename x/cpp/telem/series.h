@@ -652,6 +652,70 @@ public:
         set(vals.data(), 0, vals.size());
     }
 
+    void map_inplace(const std::function<NumericSampleValue(const NumericSampleValue &)> &func) {
+        if (size() == 0) return;
+        
+        const auto dt = this->data_type();
+
+        try {
+            // For numeric types, we can leverage the existing numeric map_inplace
+            if (dt == FLOAT64_T) {
+                map_inplace<double>([&func](const double &v) {
+                    return std::get<double>(func(v));
+                });
+            } else if (dt == FLOAT32_T) {
+                map_inplace<float>([&func](const float &v) {
+                    return std::get<float>(func(v));
+                });
+            } else if (dt == INT64_T) {
+                map_inplace<int64_t>([&func](const int64_t &v) {
+                    return std::get<int64_t>(func(v));
+                });
+            } else if (dt == INT32_T) {
+                map_inplace<int32_t>([&func](const int32_t &v) {
+                    return std::get<int32_t>(func(v));
+                });
+            } else if (dt == INT16_T) {
+                map_inplace<int16_t>([&func](const int16_t &v) {
+                    return std::get<int16_t>(func(v));
+                });
+            } else if (dt == INT8_T) {
+                map_inplace<int8_t>([&func](const int8_t &v) {
+                    return std::get<int8_t>(func(v));
+                });
+            } else if (dt == UINT64_T) {
+                map_inplace<uint64_t>([&func](const uint64_t &v) {
+                    return std::get<uint64_t>(func(v));
+                });
+            } else if (dt == UINT32_T) {
+                map_inplace<uint32_t>([&func](const uint32_t &v) {
+                    return std::get<uint32_t>(func(v));
+                });
+            } else if (dt == UINT16_T) {
+                map_inplace<uint16_t>([&func](const uint16_t &v) {
+                    return std::get<uint16_t>(func(v));
+                });
+            } else if (dt == UINT8_T) {
+                map_inplace<uint8_t>([&func](const uint8_t &v) {
+                    return std::get<uint8_t>(func(v));
+                });
+            } else if (dt == TIMESTAMP_T) {
+                // For timestamps, we need to handle the conversion
+                auto values = this->values<int64_t>();
+                for (size_t i = 0; i < values.size(); i++) {
+                    TimeStamp ts(values[i]);
+                    TimeStamp result = std::get<TimeStamp>(func(ts));
+                    values[i] = result.nanoseconds();
+                }
+                set(values.data(), 0, values.size());
+            } else {
+                throw std::runtime_error("Unsupported data type for map_inplace: " + dt.name());
+            }
+        } catch (const std::bad_variant_access&) {
+            throw std::runtime_error("Type mismatch in map_inplace: function returned wrong type for data type " + dt.name());
+        }
+    }
+
     /// @brief Creates a timestamp series with evenly spaced values between start and 
     /// end (inclusive).
     /// @param start The starting timestamp
@@ -711,5 +775,5 @@ public:
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
-}; // class Series
-} // namespace telem
+}; 
+} 

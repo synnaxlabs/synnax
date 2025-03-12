@@ -15,9 +15,10 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
-/// module
-#include <glog/logging.h>
+/// external
+#include "glog/logging.h"
 
+/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/xerrors/errors.h"
