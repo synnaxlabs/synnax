@@ -237,7 +237,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 		if *w.EnableAutoCommit {
 			_, err = idx.Commit(ctx)
 			if err != nil {
-				return
+				if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
+					return nil
+				}
+				return err
 			}
 		}
 	}
