@@ -58,4 +58,4 @@ inline void listen(const bool sig_enabled = true, const bool stdin_enabled = tru
     std::unique_lock lock(priv::shutdown_mutex);
     priv::shutdown_cv.wait(lock, [] { return priv::should_stop; });
 }
-} // namespace xshutdown
+} 

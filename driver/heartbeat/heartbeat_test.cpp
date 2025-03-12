@@ -12,7 +12,7 @@
 
 /// internal
 #include "driver/heartbeat/heartbeat.h"
-#include "driver/testutil/testutil.h"
+#include "client/cpp/testutil/testutil.h"
 
 TEST(HeartbeatTests, createHeartbeat) {
     auto hb = heartbeat::create(0, 0);
@@ -45,7 +45,7 @@ TEST(HeartbeatTests, testNominal) {
     ASSERT_FALSE(msg_err_2) << msg_err_2.message();
     ASSERT_EQ(frm_2.size(), 1);
     ASSERT_EQ(frm_2.series->at(0).at<std::uint64_t>(0), heartbeat::create(rack.key, 1));
-    hb->stop();
+    hb->stop(false);
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();
 }

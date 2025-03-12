@@ -2,19 +2,13 @@ cc_library(
     name = "opc",
     srcs = [
         "factory.cpp",
-        "reader_source.cpp",
-        "reader_task.cpp",
-        "scanner.cpp",
-        "util.cpp",
-        "writer_sink.cpp",
-        "writer_task.cpp",
+        "scan_task.cpp",
     ],
     hdrs = [
         "opc.h",
-        "reader.h",
-        "scanner.h",
-        "util.h",
-        "writer.h",
+        "read_task.h",
+        "scan_task.h",
+        "write_task.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -29,33 +23,38 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/mbedtls",
         "//client/cpp:synnax",
+        "//driver/opc/util",
         "//driver/pipeline",
         "//driver/task",
-        "//x/cpp/xjson",
+        "//driver/task/common",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
+        "//x/cpp/defer",
         "//x/cpp/loop",
+        "//x/cpp/xjson",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
-        "//vendor/open62541",
     ],
 )
 
-#cc_test(
-#    name = "opc_test",
-#    srcs = [
-#        "mock_server.h",
-#        "reader_test.cpp",
-#        "scanner_test.cpp",
-#    ],
-#    copts = select({
-#        "@platforms//os:windows": ["/std:c++20"],
-#        "//conditions:default": [],
-#    }),
-#    tags = ["hardware"],
-#    deps = [
-#        ":opc",
-#        "//driver/testutil",
-#        "@com_google_googletest//:gtest_main",
-#    ],
-#)
+cc_test(
+    name = "opc_test",
+    srcs = [
+        "read_task_test.cpp",
+        "write_task_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/opc",
+        "//driver/opc/mock",
+        "//driver/pipeline/mock",
+        "//x/cpp/xjson",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

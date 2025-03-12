@@ -159,15 +159,15 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_internal(internal);
 }
 
-const std::string RETRIEVE_MODULE_ENDPOINT = "/hardware/task/retrieve";
-const std::string CREATE_MODULE_ENDPOINT = "/hardware/task/create";
-const std::string DELETE_MODULE_ENDPOINT = "/hardware/task/delete";
+const std::string RETRIEVE_TASK_ENDPOINT = "/hardware/task/retrieve";
+const std::string CREATE_TASK_ENDPOINT = "/hardware/task/create";
+const std::string DELETE_TASK_ENDPOINT = "/hardware/task/delete";
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.add_keys(key);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
         return {
@@ -182,7 +182,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) co
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.add_names(name);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
         return {
@@ -198,20 +198,20 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve(
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.mutable_names()->Add(names.begin(), names.end());
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
 
 
-std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
+std::pair<Task, xerrors::Error> TaskClient::retrieve_by_type(
     const std::string &type
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.add_types(type);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
         return {
@@ -221,13 +221,13 @@ std::pair<Task, xerrors::Error> TaskClient::retrieveByType(
     return {Task(res.tasks(0)), err};
 }
 
-std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieveByType(
+std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve_by_type(
     const std::vector<std::string> &types
 ) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.mutable_types()->Add(types.begin(), types.end());
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
@@ -237,7 +237,7 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieveByType(
 xerrors::Error TaskClient::create(Task &task) const {
     auto req = api::v1::HardwareCreateTaskRequest();
     task.to_proto(req.add_tasks());
-    auto [res, err] = task_create_client->send(CREATE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_create_client->send(CREATE_TASK_ENDPOINT, req);
     if (err) return err;
     if (res.tasks_size() == 0) return unexpected_missing("task");
     task.key = res.tasks().at(0).key();
@@ -247,24 +247,27 @@ xerrors::Error TaskClient::create(Task &task) const {
 xerrors::Error TaskClient::del(const TaskKey key) const {
     auto req = api::v1::HardwareDeleteTaskRequest();
     req.add_keys(key);
-    auto [res, err] = task_delete_client->send(DELETE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_delete_client->send(DELETE_TASK_ENDPOINT, req);
     return err;
 }
 
 std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
 
+const std::string RETRIEVE_DEVICE_ENDPOINT = "/hardware/device/retrieve";
+const std::string CREATE_DEVICE_ENDPOINT = "/hardware/device/create";
+
 std::pair<Device, xerrors::Error> HardwareClient::retrieve_device(
     const std::string &key) const {
     auto req = api::v1::HardwareRetrieveDeviceRequest();
     req.add_keys(key);
-    auto [res, err] = device_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
         return {
@@ -275,13 +278,31 @@ std::pair<Device, xerrors::Error> HardwareClient::retrieve_device(
     return {Device(res.devices(0)), err};
 }
 
+std::pair<std::vector<Device>, xerrors::Error> HardwareClient::retrieve_devices(
+    const std::vector<std::string> &keys) const {
+    auto req = api::v1::HardwareRetrieveDeviceRequest();
+    req.mutable_keys()->Add(keys.begin(), keys.end());
+    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
+    if (err) return {std::vector<Device>(), err};
+    std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
+    return {devices, err};
+}
+
 xerrors::Error HardwareClient::create_device(Device &device) const {
     auto req = api::v1::HardwareCreateDeviceRequest();
     device.to_proto(req.add_devices());
-    auto [res, err] = device_create_client->send(CREATE_RACK_ENDPOINT, req);
+    auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
     if (err) return err;
     if (res.devices_size() == 0) return unexpected_missing("device");
     device.key = res.devices().at(0).key();
+    return err;
+}
+
+xerrors::Error HardwareClient::create_devices(const std::vector<Device> &devs) const {
+    auto req = api::v1::HardwareCreateDeviceRequest();
+    req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
+    for (auto &device: devs) device.to_proto(req.add_devices());
+    auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
     return err;
 }
 

@@ -64,7 +64,7 @@ export interface TreeContextMenuProps extends BaseProps {
     resources: ontology.Resource[];
     nodes: Tree.Node[];
     setNodes: (nodes: Tree.Node[]) => void;
-    setResources: (resources: ontology.Resource[]) => void;
+    setResources: React.Dispatch<React.SetStateAction<ontology.Resource[]>>;
     setSelection: (keys: string[]) => void;
     expand: (key: string) => void;
     contract: (key: string) => void;

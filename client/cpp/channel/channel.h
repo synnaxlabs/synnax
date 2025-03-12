@@ -45,8 +45,7 @@ class ChannelClient;
 /// values of a single source, typically a sensor, actuator, or software generated
 /// value. See https://docs.synnaxlabs.com/reference/concepts/channels for an
 /// introduction to channels and how they work.
-class Channel {
-public:
+struct Channel {
     /// @brief A human-readable name for the channel.
     std::string name;
     /// @brief the data type of the channel.
@@ -114,7 +113,7 @@ private:
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
 template<typename... Channels>
-std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
+std::vector<ChannelKey> keys_from_channels(const Channels &... channels) {
     std::vector<ChannelKey> keys;
     keys.reserve(sizeof...(channels));
     ((keys.push_back(channels.key)), ...);
@@ -123,18 +122,18 @@ std::vector<ChannelKey> keys_from_channels(const Channels&... channels) {
 
 /// @brief creates a vector of channel keys from a vector of channels.
 inline std::vector<ChannelKey>
-keys_from_channels(const std::vector<Channel>& channels) {
+keys_from_channels(const std::vector<Channel> &channels) {
     std::vector<ChannelKey> keys;
     keys.reserve(channels.size());
-    for (const auto& channel : channels) keys.push_back(channel.key);
+    for (const auto &channel: channels) keys.push_back(channel.key);
     return keys;
 }
 
-inline std::unordered_map<ChannelKey, Channel> channel_keys_map(
+inline std::unordered_map<ChannelKey, Channel> map_channel_Keys(
     const std::vector<Channel> &channels) {
     std::unordered_map<ChannelKey, Channel> map;
     map.reserve(channels.size());
-    for (const auto &channel : channels) map[channel.key] = channel;
+    for (const auto &channel: channels) map[channel.key] = channel;
     return map;
 }
 
@@ -191,6 +190,12 @@ public:
         const std::string &name,
         const telem::DataType &data_type,
         telem::Rate rate
+    ) const;
+
+    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
+        const std::string &name,
+        const telem::DataType &data_type,
+        bool is_virtual = true
     ) const;
 
     /// @brief retrieves a channel with the given name.

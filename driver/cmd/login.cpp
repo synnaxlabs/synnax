@@ -8,50 +8,18 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/cmd/cmd.h"
-
-std::string get_secure_input(const std::string &prompt, bool hide_input = false) {
-    std::string input;
-#ifdef _WIN32
-        HANDLE h_stdin = GetStdHandle(STD_INPUT_HANDLE);
-        DWORD mode;
-        GetConsoleMode(h_stdin, &mode);
-        if (hide_input) {
-            SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
-        }
-#else
-    if (hide_input) {
-        system("stty -echo");
-    }
-#endif
-
-    std::cout << prompt;
-    std::getline(std::cin, input);
-
-    if (hide_input) {
-        std::cout << std::endl;
-#ifdef _WIN32
-            SetConsoleMode(h_stdin, mode);
-#else
-        system("stty echo");
-#endif
-    }
-    return input;
-}
+#include "x/cpp/cli/cli.h"
 
 int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;
     bool valid_input = false;
 
     while (!valid_input) {
-        // Get host
-        config.host = get_secure_input("host (default: localhost): ");
+        config.host = cli::prompt("host (default: localhost): ");
         if (config.host.empty()) config.host = "localhost";
-
-        // Get port
-        std::string port_str = get_secure_input("port (default: 9090): ");
-        if (port_str.empty()) {
-            config.port = 9090;
-        } else {
+        std::string port_str = cli::prompt("port (default: 9090): ");
+        if (port_str.empty()) config.port = 9090;
+        else {
             try {
                 config.port = static_cast<uint16_t>(std::stoi(port_str));
             } catch (const std::exception &e) {
@@ -61,17 +29,15 @@ int cmd::sub::login(xargs::Parser &args) {
             }
         }
 
-        // Get username
-        config.username = get_secure_input("username: ");
+        config.username = cli::prompt("username: ");
         if (config.username.empty()) {
-            LOG(WARNING) << "Username cannot be empty.";
+            LOG(WARNING) << "Username must be provided.";
             continue;
         }
 
-        // Get password
-        config.password = get_secure_input("password: ", true);
+        config.password = cli::prompt("password: ", true);
         if (config.password.empty()) {
-            LOG(WARNING) << "Password cannot be empty.";
+            LOG(WARNING) << "Password must be provided.";
             continue;
         }
 
@@ -85,8 +51,9 @@ int cmd::sub::login(xargs::Parser &args) {
         return 1;
     }
     LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
-    if (auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err << xlog::RESET();
+    if (const auto err = rack::Config::save_conn_params(args, config)) {
+        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err <<
+                xlog::RESET();
         return 1;
     }
     LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();

@@ -37,8 +37,8 @@ void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
     auto tr = telem::PBTimeRange();
-    rng->mutable_time_range()->set_start(time_range.start.value);
-    rng->mutable_time_range()->set_end(time_range.end.value);
+    rng->mutable_time_range()->set_start(time_range.start.nanoseconds());
+    rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
 
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";

@@ -350,6 +350,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return this.sugar(tasks)[0] as Task<Config, Details, Type>;
   }
 
+  async retrieveByType<
+    Config extends UnknownRecord = UnknownRecord,
+    Details extends {} = UnknownRecord,
+    Type extends string = string,
+  >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
+    const tasks = await this.execRetrieve({ types: [type], rack });
+    return this.sugar(tasks) as Task<Config, Details, Type>[];
+  }
+
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
     const res = await sendRequired(
       this.client,
