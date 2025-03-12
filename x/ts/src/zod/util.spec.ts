@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { zodutil } from "@/zodutil";
+import { zod } from "@/zod";
 
-describe("zodutil", () => {
+describe("zod", () => {
   describe("getFieldSchemaPath", () => {
     interface Spec {
       path: string;
@@ -26,7 +26,7 @@ describe("zodutil", () => {
     ];
     spec.forEach(({ path, expected }) => {
       it(`should return ${expected} for ${path}`, () => {
-        expect(zodutil.getFieldSchemaPath(path)).toBe(expected);
+        expect(zod.getFieldSchemaPath(path)).toBe(expected);
       });
     });
   });
@@ -56,10 +56,10 @@ describe("zodutil", () => {
     ];
     spec.forEach(({ path }) =>
       it(`should return not null for ${path}`, () =>
-        expect(zodutil.getFieldSchema(schema, path)).not.toBeNull()),
+        expect(zod.getFieldSchema(schema, path)).not.toBeNull()),
     );
     it("should return null for invalid path and optional is true", () => {
-      expect(zodutil.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
+      expect(zod.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
     });
     describe("with a refinement", () => {
       const schema = z.object({
@@ -72,8 +72,8 @@ describe("zodutil", () => {
           .refine(() => true),
       });
       it("should return not null for valid path", () => {
-        const v = zodutil.getFieldSchema(schema, "a.b.c");
-        expect(zodutil.getFieldSchema(schema, "a.b.c")).not.toBeNull();
+        const v = zod.getFieldSchema(schema, "a.b.c");
+        expect(zod.getFieldSchema(schema, "a.b.c")).not.toBeNull();
         expect(v).toBeInstanceOf(z.ZodNumber);
       });
       const veryComplexSchema = z.object({
@@ -92,7 +92,7 @@ describe("zodutil", () => {
           .refine(() => true),
       });
       it("should return not null for valid path", () => {
-        const v = zodutil.getFieldSchema(veryComplexSchema, "a.array.0.c");
+        const v = zod.getFieldSchema(veryComplexSchema, "a.array.0.c");
         expect(v).not.toBeNull();
         expect(v).toBeInstanceOf(z.ZodNumber);
       });

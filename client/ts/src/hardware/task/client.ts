@@ -85,7 +85,7 @@ export class Task<
     this.rangeClient = rangeClient;
   }
 
-  get payload(): Payload<Config, Details> {
+  get payload(): Payload<Config, Details, Type> {
     return {
       key: this.key,
       name: this.name,
@@ -354,7 +354,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     Config extends UnknownRecord = UnknownRecord,
     Details extends {} = UnknownRecord,
     Type extends string = string,
-  >(type: string, rack?: number): Promise<Task<Config, Details, Type>[]> {
+  >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
     const tasks = await this.execRetrieve({ types: [type], rack });
     return this.sugar(tasks) as Task<Config, Details, Type>[];
   }

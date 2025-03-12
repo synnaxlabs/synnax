@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type z } from "zod";
 
 import { deep } from "@/deep";
 import { type UnknownRecord } from "@/record";
@@ -42,5 +42,3 @@ export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
   )) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
-
-export const bigInt = z.bigint().or(z.string().transform(BigInt));

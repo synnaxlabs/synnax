@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import { type compare, type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
-import { deep } from "@synnaxlabs/x/deep";
-import { zodutil } from "@synnaxlabs/x/zodutil";
+import {
+  type compare,
+  deep,
+  type Destructor,
+  shallowCopy,
+  toArray,
+  zod,
+} from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -521,7 +526,7 @@ export const use = <Z extends z.ZodTypeAny>({
       };
       if (schemaRef.current == null) return fs;
       const schema = schemaRef.current;
-      const zField = zodutil.getFieldSchema(schema, path, { optional: true });
+      const zField = zod.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
       fs.required = !zField.isOptional();
       return fs;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -14,7 +15,12 @@ import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
-import { SCAN_NAME, type ScanConfig } from "@/hardware/ni/task/types";
+import {
+  SCAN_TYPE,
+  type ScanConfig,
+  type ScanStateDetails,
+  type ScanType,
+} from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
@@ -52,11 +58,17 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   onSelect: ({ client, addStatus, handleException }) => {
     handleException(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const { payload, config } =
-        await client.hardware.tasks.retrieveByName<ScanConfig>(SCAN_NAME);
+      const scanTasks = await client.hardware.tasks.retrieveByType<
+        ScanConfig,
+        ScanStateDetails,
+        ScanType
+      >(SCAN_TYPE);
+      if (scanTasks.length === 0)
+        throw new UnexpectedError("No NI device scanner found");
+      const { config, payload } = scanTasks[0];
       const {
         config: { enabled },
-      } = await client.hardware.tasks.create<ScanConfig>({
+      } = await client.hardware.tasks.create<ScanConfig, ScanStateDetails, ScanType>({
         ...payload,
         config: { ...config, enabled: !config.enabled },
       });
