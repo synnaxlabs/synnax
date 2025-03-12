@@ -26,6 +26,7 @@ extern "C" {
 
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
+#include "driver/task/task.h"
 
 using json = nlohmann::json;
 
@@ -33,7 +34,7 @@ namespace sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
 /// @brief base error for all sequencing problems.
-const xerrors::Error BASE_ERROR = xerrors::BASE_ERROR.sub("sequence");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("sequence");
 /// @brief returned when a sequence fails to compile.
 const xerrors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
 /// @brief returned when the sequence encounters a runtime error.
@@ -61,8 +62,8 @@ struct TaskConfig {
         // this comment keeps the formatter happy
         rate(telem::Rate(parser.required<float>("rate"))),
         script(parser.required<std::string>("script")),
-        read(parser.required_vector<synnax::ChannelKey>("read")),
-        write(parser.required_vector<synnax::ChannelKey>("write")),
+        read(parser.required_vec<synnax::ChannelKey>("read")),
+        write(parser.required_vec<synnax::ChannelKey>("write")),
         globals(parser.optional<json>("globals", json::object())),
         authority(parser.optional<telem::Authority>("authority", 150)) {
     }
@@ -145,15 +146,18 @@ public:
         const breaker::Config &breaker_config
     );
 
+    /// @brief returns the name of the task for logging.
+    std::string name() override { return this->task.name; }
+
     /// @brief main run loop that will execute in a separate thread.
     void run();
 
     /// @brief stops the task, implementing task::Task.
-    void stop() override;
+    void stop(bool will_reconfigure) override;
 
     /// @brief stops the task, using the provided key as the key of the command that
     /// was executed.
-    void stop(const std::string &key);
+    void stop(const std::string &key, bool will_reconfigure);
 
     /// @brief executes a command on the task, implementing task::Task.
     void exec(task::Command &cmd) override;

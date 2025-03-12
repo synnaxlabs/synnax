@@ -153,8 +153,6 @@ export interface TestConnectionCommandState
 export const SCAN_TYPE = `${PREFIX}_scan`;
 export type ScanType = typeof SCAN_TYPE;
 
-export const SCAN_NAME = "opc Scanner";
-
 export interface ScanPayload
   extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
 export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}

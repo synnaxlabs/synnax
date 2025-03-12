@@ -16,8 +16,8 @@ xerrors::Error plugins::Time::before_all(lua_State *L) {
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {
         const auto *plug = static_cast<Time *>(lua_touserdata(cL, lua_upvalueindex(1)));
-        const auto start = telem::TimeSpan::seconds(luaL_checknumber(cL, 1));
-        const auto end = telem::TimeSpan::seconds(luaL_checknumber(cL, 2));
+        const auto start = telem::SECOND * luaL_checknumber(cL, 1);
+        const auto end = telem::SECOND * luaL_checknumber(cL, 2);
         lua_pushboolean(cL, plug->elapsed >= start && plug->elapsed <= end);
         return 1;
     }, 1);

@@ -1,0 +1,34 @@
+cc_library(
+    name = "common",
+    hdrs = [
+        "read_task.h",
+        "sample_clock.h",
+        "scan_task.h",
+        "state.h",
+        "write_task.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/task",
+        "//driver/transform",
+        "//x/cpp/loop",
+    ],
+)
+
+cc_test(
+    name = "common_test",
+    srcs = [
+        "read_task_test.cpp",
+        "sample_clock_test.cpp",
+        "scan_task_test.cpp",
+        "state_test.cpp",
+        "write_task_test.cpp",
+    ],
+    deps = [
+        "//driver/pipeline/mock",
+        "//driver/task/common",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

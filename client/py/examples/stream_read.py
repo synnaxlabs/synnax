@@ -25,14 +25,10 @@ client = sy.Synnax()
 # were created by running the `stream_write.py`` script.
 channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 
-count = 1000
-
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
 with client.open_streamer(channels) as streamer:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll print out the frame of data.
-    i = 0
-    while i < count:
+    while True:
         print(streamer.read())
-        i += 1

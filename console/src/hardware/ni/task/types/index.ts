@@ -116,7 +116,6 @@ export interface ScanStateDetails extends v0.ScanStateDetails {}
 export interface ScanState extends v0.ScanState {}
 export const SCAN_TYPE = v0.SCAN_TYPE;
 export type ScanType = v0.ScanType;
-export const SCAN_NAME = v0.SCAN_NAME;
 export interface ScanPayload extends v0.ScanPayload {}
 export interface ScanTask extends v0.ScanTask {}
 export interface NewScanTask extends v0.NewScanTask {}

@@ -1,27 +1,14 @@
 cc_library(
     name = "ni",
     srcs = [
-        "analog_read.cpp",
-        "digital_read.cpp",
         "factory.cpp",
-        "ni.cpp",
-        "scanner.cpp",
-        "state_source.cpp",
-        "task.cpp",
-        "writer.cpp",
+        "scan_task.cpp",
     ],
     hdrs = [
-        "channels.h",
-        "error.h",
         "ni.h",
-        "reader.h",
-        "scale.h",
-        "scanner.h",
-        "util.h",
-        "writer.h",
-        "//client/cpp:synnax",
-        "//driver/pipeline",
-        "//driver/task",
+        "read_task.h",
+        "scan_task.h",
+        "write_task.h",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
@@ -30,12 +17,13 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
-        "//driver/errors",
-        "//driver/ni/nidaqmx",
-        "//driver/ni/nisyscfg",
+        "//driver/ni/channel",
+        "//driver/ni/daqmx",
+        "//driver/ni/hardware",
+        "//driver/ni/syscfg",
         "//driver/pipeline",
-        "//driver/queue",
         "//driver/task",
+        "//driver/task/common",
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/xjson",
@@ -44,69 +32,20 @@ cc_library(
 )
 
 cc_test(
-    name = "analog_read_test",
+    name = "ni_test",
     srcs = [
-        "analog_read_test.cpp",
+        "read_task_test.cpp",
+        "write_task_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
-    tags = ["hardware"],
     deps = [
-        "ni",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "digital_read_test",
-    srcs = [
-        "digital_read_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    tags = ["hardware"],
-    deps = [
-        "ni",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "scanner_test",
-    srcs = [
-        "scanner_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    tags = ["hardware"],
-    deps = [
-        "ni",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "writer_test",
-    srcs = [
-        "writer_test.cpp",
-    ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    tags = ["hardware"],
-    deps = [
-        "ni",
-        "//driver/testutil",
+        "//client/cpp/testutil",
+        "//driver/ni",
+        "//driver/pipeline/mock",
+        "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

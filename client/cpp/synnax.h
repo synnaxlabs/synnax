@@ -60,6 +60,10 @@ struct Config {
     /// using client authentication. This is not required when in insecure mode or using
     /// username/password authentication.
     std::string client_key_file;
+    /// @brief sets the clock skew threshold at which a warning will be logged.
+    telem::TimeSpan clock_skew_threshold = telem::SECOND * 1;
+    /// @brief sets the maximum number of login retries before giving up.
+    std::uint32_t max_retries = 5;
 
     void override(xjson::Parser &parser) {
         this->host = parser.optional("host", this->host);
@@ -69,9 +73,11 @@ struct Config {
         this->client_cert_file = parser.optional("client_cert_file", this->client_cert_file);
         this->client_key_file = parser.optional("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
+        this->clock_skew_threshold = telem::TimeSpan(parser.optional("clock_skew_threshold", this->clock_skew_threshold.nanoseconds()));
+        this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
-    json to_json() const {
+    [[nodiscard]] json to_json() const {
         return {
             {"host", this->host},
             {"port", this->port},
@@ -80,6 +86,8 @@ struct Config {
             {"ca_cert_file", this->ca_cert_file},
             {"client_cert_file", this->client_cert_file},
             {"client_key_file", this->client_key_file},
+            {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
+            {"max_retries", this->max_retries}
         };
     }
 };
@@ -120,7 +128,8 @@ public:
         auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
-            cfg.password
+            cfg.password,
+            cfg.clock_skew_threshold
         );
         t.use(auth);
         channels = ChannelClient(std::move(t.chan_retrieve),
