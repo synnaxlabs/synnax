@@ -331,6 +331,7 @@ var _ = Describe("Telem", func() {
 					Entry("minute", 1*telem.Minute, "1m"),
 					Entry("hour", 1*telem.Hour, "1h"),
 					Entry("combine", 2*telem.Day+80*telem.Minute+1*telem.Millisecond+500*telem.Microsecond+5*telem.Nanosecond, "2d 1h 20m 1ms 500µs 5ns"),
+					Entry("gap between unit levels", 2*telem.Hour+2*telem.Second, "2h 2s"),
 				)
 			})
 			Describe("Seconds", func() {
@@ -415,6 +416,24 @@ var _ = Describe("Telem", func() {
 					ts := 1*telem.Hour + telem.Second*30 + telem.Millisecond*500
 					truncated := ts.Truncate(telem.Second)
 					Expect(truncated).To(Equal(1*telem.Hour + telem.Second*30))
+				})
+
+				It("Should truncate microseconds", func() {
+					ts := 1*telem.Second + 10*telem.Microsecond
+					truncated := ts.Truncate(telem.Microsecond)
+					Expect(truncated).To(Equal(1*telem.Second + 10*telem.Microsecond))
+				})
+
+				It("Should truncate a 0 time span", func() {
+					ts := 0 * telem.Second
+					truncated := ts.Truncate(telem.Second)
+					Expect(truncated).To(Equal(0 * telem.Second))
+				})
+
+				It("Should handle a 0 truncation target", func() {
+					ts := 1 * telem.Second
+					truncated := ts.Truncate(0)
+					Expect(truncated).To(Equal(1 * telem.Second))
 				})
 			})
 		})

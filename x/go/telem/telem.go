@@ -312,7 +312,6 @@ func (ts TimeSpan) String() string {
 	microseconds := (totalMicroseconds - totalMilliseconds) / Microsecond
 	nanoseconds := totalNanoseconds - totalMicroseconds
 
-	// Add non-zero components to parts
 	if days != 0 {
 		parts = append(parts, fmt.Sprintf("%dd", days))
 	}
@@ -344,6 +343,9 @@ func (ts TimeSpan) String() string {
 
 // Truncate returns a new TimeSpan that is truncated to the nearest multiple of the given TimeSpan.
 func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
+	if unit == 0 {
+		return ts
+	}
 	return ts / unit * unit
 }
 
