@@ -1250,8 +1250,6 @@ export interface ScanState extends task.State<ScanStateDetails> {}
 export const SCAN_TYPE = `${PREFIX}_scanner`;
 export type ScanType = typeof SCAN_TYPE;
 
-export const SCAN_NAME = "ni scanner";
-
 export interface ScanPayload
   extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
 

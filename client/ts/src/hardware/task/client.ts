@@ -85,7 +85,7 @@ export class Task<
     this.rangeClient = rangeClient;
   }
 
-  get payload(): Payload<Config, Details> {
+  get payload(): Payload<Config, Details, Type> {
     return {
       key: this.key,
       name: this.name,
