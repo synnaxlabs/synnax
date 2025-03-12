@@ -227,7 +227,7 @@ var _ = Describe("Series", func() {
 		})
 
 		Context("Long Series", func() {
-			It("Should truncate series with > 12 elements", func() {
+			It("Should Truncate series with > 12 elements", func() {
 				values := make([]int64, 20)
 				for i := range values {
 					values[i] = int64(i + 1)
@@ -238,7 +238,7 @@ var _ = Describe("Series", func() {
 				Expect(str).To(ContainSubstring("[1 2 3 4 5 ... 16 17 18 19 20]"))
 			})
 
-			It("Should truncate long float series", func() {
+			It("Should Truncate long float series", func() {
 				values := make([]float64, 15)
 				for i := range values {
 					values[i] = float64(i) + 0.5
@@ -248,7 +248,7 @@ var _ = Describe("Series", func() {
 				Expect(str).To(ContainSubstring("[0.5 1.5 2.5 3.5 4.5 ... 10.5 11.5 12.5 13.5 14.5]"))
 			})
 
-			It("Should truncate long string series", func() {
+			It("Should Truncate long string series", func() {
 				values := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
 				s := telem.NewStringsV(values...)
 				str := s.String()
