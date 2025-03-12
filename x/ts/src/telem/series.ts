@@ -35,7 +35,6 @@ import {
   TimeStamp,
   type TypedArray,
 } from "@/telem/telem";
-import { zodutil } from "@/zodutil";
 
 interface GL {
   control: GLBufferController | null;
@@ -166,7 +165,7 @@ export class Series<T extends TelemValue = TelemValue> {
   static readonly crudeZ = z.object({
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
-    alignment: zodutil.bigInt.optional(),
+    alignment: z.coerce.bigint().optional(),
     data: z.union([
       stringArrayZ,
       nullArrayZ,
