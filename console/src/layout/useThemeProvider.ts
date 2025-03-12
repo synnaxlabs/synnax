@@ -31,8 +31,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   useAsyncEffect(async () => {
     if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
-    const cleanup = await synchronizeWithOS(dispatch);
-    return cleanup;
+    return await synchronizeWithOS(dispatch);
   }, []);
 
   return {
