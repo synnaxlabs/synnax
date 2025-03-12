@@ -116,7 +116,7 @@ export const wrap = <
     ) : isError ? (
       <Align.Space align="center" grow justify="center">
         <Text.Text color={Status.variantColors.error} level="h2">
-          Failed to load data for task with key {layoutKey}
+          Failed to load data for task with key {taskKey}
         </Text.Text>
         <Text.Text color={Status.variantColors.error} level="p">
           {error.message}
