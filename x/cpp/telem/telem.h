@@ -173,6 +173,7 @@ public:
     }
 
     [[nodiscard]] TimeSpan truncate(const TimeSpan &other) const {
+        if (other == 0) return *this;
         return TimeSpan(value / other.value * other.value);
     }
 
