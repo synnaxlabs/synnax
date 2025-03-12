@@ -361,7 +361,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     >
       <Control.Controller
         name={name}
-        authority={1}
+        authority={schematic.authority}
         acquireTrigger={schematic.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >

@@ -170,3 +170,9 @@ export const selectIsSnapshot = (state: StoreState, key: string): boolean =>
 
 export const useSelectIsSnapshot = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectIsSnapshot(state, key), [key]);
+
+export const selectAuthority = (state: StoreState, key: string): number =>
+  select(state, key).authority;
+
+export const useSelectAuthority = (key: string): number =>
+  useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
