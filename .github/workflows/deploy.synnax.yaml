@@ -86,7 +86,7 @@ jobs:
       fail-fast: false
       matrix:
         # macOS, Ubuntu for NI Linux RT, Ubuntu Latest, and Windows Latest
-        os: [macos-latest, ubuntu-20.04, ubuntu-latest, windows-latest]
+        os: [macos-15, ubuntu-20.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -114,7 +114,7 @@ jobs:
         working-directory: vendor/mbedtls
 
       - name: Install MbedTLS On Mac
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-15'
         run: brew install mbedtls
 
       - name: Install Deps On Ubuntu
@@ -152,7 +152,7 @@ jobs:
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
