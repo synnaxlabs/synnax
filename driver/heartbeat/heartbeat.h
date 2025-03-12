@@ -61,8 +61,8 @@ public:
         this->loop.wait(breaker);
         const Heartbeat hb = create(this->rack_key, this->version);
         this->version++;
-        const auto fr = Frame(key, telem::Series(hb, telem::UINT64_T));
-        return {Frame(key, telem::Series(hb)), xerrors::NIL};
+        auto fr = Frame(key, telem::Series(hb, telem::UINT64_T));
+        return {std::move(fr), xerrors::NIL};
     }
 };
 
