@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schema } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const keyZ = z.number();
+export const keyZ = schema.uint32;
 export type Key = z.infer<typeof keyZ>;
 
 export const rackZ = z.object({ key: keyZ, name: z.string() });
 export interface Payload extends z.infer<typeof rackZ> {}
 
-export const newZ = rackZ.partial({ key: true });
+export const newZ = rackZ.omit({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "rack";
