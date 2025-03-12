@@ -27,12 +27,14 @@ import {
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
+import { Control } from "@/schematic/toolbar/Control";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
   { tabKey: "properties", name: "Properties" },
+  { tabKey: "control", name: "Control" },
 ];
 
 interface NotEditableContentProps extends ToolbarProps {}
@@ -84,6 +86,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
+        case "control":
+          return <Control layoutKey={layoutKey} />;
         default:
           return <PropertiesControls layoutKey={layoutKey} />;
       }
@@ -135,7 +139,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               ontologyID={schematic.ontologyID(state.key)}
             />
           </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 285 }} />}
         </Align.Space>
       </ToolbarHeader>
       <Tabs.Content />

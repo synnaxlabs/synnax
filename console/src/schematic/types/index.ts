@@ -14,34 +14,38 @@ import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
 import * as v2 from "@/schematic/types/v2";
 import * as v3 from "@/schematic/types/v3";
+import * as v4 from "@/schematic/types/v4";
 
 export type NodeProps = v0.NodeProps;
-export type State = v3.State;
-export type SliceState = v3.SliceState;
+export type State = v4.State;
+export type SliceState = v4.SliceState;
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
 export type LegendState = v1.LegendState;
 export type CopyBuffer = v0.CopyBuffer;
-export type AnyState = v0.State | v1.State | v2.State | v3.State;
+export type AnyState = v0.State | v1.State | v2.State | v3.State | v4.State;
 export type AnySliceState =
   | v0.SliceState
   | v1.SliceState
   | v2.SliceState
-  | v3.SliceState;
+  | v3.SliceState
+  | v4.SliceState;
 
-export const ZERO_STATE = v3.ZERO_STATE;
-export const ZERO_SLICE_STATE = v3.ZERO_SLICE_STATE;
+export const ZERO_STATE = v4.ZERO_STATE;
+export const ZERO_SLICE_STATE = v4.ZERO_SLICE_STATE;
 
 const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,
   [v1.VERSION]: v2.stateMigration,
   [v2.VERSION]: v3.stateMigration,
+  [v3.VERSION]: v4.stateMigration,
 };
 
 const SLICE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.sliceMigration,
   [v1.VERSION]: v2.sliceMigration,
   [v2.VERSION]: v3.sliceMigration,
+  [v3.VERSION]: v4.sliceMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
