@@ -59,6 +59,7 @@ public:
     /// @brief returns the average clock skew across all measurements
     /// @return TimeSpan representing the average clock skew
     telem::TimeSpan skew() const {
+        if (this->n == 0) return telem::TimeSpan(0);
         return this->accumulated_skew / this->n;
     }
 

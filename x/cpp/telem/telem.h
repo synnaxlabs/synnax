@@ -815,11 +815,10 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 
 /// @brief Holds the name and properties of a datatype.
 class DataType {
-public:
-    DataType() = default;
-
     /// @brief Holds the id of the data type
     std::string value;
+public:
+    DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
@@ -965,6 +964,30 @@ public:
     bool operator>=(const DataType &other) const { return value >= other.value; }
 
     bool operator>=(const std::string &other) const { return value >= other; }
+
+    ////////////////////////////////// ADDITION OPERATORS /////////////////////////////////
+
+    /// @brief Concatenates this DataType with another DataType
+    /// @param other The DataType to concatenate with
+    /// @returns A string with the concatenated values
+    std::string operator+(const DataType &other) const {
+        return value + other.value;
+    }
+
+    /// @brief Concatenates this DataType with a string
+    /// @param other The string to concatenate with
+    /// @returns A string with the concatenated values
+    std::string operator+(const std::string &other) const {
+        return value + other;
+    }
+
+    /// @brief Friend operator to allow string + DataType concatenation
+    /// @param lhs The string on the left side of the + operator
+    /// @param rhs The DataType on the right side of the + operator
+    /// @returns A string with the concatenated values
+    friend std::string operator+(const std::string &lhs, const DataType &rhs) {
+        return lhs + rhs.value;
+    }
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
