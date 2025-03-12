@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { createNewID } from "@/group/createNewID";
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";
@@ -21,13 +22,12 @@ export interface CreateFromSelection {
   (props: Ontology.TreeContextMenuProps): void;
 }
 
+interface CreateArgs extends Ontology.TreeContextMenuProps {
+  newID: ontology.ID;
+}
+
 export const useCreateFromSelection = (): CreateFromSelection => {
-  const mut = useMutation<
-    void,
-    Error,
-    Ontology.TreeContextMenuProps & { newID: ontology.ID },
-    Tree.Node[]
-  >({
+  const create = useMutation<void, Error, CreateArgs, Tree.Node[]>({
     onMutate: async ({
       selection,
       state: { nodes, setNodes, setSelection },
@@ -56,7 +56,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       setSelection([newID.toString()]);
       return prevNodes;
     },
-    mutationFn: async ({ client, selection, newID }) => {
+    mutationFn: async ({ client, selection, newID }: CreateArgs) => {
       if (selection.parent == null) return;
       const [groupName, renamed] = await Tree.asyncRename(newID.toString());
       if (!renamed) throw errors.CANCELED;
@@ -70,6 +70,6 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       if (errors.CANCELED.matches(e.message)) return;
       handleException(e, "Failed to group resources");
     },
-  });
-  return (props) => mut.mutate({ ...props, newID: createNewID() });
+  }).mutate;
+  return useCallback((props) => create({ ...props, newID: createNewID() }), [create]);
 };
