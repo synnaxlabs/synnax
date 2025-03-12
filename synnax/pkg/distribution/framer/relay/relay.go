@@ -13,7 +13,6 @@
 package relay
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"io"
 	"time"
@@ -165,7 +164,7 @@ func (r *Relay) Close() error {
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
-		addr = address.Newf(fmt.Sprintf("%s-%s", r.ins.Meta.Path, address.Rand().String()))
+		addr = address.Newf("%s-%s", r.ins.Meta.Path, address.Rand().String())
 	)
 	data.SetInletAddress(addr)
 	r.delta.Connect(data)

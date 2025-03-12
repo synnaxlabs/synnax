@@ -18,7 +18,7 @@ import (
 )
 
 // SmallKeySize to run tests faster.
-const SmallKeySize = 512
+const SmallKeySize = 1024
 
 func GenerateCerts(fs xfs.FS) {
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
