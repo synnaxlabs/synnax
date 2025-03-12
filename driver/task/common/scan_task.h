@@ -99,8 +99,6 @@ public:
        ctx(ctx),
        client(std::move(client)) {
         this->state.task = task.key;
-        this->state.variant = "pending";
-        this->state.details["message"] = "scan task pending";
         this->ctx->set_state(this->state);
     }
 

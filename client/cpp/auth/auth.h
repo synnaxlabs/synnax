@@ -23,6 +23,7 @@
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xos/xos.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
@@ -114,16 +115,12 @@ public:
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
-            LOG(WARNING) <<
-                    "measured excessive clock skew between this host and the Synnax cluster.";
-            if (skew_calc.skew() > telem::TimeSpan(0))
-                LOG(WARNING) << "this host is behind by approximately" << skew_calc.
-                        skew().abs();
-            else
-                LOG(WARNING) << "this host is ahead by approximately" << skew_calc.
-                        skew().abs();
-            LOG(WARNING) <<
-                    "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";
+            auto [host, _] = xos::get_hostname();
+            auto direction = "ahead";
+            if (skew_calc.skew() > telem::TimeSpan(0)) direction = "behind";
+            LOG(WARNING) <<"measured excessive clock skew between this host and the Synnax cluster.";
+            LOG(WARNING) << "this host (" << host << ") is " << direction << "by approximately " << skew_calc.skew().abs();
+            LOG(WARNING) << "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";
         }
 
         this->authenticated = true;

@@ -53,7 +53,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::WriteTaskSink>(std::move(cfg), client)
+            std::make_unique<opc::WriteTaskSink>(client, std::move(cfg))
         ),
         xerrors::NIL
     };

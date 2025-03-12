@@ -67,13 +67,14 @@ static UA_StatusCode node_iter(
     ids[2].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;
+    UA_ReadRequest_init(&req);
     req.nodesToRead = ids;
     req.nodesToReadSize = 3;
 
     UA_ReadResponse res = UA_Client_Service_read(ua_client, req);
     x::defer clear([&res, &req] {
-        UA_ReadRequest_clear(&req);
-        UA_ReadResponse_clear(&res);
+        // UA_ReadRequest_clear(&req);
+        // UA_ReadResponse_clear(&res);
     });
     UA_StatusCode status = res.responseHeader.serviceResult;
     if (status != UA_STATUSCODE_GOOD) return status;

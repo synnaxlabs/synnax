@@ -3,6 +3,7 @@ cc_library(
     srcs = [
         "conn.cpp",
         "node.cpp",
+        "read.cpp",
         "telem.cpp",
     ],
     hdrs = ["util.h"],

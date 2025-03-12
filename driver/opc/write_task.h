@@ -9,18 +9,18 @@
 
 #pragma once
 
+/// external
+#include "open62541/client.h"
+
 /// module
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/defer/defer.h"
 
 /// internal
 #include "driver/opc/opc.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
-
-/// external
-#include "open62541/client.h"
-
 
 namespace opc {
 struct OutputChan {
@@ -34,7 +34,7 @@ struct OutputChan {
     explicit OutputChan(xjson::Parser &parser) :
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
-        cmd_channel(parser.required<synnax::ChannelKey>("channel")) {
+        cmd_channel(parser.required<synnax::ChannelKey>("cmd_channel", "channel")) {
     }
 };
 
@@ -90,8 +90,8 @@ class WriteTaskSink final : public common::Sink {
     const std::shared_ptr<UA_Client> client;
 public:
     WriteTaskSink(
-        WriteTaskConfig cfg,
-        const std::shared_ptr<UA_Client> &client
+        const std::shared_ptr<UA_Client> &client,
+        WriteTaskConfig cfg
     ): Sink(cfg.cmd_keys()),
        cfg(std::move(cfg)),
        client(client) {
@@ -111,7 +111,6 @@ public:
                 req.nodesToWriteSize,
                 &UA_TYPES[UA_TYPES_WRITEVALUE]
             );
-            UA_WriteRequest_clear(&req);
         });
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);

@@ -191,7 +191,7 @@ protected:
         ASSERT_FALSE(rack_err) << rack_err;
 
         synnax::Device dev(
-            "abc123",
+            "opcua123",
             "my_device",
             rack.key,
             "dev1",
@@ -200,6 +200,7 @@ protected:
             "PXI-6255",
             ""
         );
+
         auto dev_err = sy->hardware.create_device(dev);
         ASSERT_FALSE(dev_err) << dev_err;
 

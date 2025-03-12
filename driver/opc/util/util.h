@@ -38,9 +38,9 @@ struct ConnectionConfig {
     /// @brief the password to use for authentication. Not required.
     std::string password;
     /// @brief the security mode.
-    std::string security_mode;
+    std::string security_mode = "None";
     /// @brief the security policy.
-    std::string security_policy;
+    std::string security_policy = "None";
     /// @brief the client certificate used to sign and encrypt messages. Only required
     /// if the security policy is not "None".
     std::string client_cert;
@@ -193,6 +193,12 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
 );
 
 UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser);
+std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str);
 std::string node_id_to_string(const UA_NodeId &node_id);
 std::string node_class_to_string(const UA_NodeClass &node_class);
+
+std::pair<telem::Series, xerrors::Error> simple_read(
+    std::shared_ptr<UA_Client> client,
+    const std::string &node_id
+);
 }

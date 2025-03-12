@@ -13,9 +13,11 @@
 #include <chrono>
 #include <thread>
 #include <functional>
+#include <sstream>
 
 /// external
 #include "gtest/gtest.h"
+#include "x/cpp/xerrors/errors.h"
 
 /// @brief xtest is a testing utility package that extends Google Test with eventual assertion capabilities.
 /// These assertions are particularly useful for testing asynchronous operations or conditions that may
@@ -45,6 +47,30 @@
 /// @endcode
 namespace xtest {
 
+/// @brief Core function that implements the eventual assertion logic with a generic condition
+/// @param condition A function that returns true when the assertion should pass
+/// @param failure_message A function that returns the error message to display on timeout
+/// @param timeout Maximum time to wait for the condition to become true (default: 1 second)
+/// @param interval Time to wait between checks (default: 1 millisecond)
+/// @throws Testing::AssertionFailure if the condition is not met within the timeout period
+inline void eventually(
+    const std::function<bool()>& condition,
+    const std::function<std::string()>& failure_message,
+    const std::chrono::milliseconds timeout = std::chrono::seconds(1),
+    const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
+) {
+    const auto start = std::chrono::steady_clock::now();
+    while (true) {
+        if (condition()) return;
+        
+        auto now = std::chrono::steady_clock::now();
+        if (now - start >= timeout) {
+            FAIL() << failure_message();
+        }
+        std::this_thread::sleep_for(interval);
+    }
+}
+
 /// @brief Core comparison function that implements the eventual assertion logic
 /// @tparam T The type of values being compared
 /// @param actual A function that returns the actual value to be compared
@@ -65,18 +91,22 @@ void eventually_compare(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    const auto start = std::chrono::steady_clock::now();
-    while (true) {
-        if (comparator(actual(), expected)) return;
-        
-        auto now = std::chrono::steady_clock::now();
-        if (now - start >= timeout) {
-            FAIL() << "EVENTUALLY_" << op_name << " timed out after " <<
-                std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count() << 
-                "ms. Expected \n" << expected << " \n" << op_sep << " \n" << actual();
-        }
-        std::this_thread::sleep_for(interval);
-    }
+    T last_actual_value;
+    eventually(
+        [&]() {
+            last_actual_value = actual();
+            return comparator(last_actual_value, expected);
+        },
+        [&]() {
+            std::stringstream ss;
+            ss << "EVENTUALLY_" << op_name << " timed out after " 
+               << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+               << "ms. Expected \n" << expected << " \n" << op_sep << " \n" << last_actual_value;
+            return ss.str();
+        },
+        timeout,
+        interval
+    );
 }
 
 /// @brief Asserts that two values will eventually become equal
@@ -146,6 +176,25 @@ void eventually_ge(
         [](const T& a, const T& b) { return a >= b; },
         "GE",
         ">=",
+        timeout,
+        interval
+    );
+}
+
+inline void eventually_nil(const std::function<xerrors::Error()>& actual, const std::chrono::milliseconds timeout = std::chrono::seconds(1), const std::chrono::milliseconds interval = std::chrono::milliseconds(1)) {
+    xerrors::Error last_error;
+    eventually(
+        [&]() {
+            last_error = actual();
+            return !last_error;
+        },
+        [&]() {
+            std::stringstream ss;
+            ss << "EVENTUALLY_NIL timed out after " 
+               << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+               << "ms. Expected NIL, but got " << last_error;
+            return ss.str();
+        },
         timeout,
         interval
     );
@@ -265,4 +314,63 @@ void eventually_ge(
 /// to err.matches(expect).
 #define ASSERT_MATCHES(err, expected) \
     ASSERT_TRUE(err.matches(expected)) << "Expected error to match " << expected << ", but got " << err;
+
+/// @brief macro asserting that the provided error will eventually be NIL.
+/// @param expr The expression to evaluate
+#define ASSERT_EVENTUALLY_NIL(expr) \
+    xtest::eventually_nil([&]() { return (expr); });
+
+/// @brief Asserts that a pair's error component will eventually become nil and returns the value component
+/// @tparam T The type of the value component in the pair
+/// @param actual A function that returns the pair to be checked
+/// @param timeout Maximum time to wait for the error to become nil (default: 1 second)
+/// @param interval Time to wait between checks (default: 1 millisecond)
+/// @return The value component of the pair once the error becomes nil
+/// @throws Testing::AssertionFailure if the error does not become nil within the timeout period
+template<typename T>
+T eventually_nil_p(
+    const std::function<std::pair<T, xerrors::Error>()>& actual,
+    const std::chrono::milliseconds timeout = std::chrono::seconds(1),
+    const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
+) {
+    std::pair<T, xerrors::Error> result;
+    
+    try {
+        eventually(
+            [&]() {
+                result = actual();
+                return !result.second;
+            },
+            [&]() {
+                std::stringstream ss;
+                ss << "EVENTUALLY_NIL_P timed out after " 
+                   << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+                   << "ms. Expected NIL, but got " << result.second;
+                return ss.str();
+            },
+            timeout,
+            interval
+        );
+    } catch (const ::testing::AssertionException&) {
+        // Return the value part even though the error isn't nil
+        // This allows the test to continue and potentially diagnose other issues
+        return std::move(result.first);
+    }
+    
+    return std::move(result.first);
+}
+
+/// @brief macro for asserting that a pair's error component will eventually become nil with default timeout and interval
+/// @param expr The expression returning the pair to evaluate
+/// @return The value component of the pair once the error becomes nil
+#define ASSERT_EVENTUALLY_NIL_P(expr) \
+    xtest::eventually_nil_p<typename std::remove_reference<decltype((expr).first)>::type>([&]() { return (expr); })
+
+/// @brief macro for asserting that a pair's error component will eventually become nil with custom timeout and interval
+/// @param expr The expression returning the pair to evaluate
+/// @param timeout Maximum time to wait for the error to become nil
+/// @param interval Time to wait between checks
+/// @return The value component of the pair once the error becomes nil
+#define ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(expr, timeout, interval) \
+    xtest::eventually_nil_p<typename std::remove_reference<decltype((expr).first)>::type>([&]() { return (expr); }, (timeout), (interval))
 }

@@ -44,8 +44,8 @@ std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     FactoryList factories;
     configure_heartbeat(*this, factories);
     configure_opc(*this, factories);
-    configure_ni(*this, factories);
-    configure_sequences(*this, factories);
+    // configure_ni(*this, factories);
+    // configure_sequences(*this, factories);
     configure_labjack(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }

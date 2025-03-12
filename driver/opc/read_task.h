@@ -157,11 +157,6 @@ struct ReadRequest {
         base.nodesToRead = read_value_ids.data();
         base.nodesToReadSize = read_value_ids.size();
     }
-
-    ~ReadRequest() {
-        UA_ReadRequest_clear(&this->base);
-        for (auto &id: this->read_value_ids) UA_ReadValueId_clear(&id);
-    }
 };
 
 class BaseReadTaskSource : public common::Source {
