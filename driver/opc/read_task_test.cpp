@@ -122,8 +122,11 @@ protected:
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
-        auto client = ASSERT_EVENTUALLY_NIL_P(
-            util::connect(cfg->conn, "read_task_test"));
+        auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            util::connect(cfg->conn, "write_task_test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
+        );
         return std::make_unique<common::ReadTask>(
             task,
             ctx,

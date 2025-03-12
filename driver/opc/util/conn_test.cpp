@@ -41,7 +41,11 @@ TEST(ConnTest, testBasicConn) {
     cfg.security_policy = "None";
 
 
-    auto client = ASSERT_EVENTUALLY_NIL_P(util::connect(cfg, "opc"));
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "opc"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
     ASSERT_NE(client, nullptr);
 
     auto ser = ASSERT_NIL_P(util::simple_read(client, "NS=1;S=test"));

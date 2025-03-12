@@ -116,8 +116,10 @@ protected:
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
-        this->ua_client = ASSERT_EVENTUALLY_NIL_P(
-            util::connect(cfg->conn, "write_task_test")
+        this->ua_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            util::connect(cfg->conn, "write_task_test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
         );
         return std::make_unique<common::WriteTask>(
             task,

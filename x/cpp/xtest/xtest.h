@@ -322,18 +322,24 @@ inline void eventually_nil(const std::function<xerrors::Error()>& actual, const 
 
 /// @brief Asserts that a pair's error component will eventually become nil and returns the value component
 /// @tparam T The type of the value component in the pair
+/// @tparam DurationTimeout Type of the timeout duration
+/// @tparam DurationInterval Type of the interval duration
 /// @param actual A function that returns the pair to be checked
 /// @param timeout Maximum time to wait for the error to become nil (default: 1 second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 /// @return The value component of the pair once the error becomes nil
 /// @throws Testing::AssertionFailure if the error does not become nil within the timeout period
-template<typename T>
+template<typename T, typename DurationTimeout = std::chrono::milliseconds, typename DurationInterval = std::chrono::milliseconds>
 T eventually_nil_p(
     const std::function<std::pair<T, xerrors::Error>()>& actual,
-    const std::chrono::milliseconds timeout = std::chrono::seconds(1),
-    const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
+    const DurationTimeout& timeout = std::chrono::seconds(1),
+    const DurationInterval& interval = std::chrono::milliseconds(1)
 ) {
     std::pair<T, xerrors::Error> result;
+    
+    // Convert timeout and interval to std::chrono::milliseconds
+    const auto timeout_ms = std::chrono::duration_cast<std::chrono::milliseconds>(timeout);
+    const auto interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(interval);
     
     try {
         eventually(
@@ -344,12 +350,12 @@ T eventually_nil_p(
             [&]() {
                 std::stringstream ss;
                 ss << "EVENTUALLY_NIL_P timed out after " 
-                   << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+                   << std::chrono::duration_cast<std::chrono::milliseconds>(timeout_ms).count()
                    << "ms. Expected NIL, but got " << result.second;
                 return ss.str();
             },
-            timeout,
-            interval
+            timeout_ms,
+            interval_ms
         );
     } catch (const ::testing::AssertionException&) {
         // Return the value part even though the error isn't nil
