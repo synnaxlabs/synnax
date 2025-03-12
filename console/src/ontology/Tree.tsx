@@ -32,6 +32,7 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
@@ -271,10 +272,17 @@ export const Tree = (): ReactElement => {
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
       handleException(async () => {
-        if (client == null) return;
+        if (client == null) throw NULL_CLIENT_ERROR;
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
+          if (!resourcesRef.current.find(({ id }) => id.toString() === clicked))
+            // This happens when we need add an item to the tree before we create it in
+            // the ontology service. For instance, creating a new group will create a
+            // new node in the tree, but if onExpand is called before the group is
+            // created on the server, an error will be thrown when we try to retrieve
+            // the children of the new group.
+            return;
           const resources = await client.ontology.retrieveChildren(id, {
             includeSchema: false,
           });
@@ -304,7 +312,7 @@ export const Tree = (): ReactElement => {
         } finally {
           setLoading(false);
         }
-      }, "Failed to expand tree");
+      }, "Failed to expand resources tree");
     },
     [client, services],
   );
@@ -453,10 +461,9 @@ export const Tree = (): ReactElement => {
 
   const handleDoubleClick: Core.TreeProps["onDoubleClick"] = useCallback(
     (key: string) => {
-      const id = new ontology.ID(key);
-      const svc = services[id.type];
-      if (client == null) return;
-      void svc.onSelect?.({
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const { type } = new ontology.ID(key);
+      services[type].onSelect?.({
         client,
         store,
         services,
@@ -467,7 +474,7 @@ export const Tree = (): ReactElement => {
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
-    [client, store, placeLayout, removeLayout, resourcesRef],
+    [client, store, services, placeLayout, handleException, removeLayout, addStatus],
   );
 
   const handleContextMenu = useCallback(
