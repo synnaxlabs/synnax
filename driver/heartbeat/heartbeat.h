@@ -21,15 +21,17 @@
 namespace heartbeat {
 const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
 const std::string INTEGRATION_NAME = "heartbeat";
-const auto EMISSION_RATE = telem::Rate(1);
+const std::string TASK_NAME = "Heartbeat";
+const std::string TASK_TYPE = INTEGRATION_NAME;
+const auto EMISSION_RATE = telem::HZ * 1;
 
 /// @brief uint64 heartbeat value that communicates the aliveness of a rack. The
 /// first 32 bits are the rack key and the last 32 bits are the version.
-typedef std::uint64_t Heartbeat;
+using Heartbeat =  std::uint64_t;
 
 /// @brief creates a new heartbeat value from its components.
 inline Heartbeat create(const RackKey rack_key, const std::uint32_t version) {
-    return static_cast<std::uint64_t>(rack_key) << 32 | version;
+    return static_cast<Heartbeat>(rack_key) << 32 | version;
 }
 
 /// @brief retrieves the rack key from the heartbeat value.
@@ -59,8 +61,8 @@ public:
         this->loop.wait(breaker);
         const Heartbeat hb = create(this->rack_key, this->version);
         this->version++;
-        const auto fr = Frame(key, telem::Series(hb));
-        return {Frame(key, telem::Series(hb)), xerrors::NIL};
+        auto fr = Frame(key, telem::Series(hb, telem::UINT64_T));
+        return {std::move(fr), xerrors::NIL};
     }
 };
 
@@ -84,7 +86,7 @@ public:
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return "heartbeat"; }
+    std::string name() override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
     void stop(bool will_reconfigure) override { pipe.stop(); }
@@ -123,7 +125,7 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
-        if (task.type == "heartbeat")
+        if (task.type == TASK_TYPE)
             return {Task::configure(ctx, task), true};
         return {nullptr, false};
     }
@@ -134,12 +136,12 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-        auto [existing, err] = rack.tasks.retrieve_by_type("heartbeat");
+        auto [existing, err] = rack.tasks.retrieve_by_type(TASK_TYPE);
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(
                 rack.key,
-                "heartbeat",
-                "heartbeat",
+                TASK_NAME,
+                TASK_TYPE,
                 "",
                 true
             );
