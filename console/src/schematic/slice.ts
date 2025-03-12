@@ -442,8 +442,8 @@ export const { actions, reducer } = createSlice({
       schematic.edges.forEach((edge) => (edge.selected = true));
     },
     setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
-      const { key: layoutKey, authority } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, authority } = payload;
+      const schematic = state.schematics[key];
       schematic.authority = authority;
     },
   },

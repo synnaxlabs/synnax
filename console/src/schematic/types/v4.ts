@@ -43,7 +43,6 @@ export const stateMigration = migrate.createMigration<v3.State, State>({
   name: "schematic.state",
   migrate: (state) => ({
     ...state,
-    edges: state.edges.map((edge) => ({ ...edge, segments: [] })),
     version: VERSION,
     authority: 1,
   }),
