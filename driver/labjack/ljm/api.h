@@ -20,7 +20,7 @@ namespace ljm {
 #ifdef __APPLE__
 const std::string LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
 #else
-const std::string const LJM_LIBRARY_NAME = "LabjackM.dll";
+const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
 
 const auto LOAD_ERROR = xerrors::Error(
