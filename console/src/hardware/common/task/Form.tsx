@@ -131,7 +131,6 @@ export const wrapForm = <
         try {
           await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
         } catch (e) {
-          console.log(e);
           if (e instanceof Error) triggerError(e.message);
           throw e;
         }
