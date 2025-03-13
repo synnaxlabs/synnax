@@ -1866,7 +1866,7 @@ version = "1.6.0"
 description = "Concurrently detect the minimum Python versions needed to run code"
 optional = false
 python-versions = ">=3.0"
-groups = ["main"]
+groups = ["dev"]
 files = [
     {file = "vermin-1.6.0-py2.py3-none-any.whl", hash = "sha256:f1fa9ee40f59983dc40e0477eb2b1fa8061a3df4c3b2bcf349add462a5610efb"},
     {file = "vermin-1.6.0.tar.gz", hash = "sha256:6266ca02f55d1c2aa189a610017c132eb2d1934f09e72a955b1eb3820ee6d4ef"},
@@ -2302,4 +2302,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "d43e33e3ea8d0a1efafd3d4daff106793e12979af1ad766b13c7b41f46bcb51e"
+content-hash = "e5d6e9ef809354f6c90cce719683d7b8f653b59dd29ad41921f31d5afeb7df64"
