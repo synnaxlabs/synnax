@@ -9,17 +9,17 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
+import { createDIChannel } from "@/hardware/ni/task/createChannel";
 import {
   DigitalChannelList,
-  type NameComponentProps,
+  type NameProps,
 } from "@/hardware/ni/task/DigitalChannelList";
-import { generateDIChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
@@ -30,7 +30,7 @@ import {
   type DigitalReadType,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,7 +39,7 @@ export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_READ_TYPE,
 };
 
-export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
+export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
   create: async ({ layoutKey }) => ({ ...DIGITAL_READ_LAYOUT, key: layoutKey }),
   icon: <Icon.Logo.NI />,
   key: DIGITAL_READ_TYPE,
@@ -57,17 +57,19 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ entry: { channel } }: NameComponentProps<DIChannel>) => (
+const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
   <Common.Task.ChannelName channel={channel} />
 );
+
+const name = componentRenderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
 > = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
-    generateChannel={generateDIChannel}
-    NameComponent={(p) => <NameComponent {...p} />}
+    createChannel={createDIChannel}
+    name={name}
   />
 );
 
@@ -144,7 +146,9 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   return [config, dev.rack];
 };
 
-export const DigitalRead = Common.Task.wrapForm(Properties, Form, {
+export const DigitalRead = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: digitalReadConfigZ,
   getInitialPayload,
   onConfigure,

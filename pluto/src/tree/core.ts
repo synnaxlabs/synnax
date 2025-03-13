@@ -297,3 +297,12 @@ export const getDescendants = (...node: Node[]): Node[] => {
   });
   return descendants;
 };
+
+export const getAllNodesOfMinDepth = (
+  nodes: NodeWithPosition[],
+): NodeWithPosition[] => {
+  if (nodes.length === 0) return [];
+  let minDepth = Infinity;
+  for (const { depth } of nodes) if (depth < minDepth) minDepth = depth;
+  return nodes.filter(({ depth }) => depth === minDepth);
+};

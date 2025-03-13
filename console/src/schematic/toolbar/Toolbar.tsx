@@ -13,10 +13,10 @@ import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader } from "@/components";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
@@ -27,12 +27,14 @@ import {
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
+import { Control } from "@/schematic/toolbar/Control";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
   { tabKey: "properties", name: "Properties" },
+  { tabKey: "control", name: "Control" },
 ];
 
 interface NotEditableContentProps extends ToolbarProps {}
@@ -79,11 +81,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
-    ({ tabKey }: Tabs.Tab): ReactElement => {
+    ({ tabKey }: Tabs.Tab) => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
+        case "control":
+          return <Control layoutKey={layoutKey} />;
         default:
           return <PropertiesControls layoutKey={layoutKey} />;
       }
@@ -123,21 +127,21 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         content,
       }}
     >
-      <ToolbarHeader>
+      <Core.Header>
         <Align.Space direction="x" empty>
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
-            <Link.CopyToolbarButton
+            <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={schematic.ontologyID(state.key)}
             />
           </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 285 }} />}
         </Align.Space>
-      </ToolbarHeader>
+      </Core.Header>
       <Tabs.Content />
     </Tabs.Provider>
   );

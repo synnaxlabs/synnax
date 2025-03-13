@@ -7,13 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
-import { SCAN_TASK_NAME, type ScanConfig } from "@/hardware/ni/task/types";
+import {
+  SCAN_TYPE,
+  type ScanConfig,
+  type ScanStateDetails,
+  type ScanType,
+} from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
@@ -44,34 +51,32 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_READ_LAYOUT),
 };
 
-const TOGGLE_SCAN_TASK_FAILED_MESSAGE = "Failed to toggle NI device scanner";
-
 const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   key: "ni-toggle-scan-task",
   name: "Toggle NI Device Scanner",
   icon: <Icon.Logo.NI />,
   onSelect: ({ client, addStatus, handleException }) => {
-    if (client == null)
-      return addStatus({
-        variant: "error",
-        message: TOGGLE_SCAN_TASK_FAILED_MESSAGE,
-        description: "Cannot reach server",
+    handleException(async () => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const scanTasks = await client.hardware.tasks.retrieveByType<
+        ScanConfig,
+        ScanStateDetails,
+        ScanType
+      >(SCAN_TYPE);
+      if (scanTasks.length === 0)
+        throw new UnexpectedError("No NI device scanner found");
+      const { config, payload } = scanTasks[0];
+      const {
+        config: { enabled },
+      } = await client.hardware.tasks.create<ScanConfig, ScanStateDetails, ScanType>({
+        ...payload,
+        config: { ...config, enabled: !config.enabled },
       });
-    client.hardware.tasks
-      .retrieveByName<ScanConfig>(SCAN_TASK_NAME)
-      .then(({ payload, config }) =>
-        client.hardware.tasks.create<ScanConfig>({
-          ...payload,
-          config: { ...config, enabled: !config.enabled },
-        }),
-      )
-      .then(({ config: { enabled } }) =>
-        addStatus({
-          variant: "success",
-          message: `NI device scanning ${enabled ? "disabled" : "enabled"}`,
-        }),
-      )
-      .catch((e) => handleException(e, TOGGLE_SCAN_TASK_FAILED_MESSAGE));
+      addStatus({
+        variant: "success",
+        message: `NI device scanning ${enabled ? "enabled" : "disabled"}`,
+      });
+    }, "Failed to toggle NI device scanner");
   },
 };
 

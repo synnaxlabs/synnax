@@ -40,6 +40,8 @@ import { nullableArrayZ } from "@/util/zod";
 
 const STATE_CHANNEL_NAME = "sy_task_state";
 const COMMAND_CHANNEL_NAME = "sy_task_cmd";
+const SET_CHANNEL_NAME = "sy_task_set";
+const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
 
@@ -83,7 +85,7 @@ export class Task<
     this.rangeClient = rangeClient;
   }
 
-  get payload(): Payload<Config, Details> {
+  get payload(): Payload<Config, Details, Type> {
     return {
       key: this.key,
       name: this.name,
@@ -101,7 +103,7 @@ export class Task<
   async executeCommand<Args>(type: string, args?: Args): Promise<string> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
-    const key = id.id();
+    const key = id.create();
     await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
     await writer.close();
     return key;
@@ -132,9 +134,11 @@ export class Task<
     return res;
   }
 
-  async openStateObserver(): Promise<StateObservable> {
+  async openStateObserver<Details extends {} = UnknownRecord>(): Promise<
+    StateObservable<Details>
+  > {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<State>(
+    return new framer.ObservableStreamer<State<Details>>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);
@@ -146,14 +150,16 @@ export class Task<
         }
         const state = parse.data;
         if (state.task !== this.key) return [null, false];
-        return [state, true];
+        return [state as State<Details>, true];
       },
     );
   }
 
-  async openCommandObserver(): Promise<CommandObservable> {
+  async openCommandObserver<Args extends {} = UnknownRecord>(): Promise<
+    CommandObservable<Args>
+  > {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<Command>(
+    return new framer.ObservableStreamer<Command<Args>>(
       await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(COMMAND_CHANNEL_NAME);
@@ -165,7 +171,7 @@ export class Task<
         }
         const cmd = parse.data;
         if (cmd.task !== this.key) return [null, false];
-        return [cmd, true];
+        return [cmd as Command<Args>, true];
       },
     );
   }
@@ -184,9 +190,10 @@ const retrieveReqZ = z.object({
   rack: rackKeyZ.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
+  types: z.string().array().optional(),
+  includeState: z.boolean().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
-  includeState: z.boolean().optional(),
 });
 
 const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
@@ -194,7 +201,10 @@ const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "rack" | "offset" | "limit" | "includeState"> {}
+  extends Pick<
+    RetrieveRequest,
+    "rack" | "offset" | "limit" | "includeState" | "types"
+  > {}
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
@@ -340,6 +350,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return this.sugar(tasks)[0] as Task<Config, Details, Type>;
   }
 
+  async retrieveByType<
+    Config extends UnknownRecord = UnknownRecord,
+    Details extends {} = UnknownRecord,
+    Type extends string = string,
+  >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
+    const tasks = await this.execRetrieve({ types: [type], rack });
+    return this.sugar(tasks) as Task<Config, Details, Type>[];
+  }
+
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
     const res = await sendRequired(
       this.client,
@@ -372,8 +391,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   async openTracker(): Promise<signals.Observable<string, string>> {
     return await signals.openObservable<string, string>(
       this.frameClient,
-      "sy_task_set",
-      "sy_task_delete",
+      SET_CHANNEL_NAME,
+      DELETE_CHANNEL_NAME,
       (variant, data) =>
         Array.from(data).map((k) => ({
           variant,
@@ -383,8 +402,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver<D extends {} = UnknownRecord>(): Promise<StateObservable<D>> {
-    return new framer.ObservableStreamer<State<D>>(
+  async openStateObserver(): Promise<StateObservable> {
+    return new framer.ObservableStreamer<State>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);

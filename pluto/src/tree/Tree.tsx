@@ -68,15 +68,14 @@ export interface UseReturn {
 
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
-export const use = (props: UseProps): UseReturn => {
-  const {
-    onExpand,
-    nodes,
-    initialExpanded = [],
-    sort,
-    selected: propsSelected,
-    onSelectedChange,
-  } = props ?? {};
+export const use = ({
+  onExpand,
+  nodes,
+  initialExpanded = [],
+  sort,
+  selected: propsSelected,
+  onSelectedChange,
+}: UseProps): UseReturn => {
   const [expanded, setExpanded, expandedRef] =
     useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = state.usePassthrough<string[]>({
@@ -368,9 +367,9 @@ export const Tree = ({
   useMargin = false,
   showRules = false,
   virtual = true,
-  clearExpanded: ___,
-  expand: __,
-  contract: _,
+  clearExpanded,
+  expand,
+  contract,
   emptyContent,
   loading,
   ...rest

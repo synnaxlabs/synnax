@@ -36,7 +36,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -45,7 +45,7 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const READ_SELECTABLE: Layout.Selectable = {
+export const READ_SELECTABLE: Selector.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
@@ -63,9 +63,22 @@ const Properties = () => (
   </>
 );
 
+const getRenderedPort = (
+  port: string,
+  deviceModel: Device.Model,
+  type: InputChannelType,
+) => {
+  const portType = convertChannelTypeToPortType(type);
+  const portInfo = Device.DEVICES[deviceModel].ports[portType].find(
+    ({ key }) => key === port,
+  );
+  return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
+};
+
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<InputChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
+  deviceModel: Device.Model;
 }
 
 const ChannelListItem = ({
@@ -73,6 +86,7 @@ const ChannelListItem = ({
   isSnapshot,
   onTare,
   isRunning,
+  deviceModel,
   ...rest
 }: ChannelListItemProps) => {
   const {
@@ -80,10 +94,11 @@ const ChannelListItem = ({
   } = rest;
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
+  const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
-      port={port}
+      port={renderedPort}
       canTare={canTare}
       onTare={onTare}
       isSnapshot={isSnapshot}
@@ -96,12 +111,11 @@ const ChannelListItem = ({
 };
 
 interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
-  device: Device.Device;
+  deviceModel: Device.Model;
 }
 
-const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
+const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const channel = PForm.useFieldValue<InputChannel>(path);
-  const model = device.model;
   const Form = FORMS[channel.type];
   return (
     <>
@@ -116,27 +130,34 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<InputChannel>(parentPath).value;
             const schema = INPUT_CHANNEL_SCHEMAS[value];
-            const port =
-              Device.DEVICES[model].ports[convertChannelTypeToPortType(value)][0].key;
+            const nextParent = deep.overrideValidItems(next, prevParent, schema);
+            const prevPortType = convertChannelTypeToPortType(prevType);
+            const nextPortType = convertChannelTypeToPortType(value);
+            let nextPort = nextParent.port;
+            if (prevPortType !== nextPortType)
+              nextPort =
+                Device.DEVICES[deviceModel].ports[
+                  convertChannelTypeToPortType(value)
+                ][0].key;
             set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
+              ...nextParent,
               type: next.type,
             });
             // Need to explicitly set port to cause select port field to rerender
-            set(`${parentPath}.port`, port);
+            set(`${parentPath}.port`, nextPort);
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
           {(p) => (
             <Device.SelectPort
               {...p}
-              model={model}
+              model={deviceModel}
               portType={convertChannelTypeToPortType(channel.type)}
             />
           )}
         </PForm.Field>
       </Align.Space>
-      <Form deviceModel={device.model} path={path} />
+      <Form deviceModel={deviceModel} path={path} />
     </>
   );
 };
@@ -146,7 +167,7 @@ const getOpenChannel = (
   index: number,
   device: Device.Device,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.id() };
+  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
   const channelToCopy = channels[index];
   // preferredPortType is AI or DI
   const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
@@ -168,7 +189,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
-    key: id.id(),
+    key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
   };
@@ -195,16 +216,34 @@ const ChannelsForm = ({
     configured,
     task,
   } as Common.Task.UseTareProps<InputChannel>);
-  const generateChannel = useCallback(
+  const createChannel = useCallback(
     (channels: InputChannel[], index: number) =>
       getOpenChannel(channels, index, device),
     [device],
   );
+  const listItem = useCallback(
+    ({ key, ...p }: Common.Task.ChannelListItemProps<InputChannel>) => (
+      <ChannelListItem
+        {...p}
+        onTare={tare}
+        key={key}
+        isRunning={isRunning}
+        deviceModel={device.model}
+      />
+    ),
+    [tare, isRunning, device.model],
+  );
+  const details = useCallback(
+    (p: Common.Task.Layouts.DetailsProps) => (
+      <ChannelDetails {...p} deviceModel={device.model} />
+    ),
+    [device.model],
+  );
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
-      ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
-      Details={(p) => <ChannelDetails {...p} device={device} />}
-      generateChannel={generateChannel}
+      listItem={listItem}
+      details={details}
+      createChannel={createChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}
@@ -298,7 +337,9 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm(Properties, Form, {
+export const Read = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: readConfigZ,
   type: READ_TYPE,
   getInitialPayload,

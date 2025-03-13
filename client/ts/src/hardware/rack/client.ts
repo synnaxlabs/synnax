@@ -27,8 +27,6 @@ import { ontology } from "@/ontology";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-export const DEFAULT_CHANNEL_NAME = "sy_node_1_rack";
-
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
@@ -150,6 +148,10 @@ export class Rack {
 
   async retrieveTaskByName(name: string): Promise<task.Task> {
     return await this.tasks.retrieveByName(name, this.key);
+  }
+
+  async retrieveTaskByType(type: string): Promise<task.Task[]> {
+    return await this.tasks.retrieveByType(type, this.key);
   }
 
   async createTask<

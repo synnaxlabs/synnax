@@ -17,7 +17,6 @@ https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server.
 import synnax as sy
 from synnax.hardware import opcua
 
-
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()

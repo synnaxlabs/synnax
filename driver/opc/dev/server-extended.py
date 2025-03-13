@@ -64,7 +64,8 @@ async def main():
 
     for i in range(5):
         # add 30 float variables t OPC
-        await myobj.add_variable(idx, f"my_float_{i}", i)
+        my_float = await myobj.add_variable(idx, f"my_float_{i}", i, ua.VariantType.Float)
+        await my_float.set_writable()
 
     i = 0
     start_ref = datetime.datetime.now(datetime.timezone.utc)

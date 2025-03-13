@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
+import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -111,7 +113,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Log: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
+export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const log = useLoadRemote({
     name: "Log",
     targetVersion: ZERO_STATE.version,
@@ -127,18 +129,20 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | nul
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
+export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.BaseState>, "type">): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    const key = log.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

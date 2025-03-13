@@ -8,22 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 import ssl
-from typing import Any, Generic, Literal, Type, MutableMapping
+from typing import Any, Generic, Literal, MutableMapping, Type
 from warnings import warn
 
 from pydantic import BaseModel
-from websockets.asyncio.client import ClientProtocol as AsyncClientProtocol, connect
-from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
-from websockets.sync.client import (
-    ClientConnection as SyncClientProtocol,
-    connect as sync_connect,
-)
+from websockets.asyncio.client import ClientProtocol as AsyncClientProtocol
+from websockets.asyncio.client import connect
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+from websockets.sync.client import ClientConnection as SyncClientProtocol
+from websockets.sync.client import connect as sync_connect
 
-from freighter.context import Context
 from freighter.codec import Codec
+from freighter.context import Context
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
-from freighter.stream import AsyncStream, AsyncStreamClient, StreamClient, Stream
-from freighter.transport import RQ, RS, AsyncMiddlewareCollector, P, MiddlewareCollector
+from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
+from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector, P
 from freighter.url import URL
 
 

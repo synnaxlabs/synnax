@@ -30,6 +30,7 @@ cc_test(
         ":channel",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

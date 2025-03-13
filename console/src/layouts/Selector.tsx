@@ -8,20 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { useStore } from "react-redux";
+import { v4 as uuid } from "uuid";
 
 import { Hardware } from "@/hardware";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Vis } from "@/vis";
 
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
-export const SELECTOR_LAYOUT: Layout.BaseState = {
+export interface CreateSelectorLayoutArgs
+  extends Omit<Layout.BaseState, "type" | "icon" | "location" | "name" | "key"> {}
+
+export const createSelectorLayout = (
+  args: CreateSelectorLayoutArgs = {},
+): Layout.BaseState => ({
+  ...args,
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
-  name: "New Layout",
-};
+  name: "New Component",
+  key: uuid(),
+});
 
 export const Selector: Layout.Renderer = (props) => {
   const store = useStore<RootState>();
@@ -30,7 +39,7 @@ export const Selector: Layout.Renderer = (props) => {
     ...Hardware.SELECTABLES,
   ];
   return (
-    <Layout.Selector
+    <CoreSelector.Selector
       selectables={selectables}
       text="Select a Component Type"
       {...props}

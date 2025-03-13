@@ -12,22 +12,22 @@ import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
 const ResourcesTree = (): ReactElement => (
   <Align.Space empty style={{ height: "100%", position: "relative" }}>
-    <ToolbarHeader>
-      <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
-    </ToolbarHeader>
+    <Toolbar.Header>
+      <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>
+    </Toolbar.Header>
     <Cluster.NoneConnectedBoundary>
       <Tree />
     </Cluster.NoneConnectedBoundary>
   </Align.Space>
 );
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "resources",
   icon: <Icon.Resources />,
   content: <ResourcesTree />,

@@ -31,7 +31,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { NAV_SIZES } from "@/layouts/constants";
+import { Layouts } from "@/layouts";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
@@ -91,7 +91,11 @@ const FallBackRenderContent = ({
   }, []);
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
-      <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
+      <Nav.Bar
+        location="top"
+        size={Layouts.Nav.SIZES.top}
+        className="console-main-nav-top"
+      >
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"

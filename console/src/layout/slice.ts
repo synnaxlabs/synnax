@@ -18,8 +18,8 @@ import { Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
-import { type BaseState } from "@/layout/hooks";
 import * as latest from "@/layout/types";
+import { type BaseState } from "@/layout/usePlacer";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
@@ -140,7 +140,7 @@ export interface SetColorContextPayload {
   state: Color.ContextState;
 }
 
-export const GET_STARTED_LAYOUT_TYPE = "getStarted";
+export const GET_STARTED_TYPE = "getStarted";
 
 const purgeEmptyMosaics = (state: SliceState) => {
   Object.entries(state.mosaics).forEach(([key, mosaic]) => {
@@ -405,16 +405,16 @@ export const { actions, reducer } = createSlice({
         state.mosaics[MAIN_WINDOW].root,
         {
           closable: true,
-          tabKey: GET_STARTED_LAYOUT_TYPE,
+          tabKey: GET_STARTED_TYPE,
           name: "Get Started",
           editable: false,
         },
       );
       state.layouts.getStarted = {
         name: "Get Started",
-        key: GET_STARTED_LAYOUT_TYPE,
+        key: GET_STARTED_TYPE,
         location: "mosaic",
-        type: GET_STARTED_LAYOUT_TYPE,
+        type: GET_STARTED_TYPE,
         windowKey: MAIN_WINDOW,
         beta: false,
       };
@@ -517,14 +517,14 @@ export type Payload = Action["payload"];
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
 export const createMosaicWindow = (window?: WindowProps): BaseState => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
+  key: `${MOSAIC_WINDOW_TYPE}-${id.create()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: false,
+    navTop: true,
     visible: true,
     showTitle: false,
   },

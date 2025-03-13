@@ -275,7 +275,6 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   return (
     <Core<K, E>
       close={close}
-      open={open}
       data={data}
       emptyContent={emptyContent}
       visible={visible}

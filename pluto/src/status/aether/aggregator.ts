@@ -29,7 +29,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   add(spec: CrudeSpec): void {
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.id() }],
+      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.create() }],
     }));
   }
 }
@@ -53,15 +53,19 @@ export interface ExceptionHandler {
   (exc: unknown, message?: string): void;
 }
 
+export const fromException = (exc: unknown, message?: string): CrudeSpec => {
+  if (!(exc instanceof Error)) throw exc;
+  return {
+    variant: "error",
+    message: message ?? exc.message,
+    description: message != null ? exc.message : undefined,
+  };
+};
+
 export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler => {
   const addStatus = useAdder(ctx);
   return (exc: unknown, message?: string): void => {
-    if (!(exc instanceof Error)) throw exc;
-    addStatus({
-      variant: "error",
-      message: message ?? exc.message,
-      description: message != null ? exc.message : undefined,
-    });
+    addStatus(fromException(exc, message));
   };
 };
 

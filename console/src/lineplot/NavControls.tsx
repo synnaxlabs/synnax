@@ -36,26 +36,26 @@ export const NavControls = (): ReactElement => {
   const control = useSelectControlState();
   const vis = Layout.useSelectActiveMosaicTabKey();
   const mode = useSelectViewportMode();
-  const d = useDispatch();
+  const dispatch = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    d(setViewportMode({ mode }));
+    dispatch(setViewportMode({ mode }));
   };
 
   const handleClickModeChange = (clickMode: ClickMode): void => {
-    d(setControlState({ state: { clickMode } }));
+    dispatch(setControlState({ state: { clickMode } }));
   };
 
   const handleTooltipChange = (tooltip: boolean): void => {
-    d(setControlState({ state: { enableTooltip: tooltip } }));
+    dispatch(setControlState({ state: { enableTooltip: tooltip } }));
   };
 
   const handleZoomReset = (): void => {
-    if (vis != null) d(setViewport({ key: vis }));
+    if (vis != null) dispatch(setViewport({ key: vis }));
   };
 
   const handleHoldChange = (hold: boolean): void => {
-    d(setControlState({ state: { hold } }));
+    dispatch(setControlState({ state: { hold } }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);

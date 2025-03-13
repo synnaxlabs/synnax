@@ -33,7 +33,11 @@ import { addElement } from "@/schematic/slice";
 
 const LIST_DATA = Object.values(Schematic.SYMBOLS);
 
-export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export interface SymbolsProps {
+  layoutKey: string;
+}
+
+export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
@@ -44,7 +48,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       dispatch(
         addElement({
           key: layoutKey,
-          elKey: id.id(),
+          elKey: id.create(),
           node: {
             zIndex: spec.zIndex,
           },

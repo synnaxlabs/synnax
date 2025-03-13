@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { useStore } from "react-redux";
+import { v4 as uuid } from "uuid";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Selector as CoreSelector } from "@/selector";
 import { type RootState } from "@/store";
 import { Table } from "@/table";
 
-const SELECTABLES: Layout.Selectable[] = [
+const SELECTABLES: CoreSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -25,14 +27,15 @@ const SELECTABLES: Layout.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
-export const SELECTOR_LAYOUT: Layout.BaseState = {
+export const createSelectorLayout = (): Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
   name: "New Visualization",
-};
+  key: uuid(),
+});
 
-export const getSelectables = (storeState: RootState): Layout.Selectable[] => {
+export const getSelectables = (storeState: RootState): CoreSelector.Selectable[] => {
   const canCreateSchematic = Schematic.selectHasPermission(storeState);
   return SELECTABLES.filter((s) =>
     s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
@@ -43,7 +46,7 @@ export const Selector: Layout.Renderer = (props) => {
   const store = useStore<RootState>();
   const selectables = getSelectables(store.getState());
   return (
-    <Layout.Selector
+    <CoreSelector.Selector
       selectables={selectables}
       text="Select a Visualization Type"
       {...props}

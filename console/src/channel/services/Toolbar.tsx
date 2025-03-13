@@ -4,7 +4,7 @@ import { Align, Header, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/range/Create";
@@ -23,12 +23,12 @@ const Content = (): ReactElement => {
 
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Channel />}>Channels</ToolbarTitle>
+      <Toolbar.Header>
+        <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Header.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
-      </ToolbarHeader>
+      </Toolbar.Header>
       <Ontology.Tree root={group.data?.ontologyID} />
     </Align.Space>
   );

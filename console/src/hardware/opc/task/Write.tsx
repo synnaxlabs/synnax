@@ -9,21 +9,23 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
+import { type Haul } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { Form } from "@/hardware/opc/task/Form";
 import {
   WRITE_TYPE,
-  type WriteChannelConfig,
+  type WriteChannel,
   type WriteConfig,
   writeConfigZ,
   type WriteStateDetails,
   type WriteType,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -32,7 +34,7 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const WRITE_SELECTABLE: Layout.Selectable = {
+export const WRITE_SELECTABLE: Selector.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
@@ -44,6 +46,26 @@ const Properties = () => (
     <Device.Select />
     <Common.Task.Fields.DataSaving />
   </>
+);
+
+const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
+  const nodeId = data?.nodeId as string;
+  const name = data?.name as string;
+  return {
+    key: nodeId,
+    name,
+    nodeName: name,
+    nodeId,
+    cmdChannel: 0,
+    enabled: true,
+    dataType: (data?.dataType as string) ?? "float32",
+  };
+};
+
+const TaskForm: FC<
+  Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
+> = ({ isSnapshot }) => (
+  <Form isSnapshot={isSnapshot} convertHaulItemToChannel={convertHaulItemToChannel} />
 );
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
@@ -65,7 +87,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   dev.properties = Device.migrateProperties(dev.properties);
   let modified = false;
-  const commandsToCreate: WriteChannelConfig[] = [];
+  const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
     const key = getChannelByNodeID(dev.properties, channel.nodeId);
     if (primitiveIsZero(key)) commandsToCreate.push(channel);
@@ -105,14 +127,17 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   }
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: getChannelByNodeID(dev.properties, c.nodeId),
+    cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
   if (modified) await client.hardware.devices.create(dev);
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm(
-  () => <Properties />,
-  ({ isSnapshot }) => <Form isSnapshot={isSnapshot} />,
-  { configSchema: writeConfigZ, type: WRITE_TYPE, getInitialPayload, onConfigure },
-);
+export const Write = Common.Task.wrapForm({
+  Properties,
+  Form: TaskForm,
+  configSchema: writeConfigZ,
+  type: WRITE_TYPE,
+  getInitialPayload,
+  onConfigure,
+});

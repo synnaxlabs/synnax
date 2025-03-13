@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/opc/task/Form.css";
+
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -14,28 +16,24 @@ import {
   Haul,
   Header as PHeader,
   List,
+  type RenderProp,
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { type ReactNode, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import {
-  type ReadChannelConfig,
-  type WriteChannelConfig,
-} from "@/hardware/opc/task/types";
+import { type Channel } from "@/hardware/opc/task/types";
 
-type ChannelConfig = ReadChannelConfig | WriteChannelConfig;
-
-interface ChildrenProps {
+export interface ExtraItemProps {
   path: string;
   snapshot: boolean;
 }
 
-interface ChannelListItemProps<C extends ChannelConfig>
+interface ChannelListItemProps<C extends Channel>
   extends Common.Task.ChannelListItemProps<C> {
-  children: (props: ChildrenProps) => ReactNode | null;
+  children: RenderProp<ExtraItemProps>;
 }
 
 const ChannelListItem = ({
@@ -43,7 +41,7 @@ const ChannelListItem = ({
   children,
   isSnapshot,
   ...rest
-}: ChannelListItemProps<ChannelConfig>) => {
+}: ChannelListItemProps<Channel>) => {
   const {
     entry: { name, nodeName, nodeId },
   } = rest;
@@ -85,8 +83,10 @@ const ChannelListItem = ({
 };
 
 const Header = () => (
-  <PHeader.Header level="h4">
-    <PHeader.Title weight={500}>Channels</PHeader.Title>
+  <PHeader.Header level="p">
+    <PHeader.Title weight={500} shade={8}>
+      Channels
+    </PHeader.Title>
   </PHeader.Header>
 );
 
@@ -102,15 +102,24 @@ const EmptyContent = () => (
 
 const CHANNELS_PATH = "config.channels";
 
-interface ChannelListProps<C extends ChannelConfig>
+interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot"> {
-  children: (props: ChildrenProps) => ReactNode | null;
+  children: RenderProp<ExtraItemProps>;
   device: Device.Device;
+  convertHaulItemToChannel: (item: Haul.Item) => C;
 }
 
-const ChannelList = <C extends ChannelConfig>({
+const VARIABLE_NODE_CLASS = "Variable";
+
+const filterHaulItem = (item: Haul.Item): boolean =>
+  item.type === Device.HAUL_TYPE && item.data?.nodeClass === VARIABLE_NODE_CLASS;
+
+const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
+
+const ChannelList = <C extends Channel>({
   device,
   children,
+  convertHaulItemToChannel,
   ...rest
 }: ChannelListProps<C>) => {
   const { value, push, remove } = PForm.useFieldArray<C>({
@@ -118,38 +127,18 @@ const ChannelList = <C extends ChannelConfig>({
     updateOnChildren: true,
   });
   const valueRef = useSyncedRef(value);
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const dropped = items.filter(
-      (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
-    );
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          // Todo: different for write, read channels
-          key: nodeId,
-          name,
-          nodeName: name,
-          channel: 0,
-          enabled: true,
-          nodeId,
-          useAsIndex: false,
-          dataType: (i.data?.dataType as string) ?? "float32",
-        };
-      });
-    // @ts-expect-error fix later
-    push(toAdd);
-    return dropped;
-  }, []);
-
-  const canDrop = useCallback(
-    (state: Haul.DraggingState): boolean =>
-      state.items.some(
-        (i) => i.type === Device.HAUL_TYPE && i.data?.nodeClass === "Variable",
-      ),
-    [],
+  const handleDrop = useCallback(
+    ({ items }: Haul.OnDropProps): Haul.Item[] => {
+      const dropped = items.filter(filterHaulItem);
+      const toAdd = dropped
+        .filter(
+          ({ data }) => !valueRef.current.some(({ nodeId }) => nodeId === data?.nodeId),
+        )
+        .map(convertHaulItemToChannel);
+      push(toAdd);
+      return dropped;
+    },
+    [push],
   );
 
   const haulProps = Haul.useDrop({
@@ -161,6 +150,14 @@ const ChannelList = <C extends ChannelConfig>({
   const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
 
   const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
+  const listItem = useCallback(
+    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+      <ChannelListItem key={key} {...p}>
+        {children}
+      </ChannelListItem>
+    ),
+    [children],
+  );
   return (
     <Common.Task.ChannelList
       {...rest}
@@ -172,21 +169,24 @@ const ChannelList = <C extends ChannelConfig>({
       header={<Header />}
       selected={selected}
       isDragging={isDragging}
-      ListItem={(p) => <ChannelListItem {...p}>{children}</ChannelListItem>}
+      listItem={listItem}
+      grow
       {...haulProps}
     />
   );
 };
 
-export interface FormProps {
+export interface FormProps<C extends Channel> {
   isSnapshot: boolean;
-  children?: (props: ChildrenProps) => ReactNode | null;
+  children?: RenderProp<ExtraItemProps>;
+  convertHaulItemToChannel: (item: Haul.Item) => C;
 }
 
-export const Form = <C extends ChannelConfig>({
+export const Form = <C extends Channel>({
   isSnapshot,
+  convertHaulItemToChannel,
   children = () => null,
-}: FormProps) => (
+}: FormProps<C>) => (
   <Common.Device.Provider<Device.Properties, Device.Make>
     canConfigure={!isSnapshot}
     configureLayout={Device.CONNECT_LAYOUT}
@@ -194,7 +194,11 @@ export const Form = <C extends ChannelConfig>({
     {({ device }) => (
       <>
         {!isSnapshot && <Device.Browser device={device} />}
-        <ChannelList<C> device={device} isSnapshot={isSnapshot}>
+        <ChannelList<C>
+          device={device}
+          isSnapshot={isSnapshot}
+          convertHaulItemToChannel={convertHaulItemToChannel}
+        >
           {children}
         </ChannelList>
       </>

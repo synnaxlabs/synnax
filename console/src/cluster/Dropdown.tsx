@@ -31,7 +31,7 @@ import { useDispatch } from "react-redux";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -73,7 +73,7 @@ export const List = (): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
 
       const handleSelect = (menuKey: string): void => {
@@ -244,11 +244,12 @@ export const NoneConnected = (): ReactElement => {
 };
 
 export const Dropdown = (): ReactElement => {
-  const dropProps = Core.use();
+  const { close, toggle, visible } = Core.use();
   const cluster = useSelect();
   return (
     <Core.Dialog
-      {...dropProps}
+      close={close}
+      visible={visible}
       variant="floating"
       bordered={false}
       className={CSS.B("cluster-dropdown")}
@@ -260,7 +261,7 @@ export const Dropdown = (): ReactElement => {
       }}
     >
       <Button.Button
-        onClick={dropProps.toggle}
+        onClick={toggle}
         variant="text"
         startIcon={<Icon.Cluster />}
         justify="center"

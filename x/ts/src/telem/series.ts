@@ -21,6 +21,7 @@ import {
   glBufferUsageZ,
 } from "@/telem/gl";
 import {
+  addSamples,
   convertDataType,
   type CrudeDataType,
   type CrudeTimeStamp,
@@ -34,7 +35,6 @@ import {
   TimeStamp,
   type TypedArray,
 } from "@/telem/telem";
-import { zodutil } from "@/zodutil";
 
 interface GL {
   control: GLBufferController | null;
@@ -165,7 +165,7 @@ export class Series<T extends TelemValue = TelemValue> {
   static readonly crudeZ = z.object({
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
-    alignment: zodutil.bigInt.optional(),
+    alignment: z.coerce.bigint().optional(),
     data: z.union([
       stringArrayZ,
       nullArrayZ,
@@ -185,7 +185,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = id.id(),
+      key = id.create(),
     } = props;
     const data = props.data ?? [];
     if (
@@ -290,7 +290,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return arr;
   }
 
-  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
+  static createTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
     const timeRange = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
     for (let i = 0; i < length; i++)
@@ -389,7 +389,6 @@ export class Series<T extends TelemValue = TelemValue> {
   /** @returns a native typed array with the proper data type. */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // @ts-expect-error - issues with union types in array constructors.
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
 
@@ -923,14 +922,6 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
 
   [Symbol.toStringTag] = "SeriesIterator";
 }
-
-export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
-  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0) return a;
-  if (a === 0) return b;
-  return Number(a) + Number(b);
-};
 
 export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
   readonly series: Array<Series<T>>;

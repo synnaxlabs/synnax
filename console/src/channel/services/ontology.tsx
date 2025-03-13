@@ -20,10 +20,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -224,7 +224,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
@@ -243,7 +243,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {isCalc && (
         <>
           <PMenu.Divider />
@@ -281,7 +281,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElement => {
+export const Item: Tree.Item = ({ entry, ...rest }) => {
   const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
   const data = entry.extraData as channel.Payload;
   const I = PChannel.resolveIcon(data);

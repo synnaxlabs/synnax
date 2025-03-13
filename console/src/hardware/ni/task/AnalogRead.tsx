@@ -9,14 +9,14 @@
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
 import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
-import { generateAIChannel } from "@/hardware/ni/task/generateChannel";
+import { createAIChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_NAMES,
@@ -30,7 +30,7 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Layout } from "@/layout";
+import { type Selector } from "@/selector";
 
 export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,7 +39,7 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
+export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
@@ -99,6 +99,8 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
+const channelDetails = componentRenderProp(ChannelDetails);
+
 const Form: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
 > = ({ task, isRunning, isSnapshot, configured }) => {
@@ -107,11 +109,17 @@ const Form: FC<
     isRunning,
     configured,
   } as Common.Task.UseTareProps<AIChannel>);
+  const listItem = useCallback(
+    ({ key, ...rest }: Common.Task.ChannelListItemProps<AIChannel>) => (
+      <ChannelListItem key={key} {...rest} onTare={tare} isRunning={isRunning} />
+    ),
+    [tare, isRunning],
+  );
   return (
     <Common.Task.Layouts.ListAndDetails<AIChannel>
-      ListItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
-      Details={ChannelDetails}
-      generateChannel={generateAIChannel}
+      listItem={listItem}
+      details={channelDetails}
+      createChannel={createAIChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}
@@ -131,7 +139,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.id() }],
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
   },
 });
 
@@ -205,7 +213,9 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   return [config, rackKey];
 };
 
-export const AnalogRead = Common.Task.wrapForm(Properties, Form, {
+export const AnalogRead = Common.Task.wrapForm({
+  Properties,
+  Form,
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
   getInitialPayload,

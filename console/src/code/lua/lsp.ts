@@ -74,9 +74,7 @@ export const startLuaLSP = async (): Promise<AsyncDestructor> => {
     },
     messageTransports: { reader, writer },
   });
-  console.log("Language client created");
   await languageClient.start();
-  console.log("Language client started");
   return async () => await languageClient.stop();
 };
 

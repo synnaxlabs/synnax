@@ -25,11 +25,10 @@ import { deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { ToolbarHeader } from "@/components";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { selectTheme } from "@/layout/selectors";
-import { Link } from "@/link";
 import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
@@ -65,7 +64,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const store = useStore<RootState>();
   const handleVariantChange = (variant: TableCells.Variant, cellKey: string): void => {
     const storeState = store.getState();
-    const theme = selectTheme(storeState);
+    const theme = Layout.selectTheme(storeState);
     const cellState = selectCell(storeState, layoutKey, cellKey);
     if (variant === cellState.variant) return;
     if (theme == null) throw new Error("Theme is null");
@@ -80,7 +79,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const handleExport = useExport();
   return (
     <Align.Space empty style={{ width: "100%", height: "100%" }}>
-      <ToolbarHeader>
+      <Core.Header>
         <Align.Space direction="x" align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
@@ -93,12 +92,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
         </Align.Space>
         <Align.Space direction="x" style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
-          <Link.CopyToolbarButton
+          <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}
           />
         </Align.Space>
-      </ToolbarHeader>
+      </Core.Header>
       <Align.Space style={{ width: "100%", height: "100%" }}>
         {selectedCells.length === 0 ? (
           <EmptyContent />

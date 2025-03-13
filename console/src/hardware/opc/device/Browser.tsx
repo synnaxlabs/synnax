@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import "@/hardware/opc/device/Browser.css";
+
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,11 +25,12 @@ import { type Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
-  SCAN_COMMAND_NAME,
-  SCAN_NAME,
-  type ScanCommandResult,
+  SCAN_COMMAND_TYPE,
+  SCAN_TYPE,
+  type ScanStateDetails,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -53,8 +56,10 @@ export const Browser = ({ device }: BrowserProps) => {
     queryKey: [client?.key],
     queryFn: async () => {
       if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(rack.DEFAULT_CHANNEL_NAME);
-      return await rck.retrieveTaskByName(SCAN_NAME);
+      const rck = await client.hardware.racks.retrieve(device.rack);
+      const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
+      if (scanTasks.length > 0) return scanTasks[0];
+      throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
     },
   });
   const [loading, setLoading] = useState<string>();
@@ -70,26 +75,30 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanCommandResult>(
-        SCAN_COMMAND_NAME,
+      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
+        SCAN_COMMAND_TYPE,
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),
       );
       if (details == null) return;
+      if (!("channels" in details)) return;
       const { channels } = details;
-      const newNodes = channels.map((node) => ({
-        key: nodeKey(node.nodeId, nodeID),
-        name: node.name,
-        icon: node.isArray ? (
-          <PIcon.Icon bottomRight={<Icon.Array />}>
-            <Icon.Variable />
-          </PIcon.Icon>
-        ) : (
-          ICONS[node.nodeClass]
-        ),
-        hasChildren: true,
-        haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
-      }));
+      const newNodes = channels.map(
+        (node) =>
+          ({
+            key: nodeKey(node.nodeId, nodeID),
+            name: node.name,
+            icon: node.isArray ? (
+              <PIcon.Icon bottomRight={<Icon.Array />}>
+                <Icon.Variable />
+              </PIcon.Icon>
+            ) : (
+              ICONS[node.nodeClass]
+            ),
+            hasChildren: true,
+            haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
+          }) as unknown as Tree.Node,
+      );
       setLoading(undefined);
       setInitialLoading(false);
       if (isRoot) setNodes(newNodes);
@@ -124,9 +133,11 @@ export const Browser = ({ device }: BrowserProps) => {
     <Tree.Tree loading={loading} {...treeProps} />
   );
   return (
-    <Align.Space empty grow>
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Browser</Header.Title>
+    <Align.Space empty className={CSS.B("opc-browser")}>
+      <Header.Header level="p">
+        <Header.Title weight={500} shade={8}>
+          Browser
+        </Header.Title>
         <Header.Actions>
           <Button.Icon onClick={refresh} disabled={scanTask == null || initialLoading}>
             <Icon.Refresh style={{ color: "var(--pluto-gray-l9)" }} />

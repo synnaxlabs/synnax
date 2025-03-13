@@ -15,8 +15,8 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// intRange is a set that includes every integer between start and end (start
-// inclusive, end exclusive).
+// intRange is a set that includes every integer between start and end (start inclusive,
+// end exclusive).
 type intRange[T constraints.Integer] struct {
 	// start is the first integer in intRange.
 	start T
@@ -29,9 +29,16 @@ func (r intRange[T]) size() T {
 	return r.end - r.start
 }
 
-// Integer is a set of integers that is memory-optimized to limit the space
-// required for consecutive number of integers.
+// Integer is a set of integers that is memory-optimized to limit the space required for
+// consecutive number of integers.
 type Integer[T constraints.Integer] []intRange[T]
+
+// NewInteger creates a new Integer set and inserts the provided nums.
+func NewInteger[T constraints.Integer](nums ...T) *Integer[T] {
+	s := &Integer[T]{}
+	s.Insert(nums...)
+	return s
+}
 
 // Insert inserts the integers nums into the set s.
 func (s *Integer[T]) Insert(nums ...T) {
@@ -42,21 +49,20 @@ func (s *Integer[T]) Insert(nums ...T) {
 		start: nums[0],
 		end:   nums[0],
 	}
-	for _, num := range nums {
-		if r.end == num {
+	for _, n := range nums {
+		if r.end == n {
 			r.end++
 		} else {
 			s.insert(r)
-			r.start = num
-			r.end = num + 1
+			r.start = n
+			r.end = n + 1
 		}
 	}
 	s.insert(r)
 }
 
-// Remove removes all integers in nums from s. Remove is idempotent, so you can
-// call remove from a set s even if some or all integers in nums do not exist in
-// s.
+// Remove removes all integers in nums from s. Remove is idempotent, so you can call
+// remove from a set s even if some or all integers in nums do not exist in s.
 func (s *Integer[T]) Remove(nums ...T) {
 	if len(nums) == 0 {
 		return
@@ -139,6 +145,13 @@ func (s Integer[T]) Contains(num T) bool {
 	return true
 }
 
+// Copy returns a deep copy of s.
+func (s Integer[T]) Copy() Integer[T] {
+	newSet := make(Integer[T], len(s))
+	copy(newSet, s)
+	return newSet
+}
+
 // delete removes the element s[i] from s.
 func (s *Integer[T]) delete(i int) {
 	*s = slices.Delete(*s, i, i+1)
@@ -162,8 +175,8 @@ func (s *Integer[T]) insert(r intRange[T]) {
 		return -1
 	})
 
-	// Check if the intRange to the left overlaps with r. If so, we remove the
-	// overlap from r and insert it again.
+	// Check if the intRange to the left overlaps with r. If so, we remove the overlap
+	// from r and insert it again.
 	if i != 0 {
 		endOfBefore := (*s)[i-1].end
 		if endOfBefore > r.start {
@@ -176,8 +189,8 @@ func (s *Integer[T]) insert(r intRange[T]) {
 		}
 	}
 
-	// Check if the intRange to the right overlaps with r. If so, remove overlap
-	// from r and insert it again.
+	// Check if the intRange to the right overlaps with r. If so, remove overlap from r
+	// and insert it again.
 	if i != len(*s) {
 		startOfNext := (*s)[i].start
 		if r.end > startOfNext {
@@ -220,8 +233,8 @@ func (s *Integer[T]) remove(r intRange[T]) {
 	if len(*s) == 0 || r.size() == 0 {
 		return
 	}
-	// s[i] is the first intRange that partially intersects with r or is
-	// completely to the right of r.
+	// s[i] is the first intRange that partially intersects with r or is completely to
+	// the right of r.
 	i, _ := slices.BinarySearchFunc(*s, r, func(a, b intRange[T]) int {
 		if a.end > b.start {
 			return 1
@@ -261,8 +274,8 @@ func (s *Integer[T]) remove(r intRange[T]) {
 		return
 	}
 
-	// r is in the middle of s, so we need to split s. s[i] will be to the left
-	// of r, newintRange will be to the right of r.
+	// r is in the middle of s, so we need to split s. s[i] will be to the left of r,
+	// newintRange will be to the right of r.
 	newRange := intRange[T]{
 		start: r.end,
 		end:   (*s)[i].end,

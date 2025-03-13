@@ -52,11 +52,11 @@ func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
 
 // ParseKey attempts to parse the string representation of a Key into a Key.
 func ParseKey(s string) (Key, error) {
-	k_, err := strconv.Atoi(s)
+	k, err := strconv.Atoi(s)
 	if err != nil {
 		return Key(0), errors.Wrapf(validate.Error, "%s is not a valid channel key", s)
 	}
-	return Key(k_), nil
+	return Key(k), nil
 }
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder

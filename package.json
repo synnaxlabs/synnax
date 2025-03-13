@@ -58,34 +58,34 @@
     "devtools": "npx turbo devtools --filter @synnaxlabs/console"
   },
   "devDependencies": {
-    "prettier": "^3.4.2",
-    "turbo": "^2.3.3",
-    "vitest": "^2.1.8"
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=18"
   },
   "pnpm": {
     "overrides": {
-      "@reduxjs/toolkit": "^2.5.0",
-      "@tanstack/react-virtual": "^3.11.2",
-      "@tauri-apps/api": "^2.2.0",
-      "@types/react": "^19.0.6",
-      "@types/react-dom": "^19.0.3",
+      "@reduxjs/toolkit": "^2.6.1",
+      "@tanstack/react-virtual": "^3.13.2",
+      "@tauri-apps/api": "^2.3.0",
+      "@types/react": "^19.0.10",
+      "@types/react-dom": "^19.0.4",
       "@vitejs/plugin-react": "^4.3.4",
-      "eslint": "^9.18.0",
+      "eslint": "^9.22.0",
       "node-fetch": "^2.7.0",
-      "prettier": "^3.4.2",
+      "prettier": "^3.5.3",
       "proxy-memoize": "2.0.3",
       "react": "^19.0.0",
       "react-dom": "^19.0.0",
       "react-redux": "^9.2.0",
-      "typescript": "^5.7.3",
-      "vite": "^6.0.7",
-      "vitest": "^2.1.8",
-      "zod": "^3.24.1"
+      "typescript": "^5.8.2",
+      "vite": "^6.2.1",
+      "vitest": "^2.1.9",
+      "zod": "^3.24.2"
     }
   },
-  "packageManager": "pnpm@9.15.2",
+  "packageManager": "pnpm@10.6.2",
   "name": "synnax"
 }

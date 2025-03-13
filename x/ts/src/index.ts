@@ -43,4 +43,4 @@ export * from "@/transform";
 export * from "@/unique";
 export * from "@/url";
 export * from "@/worker";
-export * from "@/zodutil";
+export * from "@/zod";

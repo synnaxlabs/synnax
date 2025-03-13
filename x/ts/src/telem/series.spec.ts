@@ -399,9 +399,9 @@ describe("Series", () => {
     });
   });
 
-  describe("generateTimeStamps", () => {
-    it("should correctly generate timestamps", () => {
-      const ts = Series.generateTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
+  describe("createTimeStamps", () => {
+    it("should correctly create timestamps", () => {
+      const ts = Series.createTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
       expect(ts.timeRange).toEqual(
         new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6)),
       );

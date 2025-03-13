@@ -9,11 +9,11 @@
 
 import pytest
 
+import synnax as sy
 from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ts_convert import pure_tsconvert
 from synnax.io import IO_FACTORY
-import synnax as sy
 
 from .data import DATA_DIR
 

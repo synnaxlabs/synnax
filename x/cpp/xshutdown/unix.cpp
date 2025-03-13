@@ -65,4 +65,4 @@ void listen_stdin() {
         }
     }
 }
-} // namespace xshutdown
+} 

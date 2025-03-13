@@ -8,19 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Form, Header } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Divider,
+  Form,
+  Header,
+  type RenderProp,
+} from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
-import { type ComponentType, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
   ChannelList,
   type ChannelListProps,
 } from "@/hardware/common/task/layouts/ChannelList";
+import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface GenerateChannel<C extends Channel> {
+export interface createChannel<C extends Channel> {
   (channels: C[], index: number): C | null;
 }
 
@@ -31,17 +38,17 @@ export interface DetailsProps {
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<
     ChannelListProps<C>,
-    "onTare" | "allowTare" | "isSnapshot" | "ListItem"
+    "onTare" | "allowTare" | "isSnapshot" | "listItem"
   > {
-  Details: ComponentType<DetailsProps>;
-  generateChannel: GenerateChannel<C>;
+  details: RenderProp<DetailsProps>;
+  createChannel: createChannel<C>;
   initialChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
-  Details,
+  details,
   initialChannels,
-  generateChannel,
+  createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>(
@@ -58,8 +65,8 @@ export const ListAndDetails = <C extends Channel>({
     },
     [setSelected, setSelectedIndex],
   );
-  const handleGenerateChannel = useCallback(
-    (channels: C[]) => generateChannel(channels, selectedIndex),
+  const handlecreateChannel = useCallback(
+    (channels: C[]) => createChannel(channels, selectedIndex),
     [selectedIndex],
   );
   const copy = useCopyToClipboard();
@@ -76,7 +83,7 @@ export const ListAndDetails = <C extends Channel>({
         {...rest}
         selected={selected}
         onSelect={handleSelect}
-        generateChannel={handleGenerateChannel}
+        createChannel={handlecreateChannel}
       />
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow empty className={CSS.B("details")}>
@@ -98,7 +105,7 @@ export const ListAndDetails = <C extends Channel>({
         </Header.Header>
         {selectedIndex === -1 ? null : (
           <Align.Space direction="y" className={CSS.BE("details", "form")} empty grow>
-            <Details path={`config.channels.${selectedIndex}`} />
+            {details({ path: `config.channels.${selectedIndex}` })}
           </Align.Space>
         )}
       </Align.Space>

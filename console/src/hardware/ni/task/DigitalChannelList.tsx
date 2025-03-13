@@ -9,23 +9,23 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, List, Text } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { Align, Form, List, type RenderProp, Text } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
-export interface NameComponentProps<C extends DigitalChannel>
+export interface NameProps<C extends DigitalChannel>
   extends Common.Task.ChannelListItemProps<C> {}
 
 interface ListItemProps<C extends DigitalChannel>
   extends Common.Task.ChannelListItemProps<C> {
-  NameComponent: FC<NameComponentProps<C>>;
+  name: RenderProp<NameProps<C>>;
 }
 
 const ListItem = <C extends DigitalChannel>({
-  NameComponent,
+  name,
   path,
   isSnapshot,
   ...rest
@@ -70,7 +70,7 @@ const ListItem = <C extends DigitalChannel>({
       </Text.Text>
     </Align.Space>
     <Align.Space direction="x" align="center" justify="spaceEvenly">
-      <NameComponent path={path} isSnapshot={isSnapshot} {...rest} />
+      {name({ path, isSnapshot, ...rest })}
       <Common.Task.EnableDisableButton
         path={`${path}.enabled`}
         isSnapshot={isSnapshot}
@@ -80,16 +80,19 @@ const ListItem = <C extends DigitalChannel>({
 );
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
-  extends Omit<Common.Task.Layouts.ListProps<C>, "ListItem"> {
-  NameComponent: FC<NameComponentProps<C>>;
-}
+  extends Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
+    Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({
-  NameComponent,
+  name,
   ...rest
-}: DigitalChannelListProps<C>) => (
-  <Common.Task.Layouts.List<C>
-    {...rest}
-    ListItem={(p) => <ListItem {...p} NameComponent={NameComponent} />}
-  />
-);
+}: DigitalChannelListProps<C>) => {
+  const listItem = useCallback(
+    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+      <ListItem key={key} {...p} name={name} />
+    ),
+    [name],
+  );
+
+  return <Common.Task.Layouts.List<C> {...rest} listItem={listItem} />;
+};
