@@ -59,7 +59,21 @@ const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
     .array(readChannelZ)
     .superRefine(Common.Task.validateReadChannels)
-    .superRefine(validateNodeIDs),
+    .superRefine(validateNodeIDs)
+    .superRefine((channels, { addIssue }) => {
+      // Get indexes of channels that are marked as index channels
+      const indexChannelIndexes = channels
+        .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
+        .filter((i) => i !== -1);
+      if (indexChannelIndexes.length === 0 || indexChannelIndexes.length === 1) return;
+      const baseIssue = {
+        code: z.ZodIssueCode.custom,
+        message: "Only one channel can be marked as an index channel",
+      };
+      indexChannelIndexes.forEach((i) => {
+        addIssue({ ...baseIssue, path: ["channels", i, "useAsIndex"] });
+      });
+    }),
   sampleRate: z.number().positive().max(10000),
 });
 
