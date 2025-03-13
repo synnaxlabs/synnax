@@ -28,7 +28,7 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  addStatus: status.Adder;
+  handleException: status.AsyncExceptionHandler;
   stopListening: Destructor;
   prevTrigger: number;
 }
@@ -45,34 +45,30 @@ export class Setpoint
   schema = setpointStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.addStatus = status.useOptionalAdder(ctx);
+    this.internal.handleException = status.useAsyncExceptionHandler(ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
-    this.internal.source = await telem.useSource(
-      ctx,
-      sourceProps,
-      this.internal.source,
-    );
-    i.sink = await telem.useSink(ctx, sinkProps, i.sink);
+    await i.handleException(async () => {
+      this.internal.source = await telem.useSource(
+        ctx,
+        sourceProps,
+        this.internal.source,
+      );
+      i.sink = await telem.useSink(ctx, sinkProps, i.sink);
 
-    const prevTrigger = i.prevTrigger;
-    i.prevTrigger = trigger;
-    if (trigger > prevTrigger && command != null) await this.internal.sink.set(command);
+      const prevTrigger = i.prevTrigger;
+      i.prevTrigger = trigger;
 
-    await this.updateValue();
-    i.stopListening?.();
-    i.stopListening = i.source.onChange(() => {
-      this.updateValue().catch(this.reportError.bind(this));
-    });
-  }
+      if (trigger > prevTrigger && command != null)
+        await this.internal.sink.set(command);
 
-  private reportError(e: Error): void {
-    this.internal.addStatus({
-      key: this.key,
-      variant: "error",
-      message: `Failed to update Setpoint: ${e.message}`,
-    });
+      await this.updateValue();
+      i.stopListening?.();
+      i.stopListening = i.source.onChange(
+        () => void i.handleException(async () => await this.updateValue()),
+      );
+    }, "Failed to update Setpoint");
   }
 
   private async updateValue(): Promise<void> {
