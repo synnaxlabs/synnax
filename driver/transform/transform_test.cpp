@@ -30,14 +30,14 @@ public:
         return xerrors::NIL;
     }
 
-    bool was_called() const { return was_called_; }
+    [[nodiscard]] bool was_called() const { return was_called_; }
 
 private:
     bool was_called_ = false;
     bool should_fail_;
 };
 
-/// Test the Chain transform
+/// @brief it should correctly execute a chaint transform.
 TEST(TransformTests, ChainTransform) {
     Chain chain;
     const auto mock1 = std::make_shared<MockTransform>();
@@ -52,6 +52,8 @@ TEST(TransformTests, ChainTransform) {
     ASSERT_TRUE(mock2->was_called());
 }
 
+/// @brief it should not call subsequence transforms when a previous transform returns
+/// an error.
 TEST(TransformTests, ChainTransformFailure) {
     Chain chain;
     const auto mock1 = std::make_shared<MockTransform>();
@@ -69,17 +71,16 @@ TEST(TransformTests, ChainTransformFailure) {
     ASSERT_FALSE(mock3->was_called());
 }
 
+/// @brief it should do nothing in an empty chain.
 TEST(TransformTests, EmptyChain) {
     Chain chain;
     Frame frame;
     ASSERT_NIL(chain.transform(frame));
 }
 
-/// Test the Tare transform
 class TareTests : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Create test channels
         synnax::Channel ch1;
         ch1.key = 1;
         ch1.name = "test1";
@@ -91,7 +92,6 @@ protected:
         ch2.data_type = telem::FLOAT32_T;
         channels = {ch1, ch2};
 
-        // Create frame with sample data
         frame.reserve(2);
         auto series1 = telem::Series(telem::FLOAT64_T, 2);
         series1.write(10.0);
@@ -108,21 +108,18 @@ protected:
     Frame frame;
 };
 
+/// @brief it should tare the value of a channel.
 TEST_F(TareTests, BasicTare) {
     Tare tare(channels);
 
-    // First transform should store the last values
     ASSERT_NIL(tare.transform(frame));
 
-    // Values should be unchanged in first pass
     ASSERT_EQ(frame.at<double>(1, -1), 20.0);
     ASSERT_EQ(frame.at<float>(2, -1), 15.0f);
 
-    // Tare the channels
     json tare_args = json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    // Create new frame with more data
     Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
     new_series1.write(30.0);
@@ -134,27 +131,23 @@ TEST_F(TareTests, BasicTare) {
     new_series2.write(35.0f);
     new_frame.emplace(2, std::move(new_series2));
 
-    // Transform should subtract the tare values
     ASSERT_NIL(tare.transform(new_frame));
 
-    // Check that values are tared
     ASSERT_EQ(new_frame.at<double>(1, 0), 10.0); // 30 - 20
     ASSERT_EQ(new_frame.at<double>(1, 1), 20.0); // 40 - 20
     ASSERT_EQ(new_frame.at<float>(2, 0), 10.0f); // 25 - 15
     ASSERT_EQ(new_frame.at<float>(2, 1), 20.0f); // 35 - 15
 }
 
+/// @brief it should tare only specific channels.
 TEST_F(TareTests, TareSpecificChannels) {
     Tare tare(channels);
 
-    // First transform should store the last values
     ASSERT_NIL(tare.transform(frame));
 
-    // Tare only channel 1
     json tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
-    // Create new frame with more data
     Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 1);
     new_series1.write(30.0);
@@ -164,29 +157,25 @@ TEST_F(TareTests, TareSpecificChannels) {
     new_series2.write(25.0f);
     new_frame.emplace(2, std::move(new_series2));
 
-    // Transform should subtract the tare values
     ASSERT_NIL(tare.transform(new_frame));
 
-    // Check that only channel 1 is tared
     ASSERT_EQ(new_frame.at<double>(1, 0), 10.0); // 30 - 20
     ASSERT_EQ(new_frame.at<float>(2, 0), 25.0f); // 25 - 0 (channel 2 is not tared)
 }
 
+/// @brief it should return an error when the channel key is invalid.
 TEST_F(TareTests, InvalidChannelKey) {
     Tare tare(channels);
 
-    // First transform should store the last values
     ASSERT_NIL(tare.transform(frame));
 
-    // Try to tare a non-existent channel
     json tare_args = {{"keys", {999}}};
     auto err = tare.tare(tare_args);
-    ASSERT_TRUE(err); // Keep this as is since we're just checking for error presence
+    ASSERT_TRUE(err);
 }
 
-/// Test the Scale transform
+/// @brief it should correclty apply a linear scale to a channel
 TEST(ScaleTests, LinearScale) {
-    // Create a scale config with linear scaling
     json config = {
         {
             "channels", {
@@ -537,7 +526,6 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 TEST(ChainTests, ComplexTransformChain) {
     // Test a chain of multiple transforms working together
 
-    // Create test channels
     std::vector<synnax::Channel> channels;
     
     synnax::Channel ch1;
@@ -547,10 +535,8 @@ TEST(ChainTests, ComplexTransformChain) {
     
     channels = {ch1};
 
-    // Create a tare transform
     auto tare = std::make_shared<Tare>(channels);
 
-    // Create a scale transform
     json config = {
         {
             "channels", {
@@ -568,28 +554,23 @@ TEST(ChainTests, ComplexTransformChain) {
         }
     };
     
-    // Create channel map for scale transform
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channel_map;
     channel_map[1] = ch1;
     
     xjson::Parser parser(config);
     auto scale = std::make_shared<Scale>(parser, channel_map);
 
-    // Create a chain with both transforms
     Chain chain;
     chain.add(tare);
     chain.add(scale);
 
-    // Create initial frame
     Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 1);
     series.write(50.0);
     frame.emplace(1, std::move(series));
 
-    // First pass through the chain
     ASSERT_NIL(chain.transform(frame));
 
-    // Tare the channel
     json tare_args = json::object();
     ASSERT_NIL(tare->tare(tare_args));
 
@@ -605,4 +586,61 @@ TEST(ChainTests, ComplexTransformChain) {
 
     // Check the result: (70 - 50) * 2 + 10 = 50
     ASSERT_EQ(frame2.at<double>(1, 0), 50.0);
+}
+
+TEST(ScaleTests, DisabledChannel) {
+    // Create a scale config with one enabled and one disabled channel
+    json config = {
+        {
+            "channels", {
+                {
+                    {"channel", 1},
+                    {"enabled", true},
+                    {
+                        "scale", {
+                            {"type", "linear"},
+                            {"slope", 2.0},
+                            {"offset", 5.0}
+                        }
+                    }
+                },
+                {
+                    {"channel", 2},
+                    {"enabled", false},
+                    {
+                        "scale", {
+                            {"type", "linear"},
+                            {"slope", 3.0},
+                            {"offset", 10.0}
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
+    
+    synnax::Channel ch1;
+    ch1.key = 1;
+    ch1.data_type = telem::FLOAT64_T;
+    channels[1] = ch1;
+    
+    xjson::Parser parser(config);
+    Scale scale(parser, channels);
+
+    Frame frame(2);
+
+    auto series1 = telem::Series(telem::FLOAT64_T, 1);
+    series1.write(10.0);
+    frame.emplace(1, std::move(series1));
+
+    auto series2 = telem::Series(telem::FLOAT64_T, 1);
+    series2.write(10.0);
+    frame.emplace(2, std::move(series2));
+
+    ASSERT_NIL(scale.transform(frame));
+
+    ASSERT_EQ(frame.at<double>(1, 0), 25.0); // Enabled: 10 * 2 + 5
+    ASSERT_EQ(frame.at<double>(2, 0), 10.0); // Disabled: unchanged
 }

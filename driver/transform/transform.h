@@ -173,22 +173,23 @@ class Scale final : public Transform {
 
 public:
     explicit Scale(const xjson::Parser &parser, const std::unordered_map<synnax::ChannelKey, synnax::Channel> &channels) {
-        parser.iter("channels", [this, &channels](xjson::Parser &channel_parser) {
-            const auto key = channel_parser.required<synnax::ChannelKey>("channel");
-            auto scale = channel_parser.optional_child("scale");
-            if (!channel_parser.ok()) return;
-            auto ch_t = channels.find(key);
+        parser.iter("channels", [this, &channels](xjson::Parser &channel_p) {
+            const auto key = channel_p.required<synnax::ChannelKey>("channel");
+            const auto enabled = channel_p.optional<bool>("enabled", true);
+            auto scale_p = channel_p.optional_child("scale");
+            if (!channel_p.ok() || !enabled) return;
+            const auto ch_t = channels.find(key);
             if (ch_t == channels.end()) {
-                channel_parser.field_err("channel", "Channel " + std::to_string(key) + " is not a configured channel.");
+                channel_p.field_err("channel", "Channel " + std::to_string(key) + " is not a configured channel.");
                 return;
             }
-            const auto type = scale.required<std::string>("type");
-            auto dt = ch_t->second.data_type;
+            const auto type = scale_p.required<std::string>("type");
+            const auto dt = ch_t->second.data_type;
             if (type == "linear") {
-                UnaryLinearScale linear_scale(scale, dt);
+                UnaryLinearScale linear_scale(scale_p, dt);
                 scales.emplace(key, std::move(linear_scale));
             } else if (type == "map") {
-                UnaryMapScale map_scale(scale, dt);
+                UnaryMapScale map_scale(scale_p, dt);
                 scales.emplace(key, std::move(map_scale));
             }
         });
