@@ -9,9 +9,11 @@
 
 import { z } from "zod";
 
+import { type bounds } from "@/spatial";
+
 export class Authority extends Number {
-  static readonly Absolute = 255;
-  static readonly Default = 1;
+  static readonly ABSOLUTE = 255;
+  static readonly MINIMUM = 0;
 
   static readonly z = z.union([
     z.instanceof(Authority),
@@ -24,6 +26,12 @@ export class Authority extends Number {
     z.instanceof(Number).transform((n) => new Authority(n)),
   ]);
 }
+
+export const AUTHORITY_BOUNDS: bounds.Bounds<number> = {
+  lower: Authority.MINIMUM,
+  // upper bound is exclusive, so we add 1
+  upper: Authority.ABSOLUTE + 1,
+};
 
 export const subjectZ = z.object({
   name: z.string(),
