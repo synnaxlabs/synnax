@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/cockroachdb/errors v1.11.3
+	github.com/cockroachdb/pebble v1.1.4
 	github.com/cockroachdb/pebble/v2 v2.0.2
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.0
