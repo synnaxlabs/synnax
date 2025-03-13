@@ -53,12 +53,13 @@ var _ = Describe("Migrate", func() {
 			Expect(requiresMigration).To(BeTrue())
 		})
 
-		It("should return error for non-existent database", func() {
+		It("should return false for non-existent database", func() {
 			nonExistentPath := filepath.Join(tempDir, "non-existent")
 
-			_, err := pebblekv.RequiresMigration(nonExistentPath, vfs.Default)
-			Expect(err).To(HaveOccurred())
+			required := MustSucceed(pebblekv.RequiresMigration(nonExistentPath, vfs.Default))
+			Expect(required).To(BeFalse())
 		})
+
 	})
 
 	Context("Migrate", func() {
