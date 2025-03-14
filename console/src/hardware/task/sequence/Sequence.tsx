@@ -27,8 +27,8 @@ import { z } from "zod";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantom as usePhantomGlobals, type UsePhantomReturn } from "@/code/phantom";
-import { useSuggestChannels } from "@/code/useSuggestChannels";
+import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
@@ -75,7 +75,7 @@ export const SELECTABLE: Selector.Selectable = {
 };
 
 interface EditorProps extends Input.Control<string> {
-  globals: UsePhantomReturn;
+  globals: UsePhantomGlobalsReturn;
 }
 
 const Editor = ({ value, onChange, globals }: EditorProps) => {
@@ -251,9 +251,16 @@ const Internal = ({
               label="Read From"
               padHelpText={false}
               onChange={(v, extra) => {
-                const prev = extra.get<channel.Key[]>("config.read").value;
-                const removed = prev.filter((ch) => !v.includes(ch));
-                removed.forEach((ch) => globals.del(ch.toString()));
+                if (client == null) return;
+                handleException(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.read").value,
+                      v,
+                      globals,
+                    ),
+                );
               }}
             >
               {({ value, onChange }) => (
@@ -268,6 +275,18 @@ const Internal = ({
               path="config.write"
               label="Write To"
               padHelpText={false}
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleException(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.write").value,
+                      v,
+                      globals,
+                    ),
+                );
+              }}
             >
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
