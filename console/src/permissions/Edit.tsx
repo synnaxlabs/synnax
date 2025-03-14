@@ -50,7 +50,7 @@ const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
 export const Edit: Layout.Renderer = (props) => {
   const { layoutKey, onClose } = props;
   const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const [isPending, setIsPending] = useState(false);
 
@@ -88,7 +88,7 @@ export const Edit: Layout.Renderer = (props) => {
         });
         values.keys[policy] = newPolicy.key;
       } catch (e) {
-        handleException(e, `Failed to set ${path}`);
+        handleError(e, `Failed to set ${path}`);
       } finally {
         setTimeout(() => setIsPending(false), 100);
       }

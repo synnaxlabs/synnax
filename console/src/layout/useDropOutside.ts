@@ -47,11 +47,11 @@ const useDropOutsideMacOS = ({
   const target: Haul.Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const windowsContain = useWindowsContains();
   const store = useStore<StoreState & Drift.StoreState>();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async () =>
       listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
-        handleException(async () => {
+        handleError(async () => {
           if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
           const state = store.getState();
           const layout = select(state, dragging.current.items[0].key as string);

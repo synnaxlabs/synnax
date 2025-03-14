@@ -28,13 +28,13 @@ export interface ExportContext {
   client: CSynnax | null;
   store: RootStore;
   confirm: Modals.PromptConfirm;
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ExceptionHandler;
   extractors: Record<string, Export.Extractor>;
 }
 
 export const export_ = async (
   key: string | null,
-  { client, store, confirm, handleException, extractors }: ExportContext,
+  { client, store, confirm, handleError, extractors }: ExportContext,
 ): Promise<void> => {
   let name: string = "workspace"; // default name for error message
   try {
@@ -95,7 +95,7 @@ export const export_ = async (
       }),
     );
   } catch (e) {
-    handleException(e, `Failed to export ${name}`);
+    handleError(e, `Failed to export ${name}`);
   }
 };
 
@@ -105,9 +105,9 @@ export const useExport = (
   extractors: Record<string, Export.Extractor>,
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const store = useStore<RootState, RootAction>();
   const confirm = Modals.useConfirm();
   return (key: string) =>
-    export_(key, { client, store, confirm, handleException, extractors });
+    export_(key, { client, store, confirm, handleError, extractors });
 };

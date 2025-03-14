@@ -49,7 +49,7 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -59,7 +59,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
       await client.user.create({ ...values });
       onClose();
     },
-    onError: (e) => handleException(e, "Failed to register user"),
+    onError: (e) => handleError(e, "Failed to register user"),
   });
 
   return (

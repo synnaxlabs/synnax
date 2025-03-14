@@ -120,7 +120,7 @@ const Internal = ({
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
   const { name } = Layout.useSelectRequired(layoutKey);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
@@ -163,7 +163,7 @@ const Internal = ({
       await create({ key: base.key, name, type: TYPE, config }, rack);
       methods.setCurrentStateAsInitialValues();
     },
-    onError: (e) => handleException(e, `Failed to configure ${base.name}`),
+    onError: (e) => handleError(e, `Failed to configure ${base.name}`),
   });
   const handleConfigure = useCallback(() => configure(), [configure]);
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
@@ -179,7 +179,7 @@ const Internal = ({
         throw e;
       }
     },
-    onError: (e, command) => handleException(e, `Failed to ${command} task`),
+    onError: (e, command) => handleError(e, `Failed to ${command} task`),
   }).mutate;
   const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
   const handleStartOrStop = useCallback(

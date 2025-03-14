@@ -32,7 +32,7 @@ export const ParentRangeButton = <
   task,
 }: ParentRangeButtonProps<Config, Details, Type>) => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [parent, setParent] = useState<ontology.Resource>();
   const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
@@ -51,7 +51,7 @@ export const ParentRangeButton = <
       });
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, `Failed to retrieve parent ranges for ${task.name}`);
+      handleError(e, `Failed to retrieve parent ranges for ${task.name}`);
       setParent(undefined);
       return undefined;
     }
