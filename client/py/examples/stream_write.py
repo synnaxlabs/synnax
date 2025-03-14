@@ -19,12 +19,7 @@ import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
-client = sy.Synnax(
-    host="localhost",
-    port=9091,
-    username="synnax",
-    password="seldon",
-)
+client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
