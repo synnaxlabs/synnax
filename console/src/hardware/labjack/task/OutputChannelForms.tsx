@@ -156,7 +156,7 @@ const DEFAULT_CJC_SOURCE_ENTRIES: CJCSourceEntry[] = [
 ];
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: CJCSourceEntry[] = Device.DEVICES[model].ports[Device.AI_PORT_TYPE];
+  const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
   const data = [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
   return (
     <Select.Single<string, CJCSourceEntry>

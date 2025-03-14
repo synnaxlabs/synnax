@@ -111,7 +111,7 @@ const ChannelListItem = ({
                   hideIfNull
                   onChange={(value) => {
                     if (type === value) return;
-                    const port = Device.DEVICES[device.model].ports[value][0].key;
+                    const port = Device.PORTS[device.model][value][0].key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
                       Common.Device.ZERO_COMMAND_STATE_PAIR;
