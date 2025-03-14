@@ -275,13 +275,12 @@ class TestWriter:
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[time_ch.key, data_ch.key],
-                enable_auto_commit=True
+                enable_auto_commit=True,
             ) as w:
                 for i in range(100):
-                    assert_eventually(lambda: not w.write({
-                        time_ch.key: [i], data_ch.key: [i]
-                    }))
-
+                    assert_eventually(
+                        lambda: not w.write({time_ch.key: [i], data_ch.key: [i]})
+                    )
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
