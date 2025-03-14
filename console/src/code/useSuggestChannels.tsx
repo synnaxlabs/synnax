@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type channel, type Synnax } from "@synnaxlabs/client";
+import { Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import type * as monaco from "monaco-editor";
 import { useRef } from "react";
 
+import { Lua } from "@/code/lua";
+import { type UsePhantomGlobalsReturn } from "@/code/phantom";
 import { useMonaco } from "@/code/Provider";
 
 const ID = "onCommandSuggestionAccepted";
@@ -29,7 +31,7 @@ const suggestChannelNames = (
     }),
   );
   disposables.push(
-    mon.languages.registerCompletionItemProvider("lua", {
+    mon.languages.registerCompletionItemProvider(Lua.LANGUAGE, {
       triggerCharacters: ["."],
       provideCompletionItems: async (
         model: monaco.editor.ITextModel,
@@ -75,11 +77,29 @@ const suggestChannelNames = (
 
 export const useSuggestChannels = (onAccept: (channel: channel.Payload) => void) => {
   const monaco = useMonaco();
-  const client = Synnax.use();
+  const client = PSynnax.use();
   const disposables = useRef<monaco.IDisposable[]>([]);
   useAsyncEffect(async () => {
     if (monaco == null || client == null) return;
     disposables.current = suggestChannelNames(monaco, onAccept, client.channels);
     return () => disposables.current.forEach((d) => d.dispose());
   }, [monaco, client]);
+};
+
+export const bindChannelsAsGlobals = async (
+  client: Synnax,
+  prev: channel.Key[],
+  v: channel.Key[],
+  globals: UsePhantomGlobalsReturn,
+) => {
+  const removed = prev.filter((ch) => !v.includes(ch));
+  if (globals != null) removed.forEach((ch) => globals.del(ch.toString()));
+  const added = v.filter((ch) => !prev.includes(ch));
+  if (globals != null)
+    client?.channels
+      .retrieve(added)
+      .then((chs) => {
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      })
+      .catch(console.error);
 };

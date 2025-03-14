@@ -21,13 +21,16 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
+import { Lua } from "@/code/lua";
+import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
@@ -180,7 +183,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   });
 
   const addStatus = Status.useAdder();
-
+  const handleException = Status.useExceptionHandler();
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
@@ -206,6 +209,11 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     methods,
   );
 
+  const globals = usePhantomGlobals({
+    language: Lua.LANGUAGE,
+    stringifyVar: Lua.stringifyVar,
+  });
+
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
@@ -226,11 +234,12 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             {({ value, onChange }) => (
               <Editor
                 value={value}
-                language="lua"
+                language={Lua.LANGUAGE}
                 onChange={onChange}
                 bordered
                 rounded
                 style={{ height: 150 }}
+                globals={globals}
               />
             )}
           </Form.Field>
@@ -255,6 +264,18 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               required
               label="Required Channels"
               grow
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleException(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("requires").value,
+                      v,
+                      globals,
+                    ),
+                );
+              }}
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
@@ -288,4 +309,37 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-const Editor = (props: Code.EditorProps): ReactElement => <Code.Editor {...props} />;
+export interface EditorProps extends Code.EditorProps {
+  globals?: UsePhantomGlobalsReturn;
+}
+
+const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
+  const methods = Form.useContext();
+  const onAccept = useCallback(
+    (channel: channel.Payload) => {
+      if (globals == null) return;
+      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      methods.set(
+        "requires",
+        unique.unique([...methods.get<channel.Key[]>("requires").value, channel.key]),
+      );
+    },
+    [methods, globals],
+  );
+
+  useSuggestChannels(onAccept);
+
+  const client = Synnax.use();
+  useEffect(() => {
+    if (globals == null) return;
+    const channels = methods.get<channel.Key[]>("requires").value;
+    client?.channels
+      .retrieve(channels)
+      .then((chs) => {
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      })
+      .catch(console.error);
+  }, [methods, globals, client]);
+
+  return <Code.Editor {...props} />;
+};

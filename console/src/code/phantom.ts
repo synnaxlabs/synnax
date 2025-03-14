@@ -20,7 +20,7 @@ export interface Variable {
   docs?: string;
 }
 
-export interface UsePhantomReturn {
+export interface UsePhantomGlobalsReturn {
   set: ((key: string, name: string, value: string, docs?: string) => void) &
     ((variable: Variable) => void) &
     ((variables: Variable[]) => void);
@@ -33,11 +33,11 @@ export interface UsePhantomProps {
   initialVars?: Variable[];
 }
 
-export const usePhantom = ({
+export const usePhantomGlobals = ({
   language,
   stringifyVar,
   initialVars,
-}: UsePhantomProps): UsePhantomReturn => {
+}: UsePhantomProps): UsePhantomGlobalsReturn => {
   const varsRef = useRef<Map<string, Variable>>(
     new Map(initialVars?.map((v) => [v.key, v])),
   );

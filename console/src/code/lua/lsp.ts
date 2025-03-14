@@ -66,7 +66,7 @@ export const startLuaLSP = async (): Promise<AsyncDestructor> => {
   const languageClient = new MonacoLanguageClient({
     name: "Lua Language Server",
     clientOptions: {
-      documentSelector: ["lua"],
+      documentSelector: [LANGUAGE],
       errorHandler: {
         error: () => ({ action: ErrorAction.Continue }),
         closed: () => ({ action: CloseAction.DoNotRestart }),
