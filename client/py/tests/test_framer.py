@@ -9,6 +9,7 @@
 
 import asyncio
 import time
+from operator import index
 
 import numpy as np
 import pandas as pd
@@ -257,6 +258,30 @@ class TestWriter:
                 data = np.random.rand(10).astype(np.float64)
 
         assert w1.close() is None
+
+    def test_write_err_out_of_order_timestamps(self, client: sy.Synnax):
+        """Should throw an error when writing out of order timestamps"""
+        time_ch = client.channels.create(
+            name="time",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name="data",
+            data_type=sy.DataType.FLOAT32,
+            index=time_ch.key,
+        )
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(
+                start=sy.TimeStamp.now(),
+                channels=[time_ch.key, data_ch.key],
+                enable_auto_commit=True
+            ) as w:
+                for i in range(100):
+                    assert_eventually(lambda: not w.write({
+                        time_ch.key: [i], data_ch.key: [i]
+                    }))
+
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(

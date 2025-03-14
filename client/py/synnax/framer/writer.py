@@ -152,6 +152,7 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
+    __err_accumulated: bool = False
 
     start: CrudeTimeStamp
 
@@ -190,18 +191,21 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
+        ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ): ...
+    ):
+        ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ): ...
+    ):
+        ...
 
     def write(
         self,
@@ -247,7 +251,7 @@ class Writer:
         the caller should acknowledge the error by calling the error method or closing
         the writer.
         """
-        if self.__stream.received():
+        if self._check_for_bad_ack():
             return False
 
         frame = self.__adapter.adapt(channels_or_data, series)
@@ -262,20 +266,32 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool: ...
+    def set_authority(self, value: CrudeAuthority) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool: ...
+    ) -> bool:
+        ...
+
+    def _check_for_bad_ack(self) -> bool:
+        if not self.__err_accumulated:
+            try:
+                self.__stream.receive(timeout=0)
+            except TimeoutError:
+                return False
+            self.__err_accumulated = True
+        return self.__err_accumulated
 
     def set_authority(
         self,
@@ -319,8 +335,8 @@ class Writer:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        if self.__stream.received():
-            return TimeStamp.ZERO, False
+        if self._check_for_bad_ack():
+            return TimeStamp.now(), False
         exc = self.__stream.send(_Request(command=_Command.COMMIT))
         if exc is not None:
             raise exc
