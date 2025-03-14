@@ -69,9 +69,7 @@ const getRenderedPort = (
   type: InputChannelType,
 ) => {
   const portType = convertChannelTypeToPortType(type);
-  const portInfo = Device.DEVICES[deviceModel].ports[portType].find(
-    ({ key }) => key === port,
-  );
+  const portInfo = Device.PORTS[deviceModel][portType].find(({ key }) => key === port);
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
@@ -135,14 +133,8 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             const nextPortType = convertChannelTypeToPortType(value);
             let nextPort = nextParent.port;
             if (prevPortType !== nextPortType)
-              nextPort =
-                Device.DEVICES[deviceModel].ports[
-                  convertChannelTypeToPortType(value)
-                ][0].key;
-            set(parentPath, {
-              ...nextParent,
-              type: next.type,
-            });
+              nextPort = Device.PORTS[deviceModel][nextPortType][0].key;
+            set(parentPath, { ...nextParent, type: next.type });
             // Need to explicitly set port to cause select port field to rerender
             set(`${parentPath}.port`, nextPort);
           }}

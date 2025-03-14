@@ -51,6 +51,11 @@ export const useOptionalAdder = (ctx: aether.Context): Adder => {
 
 export interface ExceptionHandler {
   (exc: unknown, message?: string): void;
+  (func: () => Promise<void>, message?: string): void;
+}
+
+export interface AsyncExceptionHandler {
+  (func: () => Promise<void>, message?: string): Promise<void>;
 }
 
 export const fromException = (exc: unknown, message?: string): CrudeSpec => {
@@ -62,12 +67,34 @@ export const fromException = (exc: unknown, message?: string): CrudeSpec => {
   };
 };
 
-export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler => {
-  const addStatus = useAdder(ctx);
-  return (exc: unknown, message?: string): void => {
-    addStatus(fromException(exc, message));
+export const createExceptionHandler =
+  (add: Adder): ExceptionHandler =>
+  (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
+    if (typeof excOrFunc !== "function") return add(fromException(excOrFunc, message));
+    void (async () => {
+      try {
+        await excOrFunc();
+      } catch (exc) {
+        add(fromException(exc, message));
+      }
+    })();
   };
-};
+
+export const createAsyncExceptionHandler =
+  (add: Adder): AsyncExceptionHandler =>
+  async (func: () => Promise<void>, message?: string): Promise<void> => {
+    try {
+      await func();
+    } catch (exc) {
+      add(fromException(exc, message));
+    }
+  };
+
+export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler =>
+  createExceptionHandler(useAdder(ctx));
+
+export const useAsyncExceptionHandler = (ctx: aether.Context): AsyncExceptionHandler =>
+  createAsyncExceptionHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

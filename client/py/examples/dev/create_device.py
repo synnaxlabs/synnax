@@ -13,7 +13,7 @@ import synnax as sy
 
 client = sy.Synnax()
 
-rack = client.hardware.racks.create(name="Rack 1")
+rack = client.hardware.racks.create(name="NI / LabJack Test Rack")
 
 client.hardware.devices.create(
     [
@@ -27,13 +27,31 @@ client.hardware.devices.create(
             identifier="dev1",
         ),
         sy.Device(
-            key="230227d9-02aa-47e4-b370-0d590add1bc1",
+            key="labjack-t4",
             rack=rack.key,
-            name="LJM dtT4",
+            name="LabJack T4",
             make="LabJack",
             model="LJM_dtT4",
             location="dev2",
             identifier="dev2",
+        ),
+        sy.Device(
+            key="labjack-t7",
+            rack=rack.key,
+            name="LabJack T7",
+            make="LabJack",
+            model="LJM_dtT7",
+            location="dev3",
+            identifier="dev3",
+        ),
+        sy.Device(
+            key="labjack-t8",
+            rack=rack.key,
+            name="LabJack T8",
+            make="LabJack",
+            model="LJM_dtT8",
+            location="dev4",
+            identifier="dev4",
         ),
         sy.Device(
             key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",

@@ -262,7 +262,15 @@ export class Series<T extends TelemValue = TelemValue> {
         this._data = new TextEncoder().encode(
           `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
         ).buffer as ArrayBuffer;
-      } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
+      } else if (this.dataType.usesBigInt && typeof first === "number")
+        this._data = new this.dataType.Array(
+          data_.map((v) => BigInt(Math.round(v as number))),
+        ).buffer;
+      else if (!this.dataType.usesBigInt && typeof first === "bigint")
+        this._data = new this.dataType.Array(
+          data_.map((v) => Number(v)) as number[] & bigint[],
+        ).buffer;
+      else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
 
     this.key = key;

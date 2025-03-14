@@ -148,12 +148,26 @@ describe("WriteFrameAdapter", () => {
     expect(res.get(jsonChannel.key).at(0)).toEqual({ dog: "blue" });
   });
 
-  it("should correctly adapt generic object keys", async () => {
-    const res = await adapter.adaptObjectKeys({
-      [timeCh.name]: 532,
-      [dataCh.name]: 123,
+  it("should correctly adapt a numeric value to a BigInt keyed by key", async () => {
+    const bigIntCh = await client.channels.create({
+      name: `bigint-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.INT64,
+      virtual: true,
     });
-    expect(res).toHaveProperty(timeCh.key.toString());
-    expect(res).toHaveProperty(dataCh.key.toString());
+    const res = await adapter.adapt({
+      [bigIntCh.key]: 12,
+    });
+    expect(res.get(bigIntCh.key).at(0)).toEqual(12n);
+  });
+
+  describe("adaptObjectKeys", () => {
+    it("should correctly adapt generic object keys", async () => {
+      const res = await adapter.adaptObjectKeys({
+        [timeCh.name]: 532,
+        [dataCh.name]: 123,
+      });
+      expect(res).toHaveProperty(timeCh.key.toString());
+      expect(res).toHaveProperty(dataCh.key.toString());
+    });
   });
 });

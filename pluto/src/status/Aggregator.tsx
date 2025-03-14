@@ -63,26 +63,11 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
 
 export const useAdder = () => use(AdderContext);
 
-export interface ExceptionHandler extends status.ExceptionHandler {
-  (func: () => Promise<void>, message?: string): void;
-}
+export interface ExceptionHandler extends status.ExceptionHandler {}
 
 export const useExceptionHandler = (): ExceptionHandler => {
   const add = useAdder();
-  return useCallback(
-    (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
-      if (typeof excOrFunc !== "function")
-        return add(status.fromException(excOrFunc, message));
-      void (async () => {
-        try {
-          await excOrFunc();
-        } catch (exc) {
-          add(status.fromException(exc, message));
-        }
-      })();
-    },
-    [add],
-  );
+  return useMemo(() => status.createExceptionHandler(add), [add]);
 };
 
 export interface NotificationSpec extends status.Spec {
