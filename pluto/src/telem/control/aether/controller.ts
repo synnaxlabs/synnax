@@ -290,7 +290,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(control.Authority.ABSOLUTE.valueOf()),
+  authority: z.number().default(control.Authority.ABSOLUTE),
   channel: z.number(),
 });
 

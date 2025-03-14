@@ -15,7 +15,7 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
         <Input.Numeric
           value={authority}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
-          bounds={control.AUTHORITY_BOUNDS}
+          bounds={control.Authority.BOUNDS}
         />
       </Input.Item>
     </Align.Space>
