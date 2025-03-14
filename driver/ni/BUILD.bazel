@@ -35,6 +35,7 @@ cc_test(
     name = "ni_test",
     srcs = [
         "read_task_test.cpp",
+        "scan_task_test.cpp",
         "write_task_test.cpp",
     ],
     copts = select({
