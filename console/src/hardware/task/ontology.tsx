@@ -25,13 +25,13 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
-  handleException,
+  handleError,
 }) => {
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
   retrieveAndPlaceLayout(client, key, placeLayout).catch((e) =>
-    handleException(e, `Could not open ${name}`),
+    handleError(e, `Could not open ${name}`),
   );
 };
 
@@ -58,12 +58,12 @@ const useDelete = () => {
       await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
       removeLayout(...resources.map(({ id }) => id.key));
     },
-    onError: (e: Error, { handleException, selection: { resources } }) => {
+    onError: (e: Error, { handleError, selection: { resources } }) => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };
@@ -86,12 +86,11 @@ const useRangeSnapshot = () =>
         ...otgIDs,
       );
     },
-    onError: (e: Error, { handleException }) =>
-      handleException(e, "Failed to create snapshot"),
+    onError: (e: Error, { handleError }) => handleError(e, "Failed to create snapshot"),
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleException } = props;
+  const { store, selection, client, addStatus, handleError } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -107,7 +106,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         client,
         addStatus,
         store,
-        handleException,
+        handleError,
         removeLayout: props.removeLayout,
         services: props.services,
       }),
@@ -160,7 +159,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   nodeKey,
   location,
-  handleException,
+  handleError,
 }) => {
   client.hardware.tasks
     .retrieve(id.key)
@@ -168,7 +167,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       const layout = createLayout(task);
       placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
     })
-    .catch(handleException);
+    .catch(handleError);
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

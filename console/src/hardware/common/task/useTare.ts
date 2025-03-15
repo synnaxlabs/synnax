@@ -50,9 +50,9 @@ export const useTare = <C extends TareableChannel>({
   configured,
 }: UseTareProps<C>): UseTareReturn<C> => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const tare = useMutation({
-    onError: (e) => handleException(e, "Failed to tare channels"),
+    onError: (e) => handleError(e, "Failed to tare channels"),
     mutationFn: async (keys: channel.Key[]) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!configured) throw new Error("Task has not been configured");

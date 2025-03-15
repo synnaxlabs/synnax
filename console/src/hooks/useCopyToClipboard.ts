@@ -12,7 +12,7 @@ import { useCallback } from "react";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return useCallback(
     (text: string, name: string) => {
       navigator.clipboard
@@ -20,8 +20,8 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
         .then(() =>
           addStatus({ variant: "success", message: `Copied ${name} to clipboard.` }),
         )
-        .catch((e) => handleException(e, `Failed to copy ${name} to clipboard`));
+        .catch((e) => handleError(e, `Failed to copy ${name} to clipboard`));
     },
-    [addStatus, handleException],
+    [addStatus, handleError],
   );
 };

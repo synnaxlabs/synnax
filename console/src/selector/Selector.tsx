@@ -41,7 +41,7 @@ export const Selector = ({
 }: SelectorProps): ReactElement => {
   const place = Layout.usePlacer();
   const rename = Modals.useRename();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
       <Align.Center
@@ -65,7 +65,7 @@ export const Selector = ({
               key={key}
               variant="outlined"
               onClick={() =>
-                handleException(async () => {
+                handleError(async () => {
                   const layout = await create({ layoutKey, rename });
                   if (layout != null) place(layout);
                 }, `Failed to create ${title}`)

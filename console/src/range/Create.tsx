@@ -105,7 +105,7 @@ const CreateLayoutForm = ({
   const dispatch = useDispatch();
   const client = Synnax.use();
   const clientExists = client != null;
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persisted: boolean) => {
@@ -132,7 +132,7 @@ const CreateLayoutForm = ({
       );
       onClose();
     },
-    onError: (e) => handleException(e, "Failed to create range"),
+    onError: (e) => handleError(e, "Failed to create range"),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent

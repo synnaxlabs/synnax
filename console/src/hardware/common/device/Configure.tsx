@@ -62,9 +62,9 @@ const Internal = <
   const triggerAction = isNameStep ? "Next" : "Save";
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const { isPending, mutate } = useMutation<void, Error, void>({
-    onError: (e) => handleException(e, `Failed to configure ${name}`),
+    onError: (e) => handleError(e, `Failed to configure ${name}`),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (isNameStep) {

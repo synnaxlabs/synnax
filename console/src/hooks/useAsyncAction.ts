@@ -16,20 +16,20 @@ export interface UseAsyncActionProps {
 }
 
 export const useAsyncAction = ({ action }: UseAsyncActionProps) => {
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return useMutation({
     mutationFn: action,
-    onError: handleException,
+    onError: handleError,
   }).mutate;
 };
 
 export const useAsyncActionMenu = (
   actions: Record<string, () => Promise<void> | void>,
 ): ((key: string) => void) => {
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const res = useMutation({
     mutationFn: async (key: string) => await actions[key](),
-    onError: handleException,
+    onError: handleError,
   });
   return (key: string) => res.mutate(key);
 };

@@ -37,7 +37,7 @@ export const Provider = memo(
       route: null,
       enabled: false,
     });
-    const handleException = (e: ErrorEvent | MessageEvent<any>) => {
+    const handleError = (e: ErrorEvent | MessageEvent<any>) => {
       console.error(e);
       if (e instanceof ErrorEvent) console.error(e.message);
       console.error(JSON.stringify(e));
@@ -47,8 +47,8 @@ export const Provider = memo(
       () => {
         if (!enabled) return;
         const worker = new Worker(url, { type: "module" });
-        worker.onmessageerror = handleException;
-        worker.onerror = handleException;
+        worker.onmessageerror = handleError;
+        worker.onerror = handleError;
         const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
         worker.onmessage = (e) => router.handle(e);
         setState({

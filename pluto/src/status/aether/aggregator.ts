@@ -90,10 +90,10 @@ export const createAsyncExceptionHandler =
     }
   };
 
-export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler =>
+export const useErrorHandler = (ctx: aether.Context): ExceptionHandler =>
   createExceptionHandler(useAdder(ctx));
 
-export const useAsyncExceptionHandler = (ctx: aether.Context): AsyncExceptionHandler =>
+export const useAsyncErrorHandler = (ctx: aether.Context): AsyncExceptionHandler =>
   createAsyncExceptionHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {

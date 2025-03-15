@@ -69,7 +69,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
-    const handleException = status.useExceptionHandler(ctx);
+    const handleError = status.useErrorHandler(ctx);
 
     const { scrolling, wheelPos } = this.state;
 
@@ -117,7 +117,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
           this.values = new MultiSeries(series);
           void this.requestRender();
         })
-        .catch((e) => handleException(e, "Failed to update log"));
+        .catch((e) => handleError(e, "Failed to update log"));
     });
     void this.requestRender();
   }

@@ -35,10 +35,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection: { resources }, client }) =>
       await client.hardware.racks.delete(resources.map(({ id }) => Number(id.key))),
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete racks");
+      handleError(e, "Failed to delete racks");
     },
   }).mutate;
 };
@@ -56,14 +56,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete();
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const createSequence = () => {
     Sequence.createLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
       .then((layout) => {
         if (layout == null) return;
         placeLayout(layout);
       })
-      .catch((e) => handleException(e, "Failed to create control sequence"));
+      .catch((e) => handleError(e, "Failed to create control sequence"));
   };
   const onSelect = {
     rename: () => Tree.startRenaming(nodes[0].key),

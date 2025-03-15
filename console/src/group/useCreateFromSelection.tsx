@@ -65,10 +65,10 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       await client.ontology.groups.create(parentID, groupName, newID.key);
       await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
     },
-    onError: async (e, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e.message)) return;
-      handleException(e, "Failed to group resources");
+      handleError(e, "Failed to group resources");
     },
   }).mutate;
   return useCallback((props) => create({ ...props, newID: createNewID() }), [create]);

@@ -102,7 +102,7 @@ export const wrapForm = <
     configured,
   }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
-    const handleException = Status.useExceptionHandler();
+    const handleError = Status.useErrorHandler();
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
@@ -122,7 +122,7 @@ export const wrapForm = <
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
       },
-      onError: (e) => handleException(e, `Failed to configure ${values.name}`),
+      onError: (e) => handleError(e, `Failed to configure ${values.name}`),
     });
     const startOrStopMutation = useMutation({
       mutationFn: async (command: StartOrStopCommand) => {
@@ -135,7 +135,7 @@ export const wrapForm = <
           throw e;
         }
       },
-      onError: (e, command) => handleException(e, `Failed to ${command} task`),
+      onError: (e, command) => handleError(e, `Failed to ${command} task`),
     });
     const isSnapshot = configured ? tsk.snapshot : false;
     const isRunning =

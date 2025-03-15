@@ -488,7 +488,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const onChangeRef = useSyncedRef(onChange);
   const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
   const onHasTouchedRef = useSyncedRef(onHasTouched);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const setCurrentStateAsInitialValues = useCallback(() => {
     initialValuesRef.current = deep.copy(ref.current.state);
@@ -722,7 +722,7 @@ export const use = <Z extends z.ZodTypeAny>({
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
-    handleException(async () => {
+    handleError(async () => {
       let valid: boolean;
       try {
         valid = validate(path, validateChildren);

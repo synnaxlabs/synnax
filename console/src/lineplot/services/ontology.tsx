@@ -44,10 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.linePlot.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete line plot");
+      handleError(err, "Failed to delete line plot");
     },
   }).mutate;
 };
@@ -107,7 +107,7 @@ const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   client.workspaces.linePlot
     .retrieve(selection[0].id.key)
@@ -121,7 +121,7 @@ const handleSelect: Ontology.HandleSelect = ({
         selection.map(({ name }) => name),
         "line plot",
       );
-      handleException(e, `Failed to select ${names}`);
+      handleError(e, `Failed to select ${names}`);
     });
 };
 
@@ -131,7 +131,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  handleError,
 }): void => {
   client.workspaces.linePlot
     .retrieve(id.key)
@@ -146,7 +146,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
         }),
       );
     })
-    .catch((e) => handleException(e, "Failed to load line plot"));
+    .catch((e) => handleError(e, "Failed to load line plot"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

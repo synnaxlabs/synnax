@@ -17,7 +17,7 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
-  onSelect: ({ store, confirm, handleException }) => {
+  onSelect: ({ store, confirm, handleError }) => {
     confirm(
       {
         message: "Are you sure you want to clear the Console's local storage?",
@@ -30,7 +30,7 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
         if (!result) return;
         store.dispatch(CLEAR_STATE as PayloadAction<any>);
       })
-      .catch(handleException);
+      .catch(handleError);
   },
 };
 

@@ -34,14 +34,14 @@ const handleRename: Ontology.HandleTreeRename = {
 const handleConfigure = ({
   selection: { resources },
   placeLayout,
-  handleException,
+  handleError,
 }: Ontology.TreeContextMenuProps) => {
   const resource = resources[0];
   try {
     const make = makeZ.parse(resource.data?.make);
     placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
   } catch (e) {
-    handleException(e, `Failed to configure ${resource.name}`);
+    handleError(e, `Failed to configure ${resource.name}`);
   }
 };
 
@@ -61,10 +61,10 @@ const useDelete = () => {
     },
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, `Failed to delete devices`);
+      handleError(e, `Failed to delete devices`);
     },
   }).mutate;
 };

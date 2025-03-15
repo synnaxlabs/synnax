@@ -147,7 +147,7 @@ const fetchIfNotInState = async (
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
@@ -162,14 +162,14 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) => handleException(e, "Failed to add range to plot"),
+    onError: (e) => handleError(e, "Failed to add range to plot"),
   }).mutate;
 };
 
 const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
@@ -177,7 +177,7 @@ const useViewDetails = (): ((key: string) => void) => {
       const rng = await fetchIfNotInState(store, client, key);
       placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
-    onError: (e) => handleException(e, "Failed to view details"),
+    onError: (e) => handleError(e, "Failed to view details"),
   }).mutate;
 };
 
@@ -185,7 +185,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) throw NULL_CLIENT_ERROR;
@@ -194,7 +194,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
       );
     },
-    onError: (e) => handleException(e, "Failed to add range to new plot"),
+    onError: (e) => handleError(e, "Failed to add range to new plot"),
   }).mutate;
 };
 
@@ -241,7 +241,7 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const confirm = Modals.useConfirm();
   const del = useMutation<void, Error, string, Range | undefined>({
@@ -263,7 +263,7 @@ const List = (): ReactElement => {
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete range");
+      handleError(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },
   });
@@ -280,7 +280,7 @@ const List = (): ReactElement => {
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({ ...range });
     },
-    onError: (e) => handleException(e, "Failed to save range"),
+    onError: (e) => handleError(e, "Failed to save range"),
   });
 
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -398,7 +398,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
@@ -406,7 +406,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
     if (!entry.persisted) return;
     client?.ranges
       .rename(entry.key, name)
-      .catch((e) => handleException(e, "Failed to rename range"));
+      .catch((e) => handleError(e, "Failed to rename range"));
   };
   return (
     <CoreList.ItemFrame

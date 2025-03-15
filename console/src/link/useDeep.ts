@@ -27,7 +27,7 @@ export const useDeep = (
   clusterHandler: ClusterHandler,
   handlers: Record<string, Handler>,
 ): void => {
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
@@ -52,10 +52,7 @@ export const useDeep = (
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
       await handle({ client, dispatch, key: resourceKey, placeLayout });
     } catch (e) {
-      handleException(
-        e,
-        `Failed to open ${(strings.naturalLanguageJoin(urls), "link")}`,
-      );
+      handleError(e, `Failed to open ${(strings.naturalLanguageJoin(urls), "link")}`);
     }
   };
 

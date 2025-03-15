@@ -151,11 +151,11 @@ describe("Aggregator", () => {
     });
   });
 
-  describe("handleException", () => {
+  describe("handleError", () => {
     it("should create a status from an exception", () => {
       const { result } = renderHook(
         () => ({
-          add: Status.useExceptionHandler(),
+          add: Status.useErrorHandler(),
           statuses: Status.useNotifications(),
         }),
         { wrapper },
@@ -169,7 +169,7 @@ describe("Aggregator", () => {
     it("should allow the caller to provide a custom message", () => {
       const { result } = renderHook(
         () => ({
-          add: Status.useExceptionHandler(),
+          add: Status.useErrorHandler(),
           statuses: Status.useNotifications(),
         }),
         { wrapper },
@@ -183,7 +183,7 @@ describe("Aggregator", () => {
     it("should allow the caller to pass in an async function", async () => {
       const { result } = renderHook(
         () => ({
-          add: Status.useExceptionHandler(),
+          add: Status.useErrorHandler(),
           statuses: Status.useNotifications(),
         }),
         { wrapper },
@@ -202,7 +202,7 @@ describe("Aggregator", () => {
     it("should not add a status if no error is thrown", async () => {
       const { result } = renderHook(
         () => ({
-          add: Status.useExceptionHandler(),
+          add: Status.useErrorHandler(),
           statuses: Status.useNotifications(),
         }),
         { wrapper },

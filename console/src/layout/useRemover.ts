@@ -35,7 +35,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   const promptConfirm = useConfirm();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
@@ -52,7 +52,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
         dispatch(remove({ keys }));
         return;
       }
-      handleException(async () => {
+      handleError(async () => {
         const results: (boolean | null)[] = [];
         for (const layout of unsavedLayouts) {
           const { name, icon } = layout;

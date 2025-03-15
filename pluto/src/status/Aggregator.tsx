@@ -65,7 +65,7 @@ export const useAdder = () => use(AdderContext);
 
 export interface ExceptionHandler extends status.ExceptionHandler {}
 
-export const useExceptionHandler = (): ExceptionHandler => {
+export const useErrorHandler = (): ExceptionHandler => {
   const add = useAdder();
   return useMemo(() => status.createExceptionHandler(add), [add]);
 };

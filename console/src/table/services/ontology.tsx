@@ -45,10 +45,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
-    onError: (e, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete table");
+      handleError(e, "Failed to delete table");
     },
   }).mutate;
 };
@@ -110,14 +110,14 @@ const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   loadTable(client, selection[0].id, placeLayout).catch((e) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "table",
     );
-    handleException(e, `Failed to select ${names}`);
+    handleError(e, `Failed to select ${names}`);
   });
 };
 
@@ -127,7 +127,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   client.workspaces.table
     .retrieve(id.key)
@@ -142,7 +142,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
         }),
       );
     })
-    .catch((e) => handleException(e, "Failed to load table"));
+    .catch((e) => handleError(e, "Failed to load table"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

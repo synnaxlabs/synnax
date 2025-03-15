@@ -128,7 +128,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -349,7 +349,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data`, handleException });
+          download({ timeRange, lines, client, name: `${name}-data`, handleError });
           break;
       }
     };
@@ -421,7 +421,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
                 switch (itemKey) {
                   case "download":
                     if (client == null) return;
-                    download({ client, lines, timeRange, name, handleException });
+                    download({ client, lines, timeRange, name, handleError });
                     break;
                   case "metadata":
                     placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });

@@ -43,7 +43,7 @@ const handleSelect: Ontology.HandleSelect = ({
   client,
   store,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   client.ranges
     .retrieve(selection.map((s) => s.id.key))
@@ -57,7 +57,7 @@ const handleSelect: Ontology.HandleSelect = ({
         selection.map(({ name }) => name),
         "range",
       );
-      handleException(e, `Failed to select ${names}`);
+      handleError(e, `Failed to select ${names}`);
     });
 };
 
@@ -92,7 +92,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await fetchIfNotInState(store, client, res.id.key);
       store.dispatch(setActive(res.id.key));
     },
-    onError: (e, { handleException }) => handleException(e, "Failed to activate range"),
+    onError: (e, { handleError }) => handleError(e, "Failed to activate range"),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -111,9 +111,9 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
         }),
       );
     },
-    onError: (e, { handleException, selection: { resources } }) => {
+    onError: (e, { handleError, selection: { resources } }) => {
       const rangeNames = resources.map((r) => r.name);
-      handleException(
+      handleError(
         e,
         `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
       );
@@ -136,9 +136,9 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         }),
       );
     },
-    onError: (e, { handleException, selection: { resources } }) => {
+    onError: (e, { handleError, selection: { resources } }) => {
       const names = resources.map((r) => r.name);
-      handleException(
+      handleError(
         e,
         `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
       );
@@ -191,7 +191,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { handleException, selection: { resources }, state: { setNodes }, store },
+      { handleError, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -204,7 +204,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       }
       let message = "Failed to delete ranges";
       if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };

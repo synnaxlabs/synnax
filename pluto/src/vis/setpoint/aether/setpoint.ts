@@ -28,7 +28,7 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  handleException: status.AsyncExceptionHandler;
+  handleError: status.AsyncExceptionHandler;
   stopListening: Destructor;
   prevTrigger: number;
 }
@@ -45,11 +45,11 @@ export class Setpoint
   schema = setpointStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.handleException = status.useAsyncExceptionHandler(ctx);
+    this.internal.handleError = status.useAsyncErrorHandler(ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
-    await i.handleException(async () => {
+    await i.handleError(async () => {
       this.internal.source = await telem.useSource(
         ctx,
         sourceProps,
@@ -66,7 +66,7 @@ export class Setpoint
       await this.updateValue();
       i.stopListening?.();
       i.stopListening = i.source.onChange(
-        () => void i.handleException(async () => await this.updateValue()),
+        () => void i.handleError(async () => await this.updateValue()),
       );
     }, "Failed to update Setpoint");
   }
