@@ -106,10 +106,10 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		registrar:            serviceRegistrar{BuiltIn: &builtinService{}},
 	}
 
-	err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB)
-	if errors.Is(err, query.NotFound) {
+	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
 		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, err
 	}
 
