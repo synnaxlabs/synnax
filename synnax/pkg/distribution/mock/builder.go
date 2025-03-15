@@ -71,7 +71,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, b.cfg.Ontology, ontology.Config{DB: d.Storage.Gorpify()}))
-	d.Group = lo.Must(group.OpenService(b.cfg.Group, group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
+	d.Group = lo.Must(group.OpenService(ctx, b.cfg.Group, group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &cluster.NodeOntologyService{
 		Cluster:  d.Cluster,
