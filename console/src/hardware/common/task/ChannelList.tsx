@@ -20,6 +20,7 @@ interface ContextMenuProps<C extends Channel> {
   channels: C[];
   isSnapshot: boolean;
   keys: string[];
+  onDuplicate?: (channels: C[], indices: number[]) => void;
   onSelect: (keys: string[], index: number) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
@@ -31,6 +32,7 @@ const ContextMenu = <C extends Channel>({
   channels,
   isSnapshot,
   keys,
+  onDuplicate,
   onSelect,
   onTare,
   path,
@@ -47,6 +49,7 @@ const ContextMenu = <C extends Channel>({
     else onSelect([], -1);
   };
   const { set } = Form.useContext();
+  const handleDuplicate = () => onDuplicate?.(channels, indices);
   const handleDisable = () =>
     indices.forEach((index) => set(`${path}.${index}.enabled`, false));
   const handleEnable = () =>
@@ -60,7 +63,9 @@ const ContextMenu = <C extends Channel>({
     disable: handleDisable,
     enable: handleEnable,
     tare: handleTare,
+    duplicate: handleDuplicate,
   };
+  const canDuplicate = onDuplicate != null && indices.length > 0;
   const canRemove = indices.length > 0;
   const canDisable = indices.some((i) => channels[i].enabled);
   const canEnable = indices.some((i) => !channels[i].enabled);
@@ -69,14 +74,19 @@ const ContextMenu = <C extends Channel>({
     <PMenu.Menu onChange={handleSelect} level="small">
       {!isSnapshot && (
         <>
+          {canDuplicate && (
+            <PMenu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+              Duplicate
+            </PMenu.Item>
+          )}
           {canRemove && (
             <>
               <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
                 Remove
               </PMenu.Item>
-              <PMenu.Divider />
             </>
           )}
+          {canDuplicate || (canRemove && <PMenu.Divider />)}
           {canDisable && (
             <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
               Disable
