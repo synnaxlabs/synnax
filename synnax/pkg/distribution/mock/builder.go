@@ -78,8 +78,8 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Ontology: d.Ontology,
 	}
 	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
-	d.Ontology.RegisterService(nodeOntologySvc)
-	d.Ontology.RegisterService(clusterOntologySvc)
+	d.Ontology.RegisterService(ctx, nodeOntologySvc)
+	d.Ontology.RegisterService(ctx, clusterOntologySvc)
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	d.Channel = lo.Must(channel.New(ctx, b.cfg.Channel, channel.ServiceConfig{
