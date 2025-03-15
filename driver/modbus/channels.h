@@ -11,7 +11,6 @@
 
 /// std
 #include <string>
-#include <vector>
 
 /// external
 #include "modbus/modbus.h"
@@ -23,8 +22,6 @@
 
 namespace modbus {
 namespace channel {
-
-
 /// @brief Base class for all Modbus channels
 struct Channel {
     /// @brief Whether the channel is enabled
@@ -126,13 +123,10 @@ struct OutputCoilChannel final : Output {
 struct OutputHoldingRegisterChannel final : Output {
     /// @brief The data type to interpret the register(s) as
     const telem::DataType value_type;
-    
     /// @brief The byte order for multi-register values
     const bool swap_bytes;
-    
     /// @brief The word order for multi-register values
     const bool swap_words;
-    
     /// @brief String length for STRING data type
     const int string_length;
     
