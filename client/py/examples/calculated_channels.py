@@ -67,7 +67,7 @@ with client.open_writer(
             squared = frame["stream_write_data_1"] ** 2
             # Average
             avg = (frame["stream_write_data_1"] + frame["stream_write_data_2"]) / 2
-            writer.write(
+            if not writer.write(
                 {
                     # Write back the same timestamps as raw data so they align
                     # correctly.
@@ -75,4 +75,5 @@ with client.open_writer(
                     "calculated_channels_squared_data": squared,
                     "calculated_channels_averaged_data": avg,
                 }
-            )
+            ):
+                break
