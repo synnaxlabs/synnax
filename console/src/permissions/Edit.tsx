@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user as clientUser } from "@synnaxlabs/client";
+import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
@@ -27,11 +27,11 @@ import {
 export const EDIT_LAYOUT_TYPE = "setPermissions";
 
 interface EditLayoutArgs {
-  user: clientUser.User;
+  user: user.User;
 }
 
 export const createEditLayout = (
-  user: clientUser.User,
+  user: user.User,
 ): Layout.BaseState<EditLayoutArgs> => ({
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
@@ -42,29 +42,29 @@ export const createEditLayout = (
   args: { user },
 });
 
-const initialPermissions = { schematic: false, admin: false, keys: {} };
+const INITIAL_PERMISSIONS = { schematic: false, admin: false, keys: {} };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({ keys: consolePolicyKeysZ });
+type FormSchema = typeof formSchema;
 
-export const Edit: Layout.Renderer = (props) => {
-  const { layoutKey, onClose } = props;
-  const user = Layout.useSelectArgs<clientUser.User>(layoutKey);
+export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const {
+    user: { key, rootUser },
+  } = Layout.useSelectArgs<EditLayoutArgs>(layoutKey);
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const [isPending, setIsPending] = useState(false);
 
-  const methods = Form.useSynced<typeof formSchema>({
-    key: [user.key],
+  const methods = Form.useSynced<FormSchema>({
+    key: [key],
     name: "Permissions",
-    values: { ...initialPermissions, keys: {} },
+    values: { ...INITIAL_PERMISSIONS, keys: {} },
     queryFn: async ({ client }) => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const policies = await client.access.policy.retrieveFor(
-        clientUser.ontologyID(user.key),
-      );
+      const policies = await client.access.policy.retrieveFor(user.ontologyID(key));
       const userSpecificPolicies = policies.filter(
-        (p) => p.subjects.length === 1 && p.subjects[0].key === user.key,
+        ({ subjects }) => subjects.length === 1 && subjects[0].key === key,
       );
       const keys = convertPoliciesToKeys(userSpecificPolicies);
       const permissions = convertKeysToPermissions(keys);
@@ -83,7 +83,7 @@ export const Edit: Layout.Renderer = (props) => {
           return;
         }
         const newPolicy = await client.access.policy.create({
-          subjects: clientUser.ontologyID(user.key),
+          subjects: user.ontologyID(key),
           ...consolePolicyRecord[policy],
         });
         values.keys[policy] = newPolicy.key;
@@ -95,15 +95,16 @@ export const Edit: Layout.Renderer = (props) => {
     },
   });
 
-  const isRootUser = user.rootUser;
-  if (isRootUser) {
-    addStatus({
-      variant: "error",
-      message: "Root user permissions cannot be modified",
-    });
-    onClose();
-    return <></>;
-  }
+  useEffect(() => {
+    if (rootUser) {
+      addStatus({
+        message: "Root user permissions cannot be modified",
+        variant: "error",
+      });
+      onClose();
+    }
+  }, [rootUser, onClose, addStatus]);
+  if (rootUser) return <></>;
 
   return (
     <Align.Space direction="y" grow>
