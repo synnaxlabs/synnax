@@ -71,15 +71,15 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, b.cfg.Ontology, ontology.Config{DB: d.Storage.Gorpify()}))
-	d.Group = lo.Must(group.OpenService(b.cfg.Group, group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
+	d.Group = lo.Must(group.OpenService(ctx, b.cfg.Group, group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &cluster.NodeOntologyService{
 		Cluster:  d.Cluster,
 		Ontology: d.Ontology,
 	}
 	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
-	d.Ontology.RegisterService(nodeOntologySvc)
-	d.Ontology.RegisterService(clusterOntologySvc)
+	d.Ontology.RegisterService(ctx, nodeOntologySvc)
+	d.Ontology.RegisterService(ctx, clusterOntologySvc)
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	d.Channel = lo.Must(channel.New(ctx, b.cfg.Channel, channel.ServiceConfig{

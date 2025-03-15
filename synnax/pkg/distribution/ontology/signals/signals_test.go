@@ -72,7 +72,7 @@ var _ = Describe("Signals", Ordered, func() {
 		builder = mock.NewBuilder()
 		dist = builder.New(ctx)
 		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
-		dist.Ontology.RegisterService(svc)
+		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())

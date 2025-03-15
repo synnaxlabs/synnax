@@ -195,11 +195,11 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		schematicSvc, err := schematic.NewService(schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
+		schematicSvc, err := schematic.NewService(ctx, schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
-		linePlotSvc, err := lineplot.NewService(lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
+		linePlotSvc, err := lineplot.NewService(ctx, lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
@@ -215,11 +215,11 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		logSvc, err := log.NewService(log.Config{DB: gorpDB, Ontology: dist.Ontology})
+		logSvc, err := log.NewService(ctx, log.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
-		tableSvc, err := table.NewService(table.Config{
+		tableSvc, err := table.NewService(ctx, table.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 		})
@@ -291,6 +291,16 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+
+		// We run startup searching indexing after all services have been
+		// registered within the ontology. We used to fork a new goroutine for
+		// every service at registration time, but this caused a race condition
+		// where bleve would concurrently read and write to a map.
+		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
+		// for more details on this issue.
+		sCtx.Go(func(ctx context.Context) error {
+			return dist.Ontology.RunStartupSearchIndexing(ctx)
+		})
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{

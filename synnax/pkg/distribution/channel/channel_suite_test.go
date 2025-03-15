@@ -55,7 +55,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 		DB: core1.Storage.Gorpify(),
 	}))
 	builder.AttachCloser(otg1)
-	g1 := MustSucceed(group.OpenService(group.Config{
+	g1 := MustSucceed(group.OpenService(ctx, group.Config{
 		DB:       core1.Storage.Gorpify(),
 		Ontology: otg1,
 	}))
@@ -64,7 +64,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 		DB: core2.Storage.Gorpify(),
 	}))
 	builder.AttachCloser(otg2)
-	g2 := MustSucceed(group.OpenService(group.Config{
+	g2 := MustSucceed(group.OpenService(ctx, group.Config{
 		DB:       core2.Storage.Gorpify(),
 		Ontology: otg2,
 	}))
@@ -73,7 +73,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 		DB: core3.Storage.Gorpify(),
 	}))
 	builder2.AttachCloser(otg3)
-	g3 := MustSucceed(group.OpenService(group.Config{
+	g3 := MustSucceed(group.OpenService(ctx, group.Config{
 		DB:       core3.Storage.Gorpify(),
 		Ontology: otg3,
 	}))

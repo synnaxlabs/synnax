@@ -71,7 +71,7 @@ var (
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	otg.RegisterService(&emptyService{})
+	otg.RegisterService(ctx, &emptyService{})
 })
 
 var _ = AfterSuite(func() {

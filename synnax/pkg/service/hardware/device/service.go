@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
