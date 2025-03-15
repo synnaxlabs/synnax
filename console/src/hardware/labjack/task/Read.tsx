@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
-import { FORMS } from "@/hardware/labjack/task/OutputChannelForms";
+import { FORMS } from "@/hardware/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
   AI_CHANNEL_TYPE,
