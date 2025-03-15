@@ -65,10 +65,11 @@ with client.open_streamer(["arduino_command"]) as streamer:
             data = ser.readline().decode("utf-8").rstrip()
             if data:
                 split = data.split(",")
-                writer.write(
+                if not writer.write(
                     {
                         "arduino_time": sy.TimeStamp.now(),
                         "arduino_state": int(split[0]),
                         "arduino_value": float(split[1]),
                     }
-                )
+                ):
+                    break
