@@ -17,39 +17,39 @@ import { Rate, Synnax, TimeStamp } from "@synnaxlabs/client";
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
 const client = new Synnax({
-    host: "localhost",
-    port: 9090,
-    username: "synnax",
-    password: "seldon",
+  host: "localhost",
+  port: 9090,
+  username: "synnax",
+  password: "seldon",
 });
 
 // Create an index channel that will be used to store our timestamps.
 const timeChannel = await client.channels.create(
-    {
-        name: "stream_write_example_time",
-        isIndex: true,
-        dataType: "timestamp",
-    },
-    { retrieveIfNameExists: true },
+  {
+    name: "stream_write_example_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
 );
 
 // Create a data channel that will be used to store our fake sensor data.
 const dataChannel1 = await client.channels.create(
-    {
-        name: "stream_write_example_data_1",
-        dataType: "float32",
-        index: timeChannel.key,
-    },
-    { retrieveIfNameExists: true },
+  {
+    name: "stream_write_example_data_1",
+    dataType: "float32",
+    index: timeChannel.key,
+  },
+  { retrieveIfNameExists: true },
 );
 
 const dataChannel2 = await client.channels.create(
-    {
-        name: "stream_write_example_data_2",
-        dataType: "int32",
-        index: timeChannel.key,
-    },
-    { retrieveIfNameExists: true },
+  {
+    name: "stream_write_example_data_2",
+    dataType: "int32",
+    index: timeChannel.key,
+  },
+  { retrieveIfNameExists: true },
 );
 
 // We'll start our write at the current time. This timestamps should be the same as or
@@ -61,32 +61,34 @@ const start = TimeStamp.now();
 const roughRate = Rate.hz(25);
 
 const writer = await client.openWriter({
-    start,
-    channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
-    enableAutoCommit: true,
+  start,
+  channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
+  enableAutoCommit: true,
 });
 
 try {
-    let i = 0;
-    while (true) {
-        await new Promise((resolve) =>
-            setTimeout(resolve, roughRate.period.milliseconds),
-        );
-        i++;
-        const timestamp = TimeStamp.now();
-        const data1 = Math.sin(i / 10);
-        const data2 = i % 2;
-        await writer.write({
-            [timeChannel.key]: timestamp,
-            [dataChannel1.key]: data1,
-            [dataChannel2.key]: data2,
-        });
-
-        if (i % 60 == 0)
-            console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
+  let i = 0;
+  while (true) {
+    await new Promise((resolve) => setTimeout(resolve, roughRate.period.milliseconds));
+    i++;
+    const timestamp = TimeStamp.now();
+    const data1 = Math.sin(i / 10);
+    const data2 = i % 2;
+    if (
+      !(await writer.write({
+        [timeChannel.key]: timestamp,
+        [dataChannel1.key]: data1,
+        [dataChannel2.key]: data2,
+      }))
+    ) {
+      console.error("Failed to write");
+      break;
     }
+
+    if (i % 60 == 0) console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
+  }
 } finally {
-    // Close the writer and the client when you are done
-    await writer.close();
-    client.close();
+  // Close the writer and the client when you are done
+  await writer.close();
+  client.close();
 }

@@ -19,18 +19,18 @@ import { Synnax } from "@synnaxlabs/client";
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
 const client = new Synnax({
-    host: "localhost",
-    port: 9090,
-    username: "synnax",
-    password: "seldon",
-    secure: false,
+  host: "localhost",
+  port: 9090,
+  username: "synnax",
+  password: "seldon",
+  secure: false,
 });
 
 // We can just specify the names of the channels we'd like to stream from.
 const read_from = [
-    "stream_write_example_time",
-    "stream_write_example_data_1",
-    "stream_write_example_data_2",
+  "stream_write_example_time",
+  "stream_write_example_data_1",
+  "stream_write_example_data_2",
 ];
 
 const streamer = await client.openStreamer(read_from);
@@ -39,12 +39,12 @@ const streamer = await client.openStreamer(read_from);
 // network connections and other resources, so we wrap the streaming loop in a
 // try-finally block.
 try {
-    // Loop through the frames in the streamer. Each iteration will block until a new
-    // frame is available, and then we'll just print out the last sample for each
-    // channel in the frame.
-    for await (const frame of streamer) console.log(frame.at(-1));
+  // Loop through the frames in the streamer. Each iteration will block until a new
+  // frame is available, and then we'll just print out the last sample for each
+  // channel in the frame.
+  for await (const frame of streamer) console.log(frame.at(-1));
 } finally {
-    streamer.close();
-    // Close the client when we're done with it.
-    client.close();
+  streamer.close();
+  // Close the client when we're done with it.
+  client.close();
 }

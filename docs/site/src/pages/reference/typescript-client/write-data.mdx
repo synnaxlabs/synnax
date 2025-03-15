@@ -130,10 +130,13 @@ try {
             Math.sin(i / 100)
         ))
 
-        await writer.write(new Frame({
+        if (!await writer.write(new Frame({
             [timeChannel.key]: new Series(timeSeries),
             [temperatureChannel.key]: new Series(dataSeries)
-        }));
+        }))) {
+            console.error("Failed to write");
+            break;
+        }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     await writer.commit():
@@ -212,12 +215,17 @@ const writer = await client.openWriter({
 try {
   for (let i = 0; i < 100; i++) {
     const start = TimeStamp.now();
-    await writer.write(
-      new Frame({
-        time: start,
-        temperature: Math.sin(i / 100),
-      }),
-    );
+    if (
+      !(await writer.write(
+        new Frame({
+          time: start,
+          temperature: Math.sin(i / 100),
+        }),
+      ))
+    ) {
+      console.error("Failed to write");
+      break;
+    }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 } finally {
@@ -355,10 +363,13 @@ const writer = await client.openWriter({
 });
 try {
     for (let i = 0; i < 100; i++)
-        await writer.write({
+        if (!await writer.write({
             "time": TimeStamp.now(),
             "temperature": Math.sin(i / 100)
-        });
+        })) {
+            console.error("Failed to write");
+            break;
+        }
 } finally {
     await writer.close();
 }
@@ -382,10 +393,15 @@ const writer = await client.openWriter({
 });
 try {
   for (let i = 0; i < 100; i++) {
-    await writer.write({
-      time: TimeStamp.now(),
-      temperature: Math.sin(i / 100),
-    });
+    if (
+      !(await writer.write({
+        time: TimeStamp.now(),
+        temperature: Math.sin(i / 100),
+      }))
+    ) {
+      console.error("Failed to write");
+      break;
+    }
     await writer.commit();
   }
 } finally {
@@ -403,10 +419,15 @@ const writer = await client.openWriter({
 });
 try {
   for (let i = 0; i < 100; i++)
-    await writer.write({
-      time: TimeStamp.now(),
-      temperature: Math.sin(i / 100),
-    });
+    if (
+      !(await writer.write({
+        time: TimeStamp.now(),
+        temperature: Math.sin(i / 100),
+      }))
+    ) {
+      console.error("Failed to write");
+      break;
+    }
 } finally {
   await writer.close();
 }

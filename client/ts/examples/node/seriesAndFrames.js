@@ -67,9 +67,9 @@ const start = TimeStamp.now();
 const tr = new TimeRange(start, start.add(TimeSpan.seconds(5)));
 
 series = new Series({
-    data: [1, 2, 3, 4, 5],
-    dataType: "float64",
-    timeRange: tr,
+  data: [1, 2, 3, 4, 5],
+  dataType: "float64",
+  timeRange: tr,
 });
 
 series = new Series([1, 2, 3, 4, 5]);
@@ -93,52 +93,52 @@ import { Frame } from "@synnaxlabs/client";
 
 // Construct a frame for the given channel names.
 let frame = new Frame({
-    channel1: new Series([1, 2, 3, 4, 5]),
-    channel2: new Series([5, 4, 3, 2, 1]),
-    channel3: new Series([1, 1, 1, 1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
 });
 
 // Construct a frame for the given channel keys
 frame = new Frame({
-    1: new Series([1, 2, 3, 4, 5]),
-    2: new Series([5, 4, 3, 2, 1]),
-    // Notice that series do not need to be the same length.
-    3: new Series([1, 1, 1]),
+  1: new Series([1, 2, 3, 4, 5]),
+  2: new Series([5, 4, 3, 2, 1]),
+  // Notice that series do not need to be the same length.
+  3: new Series([1, 1, 1]),
 });
 
 // Construct a frame from a map
 frame = new Frame(
-    new Map([
-        ["channel1", new Series([1, 2, 3, 4, 5])],
-        ["channel2", new Series([5, 4, 3, 2, 1])],
-        ["channel3", new Series([1, 1, 1, 1, 1])],
-    ]),
+  new Map([
+    ["channel1", new Series([1, 2, 3, 4, 5])],
+    ["channel2", new Series([5, 4, 3, 2, 1])],
+    ["channel3", new Series([1, 1, 1, 1, 1])],
+  ]),
 );
 
 // Or from an array of keys and series
 frame = new Frame(
-    ["channel1", "channel2", "channel3"],
-    [
-        new Series([1, 2, 3, 4, 5]),
-        new Series([5, 4, 3, 2, 1]),
-        new Series([1, 1, 1, 1, 1]),
-    ],
+  ["channel1", "channel2", "channel3"],
+  [
+    new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
+  ],
 );
 
 // Or construct a frame with multiple series for a single channel
 frame = new Frame({
-    channel1: [
-        new Series([1, 2, 3, 4, 5]),
-        new Series([5, 4, 3, 2, 1]),
-        new Series([1, 1, 1, 1, 1]),
-    ],
-    channel2: [new Series([1, 2, 3, 4, 5])],
+  channel1: [
+    new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
+  ],
+  channel2: [new Series([1, 2, 3, 4, 5])],
 });
 
 frame = new Frame({
-    channel1: [new Series([1, 2]), new Series([3, 4, 5])],
-    channel2: new Series([5, 4, 3, 2, 1]),
-    channel3: new Series([1, 1, 1, 1, 1]),
+  channel1: [new Series([1, 2]), new Series([3, 4, 5])],
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
 });
 
 const multiSeries = frame.get("channel1");
@@ -153,21 +153,21 @@ jsArray = [...multiSeries];
 console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
 
 frame = new Frame({
-    channel1: new Series([1, 2, 3, 4, 5]),
-    channel2: new Series([5, 4, 3, 2, 1]),
-    channel3: new Series([1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
 });
 
 let obj = frame.at(3);
 console.log(obj); // { channel1: 1, channel2: 5, channel3: undefined }
 
 frame = new Frame({
-    channel1: new Series([1, 2, 3, 4, 5]),
-    channel2: new Series([5, 4, 3, 2, 1]),
-    channel3: new Series([1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
 });
 try {
-    obj = frame.at(3, true); // Throws an error
+  obj = frame.at(3, true); // Throws an error
 } catch (e) {
-    console.log(e.message); // no value at index
+  console.log(e.message); // no value at index
 }
