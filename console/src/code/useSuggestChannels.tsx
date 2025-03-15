@@ -89,17 +89,12 @@ export const useSuggestChannels = (onAccept: (channel: channel.Payload) => void)
 export const bindChannelsAsGlobals = async (
   client: Synnax,
   prev: channel.Key[],
-  v: channel.Key[],
+  current: channel.Key[],
   globals: UsePhantomGlobalsReturn,
 ) => {
-  const removed = prev.filter((ch) => !v.includes(ch));
-  if (globals != null) removed.forEach((ch) => globals.del(ch.toString()));
-  const added = v.filter((ch) => !prev.includes(ch));
-  if (globals != null)
-    client?.channels
-      .retrieve(added)
-      .then((chs) => {
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-      })
-      .catch(console.error);
+  const removed = prev.filter((ch) => !current.includes(ch));
+  removed.forEach((ch) => globals.del(ch.toString()));
+  const added = current.filter((ch) => !prev.includes(ch));
+  const channels = await client.channels.retrieve(added);
+  channels.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
 };

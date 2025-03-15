@@ -20,10 +20,11 @@ import {
   Status,
   Synnax,
   Text,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -36,6 +37,9 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+
+const FAILED_TO_UPDATE_AUTOCOMPLETE =
+  "Failed to update calculated channel auto-complete";
 
 export interface CalculatedLayoutArgs {
   channelKey?: number;
@@ -213,6 +217,16 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
   });
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const channels = methods.get<channel.Key[]>("requires").value;
+    try {
+      const chs = await client.channels.retrieve(channels);
+      chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+    } catch (e) {
+      handleException(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+    }
+  }, [methods, globals, client]);
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
@@ -274,6 +288,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
                       v,
                       globals,
                     ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
                 );
               }}
             >
@@ -328,18 +343,6 @@ const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
   );
 
   useSuggestChannels(onAccept);
-
-  const client = Synnax.use();
-  useEffect(() => {
-    if (globals == null) return;
-    const channels = methods.get<channel.Key[]>("requires").value;
-    client?.channels
-      .retrieve(channels)
-      .then((chs) => {
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-      })
-      .catch(console.error);
-  }, [methods, globals, client]);
 
   return <Code.Editor {...props} />;
 };

@@ -27,7 +27,7 @@ export interface UsePhantomGlobalsReturn {
   del: (key: string) => void;
 }
 
-export interface UsePhantomProps {
+export interface UsePhantomGlobalsArgs {
   language: string;
   stringifyVar: (name: string, value: string, docs?: string) => string;
   initialVars?: Variable[];
@@ -37,7 +37,7 @@ export const usePhantomGlobals = ({
   language,
   stringifyVar,
   initialVars,
-}: UsePhantomProps): UsePhantomGlobalsReturn => {
+}: UsePhantomGlobalsArgs): UsePhantomGlobalsReturn => {
   const varsRef = useRef<Map<string, Variable>>(
     new Map(initialVars?.map((v) => [v.key, v])),
   );

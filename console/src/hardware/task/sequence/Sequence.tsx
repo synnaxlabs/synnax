@@ -44,6 +44,8 @@ import { Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type Selector } from "@/selector";
 
+const FAILED_TO_UPDATE_AUTOCOMPLETE = "Failed to update sequence auto-complete";
+
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
   icon: "Control",
@@ -260,6 +262,7 @@ const Internal = ({
                       v,
                       globals,
                     ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
                 );
               }}
             >
@@ -285,6 +288,7 @@ const Internal = ({
                       v,
                       globals,
                     ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
                 );
               }}
             >
