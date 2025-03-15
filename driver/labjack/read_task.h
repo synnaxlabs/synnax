@@ -307,15 +307,8 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
 }
 
 /// @brief configuration for a LabJack read task.
-struct ReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
-    /// @brief the key of the device to read from.
+struct ReadTaskConfig: public common::BaseReadTaskConfig {
     const std::string device_key;
-    /// @brief how fast to sample data from the device.
-    const telem::Rate sample_rate;
-    /// @brief how fast to push sampled data to synnax.
-    const telem::Rate stream_rate;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
     std::set<synnax::ChannelKey> index_keys;
@@ -328,10 +321,8 @@ struct ReadTaskConfig {
     transform::Chain transform;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
         conn_method(other.conn_method),
         index_keys(std::move(other.index_keys)),
         samples_per_chan(other.samples_per_chan),
@@ -347,10 +338,8 @@ struct ReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ): data_saving(parser.optional<bool>("data_saving", false)),
+    ): common::BaseReadTaskConfig(parser),
        device_key(parser.required<std::string>("device")),
-       sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
-       stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
        samples_per_chan(sample_rate / stream_rate),
        channels(parser.map<std::unique_ptr<InputChan> >(
