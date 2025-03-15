@@ -21,7 +21,7 @@ xerrors::Error plugins::Time::before_all(lua_State *L) {
         lua_pushboolean(cL, plug->elapsed >= start && plug->elapsed <= end);
         return 1;
     }, 1);
-    lua_setglobal(L, "time_within");
+    lua_setglobal(L, "elapsed_time_within");
     return xerrors::NIL;
 }
 
