@@ -17,9 +17,10 @@ package pebblekv
 
 import (
 	"context"
+	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"io"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -156,8 +157,8 @@ func (txn *tx) Close() error {
 // NewReader implements kv.Writer.
 func (txn *tx) NewReader() kv.TxReader {
 	return &txReader{
-		count:       int(txn.Batch.Count()),
-		BatchReader: txn.Batch.Reader(),
+		count:  int(txn.Batch.Count()),
+		Reader: txn.Batch.Reader(),
 	}
 }
 
@@ -175,7 +176,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 type txReader struct {
 	count int
-	pebble.BatchReader
+	batchrepr.Reader
 }
 
 var _ kv.TxReader = (*txReader)(nil)
@@ -185,7 +186,7 @@ func (r *txReader) Count() int { return r.count }
 
 // Next implements kv.TxReader.
 func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
-	kind, k, v, ok, _ := r.BatchReader.Next()
+	kind, k, v, ok, _ := r.Reader.Next()
 	if !ok {
 		return kv.Change{}, false
 	}

@@ -66,7 +66,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 
 	c := &Cluster{
 		Store:    cfg.Gossip.Store,
-		shutdown: signal.NewShutdown(sCtx, cancel),
+		shutdown: signal.NewHardShutdown(sCtx, cancel),
 		Config:   cfg,
 	}
 

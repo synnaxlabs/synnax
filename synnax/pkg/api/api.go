@@ -75,7 +75,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "channel", c.Channel)
@@ -100,7 +100,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)

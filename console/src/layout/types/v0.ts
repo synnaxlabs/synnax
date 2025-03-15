@@ -14,11 +14,7 @@ import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
-const placementLocationZ = z.union([
-  z.literal("window"),
-  z.literal("mosaic"),
-  z.literal("modal"),
-]);
+const placementLocationZ = z.enum(["window", "mosaic", "modal"]);
 
 /**
  * The location options for placing a layout:
@@ -80,6 +76,7 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
+  unsavedChanges: z.boolean().default(false).optional(),
 });
 
 /**
@@ -136,6 +133,10 @@ export interface State<A = unknown> {
    * beta is a flag that indicates whether the layout should be marked with a beta tag.
    */
   beta?: boolean;
+  /**
+   * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
+   */
+  unsavedChanges?: boolean;
 }
 
 const themeZ = Theming.themeZ.transform(

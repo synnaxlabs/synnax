@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, toArray, unique } from "@synnaxlabs/x";
+import { compare, toArray, unique, type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Haul } from "@/haul";
 import { type Icon } from "@/icon";
@@ -24,6 +24,7 @@ export interface Node {
   haulItems?: Haul.Item[];
   canDrop?: (items: Haul.Item[]) => boolean;
   href?: string;
+  extraData?: UnknownRecord;
 }
 
 export interface NodeWithPosition extends Node {
@@ -285,4 +286,13 @@ export const getDescendants = (...node: Node[]): Node[] => {
     if (n.children != null) descendants.push(...getDescendants(...n.children));
   });
   return descendants;
+};
+
+export const getAllNodesOfMinDepth = (
+  nodes: NodeWithPosition[],
+): NodeWithPosition[] => {
+  if (nodes.length === 0) return [];
+  let minDepth = Infinity;
+  for (const { depth } of nodes) if (depth < minDepth) minDepth = depth;
+  return nodes.filter(({ depth }) => depth === minDepth);
 };

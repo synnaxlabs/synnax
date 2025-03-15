@@ -11,7 +11,7 @@ import "@/text/Text.css";
 
 import { type ReactElement, type ReactNode } from "react";
 
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type text } from "@/text/core";
@@ -42,11 +42,10 @@ export const Text = <L extends text.Level = text.Level>({
   color,
   className,
   style,
-  children,
   noWrap = false,
   shade,
   weight,
-  ...props
+  ...rest
 }: TextProps<L>): ReactElement => (
   // @ts-expect-error - TODO: Generic Elements are weird
   <Generic.Element<L>
@@ -54,10 +53,8 @@ export const Text = <L extends text.Level = text.Level>({
     ref={ref}
     style={{ color: evalColor(color, shade), fontWeight: weight, ...style }}
     className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
-    {...props}
-  >
-    {children}
-  </Generic.Element>
+    {...rest}
+  />
 );
 
 export const evalColor = (

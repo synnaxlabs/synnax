@@ -22,7 +22,7 @@ const client = newClient();
 const newChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
     leaseholder: 1,
-    name: `test-${id.id()}`,
+    name: `test-${id.create()}`,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
@@ -123,11 +123,7 @@ describe("Writer", () => {
       });
 
       await expect(
-        client.openWriter({
-          start: 0,
-          channels: ch.key,
-          errOnUnauthorized: true,
-        }),
+        client.openWriter({ start: 0, channels: ch.key, errOnUnauthorized: true }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
     });

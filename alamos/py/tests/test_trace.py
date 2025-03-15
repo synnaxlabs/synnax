@@ -7,15 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos.instrumentation import Traceable
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-from alamos import Tracer, Instrumentation, trace
+from alamos import Instrumentation, Tracer, trace
+from alamos.instrumentation import Traceable
 
 provider = TracerProvider()
 processor = BatchSpanProcessor(ConsoleSpanExporter())

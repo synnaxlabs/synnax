@@ -51,7 +51,7 @@ var _ = Describe("Pipeline", func() {
 
 	})
 
-	Describe("NewShutdown Chain", func() {
+	Describe("NewHardShutdown Chain", func() {
 
 		It("Should shutdown the pipe as segments close their inlets", func() {
 			t1 := &confluence.LinearTransform[int, int]{}

@@ -69,7 +69,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     autoBoundUpdateInterval,
     onAutoBoundsChange,
     style,
-    ...props
+    ...rest
   }: AxisProps): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
     const cKey = useUniqueKey(aetherKey);
@@ -140,7 +140,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           align="center"
           justify={location !== "left" ? "end" : "start"}
           direction={direction.swap(dir)}
-          {...props}
+          {...rest}
         >
           {showLabel && (
             <Text.MaybeEditable

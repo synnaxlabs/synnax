@@ -11,8 +11,8 @@ import uuid
 import pytest
 
 import synnax as sy
-from synnax.user.payload import ontology_type as USER_ONTOLOGY_TYPE
 from synnax.ontology.payload import ID
+from synnax.user.payload import ontology_type as USER_ONTOLOGY_TYPE
 
 
 @pytest.mark.access

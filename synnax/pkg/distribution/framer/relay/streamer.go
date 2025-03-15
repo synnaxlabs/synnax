@@ -26,16 +26,19 @@ type streamer struct {
 	confluence.AbstractLinear[Request, Response]
 	addr    address.Address
 	demands confluence.Inlet[demand]
-	keys    channel.Keys
 	relay   *Relay
+	cfg     StreamerConfig
 }
 
-type StreamerConfig = Request
+type StreamerConfig struct {
+	Keys        channel.Keys
+	SendOpenAck bool
+}
 
 func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
 	err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
 	return &streamer{
-		keys:    cfg.Keys,
+		cfg:     cfg,
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,
@@ -55,7 +58,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		r.demands.Inlet() <- demand{
 			Variant: change.Set,
 			Key:     r.addr,
-			Value:   Request{Keys: r.keys},
+			Value:   Request{Keys: r.cfg.Keys},
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
@@ -71,6 +74,11 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we explicitly close it here.
 			r.demands.Close()
 		}()
+		if r.cfg.SendOpenAck {
+			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), Response{}); err != nil {
+				return err
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -80,18 +88,18 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				req.Keys = lo.Uniq(req.Keys)
-				r.keys = req.Keys
+				r.cfg.Keys = req.Keys
 				d := demand{Variant: change.Set, Key: r.addr, Value: req}
 				if err := signal.SendUnderContext(ctx, r.demands.Inlet(), d); err != nil {
 					return err
 				}
 			case f := <-responses.Outlet():
-				filtered := f.Frame.FilterKeys(r.keys)
+				filtered := f.Frame.FilterKeys(r.cfg.Keys)
 				// Don't send if the frame is empty.
 				if len(filtered.Keys) == 0 {
 					continue
 				}
-				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.keys)}
+				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.cfg.Keys)}
 				if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
 					return err
 				}

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
@@ -126,7 +125,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
-		shutdown:   signal.NewShutdown(sCtx, cancel),
+		shutdown:   signal.NewHardShutdown(sCtx, cancel),
 	}
 
 	va, err := newVersionAssigner(ctx, cfg)
@@ -258,7 +257,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 }
 
 func (d *DB) Close() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(d.shutdown.Close)
 	c.Exec(d.DB.Close)
 	return c.Error()

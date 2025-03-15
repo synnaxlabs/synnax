@@ -69,11 +69,11 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 // retrieveChannel retrieves a channel from the database. This method is not safe
 // for concurrent use, and the db must be locked before calling.
 func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
-	uCh, uOk := db.unaryDBs[key]
+	uCh, uOk := db.mu.unaryDBs[key]
 	if uOk {
 		return uCh.Channel(), nil
 	}
-	vCh, vOk := db.virtualDBs[key]
+	vCh, vOk := db.mu.virtualDBs[key]
 	if vOk {
 		return vCh.Channel(), nil
 	}
@@ -110,7 +110,7 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 
 // RenameChannel renames the channel with the specified key to newName.
 func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) error {
-	udb, uok := db.unaryDBs[key]
+	udb, uok := db.mu.unaryDBs[key]
 	if uok {
 		// There is a race condition here: one could rename a channel while it is being
 		// read or streamed from or written to. We choose to not address this since
@@ -119,15 +119,15 @@ func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) e
 		if err := udb.RenameChannelInMeta(newName); err != nil {
 			return err
 		}
-		db.unaryDBs[key] = udb
+		db.mu.unaryDBs[key] = udb
 		return nil
 	}
-	vdb, vok := db.virtualDBs[key]
+	vdb, vok := db.mu.virtualDBs[key]
 	if vok {
 		if err := vdb.RenameChannel(newName); err != nil {
 			return err
 		}
-		db.virtualDBs[key] = vdb
+		db.mu.virtualDBs[key] = vdb
 		return nil
 	}
 
@@ -163,8 +163,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
 	v.Exec(func() error {
-		_, uOk := db.unaryDBs[ch.Key]
-		_, vOk := db.virtualDBs[ch.Key]
+		_, uOk := db.mu.unaryDBs[ch.Key]
+		_, vOk := db.mu.virtualDBs[ch.Key]
 		if uOk || vOk {
 			return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
 		}
@@ -179,8 +179,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
-			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
-			indexDB, ok := db.unaryDBs[ch.Index]
+			validate.MapContainsf(v, ch.Index, db.mu.unaryDBs, "index channel <%d> does not exist", ch.Index)
+			indexDB, ok := db.mu.unaryDBs[ch.Index]
 			if ok {
 				v.Ternaryf("index", !indexDB.Channel().IsIndex, "channel %v is not an index", indexDB.Channel())
 			}
@@ -198,8 +198,8 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	_, uok := db.unaryDBs[newKey]
-	_, vok := db.virtualDBs[newKey]
+	_, uok := db.mu.unaryDBs[newKey]
+	_, vok := db.mu.virtualDBs[newKey]
 	if uok || vok {
 		return errors.Newf(
 			"cannot rekey channel to %d since a channel with the same key already exists in the database",
@@ -209,7 +209,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 	oldDir := keyToDirName(oldKey)
 	newDir := keyToDirName(newKey)
-	udb, uok := db.unaryDBs[oldKey]
+	udb, uok := db.mu.unaryDBs[oldKey]
 	if uok {
 		if err := udb.Close(); err != nil {
 			return err
@@ -238,14 +238,14 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err = _udb.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
-		delete(db.unaryDBs, oldKey)
-		db.unaryDBs[newKey] = *_udb
+		delete(db.mu.unaryDBs, oldKey)
+		db.mu.unaryDBs[newKey] = *_udb
 
 		// If the DB is an index channel, we need to update the databases that depend
 		// on this channel.
 		if udb.Channel().IsIndex {
-			for otherDBKey := range db.unaryDBs {
-				otherDB := db.unaryDBs[otherDBKey]
+			for otherDBKey := range db.mu.unaryDBs {
+				otherDB := db.mu.unaryDBs[otherDBKey]
 				// If the other database uses this channel as its index, and it's not
 				// the index itself.
 				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
@@ -253,13 +253,13 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 						return err
 					}
 					otherDB.SetIndex((*_udb).Index())
-					db.unaryDBs[otherDBKey] = otherDB
+					db.mu.unaryDBs[otherDBKey] = otherDB
 				}
 			}
 		}
 		return nil
 	}
-	vdb, vok := db.virtualDBs[oldKey]
+	vdb, vok := db.mu.virtualDBs[oldKey]
 	if vok {
 		if err := vdb.Close(); err != nil {
 			return err
@@ -285,8 +285,8 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err = _vdb.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
-		delete(db.virtualDBs, oldKey)
-		db.virtualDBs[newKey] = *_vdb
+		delete(db.mu.virtualDBs, oldKey)
+		db.mu.virtualDBs[newKey] = *_vdb
 	}
 
 	return nil

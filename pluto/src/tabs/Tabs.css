@@ -27,6 +27,27 @@
     margin-right: 1rem;
 }
 
+.pluto-tabs-selector__btn--close {
+    .pluto-tabs-selector__icon--unsaved {
+        fill: var(--pluto-gray-l6) !important;
+        width: 2rem;
+        height: 2rem;
+    }
+    &:has(.pluto-tabs-selector__icon--unsaved) {
+        .pluto-tabs-selector__icon--close {
+            display: none;
+        }
+        &:hover {
+            .pluto-tabs-selector__icon--unsaved {
+                display: none;
+            }
+            .pluto-tabs-selector__icon--close {
+                display: block;
+            }
+        }
+    }
+}
+
 .pluto-tabs-selector__btn.pluto--selected :is(.pluto-text, .pluto-text-icon) {
     color: var(--pluto-text-color);
 }

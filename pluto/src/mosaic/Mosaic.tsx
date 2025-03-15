@@ -138,7 +138,7 @@ const TabLeaf = memo(
     activeTab,
     children,
     onFileDrop,
-    ...props
+    ...rest
   }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
@@ -218,7 +218,7 @@ const TabLeaf = memo(
           selectedAltColor={activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
-          {...props}
+          {...rest}
           {...haulProps}
         >
           {node.selected != null &&

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Import } from "@/import";
-import { create } from "@/lineplot/LinePlot";
+import { create } from "@/lineplot/layout";
 import { anyStateZ } from "@/lineplot/slice";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout }) => {

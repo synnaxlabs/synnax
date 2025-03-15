@@ -5,10 +5,10 @@ import { caseconv } from "@synnaxlabs/x";
 export interface StepTextProps extends Text.TextProps {
     step: string | number;
 }
-const { step, level, name = "Step", ...props } = Astro.props;
+const { step, level, name = "Step", ...rest } = Astro.props;
 ---
 
-<Text.Text className="no-link" id={caseconv.toKebab(name)} level={level} {...props}>
+<Text.Text className="no-link" id={caseconv.toKebab(name)} level={level} {...rest}>
     <span
         style={{
             color: "var(--pluto-gray-l7)",

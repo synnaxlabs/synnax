@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -24,13 +26,15 @@ type AuthService struct {
 	dbProvider
 	authProvider
 	userProvider
+	clusterProvider
 }
 
 func NewAuthService(p Provider) *AuthService {
 	return &AuthService{
-		dbProvider:   p.db,
-		authProvider: p.auth,
-		userProvider: p.user,
+		dbProvider:      p.db,
+		authProvider:    p.auth,
+		userProvider:    p.user,
+		clusterProvider: p.cluster,
 	}
 }
 
@@ -39,6 +43,8 @@ type AuthLoginResponse struct {
 	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
 	Token string `json:"token" msgpack:"token"`
+	// ClusterInfo is the information about the cluster.
+	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
 type AuthLoginRequest struct {
@@ -48,6 +54,7 @@ type AuthLoginRequest struct {
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
 func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLoginResponse, error) {
+	startTime := telem.Now()
 	if err := s.authenticator.Authenticate(ctx, req.InsecureCredentials); err != nil {
 		return AuthLoginResponse{}, err
 	}
@@ -56,7 +63,18 @@ func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLogi
 		return AuthLoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
-	return AuthLoginResponse{User: u, Token: tk}, err
+	endTime := telem.Now()
+	midPoint := startTime + (endTime-startTime)/2
+	return AuthLoginResponse{
+		User:  u,
+		Token: tk,
+		ClusterInfo: ClusterInfo{
+			ClusterKey:  s.clusterProvider.cluster.Key().String(),
+			NodeKey:     s.clusterProvider.cluster.HostKey(),
+			NodeVersion: version.Get(),
+			NodeTime:    midPoint,
+		},
+	}, err
 }
 
 type AuthChangePasswordRequest struct {

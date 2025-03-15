@@ -13,6 +13,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
 
     .pluto-input-switch__track {
         position: relative;
@@ -22,9 +23,12 @@
     }
 
     .pluto-input-switch__input {
+        position: absolute;
+        cursor: pointer;
+        width: 100%;
         opacity: 0;
-        width: 0;
-        height: 0;
+        height: 100%;
+        z-index: 100;
     }
 
     .pluto-input-switch__slider {

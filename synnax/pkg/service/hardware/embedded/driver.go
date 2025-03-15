@@ -10,11 +10,13 @@
 package embedded
 
 import (
+	"github.com/google/uuid"
 	"io"
 	"os/exec"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -28,7 +30,8 @@ type Config struct {
 	Enabled *bool `json:"enabled"`
 	// Address
 	Address        address.Address `json:"address"`
-	RackName       string          `json:"rack_name"`
+	RackKey        rack.Key        `json:"rack_key"`
+	ClusterKey     uuid.UUID       `json:"cluster_key"`
 	Integrations   []string        `json:"integrations"`
 	CACertPath     string          `json:"ca_cert_path"`
 	ClientCertFile string          `json:"client_cert_file"`
@@ -54,8 +57,9 @@ func (c Config) format() map[string]interface{} {
 			"max_retries":   40,
 			"scale":         1.1,
 		},
-		"rack": map[string]string{
-			"name": c.RackName,
+		"remote_info": map[string]interface{}{
+			"rack_key":    c.RackKey,
+			"cluster_key": c.ClusterKey.String(),
 		},
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
@@ -63,9 +67,10 @@ func (c Config) format() map[string]interface{} {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
-		Integrations: make([]string, 0),
+	_               config.Config[Config] = Config{}
+	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence", "heartbeat"}
+	DefaultConfig                         = Config{
+		Integrations: []string{},
 		Enabled:      config.Bool(true),
 		Debug:        config.False(),
 	}
@@ -76,7 +81,8 @@ func (c Config) Override(other Config) Config {
 	c.Enabled = override.Nil(c.Enabled, other.Enabled)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
-	c.RackName = override.String(c.RackName, other.RackName)
+	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
+	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.CACertPath = override.String(c.CACertPath, other.CACertPath)
 	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)

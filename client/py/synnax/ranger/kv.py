@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-
 from typing import overload
+
 from freighter import Payload, UnaryClient, send_required
 
 from synnax import ValidationError

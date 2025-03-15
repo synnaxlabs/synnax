@@ -70,7 +70,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   actions,
   pack = true,
   variant,
-  ...props
+  ...rest
 }: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
     allowMultiple,
@@ -104,7 +104,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       borderShade={4}
       className={CSS(CSS.B("select-button"), className)}
       size={size}
-      {...props}
+      {...rest}
     >
       {mapped}
       {actions}
@@ -160,7 +160,7 @@ export const BaseButton = ({
   toggle,
   visible,
   children,
-  ...props
+  ...rest
 }: DropdownButtonButtonProps<any, any>): ReactElement => (
   <CoreButton.Button
     className={CSS.B("select-dropdown-button")}
@@ -169,7 +169,7 @@ export const BaseButton = ({
     endIcon={
       <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
     }
-    {...props}
+    {...rest}
   >
     {children ?? selected?.[renderKey]}
   </CoreButton.Button>
@@ -190,7 +190,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
   hideColumnHeader = true,
   variant,
   dropdownVariant,
-  ...props
+  ...rest
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { close, visible, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(
@@ -237,7 +237,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
       hideColumnHeader={hideColumnHeader}
       variant={dropdownVariant}
       trigger={<>{children(childrenProps)}</>}
-      {...props}
+      {...rest}
     />
   );
 };

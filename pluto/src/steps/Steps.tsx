@@ -30,11 +30,11 @@ export const Steps = ({
   steps,
   value,
   onChange,
-  ...props
+  ...rest
 }: StepsProps): ReactElement => {
   const selectedIdx = steps.findIndex((step) => step.key === value);
   return (
-    <Align.Space direction="x" align="center" className={CSS.B("steps")} {...props}>
+    <Align.Space direction="x" align="center" className={CSS.B("steps")} {...rest}>
       {steps.map((step, i) => (
         <Fragment key={step.key}>
           <Button.Button

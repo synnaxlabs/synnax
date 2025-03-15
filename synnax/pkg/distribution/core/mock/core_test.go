@@ -12,7 +12,6 @@ package mock_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -20,7 +19,7 @@ import (
 )
 
 var _ = Describe("Mock", func() {
-	DescribeTable("Name", func(cfg ...distribution.Config) {
+	DescribeTable("Name", func(cfg ...core.Config) {
 		builder := mock.NewCoreBuilder(cfg...)
 		coreOne := builder.New()
 		coreTwo := builder.New()
@@ -44,7 +43,7 @@ var _ = Describe("Mock", func() {
 	},
 		Entry("Should open a three Node memory backed distribution core"),
 		Entry("Should open a three Node file-system backed distribution core",
-			distribution.Config{
+			core.Config{
 				Storage: storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"},
 			}),
 	)

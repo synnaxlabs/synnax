@@ -24,7 +24,7 @@ import {
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { createLayout } from "@/range/CreateLayout";
+import { CREATE_LAYOUT } from "@/range/Create";
 import { type Range } from "@/range/slice";
 
 interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
@@ -87,16 +87,17 @@ interface SelectMultipleInputItemProps
     Pick<SelectMultipleRangesProps, "data"> {
   value: string[];
   onChange: (value: string[]) => void;
+  selectProps?: Partial<SelectMultipleRangesProps>;
 }
 
 const SelectEmptyContent = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} direction="x">
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
-      <Button.Button variant="outlined" onClick={() => place(createLayout({}))}>
+      <Button.Button variant="outlined" onClick={() => placeLayout(CREATE_LAYOUT)}>
         Define a Range
       </Button.Button>
     </Align.Center>
@@ -107,14 +108,16 @@ export const SelectMultipleInputItem = ({
   value,
   onChange,
   data,
-  ...props
+  selectProps,
+  ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
-  <Input.Item direction="x" label="Ranges" {...props}>
+  <Input.Item direction="x" label="Ranges" {...rest}>
     <SelectMultipleRanges
       data={data}
       value={value}
       onChange={onChange}
       emptyContent={<SelectEmptyContent />}
+      {...selectProps}
     />
   </Input.Item>
 );
@@ -122,20 +125,24 @@ export const SelectMultipleInputItem = ({
 interface SelectInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange">,
     Input.Control<string>,
-    Pick<SelectSingleRangeProps, "data"> {}
+    Pick<SelectSingleRangeProps, "data"> {
+  selectProps?: Partial<SelectSingleRangeProps>;
+}
 
 export const SelectInputItem = ({
   value,
   onChange,
   data,
-  ...props
+  selectProps,
+  ...rest
 }: SelectInputItemProps): ReactElement => (
-  <Input.Item label="Range:" {...props}>
+  <Input.Item label="Range:" {...rest}>
     <SelectRange
       value={value}
       onChange={onChange}
       data={data}
       emptyContent={<SelectEmptyContent />}
+      {...selectProps}
     />
   </Input.Item>
 );

@@ -146,6 +146,48 @@ describe("Series", () => {
       expect(a.dataType.toString()).toBe(DataType.JSON.toString());
     });
 
+    it("should convert a numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
+      const a = new Series({ data: 12, dataType: DataType.INT64 });
+      expect(a.dataType.toString()).toBe(DataType.INT64.toString());
+      expect(a.data).toEqual(new BigInt64Array([BigInt(12)]));
+      const b = new Series({ data: 12, dataType: DataType.TIMESTAMP });
+      expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
+      expect(b.data).toEqual(new BigInt64Array([BigInt(12)]));
+      const c = new Series({ data: 12, dataType: DataType.UINT64 });
+      expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
+      expect(c.data).toEqual(new BigUint64Array([BigInt(12)]));
+    });
+
+    it("should convert an array of numeric values to a BigInt when data type is int64, timestamp, or uint64", () => {
+      const a = new Series({ data: [12, 13, 14], dataType: DataType.INT64 });
+      expect(a.dataType.toString()).toBe(DataType.INT64.toString());
+      expect(a.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      const b = new Series({ data: [12, 13, 14], dataType: DataType.TIMESTAMP });
+      expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
+      expect(b.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      const c = new Series({ data: [12, 13, 14], dataType: DataType.UINT64 });
+      expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
+      expect(c.data).toEqual(new BigUint64Array([BigInt(12), BigInt(13), BigInt(14)]));
+    });
+
+    it("should convert bigints to numbers when data type does not use bigints", () => {
+      const a = new Series({ data: [12n, 13n, 14n], dataType: DataType.FLOAT32 });
+      expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
+      expect(a.data).toEqual(new Float32Array([12, 13, 14]));
+    });
+
+    it("should correctly convert a mix of bigints and numbers", () => {
+      const a = new Series({ data: [12n, 13], dataType: DataType.FLOAT32 });
+      expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
+      expect(a.data).toEqual(new Float32Array([12, 13]));
+    });
+
+    it("should convert a floating point numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
+      const a = new Series({ data: 12.5, dataType: DataType.INT64 });
+      expect(a.dataType.toString()).toBe(DataType.INT64.toString());
+      expect(a.data).toEqual(new BigInt64Array([BigInt(13)]));
+    });
+
     it("should convert encoded keys to snake_case", () => {
       const a = new Series({ data: [{ aB: 1, bC: "apple" }], dataType: DataType.JSON });
       const strContent = new TextDecoder().decode(a.data);
@@ -399,9 +441,9 @@ describe("Series", () => {
     });
   });
 
-  describe("generateTimeStamps", () => {
-    it("should correctly generate timestamps", () => {
-      const ts = Series.generateTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
+  describe("createTimeStamps", () => {
+    it("should correctly create timestamps", () => {
+      const ts = Series.createTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
       expect(ts.timeRange).toEqual(
         new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6)),
       );

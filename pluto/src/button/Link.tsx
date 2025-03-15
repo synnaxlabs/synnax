@@ -35,12 +35,12 @@ export const Link = <L extends Text.Level = "h1">({
   href,
   target,
   autoFormat = false,
-  ...props
+  ...rest
 }: LinkProps<L>): ReactElement => {
   let newHref = href;
   if (autoFormat && href != null && !href.includes(SCHEME_SEPARATOR))
     // @ts-expect-error - generic element issues
     newHref = HTTP_SECURE_SCHEME + newHref;
   // @ts-expect-error - generic element issues
-  return <Button<"a"> el="a" href={newHref} target={target} {...props} />;
+  return <Button<"a"> el="a" href={newHref} target={target} {...rest} />;
 };

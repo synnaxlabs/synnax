@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation } from "@synnaxlabs/alamos";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  useContext,
-} from "react";
+import { createContext, type PropsWithChildren, type ReactElement, use } from "react";
 
 import { Aether } from "@/aether";
 import { alamos } from "@/alamos/aether";
@@ -28,14 +23,13 @@ const Context = createContext<ContextValue>({
 
 export interface ProviderProps extends PropsWithChildren, alamos.ProviderState {}
 
-export const useInstrumentation = (): Instrumentation =>
-  useContext(Context).instrumentation;
+export const useInstrumentation = () => use(Context).instrumentation;
 
-export const Provider = ({ children, ...props }: ProviderProps): ReactElement => {
+export const Provider = ({ children, ...rest }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: alamos.Provider.TYPE,
     schema: alamos.providerStateZ,
-    state: props,
+    state: rest,
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };

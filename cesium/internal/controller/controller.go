@@ -264,7 +264,7 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Concurrency = override.Numeric(c.Concurrency, other.Concurrency)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -311,7 +311,7 @@ var (
 	DefaultGateConfig = GateConfig{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c GateConfig) Validate() error {
 	v := validate.New("gate_config")
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
@@ -319,7 +319,7 @@ func (c GateConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c GateConfig) Override(other GateConfig) GateConfig {
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Subject.Key = override.String(c.Subject.Key, other.Subject.Key)

@@ -29,8 +29,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cockroachdb/pebble"
-	"github.com/cockroachdb/pebble/vfs"
+	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
@@ -145,7 +145,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	if *cfg.MemBacked {
+	if cfg.MemBacked != nil && *cfg.MemBacked {
 		cfg.Dirname = ""
 	}
 	return cfg
@@ -302,8 +302,23 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	if cfg.KVEngine != PebbleKV {
 		return nil, errors.Newf("[storage]- unsupported key-value engine: %s", cfg.KVEngine)
 	}
+
 	dirname := filepath.Join(cfg.Dirname, kvDirname)
-	db, err := pebble.Open(dirname, &pebble.Options{FS: fs})
+	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
+	if err != nil {
+		return nil, err
+	}
+	if requiresMigration {
+		cfg.Instrumentation.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
+		if err := pebblekv.Migrate(dirname); err != nil {
+			return nil, err
+		}
+	}
+
+	db, err := pebble.Open(dirname, &pebble.Options{
+		FS:                 fs,
+		FormatMajorVersion: pebble.FormatNewest,
+	})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,

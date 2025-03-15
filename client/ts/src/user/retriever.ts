@@ -17,7 +17,7 @@ const reqZ = z.object({
   keys: keyZ.array().optional(),
   usernames: z.string().array().optional(),
 });
-type Request = z.infer<typeof reqZ>;
+interface Request extends z.infer<typeof reqZ> {}
 const resZ = z.object({ users: nullableArrayZ(userZ) });
 const ENDPOINT = "/user/retrieve";
 

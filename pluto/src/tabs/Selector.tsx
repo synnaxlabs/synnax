@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, type IconProps } from "@synnaxlabs/media";
 import {
   type DragEventHandler,
   type MouseEventHandler,
@@ -20,8 +20,8 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Menu } from "@/menu";
-import { useContext } from "@/tabs/Tabs";
 import { type Spec } from "@/tabs/types";
+import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
@@ -40,7 +40,7 @@ export const Selector = ({
   size = "medium",
   direction = "x",
   contextMenu,
-  ...props
+  ...rest
 }: SelectorProps): ReactElement | null => {
   const {
     tabs,
@@ -63,7 +63,7 @@ export const Selector = ({
       onDrop={onDrop}
       empty
       direction={direction}
-      {...props}
+      {...rest}
     >
       <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
         {tabs.map((tab) => (
@@ -104,6 +104,22 @@ export const Selector = ({
   return content;
 };
 
+interface CloseIconProps extends IconProps {
+  unsavedChanges?: boolean;
+}
+
+const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement => {
+  const closeIcon = <Icon.Close className={CSS.BEM(CLS, "icon", "close")} {...props} />;
+  if (unsavedChanges)
+    return (
+      <>
+        <Icon.Circle className={CSS.BEM(CLS, "icon", "unsaved")} />
+        {closeIcon}
+      </>
+    );
+  return closeIcon;
+};
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -118,6 +134,7 @@ const SelectorButton = ({
   icon,
   size,
   editable = true,
+  unsavedChanges = false,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -185,8 +202,12 @@ const SelectorButton = ({
         level={Text.ComponentSizeLevels[size]}
       />
       {closable && onClose != null && (
-        <Button.Icon onClick={handleClose}>
-          <Icon.Close aria-label="pluto-tabs__close" />
+        <Button.Icon
+          aria-label="pluto-tabs__close"
+          onClick={handleClose}
+          className={CSS.BEM(CLS, "btn", "close")}
+        >
+          <CloseIcon unsavedChanges={unsavedChanges} />
         </Button.Icon>
       )}
     </Align.Pack>
@@ -218,11 +239,11 @@ const Name = ({
   name,
   tabKey,
   editable = true,
-  ...props
+  ...rest
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text className={NAME_CLS} noWrap {...props}>
+      <Text.Text className={NAME_CLS} noWrap {...rest}>
         {name}
       </Text.Text>
     );
@@ -233,7 +254,7 @@ const Name = ({
         onChange={(newText: string) => onRename(tabKey, newText)}
         value={name}
         noWrap
-        {...props}
+        {...rest}
       />
     </div>
   );

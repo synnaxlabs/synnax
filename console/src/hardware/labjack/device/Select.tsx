@@ -7,83 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Select, Text } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { Common } from "@/hardware/common";
+import { CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
+import { MAKE } from "@/hardware/labjack/device/types";
 
-import {
-  type ChannelType,
-  DEVICES,
-  type InputChannelType,
-  type ModelKey,
-  type OutputChannelType,
-  type Port,
-} from "@/hardware/labjack/device/types";
-
-export interface SelectPortProps extends Select.SingleProps<string, Port> {
-  model: ModelKey;
-  channelType: ChannelType;
-}
-
-export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) => {
-  const data = DEVICES[model].ports[channelType === "TC" ? "AI" : channelType];
-  return (
-    <Select.Single<string, Port>
-      data={data}
-      columns={[
-        { key: "key", name: "Port" },
-        {
-          key: "aliases",
-          name: "Aliases",
-          render: ({ entry: { aliases } }) => (
-            <Text.Text level="small" shade={8}>
-              {aliases.join(", ")}
-            </Text.Text>
-          ),
-        },
-      ]}
-      allowNone={false}
-      entryRenderKey="key"
-      {...props}
-    />
-  );
-};
-
-const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
-  { key: "AI", name: "Analog In" },
-  { key: "DI", name: "Digital In" },
-  { key: "TC", name: "Thermocouple" },
-];
-
-export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
-  InputChannelType,
-  KeyedNamed<InputChannelType>
->({
-  fieldKey: "type",
-  fieldProps: { label: "Channel Type" },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
-    data: INPUT_CHANNEL_TYPES,
-  },
-});
-
-type OutputChannelTypeEntry = KeyedNamed<OutputChannelType>;
-
-const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
-  { key: "AO", name: "Analog" },
-  { key: "DO", name: "Digital" },
-];
-
-export interface SelectOutputChannelTypeProps
-  extends Omit<
-    Select.ButtonProps<OutputChannelType, OutputChannelTypeEntry>,
-    "data" | "entryRenderKey"
-  > {}
-
-export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
-  <Select.Button<OutputChannelType, OutputChannelTypeEntry>
-    data={OUTPUT_CHANNEL_TYPES}
-    entryRenderKey="name"
-    {...props}
+export const Select = () => (
+  <Common.Device.Select
+    configureLayout={CONFIGURE_LAYOUT}
+    emptyContent="No LabJack devices connected."
+    make={MAKE}
   />
 );

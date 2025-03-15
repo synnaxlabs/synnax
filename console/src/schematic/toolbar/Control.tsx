@@ -1,4 +1,5 @@
 import { Align, Input } from "@synnaxlabs/pluto";
+import { control } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSelectAuthority } from "@/schematic/selectors";
@@ -14,6 +15,7 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
         <Input.Numeric
           value={authority}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
+          bounds={control.Authority.BOUNDS}
         />
       </Input.Item>
     </Align.Space>

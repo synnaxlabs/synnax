@@ -77,7 +77,7 @@ const InternalOrientation = ({
   onChange,
   className,
   hideInner = false,
-  ...props
+  ...rest
 }: SelectOrientationProps): ReactElement => {
   const { inner } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>
@@ -92,7 +92,7 @@ const InternalOrientation = ({
       align="center"
       justify="center"
       empty
-      {...props}
+      {...rest}
     >
       <Button
         style={showStyle}
@@ -130,15 +130,11 @@ export interface ButtonProps extends Omit<CoreButton.IconProps, "children"> {
   selected: boolean;
 }
 
-export const Button = ({
-  selected,
-  className,
-  ...props
-}: ButtonProps): ReactElement => (
+export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
   <CoreButton.Icon
     variant="text"
     className={CSS(className, CSS.selected(selected))}
-    {...props}
+    {...rest}
   >
     <div className="symbol"></div>
   </CoreButton.Icon>

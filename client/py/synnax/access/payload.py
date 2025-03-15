@@ -9,8 +9,11 @@
 
 
 from __future__ import annotations
+
 from uuid import UUID
+
 from freighter import Payload
+
 from synnax.ontology.payload import ID
 
 ALLOW_ALL = ID(type="allow_all", key="")

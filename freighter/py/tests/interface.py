@@ -13,7 +13,7 @@ from typing import Type
 
 from pydantic import BaseModel
 
-from freighter import register_exception, ExceptionPayload
+from freighter import ExceptionPayload, register_exception
 
 
 class Message(BaseModel):

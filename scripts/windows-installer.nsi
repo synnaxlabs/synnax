@@ -31,10 +31,13 @@ Section "MainSection" SEC01
     CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     
-    # Add to PATH (at the beginning instead of the end)
+    # Add to PATH (only if it doesn't already exist)
     DetailPrint "Adding to PATH..."
     FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', '$INSTDIR;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
+    FileWrite $0 '$currentPath = [Environment]::GetEnvironmentVariable("Path", "User");$\r$\n'
+    FileWrite $0 'if (-not ($currentPath -split ";" -contains "$INSTDIR")) {$\r$\n'
+    FileWrite $0 '    [Environment]::SetEnvironmentVariable("Path", "$INSTDIR;" + $currentPath, "User")$\r$\n'
+    FileWrite $0 '}'
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
     Delete "$INSTDIR\add-path.ps1"

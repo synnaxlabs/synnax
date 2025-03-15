@@ -90,16 +90,17 @@ synnax/pkg/service/hardware/embedded/assets/**
 
 **/bin/**
 !**/bin/.gitkeep
+**/binaries/**
 
 # |||| DEPENDENCIES ||||
 
 mbedtls-*
 !mbedtls-install
 mbedtls-install/**
-driver/vendor/mbedtls/mbedtls-install/**
-driver/vendor/open62541/mbedtls-install/**
+vendor/mbedtls/mbedtls-install/**
+vendor/open62541/mbedtls-install/**
 !mbedtls-install/.gitkeep
-driver/vendor/mbedtls/mbedtls
+vendor/mbedtls/mbedtls
 
 # |||| PROFILING ||||
 **/mem.out

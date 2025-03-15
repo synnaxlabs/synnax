@@ -49,7 +49,7 @@ export const Item = ({
   padHelpText = false,
   helpTextVariant,
   showHelpText = true,
-  ...props
+  ...rest
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
   const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
@@ -59,7 +59,7 @@ export const Item = ({
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
-        {(padHelpText || (helpText != null && helpText.length > 0)) && (
+        {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
       </Align.Space>
@@ -80,7 +80,7 @@ export const Item = ({
       direction={direction}
       size={size}
       align={maybeDefaultAlignment(align, direction)}
-      {...props}
+      {...rest}
     >
       {showLabel_ && <Label required={required}>{label}</Label>}
       {inputAndHelp}

@@ -56,7 +56,7 @@ export const Drawer = ({
   collapseThreshold = 0.65,
   className,
   onResize,
-  ...props
+  ...rest
 }: DrawerProps): ReactElement | null => {
   const dir = location.direction(loc_);
   const handleCollapse = useCallback(
@@ -87,7 +87,7 @@ export const Drawer = ({
       minSize={minSize}
       maxSize={maxSize}
       initialSize={initialSize}
-      {...props}
+      {...rest}
     >
       {content}
     </Resize.Single>

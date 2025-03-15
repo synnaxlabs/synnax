@@ -22,6 +22,7 @@ export { Dropdown } from "@/dropdown";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";
+export { Rack } from "@/hardware/rack";
 export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";

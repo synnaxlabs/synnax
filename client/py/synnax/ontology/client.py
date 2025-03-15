@@ -8,11 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
-from freighter import Payload, UnaryClient, send_required, Empty
-from synnax.ontology.payload import ID, Resource, Relationship, CrudeID
-from synnax.ontology.group import Client as GroupClient
-from synnax.util.normalize import normalize
+
+from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import Field
+
+from synnax.ontology.group import Client as GroupClient
+from synnax.ontology.payload import ID, CrudeID, Relationship, Resource
+from synnax.util.normalize import normalize
 
 
 class RetrieveReq(Payload):

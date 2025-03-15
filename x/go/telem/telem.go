@@ -12,12 +12,13 @@ package telem
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/clamp"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/clamp"
 )
 
 const (
@@ -42,6 +43,8 @@ func (ts *TimeStamp) MarshalJSON() ([]byte, error) {
 
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
+
+func Since(ts TimeStamp) TimeSpan { return ts.Span(Now()) }
 
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
@@ -189,7 +192,7 @@ func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
 // RawString displays the time range with both timestamps in raw string format.
 func (tr TimeRange) RawString() string {
-	return tr.Start.String() + " - " + tr.End.String()
+	return tr.Start.RawString() + " - " + tr.End.RawString()
 }
 
 // String displays the time range with both timestamps as formatted time.
@@ -280,60 +283,70 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
-// String returns the timespan in a formated duration.
-// String implements fmt.Stringer.
 // String returns a string representation of the TimeSpan
 func (ts TimeSpan) String() string {
-	if ts == TimeSpanMax {
-		return "max time span"
-	}
-	positiveTS := ts
-	if positiveTS == 0 {
+	adjusted := ts
+	if adjusted == 0 {
 		return "0s"
 	}
 
 	var parts []string
-
-	if positiveTS < 0 {
+	if adjusted < 0 {
 		parts = append(parts, "-")
-		positiveTS = -ts
+		adjusted = -ts
 	}
 
-	if positiveTS >= Day {
-		days := positiveTS / Day
+	totalDays := adjusted.Truncate(Day)
+	totalHours := adjusted.Truncate(Hour)
+	totalMinutes := adjusted.Truncate(Minute)
+	totalSeconds := adjusted.Truncate(Second)
+	totalMilliseconds := adjusted.Truncate(Millisecond)
+	totalMicroseconds := adjusted.Truncate(Microsecond)
+	totalNanoseconds := adjusted
+
+	days := totalDays / Day
+	hours := (totalHours - totalDays) / Hour
+	minutes := (totalMinutes - totalHours) / Minute
+	seconds := (totalSeconds - totalMinutes) / Second
+	milliseconds := (totalMilliseconds - totalSeconds) / Millisecond
+	microseconds := (totalMicroseconds - totalMilliseconds) / Microsecond
+	nanoseconds := totalNanoseconds - totalMicroseconds
+
+	if days != 0 {
 		parts = append(parts, fmt.Sprintf("%dd", days))
-		positiveTS -= days * Day
 	}
-	if positiveTS >= Hour {
-		hours := positiveTS / Hour
+	if hours != 0 {
 		parts = append(parts, fmt.Sprintf("%dh", hours))
-		positiveTS -= hours * Hour
 	}
-	if positiveTS >= Minute {
-		minutes := positiveTS / Minute
+	if minutes != 0 {
 		parts = append(parts, fmt.Sprintf("%dm", minutes))
-		positiveTS -= minutes * Minute
 	}
-	if positiveTS >= Second {
-		seconds := positiveTS / Second
+	if seconds != 0 {
 		parts = append(parts, fmt.Sprintf("%ds", seconds))
-		positiveTS -= seconds * Second
 	}
-	if positiveTS >= Millisecond {
-		milliseconds := positiveTS / Millisecond
+	if milliseconds != 0 {
 		parts = append(parts, fmt.Sprintf("%dms", milliseconds))
-		positiveTS -= milliseconds * Millisecond
 	}
-	if positiveTS >= Microsecond {
-		microseconds := positiveTS / Microsecond
+	if microseconds != 0 {
 		parts = append(parts, fmt.Sprintf("%dµs", microseconds))
-		positiveTS -= microseconds * Microsecond
 	}
-	if positiveTS > 0 {
-		parts = append(parts, fmt.Sprintf("%dns", positiveTS))
+	if nanoseconds != 0 {
+		parts = append(parts, fmt.Sprintf("%dns", nanoseconds))
+	}
+
+	if len(parts) == 0 {
+		return "0ns"
 	}
 
 	return strings.Join(parts, " ")
+}
+
+// Truncate returns a new TimeSpan that is truncated to the nearest multiple of the given TimeSpan.
+func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
+	if unit == 0 {
+		return ts
+	}
+	return ts / unit * unit
 }
 
 // RawString returns the timespan in nanoseconds.

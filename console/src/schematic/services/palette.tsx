@@ -19,7 +19,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",
   name: "Create Schematic",
   icon: <Icon.Schematic />,
-  onSelect: ({ placeLayout }) => placeLayout(Schematic.create({})),
+  onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
   visible: (state) => Schematic.selectHasPermission(state),
 };
 

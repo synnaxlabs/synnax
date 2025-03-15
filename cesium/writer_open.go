@@ -86,6 +86,9 @@ type WriterConfig struct {
 	// to AlwaysIndexPersistOnAutoCommit.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
+	// OpenSignal is a channel that will be closed once the writer is successfully opened.
+	// [OPTIONAL] - Defaults to nil.
+	OpenSignal chan<- struct{}
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -96,9 +99,7 @@ var (
 
 func DefaultWriterConfig() WriterConfig {
 	return WriterConfig{
-		ControlSubject: control.Subject{
-			Key: uuid.New().String(),
-		},
+		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.Absolute},
 		ErrOnUnauthorized:        config.False(),
 		SendAuthErrors:           config.False(),
@@ -135,6 +136,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.OpenSignal = override.Nil(c.OpenSignal, other.OpenSignal)
 	return c
 }
 
@@ -220,8 +222,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	// ensures that we provide a valid domain alignment to all unary writers for a
 	// particular index group.
 	for i, key := range cfg.Channels {
-		u, uOk := db.unaryDBs[key]
-		v, vOk := db.virtualDBs[key]
+		u, uOk := db.mu.unaryDBs[key]
+		v, vOk := db.mu.virtualDBs[key]
 		if !vOk && !uOk {
 			return nil, core.NewErrChannelNotFound(key)
 		}
@@ -293,7 +295,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 
 	// On the second pass, we open all domain indexed writers that have indexes.
 	for i, key := range cfg.Channels {
-		u, uOk := db.unaryDBs[key]
+		u, uOk := db.mu.unaryDBs[key]
 		// Ignore virtual, index, and rate based channels.
 		if !uOk || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
@@ -333,7 +335,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
 		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.digests.key},
+		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key},
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
@@ -353,7 +355,7 @@ func (db *DB) openDomainIdxWriter(
 	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, ok := db.unaryDBs[idxKey]
+	u, ok := db.mu.unaryDBs[idxKey]
 	if !ok {
 		return nil, core.NewErrChannelNotFound(idxKey)
 	}

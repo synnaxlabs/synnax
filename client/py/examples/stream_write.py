@@ -14,6 +14,7 @@ applications, such as data acquisition from a sensor.
 """
 
 import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide

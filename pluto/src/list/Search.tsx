@@ -13,9 +13,10 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input } from "@/input";
-import { useDataUtilContext } from "@/list/Data";
-import { useInfiniteUtilContext } from "@/list/Infinite";
+import { type Input } from "@/input";
+import { Text as InputText } from "@/input/Text";
+import { useDataUtils } from "@/list/Data";
+import { useInfiniteUtils } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp } from "@/util/renderProp";
@@ -39,19 +40,19 @@ const STYLE = {
   height: 150,
 };
 
-const NO_RESULTS = (
+const NoResults = (): ReactElement => (
   <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
     No Results
   </Status.Text.Centered>
 );
 
-const NO_TERM = (
+const NoTerm = (): ReactElement => (
   <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
     Type to search
   </Status.Text.Centered>
 );
 
-const LOADING = (
+const Loading = (): ReactElement => (
   <Status.Text.Centered level="h2" variant="disabled" hideIcon style={STYLE}>
     <Icon.Loading />
   </Status.Text.Centered>
@@ -88,13 +89,13 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const promiseOut = useRef<boolean>(false);
   const hasMore = useRef(true);
   const offset = useRef(0);
-  const { setSourceData, setEmptyContent, getDefaultEmptyContent } = useDataUtilContext<
+  const { setSourceData, setEmptyContent, getDefaultEmptyContent } = useDataUtils<
     K,
     E
   >();
-  const { setHasMore, setOnFetchMore } = useInfiniteUtilContext();
+  const { setHasMore, setOnFetchMore } = useInfiniteUtils();
 
-  useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
+  useEffect(() => setEmptyContent(<NoTerm />), [setEmptyContent]);
 
   const handleFetchMore = useCallback(
     (reset: boolean = false) => {
@@ -105,12 +106,13 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         setHasMore(true);
       }
       promiseOut.current = true;
-      setEmptyContent(LOADING);
+      setEmptyContent(<Loading />);
       const fn = async () => {
         try {
           let r = await searcher.page(offset.current, pageSize);
           r = filter(r);
-          if (r.length === 0) setEmptyContent(getDefaultEmptyContent() ?? NO_RESULTS);
+          if (r.length === 0)
+            setEmptyContent(getDefaultEmptyContent() ?? <NoResults />);
           if (r.length < pageSize) {
             hasMore.current = false;
             setHasMore(false);
@@ -141,11 +143,11 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         handleFetchMore(true);
         return;
       }
-      if (searcher == null) return setEmptyContent(NO_RESULTS);
+      if (searcher == null) return setEmptyContent(<NoResults />);
       searcher
         .search(term)
         .then((d) => {
-          if (d.length === 0) setEmptyContent(NO_RESULTS);
+          if (d.length === 0) setEmptyContent(<NoResults />);
           setSourceData(filter(d));
         })
         .catch((e) => {
@@ -172,10 +174,10 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 const searchInput = (props: Input.Control<string>): ReactElement => (
-  <Input.Text placeholder="Search" {...props} />
+  <InputText placeholder="Search" {...props} />
 );
 
 export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children = searchInput,
-  ...props
-}: SearchProps<K, E>): ReactElement | null => children(useSearch(props));
+  ...rest
+}: SearchProps<K, E>): ReactElement | null => children(useSearch(rest));

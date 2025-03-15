@@ -10,11 +10,10 @@
 import { color } from "@/color/core";
 
 /**
- * Generates a set of CSS variables representing different opacities of a given
- * color.
+ * Creates a set of CSS variables representing different opacities of a given color.
  * @param prefix The prefix to use for the CSS variable names.
- * @param hex The color to generate opacities for.
- * @param opacities A list of the opacities to generate
+ * @param hex The color to create opacities for.
+ * @param opacities A list of the opacities to create
  * @returns Record mapping the CSS variable names to their values.
  */
 export const createHexOpacityVariants = (

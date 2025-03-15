@@ -32,7 +32,7 @@ export interface Element extends aether.Component {
 
 interface InternalState {
   renderCtx: render.Context;
-  addStatus: status.AddStatusFn;
+  addStatus: status.Adder;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -48,7 +48,7 @@ export class Diagram extends aether.Composite<
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
     this.internal.renderCtx = render.Context.use(ctx);
-    this.internal.addStatus = status.useAggregator(ctx);
+    this.internal.addStatus = status.useAdder(ctx);
     render.Controller.control(ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }

@@ -29,7 +29,7 @@ export const TimeRangeChip = ({
   level = "p",
   shade = 7,
   showSpan = false,
-  ...props
+  ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
   const startFormat = startTS.isToday ? "time" : "dateTime";
@@ -44,7 +44,7 @@ export const TimeRangeChip = ({
       size="small"
       className={CSS(CSS.B("time-range-chip"))}
       align="center"
-      {...props}
+      {...rest}
     >
       {startTS.isToday && (
         <Text.Text level={level} shade={shade} weight={450}>

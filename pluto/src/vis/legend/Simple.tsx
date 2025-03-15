@@ -48,7 +48,7 @@ export const legendSwatches = (
           onVisibleChange={onVisibleChange}
           allowChange={onEntryChange != null}
           draggable={false}
-          size="small"
+          size="tiny"
         />
         <Text.MaybeEditable
           level="small"
@@ -64,7 +64,7 @@ export const Simple = ({
   onEntryChange,
   position,
   onPositionChange,
-  ...props
+  ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState<boolean>(false);
 
@@ -72,7 +72,7 @@ export const Simple = ({
 
   return (
     <Container
-      {...props}
+      {...rest}
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}

@@ -67,7 +67,7 @@ var _ = Describe("Writer", func() {
 			})
 		}
 	})
-	Describe("open Errors", Ordered, func() {
+	Describe("Open Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func() { s = gatewayOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
@@ -99,6 +99,7 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		ShouldNotLeakGoroutinesDuringEach()
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
 			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 				Keys:  s.keys,

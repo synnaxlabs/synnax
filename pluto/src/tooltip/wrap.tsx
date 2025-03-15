@@ -43,9 +43,9 @@ export const wrap = <P extends {} = {}>(Component: FC<P>): FC<P & WrapProps> => 
     tooltipDelay,
     tooltip,
     tooltipLocation,
-    ...props
+    ...rest
   }: P & WrapProps): ReactElement => {
-    const c = <Component {...(props as unknown as P)} />;
+    const c = <Component {...(rest as unknown as P)} />;
     if (tooltip == null) return c;
     return (
       <Dialog delay={tooltipDelay} location={tooltipLocation}>

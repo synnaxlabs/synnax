@@ -7,148 +7,189 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <thread>
+
+/// external
 #include "gtest/gtest.h"
+
+/// module
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xtest/xtest.h"
 
 
 /// @brief it should correctly write a frame of telemetry to the DB.
-TEST(FramerTests, testWriteBasic) {
+TEST(WriterTests, testWriteBasic) {
     auto client = new_test_client();
-    auto [time, tErr] = client.channels.create(
+    auto time = ASSERT_NIL_P(client.channels.create(
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
-    );
-    ASSERT_FALSE(tErr) << tErr.message();
-    auto [data, dErr] = client.channels.create(
+    ));
+    auto data = ASSERT_NIL_P(client.channels.create(
         "data",
-        synnax::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
-    );
-    ASSERT_FALSE(dErr) << dErr.message();
+    ));
 
-    auto now = synnax::TimeStamp::now();
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{time.key, data.key},
+    auto now = telem::TimeStamp::now();
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
+        synnax::keys_from_channels(time, data),
         now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"},
-    });
-    ASSERT_FALSE(wErr) << wErr.message();
+        std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"},
+        }));
 
     auto frame = synnax::Frame(2);
-    frame.add(
+    frame.emplace(
         time.key,
-        synnax::Series(std::vector<std::uint64_t>{
-                           (now.value + synnax::SECOND).value,
-                           (now + synnax::SECOND * 2).value,
-                           (now + synnax::SECOND * 3).value,
-                           (now + synnax::SECOND * 4).value,
-                           (now + synnax::SECOND * 5).value,
-                           (now + synnax::SECOND * 6).value,
-                           (now + synnax::SECOND * 7).value,
-                           (now + synnax::SECOND * 8).value,
-                       }, synnax::TIMESTAMP)
+        telem::Series(std::vector<telem::TimeStamp>{
+            (now + telem::SECOND),
+            (now + telem::SECOND * 2),
+            (now + telem::SECOND * 3),
+            (now + telem::SECOND * 4),
+            (now + telem::SECOND * 5),
+            (now + telem::SECOND * 6),
+            (now + telem::SECOND * 7),
+            (now + telem::SECOND * 8),
+        })
     );
-    frame.add(
+    frame.emplace(
         data.key,
-        synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+        telem::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );
 
 
     ASSERT_TRUE(writer.write(frame));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
-    ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);
-    auto err = writer.close();
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_EQ(end, now + (telem::SECOND * 8 + 1));
+    ASSERT_NIL(writer.close());
 }
 
-TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
+TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
     auto client = new_test_client();
-    auto [time, t_err] = client.channels.create(
+    auto time = ASSERT_NIL_P(client.channels.create(
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
+    ));
+    auto now = telem::TimeStamp::now();
+    ASSERT_OCCURRED_AS_P(
+        client.telem.open_writer(synnax::WriterConfig{
+            std::vector<synnax::ChannelKey>{time.key, 1000},
+            now,
+            std::vector{telem::AUTH_ABSOLUTE},
+            telem::ControlSubject{"test_writer"},
+            }),
+        xerrors::NOT_FOUND
     );
-    ASSERT_FALSE(t_err) << t_err.message();
-    auto now = synnax::TimeStamp::now();
-    auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{time.key, 1000},
-        now,
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"},
-    });
-    ASSERT_TRUE(w_err) << w_err.message();
-    ASSERT_TRUE(w_err.matches(synnax::QUERY_ERROR));
 }
 
-TEST(FramerTests, testWriteToUnspecifiedChannel) {
+TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto client = new_test_client();
-    auto [time, t_err] = client.channels.create(
+    auto time = ASSERT_NIL_P(client.channels.create(
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
-    );
-    ASSERT_FALSE(t_err) << t_err.message();
-    auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{time.key},
-        synnax::TimeStamp::now(),
-        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
-        synnax::ControlSubject{"test_writer"},
-    });
-    ASSERT_FALSE(w_err) << w_err.message();
+    ));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
+        std::vector{time.key},
+        telem::TimeStamp::now(),
+        std::vector{telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"},
+        }));
     auto frame = synnax::Frame(1);
-    frame.add(
+    frame.emplace(
         1000,
-        synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+        telem::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );
     ASSERT_TRUE(writer.write(frame));
     auto [end, ok] = writer.commit();
     ASSERT_FALSE(ok);
     auto err = writer.error();
-    ASSERT_TRUE(err) << err.message();
-    ASSERT_TRUE(err.matches(synnax::VALIDATION_ERROR)) << err.message();
+    ASSERT_TRUE(err);
+    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-TEST(FramerTests, testWriteErrOnUnauthorized) {
+TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
-    auto [time, t_err] = client.channels.create(
+    auto time = ASSERT_NIL_P(client.channels.create(
         "time",
-        synnax::TIMESTAMP,
+        telem::TIMESTAMP_T,
         0,
         true
-    );
-    ASSERT_FALSE(t_err) << t_err.message();
-    auto [data, d_err] = client.channels.create(
+    ));
+    auto data = ASSERT_NIL_P(client.channels.create(
         "data",
-        synnax::SY_UINT8,
+        telem::UINT8_T,
         time.key,
         false
-    );
-    auto [w1, w_err] = client.telem.openWriter(synnax::WriterConfig{
+    ));
+    auto w1 = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
         .channels = std::vector{time.key, data.key},
-        .start = synnax::TimeStamp::now(),
-        .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
-        .subject = synnax::ControlSubject{"test_writer_1"},
+        .start = telem::TimeStamp::now(),
+        .authorities = std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE},
+        .subject = telem::ControlSubject{"test_writer_1"},
+        .err_on_unauthorized = true
+        }));
+    auto [w2, err] = client.telem.open_writer(synnax::WriterConfig{
+        .channels = std::vector{time.key, data.key},
+        .start = telem::TimeStamp::now(),
+        .authorities = std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE},
+        .subject = telem::ControlSubject{"test_writer_2"},
         .err_on_unauthorized = true
     });
-    ASSERT_FALSE(w_err) << w_err.message();
-    auto [w2, w2_err] = client.telem.openWriter(synnax::WriterConfig{
-        .channels = std::vector{time.key, data.key},
-        .start = synnax::TimeStamp::now(),
-        .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
-        .subject = synnax::ControlSubject{"test_writer_2"},
+    ASSERT_TRUE(err.matches(xerrors::UNAUTHORIZED));
+    ASSERT_TRUE(err.message().find("test_writer_1") != std::string::npos);
+}
+
+TEST(WriterTests, testSetAuthority) {
+    auto client = new_test_client();
+    auto time = ASSERT_NIL_P(client.channels.create(
+        "time",
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data1 = ASSERT_NIL_P(client.channels.create(
+        "data1",
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto data2 = ASSERT_NIL_P(client.channels.create(
+        "data2",
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
+        .channels = std::vector{time.key, data1.key, data2.key},
+        .start = telem::TimeStamp::now(),
+        .authorities = std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE, telem::
+        AUTH_ABSOLUTE},
+        .subject = telem::ControlSubject{"test_writer"},
         .err_on_unauthorized = true
-    });
-    ASSERT_TRUE(w2_err) << w2_err.message();
-    ASSERT_TRUE(w2_err.matches(synnax::UNAUTHORIZED_ERROR));
-    ASSERT_TRUE(w2_err.message().find("test_writer_1") != std::string::npos);
-    ASSERT_TRUE(w2.close());
+        }));
+
+    // Test setting authority for all channels
+    ASSERT_TRUE(writer.set_authority(0));
+
+    // Test setting authority for a single channel
+    ASSERT_TRUE(writer.set_authority(data1.key, telem::AUTH_ABSOLUTE));
+
+    // Test setting different authorities for multiple channels
+    ASSERT_TRUE(writer.set_authority(
+        std::vector{time.key, data2.key},
+        std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE}
+    ));
+
+    ASSERT_NIL(writer.close());
 }

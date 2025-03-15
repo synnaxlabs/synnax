@@ -12,8 +12,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, conint
 
+from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
 from synnax.telem import CrudeRate
-from synnax.hardware.task import MetaTask, Task, StarterStopperMixin, JSONConfigMixin
 
 
 class Channel(BaseModel):

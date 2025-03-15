@@ -16,7 +16,7 @@ const REGISTER_USER_COMMAND: Palette.Command = {
   icon: <Icon.User />,
   name: "Register a User",
   key: "register-user",
-  onSelect: ({ placeLayout }) => placeLayout(User.registerLayout({})),
+  onSelect: ({ placeLayout }) => placeLayout(User.REGISTER_LAYOUT),
   visible: (state) => User.selectHasPermission(state),
 };
 

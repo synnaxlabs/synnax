@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax import TimeSpan, TimeRange, TimeStamp, UnauthorizedError
+from synnax import TimeRange, TimeSpan, TimeStamp, UnauthorizedError
 from tests.eventually import assert_eventually
 
 

@@ -12,24 +12,24 @@ import { type ReactElement } from "react";
 
 import { type TriggerConfig } from "@/palette/types";
 
-const TOOLTIP_TEXT_LEVEL: Text.Level = "small";
-
 export interface TooltipContentProps {
-  triggers: TriggerConfig;
+  triggerConfig: TriggerConfig;
 }
 
-export const TooltipContent = ({ triggers }: TooltipContentProps): ReactElement => (
+export const TooltipContent = ({
+  triggerConfig: { command, search },
+}: TooltipContentProps): ReactElement => (
   <Align.Space size="small">
     <Align.Space direction="x" justify="spaceBetween" align="center">
-      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>
+      <Text.Text level="small">Search</Text.Text>
       <Align.Space direction="x" empty size={0.5}>
-        <Triggers.Text trigger={triggers.resource[0]} level={TOOLTIP_TEXT_LEVEL} />
+        <Triggers.Text trigger={search[0]} level="small" />
       </Align.Space>
     </Align.Space>
     <Align.Space direction="x" justify="spaceBetween" align="center">
-      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text.Text>
+      <Text.Text level="small">Command Palette</Text.Text>
       <Align.Space direction="x" size={0.5}>
-        <Triggers.Text trigger={triggers.command[0]} level={TOOLTIP_TEXT_LEVEL} />
+        <Triggers.Text trigger={command[0]} level="small" />
       </Align.Space>
     </Align.Space>
   </Align.Space>

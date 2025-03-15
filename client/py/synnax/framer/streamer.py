@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import overload
+
 from freighter import (
     EOF,
     AsyncStream,
@@ -22,7 +24,6 @@ from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
-from typing import overload
 
 
 class _Request(Payload):

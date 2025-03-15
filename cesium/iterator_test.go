@@ -24,6 +24,7 @@ import (
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakRoutinesJustBeforeEach()
 			var (
 				db      *cesium.DB
 				fs      xfs.FS

@@ -41,13 +41,13 @@ const ALGOLIA_HEADERS = {
 };
 
 export const Search = (): ReactElement => {
-  const d = Dropdown.use();
+  const { close, open, toggle, visible } = Dropdown.use();
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") d.close();
+      if (e.key === "Escape") close();
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        d.open();
+        open();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -55,10 +55,15 @@ export const Search = (): ReactElement => {
   }, []);
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog variant="modal" {...d} className="search-box">
+      <Dropdown.Dialog
+        variant="modal"
+        close={close}
+        visible={visible}
+        className="search-box"
+      >
         <Button.Button
           startIcon={<Icon.Search />}
-          onClick={d.toggle}
+          onClick={toggle}
           variant="outlined"
           justify="center"
           size="large"
@@ -66,15 +71,11 @@ export const Search = (): ReactElement => {
         >
           Search
         </Button.Button>
-        <SearchDialogContent d={d} />
+        <SearchDialogContent close={close} visible={visible} />
       </Dropdown.Dialog>
     </Triggers.Provider>
   );
 };
-
-interface SearchDialogContentProps {
-  d: Dropdown.DialogProps;
-}
 
 const ICONS: Record<string, ReactElement> = {
   "python-client": <Icon.Python />,
@@ -134,7 +135,10 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
 
 const searchListItem = componentRenderProp(SearchListItem);
 
-const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
+interface SearchDialogContentProps
+  extends Pick<Dropdown.DialogProps, "close" | "visible"> {}
+
+const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [value, setValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +166,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
   useEffect(() => {
     handleSearch("");
     inputRef.current?.focus();
-  }, [d.visible]);
+  }, [visible]);
 
   return (
     <List.List
@@ -176,11 +180,11 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       }
     >
       <List.Selector<string, SearchResult>
-        value={""}
+        value=""
         allowMultiple={false}
         onChange={(k: string) => {
           document.getElementById(k)?.click();
-          d.close();
+          close();
         }}
       >
         <List.Hover>

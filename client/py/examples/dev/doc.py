@@ -1,5 +1,6 @@
-import synnax as sy
 import numpy as np
+
+import synnax as sy
 
 client = sy.Synnax()
 

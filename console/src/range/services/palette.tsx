@@ -16,7 +16,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "define-range",
   name: "Create a Range",
   icon: <Icon.Range />,
-  onSelect: ({ placeLayout }) => placeLayout(Range.createLayout({})),
+  onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
 export const COMMANDS = [CREATE_COMMAND];

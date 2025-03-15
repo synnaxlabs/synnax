@@ -61,9 +61,9 @@ const RenderTag: FC<Select.MultipleTagProps<label.Key, label.Label>> = ({
   loading,
   entryKey: _,
   entryRenderKey: __,
-  ...props
+  ...rest
 }) => (
-  <Tag.Tag color={entry?.color} {...props}>
+  <Tag.Tag color={entry?.color} {...rest}>
     {entry?.name}
   </Tag.Tag>
 );
@@ -74,7 +74,7 @@ export const SelectMultiple = ({
   onChange,
   className,
   value,
-  ...props
+  ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const emptyContent =
@@ -136,7 +136,7 @@ export const SelectMultiple = ({
       renderTag={renderTag}
       addPlaceholder="Label"
       {...dropProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -206,7 +206,7 @@ export const SelectSingle = ({
   value,
   className,
   data,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -216,9 +216,9 @@ export const SelectSingle = ({
       value={value}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -227,7 +227,7 @@ export const SelectButton = ({
   data,
   value,
   onChange,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -236,9 +236,9 @@ export const SelectButton = ({
       value={value as string}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };

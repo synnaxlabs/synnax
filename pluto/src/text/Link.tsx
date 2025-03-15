@@ -29,7 +29,7 @@ export const Link = <L extends text.Level = "h1">({
   target,
   rel,
   className,
-  ...props
+  ...rest
 }: LinkProps<L>): ReactElement => (
   // @ts-expect-error - generic component errors
   <Text<L>
@@ -40,6 +40,6 @@ export const Link = <L extends text.Level = "h1">({
     target={target}
     rel={rel}
     className={CSS(className, CSS.B("text-link"))}
-    {...props}
+    {...rest}
   />
 );

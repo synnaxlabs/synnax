@@ -12,6 +12,7 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -29,7 +30,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
+import { box, deep, id, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -73,6 +74,7 @@ import {
   toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -265,7 +267,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         undoableDispatch(
           addElement({
             key: layoutKey,
-            elKey: id.id(),
+            elKey: id.create(),
             node: { position: pos, zIndex: spec.zIndex },
             props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
           }),
@@ -417,10 +419,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Schematic: Layout.Renderer = ({
-  layoutKey,
-  ...props
-}): ReactElement | null => {
+export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const loaded = useLoadRemote({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
@@ -433,30 +432,28 @@ export const Schematic: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (!loaded) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
-export interface CreateArg
-  extends Partial<State>,
-    Omit<Partial<Layout.State>, "type"> {}
+export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =
-  (initial: CreateArg): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

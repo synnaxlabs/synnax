@@ -42,3 +42,7 @@ func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+})

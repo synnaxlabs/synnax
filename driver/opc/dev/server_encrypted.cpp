@@ -41,7 +41,7 @@
  * @return Returns the file content after parsing */
 static UA_INLINE UA_ByteString
 
-loadFile(const char *const path) {
+load_file(const char *const path) {
     UA_ByteString fileContents = UA_STRING_NULL;
 
     /* Open the file */
@@ -160,8 +160,8 @@ int main(int argc, char *argv[]) {
     UA_ByteString privateKey = UA_BYTESTRING_NULL;
     if (argc >= 3) {
         /* Load certificate and private key */
-        certificate = loadFile(argv[1]);
-        privateKey = loadFile(argv[2]);
+        certificate = load_file(argv[1]);
+        privateKey = load_file(argv[2]);
     }
     /* Load the trustlist */
     size_t trustListSize = 0;
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
         trustListSize = (size_t) argc - 3;
     UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
     for (size_t i = 0; i < trustListSize; i++)
-        trustList[i] = loadFile(argv[i + 3]);
+        trustList[i] = load_file(argv[i + 3]);
 
     /* Loading of an issuer list, not used in this application */
     size_t issuerListSize = 0;

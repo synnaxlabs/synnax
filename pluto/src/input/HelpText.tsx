@@ -34,7 +34,7 @@ export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "
 export const HelpText = ({
   className,
   variant = "error",
-  ...props
+  ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">
     className={CSS(
@@ -43,6 +43,6 @@ export const HelpText = ({
       className,
     )}
     level="small"
-    {...props}
+    {...rest}
   />
 );

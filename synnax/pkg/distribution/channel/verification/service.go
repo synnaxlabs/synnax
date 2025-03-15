@@ -74,7 +74,7 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 	}
 	service := &Service{Config: cfg}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
-	service.shutdown = signal.NewShutdown(sCtx, cancel)
+	service.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	if toOpen == "" {
 		_, err := service.retrieve(ctx)
 		if err != nil {

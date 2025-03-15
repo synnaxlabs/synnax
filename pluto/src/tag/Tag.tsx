@@ -37,7 +37,7 @@ export const Tag = ({
   onClose,
   className,
   onDragStart,
-  ...props
+  ...rest
 }: TagProps): ReactElement => {
   const cssColor = Color.cssString(color);
   if (icon == null && color != null) icon = <Icon.Circle fill={cssColor} />;
@@ -45,7 +45,7 @@ export const Tag = ({
     onClose == null ? undefined : (
       <Button.Icon
         aria-label="close"
-        size={"small"}
+        size="small"
         className={CSS.BE("tag", "close")}
         onClick={(e) => {
           e.stopPropagation();
@@ -69,7 +69,7 @@ export const Tag = ({
       noWrap
       align="center"
       onDragStart={onDragStart}
-      {...props}
+      {...rest}
     >
       {children}
     </Text.WithIcon>

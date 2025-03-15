@@ -201,14 +201,14 @@ export const ContextMenu = ({
   keys,
   className,
   cursor: _,
-  ...props
+  ...rest
 }: ContextMenuProps): ReactElement => {
   const menuC = visible ? menu?.({ keys }) : null;
   return (
     <div
       className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
       onContextMenu={open}
-      {...props}
+      {...rest}
     >
       {children}
       {menuC != null &&

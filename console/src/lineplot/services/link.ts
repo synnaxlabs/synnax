@@ -10,7 +10,7 @@
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const linePlot = await client.workspaces.linePlot.retrieve(key);
   placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
 };

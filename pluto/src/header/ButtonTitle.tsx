@@ -29,7 +29,7 @@ export const ButtonTitle = ({
   children = "",
   className,
   onClick,
-  ...props
+  ...rest
 }: ButtonTitleProps): ReactElement => {
   const { level } = useContext();
   return (
@@ -39,7 +39,7 @@ export const ButtonTitle = ({
       onClick={onClick}
       className={CSS(CSS.B("header-button-title"), className)}
       sharp
-      {...props}
+      {...rest}
     >
       {children}
     </Button.Button>

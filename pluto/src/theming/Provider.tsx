@@ -16,8 +16,8 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use as reactUse,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -26,8 +26,7 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { Input } from "@/input";
-import { type SwitchProps } from "@/input/Switch";
+import { Switch as InputSwitch, type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
 
@@ -52,12 +51,10 @@ export interface UseProviderProps {
   darkTheme?: string;
 }
 
-export type UseProviderReturn = ContextValue;
-
-const prefersDark = (): MediaQueryList | null => {
-  if (typeof window?.matchMedia === "undefined") return null;
-  return window.matchMedia("(prefers-color-scheme: dark)");
-};
+const prefersDark = () =>
+  typeof window?.matchMedia === "undefined"
+    ? null
+    : window.matchMedia("(prefers-color-scheme: dark)");
 
 const isDarkMode = (): boolean => prefersDark()?.matches ?? true;
 
@@ -68,7 +65,7 @@ export const useProvider = ({
   toggleTheme,
   lightTheme = "synnaxLight",
   darkTheme = "synnaxDark",
-}: UseProviderProps): UseProviderReturn => {
+}: UseProviderProps): ContextValue => {
   const [selected, setSelected] = useState<string>(
     isDarkMode() ? darkTheme : lightTheme,
   );
@@ -112,7 +109,7 @@ export const useProvider = ({
   };
 };
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = () => reactUse(Context);
 
 export const use = (): theming.Theme => useContext().theme;
 
@@ -132,9 +129,9 @@ const setThemeClass = (el: HTMLElement, theme: theming.Theme): void => {
 export const Provider = ({
   children,
   applyCSSVars = true,
-  ...props
+  ...rest
 }: ProviderProps): ReactElement => {
-  const ret = useProvider(props);
+  const ret = useProvider(rest);
   const [{ path }, , setAetherTheme] = Aether.use({
     type: theming.Provider.TYPE,
     schema: theming.Provider.z,
@@ -161,19 +158,19 @@ export const Provider = ({
   }, [ret.theme.key]);
 
   return (
-    <Context.Provider value={ret}>
+    <Context value={ret}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context.Provider>
+    </Context>
   );
 };
 
-export const Switch = ({
-  ...props
-}: Omit<SwitchProps, "onChange" | "value">): ReactElement => {
+export const Switch = (
+  props: Omit<SwitchProps, "onChange" | "value">,
+): ReactElement => {
   const { toggleTheme } = useContext();
   const [checked, setChecked] = useState(false);
   return (
-    <Input.Switch
+    <InputSwitch
       value={checked}
       onChange={(v) => {
         toggleTheme();

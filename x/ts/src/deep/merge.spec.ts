@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect,it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { deep } from "@/deep";
@@ -174,6 +174,32 @@ describe("deepMerge", () => {
           c: 2,
         },
       });
+    });
+  });
+  it("should work correctly with refinements", () => {
+    const base = {
+      a: 1,
+      b: 2,
+    };
+    const override = {
+      a: 3,
+    };
+    const schema = z
+      .object({
+        a: z.number(),
+        b: z.number().refine((v) => v > 1),
+      })
+      .refine((v) => v.a > 0, {
+        path: ["a"],
+        message: "a must be greater than 0",
+      })
+      .refine((v) => v.b > 0, {
+        path: ["b"],
+        message: "b must be greater than 0",
+      });
+    expect(deep.overrideValidItems(base, override, schema)).toEqual({
+      a: 3,
+      b: 2,
     });
   });
 });

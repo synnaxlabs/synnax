@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { EditModal, SET_LAYOUT_TYPE } from "@/permissions/EditLayout";
+import { Edit, EDIT_LAYOUT_TYPE } from "@/permissions/Edit";
 
-export * from "@/permissions/EditLayout";
+export * from "@/permissions/Edit";
 export * from "@/permissions/hooks";
 export * from "@/permissions/selectors";
 export * from "@/permissions/slice";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SET_LAYOUT_TYPE]: EditModal,
+  [EDIT_LAYOUT_TYPE]: Edit,
 };

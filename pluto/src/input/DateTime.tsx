@@ -19,7 +19,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { Input } from "@/input";
+import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { List } from "@/list";
@@ -42,7 +42,7 @@ export const DateTime = ({
   onBlur,
   onlyChangeOnBlur,
   variant,
-  ...props
+  ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
 
@@ -80,10 +80,16 @@ export const DateTime = ({
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
-  const dProps = Dropdown.use();
+  const { close, toggle, visible } = Dropdown.use();
 
   return (
-    <Dropdown.Dialog {...dProps} variant="modal" zIndex={500} keepMounted={false}>
+    <Dropdown.Dialog
+      close={close}
+      visible={visible}
+      variant="modal"
+      zIndex={500}
+      keepMounted={false}
+    >
       <InputText
         className={CSS.BE("input", "datetime")}
         variant={variant}
@@ -93,10 +99,10 @@ export const DateTime = ({
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
-        {...props}
+        {...rest}
       >
         <Button.Icon
-          onClick={dProps.toggle}
+          onClick={toggle}
           variant={variant === "natural" ? "text" : "outlined"}
         >
           <Icon.Calendar />
@@ -105,7 +111,7 @@ export const DateTime = ({
       <DateTimeModal
         value={tsValue}
         onChange={(next) => onChange(Number(next.valueOf()))}
-        close={dProps.close}
+        close={close}
       />
     </Dropdown.Dialog>
   );
@@ -233,7 +239,7 @@ const AISelector = ({
   };
   return (
     <Align.Pack direction="y" className={CSS.B("ai-selector")}>
-      <Input.Text
+      <InputText
         value={value}
         onChange={handleChange}
         autoFocus
@@ -443,7 +449,7 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
         onChange={(next) => onChange(value.setSecond(next))}
       />
     </Align.Pack>
-    <Input.Numeric
+    <Numeric
       size="small"
       value={value.millisecond}
       onChange={(next) => onChange(value.setMillisecond(next))}

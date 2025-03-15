@@ -10,7 +10,6 @@
 import synnax as sy
 from synnax.hardware import ni
 
-
 """
 This examples demonstrates how to configure and start an Analog Read Task on a National
 Instruments USB-6289 device.

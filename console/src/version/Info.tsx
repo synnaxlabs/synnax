@@ -13,22 +13,19 @@ import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 
 import { type Layout } from "@/layout";
 import { useSelectVersion } from "@/version/selectors";
 
-export const infoLayout: Layout.State = {
-  type: "versionInfo",
-  key: "versionInfo",
-  windowKey: "versionInfo",
+export const INFO_LAYOUT_TYPE = "versionInfo";
+
+export const INFO_LAYOUT: Layout.BaseState = {
+  type: INFO_LAYOUT_TYPE,
+  key: INFO_LAYOUT_TYPE,
   name: "Version Info",
   location: "window",
-  window: {
-    resizable: false,
-    navTop: true,
-    size: { width: 500, height: 325 },
-  },
+  window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromWorkspace: true,
 };
 
@@ -65,7 +62,7 @@ export const Info: Layout.Renderer = () => {
     },
   });
 
-  let updateContent: ReactElement = (
+  let updateContent = (
     <Status.Text level="h4" weight={350} variant="loading" size="medium">
       Checking for updates
     </Status.Text>

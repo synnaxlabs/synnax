@@ -158,8 +158,8 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
     if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
-    (a.payload as CreateWindowPayload).label = id.id();
-    (a.payload as CreateWindowPayload).prerenderLabel = id.id();
+    (a.payload as CreateWindowPayload).label = id.create();
+    (a.payload as CreateWindowPayload).prerenderLabel = id.create();
     return a as PayloadAction<T & LabelPayload>;
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
@@ -407,7 +407,7 @@ export const reduceInternalSetInitial = (
   s.config = { ...s.config, ...a.payload };
   s.label = a.payload.label;
   if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
-    const prerenderLabel = id.id();
+    const prerenderLabel = id.create();
     s.windows[prerenderLabel] = {
       ...s.config.defaultWindowProps,
       ...INITIAL_PRERENDER_WINDOW_STATE,

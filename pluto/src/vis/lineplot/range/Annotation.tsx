@@ -16,12 +16,12 @@ interface AnnotationProps
   extends z.input<typeof range.annotationStateZ>,
     Aether.CProps {}
 
-export const Annotation = ({ aetherKey, ...props }: AnnotationProps): null => {
+export const Annotation = ({ aetherKey, ...rest }: AnnotationProps): null => {
   Aether.use({
     aetherKey,
     type: range.Annotation.TYPE,
     schema: range.annotationStateZ,
-    initialState: props,
+    initialState: rest,
   });
   return null;
 };

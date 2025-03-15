@@ -11,6 +11,7 @@ package telem
 
 import (
 	"encoding/binary"
+	xbinary "github.com/synnaxlabs/x/binary"
 	"math"
 
 	"github.com/samber/lo"
@@ -70,6 +71,16 @@ func NewStrings(data []string) (series Series) {
 // NewStringsV is a variadic version of NewStrings that creates a new Series
 // from individual string values.
 func NewStringsV(data ...string) (series Series) { return NewStrings(data) }
+
+func NewStaticJSONV(data ...interface{}) (series Series) {
+	series.DataType = JSONT
+	strings := make([]string, len(data))
+	for i, v := range data {
+		strings[i] = xbinary.MustEncodeJSONtoString(v)
+	}
+	series.Data = MarshalStrings(strings, series.DataType)
+	return series
+}
 
 const newLine = '\n'
 

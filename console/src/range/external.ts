@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { Create, CREATE_LAYOUT_TYPE } from "@/range/CreateLayout";
-import { Overview, overviewLayout } from "@/range/overview/Overview";
+import { Create, CREATE_LAYOUT_TYPE } from "@/range/Create";
+import { OVERVIEW_LAYOUT_TYPE } from "@/range/overview/layout";
+import { Overview } from "@/range/overview/Overview";
 
 export * from "@/range/ContextMenu";
-export * from "@/range/CreateLayout";
+export * from "@/range/Create";
+export * from "@/range/overview/layout";
 export * from "@/range/overview/Overview";
 export * from "@/range/Select";
 export * from "@/range/selectors";
@@ -22,5 +24,5 @@ export * from "@/range/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,
-  [overviewLayout.type]: Overview,
+  [OVERVIEW_LAYOUT_TYPE]: Overview,
 };

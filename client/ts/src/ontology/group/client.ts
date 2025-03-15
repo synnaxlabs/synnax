@@ -9,10 +9,10 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 
+import { type ontology } from "@/ontology";
 import { Group } from "@/ontology/group/group";
-import { type Payload } from "@/ontology/group/payload";
+import { type Key, type Name, type Payload } from "@/ontology/group/payload";
 import { Writer } from "@/ontology/group/writer";
-import { type ID } from "@/ontology/payload";
 
 export class Client {
   private readonly creator: Writer;
@@ -21,15 +21,15 @@ export class Client {
     this.creator = new Writer(unary);
   }
 
-  async create(parent: ID, name: string, key?: string): Promise<Group> {
+  async create(parent: ontology.ID, name: Name, key?: Key): Promise<Group> {
     return this.sugar(await this.creator.create(parent, name, key));
   }
 
-  async rename(key: string, name: string): Promise<void> {
+  async rename(key: Key, name: Name): Promise<void> {
     return await this.creator.rename(key, name);
   }
 
-  async delete(...keys: string[]): Promise<void> {
+  async delete(...keys: Key[]): Promise<void> {
     return await this.creator.delete(keys);
   }
 

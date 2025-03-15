@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { GET_STARTED_LAYOUT_TYPE } from "@/layout/slice";
 import { GetStarted } from "@/layouts/GetStarted";
-import { Main, MAIN_TYPE } from "@/layouts/Main";
-import { Mosaic, MOSAIC_TYPE, MosaicWindow } from "@/layouts/Mosaic";
-import { Selector, SELECTOR_TYPE } from "@/layouts/Selector";
-export { createSelector } from "@/layouts/Selector";
+import { Main, MAIN_LAYOUT_TYPE } from "@/layouts/Main";
+import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/layouts/Mosaic";
+import { Selector, SELECTOR_LAYOUT_TYPE } from "@/layouts/Selector";
+
+export * from "@/layouts/nav";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [MAIN_TYPE]: Main,
-  [SELECTOR_TYPE]: Selector,
-  [MOSAIC_TYPE]: Mosaic,
-  [GET_STARTED_LAYOUT_TYPE]: GetStarted,
+  [MAIN_LAYOUT_TYPE]: Main,
+  [SELECTOR_LAYOUT_TYPE]: Selector,
+  [MOSAIC_LAYOUT_TYPE]: Mosaic,
+  [Layout.GET_STARTED_TYPE]: GetStarted,
   [Layout.MOSAIC_WINDOW_TYPE]: MosaicWindow,
 };

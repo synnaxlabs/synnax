@@ -45,3 +45,11 @@
     --pluto-base-scale: 1.3;
     transform: scale(var(--pluto-base-scale));
 }
+
+.synnax-icon-wave-triangle,
+.synnax-icon-wave-square,
+.synnax-icon-wave-sine,
+.synnax-icon-wave-sawtooth {
+    --pluto-base-scale: 1.25;
+    transform: scale(var(--pluto-base-scale));
+}

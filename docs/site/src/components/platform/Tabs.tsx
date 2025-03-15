@@ -24,7 +24,7 @@ export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
   priority?: Platform[];
 }
 
-export const Tabs = ({ exclude = [], priority = [], ...props }: TabsProps) => {
+export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
   useLayoutEffect(() => {
     const platform = getFromURL(true);
     if (platform) setInURL(platform);
@@ -42,5 +42,5 @@ export const Tabs = ({ exclude = [], priority = [], ...props }: TabsProps) => {
       return aIndex - bIndex;
     });
 
-  return <Core queryParamKey="platform" tabs={tabs} {...props} />;
+  return <Core queryParamKey="platform" tabs={tabs} {...rest} />;
 };

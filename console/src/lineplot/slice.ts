@@ -182,7 +182,7 @@ export const typedLineKeyFromString = (key: string): TypedLineKey => {
   };
 };
 
-const generateTypedLineKeys = (state: State): TypedLineKey[] =>
+const createTypedLineKeys = (state: State): TypedLineKey[] =>
   Object.entries(state.ranges)
     .map(([xAxis, ranges]) =>
       ranges.flatMap((range) =>
@@ -205,7 +205,7 @@ const generateTypedLineKeys = (state: State): TypedLineKey[] =>
     .flat();
 
 const updateLines = (state: State): LineState[] => {
-  const keys = generateTypedLineKeys(state);
+  const keys = createTypedLineKeys(state);
   const lines: LineState[] = [];
   unique.unique(keys).forEach((key) => {
     const strKey = typedLineKeyToString(key);

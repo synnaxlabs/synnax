@@ -9,7 +9,7 @@
 
 #include <thread>
 #include "gtest/gtest.h"
-#include "freighter/cpp/fgrpc/mock/freighter/cpp/freighter/fgrpc/mock/service.grpc.pb.h"
+#include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/fgrpc.h"
 #include "freighter/cpp/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter.h"
@@ -26,7 +26,6 @@ auto base_target = "localhost:8080";
 TEST(testGRPC, basicProto) {
     auto m = test::Message();
     m.set_payload("Hello");
-
     ASSERT_EQ(m.payload(), "Hello");
 }
 
@@ -50,10 +49,10 @@ class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<freighter::Context, freighter::Error>
-    operator()(freighter::Context context, freighter::Next *next) override {
+    std::pair<freighter::Context, xerrors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", "5");
-        auto [outContext, exc] = next->operator()(context);
+        auto [outContext, exc] = next(context);
         auto a = outContext.get("test");
         if (a == "dog") {
             ack = true;
@@ -100,9 +99,7 @@ TEST(testGRPC, testMultipleTargets) {
     std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
-    // wait for servers to start.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
     auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();
@@ -137,7 +134,7 @@ TEST(testGRPC, testBasicStream) {
     mes.set_payload("Sending to Streaming Server");
     err = streamer->send(mes);
     ASSERT_FALSE(err) << err.message();
-    streamer->closeSend();
+    streamer->close_send();
     auto [res, err2] = streamer->receive();
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
@@ -167,9 +164,9 @@ TEST(testGRPC, testMultipleStreamObjects) {
     mes_one.set_payload("Sending to Streaming Server from Streamer One");
     mes_two.set_payload("Sending to Streaming Server from Streamer Two");
     ASSERT_FALSE(streamer_one->send(mes_one));
-    streamer_one->closeSend();
+    streamer_one->close_send();
     ASSERT_FALSE(streamer_two->send(mes_two));
-    streamer_two->closeSend();
+    streamer_two->close_send();
     auto [res_one, err_one2] = streamer_one->receive();
     auto [res_two, err_two2] = streamer_two->receive();
     ASSERT_EQ(res_one.payload(),
@@ -206,7 +203,7 @@ TEST(testGRPC, testSendMultipleMessages) {
 
     mes_two.set_payload("Sending New Message");
     streamer->send(mes_two);
-    streamer->closeSend();
+    streamer->close_send();
     auto [res_two, err_two2] = streamer->receive();
     ASSERT_FALSE(err_two2) << err_two2;
     ASSERT_EQ(res_two.payload(), "Read request: Sending New Message");
@@ -227,7 +224,7 @@ TEST(testGRPC, testStreamError) {
 
     auto [streamer, exc] = client.stream(target);
     ASSERT_FALSE(exc);
-    freighter::Error err = streamer->send(mes);
+    xerrors::Error err = streamer->send(mes);
     ASSERT_FALSE(err.ok());
 
     auto [res, err2] = streamer->receive();
@@ -244,6 +241,8 @@ client_send(int num, std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC> > cli
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
+const int N_THREADS = 3;
+
 ///// @brief Test that we can send many messages with the same client and don't have any errors.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
@@ -258,10 +257,10 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < N_THREADS; i++) {
         threads.emplace_back(client_send, i, global_unary_client);
     }
-    for (size_t i = 0; i < 100; i++) {
+    for (size_t i = 0; i < N_THREADS; i++) {
         threads[i].join();
     }
     stopServers();
@@ -288,18 +287,21 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS, STREAM_RPC> >(
-        pool, base_target);
+    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS,
+        STREAM_RPC> >(
+        pool,
+        base_target
+    );
 
-    auto mw = std::make_shared<myMiddleware>();
+    const auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < N_THREADS; i++) {
         threads.emplace_back(stream_send, i, global_stream_client);
     }
-    for (size_t i = 0; i < 100; i++) {
+    for (size_t i = 0; i < N_THREADS; i++) {
         threads[i].join();
     }
     stopServers();

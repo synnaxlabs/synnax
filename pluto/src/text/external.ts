@@ -13,7 +13,6 @@ export * from "@/text/dimensions";
 export * from "@/text/Editable";
 export * from "@/text/Keyboard";
 export * from "@/text/Link";
-export * from "@/text/Select";
 export * from "@/text/symbols";
 export * from "@/text/Text";
 export * from "@/text/WithIcon";

@@ -1,0 +1,24 @@
+cc_library(
+    name = "ljm",
+    hdrs = [
+        "api.h",
+        "errors.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/labjack/ljm:ljm_official",
+        "//x/cpp/xlib",
+    ],
+)
+
+cc_library(
+    name = "ljm_official",
+    srcs = [],
+    hdrs = [
+        "LJM_StreamUtilities.h",
+        "LJM_Utilities.h",
+        "LabJackM.h",
+        "LabJackMModbusMap.h",
+    ],
+)

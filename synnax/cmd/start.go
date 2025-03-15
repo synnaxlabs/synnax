@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"os"
 	"os/signal"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -61,8 +63,6 @@ import (
 )
 
 const stopKeyWord = "stop"
-
-var integrations = []string{"opc", "ni", "labjack"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -173,7 +173,14 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
+		tokenSvc, err := token.NewService(token.ServiceConfig{
+			KeyProvider:      secProvider,
+			Expiration:       24 * time.Hour,
+			RefreshThreshold: 1 * time.Hour,
+		})
+		if err != nil {
+			return err
+		}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
 			DB:       gorpDB,
@@ -225,6 +232,7 @@ func start(cmd *cobra.Command) {
 				HostProvider: dist.Cluster,
 				Signals:      dist.Signals,
 				Channel:      dist.Channel,
+				Framer:       dist.Framer,
 			})
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
@@ -319,7 +327,8 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackName,
+				hardwareSvc.Rack.EmbeddedKey,
+				dist.Cluster.Key(),
 				insecure,
 			),
 		)
@@ -388,15 +397,15 @@ func buildDistributionConfig(
 	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
-	return distribution.Config{
+	coreCfg := core.Config{
 		Instrumentation:  ins.Child("distribution"),
 		AdvertiseAddress: address.Address(viper.GetString(listenFlag)),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
-		Verifier:         verifier,
-	}, err
+	}
+	return distribution.Config{Config: coreCfg, Verifier: verifier}, err
 }
 
 func buildServerConfig(
@@ -422,17 +431,20 @@ func buildServerConfig(
 
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
-	rackName string,
+	rackKey rack.Key,
+	clusterKey uuid.UUID,
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
 		Integrations: getIntegrations(
 			viper.GetStringSlice(enableIntegrationsFlag),
-			viper.GetStringSlice(disableIntegrationsFlag)),
+			viper.GetStringSlice(disableIntegrationsFlag),
+		),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
-		RackName:        rackName,
+		RackKey:         rackKey,
+		ClusterKey:      clusterKey,
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),
@@ -459,17 +471,9 @@ func getIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
-	if len(disabled) > 0 {
-		return lo.Filter(integrations, func(integration string, _ int) bool {
-			for _, disabledIntegration := range disabled {
-				if integration == disabledIntegration {
-					return false
-				}
-			}
-			return true
-		})
-	}
-	return integrations // Ensure a return value in case both slices are empty
+	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
 }
 
 // sets the base permissions that need to exist in the server.

@@ -8,4 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ontology.client import Client
-from synnax.ontology.payload import Payload, ID, CrudeID, ROOT
+from synnax.ontology.payload import ID, ROOT, CrudeID, Payload

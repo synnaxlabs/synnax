@@ -13,19 +13,10 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { type CrudeSpec, specZ } from "@/status/aether/types";
 
-export const aggregatorStateZ = z.object({
-  statuses: specZ.array(),
-});
+export const aggregatorStateZ = z.object({ statuses: specZ.array() });
+export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
 
 const CONTEXT_KEY = "status.aggregator";
-
-export interface AddStatusFn {
-  (spec: CrudeSpec): void;
-}
-
-export interface ExceptionHandler {
-  (exc: unknown, message?: string): void;
-}
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
@@ -38,33 +29,72 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   add(spec: CrudeSpec): void {
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.id() }],
+      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.create() }],
     }));
   }
 }
 
-export const useAggregator = (ctx: aether.Context): AddStatusFn => {
+export interface Adder {
+  (spec: CrudeSpec): void;
+}
+
+export const useAdder = (ctx: aether.Context): Adder => {
   const agg = ctx.get<Aggregator>(CONTEXT_KEY);
   return agg.add.bind(agg);
 };
 
-export const useOptionalAggregator = (ctx: aether.Context): AddStatusFn => {
+export const useOptionalAdder = (ctx: aether.Context): Adder => {
   const agg = ctx.getOptional<Aggregator>(CONTEXT_KEY);
   if (agg != null) return agg.add.bind(agg);
   return () => {};
 };
 
-export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler => {
-  const addStatus = useAggregator(ctx);
-  return (exc: unknown, message?: string): void => {
-    if (!(exc instanceof Error)) throw exc;
-    addStatus({
-      variant: "error",
-      message: message ?? exc.message,
-      description: message != null ? exc.message : undefined,
-    });
+export interface ExceptionHandler {
+  (exc: unknown, message?: string): void;
+  (func: () => Promise<void>, message?: string): void;
+}
+
+export interface AsyncExceptionHandler {
+  (func: () => Promise<void>, message?: string): Promise<void>;
+}
+
+export const fromException = (exc: unknown, message?: string): CrudeSpec => {
+  if (!(exc instanceof Error)) throw exc;
+  return {
+    variant: "error",
+    message: message ?? exc.message,
+    description: message != null ? exc.message : undefined,
   };
 };
+
+export const createExceptionHandler =
+  (add: Adder): ExceptionHandler =>
+  (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
+    if (typeof excOrFunc !== "function") return add(fromException(excOrFunc, message));
+    void (async () => {
+      try {
+        await excOrFunc();
+      } catch (exc) {
+        add(fromException(exc, message));
+      }
+    })();
+  };
+
+export const createAsyncExceptionHandler =
+  (add: Adder): AsyncExceptionHandler =>
+  async (func: () => Promise<void>, message?: string): Promise<void> => {
+    try {
+      await func();
+    } catch (exc) {
+      add(fromException(exc, message));
+    }
+  };
+
+export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler =>
+  createExceptionHandler(useAdder(ctx));
+
+export const useAsyncExceptionHandler = (ctx: aether.Context): AsyncExceptionHandler =>
+  createAsyncExceptionHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

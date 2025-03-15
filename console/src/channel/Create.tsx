@@ -18,23 +18,21 @@ import {
   Select,
   Synnax,
   Text,
-  Triggers,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
+import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
 
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
-export const CREATE_LAYOUT: Layout.State = {
+export const CREATE_LAYOUT: Layout.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  windowKey: CREATE_LAYOUT_TYPE,
   name: "Channel.Create",
   icon: "Channel",
   location: "modal",
@@ -61,7 +59,7 @@ export const createFormValidator = (v: z.ZodSchema) =>
       path: ["dataType"],
     });
 
-export const baseFormSchema = channel.newPayload.extend({
+export const baseFormSchema = channel.newZ.extend({
   name: z.string().min(1, "Name must not be empty"),
   dataType: DataType.z.transform((v) => v.toString()),
 });
@@ -84,7 +82,7 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   requires: [],
 };
 
-export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
+export const Create: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use<Schema>({
     schema: createFormSchema,
@@ -182,13 +180,8 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           </Form.Field>
         </Form.Form>
       </Align.Space>
-      <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Save
-          </Text.Text>
-        </Nav.Bar.Start>
+      <Modals.BottomNavBar>
+        <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" size="large">
           <Align.Space direction="x" align="center" size="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
@@ -200,12 +193,12 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate(createMore)}
-            triggers={[SAVE_TRIGGER]}
+            triggers={[Triggers.SAVE]}
           >
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Layout.BottomNavBar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

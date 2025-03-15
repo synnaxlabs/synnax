@@ -27,6 +27,8 @@ type StreamerRequest struct {
 type StreamerConfig struct {
 	// Channels sets the channels the Streamer subscribes to.
 	Channels []core.ChannelKey
+	// OnSuccessfulStart is closed when the Streamer is successfully opened.
+	SendOpenAck bool
 }
 
 // StreamerResponse contains a frame representing the series of all subscribed channels.
@@ -83,6 +85,11 @@ func (s *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	frames, disconnect := s.relay.connect(relayBufferSize)
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
+		if s.SendOpenAck {
+			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), StreamerResponse{}); err != nil {
+				return err
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():

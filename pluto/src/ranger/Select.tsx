@@ -21,10 +21,7 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 const canDrop = (
@@ -45,7 +42,7 @@ export const SelectMultiple = ({
   onChange,
   className,
   value,
-  ...props
+  ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const emptyContent =
@@ -112,9 +109,9 @@ export const SelectMultiple = ({
       onChange={onChange}
       columns={rangeCols}
       emptyContent={emptyContent}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dropProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -184,7 +181,7 @@ export const SelectSingle = ({
   value,
   className,
   data,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -194,9 +191,9 @@ export const SelectSingle = ({
       value={value}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -205,7 +202,7 @@ export const SelectButton = ({
   data,
   value,
   onChange,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
@@ -214,9 +211,9 @@ export const SelectButton = ({
       value={value as string}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
-      {...props}
+      {...rest}
     />
   );
 };

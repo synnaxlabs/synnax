@@ -10,7 +10,8 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x/toArray";
 
-import { type Key, type NewPolicy, type Policy } from "@/access/policy/payload";
+import { ALLOW_ALL_ONTOLOGY_TYPE, ONTOLOGY_TYPE } from "@/access/policy/ontology";
+import { type Key, type New, type Policy } from "@/access/policy/payload";
 import { Retriever } from "@/access/policy/retriever";
 import { Writer } from "@/access/policy/writer";
 import { ontology } from "@/ontology";
@@ -24,20 +25,16 @@ export class Client {
     this.writer = new Writer(client);
   }
 
-  async create(policy: NewPolicy): Promise<Policy>;
-
-  async create(policies: NewPolicy[]): Promise<Policy[]>;
-
-  async create(policies: NewPolicy | NewPolicy[]): Promise<Policy | Policy[]> {
+  async create(policy: New): Promise<Policy>;
+  async create(policies: New[]): Promise<Policy[]>;
+  async create(policies: New | New[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
     const createdPolicies = await this.writer.create(policies);
     return isMany ? createdPolicies : createdPolicies[0];
   }
 
   async retrieve(key: Key): Promise<Policy>;
-
   async retrieve(keys: Key[]): Promise<Policy[]>;
-
   async retrieve(keys: Key | Key[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(keys);
     const res = await this.retriever.retrieve({ keys: toArray(keys) });
@@ -45,9 +42,7 @@ export class Client {
   }
 
   async retrieveFor(subject: ontology.CrudeID): Promise<Policy[]>;
-
   async retrieveFor(subjects: ontology.CrudeID[]): Promise<Policy[]>;
-
   async retrieveFor(
     subjects: ontology.CrudeID | ontology.CrudeID[],
   ): Promise<Policy[]> {
@@ -56,10 +51,16 @@ export class Client {
   }
 
   async delete(key: Key): Promise<void>;
-
   async delete(keys: Key[]): Promise<void>;
-
   async delete(keys: Key | Key[]): Promise<void> {
     await this.writer.delete(keys);
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+export const ALLOW_ALL_ONTOLOGY_ID = new ontology.ID({
+  type: ALLOW_ALL_ONTOLOGY_TYPE,
+  key: "",
+});

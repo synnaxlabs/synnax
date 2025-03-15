@@ -11,15 +11,14 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ } from "@/channel/payload";
+import { channel } from "@/channel";
 
 const reqZ = z.object({
-  keys: keyZ.array().optional(),
+  keys: channel.keyZ.array().optional(),
   bounds: TimeRange.z,
-  names: z.string().array().optional(),
+  names: channel.nameZ.array().optional(),
 });
-
-type RequestProps = z.infer<typeof reqZ>;
+interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({});
 
@@ -35,7 +34,7 @@ export class Deleter {
     this.client = client;
   }
 
-  async delete(props: RequestProps): Promise<void> {
+  async delete(props: Request): Promise<void> {
     await sendRequired<typeof reqZ, typeof resZ>(
       this.client,
       ENDPOINT,

@@ -18,7 +18,8 @@ const reqZ = z.object({
   keys: keyZ.array().optional(),
   subjects: ontology.idZ.array().optional(),
 });
-type Request = z.infer<typeof reqZ>;
+interface Request extends z.infer<typeof reqZ> {}
+
 const resZ = z.object({ policies: nullableArrayZ(policyZ) });
 
 const ENDPOINT = "/access/policy/retrieve";

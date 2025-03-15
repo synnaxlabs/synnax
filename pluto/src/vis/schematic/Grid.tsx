@@ -123,8 +123,8 @@ const createGridEl = (loc: location.Outer): FC<GridElProps> => {
     );
   };
 
-  const GridEl = ({ symbolKey, ...props }: GridElProps): ReactElement | null => {
-    const { editable, items: fItems } = props;
+  const GridEl = ({ symbolKey, ...rest }: GridElProps): ReactElement | null => {
+    const { editable, items: fItems } = rest;
 
     const prevEditable = useRef(editable);
     if (editable !== prevEditable.current && loc === "top") {
@@ -132,7 +132,7 @@ const createGridEl = (loc: location.Outer): FC<GridElProps> => {
       prevEditable.current = editable;
     }
 
-    if (editable) return <EditableGridEl symbolKey={symbolKey} {...props} />;
+    if (editable) return <EditableGridEl symbolKey={symbolKey} {...rest} />;
     const items = fItems.filter((i) => i.location === loc);
     if (items.length === 0) return null;
     return (
@@ -155,12 +155,12 @@ const LeftGridEl = createGridEl("left");
 const RightGridEl = createGridEl("right");
 const BottomGridEl = createGridEl("bottom");
 
-export const Grid = ({ editable, onRotate, children, ...props }: GridProps) => (
+export const Grid = ({ editable, onRotate, children, ...rest }: GridProps) => (
   <>
-    <TopGridEl editable={editable} {...props} />
-    <LeftGridEl editable={editable} {...props} />
-    <RightGridEl editable={editable} {...props} />
-    <BottomGridEl editable={editable} {...props} />
+    <TopGridEl editable={editable} {...rest} />
+    <LeftGridEl editable={editable} {...rest} />
+    <RightGridEl editable={editable} {...rest} />
+    <BottomGridEl editable={editable} {...rest} />
     {editable && (
       <Button.Icon
         className={CSS.BE("grid", "rotate")}

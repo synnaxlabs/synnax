@@ -130,6 +130,7 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 type StreamerConfig struct {
 	Keys             channel.Keys `json:"keys" msgpack:"keys"`
 	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
+	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
 type StreamerRequest = StreamerConfig
@@ -140,7 +141,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
+	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys, SendOpenAck: cfg.SendOpenAck})
 	if err != nil {
 		return nil, err
 	}

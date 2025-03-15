@@ -61,7 +61,7 @@ const (
 	nonFree    = "Signals can only work with free channels. Received leaseholder %s that is not equal to Free"
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c ObservablePublisherConfig) Validate() error {
 	v := validate.New("signals.ObservablePublisherConfig")
 	validate.NotEmptyString(v, "Label.Name", c.SetChannel.Name)
@@ -74,7 +74,7 @@ func (c ObservablePublisherConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
@@ -158,5 +158,5 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
-	return signal.NewShutdown(sCtx, cancel), nil
+	return signal.NewHardShutdown(sCtx, cancel), nil
 }

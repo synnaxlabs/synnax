@@ -61,7 +61,7 @@ type Config struct {
 	RecoveryThreshold int
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
 	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
@@ -79,7 +79,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium")
 	validate.NotNil(v, "Cluster", cfg.Cluster)

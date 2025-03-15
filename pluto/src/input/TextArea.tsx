@@ -46,7 +46,7 @@ export const TextArea = ({
   variant = "outlined",
   sharp = false,
   children,
-  ...props
+  ...rest
 }: TextAreaProps): ReactElement => (
   <textarea
     style={style}
@@ -65,6 +65,6 @@ export const TextArea = ({
       onFocus?.(e);
     }}
     placeholder={placeholder as string}
-    {...props}
+    {...rest}
   />
 );

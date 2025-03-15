@@ -1,0 +1,39 @@
+Content-Length: 138
+
+{"jsonrpc":"2.0","method":"$/status/report","params":{"text":"😺Lua","tooltip":"Workspace   : \nCached files: 0/0\nMemory usage: 1M\n"}}Content-Length: 138
+
+{"jsonrpc":"2.0","method":"$/status/report","params":{"text":"😺Lua","tooltip":"Workspace   : \nCached files: 0/0\nMemory usage: 1M\n"}}Content-Length: 821
+
+{"id":0,"jsonrpc":"2.0","result":{"capabilities":{"codeActionProvider":{"codeActionKinds":["","quickfix","refactor.rewrite","refactor.extract"],"resolveProvider":false},"definitionProvider":true,"documentHighlightProvider":true,"documentOnTypeFormattingProvider":{"firstTriggerCharacter":"\n"},"documentSymbolProvider":true,"executeCommandProvider":{"commands":["lua.removeSpace:27953","lua.solve:27953","lua.jsonToLua:27953","lua.setConfig:27953","lua.autoRequire:27953"]},"foldingRangeProvider":true,"hoverProvider":true,"offsetEncoding":"utf-16","referencesProvider":true,"renameProvider":{"prepareProvider":true},"signatureHelpProvider":{"triggerCharacters":["(",","]},"textDocumentSync":{"change":2,"openClose":true},"typeDefinitionProvider":true,"workspaceSymbolProvider":true},"serverInfo":{"name":"sumneko.lua"}}}Content-Length: 821
+
+{"id":0,"jsonrpc":"2.0","result":{"capabilities":{"codeActionProvider":{"codeActionKinds":["","quickfix","refactor.rewrite","refactor.extract"],"resolveProvider":false},"definitionProvider":true,"documentHighlightProvider":true,"documentOnTypeFormattingProvider":{"firstTriggerCharacter":"\n"},"documentSymbolProvider":true,"executeCommandProvider":{"commands":["lua.removeSpace:27953","lua.solve:27953","lua.jsonToLua:27953","lua.setConfig:27953","lua.autoRequire:27953"]},"foldingRangeProvider":true,"hoverProvider":true,"offsetEncoding":"utf-16","referencesProvider":true,"renameProvider":{"prepareProvider":true},"signatureHelpProvider":{"triggerCharacters":["(",","]},"textDocumentSync":{"change":2,"openClose":true},"typeDefinitionProvider":true,"workspaceSymbolProvider":true},"serverInfo":{"name":"sumneko.lua"}}}Content-Length: 42
+
+{"jsonrpc":"2.0","method":"$/status/show"}Content-Length: 298
+
+{"id":1,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"completion","method":"textDocument/completion","registerOptions":{"resolveProvider":true,"triggerCharacters":["\t","\n",".",":","(","'","\"","[",",","#","*","@","|","=","-","{","/","\\"," ","+","?"]}}]}}Content-Length: 150
+
+{"id":2,"jsonrpc":"2.0","method":"client/unregisterCapability","params":{"unregisterations":[{"id":"completion","method":"textDocument/completion"}]}}Content-Length: 298
+
+{"id":3,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"completion","method":"textDocument/completion","registerOptions":{"resolveProvider":true,"triggerCharacters":["\t","\n",".",":","(","'","\"","[",",","#","*","@","|","=","-","{","/","\\"," ","+","?"]}}]}}Content-Length: 595
+
+{"id":4,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"semantic-tokens","method":"textDocument/semanticTokens","registerOptions":{"full":false,"legend":{"tokenModifiers":["declaration","definition","readonly","static","deprecated","abstract","async","modification","documentation","defaultLibrary"],"tokenTypes":["namespace","type","class","enum","interface","struct","typeParameter","parameter","variable","property","enumMember","event","function","method","macro","keyword","modifier","comment","string","number","regexp","operator"]},"range":true}}]}}Content-Length: 82
+
+{"id":5,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}Content-Length: 42
+
+{"jsonrpc":"2.0","method":"$/status/show"}Content-Length: 298
+
+{"id":1,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"completion","method":"textDocument/completion","registerOptions":{"resolveProvider":true,"triggerCharacters":["\t","\n",".",":","(","'","\"","[",",","#","*","@","|","=","-","{","/","\\"," ","+","?"]}}]}}Content-Length: 150
+
+{"id":2,"jsonrpc":"2.0","method":"client/unregisterCapability","params":{"unregisterations":[{"id":"completion","method":"textDocument/completion"}]}}Content-Length: 298
+
+{"id":3,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"completion","method":"textDocument/completion","registerOptions":{"resolveProvider":true,"triggerCharacters":["\t","\n",".",":","(","'","\"","[",",","#","*","@","|","=","-","{","/","\\"," ","+","?"]}}]}}Content-Length: 595
+
+{"id":4,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"semantic-tokens","method":"textDocument/semanticTokens","registerOptions":{"full":false,"legend":{"tokenModifiers":["declaration","definition","readonly","static","deprecated","abstract","async","modification","documentation","defaultLibrary"],"tokenTypes":["namespace","type","class","enum","interface","struct","typeParameter","parameter","variable","property","enumMember","event","function","method","macro","keyword","modifier","comment","string","number","regexp","operator"]},"range":true}}]}}Content-Length: 82
+
+{"id":5,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}Content-Length: 82
+
+{"id":6,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}Content-Length: 82
+
+{"id":6,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}Content-Length: 82
+
+{"id":7,"jsonrpc":"2.0","method":"workspace/semanticTokens/refresh","params":null}

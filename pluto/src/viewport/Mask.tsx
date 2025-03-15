@@ -38,7 +38,7 @@ export const Mask = ({
   maskBox,
   children,
   style,
-  ...props
+  ...rest
 }: MaskProps): ReactElement | null => (
   <div
     className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
@@ -46,7 +46,7 @@ export const Mask = ({
       cursor: MODE_CURSORS[mode],
       ...style,
     }}
-    {...props}
+    {...rest}
   >
     <div
       style={{

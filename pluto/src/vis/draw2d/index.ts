@@ -103,17 +103,17 @@ export class Draw2D {
     this.theme = theme;
   }
 
-  rule({ direction, region, position, ...props }: Draw2DRuleProps): void {
+  rule({ direction, region, position, ...rest }: Draw2DRuleProps): void {
     if (direction === "x")
       return this.line({
         start: xy.construct(box.left(region), position),
         end: xy.construct(box.right(region), position),
-        ...props,
+        ...rest,
       });
     return this.line({
       start: xy.construct(position, box.top(region)),
       end: xy.construct(position, box.bottom(region)),
-      ...props,
+      ...rest,
     });
   }
 

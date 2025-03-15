@@ -13,9 +13,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Tabs } from "@/tabs";
 
-const StaticTabs = ({ tabs, ...tProps }: Tabs.TabsProps): ReactElement => {
+const StaticTabs = ({ tabs, ...rest }: Tabs.TabsProps): ReactElement => {
   const props = Tabs.useStatic({ tabs });
-  return <Tabs.Tabs {...tProps} {...props} />;
+  return <Tabs.Tabs {...rest} {...props} />;
 };
 
 describe("Tabs", () => {

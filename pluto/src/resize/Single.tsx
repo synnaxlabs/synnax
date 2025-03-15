@@ -47,7 +47,7 @@ export const Single = ({
   initialSize = 200,
   collapseThreshold = Infinity,
   className,
-  ...props
+  ...rest
 }: SingleProps): ReactElement => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
   const marker = useRef<number | null>(null);
@@ -116,7 +116,7 @@ export const Single = ({
       size={size}
       onDragStart={handleDragStart}
       className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
-      {...props}
+      {...rest}
     />
   );
 };

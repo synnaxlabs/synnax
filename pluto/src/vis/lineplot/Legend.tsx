@@ -23,10 +23,10 @@ export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryCha
 }
 
 export const Floating = memo(
-  ({ className, style, onLineChange, ...props }: LegendProps): ReactElement | null => {
+  ({ className, style, onLineChange, ...rest }: LegendProps): ReactElement | null => {
     const { lines } = useContext("Legend");
     useContext("Legend");
-    return <Core.Simple data={lines} onEntryChange={onLineChange} {...props} />;
+    return <Core.Simple data={lines} onEntryChange={onLineChange} {...rest} />;
   },
 );
 Floating.displayName = "FloatingLegend";
@@ -59,6 +59,6 @@ const Fixed = ({ onLineChange }: LegendProps) => {
 
 export const Legend = ({
   variant = "floating",
-  ...props
+  ...rest
 }: LegendProps): ReactElement | null =>
-  variant === "floating" ? <Floating {...props} /> : <Fixed {...props} />;
+  variant === "floating" ? <Floating {...rest} /> : <Fixed {...rest} />;

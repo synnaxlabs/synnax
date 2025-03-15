@@ -71,7 +71,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		}))
 		freeWrites := confluence.NewStream[relay.Response](25)
 		container.relay = MustSucceed(relay.Open(relay.Config{
-			Instrumentation: ins,
+			Instrumentation: ins.Child("relay"),
 			TS:              c.Storage.TS,
 			Transport:       relayNet.New(c.Config.AdvertiseAddress),
 			HostResolver:    c.Cluster,
@@ -79,7 +79,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			FreeWrites:      freeWrites,
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
-			Instrumentation: ins,
+			Instrumentation: ins.Child("writer"),
 			TS:              c.Storage.TS,
 			ChannelReader:   container.channel,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress),

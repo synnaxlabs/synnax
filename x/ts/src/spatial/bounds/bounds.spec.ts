@@ -374,7 +374,7 @@ describe("Bounds", () => {
   });
 
   describe("linspace", () => {
-    it("should generate the correct array", () => {
+    it("should create the correct array", () => {
       const b = bounds.construct([1, 3]);
       const result = bounds.linspace(b);
       expect(result).toEqual([1, 2]);

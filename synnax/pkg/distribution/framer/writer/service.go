@@ -147,7 +147,7 @@ func (c Config) toStorage() ts.WriterConfig {
 	}
 }
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
@@ -160,7 +160,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
@@ -203,7 +203,7 @@ var (
 	DefaultServiceConfig = ServiceConfig{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
@@ -213,7 +213,7 @@ func (cfg ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
@@ -271,7 +271,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 		requests:  req,
 		responses: res,
 		wg:        sCtx,
-		shutdown:  signal.NewShutdown(sCtx, cancel),
+		shutdown:  signal.NewHardShutdown(sCtx, cancel),
 	}, nil
 }
 

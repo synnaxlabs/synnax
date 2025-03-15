@@ -12,7 +12,7 @@ import { URL } from "@synnaxlabs/x/url";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
-import { AuthError, InvalidTokenError } from "@/errors";
+import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
 
@@ -46,30 +46,34 @@ describe("auth", () => {
     expect(err).toBeInstanceOf(AuthError);
   });
 
-  describe("invalid token retry", async () => {
-    it("should re-authenticate and retry the request", async () => {
-      const transport = new Transport(new URL({ host: HOST, port: PORT }));
-      const client = new auth.Client(transport.unary, {
-        username: "synnax",
-        password: "seldon",
+  describe("token retry", () => {
+    const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
+    ERROR_TYPES.forEach((ErrorType) => {
+      it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
+        const transport = new Transport(new URL({ host: HOST, port: PORT }));
+        const client = new auth.Client(transport.unary, {
+          username: "synnax",
+          password: "seldon",
+        });
+        const mw = client.middleware();
+        let isFirst = true;
+        let tkOne: string | undefined;
+        let tkTwo: string | undefined;
+        const [, err] = await mw(DUMMY_CTX, async () => {
+          if (isFirst) {
+            isFirst = false;
+            tkOne = client.token;
+            return [DUMMY_CTX, new ErrorType()];
+          }
+          tkTwo = client.token;
+          return [DUMMY_CTX, null];
+        });
+        expect(err).toBeNull();
+        expect(tkOne).toBeDefined();
+        expect(tkTwo).toBeDefined();
       });
-      const mw = client.middleware();
-      let isFirst = true;
-      let tkOne: string | undefined;
-      let tkTwo: string | undefined;
-      const [, err] = await mw(DUMMY_CTX, async () => {
-        if (isFirst) {
-          isFirst = false;
-          tkOne = client.token;
-          return [DUMMY_CTX, new InvalidTokenError()];
-        }
-        tkTwo = client.token;
-        return [DUMMY_CTX, null];
-      });
-      expect(err).toBeNull();
-      expect(tkOne).toBeDefined();
-      expect(tkTwo).toBeDefined();
     });
+
     it("should fail after MAX_RETRIES", async () => {
       const transport = new Transport(new URL({ host: HOST, port: PORT }));
       const client = new auth.Client(transport.unary, {

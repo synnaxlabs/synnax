@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
+
 from freighter import Payload
 
 

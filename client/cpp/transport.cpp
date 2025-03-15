@@ -25,22 +25,29 @@
 using namespace api;
 
 Transport::Transport(
-    uint16_t port,
+    const uint16_t port,
     const std::string &ip,
     const std::string &ca_cert_file,
     const std::string &client_cert_file,
     const std::string &client_key_file
 ) {
-    auto base_target = freighter::URL(ip, port, "").toString();
+    auto base_target = freighter::URL(ip, port, "").to_string();
     std::shared_ptr<fgrpc::Pool> pool = nullptr;
-    if (ca_cert_file.empty() && client_cert_file.empty() && client_key_file.empty()) {
+    if (
+        ca_cert_file.empty() &&
+        client_cert_file.empty() &&
+        client_key_file.empty()
+    )
         pool = std::make_shared<fgrpc::Pool>();
-    } else if (client_cert_file.empty() && client_key_file.empty()) {
+    else if (client_cert_file.empty() && client_key_file.
+             empty())
         pool = std::make_shared<fgrpc::Pool>(ca_cert_file);
-    } else {
-        pool = std::make_shared<fgrpc::Pool>(ca_cert_file, client_cert_file,
-                                             client_key_file);
-    }
+    else
+        pool = std::make_shared<fgrpc::Pool>(
+            ca_cert_file,
+            client_cert_file,
+            client_key_file
+        );
 
 
     auth_login = std::make_unique<fgrpc::UnaryClient<

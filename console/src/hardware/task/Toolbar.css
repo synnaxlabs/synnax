@@ -12,14 +12,20 @@
 .console-task-toolbar {
     .pluto-list__item {
         .console-task__metadata {
+            flex-shrink: 1;
+            text-overflow: ellipsis;
             overflow: hidden;
+            padding-top: 0.25rem;
             .console-task__title {
-                overflow-x: hidden;
+                /* Only apply overflow hidden when the element is not being renamed */
+                &:not(:has([contenteditable="true"])) {
+                    overflow: hidden;
+                }
                 /* Padding fixes overflow issues with the slightly enlarged OPC UA logo */
                 padding-left: 0.25rem;
                 p {
-                    overflow: hidden;
                     text-overflow: ellipsis;
+                    overflow: hidden;
                 }
             }
         }

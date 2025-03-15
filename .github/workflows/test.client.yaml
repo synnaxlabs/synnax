@@ -125,7 +125,7 @@ jobs:
           repository-cache: true
 
       - name: Test
-        run: bazel test --test_output=all //client/... --nocache_test_results
+        run: bazel test --test_output=all //client/cpp/... --nocache_test_results
 
   py:
     name: Python

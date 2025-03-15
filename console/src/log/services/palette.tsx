@@ -19,7 +19,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "create-log",
   name: "Create Log",
   icon: <Icon.Log />,
-  onSelect: ({ placeLayout }) => placeLayout(Log.create({})),
+  onSelect: ({ placeLayout }) => placeLayout(Log.create()),
 };
 
 const IMPORT_COMMAND: Palette.Command = {

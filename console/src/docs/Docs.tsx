@@ -27,15 +27,13 @@ const HOST = new URL({
 });
 export const LAYOUT_TYPE = "docs";
 
-export const createLayout = (overrides?: Layout.State): Layout.State => ({
-  windowKey: LAYOUT_TYPE,
+export const LAYOUT: Layout.BaseState = {
   key: LAYOUT_TYPE,
   type: LAYOUT_TYPE,
   location: "mosaic",
   name: "Documentation",
   tab: { editable: false },
-  ...overrides,
-});
+};
 
 /**
  * Renders a layout that loads the documentation site in an iframe. Updates the docs

@@ -8,9 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { Color } from "@synnaxlabs/pluto/color";
-import { type Theming } from "@synnaxlabs/pluto/theming";
+import {
+  Color,
+  type Control,
+  type Diagram,
+  type Theming,
+  type Viewport,
+} from "@synnaxlabs/pluto";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
@@ -212,7 +216,7 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
-        const key: string = id.id();
+        const key: string = id.create();
         schematic.props[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
@@ -223,7 +227,7 @@ export const { actions, reducer } = createSlice({
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
-        const key: string = id.id();
+        const key: string = id.create();
         return {
           ...edge,
           key,

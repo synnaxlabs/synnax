@@ -1,0 +1,20 @@
+cc_library(
+    name = "transform",
+    srcs = ["transform.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "transform_test",
+    srcs = ["transform_test.cpp"],
+    deps = [
+        "//driver/transform",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

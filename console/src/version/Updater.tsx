@@ -15,15 +15,15 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { type NotificationAdapter } from "@/notifications/Notifications";
-import { infoLayout } from "@/version/Info";
+import { type Notifications } from "@/notifications";
+import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
 import { silenceUpdateNotifications } from "@/version/slice";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 
 export const useCheckForUpdates = (): boolean => {
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
   const isSilenced = useSelectUpdateNotificationsSilenced();
   const [available, setAvailable] = useState(false);
 
@@ -33,7 +33,7 @@ export const useCheckForUpdates = (): boolean => {
     setAvailable(true);
     if (addNotifications)
       addStatus({
-        key: `${STATUS_KEY_PREFIX}-${id.id()}`,
+        key: `${STATUS_KEY_PREFIX}-${id.create()}`,
         variant: "info",
         message: `Update available`,
       });
@@ -51,7 +51,7 @@ export const useCheckForUpdates = (): boolean => {
   return available;
 };
 
-export const notificationAdapter: NotificationAdapter = (status, silence) => {
+export const notificationAdapter: Notifications.Adapter = (status, silence) => {
   if (!status.key.startsWith(STATUS_KEY_PREFIX)) return null;
   return {
     ...status,
@@ -63,9 +63,13 @@ export const notificationAdapter: NotificationAdapter = (status, silence) => {
 };
 
 export const OpenUpdateDialogAction = () => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => place(infoLayout)}>
+    <Button.Button
+      variant="outlined"
+      size="small"
+      onClick={() => placeLayout(INFO_LAYOUT)}
+    >
       Update
     </Button.Button>
   );

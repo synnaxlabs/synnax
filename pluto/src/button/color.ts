@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Variant } from "@/button/Button";
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { type Text } from "@/text";
 
 export const color = (

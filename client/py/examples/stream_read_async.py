@@ -16,6 +16,7 @@ This example requires the `stream_write.py` file to be running in a separate ter
 """
 
 import asyncio
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide

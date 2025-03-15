@@ -8,23 +8,23 @@
 #  included in the file licenses/APL.txt.
 
 import time
+from uuid import uuid4
 
 import pytest
 
 import freighter.exceptions
+from freighter.codec import JSONCodec, MsgPackCodec
 from freighter.context import Context
-from freighter.codec import MsgPackCodec, JSONCodec
+from freighter.http import HTTPClient
 from freighter.transport import AsyncNext, Next
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
-    WebsocketClient,
     ConnectionClosedError,
+    WebsocketClient,
 )
-from freighter.http import HTTPClient
 
 from .interface import Error, Message
-from uuid import uuid4
 
 
 @pytest.fixture

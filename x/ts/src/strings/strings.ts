@@ -35,28 +35,28 @@ export const naturalLanguageJoin = (
 };
 
 /**
- * Generates a list of short identifiers from a given name.
+ * Creates a list of short identifiers from a given name.
  *
- * @param name - The name to generate identifiers from.
+ * @param name - The name to create identifiers from.
  * @returns An array of unique short identifiers.
  *
  * @example
  * ```typescript
- * generateShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
- * generateShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
- * generateShortIdentifiers("Bob"); // ["bob"]
+ * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
+ * createShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
-export const generateShortIdentifiers = (name: string): string[] => {
+export const createShortIdentifiers = (name: string): string[] => {
   const words = name.split(" ");
   const identifiers = new Set<string>();
 
-  // Generate initials
+  // create initials
   const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials);
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+  identifiers.add(initials.replace(/-/g, "_"));
+  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
 
-  // Generate combinations with numbers
+  // Create combinations with numbers
   const regex = /\d+/g;
   const hasNumbers = name.match(regex);
 
@@ -66,21 +66,23 @@ export const generateShortIdentifiers = (name: string): string[] => {
         const abbreviatedWords = words
           .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
           .join("");
-        identifiers.add(abbreviatedWords);
-        identifiers.add(abbreviatedWords.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+        identifiers.add(abbreviatedWords.replace(/-/g, "_"));
+        identifiers.add(
+          abbreviatedWords.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_"),
+        ); // Insert underscores
       }
     });
 
-  // Generate other potential combinations
+  // Create other potential combinations
   const wordAbbreviations = words.map((word) =>
     (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
   );
-  identifiers.add(wordAbbreviations.join(""));
-  identifiers.add(wordAbbreviations.join("_"));
+  identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
+  identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
 
-  // Limit length of identifiers
+  // Limit length of identifiers and ensure they don't start with numbers
   const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12,
+    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
   );
 
   return filteredIdentifiers;

@@ -17,8 +17,8 @@ import { set } from "@/version/slice";
 export const tauriVersion = async (): Promise<string> => await getVersion();
 
 export const useLoadTauri = (): void => {
-  const d = useDispatch();
+  const dispatch = useDispatch();
   useAsyncEffect(async () => {
-    d(set(await tauriVersion()));
+    dispatch(set(await tauriVersion()));
   }, []);
 };

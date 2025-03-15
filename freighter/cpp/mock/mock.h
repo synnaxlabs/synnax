@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "freighter/cpp/freighter.h"
 
 template<typename RQ, typename RS>
@@ -18,18 +20,19 @@ class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
-    std::vector<freighter::Error> response_errors{};
+    std::vector<xerrors::Error> response_errors{};
 
+    MockUnaryClient() = default;
 
     MockUnaryClient(
         std::vector<RS> responses,
-        std::vector<freighter::Error> response_errors
-    ) : responses(responses), response_errors(response_errors) {
+        std::vector<xerrors::Error> response_errors
+    ) : responses(responses), response_errors(std::move(response_errors)) {
     }
 
     MockUnaryClient(
         RS response,
-        freighter::Error response_error
+        const xerrors::Error& response_error
     ) : responses({response}), response_errors({response_error}) {
     }
 
@@ -37,7 +40,7 @@ public:
         mw.use(middleware);
     }
 
-    std::pair<RS, freighter::Error>
+    std::pair<RS, xerrors::Error>
     send(const std::string &target, RQ &request) override {
         requests.push_back(request);
         if (responses.empty())

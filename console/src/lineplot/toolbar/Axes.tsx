@@ -15,7 +15,7 @@ import {
   Input,
   Select,
   Tabs,
-  Text,
+  type Text,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -72,9 +72,9 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
   enabled: boolean;
 }
 
-const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
+const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
   <Button.Icon
-    {...props}
+    {...rest}
     variant="outlined"
     disabled={enabled}
     tooltip={
@@ -202,7 +202,10 @@ export const LinePlotAxisControls = ({
           </Input.Item>
         )}
         <Input.Item label="Label Size">
-          <Text.SelectLevel value={axis.labelLevel} onChange={handleLabelLevelChange} />
+          <Select.Text.Level
+            value={axis.labelLevel}
+            onChange={handleLabelLevelChange}
+          />
         </Input.Item>
       </Align.Space>
     </Align.Space>

@@ -19,7 +19,7 @@ import { Text } from "@/text";
 
 export type ActionSpec = Button.IconProps | ReactElement;
 
-export interface ActionsProps {
+export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direction"> {
   children?: ActionSpec | ActionSpec[];
 }
 
@@ -31,7 +31,7 @@ export interface ActionsProps {
  * using the given props. If the action is a JSX element, it is renderered directly.
  * It's a good idea to prefer the latter in almost all cases for simplicity.
  */
-export const Actions = ({ children = [] }: ActionsProps): ReactElement => {
+export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => {
   const { level, divided } = useContext();
   return (
     <Align.Space
@@ -39,6 +39,7 @@ export const Actions = ({ children = [] }: ActionsProps): ReactElement => {
       size="small"
       align="center"
       className={CSS.BE("header", "actions")}
+      {...rest}
     >
       {toArray(children).map((action, i) => (
         <Action key={i} index={i} level={level} divided={divided}>
@@ -59,7 +60,7 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    const { onClick, key, ...props } = children;
+    const { onClick, key, ...rest } = children;
     content = (
       <Button.Icon
         key={key ?? index}
@@ -69,7 +70,7 @@ const Action = ({ index, level, children, divided }: ActionProps): ReactElement 
           onClick?.(e);
         }}
         size={Text.LevelComponentSizes[level]}
-        {...props}
+        {...rest}
       />
     );
   }

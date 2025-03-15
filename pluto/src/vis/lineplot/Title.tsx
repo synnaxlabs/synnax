@@ -19,7 +19,7 @@ export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>
 
 export const Title = <L extends Text.Level = "h2">({
   level = "h2" as TitleProps<L>["level"],
-  ...props
+  ...rest
 }: TitleProps<L>): ReactElement => {
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
@@ -30,7 +30,7 @@ export const Title = <L extends Text.Level = "h2">({
   return (
     <Align.Space justify="center" align="center" style={gridStyle}>
       {/* @ts-expect-error  - generic props issues */}
-      <Text.MaybeEditable<L> {...props} level={level} />
+      <Text.MaybeEditable<L> {...rest} level={level} />
     </Align.Space>
   );
 };

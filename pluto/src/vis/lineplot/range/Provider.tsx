@@ -23,18 +23,14 @@ export interface ProviderProps extends Aether.CProps {
   menu?: RenderProp<range.SelectedState>;
 }
 
-export const Provider = ({
-  aetherKey,
-  menu,
-  ...props
-}: ProviderProps): ReactElement => {
+export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setViewport, setHold } = useContext("Range.Provider");
   const [, { hovered, count }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
     schema: range.providerStateZ,
-    initialState: { ...props, cursor: null, hovered: null, count: 0 },
+    initialState: { ...rest, cursor: null, hovered: null, count: 0 },
   });
   const gridStyle = useGridEntry(
     { key: cKey, loc: "top", size: count > 0 ? 32 : 0, order: 3 },
