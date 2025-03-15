@@ -118,9 +118,9 @@ const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   Observe.useListener({
-    key: [client?.key, addStatus, handleException],
+    key: [client?.key, addStatus, handleError],
     open: async () => {
       if (client == null) return;
       const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
@@ -142,7 +142,7 @@ export const useListenForCalculationState = (): void => {
               description: message,
             });
           })
-          .catch((e) => handleException(e, "Calculated channel failed"));
+          .catch((e) => handleError(e, "Calculated channel failed"));
       });
     },
   });

@@ -27,7 +27,7 @@ export const Recent = (): ReactElement | null => {
     setData(workspaces ?? []);
   }, [client]);
 
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const handleClick = (key: string): void => {
     if (client == null) return;
@@ -37,7 +37,7 @@ export const Recent = (): ReactElement | null => {
         dispatch(add(ws));
         dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
       })
-      .catch((e) => handleException(e, "Failed to open workspace"));
+      .catch((e) => handleError(e, "Failed to open workspace"));
   };
 
   if (client == null || key == null) return null;

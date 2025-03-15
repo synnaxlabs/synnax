@@ -55,8 +55,8 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   key: "ni-toggle-scan-task",
   name: "Toggle NI Device Scanner",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ client, addStatus, handleException }) => {
-    handleException(async () => {
+  onSelect: ({ client, addStatus, handleError }) => {
+    handleError(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const scanTasks = await client.hardware.tasks.retrieveByType<
         ScanConfig,

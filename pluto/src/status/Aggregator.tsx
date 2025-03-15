@@ -63,11 +63,11 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
 
 export const useAdder = () => use(AdderContext);
 
-export interface ExceptionHandler extends status.ExceptionHandler {}
+export interface ErrorHandler extends status.ErrorHandler {}
 
-export const useExceptionHandler = (): ExceptionHandler => {
+export const useErrorHandler = (): ErrorHandler => {
   const add = useAdder();
-  return useMemo(() => status.createExceptionHandler(add), [add]);
+  return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
 export interface NotificationSpec extends status.Spec {
