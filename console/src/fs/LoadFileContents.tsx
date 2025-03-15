@@ -32,9 +32,9 @@ export const InputFilePath = ({
   ...rest
 }: InputFilePathProps): ReactElement => {
   const path = value;
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const handleClick = () =>
-    handleException(async () => {
+    handleError(async () => {
       const path = await open({ directory: false, filters });
       if (path == null) return;
       onChange(path);
@@ -83,14 +83,14 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
   schema,
   ...rest
 }: InputFileContentsProps<P>): ReactElement => {
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [path, setPath] = useState<string>("");
   useEffect(() => {
     if (initialPath == null || initialPath === path) return;
     handleChange(initialPath);
   }, [initialPath]);
   const handleChange = (path: string) =>
-    handleException(async () => {
+    handleError(async () => {
       const contents = await readFile(path);
       if (contents == null) return;
       onChange(decoder.decode<P>(contents, schema), path);

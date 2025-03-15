@@ -46,7 +46,7 @@ export interface CommandSelectionContext {
   confirm: Modals.PromptConfirm;
   addStatus: Status.Adder;
   rename: Modals.PromptRename;
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   ingestors: Record<string, Import.FileIngestor>;
   extractors: Record<string, Export.Extractor>;
 }

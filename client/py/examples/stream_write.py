@@ -64,11 +64,12 @@ with client.open_writer(
     i = 0
     while loop.wait():
         # Write the data to the Synnax cluster using the writer.
-        writer.write(
+        if not writer.write(
             {
                 time_channel.key: sy.TimeStamp.now(),
                 data_channel_1.key: np.sin(i / 10) * 25 + 12.5,
                 data_channel_2.key: i % 2,
             }
-        )
+        ):
+            break
         i += 1

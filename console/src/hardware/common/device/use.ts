@@ -42,7 +42,7 @@ export const use = <
 >() => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [device, setDevice] = useState<device.Device<Properties, Make, Model>>();
   const handleExc = useCallback(
     (e: unknown) => {
@@ -50,9 +50,9 @@ export const use = <
         setDevice(undefined);
         return;
       }
-      handleException(e, `Failed to retrieve ${device?.name ?? "device"}`);
+      handleError(e, `Failed to retrieve ${device?.name ?? "device"}`);
     },
-    [handleException, device?.name, setDevice],
+    [handleError, device?.name, setDevice],
   );
   useAsyncEffect(async () => {
     if (client == null) return;

@@ -66,11 +66,11 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
   const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const handleSelect = () => {
     svc
       .onClick(entry, { client, placeLayout })
-      .catch((e) => handleException(e, `Failed to open ${entry.name}`));
+      .catch((e) => handleError(e, `Failed to open ${entry.name}`));
   };
   return (
     <List.ItemFrame

@@ -68,10 +68,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         store.dispatch(Layout.clearWorkspace());
       }
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete workspace");
+      handleError(e, "Failed to delete workspace");
     },
   }).mutate;
 };
@@ -131,9 +131,9 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create schematic");
+      handleError(e, "Failed to create schematic");
     },
   }).mutate;
 };
@@ -166,9 +166,9 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create line plot");
+      handleError(e, "Failed to create line plot");
     },
   }).mutate;
 };
@@ -199,9 +199,9 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create log");
+      handleError(e, "Failed to create log");
     },
   }).mutate;
 };
@@ -232,9 +232,9 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create table");
+      handleError(e, "Failed to create table");
     },
   }).mutate;
 };
@@ -333,7 +333,7 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
   client,
   store,
-  handleException,
+  handleError,
 }) => {
   client.workspaces
     .retrieve(selection[0].id.key)
@@ -351,7 +351,7 @@ const handleSelect: Ontology.HandleSelect = ({
         selection.map(({ name }) => name),
         "workspace",
       );
-      handleException(e, `Failed to select ${names}`);
+      handleError(e, `Failed to select ${names}`);
     });
 };
 

@@ -17,7 +17,7 @@ import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 
-const ZERO_LAYOUT_STATES: Record<string, Common.Task.Layout> = {
+const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
   [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
   [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,
@@ -29,10 +29,10 @@ const ZERO_LAYOUT_STATES: Record<string, Common.Task.Layout> = {
   [Sequence.TYPE]: Sequence.LAYOUT,
 };
 
-export const createLayout = ({ key, type }: task.Task): Layout.BaseState => {
-  const configureLayout = ZERO_LAYOUT_STATES[type];
-  if (configureLayout == null) throw new Error(`No layout configured for ${type}`);
-  return { ...configureLayout, key, args: { taskKey: key } };
+export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {
+  const baseLayout = ZERO_LAYOUTS[type];
+  if (baseLayout == null) throw new Error(`No layout configured for ${type}`);
+  return { ...baseLayout, key, name, args: { taskKey: key } };
 };
 
 export const retrieveAndPlaceLayout = async (
