@@ -27,8 +27,8 @@ import { z } from "zod";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantom as usePhantomGlobals, type UsePhantomReturn } from "@/code/phantom";
-import { useSuggestChannels } from "@/code/useSuggestChannels";
+import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
@@ -43,6 +43,8 @@ import {
 import { Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type Selector } from "@/selector";
+
+const FAILED_TO_UPDATE_AUTOCOMPLETE = "Failed to update sequence auto-complete";
 
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -75,7 +77,7 @@ export const SELECTABLE: Selector.Selectable = {
 };
 
 interface EditorProps extends Input.Control<string> {
-  globals: UsePhantomReturn;
+  globals: UsePhantomGlobalsReturn;
 }
 
 const Editor = ({ value, onChange, globals }: EditorProps) => {
@@ -120,7 +122,7 @@ const Internal = ({
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
   const { name } = Layout.useSelectRequired(layoutKey);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
@@ -163,7 +165,7 @@ const Internal = ({
       await create({ key: base.key, name, type: TYPE, config }, rack);
       methods.setCurrentStateAsInitialValues();
     },
-    onError: (e) => handleException(e, `Failed to configure ${base.name}`),
+    onError: (e) => handleError(e, `Failed to configure ${base.name}`),
   });
   const handleConfigure = useCallback(() => configure(), [configure]);
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
@@ -179,7 +181,7 @@ const Internal = ({
         throw e;
       }
     },
-    onError: (e, command) => handleException(e, `Failed to ${command} task`),
+    onError: (e, command) => handleError(e, `Failed to ${command} task`),
   }).mutate;
   const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
   const handleStartOrStop = useCallback(
@@ -251,9 +253,17 @@ const Internal = ({
               label="Read From"
               padHelpText={false}
               onChange={(v, extra) => {
-                const prev = extra.get<channel.Key[]>("config.read").value;
-                const removed = prev.filter((ch) => !v.includes(ch));
-                removed.forEach((ch) => globals.del(ch.toString()));
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.read").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
               }}
             >
               {({ value, onChange }) => (
@@ -268,6 +278,19 @@ const Internal = ({
               path="config.write"
               label="Write To"
               padHelpText={false}
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.write").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
+              }}
             >
               {({ value, onChange }) => (
                 <Channel.SelectMultiple

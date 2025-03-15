@@ -30,7 +30,7 @@ export interface Cell extends aether.Component {
 
 interface InternalState {
   renderCtx: render.Context;
-  handleException: status.ExceptionHandler;
+  handleError: status.ErrorHandler;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -43,7 +43,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
-    i.handleException = status.useExceptionHandler(ctx);
+    i.handleError = status.useErrorHandler(ctx);
     render.Controller.control(ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
@@ -62,7 +62,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
           this.state.clearOverScan,
           ...CANVASES,
         );
-    const { renderCtx, handleException } = this.internal;
+    const { renderCtx, handleError } = this.internal;
     const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
     const clearScissor = renderCtx.scissor(
       this.state.region,
@@ -73,7 +73,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     try {
       for (const child of this.children) await child.render({ viewportScale });
     } catch (e) {
-      handleException(e, "Failed to render table");
+      handleError(e, "Failed to render table");
     } finally {
       clearScissor();
     }

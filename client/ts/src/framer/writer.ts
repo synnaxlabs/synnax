@@ -171,7 +171,7 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = control.Authority.Absolute,
+      authorities = control.Authority.ABSOLUTE,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       errOnUnauthorized = false,

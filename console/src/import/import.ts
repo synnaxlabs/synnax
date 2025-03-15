@@ -23,7 +23,7 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export interface ImportArgs {
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   client: Synnax | null;
   placeLayout: Layout.Placer;
   store: Store;
@@ -42,7 +42,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
 export const createImporter: ImporterCreator =
   (ingest, type = "visualization") =>
-  async ({ store, client, placeLayout, handleException, workspaceKey }) => {
+  async ({ store, client, placeLayout, handleError, workspaceKey }) => {
     const paths = await open({
       title: `Import ${type}`,
       filters: FILTERS,
@@ -72,7 +72,7 @@ export const createImporter: ImporterCreator =
           name = trimFileName(name);
           ingest(data, { layout: { name }, placeLayout, store });
         } catch (e) {
-          handleException(e, `Failed to import ${type} at ${path}`);
+          handleError(e, `Failed to import ${type} at ${path}`);
         }
       }),
     );
@@ -85,6 +85,6 @@ export const use = (
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
   const client = PSynnax.use();
-  const handleException = Status.useExceptionHandler();
-  return () => import_({ store, placeLayout, client, handleException, workspaceKey });
+  const handleError = Status.useErrorHandler();
+  return () => import_({ store, placeLayout, client, handleError, workspaceKey });
 };

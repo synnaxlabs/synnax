@@ -46,10 +46,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete schematic");
+      handleError(err, "Failed to delete schematic");
     },
   }).mutate;
 };
@@ -84,8 +84,8 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
-    onError: (err, { handleException }) => {
-      handleException(err, "Failed to copy schematic");
+    onError: (err, { handleError }) => {
+      handleError(err, "Failed to copy schematic");
     },
   }).mutate;
 
@@ -132,12 +132,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       {resources.every((r) => r.data?.snapshot === false) && (
-        <Range.SnapshotMenuItem range={activeRange} />
+        <>
+          <Range.SnapshotMenuItem range={activeRange} />
+          <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+            Copy
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
       )}
-      <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
-        Copy
-      </PMenu.Item>
-      <PMenu.Divider />
       {isSingle && (
         <>
           <Export.MenuItem />
@@ -179,14 +181,14 @@ const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   loadSchematic(client, selection[0].id, placeLayout).catch((e) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "schematic",
     );
-    handleException(e, `Failed to select ${names}`);
+    handleError(e, `Failed to select ${names}`);
   });
 };
 
@@ -196,7 +198,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
   client.workspaces.schematic
     .retrieve(id.key)
@@ -211,7 +213,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
         }),
       ),
     )
-    .catch((e) => handleException(e, "Failed to load schematic"));
+    .catch((e) => handleError(e, "Failed to load schematic"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

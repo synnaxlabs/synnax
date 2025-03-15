@@ -36,7 +36,6 @@ export type AIPortType = typeof AI_PORT_TYPE;
 
 export interface AIPort extends BasePort {
   type: AIPortType;
-  voltageRange: bounds.Bounds;
 }
 
 export const AIN_PORT_REGEX = /^AIN\d+$/;
@@ -77,11 +76,11 @@ interface AltConfig {
 const convertAltConfigToAlias = ({ prefix, offset }: AltConfig, port: number): string =>
   `${prefix}${port - offset}`;
 
-const aiFactory = (b: bounds.Bounds, voltageRange: bounds.Bounds): AIPort[] =>
+const aiFactory = (b: bounds.Bounds, altConfig?: AltConfig): AIPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
     key: `AIN${i + b.lower}`,
     type: AI_PORT_TYPE,
-    voltageRange,
+    alias: altConfig ? convertAltConfigToAlias(altConfig, i + b.lower) : undefined,
   }));
 
 const aoFactory = (b: bounds.Bounds): AOPort[] =>
@@ -110,10 +109,7 @@ const doFactory = (b: bounds.Bounds, altConfig: AltConfig): DOPort[] =>
     };
   });
 
-const AI_HIGH_VOLTAGE = bounds.construct(-10, 10);
-const AI_LOW_VOLTAGE = bounds.construct(0, 2.5);
-
-interface Ports {
+interface PortsInfo {
   [AI_PORT_TYPE]: AIPort[];
   [AO_PORT_TYPE]: AOPort[];
   [DI_PORT_TYPE]: DIPort[];
@@ -121,26 +117,31 @@ interface Ports {
 }
 
 const T4_AI_PORTS: AIPort[] = [
-  ...aiFactory({ lower: 0, upper: 4 }, AI_HIGH_VOLTAGE),
-  ...aiFactory({ lower: 5, upper: 11 }, AI_LOW_VOLTAGE),
+  ...aiFactory({ lower: 0, upper: 3 }),
+  ...aiFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
+  ...aiFactory({ lower: 8, upper: 11 }, { prefix: "EIO", offset: 8 }),
 ];
 const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T4_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
   ...diFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...diFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
+  ...diFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
 const T4_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
   ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
+  ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
+  ...doFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
-const T4_PORTS: Ports = {
+const T4_PORTS: PortsInfo = {
   [AI_PORT_TYPE]: T4_AI_PORTS,
   [AO_PORT_TYPE]: T4_AO_PORTS,
   [DI_PORT_TYPE]: T4_DI_PORTS,
   [DO_PORT_TYPE]: T4_DO_PORTS,
 };
 
-const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AI_HIGH_VOLTAGE);
+const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 });
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
@@ -154,14 +155,14 @@ const T7_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
   ...doFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
-const T7_PORTS: Ports = {
+const T7_PORTS: PortsInfo = {
   [AI_PORT_TYPE]: T7_AI_PORTS,
   [AO_PORT_TYPE]: T7_AO_PORTS,
   [DI_PORT_TYPE]: T7_DI_PORTS,
   [DO_PORT_TYPE]: T7_DO_PORTS,
 };
 
-const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AI_HIGH_VOLTAGE);
+const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 });
 const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T8_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
@@ -173,23 +174,18 @@ const T8_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
   ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
 ];
-const T8_PORTS: Ports = {
+const T8_PORTS: PortsInfo = {
   [AI_PORT_TYPE]: T8_AI_PORTS,
   [AO_PORT_TYPE]: T8_AO_PORTS,
   [DI_PORT_TYPE]: T8_DI_PORTS,
   [DO_PORT_TYPE]: T8_DO_PORTS,
 };
 
-export interface ModelInfo {
-  name: string;
-  ports: Ports;
-}
-
-export interface Devices extends Record<Model, ModelInfo> {}
-export const DEVICES: Devices = {
-  [T4_MODEL]: { name: "T4", ports: T4_PORTS },
-  [T7_MODEL]: { name: "T7", ports: T7_PORTS },
-  [T8_MODEL]: { name: "T8", ports: T8_PORTS },
+export interface Ports extends Record<Model, PortsInfo> {}
+export const PORTS: Ports = {
+  [T4_MODEL]: T4_PORTS,
+  [T7_MODEL]: T7_PORTS,
+  [T8_MODEL]: T8_PORTS,
 };
 
 export type Properties = {
