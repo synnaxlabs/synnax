@@ -254,7 +254,7 @@ const Internal = ({
               padHelpText={false}
               onChange={(v, extra) => {
                 if (client == null) return;
-                handleException(
+                handleError(
                   async () =>
                     await bindChannelsAsGlobals(
                       client,
@@ -280,7 +280,7 @@ const Internal = ({
               padHelpText={false}
               onChange={(v, extra) => {
                 if (client == null) return;
-                handleException(
+                handleError(
                   async () =>
                     await bindChannelsAsGlobals(
                       client,

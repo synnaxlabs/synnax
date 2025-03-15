@@ -187,7 +187,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   });
 
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
@@ -224,7 +224,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       const chs = await client.channels.retrieve(channels);
       chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
     } catch (e) {
-      handleException(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+      handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
     }
   }, [methods, globals, client]);
 
@@ -280,7 +280,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               grow
               onChange={(v, extra) => {
                 if (client == null) return;
-                handleException(
+                handleError(
                   async () =>
                     await bindChannelsAsGlobals(
                       client,
