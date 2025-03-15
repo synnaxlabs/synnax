@@ -205,3 +205,55 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EQ(written_data->at(0).at(0), 0);
     ASSERT_EQ(written_data->at(0).at(1), 1);
 }
+
+/// @brief Test that an invalid channel type in the configuration is properly detected and reported
+TEST(WriteTaskConfigTest, testInvalidChannelType) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    
+    // Create a device
+    auto dev = synnax::Device(
+        "abc123",
+        "test_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    
+    // Create state and command channels
+    auto state_idx_ch = ASSERT_NIL_P(sy->channels.create("state_idx", telem::TIMESTAMP_T, 0, true));
+    auto state_ch = ASSERT_NIL_P(sy->channels.create("state_ch", telem::FLOAT64_T, state_idx_ch.key, false));
+    auto cmd_ch = ASSERT_NIL_P(sy->channels.create("cmd_ch", telem::FLOAT64_T, true));
+    
+    // Create a configuration with an invalid channel type
+    json j{
+        {"data_saving", false},
+        {"state_rate", 25},
+        {"device", dev.key},
+        {
+            "channels", json::array({
+                {
+                    {"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
+                    {"key", "hCzuNC9glqc"},
+                    {"port", 0},
+                    {"enabled", true},
+                    {"min_val", 0},
+                    {"max_val", 1},
+                    {"state_channel", state_ch.key},
+                    {"cmd_channel", cmd_ch.key},
+                    {"custom_scale", {{"type", "none"}}},
+                    {"units", "Volts"}
+                }
+            })
+        }
+    };
+    
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::WriteTaskConfig>(sy, p);
+    
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+}
