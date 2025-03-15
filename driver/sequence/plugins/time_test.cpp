@@ -82,15 +82,11 @@ TEST(TimePluginTest, testElapsedWithin) {
     
     auto plugin = plugins::Time(now);
     
-    // Initialize the plugin with the Lua state
     ASSERT_EQ(plugin.before_all(L), xerrors::NIL);
     
-    // Test the elapsed_time_within function
     current_time = telem::SECOND * 3;
     ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
     
-    // Test elapsed_time_within with various ranges
-    // Execute: elapsed_time_within(1, 5)
     lua_getglobal(L, "elapsed_time_within");
     lua_pushnumber(L, 1);  // start time
     lua_pushnumber(L, 5);  // end time
@@ -99,7 +95,6 @@ TEST(TimePluginTest, testElapsedWithin) {
     EXPECT_TRUE(lua_toboolean(L, -1));  // 3 seconds is within 1-5 seconds
     lua_pop(L, 1);
     
-    // Execute: elapsed_time_within(4, 6)
     lua_getglobal(L, "elapsed_time_within");
     lua_pushnumber(L, 4);  // start time
     lua_pushnumber(L, 6);  // end time
@@ -108,11 +103,9 @@ TEST(TimePluginTest, testElapsedWithin) {
     EXPECT_FALSE(lua_toboolean(L, -1));  // 3 seconds is not within 4-6 seconds
     lua_pop(L, 1);
     
-    // Advance time and check again
     current_time = telem::SECOND * 7;
     ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
     
-    // Execute: elapsed_time_within(5, 10)
     lua_getglobal(L, "elapsed_time_within");
     lua_pushnumber(L, 5);  // start time
     lua_pushnumber(L, 10);  // end time
