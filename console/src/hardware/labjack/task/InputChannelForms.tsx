@@ -186,8 +186,6 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
       <Divider.Divider direction="x" padded="bottom" />
-      <MaxVoltageField path={path} />
-      <Divider.Divider direction="x" padded="bottom" />
       <Align.Space direction="x">
         <ThermocoupleTypeField path={path} grow />
         <TemperatureUnitsField path={path} grow />

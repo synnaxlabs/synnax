@@ -57,7 +57,7 @@ export type AIChannelType = typeof AI_CHANNEL_TYPE;
 
 const aiChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(AI_CHANNEL_TYPE),
-  range: z.number().finite().optional(),
+  range: z.number().positive().finite().optional(),
   scale: scaleZ,
   port: portZ.regex(
     Device.AIN_PORT_REGEX,
@@ -69,7 +69,7 @@ const ZERO_AI_CHANNEL: AIChannel = {
   ...Common.Task.ZERO_READ_CHANNEL,
   type: AI_CHANNEL_TYPE,
   port: "AIN0",
-  range: 0,
+  range: 10,
   scale: ZERO_SCALES[NO_SCALE_TYPE],
 };
 
@@ -121,7 +121,7 @@ export type ThermocoupleType = z.infer<typeof thermocoupleTypeZ>;
 export const DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
 export const AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
 
-const tcChannelZ = aiChannelZ.omit({ type: true }).extend({
+const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
   type: z.literal(TC_CHANNEL_TYPE),
   thermocoupleType: thermocoupleTypeZ,
   posChan: z.number().int(),
