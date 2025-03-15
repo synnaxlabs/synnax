@@ -40,6 +40,7 @@ class StreamReceiver(Protocol[RS]):
         method will block indefinitely. Not all implementations support this parameter.
 
         :returns freighter.errors.EOF: if the server closed the stream nominally.
+        :raises TimeoutError: if the timeout is reached.
         :returns Exception: if the server closed the stream abnormally,
         returns the error the server returned.
         :raises Exception: if the transport fails.
