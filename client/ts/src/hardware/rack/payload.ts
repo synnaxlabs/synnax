@@ -16,8 +16,6 @@ export type Key = z.infer<typeof keyZ>;
 export const rackZ = z.object({ key: keyZ, name: z.string() });
 export interface Payload extends z.infer<typeof rackZ> {}
 
-export const newZ = rackZ.omit({ key: true }).extend({
-  key: keyZ.optional(),
 export const newZ = rackZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
