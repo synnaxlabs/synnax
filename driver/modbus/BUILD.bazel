@@ -1,0 +1,13 @@
+cc_library(
+    name = "modbus",
+    srcs = [
+        "modbus.h",
+        "read_task.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/modbus/device",
+        "//driver/modbus/util",
+        "//vendor/libmodbus",
+    ],
+)
