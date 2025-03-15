@@ -66,7 +66,8 @@ const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
     {FAHRENHEIT_UNITS, LJM_FARENHEIT}
 };
 
-inline LJM_TemperatureUnits parse_temperature_units(xjson::Parser &parser, const std::string &path) {
+inline LJM_TemperatureUnits parse_temperature_units(xjson::Parser &parser,
+                                                    const std::string &path) {
     const auto units = parser.required<std::string>(path);
     const auto v = TEMPERATURE_UNITS.find(units);
     if (v == TEMPERATURE_UNITS.end())
@@ -351,11 +352,14 @@ struct ReadTaskConfig {
        sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
        stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
-       samples_per_chan(sample_rate / stream_rate) {
-        parser.iter("channels", [this](xjson::Parser &p) {
-            auto ch = parse_input_chan(p);
-            if (ch != nullptr && ch->enabled) this->channels.push_back(std::move(ch));
-        });
+       samples_per_chan(sample_rate / stream_rate),
+       channels(parser.map<std::unique_ptr<InputChan> >(
+           "channels",
+           [&](xjson::Parser &ch_cfg)-> std::pair<std::unique_ptr<InputChan>, bool> {
+               auto ch = parse_input_chan(ch_cfg);
+               if (ch == nullptr) return {nullptr, false};
+               return {std::move(ch), ch->enabled};
+           })) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;

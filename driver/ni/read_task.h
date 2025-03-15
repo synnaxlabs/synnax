@@ -84,9 +84,10 @@ struct ReadTaskConfig {
        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
-           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
+           [](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
        bool> {
                auto ch = channel::parse_input(ch_cfg);
+               if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
