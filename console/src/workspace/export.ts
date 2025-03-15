@@ -28,7 +28,7 @@ export interface ExportContext {
   client: CSynnax | null;
   store: RootStore;
   confirm: Modals.PromptConfirm;
-  handleError: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   extractors: Record<string, Export.Extractor>;
 }
 

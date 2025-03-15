@@ -43,7 +43,7 @@ export const ingest: Import.DirectoryIngestor = async (
 };
 
 export interface IngestContext {
-  handleError: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   client: Synnax | null;
   ingestors: Record<string, Import.FileIngestor>;
   placeLayout: Layout.Placer;

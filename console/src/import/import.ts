@@ -23,7 +23,7 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export interface ImportArgs {
-  handleError: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   client: Synnax | null;
   placeLayout: Layout.Placer;
   store: Store;

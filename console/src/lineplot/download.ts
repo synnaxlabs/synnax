@@ -17,7 +17,7 @@ export interface DownloadProps {
   timeRange: TimeRange;
   client: Synnax;
   lines: Channel.LineProps[];
-  handleError: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   name?: string;
 }
 
