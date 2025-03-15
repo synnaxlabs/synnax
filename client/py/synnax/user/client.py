@@ -14,6 +14,7 @@ from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.user.payload import NewUser, User
 from synnax.util.normalize import normalize
+from synnax.util.params import require_named_params
 
 
 class _CreateRequest(Payload):
@@ -78,6 +79,7 @@ class Client:
     @overload
     def create(self, *, users: list[NewUser]) -> list[User]: ...
 
+    @require_named_params(example_params=("user", "NewUser(username='synnax')"))
     def create(
         self,
         *,
@@ -144,6 +146,7 @@ class Client:
     @overload
     def retrieve(self, *, usernames: list[str]) -> list[User]: ...
 
+    @require_named_params(example_params=("username", "synnax"))
     def retrieve(
         self,
         *,

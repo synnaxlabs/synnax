@@ -58,6 +58,7 @@ from synnax.telem import (
 )
 from synnax.util.interop import overload_comparison_operators
 from synnax.util.normalize import check_for_none, normalize
+from synnax.util.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -447,6 +448,9 @@ class Range(RangePayload):
         return self._tasks.retrieve(keys=[t.id.key for t in tasks])
 
 
+
+
+
 class RangeClient:
     _frame_client: Client
     _channels: ChannelRetriever
@@ -589,18 +593,7 @@ class RangeClient:
             res.extend(self.__sugar(self._writer.create(to_create, parent=parent)))
         return res if not is_single else res[0]
 
-    @overload
-    def retrieve(self, *, key: RangeKey) -> Range: ...
-
-    @overload
-    def retrieve(self, *, name: RangeName) -> Range: ...
-
-    @overload
-    def retrieve(self, *, names: RangeNames) -> list[Range]: ...
-
-    @overload
-    def retrieve(self, *, keys: RangeKeys) -> list[Range]: ...
-
+    @require_named_params(example_params=("name", "My Range"))
     def retrieve(
         self,
         *,
