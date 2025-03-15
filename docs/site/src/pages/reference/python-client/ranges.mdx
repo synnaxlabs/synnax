@@ -71,15 +71,21 @@ We can retrieve a range by its name or key:
 
 ```python
 # By name
-my_range = client.ranges.retrieve("My Range")
+my_range = client.ranges.retrieve(name="My Range")
 
 # By key
-my_range = client.ranges.retrieve(my_range.key)
+my_range = client.ranges.retrieve(key=my_range.key)
 ```
 
 Synnax will raise a `NotFoundError` if the range does not exist, and a
 `MultipleFoundError` if multiple ranges with the given name exist. If you'd like to
 accept multiple or no results, provide a list to the `retrieve` method as shown below.
+
+<Note.Note variant="info">
+  The `retrieve` method only supports passing in named parameters i.e. `name`, `key`,
+  `names`, `keys`. If you try to pass in unnamed parameters, Synnax will raise a
+  `TypeError`.
+</Note.Note>
 
 ### Retrieving Multiple Ranges
 
@@ -88,13 +94,13 @@ method:
 
 ```python
 # By name
-my_ranges = client.ranges.retrieve(["My Range", "My Other Range"])
+my_ranges = client.ranges.retrieve(names=["My Range", "My Other Range"])
 
 # By key
-my_ranges = client.ranges.retrieve([my_range.key, my_other_range.key])
+my_ranges = client.ranges.retrieve(keys=[my_range.key, my_other_range.key])
 
 # This won't work!
-my_ranges = client.ranges.retrieve(["My Range", my_other_range.key])
+my_ranges = client.ranges.retrieve(names=["My Range", my_other_range.key])
 ```
 
 In these examples, Synnax will not raise an error if a range cannot be found. Instead,
@@ -110,7 +116,7 @@ We can access the channels on a range as if they were class properties or dictio
 keys:
 
 ```python
-my_range = client.ranges.retrieve("My Range")
+my_range = client.ranges.retrieve(name="My Range")
 
 # Using a property accessor
 my_pressure_channel = my_range.pressure_2
@@ -124,7 +130,7 @@ We can also access multiple channels on the range by passing a regular expressio
 property accessor:
 
 ```python
-my_range = client.ranges.retrieve("My Range")
+my_range = client.ranges.retrieve(name="My Range")
 
 # Returns an iterable object containing matching channels
 my_pressure_channels = my_range["^pressure"]
@@ -155,7 +161,7 @@ Imagine we have a channel named `daq_analog_input_1` that we'd like to refer to 
 `tank_pressure` for a tank burst test. We can do this by aliasing the channel:
 
 ```python
-burst_test = client.ranges.retrieve("Oct 10 Burst Test")
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
 
 # Set our alias
 burst_test.daq_analog_input_1.set_alias("tank_pressure")
@@ -188,7 +194,7 @@ as test configuration parameters, numeric results, part numbers, etc. We can att
 metadata to a range using the `meta_data` property:
 
 ```python
-burst_test = client.ranges.retrieve("Oct 10 Burst Test")
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
 
 # Set a single key/value pair
 burst_test.meta_data.set("part_number", "12345")
@@ -214,7 +220,7 @@ burst_test.meta_data.set({
 Getting metadata is as easy as setting it:
 
 ```python
-burst_test = client.ranges.retrieve("Oct 10 Burst Test")
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
 
 # Retrieve a single key
 part_number = burst_test.meta_data.get("part_number")
@@ -228,7 +234,7 @@ part_number = burst_test.meta_data["part_number"]
 We can delete metadata using the `delete` method:
 
 ```python
-burst_test = client.ranges.retrieve("Oct 10 Burst Test")
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
 
 # Delete a single key
 burst_test.meta_data.delete("part_number")
@@ -247,8 +253,8 @@ burst_test.meta_data.delete(["part_number", "test_configuration"])
 Deleting a range is as simple as passing in its name or key to the `delete` method:
 
 ```python
-client.ranges.delete("My Range")
-client.ranges.delete(my_range.key)
+client.ranges.delete(name="My Range")
+client.ranges.delete(key=my_range.key)
 ```
 
 <Note.Note variant="info">
@@ -258,6 +264,6 @@ client.ranges.delete(my_range.key)
 We can delete multiple ranges by passing a list of names or keys to the `delete` method:
 
 ```python
-client.ranges.delete(["My Range", "My Other Range"])
-client.ranges.delete([my_range.key, my_other_range.key])
+client.ranges.delete(names=["My Range", "My Other Range"])
+client.ranges.delete(keys=[my_range.key, my_other_range.key])
 ```

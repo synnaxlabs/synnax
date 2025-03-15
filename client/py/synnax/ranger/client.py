@@ -448,9 +448,6 @@ class Range(RangePayload):
         return self._tasks.retrieve(keys=[t.id.key for t in tasks])
 
 
-
-
-
 class RangeClient:
     _frame_client: Client
     _channels: ChannelRetriever
