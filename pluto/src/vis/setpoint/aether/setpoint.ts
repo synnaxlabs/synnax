@@ -28,7 +28,7 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  handleError: status.AsyncExceptionHandler;
+  handleError: status.AsyncErrorHandler;
   stopListening: Destructor;
   prevTrigger: number;
 }

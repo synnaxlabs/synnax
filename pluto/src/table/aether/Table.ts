@@ -30,7 +30,7 @@ export interface Cell extends aether.Component {
 
 interface InternalState {
   renderCtx: render.Context;
-  handleError: status.ExceptionHandler;
+  handleError: status.ErrorHandler;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
