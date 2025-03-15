@@ -16,6 +16,24 @@ export const GLOBALS: Variable[] = [
     key: "elapsed_time",
     name: "elapsed_time",
     value: "0.0",
-    docs: "The elapsed time of the task in seconds",
+    docs: "The elapsed time of the sequence in seconds",
+  },
+  {
+    key: "elapsed_time_within",
+    name: "elapsed_time_within",
+    value: `
+    --- Check if the elapsed time of the sequence is within a given range.
+    --- @param start the start time in seconds
+    --- @param end the end time in seconds
+    --- @return boolean true if the elapsed time is within the range, false otherwise
+    function(start, end)
+    end`,
+  },
+  {
+    key: "iteration",
+    name: "iteration",
+    value: "0",
+    docs: `The iteration number of the sequence. This is incremented each time the sequence is run, 
+    and starts at 1.`,
   },
 ];
