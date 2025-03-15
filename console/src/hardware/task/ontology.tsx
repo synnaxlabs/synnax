@@ -30,8 +30,9 @@ const handleSelect: Ontology.HandleSelect = ({
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  retrieveAndPlaceLayout(client, key, placeLayout).catch((e) =>
-    handleError(e, `Could not open ${name}`),
+  handleError(
+    async () => await retrieveAndPlaceLayout(client, key, placeLayout),
+    `Could not open ${name}`,
   );
 };
 
