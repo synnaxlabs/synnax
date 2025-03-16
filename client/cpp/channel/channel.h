@@ -129,7 +129,7 @@ keys_from_channels(const std::vector<Channel> &channels) {
     return keys;
 }
 
-inline std::unordered_map<ChannelKey, Channel> channel_keys_map(
+inline std::unordered_map<ChannelKey, Channel> map_channel_Keys(
     const std::vector<Channel> &channels) {
     std::unordered_map<ChannelKey, Channel> map;
     map.reserve(channels.size());

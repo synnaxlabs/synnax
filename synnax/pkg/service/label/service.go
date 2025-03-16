@@ -84,7 +84,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
 		if err != nil {

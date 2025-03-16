@@ -57,15 +57,21 @@ std::string guid_to_string(const UA_Guid &guid) {
 
 /// @brief Parses a string NodeId into a UA_NodeId object
 UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
-    std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
-    std::smatch matches;
     const std::string nodeIdStr = parser.required<std::string>(path);
     if (!parser.ok()) return UA_NODEID_NULL;
-
-    if (!std::regex_search(nodeIdStr, matches, regex)) {
-        parser.field_err(path, "Invalid NodeId format");
+    auto [node_id, err] = parse_node_id(nodeIdStr);
+    if (err) {
+        parser.field_err(path, err.message());
         return UA_NODEID_NULL;
     }
+    return node_id;
+}
+
+std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_str) {
+    std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
+    std::smatch matches;
+    if (!std::regex_search(node_id_str, matches, regex))
+        return {UA_NODEID_NULL, xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
 
     int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
@@ -86,7 +92,7 @@ UA_NodeId parse_node_id(const std::string &path, xjson::Parser &parser) {
         node_id = UA_NODEID_BYTESTRING(nsIndex, reinterpret_cast<char *>(data));
         UA_free(data);
     }
-    return node_id;
+    return {node_id, xerrors::NIL};
 }
 
 

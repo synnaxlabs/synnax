@@ -20,19 +20,26 @@ import {
   Status,
   Synnax,
   Text,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
+import { Lua } from "@/code/lua";
+import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+
+const FAILED_TO_UPDATE_AUTOCOMPLETE =
+  "Failed to update calculated channel auto-complete";
 
 export interface CalculatedLayoutArgs {
   channelKey?: number;
@@ -111,9 +118,9 @@ const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   Observe.useListener({
-    key: [client?.key, addStatus, handleException],
+    key: [client?.key, addStatus, handleError],
     open: async () => {
       if (client == null) return;
       const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
@@ -135,7 +142,7 @@ export const useListenForCalculationState = (): void => {
               description: message,
             });
           })
-          .catch((e) => handleException(e, "Calculated channel failed"));
+          .catch((e) => handleError(e, "Calculated channel failed"));
       });
     },
   });
@@ -180,7 +187,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   });
 
   const addStatus = Status.useAdder();
-
+  const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
@@ -206,6 +213,21 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     methods,
   );
 
+  const globals = usePhantomGlobals({
+    language: Lua.LANGUAGE,
+    stringifyVar: Lua.stringifyVar,
+  });
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const channels = methods.get<channel.Key[]>("requires").value;
+    try {
+      const chs = await client.channels.retrieve(channels);
+      chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+    } catch (e) {
+      handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+    }
+  }, [methods, globals, client]);
+
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
@@ -226,11 +248,12 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             {({ value, onChange }) => (
               <Editor
                 value={value}
-                language="lua"
+                language={Lua.LANGUAGE}
                 onChange={onChange}
                 bordered
                 rounded
                 style={{ height: 150 }}
+                globals={globals}
               />
             )}
           </Form.Field>
@@ -255,6 +278,19 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               required
               label="Required Channels"
               grow
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("requires").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
+              }}
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
@@ -288,4 +324,25 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-const Editor = (props: Code.EditorProps): ReactElement => <Code.Editor {...props} />;
+export interface EditorProps extends Code.EditorProps {
+  globals?: UsePhantomGlobalsReturn;
+}
+
+const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
+  const methods = Form.useContext();
+  const onAccept = useCallback(
+    (channel: channel.Payload) => {
+      if (globals == null) return;
+      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      methods.set(
+        "requires",
+        unique.unique([...methods.get<channel.Key[]>("requires").value, channel.key]),
+      );
+    },
+    [methods, globals],
+  );
+
+  useSuggestChannels(onAccept);
+
+  return <Code.Editor {...props} />;
+};

@@ -85,7 +85,9 @@ void Frame::clear() const {
     this->series->clear();
 }
 
-void Frame::reserve(const size_t &size) const {
+void Frame::reserve(const size_t &size) {
+    if (this->channels == nullptr) this->channels = std::make_unique<std::vector<ChannelKey>>();
+    if (this->series == nullptr) this->series = std::make_unique<std::vector<telem::Series>>();
     this->channels->reserve(size);
     this->series->reserve(size);
 }

@@ -18,10 +18,14 @@ import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
-const useEditPermissions =
-  (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  ({ placeLayout, selection }) =>
-    placeLayout(Permissions.createEditLayout(selection.resources[0].data as user.User));
+const editPermissions = ({
+  placeLayout,
+  selection: { resources },
+}: Ontology.TreeContextMenuProps) => {
+  const user = resources[0].data as user.User;
+  const layout = Permissions.createEditLayout(user);
+  placeLayout(layout);
+};
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "User" });
@@ -39,10 +43,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection: { resources }, client }) =>
       await client.user.delete(resources.map(({ id }) => id.key)),
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete users");
+      handleError(e, "Failed to delete users");
     },
   }).mutate;
 };
@@ -52,7 +56,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     client,
     selection: { nodes, resources },
   } = props;
-  const editPermissions = useEditPermissions();
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),

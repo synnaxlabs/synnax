@@ -33,10 +33,10 @@ import { UserServices } from "@/user/services";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
-const DEFAULT_TRIGGER: Palette.TriggerConfig = {
+const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
   command: [["Control", "Shift", "P"]],
   defaultMode: "command",
-  resource: [["Control", "P"]],
+  search: [["Control", "P"]],
 };
 
 const COMMANDS: Palette.Command[] = [
@@ -61,7 +61,7 @@ const TopPalette = (): ReactElement => (
     commands={COMMANDS}
     commandSymbol=">"
     services={SERVICES}
-    triggers={DEFAULT_TRIGGER}
+    triggerConfig={PALETTE_TRIGGER_CONFIG}
   />
 );
 

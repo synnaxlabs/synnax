@@ -156,7 +156,7 @@ const DEFAULT_CJC_SOURCE_ENTRIES: CJCSourceEntry[] = [
 ];
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: CJCSourceEntry[] = Device.DEVICES[model].ports[Device.AI_PORT_TYPE];
+  const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
   const data = [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
   return (
     <Select.Single<string, CJCSourceEntry>
@@ -185,8 +185,6 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [DI_CHANNEL_TYPE]: () => <></>,
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
-      <Divider.Divider direction="x" padded="bottom" />
-      <MaxVoltageField path={path} />
       <Divider.Divider direction="x" padded="bottom" />
       <Align.Space direction="x">
         <ThermocoupleTypeField path={path} grow />

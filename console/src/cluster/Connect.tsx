@@ -58,14 +58,14 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     ({ name }) => !names.includes(name),
     ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
   );
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
     values: { ...ZERO_VALUES },
   });
 
   const handleSubmit = (): void =>
-    handleException(async () => {
+    handleError(async () => {
       if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
@@ -79,7 +79,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     }, "Failed to connect to cluster");
 
   const handleTestConnection = (): void =>
-    handleException(async () => {
+    handleError(async () => {
       if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");

@@ -32,6 +32,7 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
@@ -216,7 +217,7 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(
@@ -227,9 +228,9 @@ export const Tree = (): ReactElement => {
       removeLayout,
       services,
       addStatus,
-      handleException,
+      handleError,
     }),
-    [client, store, placeLayout, removeLayout, services, addStatus, handleException],
+    [client, store, placeLayout, removeLayout, services, addStatus, handleError],
   );
 
   // Processes incoming changes to the ontology from the cluster.
@@ -270,11 +271,18 @@ export const Tree = (): ReactElement => {
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
-      handleException(async () => {
-        if (client == null) return;
+      handleError(async () => {
+        if (client == null) throw NULL_CLIENT_ERROR;
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
+          if (!resourcesRef.current.find(({ id }) => id.toString() === clicked))
+            // This happens when we need add an item to the tree before we create it in
+            // the ontology service. For instance, creating a new group will create a
+            // new node in the tree, but if onExpand is called before the group is
+            // created on the server, an error will be thrown when we try to retrieve
+            // the children of the new group.
+            return;
           const resources = await client.ontology.retrieveChildren(id, {
             includeSchema: false,
           });
@@ -304,7 +312,7 @@ export const Tree = (): ReactElement => {
         } finally {
           setLoading(false);
         }
-      }, "Failed to expand tree");
+      }, "Failed to expand resources tree");
     },
     [client, services],
   );
@@ -342,7 +350,7 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(error, "Failed to move resources");
+      handleError(error, "Failed to move resources");
     },
   });
 
@@ -442,7 +450,7 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      handleException(error, `Failed to rename ${prevName} to ${name}`);
+      handleError(error, `Failed to rename ${prevName} to ${name}`);
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
@@ -453,21 +461,20 @@ export const Tree = (): ReactElement => {
 
   const handleDoubleClick: Core.TreeProps["onDoubleClick"] = useCallback(
     (key: string) => {
-      const id = new ontology.ID(key);
-      const svc = services[id.type];
-      if (client == null) return;
-      void svc.onSelect?.({
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const { type } = new ontology.ID(key);
+      services[type].onSelect?.({
         client,
         store,
         services,
         placeLayout,
-        handleException,
+        handleError,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
-    [client, store, placeLayout, removeLayout, resourcesRef],
+    [client, store, services, placeLayout, handleError, removeLayout, addStatus],
   );
 
   const handleContextMenu = useCallback(
@@ -507,7 +514,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
-        handleException,
+        handleError,
         addStatus,
         selection: { parent, nodes: selectedNodes, resources: selectedResources },
         state: {

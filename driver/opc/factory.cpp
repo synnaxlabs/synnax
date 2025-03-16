@@ -26,9 +26,9 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     if (c_err) return {nullptr, err};
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
-        s = std::make_unique<opc::ArrayReadTaskSource>(client, cfg);
+        s = std::make_unique<opc::ArrayReadTaskSource>(client, std::move(cfg));
     else
-        s = std::make_unique<opc::UnaryReadTaskSource>(client, cfg);
+        s = std::make_unique<opc::UnaryReadTaskSource>(client, std::move(cfg));
     return {
         std::make_unique<common::ReadTask>(
             task,
@@ -53,7 +53,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::WriteTaskSink>(std::move(cfg), client)
+            std::make_unique<opc::WriteTaskSink>(client, std::move(cfg))
         ),
         xerrors::NIL
     };
@@ -95,7 +95,7 @@ opc::Factory::configure_initial_tasks(
     auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
     if (err.matches(xerrors::NOT_FOUND)) {
         LOG(INFO) << "[opc] creating scanner task";
-        auto sy_task = synnax::Task(rack.key, "OPC Scanner", SCAN_TASK_TYPE, "", true);
+        auto sy_task = synnax::Task(rack.key, "OPC UA Scanner", SCAN_TASK_TYPE, "", true);
         if (const auto c_err = rack.tasks.create(sy_task)) {
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;

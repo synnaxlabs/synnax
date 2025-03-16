@@ -11,6 +11,8 @@ import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
+import { decodeJSONString } from "@/util/decodeJSONString";
+import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([
   z.string(),
@@ -28,9 +30,9 @@ export const stateZ = z.object({
   key: z.string().optional(),
   details: z
     .record(z.unknown())
-    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
+    .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
-    .or(z.null()),
+    .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
 });
 export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
@@ -42,11 +44,7 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z
-    .record(z.unknown())
-    .or(
-      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
-    ) as z.ZodType<UnknownRecord>,
+  config: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
@@ -78,10 +76,10 @@ export const commandZ = z.object({
   key: z.string(),
   args: z
     .record(z.unknown())
-    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
+    .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null())
-    .optional(),
+    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
 export interface Command<Args extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {
@@ -97,4 +95,4 @@ export interface CommandObservable<Args extends {} = UnknownRecord>
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const getRackKey = (key: Key): RackKey => Number(BigInt(key) >> BigInt(32));
+export const getRackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);

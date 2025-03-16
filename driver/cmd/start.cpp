@@ -24,7 +24,7 @@ int cmd::sub::start(xargs::Parser &args) {
     rack::Rack r;
     r.start(args);
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    LOG(INFO) << xlog::BLUE() << "[driver] received shutdown signal. stopping driver" << xlog::RESET();
+    LOG(INFO) << xlog::BLUE() << "[driver] received shutdown signal. Gracefully stopping driver. This can take up to 5 seconds. Please be patient" << xlog::RESET();
     if (const auto err = r.stop())
         LOG(ERROR) << "[driver] stopped with error: " << err;
     else LOG(INFO) << xlog::BLUE() << "[driver] stopped" << xlog::RESET();

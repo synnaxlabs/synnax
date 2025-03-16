@@ -23,11 +23,11 @@
 #include "device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/read_task.h"
-#include "driver/pipeline/middleware.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/LabJackMModbusMap.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
 #include "driver/task/common/sample_clock.h"
+#include "driver/transform/transform.h"
 
 
 namespace labjack {
@@ -49,6 +49,33 @@ const std::map<std::string, long> TC_TYPE_LUT = {
     {"C", LJM_ttC}
 };
 
+const std::string DEVICE_CJC_SOURCE = "TEMPERATURE_DEVICE_K";
+const std::string AIR_CJC_SOURCE = "TEMPERATURE_AIR_K";
+const std::string AIN_PREFIX = "AIN";
+const std::string KELVIN_UNITS = "K";
+const std::string CELSIUS_UNITS = "C";
+const std::string FAHRENHEIT_UNITS = "F";
+using LJM_TemperatureUnits = int;
+constexpr LJM_TemperatureUnits LJM_KELVIN = 0;
+constexpr LJM_TemperatureUnits LJM_CELSIUS = 1;
+constexpr LJM_TemperatureUnits LJM_FARENHEIT = 2;
+
+const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
+    {KELVIN_UNITS, LJM_KELVIN},
+    {CELSIUS_UNITS, LJM_CELSIUS},
+    {FAHRENHEIT_UNITS, LJM_FARENHEIT}
+};
+
+inline LJM_TemperatureUnits parse_temperature_units(xjson::Parser &parser,
+                                                    const std::string &path) {
+    const auto units = parser.required<std::string>(path);
+    const auto v = TEMPERATURE_UNITS.find(units);
+    if (v == TEMPERATURE_UNITS.end())
+        parser.field_err(path, "Invalid temperature units: " + units);
+    return v->second;
+}
+
+
 /// @brief parses the thermocouple type from the configuration and converts it to the
 /// appropriate LJM type.
 inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
@@ -62,11 +89,11 @@ inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
 /// @brief parses the CJC address for the device.
 inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
     const auto cjc_source = parser.required<std::string>(path);
-    if (cjc_source == "TEMPERATURE_DEVICE_K")
+    if (cjc_source == DEVICE_CJC_SOURCE)
         return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
-    if (cjc_source == "TEMPERATURE_AIR_K")
+    if (cjc_source == AIR_CJC_SOURCE)
         return LJM_TEMPERATURE_AIR_K_ADDRESS;
-    if (cjc_source.find("AIN") != std::string::npos) {
+    if (cjc_source.find(AIN_PREFIX) != std::string::npos) {
         const int port_num = std::stoi(cjc_source.substr(3));
         return port_num * 2;
     }
@@ -80,7 +107,7 @@ struct InputChan {
 
     /// @brief whether data acquisition for the channel is enabled.
     const bool enabled;
-    /// @brief the port for the channel ex. AIO0
+    /// @brief the port for the channel ex. AIN1
     std::string port;
     /// @brief the synnax key to write channel data to.
     const synnax::ChannelKey synnax_key;
@@ -140,7 +167,7 @@ struct ThermocoupleChan final : InputChan {
     float cjc_offset;
 
     ///@brief units for the thermocouple reading
-    std::string units;
+    LJM_TemperatureUnits units;
 
 
     explicit ThermocoupleChan(xjson::Parser &parser):
@@ -149,8 +176,8 @@ struct ThermocoupleChan final : InputChan {
         cjc_addr(parse_cjc_addr(parser, "cjc_source")),
         cjc_slope(parser.required<float>("cjc_slope")),
         cjc_offset(parser.required<float>("cjc_offset")),
-        units(parser.required<std::string>("units")) {
-        this->port = "AIN" + std::to_string(this->pos_chan) + TC_SUFFIX;
+        units(parse_temperature_units(parser, "units")) {
+        this->port = AIN_PREFIX + std::to_string(this->pos_chan) + TC_SUFFIX;
     }
 
     xerrors::Error apply(
@@ -185,10 +212,7 @@ struct ThermocoupleChan final : InputChan {
             // For setting up the AIN#_EF_CONFIG_A (temperature units)
             aAddresses[1] = 9300 + 2 * this->pos_chan;
             aTypes[1] = LJM_UINT32;
-
-            if (this->units == "K") aValues[1] = 0;
-            else if (this->units == "C") aValues[1] = 1;
-            else if (this->units == "F") aValues[1] = 2;
+            aValues[1] = this->units;
 
             // For setting up the AIN#_EF_CONFIG_B (CJC address)
             aAddresses[2] = 9600 + 2 * this->pos_chan;
@@ -265,7 +289,7 @@ using InputChanFactory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 #define INPUT_CHAN_FACTORY(type, class) \
     {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
 
-inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
+inline std::map<std::string, InputChanFactory<InputChan> > INPUTS = {
     INPUT_CHAN_FACTORY("TC", ThermocoupleChan),
     INPUT_CHAN_FACTORY("AI", AIChan),
     INPUT_CHAN_FACTORY("DI", DIChan)
@@ -283,35 +307,28 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
 }
 
 /// @brief configuration for a LabJack read task.
-struct ReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
-    /// @brief the key of the device to read from.
+struct ReadTaskConfig: public common::BaseReadTaskConfig {
     const std::string device_key;
-    /// @brief how fast to sample data from the device.
-    const telem::Rate sample_rate;
-    /// @brief how fast to push sampled data to synnax.
-    const telem::Rate stream_rate;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
-    std::vector<std::unique_ptr<InputChan>> channels;
+    std::vector<std::unique_ptr<InputChan> > channels;
     /// @brief the model of device being read from.
     std::string dev_model;
+    transform::Chain transform;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
         conn_method(other.conn_method),
         index_keys(std::move(other.index_keys)),
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
-        dev_model(std::move(other.dev_model)) {
+        dev_model(std::move(other.dev_model)),
+        transform(std::move(other.transform)) {
     }
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -321,16 +338,21 @@ struct ReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ): data_saving(parser.optional<bool>("data_saving", false)),
+    ): common::BaseReadTaskConfig(parser),
        device_key(parser.required<std::string>("device")),
-       sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
-       stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
-       samples_per_chan(sample_rate / stream_rate) {
-        parser.iter("channels", [this](xjson::Parser &p) {
-            auto ch = parse_input_chan(p);
-            if (ch != nullptr && ch->enabled) this->channels.push_back(std::move(ch));
-        });
+       samples_per_chan(sample_rate / stream_rate),
+       channels(parser.map<std::unique_ptr<InputChan> >(
+           "channels",
+           [&](xjson::Parser &ch_cfg)-> std::pair<std::unique_ptr<InputChan>, bool> {
+               auto ch = parse_input_chan(ch_cfg);
+               if (ch == nullptr) return {nullptr, false};
+               return {std::move(ch), ch->enabled};
+           })) {
+        if (this->channels.empty()) {
+            parser.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
         auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
@@ -353,6 +375,17 @@ struct ReadTaskConfig {
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
+
+        const auto channel_map = synnax::map_channel_Keys(sy_channels);
+        auto scale_transform = std::make_unique<transform::Scale>(parser, channel_map);
+        this->transform.add(std::move(scale_transform));
+    }
+
+    std::vector<synnax::Channel> sy_channels() const {
+        std::vector<synnax::Channel> chs;
+        chs.reserve(this->channels.size());
+        for (const auto &ch: this->channels) chs.push_back(ch->ch);
+        return chs;
     }
 
     /// @brief returns configuration for opening a writer to write data to Synnax.
@@ -387,6 +420,13 @@ struct ReadTaskConfig {
             if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
         return false;
     }
+
+    xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
+        for (const auto &ch: this->channels)
+            if (const auto err = ch->apply(dev, this->dev_model))
+                return err;
+        return xerrors::NIL;
+    }
 };
 
 /// @brief a source implementation that reads from labjack devices via a unary
@@ -394,7 +434,7 @@ struct ReadTaskConfig {
 /// has thermocouples, as LJM does not support streaming of thermocouple data.
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
-    const ReadTaskConfig cfg;
+    ReadTaskConfig cfg;
     /// @brief the API of the device we're reading from.
     const std::shared_ptr<device::Device> dev;
     /// @brief a handle to the interval that is regulating the sample clock.
@@ -408,10 +448,15 @@ public:
     }
 
     xerrors::Error start() override {
+        this->cfg.apply(this->dev);
         return this->dev->start_interval(
             this->interval_handle,
             static_cast<int>(this->cfg.sample_rate.period().microseconds())
         );
+    }
+
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
     }
 
     xerrors::Error stop() override {
@@ -448,7 +493,8 @@ public:
         const auto start = telem::TimeStamp::now();
         const auto end = start;
         common::generate_index_data(f, this->cfg.index_keys, start, end, 1);
-        return std::make_pair(std::move(f), xerrors::NIL);
+        auto err = this->cfg.transform.transform(f);
+        return std::make_pair(std::move(f), err);
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
@@ -461,7 +507,7 @@ public:
 /// is preferred in cases where we don't acquire data from thermocouples.
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
-    const ReadTaskConfig cfg;
+    ReadTaskConfig cfg;
     /// @brief the API to the device we're reading from.
     const std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
@@ -487,9 +533,14 @@ public:
 
     xerrors::Error start() override { return this->restart(); }
 
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
+    }
+
     /// @brief restarts the source.
     xerrors::Error restart() {
         this->stop();
+        this->cfg.apply(this->dev);
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
@@ -543,6 +594,7 @@ public:
                 telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
             );
         common::generate_index_data(f, this->cfg.index_keys, start, end, n);
+        auto err = this->cfg.transform.transform(f);
         return {std::move(f), xerrors::NIL};
     }
 };

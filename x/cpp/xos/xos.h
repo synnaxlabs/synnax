@@ -37,22 +37,22 @@ inline std::pair<std::string, bool> get_hostname() {
     return {hostname.data(), ok};
 }
 
-const std::string WINDOWS = "Windows";
-const std::string MACOS = "macOS";
-const std::string LINUX = "Linux";
-const std::string UNKNOWN = "unknown";
+const std::string WINDOWS_NAME = "Windows";
+const std::string MACOS_NAME = "macOS";
+const std::string LINUX_NAME = "Linux";
+const std::string UNKNOWN_NAME = "unknown";
 
 /// @brief returns the name of the operating system, if the operating system could not
 /// be determined, returns "unknown".
 inline std::string get() {
 #if defined(_WIN32) || defined(_WIN64)
-    return WINDOWS;
+    return WINDOWS_NAME;
 #elif defined(__APPLE__)
-    return MACOS;
+    return MACOS_NAME;
 #elif defined(__linux__)
-    return LINUX;
+    return LINUX_NAME;
 #else
-    return UNKNOWN;
+    return UNKNOWN_NAME;
 #endif
 }
 }

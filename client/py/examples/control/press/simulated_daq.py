@@ -18,6 +18,7 @@ demonstrate how a control sequence can be written in Synnax.
 """
 
 import random
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -151,4 +152,5 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
             state["daq_time"] = sy.TimeStamp.now()
 
             # Write the system state to Synnax.
-            writer.write(state)
+            if not writer.write(state):
+                break

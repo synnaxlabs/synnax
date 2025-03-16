@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import pytest
 from uuid import uuid4
-import synnax as sy
+
+import pytest
 from freighter.mock import MockUnaryClient
+
+import synnax as sy
 
 
 @pytest.mark.auth

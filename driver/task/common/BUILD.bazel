@@ -11,6 +11,7 @@ cc_library(
     deps = [
         "//driver/errors",
         "//driver/task",
+        "//driver/transform",
         "//x/cpp/loop",
     ],
 )
@@ -21,6 +22,7 @@ cc_test(
         "read_task_test.cpp",
         "sample_clock_test.cpp",
         "scan_task_test.cpp",
+        "state_test.cpp",
         "write_task_test.cpp",
     ],
     deps = [

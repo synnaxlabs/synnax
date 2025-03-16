@@ -46,7 +46,7 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   }
   const handleAdd: Adder = useCallback(
     (status) => {
-      const spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      const spec = { time: TimeStamp.now(), key: id.create(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
     },
     [setState],
@@ -63,26 +63,11 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
 
 export const useAdder = () => use(AdderContext);
 
-export interface ExceptionHandler extends status.ExceptionHandler {
-  (func: () => Promise<void>, message?: string): void;
-}
+export interface ErrorHandler extends status.ErrorHandler {}
 
-export const useExceptionHandler = (): ExceptionHandler => {
+export const useErrorHandler = (): ErrorHandler => {
   const add = useAdder();
-  return useCallback(
-    (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
-      if (typeof excOrFunc !== "function")
-        return add(status.fromException(excOrFunc, message));
-      void (async () => {
-        try {
-          await excOrFunc();
-        } catch (exc) {
-          add(status.fromException(exc, message));
-        }
-      })();
-    },
-    [add],
-  );
+  return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
 export interface NotificationSpec extends status.Spec {

@@ -35,7 +35,6 @@ import {
   TimeStamp,
   type TypedArray,
 } from "@/telem/telem";
-import { zodutil } from "@/zodutil";
 
 interface GL {
   control: GLBufferController | null;
@@ -166,7 +165,7 @@ export class Series<T extends TelemValue = TelemValue> {
   static readonly crudeZ = z.object({
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
-    alignment: zodutil.bigInt.optional(),
+    alignment: z.coerce.bigint().optional(),
     data: z.union([
       stringArrayZ,
       nullArrayZ,
@@ -186,7 +185,7 @@ export class Series<T extends TelemValue = TelemValue> {
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
-      key = id.id(),
+      key = id.create(),
     } = props;
     const data = props.data ?? [];
     if (
@@ -263,7 +262,15 @@ export class Series<T extends TelemValue = TelemValue> {
         this._data = new TextEncoder().encode(
           `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
         ).buffer as ArrayBuffer;
-      } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
+      } else if (this.dataType.usesBigInt && typeof first === "number")
+        this._data = new this.dataType.Array(
+          data_.map((v) => BigInt(Math.round(v as number))),
+        ).buffer;
+      else if (!this.dataType.usesBigInt && typeof first === "bigint")
+        this._data = new this.dataType.Array(
+          data_.map((v) => Number(v)) as number[] & bigint[],
+        ).buffer;
+      else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
 
     this.key = key;
@@ -291,7 +298,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return arr;
   }
 
-  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
+  static createTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
     const timeRange = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
     for (let i = 0; i < length; i++)
@@ -390,7 +397,6 @@ export class Series<T extends TelemValue = TelemValue> {
   /** @returns a native typed array with the proper data type. */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // @ts-expect-error - issues with union types in array constructors.
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
 

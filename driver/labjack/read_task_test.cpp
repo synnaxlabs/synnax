@@ -100,10 +100,31 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, "K");
+    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
+}
+
+TEST(TestInputChannelParse, testInvalidChannelType) {
+    const json cfg{
+        {"port", "AIN0"},
+        {"enabled", true},
+        {"key", "8hYJO9zt6eS"},
+        {"channel", 1},
+        {"type", "INVALID_TYPE"}, // Invalid channel type
+        {"range", 5},
+        {
+            "scale", {
+                {"type", "linear"},
+                {"slope", 1},
+                {"offset", 2}
+            }
+        }
+    };
+    auto p = xjson::Parser(cfg);
+    const auto chan = labjack::parse_input_chan(p);
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
 json basic_read_task_config() {
@@ -203,7 +224,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, "K");
+    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
@@ -220,4 +241,41 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(ai_chan->enabled, true);
     ASSERT_EQ(ai_chan->synnax_key, ai_ch.key);
     ASSERT_EQ(ai_chan->range, 0);
+}
+
+TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "230227d9-02aa-47e4-b370-0d590add1bc1",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "labjack",
+        "T7",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+
+    // Create a channel
+    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+
+    // Create a config with an invalid channel type
+    auto j = basic_read_task_config();
+    j["channels"] = json::array({
+        {
+            {"port", "AIN0"},
+            {"enabled", true},
+            {"key", "8hYJO9zt6eS"},
+            {"channel", ch.key},
+            {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
+            {"range", 5}
+        }
+    });
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
+    
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }

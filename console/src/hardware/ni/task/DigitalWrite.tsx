@@ -15,11 +15,11 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
+import { createDOChannel } from "@/hardware/ni/task/createChannel";
 import {
   DigitalChannelList,
   type NameProps,
 } from "@/hardware/ni/task/DigitalChannelList";
-import { generateDOChannel } from "@/hardware/ni/task/generateChannel";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_TYPE,
@@ -59,10 +59,7 @@ const Properties = () => (
 const NameComponent = ({
   entry: { cmdChannel, stateChannel },
 }: NameProps<DOChannel>) => (
-  <>
-    <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
-    <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
-  </>
+  <Common.Task.WriteChannelNames cmdChannel={cmdChannel} stateChannel={stateChannel} />
 );
 
 const name = componentRenderProp(NameComponent);
@@ -70,7 +67,7 @@ const name = componentRenderProp(NameComponent);
 const Form: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
 > = (props) => (
-  <DigitalChannelList {...props} generateChannel={generateDOChannel} name={name} />
+  <DigitalChannelList {...props} createChannel={createDOChannel} name={name} />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<

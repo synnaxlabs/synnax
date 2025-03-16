@@ -10,7 +10,7 @@
 from typing import Generic, List, Type
 
 from freighter.context import Context
-from freighter.transport import RQ, RS, Payload, MiddlewareCollector
+from freighter.transport import RQ, RS, MiddlewareCollector, Payload
 from freighter.unary import UnaryClient
 
 

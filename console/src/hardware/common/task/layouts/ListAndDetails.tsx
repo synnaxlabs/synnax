@@ -20,14 +20,14 @@ import { binary } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
   ChannelList,
   type ChannelListProps,
 } from "@/hardware/common/task/layouts/ChannelList";
+import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface GenerateChannel<C extends Channel> {
+export interface createChannel<C extends Channel> {
   (channels: C[], index: number): C | null;
 }
 
@@ -41,14 +41,14 @@ export interface ListAndDetailsProps<C extends Channel>
     "onTare" | "allowTare" | "isSnapshot" | "listItem"
   > {
   details: RenderProp<DetailsProps>;
-  generateChannel: GenerateChannel<C>;
+  createChannel: createChannel<C>;
   initialChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
   details,
   initialChannels,
-  generateChannel,
+  createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>(
@@ -65,8 +65,8 @@ export const ListAndDetails = <C extends Channel>({
     },
     [setSelected, setSelectedIndex],
   );
-  const handleGenerateChannel = useCallback(
-    (channels: C[]) => generateChannel(channels, selectedIndex),
+  const handlecreateChannel = useCallback(
+    (channels: C[]) => createChannel(channels, selectedIndex),
     [selectedIndex],
   );
   const copy = useCopyToClipboard();
@@ -83,7 +83,7 @@ export const ListAndDetails = <C extends Channel>({
         {...rest}
         selected={selected}
         onSelect={handleSelect}
-        generateChannel={handleGenerateChannel}
+        createChannel={handlecreateChannel}
       />
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow empty className={CSS.B("details")}>

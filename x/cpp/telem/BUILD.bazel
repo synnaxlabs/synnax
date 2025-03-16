@@ -22,6 +22,7 @@ cc_test(
     name = "telem_test",
     srcs = [
         "clock_skew_test.cpp",
+        "sample_value_test.cpp",
         "series_test.cpp",
         "telem_test.cpp",
     ],

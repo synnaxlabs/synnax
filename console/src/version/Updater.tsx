@@ -33,7 +33,7 @@ export const useCheckForUpdates = (): boolean => {
     setAvailable(true);
     if (addNotifications)
       addStatus({
-        key: `${STATUS_KEY_PREFIX}-${id.id()}`,
+        key: `${STATUS_KEY_PREFIX}-${id.create()}`,
         variant: "info",
         message: `Update available`,
       });

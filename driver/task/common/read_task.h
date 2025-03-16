@@ -14,12 +14,45 @@
 #include "driver/task/task.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/transform/transform.h"
 
 namespace common {
+struct BaseReadTaskConfig {
+    /// @brief whether data saving is enabled for the task.
+    const bool data_saving;
+    /// @brief sets the sample rate for the task.
+    const telem::Rate sample_rate;
+    /// @brief sets the stream rate for the task.
+    const telem::Rate stream_rate;
+
+    BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
+        data_saving(other.data_saving),
+        sample_rate(other.sample_rate),
+        stream_rate(other.stream_rate) {
+    }
+
+    BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
+    const BaseReadTaskConfig &operator=(const BaseReadTaskConfig &) = delete;
+
+    explicit BaseReadTaskConfig(xjson::Parser &cfg):
+        data_saving(cfg.optional<bool>("data_saving", false)),
+        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
+        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))) {
+        if (sample_rate < telem::Rate(0)) cfg.field_err("sample_rate", "must be greater than 0");
+        if (stream_rate < telem::Rate(0)) cfg.field_err("stream_rate", "must be greater than 0");
+        if (sample_rate < stream_rate)
+            cfg.field_err("sample_rate", "must be greater than or equal to stream rate");
+    }
+};
+
+
 /// @brief a source that can be used to read data from a hardware device.
 struct Source : pipeline::Source {
     /// @brief the configuration used to open a writer for the source.
     virtual synnax::WriterConfig writer_config() const = 0;
+
+    virtual std::vector<synnax::Channel> channels() const = 0;
+
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task
     /// will not proceed with the rest of startup.
@@ -33,7 +66,7 @@ struct Source : pipeline::Source {
 class ReadTask final : public task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
     /// @brief tare middleware used for taring values.
-    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
+    transform::Tare tare;
     /// @brief handles communicating the task state back to the cluster.
     StateHandler state;
 
@@ -42,6 +75,7 @@ class ReadTask final : public task::Task {
     class InternalSource final : public pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
+
     public:
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;
@@ -63,6 +97,8 @@ class ReadTask final : public task::Task {
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
                 this->p.state.send_warning(err.message());
+            if (err) return {std::move(fr), err};
+            err = this->p.tare.transform(fr);
             return {std::move(fr), err};
         }
     };
@@ -82,8 +118,7 @@ public:
         std::unique_ptr<Source> source,
         const std::shared_ptr<pipeline::WriterFactory> &factory
     ):
-        tare_mw(std::make_shared<pipeline::TareMiddleware>(
-            source->writer_config().channels)),
+        tare(transform::Tare(source->channels())),
         state(ctx, task),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
@@ -92,7 +127,6 @@ public:
             this->source,
             breaker_cfg
         ) {
-        this->pipe.use(this->tare_mw);
     }
 
     /// @brief primary constructor that uses the task context's Synnax client in order
@@ -115,7 +149,7 @@ public:
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
         else if (cmd.type == "stop") this->stop(cmd.key, true);
-        else if (cmd.type == "tare") this->tare_mw->tare(cmd.args);
+        else if (cmd.type == "tare") this->tare.tare(cmd.args);
     }
 
     /// @brief stops the task.

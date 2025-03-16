@@ -31,7 +31,7 @@ const auto LOAD_ERROR = xerrors::Error(
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     const auto os = xos::get();
-    if (os == xos::MACOS || os == xos::UNKNOWN) return {nullptr, xerrors::NIL};
+    if (os == xos::MACOS_NAME || os == xos::UNKNOWN_NAME) return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), xerrors::Error()};

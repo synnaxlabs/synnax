@@ -33,6 +33,7 @@ cc_library(
         "//driver/queue",
         "//driver/task",
         "//driver/task/common",
+        "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/xjson",

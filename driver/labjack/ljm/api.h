@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//
-// Created by Emiliano Bonilla on 3/2/25.
-//
-
 #pragma once
 
-#include "driver/labjack/ljm/LabJackM.h"
+/// module
 #include "x/cpp/xlib/xlib.h"
 #include "x/cpp/xos/xos.h"
 
+/// internal
+#include "driver/labjack/ljm/LabJackM.h"
+
 namespace ljm {
 #ifdef __APPLE__
-const auto LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
+const std::string LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
 #else
-const char* const LJM_LIBRARY_NAME = "LabjackM.dll";
+const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
 
 const auto LOAD_ERROR = xerrors::Error(
     xlib::LOAD_ERROR,
-    "failed load LJM shared libraries. Are they installed?"
+    "failed load LJM shared libraries. Are they installed? Expected to find them at " +
+    LJM_LIBRARY_NAME
 );
 
 /// @brief API wrapped on top of LJM functions that the Synnax driver requires.

@@ -55,6 +55,7 @@ func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD f
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			res, err = u.Handler(ctx, req)
 			return freighter.Context{
+				Context:  ctx,
 				Target:   u.Address,
 				Protocol: u.Protocol,
 				Params:   make(freighter.Params),

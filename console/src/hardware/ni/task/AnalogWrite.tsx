@@ -16,7 +16,7 @@ import { type FC } from "react";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
-import { generateAOChannel } from "@/hardware/ni/task/generateChannel";
+import { createAOChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_TYPE,
@@ -95,7 +95,7 @@ const Form: FC<
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
-    generateChannel={generateAOChannel}
+    createChannel={createAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
   />

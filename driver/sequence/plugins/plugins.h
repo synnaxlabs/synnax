@@ -245,7 +245,7 @@ class Time final : public Plugin {
 
 public:
     explicit Time(
-        std::function<std::uint64_t()> now = [] {
+        std::function<std::int64_t()> now = [] {
             return std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()
             ).count();

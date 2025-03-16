@@ -85,7 +85,7 @@ export class Task<
     this.rangeClient = rangeClient;
   }
 
-  get payload(): Payload<Config, Details> {
+  get payload(): Payload<Config, Details, Type> {
     return {
       key: this.key,
       name: this.name,
@@ -103,7 +103,7 @@ export class Task<
   async executeCommand<Args>(type: string, args?: Args): Promise<string> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
-    const key = id.id();
+    const key = id.create();
     await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
     await writer.close();
     return key;
@@ -150,7 +150,7 @@ export class Task<
         }
         const state = parse.data;
         if (state.task !== this.key) return [null, false];
-        return [state, true];
+        return [state as State<Details>, true];
       },
     );
   }
@@ -171,7 +171,7 @@ export class Task<
         }
         const cmd = parse.data;
         if (cmd.task !== this.key) return [null, false];
-        return [cmd, true];
+        return [cmd as Command<Args>, true];
       },
     );
   }
@@ -348,6 +348,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const tasks = await this.execRetrieve({ names: [name], rack });
     checkForMultipleOrNoResults("Task", name, tasks, true);
     return this.sugar(tasks)[0] as Task<Config, Details, Type>;
+  }
+
+  async retrieveByType<
+    Config extends UnknownRecord = UnknownRecord,
+    Details extends {} = UnknownRecord,
+    Type extends string = string,
+  >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
+    const tasks = await this.execRetrieve({ types: [type], rack });
+    return this.sugar(tasks) as Task<Config, Details, Type>[];
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {

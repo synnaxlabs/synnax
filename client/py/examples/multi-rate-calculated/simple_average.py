@@ -63,4 +63,7 @@ with client.open_writer(
 
             # Caluclate and write the average.
             avg = (current_values["data_ch_1"] + current_values["data_ch_2"]) / 2
-            writer.write({"simple_average_time": time, "simple_average_data": avg})
+            if not writer.write(
+                {"simple_average_time": time, "simple_average_data": avg}
+            ):
+                break

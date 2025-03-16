@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
-import { FORMS } from "@/hardware/labjack/task/OutputChannelForms";
+import { FORMS } from "@/hardware/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
   AI_CHANNEL_TYPE,
@@ -69,9 +69,7 @@ const getRenderedPort = (
   type: InputChannelType,
 ) => {
   const portType = convertChannelTypeToPortType(type);
-  const portInfo = Device.DEVICES[deviceModel].ports[portType].find(
-    ({ key }) => key === port,
-  );
+  const portInfo = Device.PORTS[deviceModel][portType].find(({ key }) => key === port);
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
@@ -135,14 +133,8 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             const nextPortType = convertChannelTypeToPortType(value);
             let nextPort = nextParent.port;
             if (prevPortType !== nextPortType)
-              nextPort =
-                Device.DEVICES[deviceModel].ports[
-                  convertChannelTypeToPortType(value)
-                ][0].key;
-            set(parentPath, {
-              ...nextParent,
-              type: next.type,
-            });
+              nextPort = Device.PORTS[deviceModel][nextPortType][0].key;
+            set(parentPath, { ...nextParent, type: next.type });
             // Need to explicitly set port to cause select port field to rerender
             set(`${parentPath}.port`, nextPort);
           }}
@@ -167,7 +159,7 @@ const getOpenChannel = (
   index: number,
   device: Device.Device,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.id() };
+  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
   const channelToCopy = channels[index];
   // preferredPortType is AI or DI
   const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
@@ -189,7 +181,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
-    key: id.id(),
+    key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
   };
@@ -216,7 +208,7 @@ const ChannelsForm = ({
     configured,
     task,
   } as Common.Task.UseTareProps<InputChannel>);
-  const generateChannel = useCallback(
+  const createChannel = useCallback(
     (channels: InputChannel[], index: number) =>
       getOpenChannel(channels, index, device),
     [device],
@@ -243,7 +235,7 @@ const ChannelsForm = ({
     <Common.Task.Layouts.ListAndDetails<InputChannel>
       listItem={listItem}
       details={details}
-      generateChannel={generateChannel}
+      createChannel={createChannel}
       isSnapshot={isSnapshot}
       initialChannels={task.config.channels}
       onTare={handleTare}

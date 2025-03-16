@@ -29,6 +29,7 @@ cc_test(
         "channel_receive_test.cpp",
         "channel_write_test.cpp",
         "json_test.cpp",
+        "time_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

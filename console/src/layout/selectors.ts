@@ -217,7 +217,12 @@ export const selectActiveMosaicTabKey = (
 ): string | null => {
   const winKey = selectWindowKey(state, windowKey);
   if (winKey == null) return null;
-  return selectSliceState(state).mosaics[winKey].activeTab;
+  const sliceState = selectSliceState(state);
+  const hasModals = Object.values(sliceState.layouts).some(
+    (l) => l.location === "modal" && l.windowKey === winKey,
+  );
+  if (hasModals) return null;
+  return sliceState.mosaics[winKey].activeTab;
 };
 
 export const useSelectActiveMosaicTabKey = (): string | null =>

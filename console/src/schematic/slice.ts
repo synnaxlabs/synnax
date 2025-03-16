@@ -152,6 +152,11 @@ export interface SelectAllPayload {
   key: string;
 }
 
+export interface SetAuthorityPayload {
+  key: string;
+  authority: number;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -211,7 +216,7 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
-        const key: string = id.id();
+        const key: string = id.create();
         schematic.props[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
@@ -222,7 +227,7 @@ export const { actions, reducer } = createSlice({
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
-        const key: string = id.id();
+        const key: string = id.create();
         return {
           ...edge,
           key,
@@ -440,6 +445,11 @@ export const { actions, reducer } = createSlice({
       schematic.nodes.forEach((node) => (node.selected = true));
       schematic.edges.forEach((edge) => (edge.selected = true));
     },
+    setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
+      const { key, authority } = payload;
+      const schematic = state.schematics[key];
+      schematic.authority = authority;
+    },
   },
 });
 
@@ -482,6 +492,7 @@ export const {
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
+  setAuthority,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

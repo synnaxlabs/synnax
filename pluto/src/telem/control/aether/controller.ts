@@ -168,7 +168,6 @@ export class Controller
     this.internal.prevTrigger = this.state.acquireTrigger;
     try {
       await this.writer?.close();
-      this.setState((p) => ({ ...p, status: "released" }));
     } catch (e) {
       this.internal.addStatus({
         message: `${this.state.name} failed to release control: ${
@@ -177,6 +176,7 @@ export class Controller
         variant: "error",
       });
     } finally {
+      this.setState((p) => ({ ...p, status: "released" }));
       this.writer = undefined;
     }
   }
@@ -290,7 +290,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(control.Authority.Absolute.valueOf()),
+  authority: z.number().default(control.Authority.ABSOLUTE),
   channel: z.number(),
 });
 

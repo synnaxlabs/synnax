@@ -53,7 +53,7 @@ TEST_F(XTestTest, TestEventuallyGE) {
 
 TEST_F(XTestTest, TestEventuallyLE) {
     counter = 10;
-    std::thread t([this]() {
+    std::thread t([this] {
         for (int i = 0; i < 5; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             --this->counter;

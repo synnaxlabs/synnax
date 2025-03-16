@@ -142,7 +142,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -171,7 +171,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             location,
             placeLayout,
             addStatus,
-            handleException,
+            handleError,
           });
         } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
@@ -219,7 +219,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               store,
             });
           } catch (e) {
-            handleException(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
+            handleError(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
           }
         }),
       );
@@ -288,9 +288,9 @@ export const MosaicWindow = memo<Layout.Renderer>(
         }),
       );
     }, [layoutKey]);
-    return windowKey == null || mosaic == null ? null : (
+    if (windowKey == null || mosaic == null) return null;
+    return (
       <>
-        <Nav.Top />
         <Internal windowKey={windowKey} mosaic={mosaic} />
         <Nav.Drawer location="bottom" />
         <PNav.Bar

@@ -55,4 +55,4 @@ xerrors::Error status();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);
-} // namespace daemond
+} 

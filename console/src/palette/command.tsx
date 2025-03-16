@@ -17,9 +17,9 @@ import { type Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type RootState, type RootStore } from "@/store";
 
-export const CommandListItem = (
-  props: List.ItemProps<string, Command>,
-): ReactElement => {
+export interface CommandListItemProps extends List.ItemProps<string, Command> {}
+
+export const CommandListItem = (props: CommandListItemProps): ReactElement => {
   const {
     entry: { icon, name, endContent },
   } = props;
@@ -46,7 +46,7 @@ export interface CommandSelectionContext {
   confirm: Modals.PromptConfirm;
   addStatus: Status.Adder;
   rename: Modals.PromptRename;
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   ingestors: Record<string, Import.FileIngestor>;
   extractors: Record<string, Export.Extractor>;
 }

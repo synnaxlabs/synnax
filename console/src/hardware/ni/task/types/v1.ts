@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type task } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
 
-const VERSION = "1.0.0";
-
-const aiChanExtensionShape = { device: device.keyZ };
+const aiChanExtensionShape = { device: Common.Device.keyZ };
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
 const ZERO_AI_CHAN_EXTENSION: AIChanExtension = { device: "" };
 
@@ -47,10 +45,10 @@ const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiForceBridgeTwoPointLinChan =
+const aiForceBridgeTwoPointLinChanZ =
   v0.aiForceBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
 interface AIForceBridgeTwoPointLinChan
-  extends z.infer<typeof aiForceBridgeTwoPointLinChan> {}
+  extends z.infer<typeof aiForceBridgeTwoPointLinChanZ> {}
 const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   ...v0.ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -102,8 +100,8 @@ const ZERO_AI_RTD_CHAN: AIRTDChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiStrainGageChan = v0.aiStrainGageChanZ.extend(aiChanExtensionShape);
-interface AIStrainGageChan extends z.infer<typeof aiStrainGageChan> {}
+const aiStrainGageChanZ = v0.aiStrainGageChanZ.extend(aiChanExtensionShape);
+interface AIStrainGageChan extends z.infer<typeof aiStrainGageChanZ> {}
 const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   ...v0.ZERO_AI_STRAIN_GAGE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -116,17 +114,8 @@ const ZERO_AI_TEMP_BUILT_IN_CHAN: AITempBuiltInChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiThrmcplChanZ = v0.aiThrmcplChanZ
-  .extend(aiChanExtensionShape)
-  .refine((v) => (v.cjcSource === v0.CONST_VAL ? v.cjcVal !== undefined : true), {
-    path: ["cjcVal"],
-    message: `CJC Value must be defined when CJC Source is ${v0.CONST_VAL}`,
-  })
-  .refine((v) => (v.cjcSource === v0.CHAN ? v.cjcPort !== undefined : true), {
-    path: ["cjcPort"],
-    message: `CJC Port must be defined when CJC Source is ${v0.CHAN}`,
-  });
-interface AIThrmcplChan extends z.infer<typeof aiThrmcplChanZ> {}
+const aiThrmcplChanZ = v0.aiThrmcplChanZ.and(z.object(aiChanExtensionShape));
+type AIThrmcplChan = z.infer<typeof aiThrmcplChanZ>;
 const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   ...v0.ZERO_AI_THRMCPL_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -168,14 +157,14 @@ const aiChannelZ = z.union([
   aiBridgeChanZ,
   aiCurrentChanZ,
   aiForceBridgeTableChanZ,
-  aiForceBridgeTwoPointLinChan,
+  aiForceBridgeTwoPointLinChanZ,
   aiForceIEPEChanZ,
   aiMicrophoneChanZ,
   aiPressureBridgeTableChanZ,
   aiPressureBridgeTwoPointLinChanZ,
   aiResistanceChanZ,
   aiRTDChanZ,
-  aiStrainGageChan,
+  aiStrainGageChanZ,
   aiTempBuiltInChanZ,
   aiThrmcplChanZ,
   aiTorqueBridgeTableChanZ,
@@ -183,7 +172,6 @@ const aiChannelZ = z.union([
   aiVelocityIEPEChanZ,
   aiVoltageChanZ,
 ]);
-
 export type AIChannel = z.infer<typeof aiChannelZ>;
 
 export const AI_CHANNEL_SCHEMAS: Record<v0.AIChannelType, z.ZodType<AIChannel>> = {
@@ -191,14 +179,14 @@ export const AI_CHANNEL_SCHEMAS: Record<v0.AIChannelType, z.ZodType<AIChannel>> 
   [v0.AI_BRIDGE_CHAN_TYPE]: aiBridgeChanZ,
   [v0.AI_CURRENT_CHAN_TYPE]: aiCurrentChanZ,
   [v0.AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: aiForceBridgeTableChanZ,
-  [v0.AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: aiForceBridgeTwoPointLinChan,
+  [v0.AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: aiForceBridgeTwoPointLinChanZ,
   [v0.AI_FORCE_IEPE_CHAN_TYPE]: aiForceIEPEChanZ,
   [v0.AI_MICROPHONE_CHAN_TYPE]: aiMicrophoneChanZ,
   [v0.AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: aiPressureBridgeTableChanZ,
   [v0.AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: aiPressureBridgeTwoPointLinChanZ,
   [v0.AI_RESISTANCE_CHAN_TYPE]: aiResistanceChanZ,
   [v0.AI_RTD_CHAN_TYPE]: aiRTDChanZ,
-  [v0.AI_STRAIN_GAGE_CHAN_TYPE]: aiStrainGageChan,
+  [v0.AI_STRAIN_GAGE_CHAN_TYPE]: aiStrainGageChanZ,
   [v0.AI_TEMP_BUILT_IN_CHAN_TYPE]: aiTempBuiltInChanZ,
   [v0.AI_THRMCPL_CHAN_TYPE]: aiThrmcplChanZ,
   [v0.AI_TORQUE_BRIDGE_TABLE_CHAN_TYPE]: aiTorqueBridgeTableChanZ,
@@ -229,69 +217,32 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
   [v0.AI_VELOCITY_IEPE_CHAN_TYPE]: ZERO_AI_VELOCITY_IEPE_CHAN,
   [v0.AI_VOLTAGE_CHAN_TYPE]: ZERO_AI_VOLTAGE_CHAN,
 };
-
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
-export type Channel = AIChannel | v0.AOChannel | v0.DIChannel | v0.DOChannel;
+export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export const analogReadConfigZ = v0.analogReadConfigZ
-  .omit({ version: true, device: true, channels: true })
-  .extend({ version: z.literal(VERSION), channels: z.array(aiChannelZ) })
-  .refine(
-    (c) =>
-      // Ensure that the stream Rate is lower than the sample rate
-      c.sampleRate >= c.streamRate,
-    {
-      path: ["streamRate"],
-      message: "Stream rate must be less than or equal to the sample rate",
-    },
-  )
-  .superRefine((cfg, ctx) => {
-    // check if any devices are empty strings
-    cfg.channels.forEach((c, i) => {
-      if (c.device === "")
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["channels", i, "device"],
-          message: "Device is required",
-        });
-    });
+export type Channel = AnalogChannel | v0.DigitalChannel;
+
+const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
+  .omit({ channels: true, device: true })
+  .extend({
+    channels: z
+      .array(aiChannelZ)
+      .superRefine(Common.Task.validateReadChannels)
+      .superRefine(v0.validateAnalogPorts),
   })
-  .superRefine((cfg, ctx) => {
-    const ports = new Map<string, number>();
-    cfg.channels.forEach(({ port, device }) =>
-      ports.set(`${device}/${port}`, (ports.get(`${device}/${port}`) ?? 0) + 1),
-    );
-    cfg.channels.forEach((channel, i) => {
-      if ((ports.get(`${channel.device}/${channel.port}`) ?? 0) < 2) return;
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["channels", i, "port"],
-        message: `Port ${channel.port} has already been used on device`,
-      });
-    });
-  })
-  .superRefine((cfg, ctx) => {
-    const channels = new Map<number, number>();
-    cfg.channels.forEach(({ channel }) => {
-      if (channel === 0 || channel == null) return;
-      channels.set(channel, (channels.get(channel) ?? 0) + 1);
-    });
-    cfg.channels.forEach((cfg, i) => {
-      if (cfg.channel === 0 || cfg.channel == null) return;
-      if ((channels.get(cfg.channel) ?? 0) < 2) return;
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["channels", i, "channel"],
-        message: `Channel has already been used on port ${cfg.port}`,
-      });
-    });
-  });
-export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
+  .superRefine(Common.Task.validateStreamRate);
+export interface AnalogReadConfig extends z.infer<typeof baseAnalogReadConfigZ> {}
+export const analogReadConfigZ = z.union([
+  v0.analogReadConfigZ.transform<AnalogReadConfig>(({ channels, device, ...rest }) => ({
+    ...rest,
+    channels: channels.map((c) => ({ ...c, device })),
+  })),
+  baseAnalogReadConfigZ,
+]);
 const { device: _, ...rest } = v0.ZERO_ANALOG_READ_CONFIG;
-export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
+const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   ...rest,
-  version: VERSION,
   channels: [],
 };
 
@@ -306,19 +257,7 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   config: ZERO_ANALOG_READ_CONFIG,
 };
 
-export const ANALOG_READ_CONFIG_MIGRATION_NAME = "hardware.ni.task.analogRead.config";
-
-export const analogReadConfigMigration = migrate.createMigration<
-  v0.AnalogReadConfig,
-  AnalogReadConfig
->({
-  name: ANALOG_READ_CONFIG_MIGRATION_NAME,
-  migrate: (s) => {
-    const { device, ...rest } = s;
-    return {
-      ...rest,
-      version: VERSION,
-      channels: rest.channels.map((c) => ({ device, ...c })),
-    };
-  },
-});
+export interface AnalogReadTask
+  extends task.Task<AnalogReadConfig, v0.AnalogReadStateDetails, v0.AnalogReadType> {}
+export interface NewAnalogReadTask
+  extends task.Task<AnalogReadConfig, v0.AnalogReadStateDetails, v0.AnalogReadType> {}

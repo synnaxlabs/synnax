@@ -56,7 +56,7 @@ func (d *Driver) start() error {
 	}
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	d.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
 		Scale:        1.1,

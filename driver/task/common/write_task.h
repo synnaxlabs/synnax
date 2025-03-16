@@ -202,7 +202,7 @@ public:
     ) {
     }
 
-    /// @brief implements task::Task to execute teh provided command on the task.
+    /// @brief implements task::Task to execute the provided command on the task.
     void exec(task::Command &cmd) override {
         if (cmd.type == "start") this->start(cmd.key);
         else if (cmd.type == "stop") this->stop(cmd.key, true);

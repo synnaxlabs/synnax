@@ -30,4 +30,4 @@ xerrors::Error stop_service() { return NOT_SUPPORTED; }
 xerrors::Error restart_service() { return NOT_SUPPORTED; }
 xerrors::Error view_logs() { return NOT_SUPPORTED; }
 xerrors::Error status() { return NOT_SUPPORTED; }
-} // namespace daemond
+} 

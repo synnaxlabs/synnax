@@ -38,11 +38,11 @@ export const Selector = (): ReactElement => {
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
-  const dProps = Dropdown.use();
-  const handleException = Status.useExceptionHandler();
+  const { close, toggle, visible } = Dropdown.use();
+  const handleError = Status.useErrorHandler();
   const handleChange = useCallback(
     (v: string | null) => {
-      dProps.close();
+      close();
       if (v === null) {
         dispatch(setActive(null));
         dispatch(Layout.clearWorkspace());
@@ -60,14 +60,15 @@ export const Selector = (): ReactElement => {
             }),
           );
         })
-        .catch((e) => handleException(e, "Failed to switch workspace"));
+        .catch((e) => handleError(e, "Failed to switch workspace"));
     },
-    [active, client, dispatch, dProps.close, handleException],
+    [active, client, dispatch, close, handleError],
   );
 
   return (
     <Dropdown.Dialog
-      {...dProps}
+      close={close}
+      visible={visible}
       keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
@@ -75,14 +76,10 @@ export const Selector = (): ReactElement => {
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
         endIcon={
-          <Caret.Animated
-            enabledLoc="bottom"
-            disabledLoc="left"
-            enabled={dProps.visible}
-          />
+          <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
         }
         variant="text"
-        onClick={() => dProps.toggle()}
+        onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
         shade={8}
@@ -123,7 +120,7 @@ export const Selector = (): ReactElement => {
                       startIcon={<Icon.Add />}
                       variant="outlined"
                       onClick={() => {
-                        dProps.close();
+                        close();
                         placeLayout(CREATE_LAYOUT);
                       }}
                       iconSpacing="small"

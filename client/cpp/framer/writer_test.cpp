@@ -20,7 +20,7 @@
 
 
 /// @brief it should correctly write a frame of telemetry to the DB.
-TEST(FramerTests, testWriteBasic) {
+TEST(WriterTests, testWriteBasic) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
         "time",
@@ -47,15 +47,15 @@ TEST(FramerTests, testWriteBasic) {
     frame.emplace(
         time.key,
         telem::Series(std::vector<telem::TimeStamp>{
-                          (now + telem::SECOND),
-                          (now + telem::SECOND * 2),
-                          (now + telem::SECOND * 3),
-                          (now + telem::SECOND * 4),
-                          (now + telem::SECOND * 5),
-                          (now + telem::SECOND * 6),
-                          (now + telem::SECOND * 7),
-                          (now + telem::SECOND * 8),
-                      })
+            (now + telem::SECOND),
+            (now + telem::SECOND * 2),
+            (now + telem::SECOND * 3),
+            (now + telem::SECOND * 4),
+            (now + telem::SECOND * 5),
+            (now + telem::SECOND * 6),
+            (now + telem::SECOND * 7),
+            (now + telem::SECOND * 8),
+        })
     );
     frame.emplace(
         data.key,
@@ -70,7 +70,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_NIL(writer.close());
 }
 
-TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
+TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
         "time",
@@ -90,7 +90,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
     );
 }
 
-TEST(FramerTests, testWriteToUnspecifiedChannel) {
+TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
         "time",
@@ -117,7 +117,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
     ASSERT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-TEST(FramerTests, testWriteErrOnUnauthorized) {
+TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
         "time",
@@ -149,7 +149,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
     ASSERT_TRUE(err.message().find("test_writer_1") != std::string::npos);
 }
 
-TEST(FramerTests, testSetAuthority) {
+TEST(WriterTests, testSetAuthority) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
         "time",

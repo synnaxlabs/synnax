@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import { type compare, type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
-import { deep } from "@synnaxlabs/x/deep";
-import { zodutil } from "@synnaxlabs/x/zodutil";
+import {
+  type compare,
+  deep,
+  type Destructor,
+  shallowCopy,
+  toArray,
+  zod,
+} from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -483,7 +488,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const onChangeRef = useSyncedRef(onChange);
   const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
   const onHasTouchedRef = useSyncedRef(onHasTouched);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const setCurrentStateAsInitialValues = useCallback(() => {
     initialValuesRef.current = deep.copy(ref.current.state);
@@ -521,7 +526,7 @@ export const use = <Z extends z.ZodTypeAny>({
       };
       if (schemaRef.current == null) return fs;
       const schema = schemaRef.current;
-      const zField = zodutil.getFieldSchema(schema, path, { optional: true });
+      const zField = zod.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
       fs.required = !zField.isOptional();
       return fs;
@@ -717,7 +722,7 @@ export const use = <Z extends z.ZodTypeAny>({
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
-    handleException(async () => {
+    handleError(async () => {
       let valid: boolean;
       try {
         valid = validate(path, validateChildren);

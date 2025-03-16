@@ -15,13 +15,15 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
-/// module
-#include <glog/logging.h>
+/// external
+#include "glog/logging.h"
 
+/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xos/xos.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
@@ -49,10 +51,9 @@ struct ClusterInfo {
     /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
     /// @brief the key of the node within the cluster.
-    std::uint16_t node_key;
+    std::uint16_t node_key = 0;
     /// @brief the time of the node at the midpoint of the server processing the request.
-    /// This is used to calculate a rough clock skew between the client and server.
-    telem::TimeStamp node_time;
+    telem::TimeStamp node_time = telem::TimeStamp(0);
 
     ClusterInfo() = default;
 
@@ -82,6 +83,7 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::mutex mu;
     /// @brief the maximum clock skew between the client and server before logging a warning.
     telem::TimeSpan clock_skew_threshold;
+
 public:
     /// Cluster information.
     ClusterInfo cluster_info = ClusterInfo();
@@ -97,7 +99,7 @@ public:
         clock_skew_threshold(clock_skew_threshold) {
     }
 
-    /// @brief authenticates with the credentials provided when construction the
+    /// @brief authenticates with the credentials provided when constructing the
     /// Synnax client.
     xerrors::Error authenticate() {
         std::lock_guard lock(mu);
@@ -113,11 +115,11 @@ public:
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
-            LOG(WARNING) << "measured excessive clock skew between this host and the Synnax cluster.";
-            if (skew_calc.skew() > telem::TimeSpan(0))
-                LOG(WARNING) << "this host is behind by approximately" << skew_calc.skew().abs();
-             else
-                LOG(WARNING) << "this host is ahead by approximately" << skew_calc.skew().abs();
+            auto [host, _] = xos::get_hostname();
+            auto direction = "ahead";
+            if (skew_calc.skew() > telem::TimeSpan(0)) direction = "behind";
+            LOG(WARNING) <<"measured excessive clock skew between this host and the Synnax cluster.";
+            LOG(WARNING) << "this host (" << host << ") is " << direction << "by approximately " << skew_calc.skew().abs();
             LOG(WARNING) << "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";
         }
 

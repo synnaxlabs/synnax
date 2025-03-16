@@ -17,7 +17,7 @@ export interface DownloadProps {
   timeRange: TimeRange;
   client: Synnax;
   lines: Channel.LineProps[];
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   name?: string;
 }
 
@@ -43,7 +43,7 @@ export const download = ({
   lines,
   client,
   timeRange,
-  handleException,
+  handleError,
   name = "synnax-data",
 }: DownloadProps): void => {
   (async () => {
@@ -71,5 +71,5 @@ export const download = ({
     if (savePath == null) return;
     const data = new TextEncoder().encode(csv);
     await writeFile(savePath, data);
-  })().catch(handleException);
+  })().catch(handleError);
 };

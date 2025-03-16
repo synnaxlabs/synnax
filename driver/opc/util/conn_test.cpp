@@ -19,13 +19,36 @@
 #include "driver/opc/util/util.h"
 #include "driver/opc/mock/server.h"
 
-// TEST(ConnTest, testBasicConn) {
-//     mock::Server server{mock::ServerConfig()};
-//     server.start();
-//     std::this_thread::sleep_for(std::chrono::seconds(3));
-//     util::ConnectionConfig cfg;
-//     cfg.endpoint = "opc.tcp://0.0.0.0:4840";
-//
-//     auto v = ASSERT_NIL_P(util::connect(cfg, "opc"));
-//     ASSERT_NE(v, nullptr);
-// }
+TEST(ConnTest, testBasicConn) {
+    synnax::Channel ch;
+    ch.data_type = telem::FLOAT32_T;
+
+    mock::ServerChannel server_ch{
+        .ns = 1,
+        .node = "test",
+        .ch = ch
+    };
+
+    mock::ServerConfig server_cfg{
+        .channels = {server_ch}
+    };
+
+    mock::Server server{mock::ServerConfig(server_cfg)};
+    server.start();
+    util::ConnectionConfig cfg;
+    cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+
+
+    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        util::connect(cfg, "opc"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
+    ASSERT_NE(client, nullptr);
+
+    auto ser = ASSERT_NIL_P(util::simple_read(client, "NS=1;S=test"));
+    ASSERT_EQ(ser.data_type(), telem::FLOAT32_T);
+    ASSERT_EQ(ser.at<float>(0), 5);
+}

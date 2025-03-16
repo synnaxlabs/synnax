@@ -242,10 +242,16 @@ TEST(TimeSpanTests, testModulo) {
 }
 
 TEST(TimeSpanTests, testTruncate) {
-    const auto ts = TimeSpan(5);
-    const auto ts2 = TimeSpan(2);
-    const auto ts3 = ts.truncate(ts2);
-    ASSERT_EQ(ts3.nanoseconds(), 4);
+    const auto ts = telem::SECOND * 5 + telem::MICROSECOND * 10;
+    const auto ts3 = ts.truncate(telem::SECOND);
+    ASSERT_EQ(ts3, telem::SECOND * 5);
+}
+
+TEST(TimeSpanTests, testTruncateZeroTarget) {
+    const auto ts = telem::SECOND * 5;
+    const auto target = TimeSpan(0);
+    const auto ts3 = ts.truncate(target);
+    ASSERT_EQ(ts3, ts);
 }
 
 TEST(TimeSpanTests, testDelta) {

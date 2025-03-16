@@ -30,17 +30,11 @@
 
 namespace ni {
 /// @brief the configuration for a read task.
-struct ReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
+struct ReadTaskConfig: common::BaseReadTaskConfig {
     /// @brief the device key that will be used for the channels in the task. Analog
     /// read tasks can specify multiple devices. In this case, the device key field
     /// is empty and automatically set to "cross-device".
     const std::string device_key;
-    /// @brief sets the sample rate for the task.
-    const telem::Rate sample_rate;
-    /// @brief sets the stream rate for the task.
-    const telem::Rate stream_rate;
     /// @brief sets the timing source for the task. If not provided, the task will
     /// use software timing on digital tasks and the sample clock on analog tasks.
     const std::string timing_source;
@@ -55,10 +49,8 @@ struct ReadTaskConfig {
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
         timing_source(other.timing_source),
         samples_per_chan(other.samples_per_chan),
         software_timed(other.software_timed),
@@ -75,18 +67,17 @@ struct ReadTaskConfig {
         std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg,
         const std::string &task_type
-    ): data_saving(cfg.optional<bool>("data_saving", false)),
+    ): BaseReadTaskConfig(cfg),
        device_key(cfg.optional<std::string>("device", "cross-device")),
-       sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
-       stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
        timing_source(cfg.optional<std::string>("timing_source", "")),
        samples_per_chan(sample_rate / stream_rate),
        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
        channels(cfg.map<std::unique_ptr<channel::Input>>(
            "channels",
-           [&](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
+           [](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
        bool> {
                auto ch = channel::parse_input(ch_cfg);
+               if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
            })) {
         if (this->channels.empty()) {
@@ -106,7 +97,7 @@ struct ReadTaskConfig {
                           "failed to retrieve channels for task: " + err.message());
             return;
         }
-        auto remote_channels = channel_keys_map(channel_vec);
+        auto remote_channels = map_channel_Keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, err] = client->hardware.retrieve_device(this->device_key);
@@ -126,7 +117,7 @@ struct ReadTaskConfig {
                               message());
                 return;
             }
-            devices = device_keys_map(devices_vec);
+            devices = map_device_keys(devices_vec);
         }
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
@@ -145,6 +136,15 @@ struct ReadTaskConfig {
         auto parser = xjson::Parser(task.config);
         return {ReadTaskConfig(client, parser, task.type), parser.error()};
     }
+
+    std::vector<synnax::Channel> sy_channels() const {
+        std::vector<synnax::Channel> chs;
+        chs.reserve(this->channels.size());
+        for (const auto &ch: this->channels) chs.push_back(ch->ch);
+        return chs;
+    }
+
+    [[nodiscard]]
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -211,6 +211,10 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
+
+    std::vector<synnax::Channel> channels() const override {
+        return this->cfg.sy_channels();
+    }
 
     xerrors::Error start() override {
         this->sample_clock->reset();

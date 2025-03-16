@@ -155,6 +155,56 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 
 /// @brief it should return a validation error if no channels in the task are enabled.
 TEST(ReadTaskConfigTest, testNoEnabledChannels) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "abc123",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    j["channels"][0]["enabled"] = false;
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+}
+
+/// @brief it should return a validation error if a channel has an unknown type.
+TEST(ReadTaskConfigTest, testUnknownChannelType) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto dev = synnax::Device(
+        "abc123",
+        "my_device",
+        rack.key,
+        "dev1",
+        "dev1",
+        "ni",
+        "PXI-6255",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+
+    auto j = base_analog_config();
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    j["channels"][0]["type"] = "unknown_channel_type";  // Set an invalid channel type
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
 class AnalogReadTest : public ::testing::Test {
@@ -191,7 +241,7 @@ protected:
         ASSERT_FALSE(rack_err) << rack_err;
 
         synnax::Device dev(
-            "abc123",
+            "opcua123",
             "my_device",
             rack.key,
             "dev1",
@@ -200,6 +250,7 @@ protected:
             "PXI-6255",
             ""
         );
+
         auto dev_err = sy->hardware.create_device(dev);
         ASSERT_FALSE(dev_err) << dev_err;
 

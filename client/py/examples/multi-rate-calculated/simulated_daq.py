@@ -89,5 +89,6 @@ with client.open_writer(
             data_to_write[time_ch_2.key] = [time, time_2]
             data_to_write[data_ch_2.key] = [np.sin(i / 100), np.sin((i + 1) / 100)]
 
-        writer.write(data_to_write)
+        if not writer.write(data_to_write):
+            break
         i += 1

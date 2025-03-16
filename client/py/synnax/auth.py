@@ -19,9 +19,9 @@ from freighter import (
     UnaryClient,
 )
 
+from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
-from synnax.exceptions import InvalidToken, ExpiredToken
 
 
 class InsecureCredentials(Payload):
