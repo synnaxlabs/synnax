@@ -13,10 +13,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -129,9 +130,8 @@ func start(cmd *cobra.Command) {
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
 	sCtx.Go(func(ctx context.Context) (err error) {
-
 		secProvider, err := configureSecurity(ins, insecure)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -148,7 +148,7 @@ func start(cmd *cobra.Command) {
 			grpcServerTransports,
 			verifier,
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		dist, err := distribution.Open(ctx, distConfig)
@@ -158,6 +158,9 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, dist.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
@@ -166,21 +169,24 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
+		ins.L.Info("opened user service")
 		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
+		ins.L.Info("opened rbac service")
 		tokenSvc, err := token.NewService(token.ServiceConfig{
 			KeyProvider:      secProvider,
 			Expiration:       24 * time.Hour,
 			RefreshThreshold: 1 * time.Hour,
 		})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
+		ins.L.Info("opened token service")
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
 			DB:       gorpDB,
@@ -191,16 +197,22 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.Combine(err, rangeSvc.Close())
+		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		workspaceSvc, err := workspace.NewService(ctx, workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		schematicSvc, err := schematic.NewService(ctx, schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		linePlotSvc, err := lineplot.NewService(ctx, lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		labelSvc, err := label.OpenService(
@@ -215,14 +227,20 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.Combine(err, labelSvc.Close())
+		}()
 		logSvc, err := log.NewService(ctx, log.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		tableSvc, err := table.NewService(ctx, table.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 		})
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
 		hardwareSvc, err := hardware.OpenService(
 			ctx,
 			hardware.Config{
@@ -234,9 +252,15 @@ func start(cmd *cobra.Command) {
 				Channel:      dist.Channel,
 				Framer:       dist.Framer,
 			})
+		if err != nil {
+			return err
+		}
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		frameSvc, err := framer.OpenService(
 			ctx,
 			framer.Config{
@@ -251,14 +275,17 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, frameSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
+		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
 		// Set the base permissions for all users.
-		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil {
+		if err := maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -288,7 +315,7 @@ func start(cmd *cobra.Command) {
 				Hardware:        hardwareSvc,
 			},
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -321,7 +348,7 @@ func start(cmd *cobra.Command) {
 			ins,
 			debug,
 		))
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		sCtx.Go(func(_ context.Context) error {

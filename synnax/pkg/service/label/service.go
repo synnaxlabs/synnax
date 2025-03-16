@@ -94,6 +94,13 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	return s, err
 }
 
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
+}
+
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
