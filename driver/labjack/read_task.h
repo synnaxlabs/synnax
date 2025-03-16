@@ -420,6 +420,13 @@ struct ReadTaskConfig: public common::BaseReadTaskConfig {
             if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
         return false;
     }
+
+    xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
+        for (const auto &ch: this->channels)
+            if (const auto err = ch->apply(dev, this->dev_model))
+                return err;
+        return xerrors::NIL;
+    }
 };
 
 /// @brief a source implementation that reads from labjack devices via a unary
@@ -441,6 +448,7 @@ public:
     }
 
     xerrors::Error start() override {
+        this->cfg.apply(this->dev);
         return this->dev->start_interval(
             this->interval_handle,
             static_cast<int>(this->cfg.sample_rate.period().microseconds())
@@ -532,6 +540,7 @@ public:
     /// @brief restarts the source.
     xerrors::Error restart() {
         this->stop();
+        this->cfg.apply(this->dev);
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
