@@ -57,3 +57,17 @@ func (d Device) Validate() error {
 	validate.NotEmptyString(v, "name", d.Name)
 	return v.Error()
 }
+
+type Status string
+
+// State represents the state of a device.
+type State struct {
+	Key     string   `json:"key" msgpack:"key"`
+	Rack    rack.Key `json:"rack" msgpack:"rack"`
+	Variant string
+	Details string
+}
+
+func (s State) GorpKey() string { return s.Key }
+
+func (s State) SetOptions() []interface{} { return []interface{}{s.Rack.Node()} }
