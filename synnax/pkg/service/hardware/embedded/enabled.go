@@ -170,7 +170,6 @@ func (d *Driver) Stop() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
-		d.cfg.L.Info("stopping embedded driver")
 		if _, err := d.stdInPipe.Write([]byte(stopKeyword)); err != nil {
 			return err
 		}

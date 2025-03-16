@@ -94,6 +94,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	return s, err
 }
 
+// Close closes the label service and releases any resources that it may have acquired.
+// Close must be called when the service is no longer needed to prevent resource leaks.
 func (s *Service) Close() error {
 	if s.signals != nil {
 		return s.signals.Close()
