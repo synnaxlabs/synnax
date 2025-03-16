@@ -89,10 +89,17 @@ export const ChannelList = <C extends Channel>({
     if (createChannels == null) return undefined;
     return (chs: C[], indices: number[]) => {
       const duplicated = createChannels(chs, indices);
+      if (duplicated.length === 0) {
+        onSelect([], -1);
+        return;
+      }
       push(duplicated);
-      onSelect([...rest.selected, ...duplicated.map((c) => c.key)], channels.length);
+      onSelect(
+        duplicated.map(({ key }) => key),
+        chs.length + duplicated.length - 1,
+      );
     };
-  }, [createChannels, channels, onSelect, rest.selected]);
+  }, [createChannels, onSelect, push]);
   return (
     <Core
       header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}
