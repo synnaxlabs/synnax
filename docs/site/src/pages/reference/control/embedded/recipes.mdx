@@ -11,6 +11,8 @@ export const components = mdxOverrides;
 This page documents a number of common patterns we've found useful when writing control
 sequences.
 
+<Divider.Divider direction="x" />
+
 ## Checking if a Channel Has Received Telemetry
 
 Synnax's sequences operate in a separate environment than any data acquisition/output
@@ -69,6 +71,8 @@ conditional block wih valid pressure values.
 We recommend **always** checking if a channel value is defined before using it, as
 it will prevent any unexpected issues from arising.
 
+<Divider.Divider direction="x" />
+
 ## Initializing Variables one Time
 
 In some cases, it's useful to initialize one or more variables a single time during
@@ -88,7 +92,11 @@ end
 Now, `state` will only be set to its initial value once during the first iteration
 of the sequence.
 
+<Divider.Divider direction="x" />
+
 ## Fixed Delays Between Commands
+
+<Divider.Divider direction="x" />
 
 ## State Machines
 
@@ -142,5 +150,7 @@ Building state machines within the Synnax control sequence editor fundamentally
 involves defining an initial state, and then using a chain of conditional logic in
 order to execute specific control code within the state, and then transition to a
 different phase by assigning to the `state` variable when ready.
+
+<Divider.Divider direction="x" />
 
 ## Abort Sequence

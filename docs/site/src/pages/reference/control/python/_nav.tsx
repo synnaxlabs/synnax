@@ -9,9 +9,9 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const controlNav: PageNavNode = {
-  key: "control",
-  name: "Control",
+export const pythonSequencesNav: PageNavNode = {
+  key: "python",
+  name: "Python Sequences",
   children: [
     {
       key: "/reference/control/python/get-started",

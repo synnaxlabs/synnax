@@ -9,24 +9,19 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const controlNav: PageNavNode = {
-  key: "lua",
-  name: "Lua",
+export const embeddedSequencesNav: PageNavNode = {
+  key: "embedded",
+  name: "Embedded Sequences",
   children: [
     {
-      key: "/reference/control/lua/get-started",
-      href: "/reference/control/lua/get-started",
+      key: "/reference/control/embedded/get-started",
+      href: "/reference/control/embedded/get-started",
       name: "Get Started",
     },
     {
-      key: "/reference/control/sequence-basics",
-      href: "/reference/control/sequence-basics",
-      name: "Sequence Basics",
-    },
-    {
-      key: "/reference/control/examples",
-      href: "/reference/control/examples",
-      name: "Examples",
+      key: "/reference/control/embedded/recipes",
+      href: "/reference/control/embedded/recipes",
+      name: "Sequence Recipes",
     },
   ],
 };
