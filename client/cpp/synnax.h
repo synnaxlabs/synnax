@@ -77,6 +77,10 @@ struct Config {
         this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
+    bool is_secure() const {
+        return !this->ca_cert_file.empty();
+    }
+
     [[nodiscard]] json to_json() const {
         return {
             {"host", this->host},

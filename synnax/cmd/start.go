@@ -172,12 +172,10 @@ func start(cmd *cobra.Command) {
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		ins.L.Info("opened user service")
 		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		ins.L.Info("opened rbac service")
 		tokenSvc, err := token.NewService(token.ServiceConfig{
 			KeyProvider:      secProvider,
 			Expiration:       24 * time.Hour,
@@ -186,7 +184,6 @@ func start(cmd *cobra.Command) {
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		ins.L.Info("opened token service")
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
 			DB:       gorpDB,
