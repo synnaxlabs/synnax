@@ -74,7 +74,7 @@ export const selectByFilter = (
   state: StoreState,
   filter: (layout: State) => boolean,
 ): State | undefined =>
-  Object.values(selectSliceState(state).layouts).find((l) => filter(l));
+  Object.values(selectSliceState(state).layouts).find(filter);
 
 /**
  * Selects a layout from the store by key.
