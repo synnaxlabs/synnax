@@ -19,11 +19,6 @@ export const pythonSequencesNav: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/control/python/sequence-basics",
-      href: "/reference/control/python/sequence-basics",
-      name: "Sequence Basics",
-    },
-    {
       key: "/reference/control/python/examples",
       href: "/reference/control/python/examples",
       name: "Examples",

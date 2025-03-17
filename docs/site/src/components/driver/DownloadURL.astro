@@ -10,7 +10,7 @@ let url = `${baseURL}/synnax-driver-v${version.trim()}-${os.toLowerCase()}`;
 if (os === "ni-linux-rt") url = `${baseURL}/install-driver-nilinuxrt.sh`;
 let cmd = `curl -LO ${url}`;
 if (os === "ni-linux-rt")
-    cmd += `&& chmod +x install-driver-nilinuxrt.sh && ./install-driver-nilinuxrt.sh`;
+    cmd += ` && chmod +x install-driver-nilinuxrt.sh && ./install-driver-nilinuxrt.sh`;
 ---
 
 <CodeI lang="bash" theme="css-variables" code={cmd} />
