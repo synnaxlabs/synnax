@@ -1,0 +1,35 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Standalone Driver"
+heading: "Standalone Driver"
+description: "Deploy the standalone driver on a separate machine from the cluster."
+---
+
+import { Tabs } from "@/components/driver/Tabs";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Divider } from "@synnaxlabs/pluto";
+import DownloadURL from "@/components/driver/DownloadURL.astro";
+export const components = mdxOverrides;
+
+The standalone driver makes it possible to integrate data acquisition hardware from
+multiple host machines into a single Synnax deployment. For more information on whether
+you should use the standalone driver, see the [get
+started](/reference/device-drivers/get-started) page.
+
+<Divider.Divider direction="x" />
+
+<Tabs exclude={["docker"]} client:only="react">
+<Fragment slot="ni-linux-rt">
+
+## Installing on NI Linux RT
+
+### Prerequisites
+
+The Synnax standalone driver supports NI Linux RT 2024 Q1 and later.
+
+To install the standalone driver on NI Linux RT,
+
+<DownloadURL os="ni-linux-rt" />
+
+</Fragment>
+</Tabs>

@@ -2,19 +2,19 @@
 layout: "@/layouts/Reference.astro"
 title: "Device Drivers"
 heading: "Device Drivers"
-description: "Browse available device drivers to connect your hardware."
+description: "Acquire data and control hardware from a number of vendors."
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax offers several device drivers to help you connect your data acquisition and
-control hardware out of the box.
+Our built-in device drivers make it easy to work with hardware from a number of vendors
+out of the box.
 
 <Divider.Divider direction="x" />
 
-## Available Drivers
+## Built-In Integrations
 
 | Component                                                        | Description                               |
 | ---------------------------------------------------------------- | ----------------------------------------- |
@@ -22,17 +22,41 @@ control hardware out of the box.
 | [National Instruments](/reference/device-drivers/ni/get-started) | Connect to National Instruments hardware. |
 | [LabJack](/reference/device-drivers/labjack/get-started)         | Connect to LabJack hardware.              |
 
+<Divider.Divider direction="x" />
+
+## Embedded vs. Standalone Driver
+
+Synnax's device driver comes in two flavors. The first is a cluster-embedded driver.
+This comes pre-installed with every [Synnax Cluster](/reference/cluster/get-started) and
+allows you to integrate data acquisition devices that are running on the same machine
+as the cluster. If you have no need to integrate data acquisition devices across
+multiple machines, this is the driver for you, and there are no extra installation steps
+required.
+
+The second is our standalone driver. This is identical to the cluster-embedded driver,
+but it is designed to run on a separate machine that communicates with the cluster over
+the network.
+
+### Support for NI Linux RT
+
+The standalone driver supports deployment on [NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html?srsltid=AfmBOoqnEnJuKCO4hPSA1QO7Niru2xvnnnxrzzqRwnbWJz80CGNAGmLz)
+controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html?srsltid=AfmBOoqV135bYP1kLcU-pnf6NQCKsCFFCv0EHRj1Wjw0A8r48D9LbLHG)
+and [NI PXI](https://www.ni.com/en/shop/pxi.html?srsltid=AfmBOoqsPrhSZSEL38oVdBsb-zBuN4U81ebnyIvws0wnWvyM_hL5Qefw)
+systems.
+
+In addition to performing data acquisition and control tasks on real-time controllers,
+the standalone driver also supports running [embedded control
+sequences](/reference/control/get-started) on the real-time controller, allowing for
+precisely timed control sequences that run close to the hardware.
+
+### Installing the Standalone Driver
+
+To install the standalone driver, see the [standalone
+driver](/reference/device-drivers/standalone-driver) page.
+
+<Divider.Divider direction="x" />
+
 ## Building a Custom Driver
 
 If you don't see a driver for your hardware, you can build your own using the [Python
 client](/reference/python-client/device-driver).
-
-## Installing the Driver
-
-The Synnax driver comes into flavors:
-
-1. Cluster-Embedded Driver: Every Synnax [Cluster]() comes with a built-in device driver
-   that will allow it to connect to devices on the same host as the cluster out of the box.
-   This works fine for almost every use case, and it means you don't need to follow any
-   installation steps.
-2. Standalone Driver:
