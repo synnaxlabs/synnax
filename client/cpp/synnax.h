@@ -77,6 +77,12 @@ struct Config {
         this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
+    /// @brief returns true if the configuration uses TLS encryption to secure
+    /// communications with the cluster.
+    bool is_secure() const {
+        return !this->ca_cert_file.empty();
+    }
+
     [[nodiscard]] json to_json() const {
         return {
             {"host", this->host},

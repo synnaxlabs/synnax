@@ -13,8 +13,7 @@
 #include <glog/logging.h>
 
 namespace xlog {
-
-inline std::string get_color(const std::string& color) {
+inline std::string get_color(const std::string &color) {
     return FLAGS_colorlogtostderr ? color : "";
 }
 
@@ -24,4 +23,5 @@ inline std::string RESET() { return get_color("\033[0m"); }
 inline std::string BLUE() { return get_color("\033[1;34m"); }
 inline std::string SHALE() { return get_color("\033[1;38;2;112;128;144m"); }
 
+inline std::string bool_to_str(const bool b) { return b ? "true" : "false"; }
 }
