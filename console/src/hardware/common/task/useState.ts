@@ -12,10 +12,8 @@ import {
   Observe,
   type Status as PStatus,
   Synnax,
-  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
@@ -77,18 +75,6 @@ export const useState = <D extends StateDetails>(
   const status = state.status;
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
-  useAsyncEffect(async () => {
-    if (!keyRef.current) return;
-    // This effect is not ideal, but sometimes, the state observer hears a state set
-    // command before the key of a new task is created. The state observer compares ""
-    // to the key of the newly created task, and therefore passes it. To fix this, we
-    // trigger another call to retrieve the task if the task key changes.
-    const t = await client?.hardware.tasks.retrieve<UnknownRecord, D>(keyRef.current, {
-      includeState: true,
-    });
-    if (t == null) return;
-    setState(parseState(t.state));
-  }, [keyRef.current]);
   Observe.useListener({
     key: [client?.key],
     open: async () => client?.hardware.tasks.openCommandObserver(),
@@ -99,7 +85,7 @@ export const useState = <D extends StateDetails>(
   });
   Observe.useListener({
     key: [client?.key],
-    open: async () => client?.hardware.tasks.openStateObserver(),
+    open: async () => await client?.hardware.tasks.openStateObserver(),
     onChange: (state) => {
       if (state.task !== keyRef.current) return;
       setState(parseState(state as task.State<D>));

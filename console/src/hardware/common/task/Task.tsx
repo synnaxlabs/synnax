@@ -8,18 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, task } from "@synnaxlabs/client";
-import {
-  Align,
-  Eraser,
-  Status,
-  Synnax,
-  Text,
-  usePrevious,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
+import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { type FC, useEffect } from "react";
+import { type FC } from "react";
 import { type z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -44,19 +36,11 @@ export type TaskProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
   Type extends string = string,
-> =
-  | {
-      rackKey?: rack.Key;
-      layoutKey: string;
-      configured: false;
-      task: task.Payload<Config, Details, Type>;
-    }
-  | {
-      rackKey: rack.Key;
-      layoutKey: string;
-      configured: true;
-      task: task.Task<Config, Details, Type>;
-    };
+> = {
+  layoutKey: string;
+  rackKey?: rack.Key;
+  task: task.Payload<Config, Details, Type>;
+};
 
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
   extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
@@ -93,11 +77,9 @@ export const wrap = <
   const { configSchema, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
-    const prevTaskKey = usePrevious(taskKey);
     const taskKeyRef = useSyncedRef(taskKey);
     const client = Synnax.use();
-    const handleError = Status.useErrorHandler();
-    const { data, error, isError, isPending, refetch } = useQuery<
+    const { data, error, isError, isPending } = useQuery<
       TaskProps<Config, Details, Type>
     >({
       queryFn: async () => {
@@ -123,16 +105,6 @@ export const wrap = <
       },
       queryKey: [deviceKey, client?.key, layoutKey],
     });
-    useEffect(() => {
-      // We want to make sure that the above query is the same for a new task without a
-      // key and a created task with a key, otherwise the whole form will flash on the
-      // screen when the task is created. Because of this, we don't include `taskKey` in
-      // the query key and instead manually trigger a refetch when the task key changes.
-      if (prevTaskKey != taskKey)
-        handleError(async () => {
-          await refetch();
-        }, "Failed to fetch task");
-    }, [prevTaskKey, taskKey, handleError]);
     const content = isPending ? (
       <Status.Text.Centered level="h4" variant="loading">
         Fetching task from server

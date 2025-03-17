@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC } from "react";
+import { type FC, useState as useReactState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -38,7 +38,6 @@ import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { type StateDetails, useState } from "@/hardware/common/task/useState";
 import { type Layout } from "@/layout";
-
 export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
@@ -98,17 +97,18 @@ export const wrapForm = <
   const schema = z.object({ name: nameZ, config: configSchema });
   const Wrapper = ({
     layoutKey,
-    task: tsk,
-    configured,
+    task: initialTask,
   }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
     const handleError_ = Status.useErrorHandler();
-    const values = { name: tsk.name, config: tsk.config };
+    const values = { name: initialTask.name, config: initialTask.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
+    const [taskKey, setTaskKey] = useReactState<task.Key>(initialTask.key);
+    const configured = taskKey.length > 0;
     const { state, triggerError, triggerLoading } = useState(
-      tsk.key,
-      tsk.state ?? undefined,
+      taskKey,
+      initialTask.state ?? undefined,
     );
     const handleError = (e: Error, action: string) => {
       triggerError(e.message);
@@ -121,11 +121,20 @@ export const wrapForm = <
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        const [newConfig, rackKey] = await onConfigure(client, config, tsk.key, name);
+        const [newConfig, rackKey] = await onConfigure(
+          client,
+          config,
+          initialTask.key,
+          name,
+        );
         methods.set("config", newConfig);
         // current work around for Pluto form issues (Issue: SY-1465)
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
+        const t = await create(
+          { key: taskKey, name, type, config: newConfig },
+          rackKey,
+        );
+        setTaskKey(t.key);
       },
       onError: (e: Error) => handleError(e, "configure"),
     });
@@ -133,17 +142,21 @@ export const wrapForm = <
       mutationFn: async (command: StartOrStopCommand) => {
         if (!configured) throw new UnexpectedError("Task has not been configured");
         triggerLoading();
-        await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+        const sugaredTask = client?.hardware.tasks.sugar({
+          ...initialTask,
+          key: taskKey,
+        });
+        await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
       },
       onError: handleError,
     });
-    const isSnapshot = configured ? tsk.snapshot : false;
+    const isSnapshot = configured ? (initialTask.snapshot ?? false) : false;
     const isRunning =
       configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
     const formProps = {
       methods,
       configured,
-      task: tsk,
+      task: initialTask,
       isSnapshot,
       isRunning,
     } as FormProps<Config, Details, Type>;
@@ -165,14 +178,12 @@ export const wrapForm = <
                 <CopyButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
-                  taskKey={tsk.key}
+                  taskKey={initialTask.key}
                 />
-                <Rack taskKey={tsk.key} />
+                <Rack taskKey={taskKey} />
               </Align.Space>
             </Align.Space>
-            {configured && isSnapshot && (
-              <ParentRangeButton<Config, Details, Type> task={tsk} />
-            )}
+            {configured && isSnapshot && <ParentRangeButton taskKey={taskKey} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
