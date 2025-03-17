@@ -24,36 +24,30 @@ import { Form } from "@/form";
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
 import { Synnax as PSynnax } from "@/synnax";
-import { Warp } from "@/warp";
 
-export interface Consumer<T = unknown> {
+export interface Listener {
   channels: channel.Keys;
-  decode: (fr: framer.Frame) => Promise<[T | null, boolean]>;
-  onChange: (value: T | null) => void;
+  onChange: (fr: framer.Frame) => void;
 }
 
 interface ContextValue {
-  bindConsumer: (props: Consumer) => Destructor;
+  bindListener: (props: Listener) => Destructor;
 }
 
-const Context = createContext<ContextValue>({ bindConsumer: () => () => {} });
+const Context = createContext<ContextValue>({ bindListener: () => () => {} });
 
 export interface ProviderProps extends PropsWithChildren {}
 
 export const Provider = ({ children }: ProviderProps) => {
   const client = PSynnax.use();
   const streamerRef = useRef<framer.Streamer | null>(null);
-  const consumers = useRef<Set<Consumer>>(new Set());
+  const consumers = useRef<Set<Listener>>(new Set());
 
   const handleFrame = useCallback((frame: framer.Frame) => {
-    consumers.current.forEach(({ decode, onChange }) => {
-      void decode(frame).then(([value, shouldChange]) => {
-        if (shouldChange) onChange(value);
-      });
-    });
+    consumers.current.forEach(({ onChange }) => onChange(frame));
   }, []);
 
-  const bindConsumer = useCallback((props: Consumer) => {
+  const bindListener = useCallback((props: Listener) => {
     consumers.current.add(props);
     return () => consumers.current.delete(props);
   }, []);
@@ -70,8 +64,7 @@ export const Provider = ({ children }: ProviderProps) => {
     };
   }, [client?.key]);
 
-  const ctxValue = useMemo(() => ({ bindConsumer }), [bindConsumer]);
-
+  const ctxValue = useMemo(() => ({ bindListener }), [bindListener]);
   return <Context.Provider value={ctxValue}>{children}</Context.Provider>;
 };
 
@@ -112,11 +105,22 @@ export interface UseRetrieveArgs<T> {
   decode: Decoder<T>;
 }
 
-export interface RetrieveState<T> {
-  value: T | null;
-  isLoading: boolean;
-  error: Error | null;
-}
+type RetrieveState<T> =
+  | {
+      value: T;
+      isLoading: false;
+      error: null;
+    }
+  | {
+      value: T | null;
+      isLoading: true;
+      error: null;
+    }
+  | {
+      value: null;
+      isLoading: false;
+      error: Error;
+    };
 
 export type UseRetrieveReturn<T> = RetrieveState<T>;
 
@@ -125,27 +129,39 @@ export interface UseRetrieveOnChangeArgs<T>
   onChange: (value: RetrieveState<T>) => void;
 }
 
-export const useRetrieveOnChange = <T,>({
+export const useRetrieveListener = <T,>({
   retrieve,
   retrieveChannels,
   decode,
   onChange,
 }: UseRetrieveOnChangeArgs<T>): void => {
   const client = PSynnax.use();
-  const { bindConsumer } = useContext();
+  const { bindListener: bindConsumer } = useContext();
   useAsyncEffect(async () => {
-    if (client == null) {
-      onChange({ value: null, isLoading: false, error: null });
-      return;
+    if (client == null)
+      return onChange({
+        value: null,
+        isLoading: false,
+        error: new Error("Client not found"),
+      });
+    try {
+      const value = await retrieve({ client });
+      onChange({ value, isLoading: false, error: null });
+      const channels = await retrieveChannels({ client });
+      bindConsumer({
+        channels: channels.map((c) => c.key),
+        onChange: (fr) => {
+          decode({ fr, channels, client, current: value })
+            .then(([v, shouldChange]) => {
+              if (shouldChange)
+                onChange({ value: v as T, isLoading: false, error: null });
+            })
+            .catch((error) => onChange({ value: null, isLoading: false, error }));
+        },
+      });
+    } catch (error) {
+      onChange({ value: null, isLoading: false, error: error as Error });
     }
-    const value = await retrieve({ client });
-    onChange({ value, isLoading: false, error: null });
-    const channels = await retrieveChannels({ client });
-    bindConsumer({
-      channels: channels.map((c) => c.key),
-      decode: (fr) => decode({ fr, channels, client, current: value }),
-      onChange: (v) => onChange({ value: v as T, isLoading: false, error: null }),
-    });
   }, [client?.key]);
 };
 
@@ -161,11 +177,11 @@ export const useRetrieve = <T,>({
     isLoading: true,
     error: null,
   });
-  useRetrieveOnChange({
+  useRetrieveListener({
     retrieve,
     retrieveChannels,
     decode,
-    onChange: (v) => setReturnVal(v),
+    onChange: setReturnVal,
     queryKey,
   });
   return returnVal;
@@ -212,7 +228,7 @@ export const useForm = <Z extends z.ZodTypeAny, O = Z>({
       }, `Failed to apply changes for ${name}`);
     },
   });
-  Warp.useRetrieveOnChange<O | null>({
+  useRetrieveListener<O | null>({
     retrieve,
     retrieveChannels,
     decode,

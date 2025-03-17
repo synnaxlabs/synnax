@@ -55,16 +55,9 @@ export const useRetrieve = <T extends ranger.Payload = ranger.Range>(
   }) as Warp.UseRetrieveReturn<T>;
 
 export interface UseSyncFormArgs
-  extends Omit<
+  extends Pick<
     Warp.UseFormProps<typeof ranger.payloadZ>,
-    | "retrieve"
-    | "retrieveChannels"
-    | "decode"
-    | "applyChanges"
-    | "applyObservable"
-    | "key"
-    | "name"
-    | "queryKey"
+    "values" | "applyChanges" | "applyObservable" | "name"
   > {
   key: string;
 }
@@ -87,7 +80,7 @@ export const useRetrieveParent = (
   key?: ranger.Key,
 ): Warp.UseRetrieveReturn<ranger.Range> =>
   Warp.useRetrieve({
-    queryKey: ["range", key],
+    queryKey: [key],
     initialValue: null,
     retrieve: async ({ client }) => {
       if (key == null) return null;
@@ -157,7 +150,7 @@ export const useRetrieveLabels = (
   key?: ranger.Key,
 ): Warp.UseRetrieveReturn<label.Label[]> =>
   Warp.useRetrieve({
-    queryKey: ["range", key, "labels"],
+    queryKey: [key],
     initialValue: [],
     retrieve: retrieveLabels(key),
     retrieveChannels: retrieveLabelsChannels,
@@ -169,17 +162,7 @@ const labelsFormSchema = z.object({
 });
 
 export interface UseSyncedLabelsFormArgs
-  extends Omit<
-    Warp.UseFormProps<typeof labelsFormSchema>,
-    | "retrieve"
-    | "retrieveChannels"
-    | "decode"
-    | "applyChanges"
-    | "applyObservable"
-    | "key"
-    | "name"
-    | "queryKey"
-  > {
+  extends Pick<Warp.UseFormProps<typeof labelsFormSchema>, "values"> {
   key: string;
 }
 
