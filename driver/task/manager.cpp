@@ -59,8 +59,9 @@ xerrors::Error task::Manager::open_streamer() {
 
 xerrors::Error task::Manager::configure_initial_tasks() {
     auto [tasks, tasks_err] = this->rack.tasks.list();
-    if (tasks_err)return tasks_err;
+    if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
+        if (task.snapshot) continue;
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, task);
         if (ok && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
@@ -131,6 +132,10 @@ void task::Manager::process_task_set(const telem::Series &series) {
         }
 
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
+        if (sy_task.snapshot) {
+            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" << task_key << ")";
+            continue;
+        }
         if (err) {
             LOG(WARNING) << "[driver] failed to retrieve task: " << err;
             continue;

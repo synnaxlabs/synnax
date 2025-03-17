@@ -64,6 +64,18 @@ export const selectAltKey = (state: StoreState, key: string): string | undefined
 export const useSelectAltKey = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
 
+const selectName = (state: StoreState, key: string): string | undefined =>
+  select(state, key)?.name;
+
+export const useSelectName = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectName(state, key), [key]);
+
+export const selectByFilter = (
+  state: StoreState,
+  filter: (layout: State) => boolean,
+): State | undefined =>
+  Object.values(selectSliceState(state).layouts).find(filter);
+
 /**
  * Selects a layout from the store by key.
  *

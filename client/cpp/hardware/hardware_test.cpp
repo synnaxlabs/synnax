@@ -46,11 +46,12 @@ TEST(TaskTests, testCreateTask) {
     auto client = new_test_client();
     auto r = Rack("test_rack");
     ASSERT_NIL(client.hardware.create_rack(r));
-    auto m = Task(r.key, "test_module", "mock", "config");
+    auto m = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
     ASSERT_NE(synnax::task_key_local(m.key), 0);
+
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -58,12 +59,13 @@ TEST(TaskTests, testRetrieveTask) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
     ASSERT_NIL(client.hardware.create_rack(r));
-    auto t = Task(r.key, "test_module", "mock", "config");
+    auto t = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
     ASSERT_EQ(synnax::task_key_local(t2.key), synnax::task_key_local(t.key));
+    ASSERT_TRUE(t2.snapshot);
 }
 
 /// @brief it should retrieve a task by its name

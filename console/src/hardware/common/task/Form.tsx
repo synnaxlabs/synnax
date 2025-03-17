@@ -19,7 +19,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC } from "react";
+import { type FC, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -37,7 +38,7 @@ import {
 import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { type StateDetails, useState } from "@/hardware/common/task/useState";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
@@ -106,6 +107,11 @@ export const wrapForm = <
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
+    const dispatch = useDispatch();
+    const name = Layout.useSelectName(layoutKey);
+    useEffect(() => {
+      if (name != null) methods.set("name", name);
+    }, [name]);
     const [state, triggerLoading, triggerError] = useState(
       tsk.key,
       tsk.state ?? undefined,
@@ -113,6 +119,7 @@ export const wrapForm = <
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
+        if (tsk.snapshot) return;
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
@@ -120,6 +127,7 @@ export const wrapForm = <
         methods.set("config", newConfig);
         // current work around for Pluto form issues (Issue: SY-1465)
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
+        dispatch(Layout.rename({ key: layoutKey, name }));
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
       },
       onError: (e) => handleError(e, `Failed to configure ${values.name}`),

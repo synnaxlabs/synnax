@@ -109,29 +109,29 @@ class Task {
 public:
     /// @brief The unique identifier for the task.
     TaskKey key = 0;
-    
     /// @brief A human-readable name for the task.
     std::string name;
-    
     /// @brief The type of the task, which determines its behavior.
     std::string type;
-    
     /// @brief Configuration data for the task, typically in JSON format.
     std::string config;
-    
     /// @brief Whether the task is internal to the system.
     bool internal = false;
+    /// @brief Whether the task is a snapshot.
+    bool snapshot = false;
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
     /// @param type The type of the task.
     /// @param config Configuration data for the task.
     /// @param internal Whether the task is internal to the system.
+    /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
         std::string name,
         std::string type,
         std::string config,
-        bool internal = false
+        bool internal = false,
+        bool snapshot = false
     );
 
     /// @brief Constructs a new task with the given properties and key.
@@ -140,12 +140,14 @@ public:
     /// @param type The type of the task.
     /// @param config Configuration data for the task.
     /// @param internal Whether the task is internal to the system.
+    /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
         TaskKey key,
         std::string name,
         std::string type,
         std::string config,
-        bool internal = false
+        bool internal = false,
+        bool snapshot = false
     );
 
     /// @brief Constructs a new task with the given properties and rack.
@@ -154,12 +156,14 @@ public:
     /// @param type The type of the task.
     /// @param config Configuration data for the task.
     /// @param internal Whether the task is internal to the system.
+    /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
         RackKey rack,
         std::string name,
         std::string type,
         std::string config,
-        bool internal = false
+        bool internal = false,
+        bool snapshot = false
     );
 
     /// @brief Constructs a task from its protobuf representation.
