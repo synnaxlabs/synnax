@@ -126,7 +126,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
 
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
         if (sy_task.snapshot) {
-            VLOG(1) << "[driver] ignoring snapshot task";
+            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" << task_key << ")";
             continue;
         }
         if (err) {
