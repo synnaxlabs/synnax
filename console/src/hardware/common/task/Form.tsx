@@ -119,6 +119,7 @@ export const wrapForm = <
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
+        if (tsk.snapshot) return;
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
