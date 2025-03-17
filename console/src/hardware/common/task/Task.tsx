@@ -124,6 +124,10 @@ export const wrap = <
       queryKey: [deviceKey, client?.key, layoutKey],
     });
     useEffect(() => {
+      // We want to make sure that the above query is the same for a new task without a
+      // key and a created task with a key, otherwise the whole form will flash on the
+      // screen when the task is created. Because of this, we don't include `taskKey` in
+      // the query key and instead manually trigger a refetch when the task key changes.
       if (prevTaskKey != taskKey)
         handleError(async () => {
           await refetch();
