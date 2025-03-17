@@ -63,6 +63,7 @@ export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
 export { type ComponentSize } from "@/util/component";
+export * from "@/util/event";
 export * from "@/util/renderProp";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
