@@ -8,10 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, task } from "@synnaxlabs/client";
-import { Align, Eraser, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Eraser,
+  Status,
+  Synnax,
+  Text,
+  usePrevious,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { type FC } from "react";
+import { type FC, useEffect } from "react";
 import { type z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -44,7 +52,7 @@ export type TaskProps<
       task: task.Payload<Config, Details, Type>;
     }
   | {
-      rackKey?: rack.Key;
+      rackKey: rack.Key;
       layoutKey: string;
       configured: true;
       task: task.Task<Config, Details, Type>;
@@ -85,12 +93,15 @@ export const wrap = <
   const { configSchema, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
+    const prevTaskKey = usePrevious(taskKey);
+    const taskKeyRef = useSyncedRef(taskKey);
     const client = Synnax.use();
-    const { data, error, isError, isPending } = useQuery<
+    const handleError = Status.useErrorHandler();
+    const { data, error, isError, isPending, refetch } = useQuery<
       TaskProps<Config, Details, Type>
     >({
       queryFn: async () => {
-        if (taskKey == null)
+        if (taskKeyRef.current == null)
           return {
             configured: false,
             task: getInitialPayload({ deviceKey }),
@@ -99,16 +110,25 @@ export const wrap = <
           };
         if (client == null) throw NULL_CLIENT_ERROR;
         const tsk = await client.hardware.tasks.retrieve<Config, Details, Type>(
-          taskKey,
+          taskKeyRef.current,
           { includeState: true },
         );
         tsk.config = configSchema.parse(tsk.config);
-        let newRackKey: rack.Key | undefined = rackKey ?? task.getRackKey(tsk.key);
-        newRackKey ||= undefined;
-        return { configured: true, task: tsk, layoutKey, rackKey: newRackKey };
+        return {
+          configured: true,
+          task: tsk,
+          layoutKey,
+          rackKey: task.getRackKey(tsk.key),
+        };
       },
-      queryKey: [taskKey, deviceKey, client?.key, layoutKey],
+      queryKey: [deviceKey, client?.key, layoutKey],
     });
+    useEffect(() => {
+      if (prevTaskKey != taskKey)
+        handleError(async () => {
+          await refetch();
+        }, "Failed to fetch task");
+    }, [prevTaskKey, taskKey, handleError]);
     const content = isPending ? (
       <Status.Text.Centered level="h4" variant="loading">
         Fetching task from server

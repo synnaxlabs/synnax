@@ -102,15 +102,20 @@ export const wrapForm = <
     configured,
   }: TaskProps<Config, Details, Type>) => {
     const client = PSynnax.use();
-    const handleError = Status.useErrorHandler();
+    const handleError_ = Status.useErrorHandler();
     const values = { name: tsk.name, config: tsk.config };
     const methods = PForm.use<Schema<Config>>({ schema, values });
     const create = useCreate<Config, Details, Type>(layoutKey);
-    const [state, triggerLoading, triggerError] = useState(
+    const { state, triggerError, triggerLoading } = useState(
       tsk.key,
       tsk.state ?? undefined,
     );
-    const configureMutation = useMutation({
+    const handleError = (e: Error, action: string) => {
+      triggerError(e.message);
+      handleError_(e, `Failed to ${action} ${values.name}`);
+    };
+
+    const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
       mutationFn: async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
         if (!(await methods.validateAsync())) return;
@@ -122,20 +127,15 @@ export const wrapForm = <
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
         await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
       },
-      onError: (e) => handleError(e, `Failed to configure ${values.name}`),
+      onError: (e: Error) => handleError(e, "configure"),
     });
-    const startOrStopMutation = useMutation({
+    const { mutate: handleStartOrStop } = useMutation({
       mutationFn: async (command: StartOrStopCommand) => {
         if (!configured) throw new UnexpectedError("Task has not been configured");
         triggerLoading();
-        try {
-          await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
-        } catch (e) {
-          if (e instanceof Error) triggerError(e.message);
-          throw e;
-        }
+        await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
       },
-      onError: (e, command) => handleError(e, `Failed to ${command} task`),
+      onError: handleError,
     });
     const isSnapshot = configured ? tsk.snapshot : false;
     const isRunning =
@@ -190,11 +190,11 @@ export const wrapForm = <
           <Controls
             layoutKey={layoutKey}
             state={state}
-            isConfiguring={configureMutation.isPending}
-            onStartStop={startOrStopMutation.mutate}
-            onConfigure={configureMutation.mutate}
+            isConfiguring={isConfiguring}
+            onStartStop={handleStartOrStop}
+            onConfigure={handleConfigure}
             isSnapshot={isSnapshot}
-            configured={configured}
+            hasBeenConfigured={configured}
           />
         </Align.Space>
       </Align.Space>

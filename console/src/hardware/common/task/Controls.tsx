@@ -29,38 +29,40 @@ export interface ControlsProps {
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
-  configured: boolean;
+  hasBeenConfigured: boolean;
 }
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Controls = ({
-  state,
+  state: { message, status, variant },
   onStartStop,
   layoutKey,
   onConfigure,
-  configured,
+  hasBeenConfigured,
   isConfiguring,
   isSnapshot,
 }: ControlsProps) => {
-  const stateContent =
-    state.message != null ? (
-      <Status.Text variant={state.variant ?? "info"}>{state.message}</Status.Text>
-    ) : isSnapshot ? (
-      <Status.Text.Centered hideIcon variant="disabled">
-        This task is a snapshot and cannot be modified or started.
-      </Status.Text.Centered>
-    ) : configured ? null : (
-      <Status.Text.Centered variant="disabled" hideIcon>
-        Task must be configured to start.
-      </Status.Text.Centered>
-    );
-  const isLoading = state.status === LOADING_STATUS;
+  const content = isSnapshot ? (
+    <Status.Text.Centered hideIcon variant="disabled">
+      This task is a snapshot and cannot be modified or started.
+    </Status.Text.Centered>
+  ) : message != null ? (
+    <Status.Text variant={variant ?? "info"}>{message}</Status.Text>
+  ) : isConfiguring ? (
+    <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
+  ) : !hasBeenConfigured ? (
+    <Status.Text.Centered hideIcon variant="disabled">
+      Task must be configured to start.
+    </Status.Text.Centered>
+  ) : null;
+  const isLoading = status === LOADING_STATUS;
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
-  const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
+  const canStartOrStop =
+    !isLoading && !isConfiguring && !isSnapshot && hasBeenConfigured;
   const hasTriggers =
     Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
-  const isRunning = state.status === RUNNING_STATUS;
+  const isRunning = status === RUNNING_STATUS;
   const handleStartStop = useCallback(
     () => onStartStop(isRunning ? STOP_COMMAND : START_COMMAND),
     [isRunning, onStartStop],
@@ -74,7 +76,7 @@ export const Controls = ({
       bordered
     >
       <Align.Space className={CSS.B("task-state")} direction="x">
-        {stateContent}
+        {content}
       </Align.Space>
       {!isSnapshot && (
         <Align.Space align="center" direction="x" justify="end">

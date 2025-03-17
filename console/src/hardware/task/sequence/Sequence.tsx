@@ -141,7 +141,7 @@ const Internal = ({
     onHasTouched: handleUnsavedChanges,
   });
   const create = Common.Task.useCreate(layoutKey);
-  const [state, triggerLoading, triggerError] = Common.Task.useState(
+  const { state, triggerError, triggerLoading } = Common.Task.useState(
     base?.key,
     base?.state ?? undefined,
   );
@@ -167,7 +167,6 @@ const Internal = ({
     },
     onError: (e) => handleError(e, `Failed to configure ${base.name}`),
   });
-  const handleConfigure = useCallback(() => configure(), [configure]);
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
 
   const startOrStop = useMutation({
@@ -308,16 +307,28 @@ const Internal = ({
             justify="spaceBetween"
           >
             <Align.Space direction="x" style={{ borderRadius: "1rem", width: "100%" }}>
-              {state.message != null && (
+              {isSnapshot ? (
+                <Status.Text.Centered hideIcon variant="disabled">
+                  This sequence is a snapshot and cannot be modified or started.
+                </Status.Text.Centered>
+              ) : state.message != null ? (
                 <Status.Text variant={state.variant ?? "info"}>
                   {state.message}
                 </Status.Text>
-              )}
+              ) : isConfiguring ? (
+                <Status.Text.Centered variant="loading">
+                  Configuring...
+                </Status.Text.Centered>
+              ) : !configured ? (
+                <Status.Text.Centered hideIcon variant="disabled">
+                  Sequence must be configured to start.
+                </Status.Text.Centered>
+              ) : null}
             </Align.Space>
             <Button.Button
               loading={isConfiguring}
               disabled={!canConfigure}
-              onClick={handleConfigure}
+              onClick={() => configure()}
             >
               Configure
             </Button.Button>
