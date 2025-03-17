@@ -21,7 +21,12 @@ export const embeddedSequencesNav: PageNavNode = {
     {
       key: "/reference/control/embedded/recipes",
       href: "/reference/control/embedded/recipes",
-      name: "Sequence Recipes",
+      name: "Recipes",
+    },
+    {
+      key: "/reference/control/embedded/reference",
+      href: "/reference/control/embedded/reference",
+      name: "Reference",
     },
   ],
 };

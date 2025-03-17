@@ -1,0 +1,65 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Control Authority"
+description: "Learn about control authority & handoff in Synnax."
+prevURL: "/reference/control/get-started"
+prev: "Get Started"
+nextURL: "/reference/control/embedded/get-started"
+next: "Embedded Control"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+When operating multi-device hardware systems that also require manual control through
+operators, understanding which entities have control over actuators in a system is
+essential. Synnax's control authority & handoff mechanisms allows for smooth
+multi-operator and multi-automation interaction.
+
+<Divider.Divider direction="x" />
+
+## Sequence Control Authority
+
+Every entity that writes to Synnax has an assigned control authority for every channel
+that it is writing to. Each authority has a number between `0` and `255`, where `0` is the
+lowest authority and `255` is the highest (typically referred to as absolute control).
+
+When a sequence is started (whether Python or Embedded), it assigns a control authority
+to each channel that it is writing to. If an existing sequence is already writing to a
+channel, the new sequence will take control of the channel from the existing sequence
+if its authority is higher. If not, the new sequence will not be allowed to write to the
+channel until the existing sequence releases control.
+
+In the case of equal authority, the first sequence to take control will maintain control
+of the channel.
+
+<Divider.Divider direction="x" />
+
+## Mixed Authorities
+
+It's important to note that a sequence may have different control authorities for
+different channels. For example, we may dynamically change the authority of a channel
+based on a certain step in a sequence:
+
+```lua
+-- abort condition met
+if pressure > 100 then
+    set_authority("press_vlv_cmd", 255)
+    set_authority("vent_vlv_cmd", 100)
+    set("press_vlv_cmd", false)
+    set("vent_vlv_cmd", true)
+end
+```
+
+In this case, the `press_vlv_cmd` channel will have an authority of `255` and the
+`vent_vlv_cmd` channel will have an authority of `100`.
+
+<Divider.Divider direction="x" />
+
+## Relationship to Manual Control
+
+Manual control of channels through components such as
+[Schematics](/reference/console/schematics) follow the same control authority rules as
+sequences. This allows for operators to take manual control over channels if/when
+necessary.

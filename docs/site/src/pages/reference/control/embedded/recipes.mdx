@@ -1,6 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Sequence Recipes"
+prevURL: "/reference/control/embedded/get-started"
+prev: "Get Started"
+nextURL: "/reference/control/embedded/reference"
+next: "Reference"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
@@ -96,6 +100,29 @@ of the sequence.
 
 ## Fixed Delays Between Commands
 
+It's often necessary to maintain a fixed delay between commanding to actuators. The
+first consideration to start with is the timing precision requirements for your system.
+If your loop rate is set at 5Hz, iterations will occur at 200ms intervals. Achieving
+a precise 150ms delay between commands is impossible. Make sure to set your loop rate
+to an even multiple of the delay you're trying to achieve.
+
+To achieve a fixed delay, we can track the time at which we last commanded to the
+actuators, and then check if the current time minus the last command time is greater
+than the desired delay. If it is, we can command the actuators and update the last
+command time.
+
+```lua
+if last_trigger ~= nil and elapsed_time - last_trigger > 0.15 then
+    set("press_vlv_cmd", false)
+    set("vent_vlv_cmd", true)
+    last_trigger = nil
+else if pressure > 100 then
+    last_trigger = elapsed_time
+    set("press_vlv_cmd", true)
+    set("vent_vlv_cmd", false)
+end
+```
+
 <Divider.Divider direction="x" />
 
 ## State Machines
@@ -154,3 +181,55 @@ different phase by assigning to the `state` variable when ready.
 <Divider.Divider direction="x" />
 
 ## Abort Sequence
+
+It's common to have several sequences that perform different tasks. For example, we may
+have a sequence that maintains pressure in a tank, another that manages valve timings
+for a pneumatic system, and a third that listens for abort conditions to automatically
+shut down in the event of an anomaly.
+
+Let's take this example of a pressure maintenance sequence:
+
+```lua
+-- Set the initial state of the sequence to "pressurizing"
+if tank_pressure < 100 then
+    set("press_vlv_cmd", true)
+    set("vent_vlv_cmd", false)
+else if tank_pressure > 120 then
+    set("press_vlv_cmd", false)
+    set("vent_vlv_cmd", true)
+end
+```
+
+Now we'd like an abort sequence that listens for a number of over-pressure and
+over-temperature conditions and shuts down the system. We do this in three steps:
+
+1. Set a low control authority so we don't interfere with the main sequence.
+2. Check if sensor conditions are out of bounds.
+3. Take absolute control over relevant actuators.
+4. Command actuators to safe positions.
+
+```lua
+--- Set a low control authority on a first iteration.
+if iteration == 1 then
+    set_authority("press_vlv_cmd", 1)
+    set_authority("vent_vlv_cmd", 1)
+end
+
+--- Check for sensor conditions.
+if tank_pressure > 120 or tank_temperature > 100 then
+    --- Take absolute control over relevant actuators.
+    set_authority("press_vlv_cmd", 255)
+    set_authority("vent_vlv_cmd", 255)
+    --- Command actuators to safe positions.
+    set("press_vlv_cmd", false)
+    set("vent_vlv_cmd", true)
+end
+```
+
+Now we can start both our main sequence and our abort sequence and they'll both operate
+independently. If the abort sequence detects an over-pressure or over-temperature
+condition, it will take absolute control over the actuators and command them to safe
+positions, while the main sequence will continue to operate normally.
+
+Keep in mind that if you pause the abort sequence, it will release control of the
+actuators and allow the main sequence to resume.

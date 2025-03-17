@@ -20,6 +20,11 @@ export const controlNav: PageNavNode = {
       href: "/reference/control/get-started",
       name: "Get Started",
     },
+    {
+      key: "/reference/control/control-authority",
+      href: "/reference/control/control-authority",
+      name: "Control Authority",
+    },
     pythonSequencesNav,
     embeddedSequencesNav,
   ],
