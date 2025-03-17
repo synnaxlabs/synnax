@@ -128,7 +128,8 @@ func start(cmd *cobra.Command) {
 	go scanForStopKeyword(interruptC)
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
-	// handle signal interrupts.
+	// handle signal interrupts. We'll also repeatedly check for context cancellations
+	// at each step in the process to ensure we can shut down early if necessary.
 	sCtx.Go(func(ctx context.Context) (err error) {
 		secProvider, err := configureSecurity(ins, insecure)
 		if err != nil || ctx.Err() != nil {
@@ -282,7 +283,7 @@ func start(cmd *cobra.Command) {
 		}
 
 		// Set the base permissions for all users.
-		if err := maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil || ctx.Err() != nil {
+		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -613,7 +614,12 @@ func maybeProvisionRootUser(
 				return nil
 			}
 			policies := make([]rbac.Policy, 0, 1)
-			rbacSvc.NewRetriever().WhereSubjects(user.OntologyID(u.Key)).Entries(&policies).Exec(ctx, tx)
+			if err := rbacSvc.NewRetriever().
+				WhereSubjects(user.OntologyID(u.Key)).
+				Entries(&policies).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 			for _, p := range policies {
 				if lo.Contains(p.Objects, rbac.AllowAllOntologyID) {
 					return nil
