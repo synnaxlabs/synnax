@@ -59,8 +59,8 @@
 .pluto-dropdown__dialog {
     position: fixed;
     box-shadow: var(--pluto-shadow-menu);
-    border-radius: calc(var(--pluto-border-radius) * 2);
     overflow: hidden;
+    border: var(--pluto-border-l4);
 
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
@@ -80,6 +80,7 @@
 
     &.pluto--floating {
         transition: opacity 0.075s ease-in-out;
+        border-radius: calc(var(--pluto-border-radius) * 2);
     }
 
     &.pluto--hidden {

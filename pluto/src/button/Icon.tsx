@@ -53,11 +53,10 @@ export const Icon = Tooltip.wrap(
     disabled = false,
     loading = false,
     onClick,
-    shade,
+    shade = 0,
     color: propColor,
     ...rest
   }: IconProps): ReactElement => {
-    if (variant == "outlined") shade = 2;
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
     const handleClick = useCallback(

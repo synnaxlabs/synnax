@@ -262,11 +262,10 @@ export const Dropdown = (): ReactElement => {
     >
       <Button.Button
         onClick={toggle}
-        variant="text"
+        variant="outlined"
         startIcon={<Icon.Cluster />}
         justify="center"
-        N
-        shade={0}
+        shade={2}
         style={{
           height: 25,
           borderRadius: "0.5rem",

@@ -60,7 +60,7 @@ export const ConnectionStatusBadge = ({
       style={{
         backgroundColor:
           status === "failed" ? "var(--pluto-error-z-20)" : "var(--pluto-gray-l0)",
-        borderColor: "var(--pluto-gray-l4)",
+        border: "var(--pluto-border-l4)",
       }}
     />
   </Tooltip.Dialog>

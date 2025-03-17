@@ -15,7 +15,6 @@ import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
-import { DefaultContextMenu } from "@/layout/Window";
 import { Version } from "@/version";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
@@ -36,7 +35,6 @@ interface ModalProps {
 
 export const Modal = ({ state, remove, centered, root }: ModalProps) => {
   const { key, name, window, icon } = state;
-  const menuProps = Menu.useContextMenu();
   return (
     <Core.Modal
       key={key}

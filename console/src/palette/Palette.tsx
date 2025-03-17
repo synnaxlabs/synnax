@@ -107,7 +107,8 @@ export const Palette = ({
             size="medium"
             justify="center"
             startIcon={<Icon.Search />}
-            shade={0}
+            shade={2}
+            textShade={7}
           >
             Quick Search & Command Palette
           </Button.Button>

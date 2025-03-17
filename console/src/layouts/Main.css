@@ -27,7 +27,7 @@
     height: calc(100vh - 7.5rem);
 }
 .console-main-fixed--x {
-    width: calc(100vw - 8rem - 1rem);
+    width: calc(100vw - 8rem - 2rem);
 }
 
 .console-main--driving {

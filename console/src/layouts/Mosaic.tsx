@@ -10,18 +10,23 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
+  Align,
   Breadcrumb,
   Button,
+  Caret,
   componentRenderProp,
   Eraser,
+  Icon as PIcon,
   Menu as PMenu,
   Modal,
   Mosaic as Core,
   Nav as PNav,
+  OS,
   Portal,
   Status,
   Synnax,
   type Tabs,
+  Text,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
@@ -32,7 +37,9 @@ import { Menu } from "@/components";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
+import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
+import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
@@ -273,9 +280,65 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
+const NavTop = (): ReactElement | null => {
+  const os = OS.use();
+  const isWindowsOS = os === "Windows";
+  const { activeItem, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
+  const button = (
+    <Button.Button
+      variant="outlined"
+      onClick={() => onSelect("visualization")}
+      justify="center"
+      direction="x"
+      size="small"
+      shade={2}
+      textShade={7}
+      weight={450}
+      startIcon={<Icon.Visualize />}
+      endIcon={
+        <Caret.Animated
+          enabledLoc="top"
+          disabledLoc="right"
+          enabled={activeItem?.key === "visualization"}
+        />
+      }
+    >
+      Controls
+    </Button.Button>
+  );
+  return (
+    <PNav.Bar
+      className="console-main-nav-top"
+      location="top"
+      size="4.5rem"
+      data-tauri-drag-region
+      bordered={false}
+    >
+      <PNav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
+        <Controls
+          className="console-controls--macos"
+          visibleIfOS="macOS"
+          forceOS={os}
+        />
+        {isWindowsOS && <Logo className="console-main-nav-top__logo" />}
+      </PNav.Bar.Start>
+      <PNav.Bar.End data-tauri-drag-region style={{ paddingRight: "1rem" }}>
+        {isWindowsOS ? (
+          <Controls
+            className="console-controls--windows"
+            visibleIfOS="Windows"
+            forceOS={os}
+          />
+        ) : (
+          button
+        )}
+      </PNav.Bar.End>
+    </PNav.Bar>
+  );
+};
+
 export const MosaicWindow = memo<Layout.Renderer>(
   ({ layoutKey }: Layout.RendererProps) => {
-    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", Nav.NAV_DRAWER_ITEMS);
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
@@ -291,18 +354,22 @@ export const MosaicWindow = memo<Layout.Renderer>(
     if (windowKey == null || mosaic == null) return null;
     return (
       <>
-        <Internal windowKey={windowKey} mosaic={mosaic} />
-        <Nav.Drawer location="bottom" />
-        <PNav.Bar
-          className="console-main-nav"
-          location="bottom"
-          style={{ paddingRight: "1.5rem", zIndex: 8 }}
-          size="6rem"
-        >
-          <PNav.Bar.End>
-            <Nav.Menu onChange={onSelect}>{menuItems}</Nav.Menu>
-          </PNav.Bar.End>
-        </PNav.Bar>
+        <NavTop />
+        <Align.Space direction="y" size={0.5} grow style={{ padding: "0.5rem" }}>
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "var(--pluto-gray-l0)",
+              border: "var(--pluto-border-l4)",
+              borderRadius: "1rem",
+              overflow: "hidden",
+            }}
+          >
+            <Internal windowKey={windowKey} mosaic={mosaic} />
+          </div>
+          <Nav.Drawer location="bottom" />
+        </Align.Space>
       </>
     );
   },

@@ -50,6 +50,7 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   status?: status.Variant;
   color?: Color.Crude;
   stopPropagation?: boolean;
+  textShade?: Text.Shade;
 }
 
 /** The props for the {@link Button} component. */
@@ -112,10 +113,11 @@ export const Button = Tooltip.wrap(
     endContent,
     onMouseDown,
     stopPropagation,
-    shade,
+    shade = 0,
+    textShade,
     ...rest
   }: ButtonProps): ReactElement => {
-    if (variant == "outlined" && shade == null) shade = 2;
+    if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
@@ -205,6 +207,7 @@ export const Button = Tooltip.wrap(
         startIcon={startIcon}
         color={color}
         {...rest}
+        shade={textShade}
       >
         {children}
         {endContent != null ? (

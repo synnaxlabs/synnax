@@ -39,8 +39,9 @@ const NavTop = ({
     <Nav.Bar
       className="console-main-nav-top"
       location="top"
-      size="6rem"
+      size="4.5rem"
       data-tauri-drag-region
+      bordered={false}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls

@@ -30,15 +30,8 @@
     &.pluto--bordered {
         border: none !important;
 
-        &:not(.pluto-pack--shadow) > * {
-            border: var(--pluto-border);
-            border-color: var(--pluto-pack-border-shade);
-            border-width: var(--pluto-pack-border-width);
-        }
-
         &.pluto-pack--shadow {
             &:is(:hover, :focus-within) > * {
-                border: var(--pluto-border);
                 opacity: 1 !important;
             }
 
@@ -76,7 +69,7 @@
             margin: var(--pluto-pack--x-margin);
         }
 
-        &.pluto-pack--small > *:not(.pluto-pack) {
+        /* &.pluto-pack--small > *:not(.pluto-pack) {
             height: var(--pluto-height-small);
         }
 
@@ -86,7 +79,7 @@
 
         &.pluto-pack--large > *:not(.pluto-pack) {
             height: var(--pluto-height-large);
-        }
+        } */
 
         > .pluto-pack.pluto--y {
             &:first-child:not(:only-child) {
