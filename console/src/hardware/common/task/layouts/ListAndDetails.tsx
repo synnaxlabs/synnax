@@ -27,7 +27,7 @@ import {
 import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface createChannel<C extends Channel> {
+export interface CreateChannel<C extends Channel> {
   (channels: C[], index: number): C | null;
 }
 
@@ -41,7 +41,7 @@ export interface ListAndDetailsProps<C extends Channel>
     "onTare" | "allowTare" | "isSnapshot" | "listItem"
   > {
   details: RenderProp<DetailsProps>;
-  createChannel: createChannel<C>;
+  createChannel: CreateChannel<C>;
   initialChannels: C[];
 }
 
@@ -65,9 +65,20 @@ export const ListAndDetails = <C extends Channel>({
     },
     [setSelected, setSelectedIndex],
   );
-  const handlecreateChannel = useCallback(
+  const handleCreateChannel = useCallback(
     (channels: C[]) => createChannel(channels, selectedIndex),
     [selectedIndex],
+  );
+  const handleDuplicateChannels = useCallback(
+    (allChannels: C[], indices: number[]) => {
+      const newlyMade: C[] = [];
+      indices.forEach((index) => {
+        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], index);
+        if (newlyMadeChannel != null) newlyMade.push(newlyMadeChannel);
+      });
+      return newlyMade;
+    },
+    [createChannel],
   );
   const copy = useCopyToClipboard();
   const handleCopyChannelDetails = useCallback(() => {
@@ -83,7 +94,8 @@ export const ListAndDetails = <C extends Channel>({
         {...rest}
         selected={selected}
         onSelect={handleSelect}
-        createChannel={handlecreateChannel}
+        createChannel={handleCreateChannel}
+        createChannels={handleDuplicateChannels}
       />
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow empty className={CSS.B("details")}>
