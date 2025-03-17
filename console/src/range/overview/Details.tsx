@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { type payloadZ } from "@synnaxlabs/client/dist/ranger/payload";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -15,25 +16,17 @@ import {
   Divider,
   Form,
   Input,
-  Status,
-  Synnax,
+  Ranger,
   Text,
-  useAsyncEffect,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { type change, deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { type FC, type ReactElement, useEffect } from "react";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useSelect } from "@/range/selectors";
-import { add, type StaticRange } from "@/range/slice";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -42,26 +35,8 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const [parent, setParent] = useState<ranger.Range | null>();
   const placeLayout = Layout.usePlacer();
-
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveParent();
-      setParent(childRanges);
-      const tracker = await rng.openParentRangeTracker();
-      if (tracker == null) return;
-      tracker.onChange((ranges) => setParent(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, "Failed to retrieve child ranges");
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
+  const { value: parent } = Ranger.useRetrieveParent(rangeKey);
   if (parent == null) return null;
   return (
     <Align.Space direction="x" size="small" align="center">
@@ -87,73 +62,22 @@ export interface DetailsProps {
   rangeKey: string;
 }
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
-});
-
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const existingRangeInState = useSelect(rangeKey);
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
-
-  const formCtx = Form.useSynced<
-    typeof formSchema,
-    change.Change<string, ranger.Range>[]
-  >({
-    name: "Range",
-    key: [rangeKey, "details"],
-    schema: formSchema,
+  const formCtx = Ranger.useSyncedForm({
+    key: rangeKey,
     values: {
       name: "",
-      timeRange: { start: 0, end: 0 },
-    },
-    queryFn: async ({ client }) => {
-      const rng = await client.ranges.retrieve(rangeKey);
-      return {
-        name: rng.name,
-        timeRange: {
-          start: Number(rng.timeRange.start),
-          end: Number(rng.timeRange.end),
-        },
-      };
-    },
-    openObservable: async (client) => await client.ranges.openTracker(),
-    applyObservable: ({ changes, ctx }) => {
-      const target = changes.find((c) => c.variant === "set" && c.key === rangeKey);
-      if (target == null || target.value == null) return;
-      ctx.set("", {
-        name: target.value.name,
-        timeRange: {
-          start: Number(target.value.timeRange.start),
-          end: Number(target.value.timeRange.end),
-        },
-      });
-    },
-    applyChanges: async ({ client, path, values, prev }) => {
-      if (client == null || deep.equal(values, prev)) return;
-      const { name, timeRange } = values;
-      await client.ranges.create({ key: rangeKey, name, timeRange });
-      if (existingRangeInState == null) return;
-      if (path.includes("name")) dispatch(Layout.rename({ key: rangeKey, name }));
-      const newRange: StaticRange = {
-        key: rangeKey,
-        persisted: true,
-        variant: "static",
-        name,
-        timeRange: {
-          start: Number(timeRange.start),
-          end: Number(timeRange.end),
-        },
-      };
-      dispatch(add({ ranges: [newRange], switchActive: false }));
+      key: rangeKey,
+      timeRange: new TimeRange({
+        start: new TimeStamp(),
+        end: new TimeStamp(),
+      }),
     },
   });
-  const name = Form.useFieldValue<string, string, typeof formSchema>(
+
+  const name = Form.useFieldValue<string, string, typeof payloadZ>(
     "name",
     false,
     formCtx,

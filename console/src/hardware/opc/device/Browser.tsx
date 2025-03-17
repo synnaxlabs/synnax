@@ -9,7 +9,6 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -17,12 +16,11 @@ import {
   Header,
   Icon as PIcon,
   Status,
-  Synnax,
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -32,6 +30,7 @@ import {
   SCAN_TYPE,
   type ScanStateDetails,
 } from "@/hardware/opc/task/types";
+import { useQueryTask } from "@/whisper/Whisper";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -50,16 +49,15 @@ export interface BrowserProps {
 }
 
 export const Browser = ({ device }: BrowserProps) => {
-  const client = Synnax.use();
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
-  const { data: scanTask } = useQuery({
-    queryKey: [client?.key],
-    queryFn: async () => {
-      if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(device.rack);
-      const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
+  const scanTask = useQueryTask<[]>({
+    queryKey: [],
+    retrieve: async ({ client }) => {
+      const scanTasks = await client.hardware.tasks.retrieve(device.rack, {
+        types: [SCAN_TYPE],
+      });
       if (scanTasks.length > 0) return scanTasks[0];
-      throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
+      return null;
     },
   });
   const [loading, setLoading] = useState<string>();

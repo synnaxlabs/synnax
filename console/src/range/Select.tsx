@@ -26,6 +26,7 @@ import { type ReactElement } from "react";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { type Range } from "@/range/slice";
+import { type StaticRange, staticRangeToPayload } from "@/range/types";
 
 interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
 
@@ -51,7 +52,7 @@ const listColumns: Array<List.ColumnSpec<string, Range>> = [
   },
 ];
 
-const RenderTag = ({
+const LocalRenderTag = ({
   entry,
   onClose,
 }: Select.MultipleTagProps<string, Range>): ReactElement => (
@@ -64,6 +65,24 @@ const RenderTag = ({
     {entry?.name}
   </Tag.Tag>
 );
+
+const RemoteRenderTag = ({
+  entry,
+  onClose,
+}: Select.MultipleTagProps<string, StaticRange>): ReactElement => {
+  const { value } = Ranger.useRetrieve(entry?.key, staticRangeToPayload(entry));
+  return (
+    <Tag.Tag icon={<Icon.Range />} onClose={onClose} shade={9} level="small">
+      {value?.name}
+    </Tag.Tag>
+  );
+};
+
+const RenderTag = (props: Select.MultipleTagProps<string, Range>): ReactElement => {
+  const { entry } = props;
+  if (entry?.persisted) return <LocalRenderTag {...props} />;
+  return <RemoteRenderTag {...props} entry={entry as unknown as StaticRange} />;
+};
 
 const renderTag = componentRenderProp(RenderTag);
 

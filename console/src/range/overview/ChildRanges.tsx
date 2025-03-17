@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -15,25 +15,26 @@ import {
   componentRenderProp,
   List,
   Ranger,
-  Status,
-  Synnax,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type FC, useState } from "react";
+import { type Keyed } from "@synnaxlabs/x";
+import { type FC } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
-export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
+type ListEntry = Keyed<ranger.Key>;
+
+export const ChildRangeListItem = (props: List.ItemProps<ranger.Key, ListEntry>) => {
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
+  const { value: rng } = Ranger.useRetrieve(entry.key);
+  if (rng == null) return null;
   return (
     <List.ItemFrame
       onClick={() =>
-        placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
+        placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: entry.key })
       }
       direction="x"
       size={0.5}
@@ -49,9 +50,9 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
         shade={9}
         size="small"
       >
-        {entry.name}
+        {rng.name}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
+      <Ranger.TimeRangeChip level="p" timeRange={rng.timeRange} showSpan />
     </List.ItemFrame>
   );
 };
@@ -63,33 +64,15 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const handleError = Status.useErrorHandler();
-
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveChildren();
-      childRanges.sort(ranger.sort);
-      setChildRanges(childRanges);
-      const tracker = await rng.openChildRangeTracker();
-      tracker.onChange((ranges) => setChildRanges(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, `Failed to retrieve child ranges`);
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
-
+  const childRanges = Ranger.useRetrieveChildren(rangeKey);
+  const entries = childRanges?.map((k) => ({ key: k }) as Keyed<ranger.Key>);
   return (
     <Align.Space direction="y">
       <Text.Text level="h4" shade={9} weight={450}>
         Child Ranges
       </Text.Text>
-      <List.List data={childRanges}>
+      <List.List data={entries}>
         <List.Core empty>{childRangeListItem}</List.Core>
       </List.List>
       <Button.Button

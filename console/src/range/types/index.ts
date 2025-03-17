@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { type ranger } from "@synnaxlabs/client";
+import { migrate, TimeRange as XTimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import * as v0 from "@/range/types/v0";
 
@@ -30,3 +31,16 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
+
+export const staticRangeToPayload = (
+  range?: StaticRange,
+): ranger.Payload | undefined => {
+  if (range == null) return undefined;
+  return {
+    ...range,
+    timeRange: new XTimeRange(
+      new TimeStamp(range.timeRange.start),
+      new TimeStamp(range.timeRange.end),
+    ),
+  };
+};

@@ -12,6 +12,7 @@ import { observe, strings, toArray } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
+import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
@@ -470,3 +471,46 @@ export class DependentTracker
     await this.internal.close();
   }
 }
+
+export const parseRelationshipChange = (
+  frame: framer.Frame,
+  setChannelKey: channel.Key,
+  deleteChannelKey: channel.Key,
+): RelationshipChange[] => {
+  const rawSets = frame.get(setChannelKey);
+  if (rawSets.length === 0) return [];
+  const sets = Array.from(rawSets.as("string")).map((rel) => ({
+    variant: "set",
+    key: parseRelationship(rel),
+    value: undefined,
+  })) as RelationshipChange[];
+  const rawDeletes = frame.get(deleteChannelKey);
+  if (rawDeletes.length === 0) return [];
+  const deletes = Array.from(rawDeletes.as("string")).map((rel) => ({
+    variant: "delete",
+    key: parseRelationship(rel),
+  })) as RelationshipChange[];
+  return [...deletes, ...sets];
+};
+
+export interface FilterRelationshipChangesArgs {
+  target?: ID;
+  relDir?: RelationshipDirection;
+  relType?: string;
+  resourceType?: string;
+}
+
+export const filterRelationshipChanges = (
+  changes: RelationshipChange[],
+  { target, relDir, relType, resourceType }: FilterRelationshipChangesArgs,
+) => {
+  const filters: ((c: RelationshipChange) => boolean)[] = [];
+  if (target != null && relDir != null)
+    filters.push(({ key: rel }) => rel[relDir].toString() === target.toString());
+  if (relType != null) filters.push((c) => c.key.type === relType);
+  if (resourceType != null && relDir != null)
+    filters.push((c) => c.key[oppositeDirection(relDir)].type === resourceType);
+  const deletes = changes.filter((c) => filters.every((f) => f(c)));
+  const sets = changes.filter((c) => filters.every((f) => f(c)));
+  return [...deletes, ...sets];
+};

@@ -10,7 +10,8 @@
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+
+import { useQueryRack } from "@/whisper/Whisper";
 
 interface RackProps {
   taskKey: task.Key;
@@ -19,10 +20,10 @@ interface RackProps {
 export const Rack = ({ taskKey }: RackProps) => {
   const client = Synnax.use();
   const rackKey = task.getRackKey(taskKey);
-  const rack = useQuery({
+  const rack = useQueryRack({
     queryKey: ["rack", rackKey, client?.key],
-    queryFn: () => client?.hardware.racks.retrieve(rackKey),
-  }).data;
+    retrieve: async ({ client }) => await client.hardware.racks.retrieve(rackKey),
+  });
   if (rack == null) return null;
   return (
     <Tooltip.Dialog>

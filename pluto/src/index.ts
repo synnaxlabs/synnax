@@ -79,6 +79,7 @@ export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
+export { Warp } from "@/warp";
 export { Worker } from "@/worker";
 export {
   type CrudeDataType,
