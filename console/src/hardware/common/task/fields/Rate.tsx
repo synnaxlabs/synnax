@@ -12,5 +12,5 @@ import { Form } from "@synnaxlabs/pluto";
 export type RateProps = Form.NumericFieldProps;
 
 export const Rate = ({ inputProps, ...rest }: RateProps) => (
-  <Form.NumericField grow inputProps={{ endContent: "Hz", ...inputProps }} {...rest} />
+  <Form.NumericField inputProps={{ endContent: "Hz", ...inputProps }} {...rest} />
 );

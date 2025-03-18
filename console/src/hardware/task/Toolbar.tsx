@@ -86,7 +86,11 @@ const updateTaskStatus = (tsk: SugaredTask, state: task.State): SugaredTask => {
       : running === false
         ? Common.Task.PAUSED_STATUS
         : tsk.state.details.status;
-  tsk.state = { ...tsk.state, details: { ...tsk.state.details, status: newStatus } };
+  tsk.state = {
+    ...tsk.state,
+    ...state,
+    details: { ...tsk.state.details, ...state.details, status: newStatus },
+  };
   return tsk;
 };
 
@@ -141,6 +145,7 @@ const Content = () => {
         });
         if (!confirmed) return;
       }
+      dispatch(Layout.rename({ key, name }));
       setTasks((prev) =>
         prev.map((task) => {
           if (task.key === key) task.name = name;

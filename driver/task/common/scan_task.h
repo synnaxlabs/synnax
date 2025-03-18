@@ -136,7 +136,7 @@ public:
                 this->ctx->set_state(this->state);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
             }
-            this->timer.wait();
+            this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
             this->state.variant = "error";
@@ -159,7 +159,6 @@ public:
             this->ctx->set_state(this->state);
         }
     }
-
 
     xerrors::Error scan() {
         auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);

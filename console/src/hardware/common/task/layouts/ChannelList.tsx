@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form, Header as PHeader, Text } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import {
   ChannelList as Core,
@@ -56,17 +56,20 @@ const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
   </Align.Center>
 );
 
-export type ChannelListProps<C extends Channel> = Omit<
-  CoreProps<C>,
-  "channels" | "header" | "emptyContent" | "path" | "remove"
-> & {
+export interface ChannelListProps<C extends Channel>
+  extends Omit<
+    CoreProps<C>,
+    "channels" | "header" | "emptyContent" | "path" | "remove"
+  > {
   createChannel: (channels: C[]) => C | null;
+  createChannels?: (channels: C[], indices: number[]) => C[];
   path?: string;
-};
+}
 
 export const ChannelList = <C extends Channel>({
   isSnapshot,
   createChannel,
+  createChannels,
   onSelect,
   path = "config.channels",
   ...rest
@@ -82,6 +85,21 @@ export const ChannelList = <C extends Channel>({
     push(channel);
     onSelect([channel.key], channels.length);
   }, [push, channels, createChannel, onSelect]);
+  const handleDuplicate = useMemo(() => {
+    if (createChannels == null) return undefined;
+    return (chs: C[], indices: number[]) => {
+      const duplicated = createChannels(chs, indices);
+      if (duplicated.length === 0) {
+        onSelect([], -1);
+        return;
+      }
+      push(duplicated);
+      onSelect(
+        duplicated.map(({ key }) => key),
+        chs.length + duplicated.length - 1,
+      );
+    };
+  }, [createChannels, onSelect, push]);
   return (
     <Core
       header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}
@@ -91,6 +109,7 @@ export const ChannelList = <C extends Channel>({
       path={path}
       remove={remove}
       onSelect={onSelect}
+      onDuplicate={handleDuplicate}
       {...rest}
     />
   );

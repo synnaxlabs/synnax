@@ -116,4 +116,11 @@ std::pair<size_t, xerrors::Error> AnalogReader::read(
     );
     return {static_cast<size_t>(samples_read), err};
 }
+
+xerrors::Error AnalogReader::start() {
+    if (const auto err = this->dmx->SetReadRelativeTo(this->task_handle, DAQmx_Val_MostRecentSamp)) return err;
+    if (const auto err  = this->dmx->SetReadOffset(this->task_handle, 0)) return err;
+    if (const auto err = this->dmx->SetReadOverWrite(this->task_handle, DAQmx_Val_OverwriteUnreadSamps)) return err;
+    return Base::start();
+}
 }

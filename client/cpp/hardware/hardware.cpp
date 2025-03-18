@@ -111,24 +111,28 @@ Task::Task(
     std::string name,
     std::string type,
     std::string config,
-    bool internal
+    bool internal,
+    bool snapshot
 ) : key(key),
     name(std::move(name)),
     type(std::move(type)),
     config(std::move(config)),
-    internal(internal) {
+    internal(internal),
+    snapshot(snapshot) {
 }
 
 Task::Task(
     std::string name,
     std::string type,
     std::string config,
-    bool internal
+    bool internal,
+    bool snapshot
 ) : key(create_task_key(0, 0)),
     name(std::move(name)),
     type(std::move(type)),
     config(std::move(config)),
-    internal(internal) {
+    internal(internal),
+    snapshot(snapshot) {
 }
 
 Task::Task(
@@ -136,19 +140,22 @@ Task::Task(
     std::string name,
     std::string type,
     std::string config,
-    bool internal
+    bool internal,
+    bool snapshot
 ) : key(create_task_key(rack, 0)),
     name(std::move(name)),
     type(std::move(type)),
     config(std::move(config)),
-    internal(internal) {
+    internal(internal),
+    snapshot(snapshot) {
 }
 
 Task::Task(const api::v1::Task &task) : key(task.key()),
                                         name(task.name()),
                                         type(task.type()),
                                         config(task.config()),
-                                        internal(task.internal()) {
+                                        internal(task.internal()),
+                                        snapshot(task.snapshot()) {
 }
 
 void Task::to_proto(api::v1::Task *task) const {
@@ -157,6 +164,7 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_type(type);
     task->set_config(config);
     task->set_internal(internal);
+    task->set_snapshot(snapshot);
 }
 
 const std::string RETRIEVE_TASK_ENDPOINT = "/hardware/task/retrieve";

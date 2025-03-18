@@ -50,7 +50,7 @@ export const Select = ({
       label={label}
       onChange={handleDeviceChange}
       path={path}
-      style={{ width: "100%" }}
+      style={{ flexBasis: 150 }}
     >
       {(p) => (
         <Device.SelectSingle

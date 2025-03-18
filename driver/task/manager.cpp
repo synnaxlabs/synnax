@@ -43,6 +43,7 @@ xerrors::Error task::Manager::open_streamer() {
             this->channels.task_delete = channel;
         else if (channel.name == TASK_CMD_CHANNEL) this->channels.task_cmd = channel;
 
+    if (this->exit_early) return xerrors::NIL;
     std::lock_guard lock{this->mu};
     auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
         .channels = {
@@ -58,8 +59,9 @@ xerrors::Error task::Manager::open_streamer() {
 
 xerrors::Error task::Manager::configure_initial_tasks() {
     auto [tasks, tasks_err] = this->rack.tasks.list();
-    if (tasks_err)return tasks_err;
+    if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
+        if (task.snapshot) continue;
         auto [driver_task, ok] = this->factory->configure_task(this->ctx, task);
         if (ok && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
@@ -72,6 +74,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
 }
 
 void task::Manager::stop() {
+    this->exit_early = true;
     std::lock_guard lock{this->mu};
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
     // method still needs access before shutting down.
@@ -88,7 +91,12 @@ bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
 }
 
 xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
+    if (this->exit_early) return xerrors::NIL;
     if (const auto err = this->configure_initial_tasks()) return err;
+    if (this->exit_early) {
+        this->stop_all_tasks();
+        return xerrors::NIL;
+    }
     if (const auto err = this->open_streamer()) return err;
     LOG(INFO) << xlog::GREEN() << "[driver] started successfully" << xlog::RESET();
     if (started_promise != nullptr) started_promise->set_value();
@@ -124,6 +132,10 @@ void task::Manager::process_task_set(const telem::Series &series) {
         }
 
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
+        if (sy_task.snapshot) {
+            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" << task_key << ")";
+            continue;
+        }
         if (err) {
             LOG(WARNING) << "[driver] failed to retrieve task: " << err;
             continue;

@@ -69,17 +69,20 @@ inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
 std::pair<telem::Series, xerrors::Error> ua_array_to_series(
     const telem::DataType &target_type,
     const UA_Variant *val,
-    const size_t target_size
+    const size_t target_size,
+    const std::string &name
 ) {
-    if (val->arrayLength < target_size)
+    const size_t size = val->arrayLength;
+    if (size != target_size) {
+        std::string verb = size < target_size ? "" : "large";
         return {
             telem::Series(0),
             xerrors::Error(xerrors::VALIDATION,
-                           "OPC UA array is too small for configured array size of " +
+                           "OPC UA array for " + name + " is too " + verb + " (size: " + std::to_string(size) + ") for configured array size of " +
                            std::to_string(target_size))
         };
-    size_t size = val->arrayLength;
-    if (size > target_size) size = target_size;
+    }
+
     if (UA_Variant_isScalar(val))
         return {
             telem::Series(0),
@@ -87,9 +90,9 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
         };
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
         const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
-        auto s = telem::Series(target_type, val->arrayLength);
+        auto s = telem::Series(target_type, size);
         size_t acc = 0;
-        for (size_t j = 0; j < val->arrayLength; ++j)
+        for (size_t j = 0; j < size; ++j)
             acc += s.write(ua_datetime_to_unix_nano(data[j]));
         return {std::move(s), xerrors::NIL};
     }
@@ -117,6 +120,10 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
+    if (s.data_type() == telem::TIMESTAMP_T && UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
+        const UA_DateTime* dt = (const UA_DateTime*)v.data;
+        return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
+    }
     return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
 }
 }
