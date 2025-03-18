@@ -37,12 +37,10 @@ const v1WriteChannelZ = v0WriteChannelZ
   .omit({ channel: true })
   .extend({ cmdChannel: channel.keyZ });
 
-const writeChannelZ = v1WriteChannelZ.or(
-  v0WriteChannelZ.transform(({ channel, ...rest }) => ({
-    ...rest,
-    cmdChannel: channel,
-  })),
-);
+const writeChannelZ = v0WriteChannelZ
+  .transform(({ channel, ...rest }) => ({ ...rest, cmdChannel: channel }))
+  .or(v1WriteChannelZ);
+
 export type WriteChannel = z.infer<typeof writeChannelZ>;
 
 export type Channel = ReadChannel | WriteChannel;
