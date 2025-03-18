@@ -31,6 +31,19 @@ std::pair<ni::Device, xerrors::Error> ni::Scanner::parse_device(
     dev.make = MAKE;
     dev.rack = synnax::task_key_rack(this->task.key);
 
+    if (const auto err = this->syscfg->GetResourceProperty(
+        resource,
+        NISysCfgResourcePropertyProductName,
+        property_value_buf
+    ))
+        return {dev, err};
+    dev.model = property_value_buf;
+    if (dev.model.size() > 3) dev.model = dev.model.substr(3);
+    if (this->cfg.should_ignore(dev.model))
+        return {dev, SKIP_DEVICE_ERR};
+
+    dev.name = MAKE + " " + dev.model;
+
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
         resource,
@@ -46,19 +59,17 @@ std::pair<ni::Device, xerrors::Error> ni::Scanner::parse_device(
             NISysCfgResourcePropertySerialNumber,
             property_value_buf
         ))
-            return {Device(), err};
+            return {dev, err};
         dev.key = property_value_buf;
     }
 
-    if (const auto err = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyProductName,
-        property_value_buf
-    ))
-        return {Device(), err};
-    dev.model = property_value_buf;
-    if (dev.model.size() > 3) dev.model = dev.model.substr(3);
-    dev.name = MAKE + " " + dev.model;
+    // NISysCfgBool is_present;
+    // if (const auto err = this->syscfg->GetResourceProperty(
+    //     resource,
+    //     NISysCfgResourcePropertyIsPresent,
+    //     &is_present
+    // ))
+    //     return {dev, err};
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
         resource,
@@ -83,8 +94,7 @@ std::pair<ni::Device, xerrors::Error> ni::Scanner::parse_device(
     if (is_simulated) dev.key = dev.resource_name;
 
     auto err = xerrors::NIL;
-    if (this->cfg.should_ignore(dev.model))
-        err = SKIP_DEVICE_ERR;
+
     return {dev, err};
 }
 

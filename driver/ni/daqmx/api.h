@@ -409,5 +409,8 @@ public:
     virtual int32 WriteRaw(TaskHandle task, int32 numSamps, bool32 autoStart, float64 timeout, const uInt8 writeArray[], int32* sampsPerChanWritten, bool32* reserved) = 0;
     virtual int32 WriteToTEDSFromArray(const char physicalChannel[], const uInt8 bitStream[], uInt32 arraySize, int32 basicTEDSOptions) = 0;
     virtual int32 WriteToTEDSFromFile(const char physicalChannel[], const char filePath[], int32 basicTEDSOptions) = 0;
+    virtual int32 SetReadRelativeTo(TaskHandle taskHandle, int32 data) = 0;
+    virtual int32 SetReadOffset(TaskHandle taskHandle, int32 data) = 0;
+    virtual int32 SetReadOverWrite(TaskHandle taskHandle, int32 data) = 0;
 };
 }
