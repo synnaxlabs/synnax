@@ -100,28 +100,6 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-          tar -xjf mbedtls-3.6.0.tar.bz2
-          mv mbedtls-3.6.0 mbedtls
-          cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
-          cmake --build mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: vendor/mbedtls
-
-      - name: Install MbedTLS On Mac
-        if: matrix.os == 'macos-15'
-        run: brew install mbedtls
-
-      - name: Install Deps On Ubuntu
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get install -y libmbedtls-dev libsystemd-dev
-
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
@@ -130,17 +108,14 @@ jobs:
           repository-cache: true
 
       - name: Build Driver
-        if: matrix.os != 'windows-latest'
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver
+          elif [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
             bazel build --enable_platform_specific_config --define=platform=nilinuxrt //driver
           else
             bazel build --enable_platform_specific_config //driver
           fi
-
-      - name: Build Driver (Windows)
-        if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver
 
       - name: Upload Release Asset for Driver Symbols
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
