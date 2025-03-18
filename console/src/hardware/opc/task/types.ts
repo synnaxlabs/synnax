@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type task } from "@synnaxlabs/client";
+import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -22,17 +22,28 @@ const baseChannelZ = Common.Task.channelZ.extend({
 });
 
 const readChannelZ = baseChannelZ.extend({
-  channel: z.number(),
+  channel: channel.keyZ,
   dataType: z.string(),
   useAsIndex: z.boolean(),
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-const writeChannelZ = baseChannelZ.extend({
-  cmdChannel: z.number(),
+const v0WriteChannelZ = baseChannelZ.extend({
+  channel: channel.keyZ,
   dataType: z.string(),
 });
-export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+
+const v1WriteChannelZ = v0WriteChannelZ
+  .omit({ channel: true })
+  .extend({ cmdChannel: channel.keyZ });
+
+const writeChannelZ = v1WriteChannelZ.or(
+  v0WriteChannelZ.transform(({ channel, ...rest }) => ({
+    ...rest,
+    cmdChannel: channel,
+  })),
+);
+export type WriteChannel = z.infer<typeof writeChannelZ>;
 
 export type Channel = ReadChannel | WriteChannel;
 
@@ -183,7 +194,7 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
     })
     .superRefine(validateNodeIDs),
 });
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+export type WriteConfig = z.infer<typeof writeConfigZ>;
 export const ZERO_WRITE_CONFIG: WriteConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
