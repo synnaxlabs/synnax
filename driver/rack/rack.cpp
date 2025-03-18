@@ -24,6 +24,7 @@ void rack::Rack::run(xargs::Parser &args) {
             continue;
         }
         LOG(INFO) << cfg;
+        if (!this->breaker.running()) return;
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             cfg.new_client(),
@@ -43,8 +44,7 @@ void rack::Rack::start(xargs::Parser &args) {
 }
 
 xerrors::Error rack::Rack::stop() {
-    if (!this->breaker.running()) return xerrors::NIL;
-    this->breaker.stop();
+    if (!this->breaker.stop()) return xerrors::NIL;
     if (this->task_manager != nullptr) this->task_manager->stop();
     this->run_thread.join();
     return this->run_err;

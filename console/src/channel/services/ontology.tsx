@@ -126,7 +126,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
     onError: (
       e,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -134,7 +134,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = "Failed to delete channels";
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };
@@ -152,12 +152,12 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to set alias for ${first.name}`);
+      handleError(e, `Failed to set alias for ${first.name}`);
     },
   }).mutate;
 
@@ -171,12 +171,12 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to rename ${first.name}`);
+      handleError(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
 
@@ -191,12 +191,12 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to remove alias on ${first.name}`);
+      handleError(e, `Failed to remove alias on ${first.name}`);
     },
   }).mutate;
 

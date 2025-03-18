@@ -142,7 +142,7 @@ const PaletteDialog = ({
   value,
 }: PaletteDialogProps): ReactElement => {
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
@@ -159,13 +159,13 @@ const PaletteDialog = ({
       client,
       confirm,
       extractors: EXTRACTORS,
-      handleException,
+      handleError,
       ingestors: INGESTORS,
       placeLayout,
       rename,
       store,
     }),
-    [addStatus, client, confirm, handleException, placeLayout, rename, store],
+    [addStatus, client, confirm, handleError, placeLayout, rename, store],
   );
 
   const handleSelect = useCallback(
@@ -183,7 +183,7 @@ const PaletteDialog = ({
         addStatus,
         placeLayout,
         removeLayout,
-        handleException,
+        handleError,
         client,
         selection: entries as ontology.Resource[],
       });
@@ -197,7 +197,7 @@ const PaletteDialog = ({
       addStatus,
       placeLayout,
       removeLayout,
-      handleException,
+      handleError,
     ],
   );
 

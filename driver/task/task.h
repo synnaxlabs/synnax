@@ -300,6 +300,7 @@ private:
     /// @brief receives streamed values from the Synnax server to change tasks in the
     /// manager.
     std::unique_ptr<Streamer> streamer;
+    std::atomic<bool> exit_early = false;
 
     /// @brief information on channels we need to work with tasks.
     struct {

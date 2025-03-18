@@ -154,10 +154,10 @@ export const AliasInput = ({
   else if (alias === value) icon = <Icon.Check />;
   const canSetAlias =
     setAlias != null && !loading && alias !== value && channelKey !== 0;
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const handleSetAlias = (): void => {
     if (!canSetAlias) return;
-    handleException(async () => {
+    handleError(async () => {
       setLoading(true);
       await setAlias(channelKey, value);
       setLoading(false);

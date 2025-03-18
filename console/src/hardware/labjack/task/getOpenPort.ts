@@ -29,9 +29,7 @@ export const getOpenPort = <T extends Device.PortType>(
 ): Port<T> | null => {
   const portsInUse = new Set(channels.map(({ port }) => port));
   for (const type of types) {
-    const port = Device.DEVICES[model].ports[type].find(
-      ({ key }) => !portsInUse.has(key),
-    );
+    const port = Device.PORTS[model][type].find(({ key }) => !portsInUse.has(key));
     if (port != null) return port as Port<T>;
   }
   return null;

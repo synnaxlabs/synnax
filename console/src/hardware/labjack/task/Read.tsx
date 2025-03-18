@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
-import { FORMS } from "@/hardware/labjack/task/OutputChannelForms";
+import { FORMS } from "@/hardware/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
   AI_CHANNEL_TYPE,
@@ -69,9 +69,7 @@ const getRenderedPort = (
   type: InputChannelType,
 ) => {
   const portType = convertChannelTypeToPortType(type);
-  const portInfo = Device.DEVICES[deviceModel].ports[portType].find(
-    ({ key }) => key === port,
-  );
+  const portInfo = Device.PORTS[deviceModel][portType].find(({ key }) => key === port);
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
@@ -135,14 +133,8 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             const nextPortType = convertChannelTypeToPortType(value);
             let nextPort = nextParent.port;
             if (prevPortType !== nextPortType)
-              nextPort =
-                Device.DEVICES[deviceModel].ports[
-                  convertChannelTypeToPortType(value)
-                ][0].key;
-            set(parentPath, {
-              ...nextParent,
-              type: next.type,
-            });
+              nextPort = Device.PORTS[deviceModel][nextPortType][0].key;
+            set(parentPath, { ...nextParent, type: next.type });
             // Need to explicitly set port to cause select port field to rerender
             set(`${parentPath}.port`, nextPort);
           }}

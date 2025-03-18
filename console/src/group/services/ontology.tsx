@@ -98,11 +98,11 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     },
     onError: async (
       e,
-      { selection, handleException, state: { setNodes, nodes: prevNodes } },
+      { selection, handleError, state: { setNodes, nodes: prevNodes } },
     ) => {
       if (selection.parentID == null || prevNodes == null) return;
       setNodes(prevNodes);
-      handleException(e, "Failed to ungroup resources");
+      handleError(e, "Failed to ungroup resources");
     },
   });
   return (props: Ontology.TreeContextMenuProps) => {
@@ -190,10 +190,10 @@ export const useCreateEmpty = (): ((
     },
     onError: async (
       e,
-      { state: { nodes, setNodes }, handleException, selection, newID },
+      { state: { nodes, setNodes }, handleError, selection, newID },
     ) => {
       if (selection.resources.length === 0) return;
-      if (!errors.CANCELED.matches(e)) handleException(e, "Failed to create group");
+      if (!errors.CANCELED.matches(e)) handleError(e, "Failed to create group");
       setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
     },
   });

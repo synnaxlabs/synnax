@@ -78,6 +78,7 @@ markers = [
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
     "writer: mark test as a writer test",
+    "focus: marker to temporarily focus a test"
 ]
 
 

@@ -66,7 +66,8 @@ const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
     {FAHRENHEIT_UNITS, LJM_FARENHEIT}
 };
 
-inline LJM_TemperatureUnits parse_temperature_units(xjson::Parser &parser, const std::string &path) {
+inline LJM_TemperatureUnits parse_temperature_units(xjson::Parser &parser,
+                                                    const std::string &path) {
     const auto units = parser.required<std::string>(path);
     const auto v = TEMPERATURE_UNITS.find(units);
     if (v == TEMPERATURE_UNITS.end())
@@ -306,15 +307,8 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
 }
 
 /// @brief configuration for a LabJack read task.
-struct ReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
-    /// @brief the key of the device to read from.
+struct ReadTaskConfig: public common::BaseReadTaskConfig {
     const std::string device_key;
-    /// @brief how fast to sample data from the device.
-    const telem::Rate sample_rate;
-    /// @brief how fast to push sampled data to synnax.
-    const telem::Rate stream_rate;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
     std::set<synnax::ChannelKey> index_keys;
@@ -327,10 +321,8 @@ struct ReadTaskConfig {
     transform::Chain transform;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
         conn_method(other.conn_method),
         index_keys(std::move(other.index_keys)),
         samples_per_chan(other.samples_per_chan),
@@ -346,16 +338,17 @@ struct ReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ): data_saving(parser.optional<bool>("data_saving", false)),
+    ): common::BaseReadTaskConfig(parser),
        device_key(parser.required<std::string>("device")),
-       sample_rate(telem::Rate(parser.optional<int>("sample_rate", 1))),
-       stream_rate(telem::Rate(parser.optional<int>("stream_rate", 1))),
        conn_method(parser.optional<std::string>("conn_method", "")),
-       samples_per_chan(sample_rate / stream_rate) {
-        parser.iter("channels", [this](xjson::Parser &p) {
-            auto ch = parse_input_chan(p);
-            if (ch != nullptr && ch->enabled) this->channels.push_back(std::move(ch));
-        });
+       samples_per_chan(sample_rate / stream_rate),
+       channels(parser.map<std::unique_ptr<InputChan> >(
+           "channels",
+           [&](xjson::Parser &ch_cfg)-> std::pair<std::unique_ptr<InputChan>, bool> {
+               auto ch = parse_input_chan(ch_cfg);
+               if (ch == nullptr) return {nullptr, false};
+               return {std::move(ch), ch->enabled};
+           })) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
@@ -427,6 +420,13 @@ struct ReadTaskConfig {
             if (dynamic_cast<ThermocoupleChan *>(ch.get())) return true;
         return false;
     }
+
+    xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
+        for (const auto &ch: this->channels)
+            if (const auto err = ch->apply(dev, this->dev_model))
+                return err;
+        return xerrors::NIL;
+    }
 };
 
 /// @brief a source implementation that reads from labjack devices via a unary
@@ -448,6 +448,7 @@ public:
     }
 
     xerrors::Error start() override {
+        this->cfg.apply(this->dev);
         return this->dev->start_interval(
             this->interval_handle,
             static_cast<int>(this->cfg.sample_rate.period().microseconds())
@@ -539,6 +540,7 @@ public:
     /// @brief restarts the source.
     xerrors::Error restart() {
         this->stop();
+        this->cfg.apply(this->dev);
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());

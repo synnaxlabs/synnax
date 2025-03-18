@@ -39,7 +39,7 @@ export const Selector = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
   const { close, toggle, visible } = Dropdown.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const handleChange = useCallback(
     (v: string | null) => {
       close();
@@ -60,9 +60,9 @@ export const Selector = (): ReactElement => {
             }),
           );
         })
-        .catch((e) => handleException(e, "Failed to switch workspace"));
+        .catch((e) => handleError(e, "Failed to switch workspace"));
     },
-    [active, client, dispatch, close, handleException],
+    [active, client, dispatch, close, handleError],
   );
 
   return (

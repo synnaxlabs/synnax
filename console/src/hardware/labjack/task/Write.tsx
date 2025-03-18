@@ -47,7 +47,7 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space direction="x">
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>
@@ -111,7 +111,7 @@ const ChannelListItem = ({
                   hideIfNull
                   onChange={(value) => {
                     if (type === value) return;
-                    const port = Device.DEVICES[device.model].ports[value][0].key;
+                    const port = Device.PORTS[device.model][value][0].key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
                       Common.Device.ZERO_COMMAND_STATE_PAIR;

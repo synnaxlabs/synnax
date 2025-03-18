@@ -30,7 +30,7 @@ export const Select = ({
 }: SelectProps) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
     (key: device.Key) => {
       if (client == null) return;
@@ -40,9 +40,9 @@ export const Select = ({
           if (configured) return;
           placeLayout({ ...configureLayout, key });
         })
-        .catch((e) => handleException(e, "Failed to retrieve device"));
+        .catch((e) => handleError(e, "Failed to retrieve device"));
     },
-    [client, placeLayout, configureLayout, handleException],
+    [client, placeLayout, configureLayout, handleError],
   );
   return (
     <Form.Field<string>
@@ -50,7 +50,7 @@ export const Select = ({
       label={label}
       onChange={handleDeviceChange}
       path={path}
-      style={{ width: "100%" }}
+      style={{ flexBasis: 150 }}
     >
       {(p) => (
         <Device.SelectSingle

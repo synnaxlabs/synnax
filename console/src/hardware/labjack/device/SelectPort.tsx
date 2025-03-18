@@ -10,9 +10,9 @@
 import { type List, Select, Text } from "@synnaxlabs/pluto";
 
 import {
-  DEVICES,
   type Model,
   type Port,
+  PORTS,
   type PortType,
 } from "@/hardware/labjack/device/types";
 
@@ -46,7 +46,7 @@ export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
     allowNone={false}
     {...rest}
     columns={COLUMNS}
-    data={DEVICES[model].ports[portType]}
+    data={PORTS[model][portType]}
     entryRenderKey={getEntryRenderKey}
   />
 );

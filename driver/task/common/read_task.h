@@ -17,12 +17,47 @@
 #include "driver/transform/transform.h"
 
 namespace common {
+struct BaseReadTaskConfig {
+    /// @brief whether data saving is enabled for the task.
+    const bool data_saving;
+    /// @brief sets the sample rate for the task.
+    const telem::Rate sample_rate;
+    /// @brief sets the stream rate for the task.
+    const telem::Rate stream_rate;
+
+    BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
+        data_saving(other.data_saving),
+        sample_rate(other.sample_rate),
+        stream_rate(other.stream_rate) {
+    }
+
+    BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
+
+    const BaseReadTaskConfig &operator=(const BaseReadTaskConfig &) = delete;
+
+    explicit BaseReadTaskConfig(
+        xjson::Parser &cfg,
+        const bool stream_rate_required = true
+    ): data_saving(cfg.optional<bool>("data_saving", false)),
+       sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
+       stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))) {
+        if (sample_rate <= telem::Rate(0)) cfg.field_err(
+            "sample_rate", "must be greater than 0");
+        if (stream_rate_required && stream_rate <= telem::Rate(0)) cfg.field_err(
+            "stream_rate", "must be greater than 0");
+        if (stream_rate_required && (sample_rate < stream_rate))
+            cfg.field_err("sample_rate",
+                          "must be greater than or equal to stream rate");
+    }
+};
+
+
 /// @brief a source that can be used to read data from a hardware device.
 struct Source : pipeline::Source {
     /// @brief the configuration used to open a writer for the source.
-    virtual synnax::WriterConfig writer_config() const = 0;
+    [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
 
-    virtual std::vector<synnax::Channel> channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task
@@ -46,6 +81,7 @@ class ReadTask final : public task::Task {
     class InternalSource final : public pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
+
     public:
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;

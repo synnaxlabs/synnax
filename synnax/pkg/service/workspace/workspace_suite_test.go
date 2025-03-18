@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 		EnableSearch: config.False(),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(group.Config{
+	g := MustSucceed(group.OpenService(ctx, group.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

@@ -593,9 +593,10 @@ public:
         if (dt == UINT32_T) return this->at<uint32_t>(index);
         if (dt == UINT16_T) return this->at<uint16_t>(index);
         if (dt == UINT8_T) return this->at<uint8_t>(index);
+        if (dt == TIMESTAMP_T) return this->at<TimeStamp>(index);
         if (dt == STRING_T || dt == JSON_T) return this->at<std::string>(index);
         throw std::runtime_error(
-            "unsupported data type for value_at: " + dt.name()
+            "unsupported data type for at: " + dt.name()
         );
     }
 

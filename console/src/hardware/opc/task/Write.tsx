@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul } from "@synnaxlabs/pluto";
-import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -84,52 +84,54 @@ const getInitialPayload: Common.Task.GetInitialPayload<
 });
 
 const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
+    config.device,
+  );
   dev.properties = Device.migrateProperties(dev.properties);
-  let modified = false;
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
     const key = getChannelByNodeID(dev.properties, channel.nodeId);
-    if (primitiveIsZero(key)) commandsToCreate.push(channel);
-    else
-      try {
-        await client.channels.retrieve(key);
-      } catch (e) {
-        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-        else throw e;
-      }
+    if (!key) {
+      commandsToCreate.push(channel);
+      continue;
+    }
+    try {
+      await client.channels.retrieve(key);
+    } catch (e) {
+      if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+      else throw e;
+    }
   }
   if (commandsToCreate.length > 0) {
-    modified = true;
     if (
       dev.properties.write.channels == null ||
       Array.isArray(dev.properties.write.channels)
     )
       dev.properties.write.channels = {};
     const commandIndexes = await client.channels.create(
-      commandsToCreate.map((c) => ({
-        name: `${c.name}_cmd_time`,
+      commandsToCreate.map(({ name }) => ({
+        name: `${name}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${c.name}_cmd`,
-        dataType: c.dataType,
+      commandsToCreate.map(({ dataType, name }, i) => ({
+        name: `${name}_cmd`,
+        dataType,
         index: commandIndexes[i].key,
       })),
     );
-    commands.forEach((c, i) => {
-      const key = commandsToCreate[i].nodeId;
-      dev.properties.write.channels[key] = c.key;
+    commands.forEach(({ key }, i) => {
+      const nodeID = commandsToCreate[i].nodeId;
+      dev.properties.write.channels[nodeID] = key;
     });
   }
   config.channels = config.channels.map((c) => ({
     ...c,
     cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
-  if (modified) await client.hardware.devices.create(dev);
+  await client.hardware.devices.create(dev);
   return [config, dev.rack];
 };
 

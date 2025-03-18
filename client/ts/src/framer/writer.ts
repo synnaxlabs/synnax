@@ -158,6 +158,7 @@ export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
+  private errAccumulated: boolean = false;
 
   private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
     this.stream = new StreamProxy("Writer", stream);
@@ -170,7 +171,7 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = control.Authority.Absolute,
+      authorities = control.Authority.ABSOLUTE,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       errOnUnauthorized = false,
@@ -195,6 +196,14 @@ export class Writer {
       },
     });
     return writer;
+  }
+
+  private async checkForAccumulatedError(): Promise<boolean> {
+    if (!this.errAccumulated && this.stream.received()) {
+      this.errAccumulated = true;
+      while (this.stream.received()) await this.stream.receive();
+    }
+    return this.errAccumulated;
   }
 
   async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<boolean>;
@@ -223,6 +232,7 @@ export class Writer {
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
+    if (await this.checkForAccumulatedError()) return false;
     const frame = await this.adapter.adapt(channelsOrData, series);
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
@@ -243,6 +253,7 @@ export class Writer {
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
   ): Promise<boolean> {
+    if (await this.checkForAccumulatedError()) return false;
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -270,7 +281,7 @@ export class Writer {
    * After the caller acknowledges the error, they can attempt to commit again.
    */
   async commit(): Promise<boolean> {
-    if (this.errorAccumulated) return false;
+    if (await this.checkForAccumulatedError()) return false;
     const res = await this.execute({ command: Command.Commit });
     return res.ack;
   }
@@ -280,7 +291,6 @@ export class Writer {
    * state, allowing the writer to be used again.
    */
   async error(): Promise<Error | null> {
-    this.stream.send({ command: Command.Error });
     const res = await this.execute({ command: Command.Error });
     return res.error != null ? decodeError(res.error) : null;
   }

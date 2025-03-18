@@ -74,6 +74,7 @@ message Task {
     string type = 3;
     string config = 4;
     bool internal = 5;
+    bool snapshot = 6;
 }
 
 message HardwareCreateTaskRequest {

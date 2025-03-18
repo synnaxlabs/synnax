@@ -31,13 +31,13 @@ describe("getOpenPort", () => {
     const port = getOpenPort(channels, model, [type]);
 
     // The expected port is the first port in the list for the given type.
-    const expectedPort = Device.DEVICES[model].ports[type][0];
+    const expectedPort = Device.PORTS[model][type][0];
     expect(port).toEqual(expectedPort);
   });
 
   it("skips ports that are already in use", () => {
     const type = Device.AI_PORT_TYPE;
-    const aiPorts = Device.DEVICES[model].ports[type];
+    const aiPorts = Device.PORTS[model][type];
     // Mark the first port as in use.
     const channels: Channel[] = [
       { ...ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE], port: aiPorts[0].key },
@@ -51,7 +51,7 @@ describe("getOpenPort", () => {
 
   it("returns null if all ports for the given type are in use", () => {
     const type = Device.AI_PORT_TYPE;
-    const aiPorts = Device.DEVICES[model].ports[type];
+    const aiPorts = Device.PORTS[model][type];
     // Mark every port for this type as in use.
     const channels: Channel[] = aiPorts.map(({ key }) => ({
       ...ZERO_INPUT_CHANNELS[AI_CHANNEL_TYPE],
@@ -66,7 +66,7 @@ describe("getOpenPort", () => {
     // Mark all DI ports as in use and leave AO ports free.
     const type1 = Device.DI_PORT_TYPE;
     const type2 = Device.AO_PORT_TYPE;
-    const diPorts = Device.DEVICES[model].ports[type1];
+    const diPorts = Device.PORTS[model][type1];
     const channels: Channel[] = diPorts.map(({ key }) => ({
       ...ZERO_INPUT_CHANNELS[DI_CHANNEL_TYPE],
       port: key,
@@ -74,15 +74,15 @@ describe("getOpenPort", () => {
 
     const port = getOpenPort(channels, model, [type1, type2]);
     // Since all DI ports are taken, we expect the first AO port.
-    const expectedPort = Device.DEVICES[model].ports[type2][0];
+    const expectedPort = Device.PORTS[model][type2][0];
     expect(port).toEqual(expectedPort);
   });
 
   it("returns null when multiple types are provided but all ports are in use", () => {
     const type1 = Device.AI_PORT_TYPE;
     const type2 = Device.AO_PORT_TYPE;
-    const aiPorts = Device.DEVICES[model].ports[type1];
-    const aoPorts = Device.DEVICES[model].ports[type2];
+    const aiPorts = Device.PORTS[model][type1];
+    const aoPorts = Device.PORTS[model][type2];
 
     // Mark all ports for both AI and AO as in use.
     const channels: Channel[] = [

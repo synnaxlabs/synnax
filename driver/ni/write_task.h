@@ -79,7 +79,7 @@ struct WriteTaskConfig {
        data_saving(cfg.optional<bool>("data_saving", false)) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
-            if (ch->enabled) this->channels[ch->cmd_ch_key] = std::move(ch);
+            if (ch != nullptr && ch->enabled) this->channels[ch->cmd_ch_key] = std::move(ch);
         });
         if (channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");

@@ -16,6 +16,7 @@ import {
   type Color,
   type Haul,
   Pluto,
+  preventDefault,
   type state,
   type Triggers,
 } from "@synnaxlabs/pluto";
@@ -111,11 +112,11 @@ const useColorContextState: state.PureUse<Color.ContextState> = () => {
 const useBlockDefaultDropBehavior = (): void =>
   useEffect(() => {
     const doc = document.documentElement;
-    doc.addEventListener("dragover", (e) => e.preventDefault());
-    doc.addEventListener("drop", (e) => e.preventDefault());
+    doc.addEventListener("dragover", preventDefault);
+    doc.addEventListener("drop", preventDefault);
     return () => {
-      doc.removeEventListener("dragover", (e) => e.preventDefault());
-      doc.removeEventListener("drop", (e) => e.preventDefault());
+      doc.removeEventListener("dragover", preventDefault);
+      doc.removeEventListener("drop", preventDefault);
     };
   }, []);
 

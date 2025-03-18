@@ -16,7 +16,7 @@ const PREFIX = "new-device-";
 export const useListenForChanges = () => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
     if (client == null) return;
     const tracker = await client.hardware.devices.openDeviceTracker();
@@ -34,11 +34,9 @@ export const useListenForChanges = () => {
         });
     });
     return () => {
-      tracker
-        .close()
-        .catch((e) => handleException(e, "Failed to close device tracker"));
+      tracker.close().catch((e) => handleError(e, "Failed to close device tracker"));
     };
-  }, [addStatus, client, handleException]);
+  }, [addStatus, client, handleError]);
 };
 
 const PREFIX_LENGTH = PREFIX.length;
