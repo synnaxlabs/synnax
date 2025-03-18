@@ -88,7 +88,7 @@ TEST_F(NumericSampleValueTest, SubtractionSameType) {
     EXPECT_NEAR(std::get<double>(float64_val - float32_val), -0.42172, 1e-5);
     
     // Timestamp subtraction
-    const int64_t ts_diff = std::get<int64_t>(timestamp_val - timestamp_val);
+    const TimeStamp ts_diff = std::get<TimeStamp>(timestamp_val - timestamp_val);
     EXPECT_EQ(ts_diff, 0);
 }
 
@@ -118,8 +118,8 @@ TEST_F(NumericSampleValueTest, SubtractionWithTimestamp) {
     
     // Timestamp - timestamp = int64_t (nanoseconds)
     const NumericSampleValue ts2 = TimeStamp(500000000);
-    const int64_t ts_diff = std::get<int64_t>(timestamp_val - ts2);
-    EXPECT_EQ(ts_diff, 500000000);
+    const TimeStamp ts_diff = std::get<TimeStamp>(timestamp_val - ts2);
+    EXPECT_EQ(ts_diff.nanoseconds(), 500000000);
 }
 
 // Multiplication tests

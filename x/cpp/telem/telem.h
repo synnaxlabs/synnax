@@ -603,7 +603,7 @@ inline SampleValue widen_numeric(const NumericSampleValue &value) {
             using RhsType = std::decay_t<RHS>;
             if constexpr (std::is_same_v<LhsType, TimeStamp>) {
                 if constexpr (std::is_same_v<RhsType, TimeStamp>)
-                    return (lhs_val - rhs_val).nanoseconds();
+                    return TimeStamp((lhs_val - rhs_val).nanoseconds());
                 else if constexpr (std::is_arithmetic_v<RhsType>)
                     return TimeStamp(lhs_val.nanoseconds() - static_cast<int64_t>(rhs_val));
             } else if constexpr (std::is_same_v<RhsType, TimeStamp>) {

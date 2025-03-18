@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  NotFoundError,
-  type Synnax,
-  type task,
-} from "@synnaxlabs/client";
+import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -96,7 +91,11 @@ const Properties = (): ReactElement => {
           }}
         />
         {arrayMode ? (
-          <PForm.NumericField label="Array Size" path="config.arraySize" />
+          <PForm.NumericField
+            label="Array Size"
+            path="config.arraySize"
+            style={{ width: 100 }}
+          />
         ) : (
           <Common.Task.Fields.StreamRate />
         )}
@@ -145,100 +144,74 @@ interface DetermineIndexChannelArgs {
   client: Synnax;
   config: ReadConfig;
   device: Device.Device;
-  taskKey: task.Key;
   taskName: string;
-}
-
-interface DetermineIndexChannelResult {
-  hasModifiedDevice: boolean;
-  indexChannel: channel.Key;
 }
 
 const determineIndexChannel = async ({
   client,
   config,
   device,
-  taskKey,
   taskName,
-}: DetermineIndexChannelArgs): Promise<DetermineIndexChannelResult> => {
-  const existingTasks = await client.hardware.tasks.retrieve<
-    ReadConfig,
-    ReadStateDetails,
-    ReadType
-  >(device.rack, { types: [READ_TYPE] });
-  const existingTask = existingTasks.find(({ key }) => key === taskKey);
-
-  if (existingTask) {
-    const channelsForExistingTask = await client.channels.retrieve(
-      existingTask.config.channels.map(({ channel }) => channel),
-    );
-    const indexesForExistingTask = channelsForExistingTask.map(({ index }) => index);
-    if (indexesForExistingTask.length)
-      return { indexChannel: indexesForExistingTask[0], hasModifiedDevice: false };
-  }
-
-  const channelKeysFromExistingTasks: channel.Key[] = existingTasks
-    .flatMap(({ config: { channels } }) => channels)
-    .flatMap(({ channel }) => channel);
-  const indexChannelsFromExistingTasks = await client.channels.retrieve(
-    channelKeysFromExistingTasks,
-  );
-  const indexChannelKeysFromExistingTasks = new Set(
-    indexChannelsFromExistingTasks.map(({ index }) => index),
-  );
-
-  const devIndexes: channel.Key[] = device.properties.read.indexes;
-  const unusedDeviceIndexes = devIndexes.filter(
-    (k) => !indexChannelKeysFromExistingTasks.has(k),
-  );
-  // if there is a useAsIndex in the config
+}: DetermineIndexChannelArgs): Promise<channel.Key> => {
   const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannelByNodeID(
       device.properties,
       indexChannelInTaskConfig.nodeId,
     );
-    if (
-      devIndexes.includes(existingIndex) &&
-      !unusedDeviceIndexes.includes(existingIndex)
-    ) {
-      // this channel is being used as an index on two different tasks
-      const task = existingTasks.find(({ config: { channels } }) =>
-        channels.some(({ channel }) => channel === existingIndex),
-      );
-      const existingTaskName = task?.name;
-      throw new Error(
-        `${indexChannelInTaskConfig.name} is already being used as an index for ${existingTaskName ?? "an existing OPC UA Read Task"}. Please move all channels from ${taskName} to ${existingTaskName ?? "the existing task"}.`,
-      );
-    }
-    if (existingIndex) return { indexChannel: existingIndex, hasModifiedDevice: false };
-    const idx = await client.channels.create({
+    if (existingIndex)
+      try {
+        const { isIndex, key, name } = await client.channels.retrieve(existingIndex);
+        if (!isIndex)
+          throw new Error(
+            `${indexChannelInTaskConfig.name} already exist as ${name}, but ${name} is not an index channel. Please remove the useAsIndex flag from ${indexChannelInTaskConfig.name} and reconfigure.`,
+          );
+        if (!device.properties.read.indexes.includes(key))
+          device.properties.read.indexes.push(key);
+        device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+        return key;
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw e;
+      }
+    const { key } = await client.channels.create({
       name: indexChannelInTaskConfig.name,
       dataType: "timestamp",
       isIndex: true,
     });
-    device.properties.read.indexes.push(idx.key);
-    device.properties.read.channels[indexChannelInTaskConfig.nodeId] = idx.key;
-    return { indexChannel: idx.key, hasModifiedDevice: true };
+    device.properties.read.indexes.push(key);
+    device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
+    return key;
   }
-  if (unusedDeviceIndexes.length)
-    return { indexChannel: unusedDeviceIndexes[0], hasModifiedDevice: false };
+
+  // if one of the channels already exists, just use that channels index channel.
+  for (const { nodeId } of config.channels) {
+    const existingChannelKey = getChannelByNodeID(device.properties, nodeId);
+    if (existingChannelKey)
+      try {
+        const { index } = await client.channels.retrieve(existingChannelKey);
+        if (!device.properties.read.indexes.includes(index))
+          device.properties.read.indexes.push(index);
+        return index;
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw e;
+      }
+  }
+
+  // there is not an index channel in the task config, so just create a new channel
   const idx = await client.channels.create({
     name: `${device.name} time for ${taskName}`,
     dataType: "timestamp",
     isIndex: true,
   });
   device.properties.read.indexes.push(idx.key);
-  return { indexChannel: idx.key, hasModifiedDevice: true };
+  return idx.key;
 };
 
 const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
   client,
   config,
-  taskKey,
   name,
 ) => {
-  // Retrieving the device and updating its properties if needed
   const previous = await client.hardware.devices.retrieve<
     Device.Properties,
     Device.Make
@@ -248,14 +221,12 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
     properties: Device.migrateProperties(previous.properties),
   });
 
-  const { hasModifiedDevice, indexChannel } = await determineIndexChannel({
+  const index = await determineIndexChannel({
     client,
     device,
     config,
-    taskKey,
     taskName: name,
   });
-  let modified = hasModifiedDevice;
 
   const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
@@ -266,9 +237,9 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
     }
     try {
       const rCh = await client.channels.retrieve(exKey);
-      if (rCh.index !== indexChannel)
+      if (rCh.index !== index)
         throw new Error(
-          `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
+          `Channel ${ch.name} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
         );
       if (rCh.name !== ch.name) await client.channels.rename(exKey, ch.name);
     } catch (e) {
@@ -277,13 +248,8 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
     }
   }
   if (toCreate.length > 0) {
-    modified = true;
     const channels = await client.channels.create(
-      toCreate.map(({ name, dataType }) => ({
-        name,
-        dataType,
-        index: indexChannel,
-      })),
+      toCreate.map(({ name, dataType }) => ({ dataType, name, index })),
     );
     channels.forEach(
       ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
@@ -293,7 +259,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  if (modified) await client.hardware.devices.create(device);
+  await client.hardware.devices.create(device);
   return [config, device.rack];
 };
 

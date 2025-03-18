@@ -429,6 +429,17 @@ TEST_F(SeriesAtTest, testAtFloat64) {
     validateAt(s, vals, telem::FLOAT64_T);
 }
 
+TEST_F(SeriesAtTest, testAtTimestamp) {
+    const std::vector<telem::TimeStamp> vals = {
+        telem::TimeStamp(1000),
+        telem::TimeStamp(2000),
+        telem::TimeStamp(3000)
+    };
+    const auto s = telem::Series(vals);
+    telem::SampleValue sample = s.at(0);
+    ASSERT_EQ(std::get<telem::TimeStamp>(sample).nanoseconds(), 1000);
+}
+
 TEST(TestSeries, testJSONValueConstruction) {
     // Test with a simple JSON object
     json obj = {{"key", "value"}};

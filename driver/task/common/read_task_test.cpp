@@ -551,3 +551,17 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
+
+TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
+    json j{
+        {"sample_rate", 100.0},
+        {"data_saving", true}
+        // No stream_rate provided
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p, false);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_TRUE(cfg.data_saving);
+}

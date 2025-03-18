@@ -47,7 +47,7 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space direction="x">
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>
