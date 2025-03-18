@@ -20,6 +20,8 @@ import {
   Input,
   Label,
   List,
+  Status,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -29,17 +31,21 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 interface LabelFormProps {
-  key: string;
   values: label.Label;
+  isNew: boolean;
+  close?: () => void;
 }
 
-const LabelForm = ({ key, values }: LabelFormProps) => {
-  const form = Label.useSyncedForm({
-    key,
+const LabelForm = ({ values, isNew, close }: LabelFormProps) => {
+  const { save, ...methods } = Label.useSyncedForm({
+    key: values.key,
     values,
+    autoSave: !isNew,
   });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   return (
-    <Form.Form {...form}>
+    <Form.Form {...methods}>
       <Align.Space direction="x" size="small">
         <Form.Field<string>
           hideIfNull
@@ -64,6 +70,29 @@ const LabelForm = ({ key, values }: LabelFormProps) => {
             onlyChangeOnBlur: true,
           }}
         />
+        {isNew ? (
+          <Align.Space direction="x">
+            <Button.Icon
+              onClick={() => {
+                save();
+                close?.();
+              }}
+            >
+              <Icon.Check />
+            </Button.Icon>
+            <Button.Icon onClick={close}>
+              <Icon.Close />
+            </Button.Icon>
+          </Align.Space>
+        ) : (
+          <Button.Icon
+            onClick={() => {
+              client?.labels.delete(values.key).catch(handleError);
+            }}
+          >
+            <Icon.Delete />
+          </Button.Icon>
+        )}
       </Align.Space>
     </Form.Form>
   );
@@ -81,7 +110,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
       justify="spaceBetween"
       {...props}
     >
-      <LabelForm key={entry.key} values={entry} />
+      <LabelForm key={entry.key} values={entry} isNew={false} />
     </List.ItemFrame>
   );
 };
@@ -135,12 +164,13 @@ export const Edit: Layout.Renderer = () => {
         </Align.Space>
         {showNew && (
           <LabelForm
-            key={""}
             values={{
               key: uuidv4(),
               name: "",
               color: "#000000",
             }}
+            isNew={true}
+            close={() => setShowNew(false)}
           />
         )}
         <List.Core>{listItem}</List.Core>

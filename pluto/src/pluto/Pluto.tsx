@@ -23,6 +23,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
+import { Warp } from "@/warp";
 import { Worker } from "@/worker";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
@@ -63,15 +64,17 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Channel.AliasProvider {...channelAlias}>
-                    <Color.Provider {...color}>
-                      <Theming.Provider {...theming}>
-                        <CanDisableTelem {...telem}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </CanDisableTelem>
-                      </Theming.Provider>
-                    </Color.Provider>
-                  </Channel.AliasProvider>
+                  <Warp.Provider>
+                    <Channel.AliasProvider {...channelAlias}>
+                      <Color.Provider {...color}>
+                        <Theming.Provider {...theming}>
+                          <CanDisableTelem {...telem}>
+                            <Control.StateProvider>{children}</Control.StateProvider>
+                          </CanDisableTelem>
+                        </Theming.Provider>
+                      </Color.Provider>
+                    </Channel.AliasProvider>
+                  </Warp.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

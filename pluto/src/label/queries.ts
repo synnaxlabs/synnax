@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label } from "@synnaxlabs/client";
+import { toArray } from "@synnaxlabs/x";
 
 import { Warp } from "@/warp";
 
@@ -17,12 +18,23 @@ const LABEL_DELETE_CHANNEL = "sy_label_delete";
 const decodeLabels: Warp.Decoder<label.Label | label.Label[], label.Label[]> = async ({
   fr,
   channels,
+  current,
 }) => {
+  const curr = toArray(current ?? []);
   const [setChannel, deleteChannel] = channels;
+  console.log(fr.get(setChannel.key));
   const sets = fr.get(setChannel.key).parseJSON(label.labelZ);
-  const deletes = fr.get(deleteChannel.key).parseJSON(label.labelZ);
-  const newLabels = sets.filter((l) => !deletes.some((d) => d.key === l.key));
-  return [newLabels, true];
+  console.log(fr.get(deleteChannel.key));
+  const deletes = fr.get(deleteChannel.key).series.flatMap((s) => s.toUUIDs());
+  const setKeys = new Set(sets.map((s) => s.key));
+  console.log(curr, sets, deletes);
+  return [
+    [
+      ...curr.filter((l) => !deletes.some((d) => d === l.key) && !setKeys.has(l.key)),
+      ...sets,
+    ],
+    true,
+  ];
 };
 
 const retrieveLabelsChannels: Warp.RetrieveChannels = async ({ client }) =>
@@ -64,7 +76,7 @@ export const useRetrieve = (key: label.Key): Warp.UseRetrieveReturn<label.Label>
   });
 
 export interface UseSyncedFormArgs
-  extends Pick<Warp.UseFormProps<typeof label.labelZ>, "values" | "name"> {
+  extends Pick<Warp.UseFormProps<typeof label.labelZ>, "values" | "autoSave"> {
   key: label.Key;
 }
 

@@ -38,9 +38,16 @@ const Context = createContext<ContextValue>({ bindListener: () => () => {} });
 
 export interface ProviderProps extends PropsWithChildren {}
 
+const setsEqual = (a: Set<channel.Key>, b: Set<channel.Key>) => {
+  if (a.size !== b.size) return false;
+  for (const key of a) if (!b.has(key)) return false;
+  return true;
+};
+
 export const Provider = ({ children }: ProviderProps) => {
   const client = PSynnax.use();
   const streamerRef = useRef<framer.Streamer | null>(null);
+  const currentChannels = useRef<Set<channel.Key>>(new Set());
   const consumers = useRef<Set<Listener>>(new Set());
 
   const handleFrame = useCallback((frame: framer.Frame) => {
@@ -49,6 +56,10 @@ export const Provider = ({ children }: ProviderProps) => {
 
   const bindListener = useCallback((props: Listener) => {
     consumers.current.add(props);
+    const prevChannels = new Set(currentChannels.current);
+    props.channels.forEach((c) => currentChannels.current.add(c));
+    if (!setsEqual(prevChannels, currentChannels.current))
+      void streamerRef.current?.update(Array.from(currentChannels.current));
     return () => consumers.current.delete(props);
   }, []);
 
@@ -138,6 +149,7 @@ export const useRetrieveListener = <Value, InitialValue = undefined>({
   decode,
   onChange,
   initialValue,
+  queryKey,
 }: UseRetrieveOnChangeArgs<Value, InitialValue>): void => {
   const client = PSynnax.use();
   const { bindListener: bindConsumer } = useContext();
@@ -168,7 +180,7 @@ export const useRetrieveListener = <Value, InitialValue = undefined>({
     } catch (error) {
       onChange({ value: initialValue, isLoading: false, error: error as Error });
     }
-  }, [client?.key]);
+  }, [client?.key, ...queryKey]);
 };
 
 export const useRetrieve = <Value, InitialValue = undefined>({

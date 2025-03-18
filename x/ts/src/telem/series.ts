@@ -951,6 +951,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "bigint"): MultiSeries<bigint>;
 
   as<T extends TelemValue>(dataType: CrudeDataType): MultiSeries<T> {
+    if (this.length === 0) return new MultiSeries([]);
     if (!new DataType(dataType).equals(this.dataType))
       throw new Error(
         `cannot convert series of type ${this.dataType.toString()} to ${dataType.toString()}`,
@@ -1092,6 +1093,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
+    if (this.series.length === 0) return [];
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot parse non-JSON series as JSON");
     return this.series.flatMap((s) => s.parseJSON(schema));
