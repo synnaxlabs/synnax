@@ -67,12 +67,7 @@ export type FormProps<
 );
 
 export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
-  (
-    client: Synnax,
-    config: Config,
-    taskKey: task.Key,
-    name: string,
-  ): Promise<[Config, rack.Key]>;
+  (client: Synnax, config: Config, name: string): Promise<[Config, rack.Key]>;
 }
 
 export interface WrapFormArgs<
@@ -162,12 +157,7 @@ export const useForm = <
       if (!(await methods.validateAsync())) return;
       const { config, name } = methods.value();
       if (config == null) throw new Error("Config is required");
-      const [newConfig, rackKey] = await onConfigure(
-        client,
-        config,
-        initialTask.key,
-        name,
-      );
+      const [newConfig, rackKey] = await onConfigure(client, config, name);
       methods.setCurrentStateAsInitialValues();
       methods.set("config", newConfig);
       // current work around for Pluto form issues (Issue: SY-1465)
