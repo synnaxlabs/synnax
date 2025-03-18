@@ -32,16 +32,22 @@ struct BaseReadTaskConfig {
     }
 
     BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
+
     const BaseReadTaskConfig &operator=(const BaseReadTaskConfig &) = delete;
 
-    explicit BaseReadTaskConfig(xjson::Parser &cfg):
-        data_saving(cfg.optional<bool>("data_saving", false)),
-        sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
-        stream_rate(telem::Rate(cfg.required<float>("stream_rate"))) {
-        if (sample_rate < telem::Rate(0)) cfg.field_err("sample_rate", "must be greater than 0");
-        if (stream_rate < telem::Rate(0)) cfg.field_err("stream_rate", "must be greater than 0");
-        if (sample_rate < stream_rate)
-            cfg.field_err("sample_rate", "must be greater than or equal to stream rate");
+    explicit BaseReadTaskConfig(
+        xjson::Parser &cfg,
+        const bool stream_rate_required = true
+    ): data_saving(cfg.optional<bool>("data_saving", false)),
+       sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
+       stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))) {
+        if (sample_rate <= telem::Rate(0)) cfg.field_err(
+            "sample_rate", "must be greater than 0");
+        if (stream_rate_required && stream_rate <= telem::Rate(0)) cfg.field_err(
+            "stream_rate", "must be greater than 0");
+        if (stream_rate_required && (sample_rate < stream_rate))
+            cfg.field_err("sample_rate",
+                          "must be greater than or equal to stream rate");
     }
 };
 
@@ -49,9 +55,9 @@ struct BaseReadTaskConfig {
 /// @brief a source that can be used to read data from a hardware device.
 struct Source : pipeline::Source {
     /// @brief the configuration used to open a writer for the source.
-    virtual synnax::WriterConfig writer_config() const = 0;
+    [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
 
-    virtual std::vector<synnax::Channel> channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task
