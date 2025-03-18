@@ -124,7 +124,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Group.MenuItem selection={selection} />
-      {hasNoSnapshots && (
+      {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />
           <PMenu.Divider />

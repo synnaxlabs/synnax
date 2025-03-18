@@ -25,8 +25,11 @@ export const useListener = <D>({ key, open, onChange }: UseListenerProps<D>) => 
     if (open == null) return;
     const obs = await open();
     if (obs == null) return;
-    obs.onChange(onChange);
-    return async () => await obs.close();
+    const disconnect = obs.onChange(onChange);
+    return async () => {
+      disconnect();
+      await obs.close();
+    };
   }, [open == null, memoKey]);
 };
 
