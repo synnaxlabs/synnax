@@ -11,15 +11,15 @@ import { type Synnax } from "@synnaxlabs/client";
 import { Align, type Icon, List, type Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Confirm } from "@/confirm";
 import { type Export } from "@/export";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type RootState, type RootStore } from "@/store";
 
-export const CommandListItem = (
-  props: List.ItemProps<string, Command>,
-): ReactElement => {
+export interface CommandListItemProps extends List.ItemProps<string, Command> {}
+
+export const CommandListItem = (props: CommandListItemProps): ReactElement => {
   const {
     entry: { icon, name, endContent },
   } = props;
@@ -43,9 +43,10 @@ export interface CommandSelectionContext {
   store: RootStore;
   client: Synnax | null;
   placeLayout: Layout.Placer;
-  confirm: Confirm.CreateModal;
-  addStatus: Status.AddStatusFn;
-  handleException: Status.ExceptionHandler;
+  confirm: Modals.PromptConfirm;
+  addStatus: Status.Adder;
+  rename: Modals.PromptRename;
+  handleError: Status.ErrorHandler;
   ingestors: Record<string, Import.FileIngestor>;
   extractors: Record<string, Export.Extractor>;
 }

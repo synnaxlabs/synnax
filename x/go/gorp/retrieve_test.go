@@ -279,4 +279,84 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(res).To(Equal(entries))
 		})
 	})
+	Describe("Count", func() {
+		Context("WhereKeys", func() {
+			It("Should return the count of existing keys", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(2))
+			})
+
+			It("Should handle non-existent keys", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					WhereKeys(entries[0].GorpKey(), 444444).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(1))
+			})
+		})
+
+		Context("Where", func() {
+			It("Should count entries matching a filter", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID < 5 }).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(5))
+			})
+
+			It("Should return zero for non-matching filters", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID > 100 }).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(0))
+			})
+
+			It("Should handle multiple filters", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID < 5 }, gorp.Required()).
+					Where(func(e *entry) bool { return e.ID > 2 }, gorp.Required()).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(2)) // Should count entries with ID 3 and 4
+			})
+		})
+
+		Context("WherePrefix", func() {
+			BeforeEach(func() {
+				r1 := prefixEntry{ID: 123, Data: "data"}
+				r2 := prefixEntry{ID: 456, Data: "data"}
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+			})
+
+			It("Should count entries matching a prefix", func() {
+				count, err := gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("prefix-123")).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(1))
+			})
+
+			It("Should return zero for non-matching prefix", func() {
+				count, err := gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("nonexistent-prefix")).
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(0))
+			})
+		})
+
+		Context("No Parameters", func() {
+			It("Should count all entries", func() {
+				count, err := gorp.NewRetrieve[int, entry]().
+					Count(ctx, tx)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(count).To(Equal(10)) // Based on the 10 entries created in BeforeEach
+			})
+		})
+	})
 })

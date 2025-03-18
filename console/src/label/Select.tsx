@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Dialog, Label, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { createEditLayout } from "@/label/Edit";
+import { EDIT_LAYOUT } from "@/label/Edit";
 import { Layout } from "@/layout";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
@@ -21,7 +21,7 @@ const useAdd = (): (() => void) => {
   const { close } = Dialog.useContext();
   return () => {
     close();
-    placeLayout(createEditLayout());
+    placeLayout(EDIT_LAYOUT);
   };
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/freighter",
-  "version": "0.38.1",
+  "version": "0.39.0",
   "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -18,24 +18,26 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "fix": "eslint --cache --fix",
+    "madge": "madge --circular src"
   },
   "dependencies": {
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "node-fetch": "^2.7.0",
-    "ws": "^8.18.0",
-    "zod": "^3.24.1"
+    "ws": "^8.18.1",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.10.6",
-    "eslint": "^9.18.0",
+    "@types/node": "^22.13.10",
+    "eslint": "^9.22.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.7",
-    "vitest": "^2.1.8"
+    "madge": "^8.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.1",
+    "vitest": "^2.1.9"
   },
   "main": "dist/freighter.cjs",
   "module": "dist/freighter.js",

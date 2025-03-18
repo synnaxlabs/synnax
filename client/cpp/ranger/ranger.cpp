@@ -7,17 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/ranger/ranger.h"
-
-#include "client/cpp/errors/errors.h"
-#include "client/cpp/telem/telem.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+/// module
+#include "x/cpp/xerrors/errors.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/cpp/telem/telem.h"
+
+/// internal
+#include "client/cpp/ranger/ranger.h"
+#include "client/cpp/errors/errors.h"
+
+/// protos
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 using namespace synnax;
 
-Range::Range(const std::string &name, synnax::TimeRange time_range)
-    : name(name),
+Range::Range(std::string name, telem::TimeRange time_range)
+    : name(std::move(name)),
       time_range(time_range) {
 }
 
@@ -25,21 +30,21 @@ Range::Range(
     const api::v1::Range &rng
 ) : key(rng.key()),
     name(rng.name()),
-    time_range(synnax::TimeRange(rng.time_range().start(), rng.time_range().end())) {
+    time_range(telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {
 }
 
 void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
     auto tr = telem::PBTimeRange();
-    rng->mutable_time_range()->set_start(time_range.start.value);
-    rng->mutable_time_range()->set_end(time_range.end.value);
+    rng->mutable_time_range()->set_start(time_range.start.nanoseconds());
+    rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
 
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_key(
     const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
@@ -48,14 +53,14 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
     if (res.ranges_size() == 0)
         return {
             Range(),
-            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + key)
+            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + key)
         };
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
 }
 
-std::pair<Range, freighter::Error> RangeClient::retrieveByName(
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_name(
     const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
@@ -64,12 +69,12 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
     if (res.ranges_size() == 0)
         return {
             Range(),
-            freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + name)
+            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + name)
         };
     if (res.ranges_size() > 1)
         return {
             Range(),
-            freighter::Error(synnax::MULTIPLE_RESULTS,
+            xerrors::Error(xerrors::MULTIPLE_RESULTS,
                              "multiple ranges found matching " + name)
         };
     auto rng = Range(res.ranges(0));
@@ -77,8 +82,8 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
     return {rng, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
-    api::v1::RangeRetrieveRequest &req) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
@@ -88,48 +93,48 @@ std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
     return {ranges, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByName(
-    std::vector<std::string> names) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_by_name(const std::vector<std::string> &names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names) req.add_names(name);
-    return retrieveMany(req);
+    return retrieve_many(req);
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByKey(
-    std::vector<std::string> keys) const {
+std::pair<std::vector<Range>, xerrors::Error>
+RangeClient::retrieve_by_key(const std::vector<std::string> &keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys) req.add_keys(key);
-    return retrieveMany(req);
+    return retrieve_many(req);
 }
 
-freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
+xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges) range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err)
-        for (auto i = 0; i < res.ranges_size(); i++) {
-            ranges[i].key = res.ranges(i).key();
-            ranges[i].kv = RangeKV(ranges[i].key, kv_get_client, kv_set_client,
-                                   kv_delete_client);
-        }
-    return err;
+    if (err) return err;
+    for (auto i = 0; i < res.ranges_size(); i++) {
+        ranges[i].key = res.ranges(i).key();
+        ranges[i].kv = RangeKV(ranges[i].key, kv_get_client, kv_set_client,
+                               kv_delete_client);
+    }
+    return xerrors::NIL;
 }
 
-freighter::Error RangeClient::create(Range &range) const {
+xerrors::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err) {
-        auto rng = res.ranges(0);
-        range.key = rng.key();
-        range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
-    }
+    if (err) return err;
+    if (res.ranges_size() == 0) return unexpected_missing("range");
+    const auto rng = res.ranges(0);
+    range.key = rng.key();
+    range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
     return err;
 }
 
-std::pair<Range, freighter::Error> RangeClient::create(
-    std::string name, synnax::TimeRange time_range) const {
+std::pair<Range, xerrors::Error>
+RangeClient::create(const std::string& name, telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};
@@ -140,18 +145,18 @@ const std::string KV_GET_ENDPOINT = "/range/kv/get";
 const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
 
 
-std::pair<std::string, freighter::Error> RangeKV::get(const std::string &key) const {
+std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", freighter::Error(synnax::NOT_FOUND, "key not found")};
+        return {"", xerrors::Error(xerrors::NOT_FOUND, "key not found")};
     return {res.pairs().at(0).value(), err};
 }
 
-freighter::Error RangeKV::set(const std::string &key, const std::string &value) const {
+xerrors::Error RangeKV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     const auto pair = req.add_pairs();
@@ -161,7 +166,7 @@ freighter::Error RangeKV::set(const std::string &key, const std::string &value) 
     return err;
 }
 
-freighter::Error RangeKV::del(const std::string &key) const {
+xerrors::Error RangeKV::del(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { selectWindowKey } from "@synnaxlabs/drift";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Breadcrumb,
@@ -18,30 +17,26 @@ import {
   Menu as PMenu,
   Modal,
   Mosaic as Core,
-  Nav,
-  OS,
+  Nav as PNav,
   Portal,
   Status,
   Synnax,
   type Tabs,
-  Text,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Controls } from "@/components";
-import { Menu } from "@/components/menu";
-import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
+import { Menu } from "@/components";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
-import { createSelector } from "@/layouts/Selector";
+import { Nav } from "@/layouts/nav";
+import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
-import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
@@ -50,13 +45,11 @@ const EmptyContent = (): ReactElement => (
   </Eraser.Eraser>
 );
 
-const emptyContent = <EmptyContent />;
+const EMPTY_CONTENT = <EmptyContent />;
 
-export const MOSAIC_TYPE = "mosaic";
+export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
-export const ContextMenu = ({
-  keys,
-}: PMenu.ContextMenuMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
     return (
       <PMenu.Menu level="small" iconSpacing="small">
@@ -66,28 +59,27 @@ export const ContextMenu = ({
   const layoutKey = keys[0];
   const layout = Layout.useSelect(layoutKey);
   if (layout == null) return null;
-  const C = Layout.useContextMenuRenderer(layout?.type);
-  if (C == null)
-    return (
-      <PMenu.Menu level="small" iconSpacing="small">
-        <Layout.MenuItems layoutKey={layoutKey} />
-      </PMenu.Menu>
-    );
-  const res = <C layoutKey={layoutKey} />;
-  return res;
+  const C = Layout.useContextMenuRenderer(layout.type);
+  return C == null ? (
+    <PMenu.Menu level="small" iconSpacing="small">
+      <Layout.MenuItems layoutKey={layoutKey} />
+    </PMenu.Menu>
+  ) : (
+    <C layoutKey={layoutKey} />
+  );
 };
 
-interface ContentCProps extends Tabs.Tab {
+interface ModalContentProps extends Tabs.Tab {
   node: Portal.Node;
 }
 
-const ModalContent = ({ node, tabKey }: ContentCProps) => {
-  const d = useDispatch();
+const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
+  const dispatch = useDispatch();
   const layout = Layout.useSelectRequired(tabKey);
   const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
   const focused = tabKey === focusedKey;
   const handleClose = () =>
-    windowKey != null && d(Layout.setFocus({ windowKey, key: null }));
+    windowKey != null && dispatch(Layout.setFocus({ windowKey, key: null }));
   const openInNewWindow = Layout.useOpenInNewWindow();
   const handleOpenInNewWindow = () => {
     openInNewWindow(tabKey);
@@ -95,7 +87,7 @@ const ModalContent = ({ node, tabKey }: ContentCProps) => {
   };
   return (
     <Modal.Dialog visible close={handleClose} centered enabled={focused}>
-      <Nav.Bar
+      <PNav.Bar
         location="top"
         size="5rem"
         style={{ display: focused ? "flex" : "none" }}
@@ -106,22 +98,22 @@ const ModalContent = ({ node, tabKey }: ContentCProps) => {
          */}
         {focused && (
           <>
-            <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+            <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
               <Breadcrumb.Breadcrumb icon={layout.icon}>
                 {layout.name}
               </Breadcrumb.Breadcrumb>
-            </Nav.Bar.Start>
-            <Nav.Bar.End style={{ paddingRight: "1rem" }} empty>
+            </PNav.Bar.Start>
+            <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
               <Button.Icon onClick={handleOpenInNewWindow} size="small">
                 <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>
               <Button.Icon onClick={handleClose} size="small">
                 <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>
-            </Nav.Bar.End>
+            </PNav.Bar.End>
           </>
         )}
-      </Nav.Bar>
+      </PNav.Bar>
       <Portal.Out node={node} />
     </Modal.Dialog>
   );
@@ -136,20 +128,21 @@ interface MosaicProps {
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
-  if (windowKey == null || mosaic == null) return null;
-  return <Internal windowKey={windowKey} mosaic={mosaic} />;
+  return windowKey == null || mosaic == null ? null : (
+    <Internal windowKey={windowKey} mosaic={mosaic} />
+  );
 });
 Mosaic.displayName = "Mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
-  const store = useStore();
+  const store = useStore<RootState>();
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
-  const addStatus = Status.useAggregator();
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -162,12 +155,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        place(
-          createSelector({
-            tab: { mosaicKey, location },
-            location: "mosaic",
-          }),
-        );
+        placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -181,33 +169,19 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             id,
             nodeKey: mosaicKey,
             location,
-            placeLayout: place,
+            placeLayout,
             addStatus,
-            handleException,
+            handleError,
           });
-        } else
-          place(
-            createSelector({
-              tab: { mosaicKey, location },
-              location: "mosaic",
-            }),
-          );
+        } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
     },
-    [place, store, client, addStatus],
+    [placeLayout, store, client, addStatus],
   );
 
-  LinePlot.useTriggerHold({
-    defaultMode: "toggle",
-    toggle: [["H"]],
-  });
+  LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
 
-  const handleClose = useCallback(
-    (tabKey: string): void => {
-      dispatch(Layout.remove({ keys: [tabKey] }));
-    },
-    [dispatch],
-  );
+  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
@@ -241,16 +215,16 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               fileIngestors: INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
-              placeLayout: place,
+              placeLayout,
               store,
             });
           } catch (e) {
-            handleException(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
+            handleError(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
           }
         }),
       );
     },
-    [client, place, store],
+    [client, placeLayout, store],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of
@@ -287,7 +261,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onSelect={handleSelect}
         contextMenu={contextMenu}
         onResize={handleResize}
-        emptyContent={emptyContent}
+        emptyContent={EMPTY_CONTENT}
         onRename={handleRename}
         onCreate={handleCreate}
         activeTab={activeTab ?? undefined}
@@ -299,70 +273,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-export const NavTop = (): ReactElement | null => {
-  const os = OS.use();
-  const active = Layout.useSelectActiveMosaicLayout();
-  const ws = Workspace.useSelectActive();
-  const store = useStore<RootState>();
-  const moveToMain = Layout.useMoveIntoMainWindow();
-  const collapseButton = (
-    <Button.Icon
-      onClick={() => {
-        const state = store.getState();
-        const winKey = selectWindowKey(state);
-        Object.values(state.layout.layouts)
-          .filter((l) => l.windowKey === winKey && l.location === "mosaic")
-          .forEach((l) => moveToMain(l.key));
-      }}
-    >
-      <Icon.MoveToMainWindow />
-    </Button.Icon>
-  );
-  return (
-    <Nav.Bar
-      className="console-main-nav-top"
-      location="top"
-      size={"5rem"}
-      data-tauri-drag-region
-    >
-      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Controls
-          className="console-controls--macos"
-          visibleIfOS="macOS"
-          forceOS={os}
-        />
-        {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
-      </Nav.Bar.Start>
-      <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
-        <Text.Text
-          level="p"
-          shade={6}
-          style={{ transform: "scale(0.9)", cursor: "default" }}
-          data-tauri-drag-region
-        >
-          {active?.name} {ws?.name != null ? ` - ${ws.name}` : ""}
-        </Text.Text>
-      </Nav.Bar.AbsoluteCenter>
-      <Nav.Bar.End
-        data-tauri-drag-region
-        style={{ paddingRight: os == "Windows" ? "0" : "1.5rem" }}
-      >
-        {collapseButton}
-        {os === "Windows" && (
-          <Controls
-            className="console-controls--windows"
-            visibleIfOS="Windows"
-            forceOS={os}
-          />
-        )}
-      </Nav.Bar.End>
-    </Nav.Bar>
-  );
-};
-
-export const MosaicWindow = memo(
-  ({ layoutKey }: Layout.RendererProps): ReactElement | null => {
-    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
+export const MosaicWindow = memo<Layout.Renderer>(
+  ({ layoutKey }: Layout.RendererProps) => {
+    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", Nav.NAV_DRAWER_ITEMS);
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
@@ -378,19 +291,18 @@ export const MosaicWindow = memo(
     if (windowKey == null || mosaic == null) return null;
     return (
       <>
-        <NavTop />
         <Internal windowKey={windowKey} mosaic={mosaic} />
-        <NavDrawer location="bottom" />
-        <Nav.Bar
+        <Nav.Drawer location="bottom" />
+        <PNav.Bar
           className="console-main-nav"
           location="bottom"
           style={{ paddingRight: "1.5rem", zIndex: 8 }}
           size="6rem"
         >
-          <Nav.Bar.End>
-            <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
-          </Nav.Bar.End>
-        </Nav.Bar>
+          <PNav.Bar.End>
+            <Nav.Menu onChange={onSelect}>{menuItems}</Nav.Menu>
+          </PNav.Bar.End>
+        </PNav.Bar>
       </>
     );
   },

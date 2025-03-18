@@ -196,4 +196,78 @@ var _ = Describe("Series", func() {
 			Expect(func() { telem.SetValueAt[int64](s, -4, 4) }).To(Panic())
 		})
 	})
+	Describe("String", func() {
+		Context("Empty Series", func() {
+			It("Should properly format an empty series", func() {
+				s := telem.Series{DataType: telem.Uint64T}
+				Expect(s.String()).To(ContainSubstring("Len: 0"))
+				Expect(s.String()).To(ContainSubstring("Contents: []"))
+			})
+		})
+
+		Context("Short Series", func() {
+			It("Should show all values for series with <= 12 elements", func() {
+				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+				Expect(s.String()).To(Equal("Series{TimeRange: 0ns - 0ns, DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
+			})
+
+			It("Should properly format float values", func() {
+				s := telem.NewSeriesV[float64](1.1, 2.2, 3.3)
+				str := s.String()
+				Expect(str).To(ContainSubstring("DataType: float64"))
+				Expect(str).To(ContainSubstring("[1.1 2.2 3.3]"))
+			})
+
+			It("Should properly format string values", func() {
+				s := telem.NewStringsV("a", "b", "c")
+				str := s.String()
+				Expect(str).To(ContainSubstring("DataType: string"))
+				Expect(str).To(ContainSubstring("[a b c]"))
+			})
+		})
+
+		Context("Long Series", func() {
+			It("Should truncate series with > 12 elements", func() {
+				values := make([]int64, 20)
+				for i := range values {
+					values[i] = int64(i + 1)
+				}
+				s := telem.NewSeriesV(values...)
+				str := s.String()
+				Expect(str).To(ContainSubstring("Len: 20"))
+				Expect(str).To(ContainSubstring("[1 2 3 4 5 ... 16 17 18 19 20]"))
+			})
+
+			It("Should truncate long float series", func() {
+				values := make([]float64, 15)
+				for i := range values {
+					values[i] = float64(i) + 0.5
+				}
+				s := telem.NewSeriesV(values...)
+				str := s.String()
+				Expect(str).To(ContainSubstring("[0.5 1.5 2.5 3.5 4.5 ... 10.5 11.5 12.5 13.5 14.5]"))
+			})
+
+			It("Should truncate long string series", func() {
+				values := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
+				s := telem.NewStringsV(values...)
+				str := s.String()
+				Expect(str).To(ContainSubstring("[a b c d e ... j k l m n]"))
+			})
+		})
+
+		Context("Different Data Types", func() {
+			It("Should handle uint8 values", func() {
+				s := telem.NewSeriesV[uint8](1, 2, 3)
+				Expect(s.String()).To(ContainSubstring("DataType: uint8"))
+				Expect(s.String()).To(ContainSubstring("[1 2 3]"))
+			})
+
+			It("Should handle int16 values", func() {
+				s := telem.NewSeriesV[int16](1000, 2000, 3000)
+				Expect(s.String()).To(ContainSubstring("DataType: int16"))
+				Expect(s.String()).To(ContainSubstring("[1000 2000 3000]"))
+			})
+		})
+	})
 })

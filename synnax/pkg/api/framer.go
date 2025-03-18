@@ -275,7 +275,7 @@ type (
 // abort all pending writes, release the locks, and return an errors.Canceled.
 //
 // To ensure writes are durable, the client can issue a Close request
-// (i.e. calling freighter.ClientStream.CloseSend()) after sending all segments,
+// (i.e. calling freighter.ClientStream.close_send()) after sending all segments,
 // and then wait for the server to acknowledge the request with a Close response
 // of its own.
 //

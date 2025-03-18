@@ -13,28 +13,18 @@ import {
   memo,
   type PropsWithChildren,
   type ReactElement,
-  useContext,
+  use as reactUse,
   useState,
 } from "react";
 
 import { useEffectCompare } from "@/hooks";
 import { useMemoCompare } from "@/memo";
-// import { Status } from "@/status";
 
 export type ContextValue =
-  | {
-      enabled: true;
-      route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
-    }
-  | {
-      enabled: false;
-      route: null;
-    };
+  | { enabled: true; route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS> }
+  | { enabled: false; route: null };
 
-const Context = createContext<ContextValue>({
-  enabled: false,
-  route: null,
-});
+const Context = createContext<ContextValue>({ enabled: false, route: null });
 
 export interface ProviderProps extends PropsWithChildren<{}> {
   url: string | URL;
@@ -47,7 +37,7 @@ export const Provider = memo(
       route: null,
       enabled: false,
     });
-    const handleException = (e: ErrorEvent | MessageEvent<any>) => {
+    const handleError = (e: ErrorEvent | MessageEvent<any>) => {
       console.error(e);
       if (e instanceof ErrorEvent) console.error(e.message);
       console.error(JSON.stringify(e));
@@ -57,8 +47,8 @@ export const Provider = memo(
       () => {
         if (!enabled) return;
         const worker = new Worker(url, { type: "module" });
-        worker.onmessageerror = handleException;
-        worker.onerror = handleException;
+        worker.onmessageerror = handleError;
+        worker.onerror = handleError;
         const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
         worker.onmessage = (e) => router.handle(e);
         setState({
@@ -76,13 +66,13 @@ export const Provider = memo(
 
     if (enabled && value.route == null) return null;
 
-    return <Context.Provider value={value}>{children}</Context.Provider>;
+    return <Context value={value}>{children}</Context>;
   },
 );
 Provider.displayName = "worker.Provider";
 
 export const use = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => {
-  const ctx = useContext(Context);
+  const ctx = reactUse(Context);
   if (!ctx.enabled) return null;
   return useMemoCompare(
     () => ctx.route(type),

@@ -12,19 +12,20 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { useSelectHasPermission } from "@/user/selectors";
 
-const useEditPermissions =
-  (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  ({ placeLayout, selection }) =>
-    placeLayout(
-      Permissions.editLayout({ user: selection.resources[0].data as user.User }),
-    );
+const editPermissions = ({
+  placeLayout,
+  selection: { resources },
+}: Ontology.TreeContextMenuProps) => {
+  const user = resources[0].data as user.User;
+  const layout = Permissions.createEditLayout(user);
+  placeLayout(layout);
+};
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "User" });
@@ -42,20 +43,19 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection: { resources }, client }) =>
       await client.user.delete(resources.map(({ id }) => id.key)),
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete users");
+      handleError(e, "Failed to delete users");
     },
   }).mutate;
 };
 
-const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
+const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
     selection: { nodes, resources },
   } = props;
-  const editPermissions = useEditPermissions();
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),
@@ -107,13 +107,10 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: user.ONTOLOGY_TYPE,
   icon: <Icon.User />,
-  hasChildren: true,
   allowRename: () => true,
   onRename: handleRename,
-  haulItems: () => [],
-  canDrop: () => false,
-  onSelect: () => {},
   TreeContextMenu,
 };

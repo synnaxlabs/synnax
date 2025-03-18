@@ -100,7 +100,7 @@ export const Editable = <L extends text.Level = text.Level>({
   allowEmpty = false,
   style,
   outline = true,
-  ...props
+  ...rest
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
@@ -213,7 +213,7 @@ export const Editable = <L extends text.Level = text.Level>({
       contentEditable={editable}
       suppressContentEditableWarning
       style={style}
-      {...props}
+      {...rest}
     >
       {value}
     </Text>
@@ -233,11 +233,11 @@ export const MaybeEditable = <L extends text.Level = text.Level>({
   disabled = false,
   value,
   allowDoubleClick,
-  ...props
+  ...rest
 }: MaybeEditableProps<L>): ReactElement => {
   if (disabled || onChange == null || typeof onChange === "boolean")
     // @ts-expect-error - generic component errors
-    return <Text<L> {...props}>{value}</Text>;
+    return <Text<L> {...rest}>{value}</Text>;
 
   return (
     <>
@@ -246,7 +246,7 @@ export const MaybeEditable = <L extends text.Level = text.Level>({
         allowDoubleClick={allowDoubleClick}
         onChange={onChange}
         value={value}
-        {...props}
+        {...rest}
       />
     </>
   );

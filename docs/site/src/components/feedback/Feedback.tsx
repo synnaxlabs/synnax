@@ -23,25 +23,26 @@ const formSchema = z.object({
 });
 
 export const FeedbackButton = (): ReactElement => {
-  const props = Dropdown.use();
+  const { close, toggle, visible } = Dropdown.use();
   return (
     <Dropdown.Dialog
       className="feedback-modal"
       variant="modal"
       keepMounted={false}
-      {...props}
+      close={close}
+      visible={visible}
     >
       <Button.Button
         className="feedback-button"
         variant="outlined"
         size="medium"
         iconSpacing="small"
-        onClick={props.toggle}
+        onClick={toggle}
         startIcon={<Icon.Feedback />}
       >
         Stuck? Let us know!
       </Button.Button>
-      <FeedbackForm close={props.close} />
+      <FeedbackForm close={close} />
     </Dropdown.Dialog>
   );
 };
@@ -171,7 +172,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Text.Text>
           </Align.Space>
         </Align.Space>
-        <Nav.Bar location="bottom" size={"7rem"}>
+        <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
               size="medium"

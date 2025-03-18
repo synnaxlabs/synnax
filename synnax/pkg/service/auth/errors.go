@@ -28,12 +28,14 @@ var (
 	// Error is the base error for all authentication related errors.
 	Error        = base.AuthError
 	InvalidToken = errors.Wrap(base.AuthError, "invalid token")
+	ExpiredToken = errors.Wrap(base.AuthError, "expired token")
 )
 
 const (
 	errorType              = "sy.auth"
 	invalidCredentialsType = errorType + ".invalid-credentials"
 	invalidTokenType       = errorType + ".invalid-token"
+	expiredTokenType       = errorType + ".expired-token"
 	repeatedUsernameType   = errorType + ".repeated-username"
 )
 
@@ -43,6 +45,9 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	}
 	if errors.Is(err, InvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
+	}
+	if errors.Is(err, ExpiredToken) {
+		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
 	}
 	if errors.Is(err, RepeatedUsername) {
 		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
@@ -61,6 +66,8 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(InvalidToken, p.Data), true
 	case repeatedUsernameType:
 		return errors.Wrap(RepeatedUsername, p.Data), true
+	case expiredTokenType:
+		return errors.Wrap(ExpiredToken, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
 		return errors.Wrap(base.AuthError, p.Data), true

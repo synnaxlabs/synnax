@@ -50,9 +50,9 @@ export const overrideValidItems = <A, B>(
     // Iterate over each property in the override object
     for (const key in overrideObj) {
       const overrideValue = overrideObj[key];
-      // Check if the current key exists in the schema and if schema for this key is defined
-      if (currentSchema?.shape[key]) {
-        const result = currentSchema.shape[key].safeParse(overrideValue);
+      const shape = getSchemaShape(currentSchema);
+      if (shape?.[key]) {
+        const result = shape[key].safeParse(overrideValue);
         // Check if parsing succeeded
         if (result.success) baseObj[key] = result.data;
       } else if (
@@ -70,4 +70,10 @@ export const overrideValidItems = <A, B>(
   };
 
   return mergeValidFields({ ...base }, override, schema);
+};
+
+const getSchemaShape = (schema: z.ZodType<any, any, any>) => {
+  if (schema._def?.typeName === "ZodEffects") return getSchemaShape(schema._def.schema);
+  /// @ts-expect-error - shape is not defined on zod effects
+  return schema?.shape;
 };

@@ -9,47 +9,39 @@
 
 import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
-import {
-  type Key,
-  type KeyOrName,
-  type Name,
-  type Params,
-  type Payload,
-} from "@/channel/payload";
-import {
-  analyzeChannelParams,
-  type Retriever,
-  retrieveRequired,
-} from "@/channel/retriever";
+import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { type CrudeFrame, Frame } from "@/framer/frame";
+import { type Crude, Frame } from "@/framer/frame";
 
-export class ReadFrameAdapter {
-  private adapter: Map<Key, Name> | null;
-  retriever: Retriever;
-  keys: Key[];
+export class ReadAdapter {
+  private adapter: Map<channel.Key, channel.Name> | null;
+  retriever: channel.Retriever;
+  keys: channel.Key[];
 
-  private constructor(retriever: Retriever) {
+  private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
   }
 
-  static async open(retriever: Retriever, channels: Params): Promise<ReadFrameAdapter> {
-    const adapter = new ReadFrameAdapter(retriever);
+  static async open(
+    retriever: channel.Retriever,
+    channels: channel.Params,
+  ): Promise<ReadAdapter> {
+    const adapter = new ReadAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async update(channels: Params): Promise<void> {
-    const { variant, normalized } = analyzeChannelParams(channels);
+  async update(channels: channel.Params): Promise<void> {
+    const { variant, normalized } = channel.analyzeParams(channels);
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = normalized as Key[];
+      this.keys = normalized as channel.Key[];
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);
-    const a = new Map<Key, Name>();
+    const a = new Map<channel.Key, channel.Name>();
     this.adapter = a;
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
@@ -73,52 +65,56 @@ export class ReadFrameAdapter {
   }
 }
 
-export class WriteFrameAdapter {
-  private adapter: Map<Name, Key> | null;
-  retriever: Retriever;
-  keys: Key[];
+export class WriteAdapter {
+  private adapter: Map<channel.Name, channel.Key> | null;
+  retriever: channel.Retriever;
+  keys: channel.Key[];
 
-  private constructor(retriever: Retriever) {
+  private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
   }
 
   static async open(
-    retriever: Retriever,
-    channels: Params,
-  ): Promise<WriteFrameAdapter> {
-    const adapter = new WriteFrameAdapter(retriever);
+    retriever: channel.Retriever,
+    channels: channel.Params,
+  ): Promise<WriteAdapter> {
+    const adapter = new WriteAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async adaptObjectKeys<V>(data: Record<KeyOrName, V>): Promise<Record<Key, V>> {
-    const out: Record<Key, V> = {};
+  async adaptObjectKeys<V>(
+    data: Record<channel.KeyOrName, V>,
+  ): Promise<Record<channel.Key, V>> {
+    const out: Record<channel.Key, V> = {};
     for (const [k, v] of Object.entries(data)) out[await this.adaptToKey(k)] = v;
     return out;
   }
 
-  async update(channels: Params): Promise<void> {
-    const results = await retrieveRequired(this.retriever, channels);
-    this.adapter = new Map<Name, Key>(results.map((c) => [c.name, c.key]));
+  async update(channels: channel.Params): Promise<void> {
+    const results = await channel.retrieveRequired(this.retriever, channels);
+    this.adapter = new Map<channel.Name, channel.Key>(
+      results.map((c) => [c.name, c.key]),
+    );
     this.keys = results.map((c) => c.key);
   }
 
-  private async fetchChannel(ch: Key | Name): Promise<Payload> {
+  private async fetchChannel(ch: channel.Key | channel.Name): Promise<channel.Payload> {
     const res = await this.retriever.retrieve(ch);
     if (res.length === 0) throw new Error(`Channel ${ch} not found`);
     return res[0];
   }
 
-  private async adaptToKey(k: KeyOrName): Promise<Key> {
+  private async adaptToKey(k: channel.KeyOrName): Promise<channel.Key> {
     if (typeof k === "number") return k;
     const res = await this.fetchChannel(k);
     return res.key;
   }
 
   async adapt(
-    columnsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

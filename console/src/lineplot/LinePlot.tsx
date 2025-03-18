@@ -27,7 +27,6 @@ import {
 import {
   box,
   DataType,
-  deep,
   getEntries,
   location,
   primitiveIsZero,
@@ -38,9 +37,8 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -52,6 +50,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
+import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import {
   select,
   useSelect,
@@ -86,6 +85,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
+import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -116,10 +116,10 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
@@ -128,7 +128,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -313,7 +313,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
-    const place = Layout.usePlacer();
+    const placeLayout = Layout.usePlacer();
 
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
@@ -338,20 +338,18 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           );
           break;
         case "range":
-          place(
-            Range.createLayout({
-              initial: {
-                timeRange: {
-                  start: Number(timeRange.start.valueOf()),
-                  end: Number(timeRange.end.valueOf()),
-                },
+          placeLayout(
+            Range.createCreateLayout({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
               },
             }),
           );
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data`, handleException });
+          download({ timeRange, lines, client, name: `${name}-data`, handleError });
           break;
       }
     };
@@ -423,10 +421,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                 switch (itemKey) {
                   case "download":
                     if (client == null) return;
-                    download({ client, lines, timeRange, name, handleException });
+                    download({ client, lines, timeRange, name, handleError });
                     break;
                   case "metadata":
-                    place({ ...Range.overviewLayout, name, key });
+                    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
@@ -440,7 +438,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
                     Download as CSV
                   </PMenu.Item>
-                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
                     Open in New Plot
                   </PMenu.Item>
                   <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
@@ -503,22 +501,7 @@ const buildLines = (
     ),
   );
 
-export type LayoutType = "lineplot";
-export const LAYOUT_TYPE = "lineplot";
-
-export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
-  };
-
-export const LinePlot: Layout.Renderer = ({
-  layoutKey,
-  ...props
-}): ReactElement | null => {
+export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const linePlot = useLoadRemote({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
@@ -531,12 +514,12 @@ export const LinePlot: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (linePlot == null) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Layout.Selectable = {
+export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
-  icon: <Icon.Visualize />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  icon: <Icon.LinePlot />,
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

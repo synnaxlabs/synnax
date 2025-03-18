@@ -21,8 +21,8 @@ import { state } from "@/state";
 
 /**
  * A ref that satisfies the interface of useState, but returns a ref as the first
- * element of the tuple. This is useful when you want to keep a piece of state
- * but don't want it's changes to trigger a re-render.
+ * element of the tuple. This is useful when you want to keep a piece of state but don't
+ * want its changes to trigger a re-render.
  *
  * @param initialValue - The initial value of the ref.
  * @returns a tuple containing the ref and the pseudo-setState function.
@@ -49,6 +49,16 @@ export const useSyncedRef = <T>(value: T): RefObject<T> => {
   const ref = useRef<T>(value);
   ref.current = value;
   return ref;
+};
+
+export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
+  const initializedRef = useRef<boolean>(false);
+  const ref = useRef<T | null>(null);
+  if (!initializedRef.current) {
+    ref.current = initializer();
+    initializedRef.current = true;
+  }
+  return ref as RefObject<T>;
 };
 
 /**

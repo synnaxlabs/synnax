@@ -7,101 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, type Synnax, task } from "@synnaxlabs/client";
+import { ontology, ranger, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Group } from "@/group";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
-import { type Layout } from "@/layout";
+import { type LayoutArgs } from "@/hardware/common/task/Task";
+import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
-
-const ZERO_LAYOUT_STATES: Record<
-  string,
-  (args: LayoutArgs) => Layout.State<LayoutArgs>
-> = {
-  [LabJack.Task.READ_TYPE]: (args) =>
-    LabJack.Task.createReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.READ_TYPE },
-    }),
-  [LabJack.Task.WRITE_TYPE]: (args) =>
-    LabJack.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.WRITE_TYPE },
-    }),
-  [OPC.Task.READ_TYPE]: (args) =>
-    OPC.Task.configureReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.READ_TYPE },
-    }),
-  [OPC.Task.WRITE_TYPE]: (args) =>
-    OPC.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.WRITE_TYPE },
-    }),
-  [NI.Task.ANALOG_READ_TYPE]: (args) =>
-    NI.Task.createAnalogReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.ANALOG_READ_TYPE },
-    }),
-  [NI.Task.DIGITAL_WRITE_TYPE]: (args) =>
-    NI.Task.createDigitalWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_WRITE_TYPE },
-    }),
-  [NI.Task.DIGITAL_READ_TYPE]: (args) =>
-    NI.Task.createDigitalReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_READ_TYPE },
-    }),
-};
-
-export const createLayout = (task: task.Task): Layout.State => {
-  const configureLayout = ZERO_LAYOUT_STATES[task.type];
-  if (configureLayout == null) throw new Error(`No layout configured for ${task.type}`);
-  return configureLayout({ create: false, initialValues: task.payload });
-};
-
-export const retrieveAndPlaceLayout = async (
-  client: Synnax,
-  key: task.TaskKey,
-  placeLayout: Layout.Placer,
-) => {
-  const t = await client.hardware.tasks.retrieve(key);
-  const layout = createLayout(t);
-  placeLayout(layout);
-};
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
-  handleException,
+  handleError,
 }) => {
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  void (async () => {
-    try {
-      await retrieveAndPlaceLayout(client, key, placeLayout);
-    } catch (e) {
-      handleException(e, `Could not open ${name}`);
-    }
-  })();
+  handleError(
+    async () => await retrieveAndPlaceLayout(client, key, placeLayout),
+    `Could not open ${name}`,
+  );
 };
 
-const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Task" });
+const useDelete = () => {
+  const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
@@ -123,17 +61,17 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
       removeLayout(...resources.map(({ id }) => id.key));
     },
-    onError: (e: Error, { handleException, selection: { resources } }) => {
+    onError: (e: Error, { handleError, selection: { resources } }) => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };
 
-const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+const useRangeSnapshot = () =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ store, client, selection: { resources, parent } }) => {
       const activeRange = Range.selectActiveKey(store.getState());
@@ -151,15 +89,14 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         ...otgIDs,
       );
     },
-    onError: (e: Error, { handleException }) =>
-      handleException(e, "Failed to create snapshot"),
+    onError: (e: Error, { handleError }) => handleError(e, "Failed to create snapshot"),
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleException } = props;
+  const { store, selection, client, addStatus, handleError } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
@@ -172,7 +109,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         client,
         addStatus,
         store,
-        handleException,
+        handleError,
         removeLayout: props.removeLayout,
         services: props.services,
       }),
@@ -186,8 +123,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.GroupMenuItem selection={selection} />
-      {hasNoSnapshots && (
+      <Group.MenuItem selection={selection} />
+      {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />
           <PMenu.Divider />
@@ -213,9 +150,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
+  execute: async ({ client, id, name, store }) => {
     const task = await client.hardware.tasks.retrieve(id.key);
     await client.hardware.tasks.create({ ...task, name });
+    const layout = Layout.selectByFilter(
+      store.getState(),
+      (l) => (l.args as LayoutArgs)?.taskKey === id.key,
+    );
+    if (layout == null) return;
+    store.dispatch(Layout.rename({ key: layout.key, name }));
   },
 };
 
@@ -225,7 +168,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   nodeKey,
   location,
-  handleException,
+  handleError,
 }) => {
   client.hardware.tasks
     .retrieve(id.key)
@@ -233,23 +176,18 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       const layout = createLayout(task);
       placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
     })
-    .catch(handleException);
+    .catch(handleError);
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: task.ONTOLOGY_TYPE,
-  hasChildren: false,
   icon: <Icon.Task />,
-  canDrop: () => false,
+  hasChildren: false,
   onSelect: handleSelect,
-  onMosaicDrop: handleMosaicDrop,
-  TreeContextMenu,
-  haulItems: (r) => [
-    {
-      type: Mosaic.HAUL_CREATE_TYPE,
-      key: r.id.toString(),
-    },
-  ],
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
+  onMosaicDrop: handleMosaicDrop,
+  TreeContextMenu,
 };

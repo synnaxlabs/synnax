@@ -186,11 +186,25 @@ func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.Hardwar
 }
 
 func translateTaskForward(m *api.Task) *gapi.Task {
-	return &gapi.Task{Key: uint64(m.Key), Name: m.Name, Type: m.Type, Config: m.Config, Internal: m.Internal}
+	return &gapi.Task{
+		Key:      uint64(m.Key),
+		Name:     m.Name,
+		Type:     m.Type,
+		Config:   m.Config,
+		Internal: m.Internal,
+		Snapshot: m.Snapshot,
+	}
 }
 
 func translateTaskBackward(m *gapi.Task) *api.Task {
-	return &api.Task{Key: task.Key(m.Key), Name: m.Name, Type: m.Type, Config: m.Config, Internal: m.Internal}
+	return &api.Task{
+		Key:      task.Key(m.Key),
+		Name:     m.Name,
+		Type:     m.Type,
+		Config:   m.Config,
+		Internal: m.Internal,
+		Snapshot: m.Snapshot,
+	}
 }
 
 func translateTasksForward(ms []api.Task) []*gapi.Task {

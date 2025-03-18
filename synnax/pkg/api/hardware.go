@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	access "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -77,11 +79,13 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type (
 	HardwareRetrieveRackRequest struct {
-		Keys   []rack.Key `json:"keys" msgpack:"keys"`
-		Names  []string   `json:"names" msgpack:"names"`
-		Search string     `json:"search" msgpack:"search"`
-		Limit  int        `json:"limit" msgpack:"limit"`
-		Offset int        `json:"offset" msgpack:"offset"`
+		Keys       []rack.Key `json:"keys" msgpack:"keys"`
+		Names      []string   `json:"names" msgpack:"names"`
+		Search     string     `json:"search" msgpack:"search"`
+		Embedded   bool       `json:"embedded" msgpack:"embedded"`
+		HostIsNode bool       `json:"host_is_node" msgpack:"host_is_node"`
+		Limit      int        `json:"limit" msgpack:"limit"`
+		Offset     int        `json:"offset" msgpack:"offset"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -113,6 +117,12 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
+	if req.Embedded {
+		q = q.WhereEmbedded(req.Embedded)
+	}
+	if req.HostIsNode {
+		q = q.WhereNodeIsHost()
+	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
 	}
@@ -131,7 +141,17 @@ type HardwareDeleteRackRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRackRequest) (res types.Nil, _ error) {
+func embeddedGuard(r Rack) error {
+	if !r.Embedded {
+		return nil
+	}
+	return errors.Wrapf(validate.Error, "cannot delete embedded rack")
+}
+
+func (svc *HardwareService) DeleteRack(
+	ctx context.Context,
+	req HardwareDeleteRackRequest,
+) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
@@ -140,9 +160,23 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 		return res, err
 	}
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+		exists, err := svc.internal.Device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.Wrapf(validate.Error, "cannot delete rack when devices are still attached")
+		}
+		exists, err = svc.internal.Task.NewRetrieve().WhereInternal(false, gorp.Required()).WhereRacks(req.Keys...).Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.Wrapf(validate.Error, "cannot delete rack when tasks are still attached")
+		}
 		w := svc.internal.Rack.NewWriter(tx)
 		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k); err != nil {
+			if err = w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
 				return err
 			}
 		}
@@ -196,7 +230,10 @@ type (
 	}
 )
 
-func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrieveTaskRequest) (res HardwareRetrieveTaskResponse, _ error) {
+func (svc *HardwareService) RetrieveTask(
+	ctx context.Context,
+	req HardwareRetrieveTaskRequest,
+) (res HardwareRetrieveTaskResponse, _ error) {
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
@@ -224,8 +261,8 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Rack.IsValid() && len(req.Names) == 0 {
-		q = q.WhereRack(req.Rack)
+	if !req.Rack.IsZero() {
+		q = q.WhereRacks(req.Rack)
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
 	if err != nil {
@@ -253,7 +290,10 @@ type HardwareDeleteTaskRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
+func (svc *HardwareService) DeleteTask(
+	ctx context.Context,
+	req HardwareDeleteTaskRequest,
+) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,

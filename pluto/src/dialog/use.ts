@@ -9,62 +9,85 @@
 
 import {
   createContext,
+  use as reactUse,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
 /** Props for the {@link use} hook. */
 export interface UseProps {
+  /**
+   * Whether the dialog should be visible on mount.
+   */
   initialVisible?: boolean;
-  onVisibleChange?: (vis: boolean) => void;
+  /**
+   * A callback invoked whenever the dialog's visibility changes.
+   *
+   * @param visible - The new visibility state.
+   */
+  onVisibleChange?: (visible: boolean) => void;
 }
 
 /** Return type for the {@link use} hook. */
 export interface UseReturn {
-  visible: boolean;
+  /**
+   * Function to close the dialog.
+   */
   close: () => void;
+  /**
+   * Function to open the dialog.
+   */
   open: () => void;
-  toggle: (vis?: boolean | unknown) => void;
+  /**
+   * Function to toggle the dialog.
+   */
+  toggle: () => void;
+  /**
+   * Whether the dialog is currently visible.
+   */
+  visible: boolean;
 }
 
-interface ContextValue extends Pick<UseReturn, "close"> {}
+export interface ContextValue extends Pick<UseReturn, "close"> {}
 
-export const Context = createContext<ContextValue>({
+const Context = createContext<ContextValue>({
   close: () => {
     console.error("Dialog context not provided.");
   },
 });
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const Provider = Context;
+
+export const useContext = (): ContextValue => reactUse(Context);
 
 /**
- * Implements basic dropdown behavior, and should be preferred when using
- * the {@link Dialog} component. Opens the dropdown whenever the 'open' function is
- * called, and closes it whenever the 'close' function is called OR the user clicks
- * outside of the dropdown parent wrapped,which includes the dropdown trigger (often
- * a button or input).
+ * Implements basic dialog behavior. Opens the dialog whenever the 'open' function is
+ * called, closes it whenever the 'close' function is called, and toggles it whenever
+ * the 'toggle' function is called.
  *
- * @param initialVisible - Whether the dropdown should be visible on mount.
- * @returns visible - Whether the dropdown is visible.
- * @returns close - A function to close the dropdown.
- * @returns open - A function to open the dropdown.
- * @returns toggle - A function to toggle the dropdown.
+ * @param initialVisible - Whether the dialog should be visible on mount.
+ * @param onVisibleChange - A function to call whenever the visibility of the dialog
+ * changes.
+ * @returns close - A function to close the dialog.
+ * @returns open - A function to open the dialog.
+ * @returns toggle - A function to toggle the dialog.
+ * @returns visible - Whether the dialog is visible.
  */
-export const use = (props?: UseProps): UseReturn => {
-  const { initialVisible = false, onVisibleChange } = props ?? {};
+export const use = ({
+  initialVisible = false,
+  onVisibleChange,
+}: UseProps = {}): UseReturn => {
   const [visible, setVisible] = useState(initialVisible);
-  useEffect(() => onVisibleChange?.(visible), [visible, onVisibleChange]);
-  const toggle = useCallback(
-    (vis?: boolean | unknown) =>
-      setVisible((v) => {
-        if (typeof vis === "boolean") return vis;
-        return !v;
-      }),
-    [setVisible, onVisibleChange],
-  );
-  const open = useCallback(() => toggle(true), [toggle]);
-  const close = useCallback(() => toggle(false), [toggle]);
-  return { visible, open, close, toggle };
+  const onVisibleChangeRef = useRef(onVisibleChange);
+  useEffect(() => {
+    onVisibleChangeRef.current = onVisibleChange;
+  }, [onVisibleChange]);
+  useEffect(() => onVisibleChangeRef.current?.(visible), [visible]);
+  const close = useCallback(() => setVisible(false), []);
+  const open = useCallback(() => setVisible(true), []);
+  const toggle = useCallback(() => setVisible((prevVisible) => !prevVisible), []);
+  return useMemo(() => ({ close, open, toggle, visible }), [visible]);
 };

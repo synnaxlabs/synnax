@@ -19,18 +19,11 @@ export interface NoteProps extends Align.SpaceProps<"div"> {
   variant: Status.Variant;
 }
 
-export const Note = ({
-  variant,
-  className,
-  children,
-  ...props
-}: NoteProps): ReactElement => (
+export const Note = ({ variant, className, ...rest }: NoteProps): ReactElement => (
   <Align.Space
     className={CSS(className, CSS.B("note"), CSS.M(variant))}
     align="stretch"
     empty
-    {...props}
-  >
-    {children}
-  </Align.Space>
+    {...rest}
+  />
 );

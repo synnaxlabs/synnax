@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
 import { useMemoCompare } from "@/memo";
+import { Text } from "@/text";
 
 export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends PropsWithChildren<unknown> {
@@ -50,9 +51,15 @@ export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     },
     [omit, data] as [K[] | undefined, E[] | undefined],
   );
+  const newEmptyContent =
+    typeof emptyContent === "string" ? (
+      <Text.Text level="p">{emptyContent}</Text.Text>
+    ) : (
+      emptyContent
+    );
   return (
     <InfiniteProvider>
-      <DataProvider<K, E> data={omittedData} emptyContent={emptyContent}>
+      <DataProvider<K, E> data={omittedData} emptyContent={newEmptyContent}>
         {children}
       </DataProvider>
     </InfiniteProvider>

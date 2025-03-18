@@ -9,12 +9,15 @@
 
 #pragma once
 
-#include "driver/config/config.h"
+#include "x/cpp/xjson/xjson.h"
 #include "driver/task/task.h"
-#include "include/open62541/types.h"
+#include "open62541/types.h"
 
 namespace opc {
 const std::string INTEGRATION_NAME = "opc";
+const std::string SCAN_TASK_TYPE = "opc_scan";
+const std::string WRITE_TASK_TYPE = "opc_write";
+const std::string READ_TASK_TYPE = "opc_read";
 
 class Factory final : public task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(

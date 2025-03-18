@@ -28,20 +28,24 @@ import (
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
+		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db      *cesium.DB
-				fs      xfs.FS
-				cleanUp func() error
+				db         *cesium.DB
+				fs         xfs.FS
+				cleanUp    func() error
+				controlKey cesium.ChannelKey = 5
 			)
 			BeforeAll(func() {
 				fs, cleanUp = makeFS()
 				db = openDBOnFS(fs)
+				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
+
 			Describe("Happy Path", func() {
 				It("Should subscribe to written frames for the given channels", func() {
 					var basic1 cesium.ChannelKey = 1
@@ -78,6 +82,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
+
 			Describe("Writer is in WriterPersistOnly mode", func() {
 				It("Should not receive any frames", func() {
 					var basic2 cesium.ChannelKey = 3
@@ -111,6 +116,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
+
 			Describe("Virtual Channels", func() {
 				It("Should subscribe to written frames for virtual channels", func() {
 					var basic2 cesium.ChannelKey = 4
@@ -147,13 +153,12 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
+
 			Describe("Control Updates", func() {
 				It("Should forward control updates to the streamer", func() {
 					var (
-						controlKey cesium.ChannelKey = 5
-						basic3     cesium.ChannelKey = 6
+						basic3 cesium.ChannelKey = 6
 					)
-					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
@@ -188,6 +193,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(sCtx.Wait()).To(Succeed())
 				})
 			})
+
 			Describe("Closed", func() {
 				It("Should not allow opening a streamer on a closed db", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))

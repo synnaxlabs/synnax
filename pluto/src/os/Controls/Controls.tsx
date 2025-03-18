@@ -24,10 +24,10 @@ export interface ControlsProps extends InternalControlsProps {
 export const Controls = ({
   forceOS,
   visibleIfOS,
-  ...props
+  ...rest
 }: ControlsProps): ReactElement | null => {
   const os = use({ force: forceOS, default: DEFAULT_OS });
   if (visibleIfOS != null && visibleIfOS !== os) return null;
   const C = os === "macOS" ? MacOS : Windows;
-  return <C {...props} />;
+  return <C {...rest} />;
 };

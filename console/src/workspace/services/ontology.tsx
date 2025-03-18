@@ -16,12 +16,14 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
@@ -66,10 +68,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         store.dispatch(Layout.clearWorkspace());
       }
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete workspace");
+      handleError(e, "Failed to delete workspace");
     },
   }).mutate;
 };
@@ -83,7 +85,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
     if (activeWS === key) return;
     let ws = select(store.getState(), key);
     if (ws == null) {
-      if (client == null) throw new Error("Cannot reach cluster");
+      if (client == null) throw NULL_CLIENT_ERROR;
       ws = await client.workspaces.retrieve(key);
     }
     dispatch(add(ws));
@@ -129,9 +131,9 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create schematic");
+      handleError(e, "Failed to create schematic");
     },
   }).mutate;
 };
@@ -164,9 +166,9 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create line plot");
+      handleError(e, "Failed to create line plot");
     },
   }).mutate;
 };
@@ -197,9 +199,9 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create log");
+      handleError(e, "Failed to create log");
     },
   }).mutate;
 };
@@ -230,9 +232,9 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, "Failed to create table");
+      handleError(e, "Failed to create table");
     },
   }).mutate;
 };
@@ -250,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importPlot = LinePlotServices.useImport(selection.resources[0].id.key);
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
   const handleSelect = {
     delete: () => handleDelete(props),
@@ -277,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Divider />
       {singleResource && (
         <>
@@ -327,15 +329,30 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
-const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
-  const workspace = await client.workspaces.retrieve(selection[0].id.key);
-  store.dispatch(add(workspace));
-  store.dispatch(
-    Layout.setWorkspace({
-      slice: workspace.layout as Layout.SliceState,
-      keepNav: false,
-    }),
-  );
+const handleSelect: Ontology.HandleSelect = ({
+  selection,
+  client,
+  store,
+  handleError,
+}) => {
+  client.workspaces
+    .retrieve(selection[0].id.key)
+    .then((workspace) => {
+      store.dispatch(add(workspace));
+      store.dispatch(
+        Layout.setWorkspace({
+          slice: workspace.layout as Layout.SliceState,
+          keepNav: false,
+        }),
+      );
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "workspace",
+      );
+      handleError(e, `Failed to select ${names}`);
+    });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -346,13 +363,11 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: clientWorkspace.ONTOLOGY_TYPE,
   icon: <Icon.Workspace />,
-  hasChildren: true,
-  canDrop: () => false,
-  TreeContextMenu,
   onSelect: handleSelect,
-  haulItems: () => [],
   allowRename: () => true,
   onRename: handleRename,
+  TreeContextMenu,
 };

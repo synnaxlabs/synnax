@@ -17,7 +17,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter/falamos"
@@ -73,7 +73,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 		o.T.Transfer(ctx, context.Background()),
 		signal.WithInstrumentation(o.Instrumentation),
 	)
-	transportShutdown := signal.NewShutdown(sCtx, cancel)
+	transportShutdown := signal.NewHardShutdown(sCtx, cancel)
 	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}

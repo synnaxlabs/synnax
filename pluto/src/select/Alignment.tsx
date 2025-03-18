@@ -49,9 +49,9 @@ const defaultSelectTextAlignmentButton = ({
 
 export const TextAlignment = ({
   children = defaultSelectTextAlignmentButton,
-  ...props
+  ...rest
 }: AlignmentProps): ReactElement => (
-  <Button {...props} allowMultiple={false} data={DATA}>
+  <Button {...rest} allowMultiple={false} data={DATA}>
     {children}
   </Button>
 );

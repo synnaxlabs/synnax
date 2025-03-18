@@ -30,7 +30,7 @@ export interface UseEvent {
 }
 
 export interface UseProps extends MatchOptions {
-  triggers?: Trigger[];
+  triggers?: Trigger | Trigger[];
   region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
   regionMustBeElement?: boolean;
@@ -45,14 +45,18 @@ export const use = ({
   regionMustBeElement,
 }: UseProps): void => {
   const { listen } = useContext();
-  const memoTriggers = useMemoCompare(
-    () => triggers,
+  let baseTriggers: Trigger[];
+  if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
+    baseTriggers = [triggers as Trigger];
+  else baseTriggers = triggers as Trigger[];
+  const memoTriggers = useMemoCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
+    () => baseTriggers,
     ([a], [b]) => {
       if (a == null && b == null) return true;
       if (a == null || b == null) return false;
       return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
     },
-    [triggers],
+    [baseTriggers],
   );
 
   useEffect(() => {

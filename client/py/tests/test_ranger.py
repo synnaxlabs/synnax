@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import numpy as np
-import pytest
 import time
 from uuid import uuid4
 
+import numpy as np
+import pytest
+
 import synnax as sy
+from synnax.util.params import RequiresNamedParams
 
 
 @pytest.mark.ranger
@@ -60,6 +62,11 @@ class TestRangeClient:
         """Should retrieve a range by name"""
         rng = client.ranges.retrieve(name=two_ranges[0].name)
         assert rng.name == two_ranges[0].name
+
+    def test_retrieve_unnamed_parameter(self, client: sy.Synnax):
+        """Should raise an error when unnamed parameters are passed in"""
+        with pytest.raises(RequiresNamedParams):
+            client.ranges.retrieve("cat")
 
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax

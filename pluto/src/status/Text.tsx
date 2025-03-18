@@ -12,55 +12,50 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { type Icon as PIcon } from "@/icon";
 import { type Variant } from "@/status/aether/types";
 import { variantColors } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
-export interface TextDigest {
-  variant: Variant;
-}
-
-export interface TextProps
-  extends Omit<BaseText.WithIconProps, "level" | "wrap">,
-    Omit<TextDigest, "children"> {
+export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"> {
   level?: BaseText.Level;
   hideIcon?: boolean;
   noColor?: boolean;
+  variant: Variant;
 }
 
-const CoreText = ({
+const Core = ({
   variant = "info",
   level = "p",
   hideIcon = false,
   className,
-  ...props
+  ...rest
 }: TextProps): ReactElement => {
-  const icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  let icon: PIcon.Element | undefined;
+  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   return (
     <BaseText.WithIcon
       color={variantColors[variant]}
       className={CSS(className, CSS.B("status-text"))}
       level={level}
-      startIcon={!hideIcon && icon}
-      {...props}
+      startIcon={icon}
+      {...rest}
     />
   );
 };
 
 export interface TextCenteredProps extends TextProps {}
 
-const TextCentered = ({ style, ...props }: TextCenteredProps): ReactElement => (
+const Centered = ({ style, ...rest }: TextCenteredProps): ReactElement => (
   <Align.Center style={style} grow>
-    <CoreText {...props} />
+    <Core {...rest} />
   </Align.Center>
 );
 
-type CoreTextType = typeof CoreText;
+type CoreTextType = typeof Core;
 
 export interface TextType extends CoreTextType {
-  Centered: typeof TextCentered;
+  Centered: typeof Centered;
 }
 
-export const Text = CoreText as TextType;
-
-Text.Centered = TextCentered;
+export const Text: TextType = Object.assign(Core, { Centered });

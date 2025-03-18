@@ -14,7 +14,7 @@ import { type FunctionComponent, type ReactElement } from "react";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useMenuContext } from "@/menu/Menu";
+import { useContext } from "@/menu/Menu";
 import { Text as TriggersText } from "@/triggers/Text";
 import { type Trigger } from "@/triggers/triggers";
 
@@ -28,7 +28,7 @@ export interface ItemProps extends Button.ButtonProps, MenuItemExtraProps {}
 export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useMenuContext();
+  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -66,7 +66,7 @@ export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
 export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, iconSpacing } = useMenuContext();
+  const { onClick: ctxOnClick, selected, iconSpacing } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -91,7 +91,7 @@ export interface ItemLinkProps extends Button.LinkProps, MenuItemExtraProps {}
 export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useMenuContext();
+  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);

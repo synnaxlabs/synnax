@@ -15,6 +15,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type FileIngestor } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
@@ -22,7 +23,7 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export interface ImportArgs {
-  handleException: Status.ExceptionHandler;
+  handleError: Status.ErrorHandler;
   client: Synnax | null;
   placeLayout: Layout.Placer;
   store: Store;
@@ -41,7 +42,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
 export const createImporter: ImporterCreator =
   (ingest, type = "visualization") =>
-  async ({ store, client, placeLayout, handleException, workspaceKey }) => {
+  async ({ store, client, placeLayout, handleError, workspaceKey }) => {
     const paths = await open({
       title: `Import ${type}`,
       filters: FILTERS,
@@ -54,7 +55,7 @@ export const createImporter: ImporterCreator =
     if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
       let ws = Workspace.select(storeState, workspaceKey);
       if (ws == null) {
-        if (client == null) throw new Error("Cannot reach cluster");
+        if (client == null) throw NULL_CLIENT_ERROR;
         ws = await client.workspaces.retrieve(workspaceKey);
       }
       store.dispatch(Workspace.add(ws));
@@ -71,7 +72,7 @@ export const createImporter: ImporterCreator =
           name = trimFileName(name);
           ingest(data, { layout: { name }, placeLayout, store });
         } catch (e) {
-          handleException(e, `Failed to import ${type} at ${path}`);
+          handleError(e, `Failed to import ${type} at ${path}`);
         }
       }),
     );
@@ -84,6 +85,6 @@ export const use = (
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
   const client = PSynnax.use();
-  const handleException = Status.useExceptionHandler();
-  return () => import_({ store, placeLayout, client, handleException, workspaceKey });
+  const handleError = Status.useErrorHandler();
+  return () => import_({ store, placeLayout, client, handleError, workspaceKey });
 };

@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import numpy as np
-import synnax as sy
 import argparse
+
+import numpy as np
+
+import synnax as sy
 
 parser = argparse.ArgumentParser(
     description="Write data to Synnax channels at a specified rate."
@@ -160,5 +162,6 @@ with client.open_writer(
             data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
         # Write the data
-        writer.write(data_to_write)
+        if not writer.write(data_to_write):
+            break
         i += 1

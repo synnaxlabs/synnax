@@ -31,7 +31,7 @@ export const Divider = ({
   direction = "y",
   className,
   padded = false,
-  ...props
+  ...rest
 }: DividerProps): ReactElement => {
   if (padded === true) padded = "center";
   return (
@@ -43,7 +43,7 @@ export const Divider = ({
         typeof padded === "string" && CSS.loc(padded),
         className,
       )}
-      {...props}
+      {...rest}
     />
   );
 };

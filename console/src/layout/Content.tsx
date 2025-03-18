@@ -10,8 +10,8 @@
 import { memo, type ReactElement } from "react";
 
 import { useOptionalRenderer } from "@/layout/context";
-import { useRemover } from "@/layout/hooks";
 import { useSelectFocused, useSelectType } from "@/layout/selectors";
+import { useRemover } from "@/layout/useRemover";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {
@@ -27,7 +27,7 @@ export interface ContentProps {
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
 export const Content = memo(
-  ({ layoutKey, forceHidden }: ContentProps): ReactElement | null => {
+  ({ layoutKey, forceHidden }: ContentProps): ReactElement => {
     const type = useSelectType(layoutKey) ?? "";
     const handleClose = useRemover(layoutKey);
     const Renderer = useOptionalRenderer(type);

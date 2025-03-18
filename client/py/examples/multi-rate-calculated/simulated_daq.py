@@ -14,9 +14,11 @@ conjunction with the `interpolation.py` example or the `simple_average.py` examp
 demonstrate how to calculate derived values from these channels with different rates.
 """
 
-import numpy as np
-import synnax as sy
 import time
+
+import numpy as np
+
+import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -87,5 +89,6 @@ with client.open_writer(
             data_to_write[time_ch_2.key] = [time, time_2]
             data_to_write[data_ch_2.key] = [np.sin(i / 100), np.sin((i + 1) / 100)]
 
-        writer.write(data_to_write)
+        if not writer.write(data_to_write):
+            break
         i += 1

@@ -22,39 +22,39 @@ interface PathProps extends Omit<BaseEdgeProps, "path" | "color" | "points"> {
   color?: Color.Crude;
 }
 
-const Pipe = ({ points, color, ...props }: PathProps): ReactElement => (
+const Pipe = ({ points, color, ...rest }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
       stroke: Color.cssString(color),
     }}
-    {...props}
+    {...rest}
   />
 );
 
-const ElectricSignalPipe = ({ points, color, ...props }: PathProps): ReactElement => (
+const ElectricSignalPipe = ({ points, color, ...rest }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
       stroke: Color.cssString(color),
       strokeDasharray: "12,4",
     }}
-    {...props}
+    {...rest}
   />
 );
 
-const SecondaryPipe = ({ points, color, ...props }: PathProps): ReactElement => (
+const SecondaryPipe = ({ points, color, ...rest }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
       stroke: Color.cssString(color),
       strokeDasharray: "12,4,4",
     }}
-    {...props}
+    {...rest}
   />
 );
 
-const JackedPipe = ({ points, color, ...props }: PathProps): ReactElement => {
+const JackedPipe = ({ points, color, ...rest }: PathProps): ReactElement => {
   const miters = xy.calculateMiters(points, 6);
   const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
   const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
@@ -62,9 +62,9 @@ const JackedPipe = ({ points, color, ...props }: PathProps): ReactElement => {
   const opacity = 0.7;
   return (
     <>
-      <BaseEdge path={calcPath(abovePath)} style={{ stroke, opacity }} {...props} />
-      <BaseEdge path={calcPath(points)} style={{ stroke }} {...props} />
-      <BaseEdge path={calcPath(belowPath)} style={{ stroke, opacity }} {...props} />
+      <BaseEdge path={calcPath(abovePath)} style={{ stroke, opacity }} {...rest} />
+      <BaseEdge path={calcPath(points)} style={{ stroke }} {...rest} />
+      <BaseEdge path={calcPath(belowPath)} style={{ stroke, opacity }} {...rest} />
     </>
   );
 };
@@ -183,12 +183,12 @@ const DataLinkSymbol = ({ color, position }: SymbolProps): ReactElement => (
 );
 
 const createSymbolLine = (C: FC<SymbolProps>) => {
-  const O = ({ points, color, ...props }: PathProps): ReactElement => {
+  const O = ({ points, color, ...rest }: PathProps): ReactElement => {
     const path = calcPath(points);
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...props} style={{ stroke: Color.cssString(color) }} />
+        <BaseEdge path={path} {...rest} style={{ stroke: Color.cssString(color) }} />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={color} />
         ))}

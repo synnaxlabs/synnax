@@ -68,7 +68,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
         ]}
       />
       <List.Core<string, LineState> style={{ height: "calc(100% - 28px)" }}>
-        {(props) => <Line onChange={handleChange} {...props} />}
+        {(p) => <Line onChange={handleChange} {...p} />}
       </List.Core>
     </List.List>
   );

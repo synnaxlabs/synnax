@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it,test } from "vitest";
+import { NIL as ZERO_UUID } from "uuid";
+import { describe, expect, it, test } from "vitest";
 
 import { ValidationError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
-
-const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 
 describe("Schematic", () => {
   describe("create", () => {
@@ -73,7 +72,9 @@ describe("Schematic", () => {
         data: { one: 1 },
       });
       await client.workspaces.schematic.delete(schematic.key);
-      await expect(client.workspaces.schematic.retrieve(schematic.key)).rejects.toThrow();
+      await expect(
+        client.workspaces.schematic.retrieve(schematic.key),
+      ).rejects.toThrow();
     });
   });
   describe("copy", () => {
@@ -86,7 +87,11 @@ describe("Schematic", () => {
         name: "Schematic",
         data: { one: 1 },
       });
-      const schematic2 = await client.workspaces.schematic.copy(schematic.key, "Schematic2", false);
+      const schematic2 = await client.workspaces.schematic.copy(
+        schematic.key,
+        "Schematic2",
+        false,
+      );
       expect(schematic2.name).toEqual("Schematic2");
       expect(schematic2.key).not.toEqual(ZERO_UUID);
       expect(schematic2.data.one).toEqual(1);
@@ -101,7 +106,11 @@ describe("Schematic", () => {
           name: "Schematic",
           data: { one: 1 },
         });
-        const schematic2 = await client.workspaces.schematic.copy(schematic.key, "Schematic2", true);
+        const schematic2 = await client.workspaces.schematic.copy(
+          schematic.key,
+          "Schematic2",
+          true,
+        );
         await expect(
           client.workspaces.schematic.setData(schematic2.key, { two: 2 }),
         ).rejects.toThrow(ValidationError);

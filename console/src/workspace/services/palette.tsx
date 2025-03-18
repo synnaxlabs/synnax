@@ -18,7 +18,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "workspace-create",
   name: "Create Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_WINDOW_LAYOUT),
+  onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_LAYOUT),
 };
 
 const IMPORT_COMMAND: Palette.Command = {

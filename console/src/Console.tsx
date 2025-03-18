@@ -16,6 +16,7 @@ import {
   type Color,
   type Haul,
   Pluto,
+  preventDefault,
   type state,
   type Triggers,
 } from "@synnaxlabs/pluto";
@@ -25,18 +26,17 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Confirm } from "@/confirm";
+import { Code } from "@/code";
+import { Lua } from "@/code/lua";
 import { Docs } from "@/docs";
-import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { Task } from "@/hardware/task";
+import { Error } from "@/error";
+import { Hardware } from "@/hardware";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
@@ -51,25 +51,23 @@ import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Layouts.LAYOUTS,
-  ...Docs.LAYOUTS,
-  ...Workspace.LAYOUTS,
-  ...Schematic.LAYOUTS,
-  ...LinePlot.LAYOUTS,
-  ...LabJack.LAYOUTS,
-  ...OPC.LAYOUTS,
-  ...Range.LAYOUTS,
-  ...Cluster.LAYOUTS,
-  ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
-  ...Version.LAYOUTS,
-  ...Confirm.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...Docs.LAYOUTS,
+  ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,
-  ...User.LAYOUTS,
-  ...Permissions.LAYOUTS,
+  ...Layouts.LAYOUTS,
+  ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
-  ...Task.LAYOUTS,
+  ...Modals.LAYOUTS,
+  ...Permissions.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
+  ...User.LAYOUTS,
+  ...Version.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -89,7 +87,7 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOptions: { double: true },
 };
 
-const client = new QueryClient();
+const queryClient = new QueryClient();
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = Layout.useSelectHauling();
@@ -114,11 +112,11 @@ const useColorContextState: state.PureUse<Color.ContextState> = () => {
 const useBlockDefaultDropBehavior = (): void =>
   useEffect(() => {
     const doc = document.documentElement;
-    doc.addEventListener("dragover", (e) => e.preventDefault());
-    doc.addEventListener("drop", (e) => e.preventDefault());
+    doc.addEventListener("dragover", preventDefault);
+    doc.addEventListener("drop", preventDefault);
     return () => {
-      doc.removeEventListener("dragover", (e) => e.preventDefault());
-      doc.removeEventListener("drop", (e) => e.preventDefault());
+      doc.removeEventListener("dragover", preventDefault);
+      doc.removeEventListener("drop", preventDefault);
     };
   }, []);
 
@@ -128,7 +126,7 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <Pluto.Provider
         theming={theme}
         channelAlias={{
@@ -142,23 +140,22 @@ const MainUnderContext = (): ReactElement => {
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         color={{ useState: useColorContextState }}
-        alamos={{
-          level: "debug",
-          include: [],
-        }}
+        alamos={{ level: "debug", include: [] }}
       >
-        <Vis.Canvas>
-          <Layout.Window />
-        </Vis.Canvas>
+        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+          <Vis.Canvas>
+            <Layout.Window />
+          </Vis.Canvas>
+        </Code.Provider>
       </Pluto.Provider>
     </QueryClientProvider>
   );
 };
 
 export const Console = (): ReactElement => (
-  <ErrorOverlayWithoutStore>
+  <Error.OverlayWithoutStore>
     <Provider store={store}>
-      <ErrorOverlayWithStore>
+      <Error.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
@@ -166,7 +163,7 @@ export const Console = (): ReactElement => (
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
-      </ErrorOverlayWithStore>
+      </Error.OverlayWithStore>
     </Provider>
-  </ErrorOverlayWithoutStore>
+  </Error.OverlayWithoutStore>
 );

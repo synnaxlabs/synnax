@@ -20,6 +20,13 @@ import { type NotificationSpec } from "@/status/Aggregator";
 import { Circle } from "@/status/Circle";
 import { Text } from "@/text";
 
+interface ActionProps {
+  action: ReactElement | Button.ButtonProps;
+}
+
+const Action = ({ action }: ActionProps): ReactElement =>
+  isValidElement(action) ? action : <Button.Button {...action} key={action.key} />;
+
 export interface NotificationProps extends Align.SpaceProps {
   status: NotificationSpec;
   silence: (key: string) => void;
@@ -32,14 +39,14 @@ export const Notification = ({
   actions,
   className,
   children,
-  ...props
+  ...rest
 }: NotificationProps): ReactElement => (
   <Align.Space
     className={CSS(CSS.B("notification"), className)}
     direction="y"
     key={time.toString()}
     empty
-    {...props}
+    {...rest}
   >
     <Align.Space direction="x" justify="spaceBetween" grow style={{ width: "100%" }}>
       <Align.Space direction="x" align="center" size="small">
@@ -105,10 +112,3 @@ export const Notification = ({
     )}
   </Align.Space>
 );
-
-interface ActionProps {
-  action: ReactElement | Button.ButtonProps;
-}
-
-const Action = ({ action }: ActionProps): ReactElement =>
-  isValidElement(action) ? action : <Button.Button {...action} />;

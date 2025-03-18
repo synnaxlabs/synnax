@@ -11,35 +11,49 @@ import { type device } from "@synnaxlabs/client";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Breadcrumb } from "@/breadcrumb";
 import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
-const deviceColumns: Array<List.ColumnSpec<device.DeviceKey, device.Device>> = [
+const deviceColumns: Array<List.ColumnSpec<device.Key, device.Device>> = [
   { key: "name", name: "Name" },
-  { key: "location", name: "Location" },
+  {
+    key: "location",
+    name: "Location",
+    render: ({ entry }) => (
+      <Breadcrumb.Breadcrumb
+        level="small"
+        shade={7}
+        weight={500}
+        style={{ marginTop: "0.25rem" }}
+      >
+        {entry.location}
+      </Breadcrumb.Breadcrumb>
+    ),
+  },
 ];
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<device.DeviceKey, device.Device>, "columns"> {
+  extends Omit<Select.SingleProps<device.Key, device.Device>, "columns"> {
   searchOptions?: device.RetrieveOptions;
 }
 
 export const SelectSingle = ({
   searchOptions,
-  ...props
+  ...rest
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
-  let searcher: AsyncTermSearcher<string, device.DeviceKey, device.Device> | undefined =
+  let searcher: AsyncTermSearcher<string, device.Key, device.Device> | undefined =
     client?.hardware.devices;
   if (searchOptions != null && client != null)
     searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
   return (
-    <Select.Single<device.DeviceKey, device.Device>
+    <Select.Single<device.Key, device.Device>
       columns={deviceColumns}
       searcher={searcher}
-      entryRenderKey={"name"}
-      {...props}
+      entryRenderKey="name"
+      {...rest}
     />
   );
 };

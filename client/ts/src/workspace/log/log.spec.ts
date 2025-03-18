@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NIL as ZERO_UUID } from "uuid";
 import { describe, expect, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
 
-const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
-
 describe("Log", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Log",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
       const log = await client.workspaces.log.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -33,10 +29,7 @@ describe("Log", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Log",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
       const log = await client.workspaces.log.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -48,10 +41,7 @@ describe("Log", () => {
   });
   describe("setData", () => {
     test("set data", async () => {
-      const ws = await client.workspaces.create({
-        name: "Log",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
       const log = await client.workspaces.log.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -63,10 +53,7 @@ describe("Log", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Log",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
       const log = await client.workspaces.log.create(ws.key, {
         name: "Log",
         data: { one: 1 },

@@ -42,8 +42,8 @@ import {
   createContext,
   memo,
   type ReactElement,
+  use as reactUse,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
@@ -79,7 +79,7 @@ import {
 import { Edge as EdgeComponent } from "@/vis/diagram/edge";
 import { type connector } from "@/vis/diagram/edge/connector";
 import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
-import { type PathType } from "@/vis/diagram/external";
+import { type PathType } from "@/vis/diagram/edge/paths";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -197,7 +197,7 @@ const Context = createContext<ContextValue>({
   setFitViewOnResize: () => {},
 });
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = () => reactUse(Context);
 
 export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
@@ -216,7 +216,6 @@ const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
 const Core = ({
   aetherKey,
-  children,
   onNodesChange,
   onEdgesChange,
   nodes,
@@ -229,7 +228,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
-  ...props
+  ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
   const [{ path }, , setState] = Aether.use({
@@ -438,7 +437,7 @@ const Core = ({
   );
 
   return (
-    <Context.Provider value={ctxValue}>
+    <Context value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
           <ReactFlow<RFNode, RFEdge<RFEdgeData>>
@@ -470,16 +469,14 @@ const Core = ({
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
             deleteKeyCode={DELETE_KEY_CODES}
-            {...props}
-            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...props.style }}
+            {...rest}
+            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
             nodesDraggable={editable && !adjustable.held}
-          >
-            {children}
-          </ReactFlow>
+          />
         )}
       </Aether.Composite>
-    </Context.Provider>
+    </Context>
   );
 };
 
@@ -490,25 +487,21 @@ export const Background = (): ReactElement | null => {
 
 export interface ControlsProps extends Align.PackProps {}
 
-export const Controls = ({ children, ...props }: ControlsProps): ReactElement => (
+export const Controls = (props: ControlsProps): ReactElement => (
   <Align.Pack
     direction="y"
     borderShade={4}
     className={CSS.BE("diagram", "controls")}
     {...props}
-  >
-    {children}
-  </Align.Pack>
+  />
 );
 
-export type ToggleEditControlProps = Omit<
-  Button.ToggleIconProps,
-  "value" | "onChange" | "children"
->;
+export interface ToggleEditControlProps
+  extends Omit<Button.ToggleIconProps, "value" | "onChange" | "children"> {}
 
 export const ToggleEditControl = ({
   onClick,
-  ...props
+  ...rest
 }: ToggleEditControlProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
   return (
@@ -525,18 +518,19 @@ export const ToggleEditControl = ({
           <Text.Text level="small">Enable edit mode</Text.Text>
         )
       }
-      {...props}
+      {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
     </Button.ToggleIcon>
   );
 };
 
-export type FitViewControlProps = Omit<Button.IconProps, "children" | "onChange">;
+export interface FitViewControlProps
+  extends Omit<Button.IconProps, "children" | "onChange"> {}
 
 export const FitViewControl = ({
   onClick,
-  ...props
+  ...rest
 }: FitViewControlProps): ReactElement => {
   const { fitView } = useReactFlow();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
@@ -553,7 +547,7 @@ export const FitViewControl = ({
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
       variant="outlined"
-      {...props}
+      {...rest}
     >
       <Icon.Expand />
     </Button.ToggleIcon>

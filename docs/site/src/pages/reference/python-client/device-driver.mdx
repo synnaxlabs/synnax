@@ -34,7 +34,7 @@ We'll split this guide into four sections:
 We'll kick things off by downloading the Arduino IDE, starting a Synnax cluster, and
 installing the relevant Python packages to communicate with both the Arduino and Synnax.
 
-### <StepText step={"1.1"} level="h3">Downloading the Arduino IDE</StepText>
+### <StepText step="1.1" level="h3">Downloading the Arduino IDE</StepText>
 
 The best way to get started with the Arduino is to download and run the [Arduino
 IDE](https://www.arduino.cc/en/software).
@@ -54,7 +54,7 @@ After you open the Arduino IDE, you'll see a splash screen like this:
 This is where we'll add our Arduino code to communicate with Python, and, ultimately,
 Synnax.
 
-### <StepText step={"1.2"} level="h3">Installing Synnax</StepText>
+### <StepText step="1.2" level="h3">Installing Synnax</StepText>
 
 There are two components we need to install to get started with Synnax: the
 [cluster](/reference/cluster/quick-start) and the
@@ -63,7 +63,7 @@ that streams and permanently stores all of the data we collect from the Arduino.
 console is a graphical interface for interacting with the cluster. It can be used to
 both visualize incoming data and send commands to the Arduino.
 
-#### <StepText step={"1.2.1"} level="h4">The Cluster</StepText>
+#### <StepText step="1.2.1" level="h4">The Cluster</StepText>
 
 The easiest way to install the cluster is using [Docker](https://www.docker.com/get-started).
 To run the latest version, you can use the following command:
@@ -90,7 +90,7 @@ CONTAINER ID   IMAGE                      COMMAND                  CREATED      
 6f9dc7d9b2ad   synnaxlabs/synnax:latest   "/synnax/synnax star…"   About a minute ago   Up About a minute   0.0.0.0:9090->9090/tcp   synnax
 ```
 
-#### <StepText step={"1.2.2"} level="h4"> The Console</StepText>
+#### <StepText step="1.2.2" level="h4"> The Console</StepText>
 
 Now that we have the cluster running, it's time to download and run the [Synnax
 Console](https://docs.synnaxlabs.com/reference/console/get-started).
@@ -107,7 +107,7 @@ to "connected" once the console has successfully connected to the cluster.
 
 <Video client:only="react" id="console/clusters/switch" />
 
-### <StepText step={"1.2.3"} level="h4">Installing the Python Packages</StepText>
+### <StepText step="1.2.3" level="h4">Installing the Python Packages</StepText>
 
 There are two Python packages we need to install to get started with our custom driver:
 the Synnax Python client, and the `pyserial` package.
@@ -139,7 +139,7 @@ over serial. Our Python script will capture each incoming value and write it to 
 [channel](/reference/concepts/channels) in Synnax. This may sound complicated, but it's
 actually going to total around 50 lines of code.
 
-### <StepText step={"2.1"} level="h3">Arduino Code</StepText>
+### <StepText step="2.1" level="h3">Arduino Code</StepText>
 
 The first thing we need to do is get the Arduino prepped and ready to communicate over
 serial with our Python driver. Here's the code we'll write in the Arduino IDE:
@@ -167,7 +167,7 @@ This code will continuously read from the analog pin at 10Hz and send the value 
 serial. To start running the code, you can upload it to the Arduino by hitting the
 "upload" button in the top right corner of the Arduino IDE.
 
-### <StepText step={"2.2"} level="h3">Setting up the Serial Connection in Python</StepText>
+### <StepText step="2.2" level="h3">Setting up the Serial Connection in Python</StepText>
 
 In our `driver.py` script, we'll import the `serial` package and set up the serial
 connection to the Arduino. To do this, we'll need to know the port we're using to
@@ -197,7 +197,7 @@ python driver.py
 Serial connection established
 ```
 
-### <StepText step={"2.3"} level="h3">Reading from the Arduino</StepText>
+### <StepText step="2.3" level="h3">Reading from the Arduino</StepText>
 
 To read from the Arduino, we'll use the `ser.readline()` method, which will read a line
 from the serial port and return it as a string. We'll then convert the string to a float
@@ -225,7 +225,7 @@ while True:
 This loop will continuously read from the Arduino and print the value to the console. That's
 all we need to do for the Arduino, now it's time to integrate it with Synnax.
 
-### <StepText step={"2.4"} level="h3">Setting up the Synnax Client</StepText>
+### <StepText step="2.4" level="h3">Setting up the Synnax Client</StepText>
 
 The next step to tackle is setting up the Synnax client to communicate with the cluster.
 First, we'll add an import for the `synnax` package at the top of our file:
@@ -296,7 +296,7 @@ data_channel = client.channels.create(
 # ... rest of driver.py
 ```
 
-### <StepText step={"2.5"} level="h3">Modifying the Loop to Write to Synnax</StepText>
+### <StepText step="2.5" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 Now that we have our Synnax client and the relevant channels created, it's time to
 adjust our current loop to write to Synnax. The first thing we'll do is open a new writer
@@ -391,7 +391,7 @@ with client.open_writer(
 
 </Details>
 
-### <StepText step={"2.6"} level="h3">Visualizing the Data</StepText>
+### <StepText step="2.6" level="h3">Visualizing the Data</StepText>
 
 While the script is still running, we can switch back to the Synnax Console and set up
 a line plot to visualize the incoming data. To do this, we'll:
@@ -418,7 +418,7 @@ it to Synnax, we'll go the other way and receive commands from Synnax to control
 digital outputs on the Arduino. We'll create this new driver in a file called
 `driver_write.py`, although you're free to write over the previous file if you'd like.
 
-### <StepText step={"3.1"} level="h3">Arduino Code</StepText>
+### <StepText step="3.1" level="h3">Arduino Code</StepText>
 
 We'll need to make new arduino code to receive commands over serial instead of sending
 data. Here's the code we'll write:
@@ -460,7 +460,7 @@ void loop() {
 As with the previous driver, we'll need to upload this code to the Arduino and verify
 that it works.
 
-### <StepText step={"3.2"} level="h3">Setting up the Serial Connection in Python</StepText>
+### <StepText step="3.2" level="h3">Setting up the Serial Connection in Python</StepText>
 
 We'll follow a very similar process to the previous driver to set up the serial
 connection in Python. The only real difference is that we'll be reading from the serial
@@ -476,7 +476,7 @@ BAUD_RATE = 9600
 ser = serial.Serial(PORT, BAUD_RATE)
 ```
 
-### <StepText step={"3.3"} level="h3">Creating the Relevant Synnax Channels</StepText>
+### <StepText step="3.3" level="h3">Creating the Relevant Synnax Channels</StepText>
 
 In the previous driver, we created two channels: `arduino_time` and `arduino_value`. In
 this command scenario, we'll only need to create one new channel: `arduino_command`.
@@ -494,7 +494,7 @@ command_channel = client.channels.create(
 )
 ```
 
-### <StepText step={"3.4"} level="h3">Modifying the Loop to Write to Synnax</StepText>
+### <StepText step="3.4" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 Our run loop in this scenario will be the exact opposite of the previous driver. Instead
 of reading from the serial connection, we'll be reading from the `arduino_command` channel.
@@ -550,7 +550,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
 
 </Details>
 
-### <StepText step={"3.5"} level="h3">Controlling the Arduino from the Console</StepText>
+### <StepText step="3.5" level="h3">Controlling the Arduino from the Console</StepText>
 
 Now that we've uploaded the arduino code and started the Python script, we'll set up the
 console with a switch on a [schematic](/reference/console/schematics) to control the
@@ -598,7 +598,7 @@ In this section, we'll create a new driver that does three things:
 2. Sends the state of the digital output back to Synnax.
 3. Sends data from an analog input on the Arduino to Synnax.
 
-### <StepText step={"4.1"} level="h3">Arduino Code</StepText>
+### <StepText step="4.1" level="h3">Arduino Code</StepText>
 
 We'll modify our previous Arduino code to both read and write over serial.
 
@@ -638,7 +638,7 @@ void loop() {
 }
 ```
 
-### <StepText step={"4.2"} level="h3">Modifying our Python Code</StepText>
+### <StepText step="4.2" level="h3">Modifying our Python Code</StepText>
 
 To incorporate the new functionality, we'll need to modify our Python code to create
 four channels: `arduino_command`, `arduino_state`, `arduino_time`, and `arduino_value`.
@@ -691,7 +691,7 @@ arduino_value = client.channels.create(
 )
 ```
 
-### <StepText step={"4.3"} level="h3">Modifying the Loop to Write to Synnax</StepText>
+### <StepText step="4.3" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 We'll need to modify our loop to read and write from both Synnax and the serial
 connection. To kick things off, we'll open a streamer on the arduino command and a writer
@@ -796,7 +796,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
 
 </Details>
 
-### <StepText step={"4.4"} level="h3">Controlling the Arduino from the Console</StepText>
+### <StepText step="4.4" level="h3">Controlling the Arduino from the Console</StepText>
 
 As a final step, we'll set up the console with both a switch to control the digital
 output and a plot to visualize the analog input.

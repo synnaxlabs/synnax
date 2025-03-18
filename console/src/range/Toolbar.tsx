@@ -17,7 +17,7 @@ import {
   componentRenderProp,
   Header,
   Icon as PIcon,
-  List as Core,
+  List as CoreList,
   Menu as PMenu,
   Ranger,
   Status,
@@ -32,19 +32,20 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
+import { Cluster } from "@/cluster";
+import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
   LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
-} from "@/lineplot/LinePlot";
+} from "@/lineplot/layout";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/external";
+import { Modals } from "@/modals";
+import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
@@ -62,7 +63,7 @@ export const addToNewPlotMenuItem = (
     itemKey="addToNewPlot"
     startIcon={
       <PIcon.Create>
-        <Icon.Visualize key="plot" />
+        <Icon.LinePlot key="plot" />
       </PIcon.Create>
     }
   >
@@ -75,7 +76,7 @@ export const addToActivePlotMenuItem = (
     itemKey="addToActivePlot"
     startIcon={
       <PIcon.Icon topRight={<Icon.Range />}>
-        <Icon.Visualize key="plot" />
+        <Icon.LinePlot key="plot" />
       </PIcon.Icon>
     }
   >
@@ -146,7 +147,7 @@ const fetchIfNotInState = async (
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
@@ -161,39 +162,39 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) => handleException(e, "Failed to add range to plot"),
+    onError: (e) => handleError(e, "Failed to add range to plot"),
   }).mutate;
 };
 
 const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
-  const place = Layout.usePlacer();
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await fetchIfNotInState(store, client, key);
-      place({ ...overviewLayout, name: rng.name, key: rng.key });
+      placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
-    onError: (e) => handleException(e, "Failed to view details"),
+    onError: (e) => handleError(e, "Failed to view details"),
   }).mutate;
 };
 
 export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
-  const handleException = Status.useExceptionHandler();
+  const placeLayout = Layout.usePlacer();
+  const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const res = await fetchIfNotInState(store, client, key);
-      place(
+      placeLayout(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
       );
     },
-    onError: (e) => handleException(e, "Failed to add range to new plot"),
+    onError: (e) => handleError(e, "Failed to add range to new plot"),
   }).mutate;
 };
 
@@ -222,14 +223,14 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
 const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const remover = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
   const handleCreate = (key?: string): void => {
-    place(createLayout({ initial: { key } }));
+    placeLayout(createCreateLayout({ key }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -240,9 +241,9 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   const del = useMutation<void, Error, string, Range | undefined>({
     onMutate: async (key: string) => {
       const rng = ranges.find((r) => r.key === key);
@@ -262,7 +263,7 @@ const List = (): ReactElement => {
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete range");
+      handleError(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },
   });
@@ -279,19 +280,17 @@ const List = (): ReactElement => {
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({ ...range });
     },
-    onError: (e) => handleException(e, "Failed to save range"),
+    onError: (e) => handleError(e, "Failed to save range"),
   });
 
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
-  const ContextMenu = ({
-    keys: [key],
-  }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     const rng = ranges.find((r) => r.key === key);
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
-    const place = Layout.usePlacer();
+    const placeLayout = Layout.usePlacer();
     const handleSetActive = () => {
       dispatch(setActive(key));
     };
@@ -300,14 +299,14 @@ const List = (): ReactElement => {
     };
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () => {
-      place(createLayout({ initial: { parent: key } }));
+      placeLayout(createCreateLayout({ parent: key }));
     };
 
     const rangeExists = rng != null;
 
-    const handleSelect: Record<string, () => void> = {
+    const handleSelect: PMenu.MenuProps["onChange"] = {
       rename: () => Text.edit(`text-${key}`),
-      create: () => handleCreate(),
+      create: handleCreate,
       remove: () => rangeExists && handleRemove([rng.key]),
       delete: () => rangeExists && del.mutate(rng.key),
       details: () => rangeExists && handleViewDetails(rng.key),
@@ -368,26 +367,26 @@ const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <Core.List<string, StaticRange>
+      <CoreList.List<string, StaticRange>
         data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
       >
-        <Core.Selector
+        <CoreList.Selector
           value={activeRange?.key ?? null}
           onChange={handleSelect}
           allowMultiple={false}
           allowNone={true}
         >
-          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+          <CoreList.Core style={{ height: "100%", overflowX: "hidden" }}>
             {componentRenderProp(ListItem)}
-          </Core.Core>
-        </Core.Selector>
-      </Core.List>
+          </CoreList.Core>
+        </CoreList.Selector>
+      </CoreList.List>
     </PMenu.ContextMenu>
   );
 };
 
-interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
+interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
@@ -399,17 +398,18 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  const handleError = Status.useErrorHandler();
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    void (async () => {
-      await client?.ranges.rename(entry.key, name);
-    })();
+    client?.ranges
+      .rename(entry.key, name)
+      .catch((e) => handleError(e, "Failed to rename range"));
   };
   return (
-    <Core.ItemFrame
+    <CoreList.ItemFrame
       className={CSS.B("range-list-item")}
       direction="y"
       rightAligned
@@ -417,7 +417,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       size="small"
     >
       {!entry.persisted && (
-        <Tooltip.Dialog location={"left"}>
+        <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
           <Text.Text className="save-button" weight={700} level="small" shade={7}>
             L
@@ -446,26 +446,26 @@ const ListItem = (props: ListItemProps): ReactElement => {
           ))}
         </Align.Space>
       )}
-    </Core.ItemFrame>
+    </CoreList.ItemFrame>
   );
 };
 
 const Content = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
+      <Toolbar.Header>
+        <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Header.Actions>
-          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
+          {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
         </Header.Actions>
-      </ToolbarHeader>
+      </Toolbar.Header>
       <List />
     </Align.Space>
   );
 };
 
-export const Toolbar: Layout.NavDrawerItem = {
+export const TOOLBAR: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

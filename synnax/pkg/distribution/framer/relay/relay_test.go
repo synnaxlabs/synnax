@@ -143,7 +143,7 @@ func gatewayOnlyScenario() scenario {
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		resCount: 1,
-		name:     "gatewayOnly",
+		name:     "gateway-only",
 		keys:     keys,
 		relay:    svc.relay,
 		writer:   svc.writer,
@@ -175,7 +175,7 @@ func peerOnlyScenario() scenario {
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
-		name:     "peerOnly",
+		name:     "peer-only",
 		keys:     keys,
 		relay:    svc.relay,
 		writer:   svc.writer,

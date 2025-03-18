@@ -22,16 +22,17 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
+  channelZ,
   type Key,
   type KeyOrName,
-  type NewPayload,
-  ontologyID as payloadOntologyID,
+  type Name,
+  type New,
+  ONTOLOGY_TYPE,
   type Params,
   type Payload,
-  payload,
 } from "@/channel/payload";
 import {
-  analyzeChannelParams,
+  analyzeParams,
   CacheRetriever,
   ClusterRetriever,
   DebouncedBatchRetriever,
@@ -41,7 +42,7 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -69,7 +70,7 @@ export class Channel {
    * A human-readable name for the channel. This name is not guaranteed to be
    * unique.
    */
-  readonly name: string;
+  readonly name: Name;
   /**
    * The rate at which the channel samples telemetry. This only applies to fixed rate
    * channels, and will be 0 if the channel is indexed.
@@ -132,10 +133,7 @@ export class Channel {
     alias,
     expression = "",
     requires = [],
-  }: NewPayload & {
-    frameClient?: framer.Client;
-    density?: CrudeDensity;
-  }) {
+  }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
     this.key = key;
     this.name = name;
     this.rate = new Rate(rate ?? 0);
@@ -163,7 +161,7 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return payload.parse({
+    return channelZ.parse({
       key: this.key,
       name: this.name,
       rate: this.rate.valueOf(),
@@ -186,7 +184,7 @@ export class Channel {
    * @returns the ontology ID of the channel
    */
   get ontologyID(): ontology.ID {
-    return payloadOntologyID(this.key);
+    return ontologyID(this.key);
   }
 
   /**
@@ -215,9 +213,7 @@ const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 
 const retrieveGroupReqZ = z.object({});
 
-const retrieveGroupResZ = z.object({
-  group: group.groupZ,
-});
+const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /**
  * The core client class for executing channel operations against a Synnax
@@ -225,7 +221,7 @@ const retrieveGroupResZ = z.object({
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
-  readonly type = "channel";
+  readonly type = ONTOLOGY_TYPE;
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -278,7 +274,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * });
    * ```
    */
-  async create(channel: NewPayload, options?: CreateOptions): Promise<Channel>;
+  async create(channel: New, options?: CreateOptions): Promise<Channel>;
 
   /**
    * Creates multiple channels with the given properties. The order of the channels
@@ -303,10 +299,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    *
    * @param channels
    */
-  async create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
+  async create(channels: New[], options?: CreateOptions): Promise<Channel[]>;
 
   async create(
-    channels: NewPayload | NewPayload[],
+    channels: New | New[],
     options: CreateOptions = {},
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
@@ -387,7 +383,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param channels - The keys or names of the channels to delete.
    */
   async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeChannelParams(channels);
+    const { normalized, variant } = analyzeParams(channels);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });
@@ -395,7 +391,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   async rename(key: Key, name: string): Promise<void>;
   async rename(keys: Key[], names: string[]): Promise<void>;
-
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
     return await this.writer.rename(toArray(keys), toArray(names));
   }
@@ -466,3 +461,6 @@ export const resolveCalculatedIndex = async (
   }
   return null;
 };
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

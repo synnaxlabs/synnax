@@ -10,37 +10,35 @@
 import numpy as np
 
 import synnax as sy
-
-
 from examples.control.tpc.common import (
-    SENSORS,
-    VALVES,
-    PTS,
     DAQ_TIME,
-    OX_VENT_CMD,
-    OX_TPC_CMD,
-    OX_MPV_CMD,
-    OX_PRESS_CMD,
-    FUEL_VENT_CMD,
-    FUEL_TPC_CMD,
     FUEL_MPV_CMD,
     FUEL_PRESS_CMD,
-    PRESS_ISO_CMD,
-    GAS_BOOSTER_ISO_CMD,
-    OX_TC_1,
-    OX_TC_2,
-    OX_PT_1,
-    OX_PT_2,
-    FUEL_TC_1,
-    FUEL_TC_2,
     FUEL_PT_1,
     FUEL_PT_2,
+    FUEL_TC_1,
+    FUEL_TC_2,
+    FUEL_TPC_CMD,
+    FUEL_VENT_CMD,
+    GAS_BOOSTER_ISO_CMD,
+    OX_MPV_CMD,
+    OX_PRESS_CMD,
+    OX_PT_1,
+    OX_PT_2,
+    OX_TC_1,
+    OX_TC_2,
+    OX_TPC_CMD,
+    OX_VENT_CMD,
+    PNEUMATICS_PT,
     PRES_TC_1,
     PRES_TC_2,
+    PRESS_ISO_CMD,
     PRESS_PT_1,
     PRESS_PT_2,
+    PTS,
+    SENSORS,
     SUPPLY_PT,
-    PNEUMATICS_PT,
+    VALVES,
 )
 
 client = sy.Synnax()
@@ -50,14 +48,9 @@ daq_time = client.channels.create(
 )
 
 for cmd, state in VALVES.items():
-    cmd_time = client.channels.create(
-        name=f"{cmd}_time",
-        is_index=True,
-        retrieve_if_name_exists=True,
-    )
     client.channels.create(
         [
-            sy.Channel(name=cmd, data_type=sy.DataType.UINT8, index=cmd_time.key),
+            sy.Channel(name=cmd, data_type=sy.DataType.UINT8, virtual=True),
             sy.Channel(name=state, data_type=sy.DataType.UINT8, index=daq_time.key),
         ],
         retrieve_if_name_exists=True,
@@ -205,7 +198,8 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                 randomized = introduce_randomness(clamped)
                 translated = translate_valves(randomized)
                 translated[DAQ_TIME] = sy.TimeStamp.now()
-                writer.write(translated)
+                if not writer.write(translated):
+                    break
 
             except Exception as e:
                 print(e)

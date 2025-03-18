@@ -14,11 +14,11 @@ import {
   CSS as PCSS,
   Haul,
   Input,
+  List,
   Schematic,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
 import { id } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
@@ -33,7 +33,11 @@ import { addElement } from "@/schematic/slice";
 
 const LIST_DATA = Object.values(Schematic.SYMBOLS);
 
-export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export interface SymbolsProps {
+  layoutKey: string;
+}
+
+export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
@@ -44,7 +48,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       dispatch(
         addElement({
           key: layoutKey,
-          elKey: id.id(),
+          elKey: id.create(),
           node: {
             zIndex: spec.zIndex,
           },
@@ -98,7 +102,7 @@ const SymbolsButton = ({
   children,
   el: { name, key, Preview, defaultProps },
   theme,
-  ...props
+  ...rest
 }: SymbolsButtonProps): ReactElement => {
   const { startDrag, ...dragProps } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -117,7 +121,7 @@ const SymbolsButton = ({
       align="center"
       size={0.5}
       draggable
-      {...props}
+      {...rest}
       {...dragProps}
       onDragStart={handleDragStart}
     >

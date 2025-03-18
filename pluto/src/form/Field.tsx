@@ -58,7 +58,7 @@ export const Field = <
   optional,
   onChange,
   className,
-  ...props
+  ...rest
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
@@ -87,7 +87,7 @@ export const Field = <
         CSS.BE("field", path.split(".").join("-")),
         CSS.M(field.status.variant),
       )}
-      {...props}
+      {...rest}
     >
       {children(childrenProps)}
     </Input.Item>
@@ -126,11 +126,11 @@ export const fieldBuilder =
       inputProps,
       path,
       fieldKey = baseFieldKey,
-      ...props
+      ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
-        {...props}
+        {...rest}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
@@ -140,12 +140,23 @@ export const fieldBuilder =
     return C;
   };
 
+export type NumericFieldProps = BuiltFieldProps<number, number, Input.NumericProps>;
 export const buildNumericField = fieldBuilder(Input.Numeric);
 export const NumericField = buildNumericField({});
+
+export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
 export const buildTextField = fieldBuilder(Input.Text);
 export const TextField = buildTextField({});
+
+export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;
 export const buildSwitchField = fieldBuilder(Input.Switch);
 export const SwitchField = buildSwitchField({});
+
+export type SelectSingleFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
+  K,
+  K,
+  Select.SingleProps<K, E>
+>;
 export const buildSelectSingleField = fieldBuilder(Select.Single) as <
   K extends Key,
   E extends Keyed<K>,
@@ -156,6 +167,11 @@ export const buildSelectSingleField = fieldBuilder(Select.Single) as <
   BuiltFieldProps<K, K, Select.SingleProps<K, E>>
 >;
 
+export type SelectMultiFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
+  K,
+  K,
+  Select.MultipleProps<K, E>
+>;
 export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
   K extends Key,
   E extends Keyed<K>,
@@ -166,6 +182,10 @@ export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
   BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
 >;
 
+export type DropdownButtonFieldProps<
+  K extends Key,
+  E extends Keyed<K>,
+> = BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>;
 export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
   K extends Key,
   E extends Keyed<K>,
@@ -174,4 +194,19 @@ export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton
   inputProps,
 }: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
   BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
+>;
+
+export type ButtonSelectFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
+  K,
+  K,
+  Select.ButtonProps<K, E>
+>;
+export const buildButtonSelectField = fieldBuilder(Select.Button) as <
+  K extends Key,
+  E extends Keyed<K>,
+>({
+  fieldProps,
+  inputProps,
+}: FieldBuilderProps<K, K, Select.ButtonProps<K, E>>) => FC<
+  BuiltFieldProps<K, K, Select.ButtonProps<K, E>>
 >;

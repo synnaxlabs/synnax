@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import { type Align } from "@/align";
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { type status } from "@/status/aether";
@@ -39,27 +39,24 @@ export type Variant =
   | "preview"
   | "shadow";
 
-export interface ButtonExtensionProps {
+/** The base props accepted by all button types in this directory. */
+export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"> {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
-  triggers?: Triggers.Trigger[];
+  triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
+  stopPropagation?: boolean;
 }
-
-/** The base props accepted by all button types in this directory. */
-export interface BaseProps
-  extends Omit<ComponentPropsWithRef<"button">, "color">,
-    ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
 export type ButtonProps = Omit<
   Text.WithIconProps<"button">,
   "size" | "startIcon" | "endIcon" | "level"
 > &
-  ButtonExtensionProps &
+  Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
     startIcon?: PIcon.Element | PIcon.Element[];
@@ -105,7 +102,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as PIcon.Element[],
+    startIcon = [],
     onClickDelay = 0,
     onClick,
     color,
@@ -113,7 +110,8 @@ export const Button = Tooltip.wrap(
     style,
     endContent,
     onMouseDown,
-    ...props
+    stopPropagation,
+    ...rest
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -124,6 +122,7 @@ export const Button = Tooltip.wrap(
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
+      if (stopPropagation) e.stopPropagation();
       if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };
@@ -200,7 +199,7 @@ export const Button = Tooltip.wrap(
         style={pStyle}
         startIcon={startIcon}
         color={color}
-        {...props}
+        {...rest}
       >
         {children}
         {endContent != null ? (

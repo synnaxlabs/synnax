@@ -102,12 +102,12 @@ func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Task]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
 	}
-	return gorp.Observe[Key, Task](s.DB).OnChange(handleChange)
+	return gorp.Observe[Key, Task](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	n, err := gorp.WrapReader[Key, Task](s.DB).OpenNexter()
+	n, err := gorp.WrapReader[Key, Task](s.cfg.DB).OpenNexter()
 	return iter.NexterCloserTranslator[Task, schema.Resource]{
 		Wrap:      n,
 		Translate: newResource,

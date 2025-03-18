@@ -48,7 +48,7 @@ export default defineConfig({
         change: path.resolve(".", "src/change/index.ts"),
         identity: path.resolve(".", "src/identity.ts"),
         caseconv: path.resolve(".", "src/caseconv/index.ts"),
-        zodutil: path.resolve(".", "src/zodutil/index.ts"),
+        zod: path.resolve(".", "src/zod/index.ts"),
       },
     },
     rollupOptions: { external: ["zod"] },

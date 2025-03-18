@@ -9,14 +9,18 @@
 
 #pragma once
 
+/// std
 #include <memory>
 
+/// internal
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
+
+/// module
+#include "x/cpp/xjson/xjson.h"
 
 using namespace synnax;
 
@@ -27,7 +31,7 @@ namespace priv {
 /// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
 inline void check_little_endian() {
     int num = 1;
-    if (*(char *) &num == 1) return;
+    if (*reinterpret_cast<char *>(&num) == 1) return;
     std::cout
             << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
             << std::endl;
@@ -38,13 +42,13 @@ inline void check_little_endian() {
 /// @see Synnax
 struct Config {
     /// @brief the host of a node in the cluster.
-    std::string host;
+    std::string host = "localhost";
     /// @brief the port for the specified host.
-    std::uint16_t port;
+    std::uint16_t port = 9090;
     /// @brief the username to use when authenticating with the node.
-    std::string username;
+    std::string username = "synnax";
     /// @brief the password to use when authenticating with the node.
-    std::string password;
+    std::string password = "seldon";
     /// @brief path to the CA certificate file to use when connecting to a secure node.
     /// This is only required if the node is configured to use TLS.
     std::string ca_cert_file;
@@ -56,6 +60,42 @@ struct Config {
     /// using client authentication. This is not required when in insecure mode or using
     /// username/password authentication.
     std::string client_key_file;
+    /// @brief sets the clock skew threshold at which a warning will be logged.
+    telem::TimeSpan clock_skew_threshold = telem::SECOND * 1;
+    /// @brief sets the maximum number of login retries before giving up.
+    std::uint32_t max_retries = 5;
+
+    void override(xjson::Parser &parser) {
+        this->host = parser.optional("host", this->host);
+        this->port = parser.optional("port", this->port);
+        this->username = parser.optional("username", this->username);
+        this->password = parser.optional("password", this->password);
+        this->client_cert_file = parser.optional("client_cert_file", this->client_cert_file);
+        this->client_key_file = parser.optional("client_key_file", this->client_key_file);
+        this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
+        this->clock_skew_threshold = telem::TimeSpan(parser.optional("clock_skew_threshold", this->clock_skew_threshold.nanoseconds()));
+        this->max_retries = parser.optional("max_retries", this->max_retries);
+    }
+
+    /// @brief returns true if the configuration uses TLS encryption to secure
+    /// communications with the cluster.
+    bool is_secure() const {
+        return !this->ca_cert_file.empty();
+    }
+
+    [[nodiscard]] json to_json() const {
+        return {
+            {"host", this->host},
+            {"port", this->port},
+            {"username", this->username},
+            {"password", this->password},
+            {"ca_cert_file", this->ca_cert_file},
+            {"client_cert_file", this->client_cert_file},
+            {"client_key_file", this->client_key_file},
+            {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
+            {"max_retries", this->max_retries}
+        };
+    }
 };
 
 /// @brief Client to perform operations against a Synnax cluster.
@@ -79,6 +119,7 @@ public:
         nullptr,
         nullptr
     );
+    std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -90,13 +131,13 @@ public:
             cfg.client_key_file
         );
         priv::check_little_endian();
-        const auto auth_mw = std::make_shared<AuthMiddleware>(
+        auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
             cfg.password,
-            5
+            cfg.clock_skew_threshold
         );
-        t.use(auth_mw);
+        t.use(auth);
         channels = ChannelClient(std::move(t.chan_retrieve),
                                  std::move(t.chan_create));
         ranges = RangeClient(

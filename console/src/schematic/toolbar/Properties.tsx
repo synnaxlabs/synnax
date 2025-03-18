@@ -11,13 +11,13 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Color,
   Diagram,
   Form,
   Input,
   Schematic,
   Status,
 } from "@synnaxlabs/pluto";
-import { Color } from "@synnaxlabs/pluto/color";
 import { box, deep, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
@@ -166,13 +166,15 @@ export const PropertiesControls = memo(
 );
 PropertiesControls.displayName = "PropertiesControls";
 
+interface IndividualPropertiesProps {
+  element: NodeElementInfo;
+  onChange: (key: string, props: any) => void;
+}
+
 const IndividualProperties = ({
   element: selected,
   onChange,
-}: {
-  element: NodeElementInfo;
-  onChange: (key: string, props: any) => void;
-}): ReactElement => {
+}: IndividualPropertiesProps): ReactElement => {
   const C = Schematic.SYMBOLS[selected.props.key];
 
   const formMethods = Form.use({

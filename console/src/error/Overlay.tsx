@@ -14,13 +14,13 @@ import {
   Align,
   Button,
   componentRenderProp,
+  CSS as PCSS,
   Nav,
   OS,
   Status,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
-import { CSS as PCSS } from "@synnaxlabs/pluto/css";
-import { Theming } from "@synnaxlabs/pluto/theming";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
@@ -31,11 +31,11 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { NAV_SIZES } from "@/layouts/constants";
+import { Layouts } from "@/layouts";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
-export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
+export interface OverlayProps extends PropsWithChildren {}
 
 const messageTranslation: Record<string, string> = {
   "[persist] - windows open":
@@ -91,7 +91,11 @@ const FallBackRenderContent = ({
   }, []);
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
-      <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
+      <Nav.Bar
+        location="top"
+        size={Layouts.Nav.SIZES.top}
+        className="console-main-nav-top"
+      >
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
@@ -158,14 +162,10 @@ const FallBackRenderContent = ({
 const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
 const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const ErrorOverlayWithStore = ({
-  children,
-}: ErrorOverlayProps): ReactElement => (
+export const OverlayWithStore = ({ children }: OverlayProps): ReactElement => (
   <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
 );
 
-export const ErrorOverlayWithoutStore = ({
-  children,
-}: ErrorOverlayProps): ReactElement => (
+export const OverlayWithoutStore = ({ children }: OverlayProps): ReactElement => (
   <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
 );

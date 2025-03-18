@@ -68,15 +68,14 @@ export interface UseReturn {
 
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
-export const use = (props: UseProps): UseReturn => {
-  const {
-    onExpand,
-    nodes,
-    initialExpanded = [],
-    sort,
-    selected: propsSelected,
-    onSelectedChange,
-  } = props ?? {};
+export const use = ({
+  onExpand,
+  nodes,
+  initialExpanded = [],
+  sort,
+  selected: propsSelected,
+  onSelectedChange,
+}: UseProps): UseReturn => {
   const [expanded, setExpanded, expandedRef] =
     useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = state.usePassthrough<string[]>({
@@ -155,6 +154,7 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
   loading: boolean;
   useMargin?: boolean;
+  children?: RenderProp<ItemProps>;
 }
 
 type TreePropsInheritedFromItem = Pick<
@@ -195,6 +195,10 @@ export const DefaultItem = memo(
     loading = false,
     useMargin = true,
     translate,
+    children: childrenProp,
+    index,
+    sourceIndex,
+    hovered,
   }: ItemProps): ReactElement => {
     const {
       key,
@@ -210,7 +214,7 @@ export const DefaultItem = memo(
     } = entry;
 
     const { getSelected } = List.useSelectionUtils<string>();
-    const { getSourceData } = List.useDataUtilContext<string, FlattenedNode>();
+    const { getSourceData } = List.useDataUtils<string, FlattenedNode>();
 
     const actuallyHasChildren =
       hasChildren || (children != null && children.length > 0);
@@ -275,7 +279,7 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
-    let offset = depth * 2 + 1;
+    let offset = depth * 2.5 + 1;
     if (actuallyHasChildren && useMargin) offset -= 1;
 
     const baseProps: Button.LinkProps | Button.ButtonProps = {
@@ -300,7 +304,7 @@ export const DefaultItem = memo(
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${offset}rem`,
         // @ts-expect-error - CSS variable
-        "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
+        "--pluto-tree-indicator-offset": `${offset - 1.5}rem`,
       },
       startIcon: startIcons,
       iconSpacing: "small",
@@ -314,15 +318,33 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps}>
-        <Text.MaybeEditable
-          id={`text-${key}`}
-          level="p"
-          allowDoubleClick={false}
-          value={name}
-          disabled={!allowRename}
-          onChange={(name) => onRename?.(key, name)}
-        />
+      <Base className={CSS.BE("list", "item")} {...baseProps} align="center">
+        {childrenProp != null ? (
+          childrenProp({
+            key,
+            loading,
+            useMargin,
+            onDrop,
+            onRename,
+            onSuccessfulDrop,
+            onDoubleClick,
+            entry,
+            selected,
+            onSelect,
+            index,
+            sourceIndex,
+            hovered,
+          })
+        ) : (
+          <Text.MaybeEditable
+            id={`text-${key}`}
+            level="p"
+            allowDoubleClick={false}
+            value={name}
+            disabled={!allowRename}
+            onChange={(name) => onRename?.(key, name)}
+          />
+        )}
       </Base>
     );
   },
@@ -345,12 +367,12 @@ export const Tree = ({
   useMargin = false,
   showRules = false,
   virtual = true,
-  clearExpanded: ___,
-  expand: __,
-  contract: _,
+  clearExpanded,
+  expand,
+  contract,
   emptyContent,
   loading,
-  ...props
+  ...rest
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
   return (
@@ -364,11 +386,11 @@ export const Tree = ({
         <Core<string, FlattenedNode>
           itemHeight={itemHeight}
           className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
-          {...props}
+          {...rest}
         >
-          {({ key, ...props }) =>
+          {({ key, ...rest }) =>
             children({
-              ...props,
+              ...rest,
               key,
               loading: loading === key,
               useMargin,

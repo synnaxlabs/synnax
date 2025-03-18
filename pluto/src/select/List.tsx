@@ -55,7 +55,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   trigger,
   extraDialogContent,
   variant = "connected",
-  ...props
+  ...rest
 }: SelectListProps<K, E>): ReactElement => {
   let dialogContent = (
     <CoreList.Hover<K, E> disabled={!visible}>
@@ -98,7 +98,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
           className={CSS.B("select")}
           keepMounted={false}
           variant={variant}
-          {...props}
+          {...rest}
         >
           {trigger}
           {dialogContent}

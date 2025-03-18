@@ -31,6 +31,15 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	startCmdName        = "start"
+	startStandaloneFlag = "--standalone"
+	blockSigStopFlag    = "--disable-sig-stop"
+	noColorFlag         = "--no-color"
+	configFlag          = "--config"
+	debugFlag           = "--debug"
+)
+
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -47,7 +56,7 @@ func (d *Driver) start() error {
 	}
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	d.shutdown = signal.NewShutdown(sCtx, cancel)
+	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
 		BaseInterval: 1 * time.Second,
 		Scale:        1.1,
@@ -83,7 +92,17 @@ func (d *Driver) start() error {
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(driverFileName, cfgFileName)
+		flags := []string{
+			startCmdName,
+			startStandaloneFlag,
+			blockSigStopFlag,
+			noColorFlag,
+		}
+		if *d.cfg.Debug {
+			flags = append(flags, debugFlag)
+		}
+		flags = append(flags, configFlag, cfgFileName)
+		d.cmd = exec.Command(driverFileName, flags...)
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()

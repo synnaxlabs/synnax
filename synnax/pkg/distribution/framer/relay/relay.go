@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package relay implements the central distributing layer mechanism for streaming
+// telemetry throughout a Synnax deployment. The documentation in this header will
+// focus on implementation
 package relay
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"io"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -26,21 +29,53 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening the telemetry relay. See its fields for
+// more information.
 type Config struct {
+	// Instrumentation is used for logging, tracing, etc.
+	// [OPTIONAL]
 	alamos.Instrumentation
-	Transport     Transport
-	HostResolver  core.HostResolver
-	TS            *ts.DB
-	FreeWrites    confluence.Outlet[Response]
+	// Transport is the network transport used to move telemetry streams. This is used
+	// to both send telemetry streams from the host node to peer nodes, and to stream
+	// telemetry from peer nodes to the host node.
+	//
+	// Remote nodes are one of the three available data sources for the relay. Data
+	// for channels whose leaseholder is not the host node will be streamed from remote
+	// nodes.
+	// [REQUIRED]
+	Transport Transport
+	// HostResolver is used to retrieve information about the host node.
+	// [REQUIRED]
+	HostResolver core.HostResolver
+	// TS is the underlying time-series database engine that serves as one of the three
+	// main data sources for the relay.
+	//
+	// This is the second of the three available data sources for the relay. Data for
+	// channels whose leaseholder is the host node will be streamed from the time-series
+	// engine's streaming mechanism.
+	// [REQUIRED]
+	TS *ts.DB
+	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
+	// channels are not leased to any node, and their data is not stored in the cluster
+	// and is propagated through the cluster using a separate mechanism. This is mostly
+	// used for signaling changes in the cluster meta-data through aspen based key-value
+	// gossip.
+	// [REQUIRED]
+	FreeWrites confluence.Outlet[Response]
+	// ChannelReader is used for retrieving channel information from the cluster.
+	// [REQUIRED]
 	ChannelReader channel.Readable
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a relay. This configuration
+	// is not valid on its own, and must be overridden with the required fields. See
+	// Config for more information.
+	DefaultConfig = Config{}
 )
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Transport = override.Nil(c.Transport, other.Transport)
@@ -51,7 +86,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "Transport", c.Transport)
@@ -62,12 +97,14 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Relay is the central mechanism for streaming real-time telemetry within the
+// distribution layer. It moves
 type Relay struct {
-	cfg     Config
-	ins     alamos.Instrumentation
-	delta   *confluence.DynamicDeltaMultiplier[Response]
-	demands confluence.Inlet[demand]
-	wg      signal.WaitGroup
+	cfg      Config
+	ins      alamos.Instrumentation
+	delta    *confluence.DynamicDeltaMultiplier[Response]
+	demands  confluence.Inlet[demand]
+	shutdown io.Closer
 }
 
 // defaultBuffer is the default buffer size for channels in the relay.
@@ -96,7 +133,8 @@ func Open(configs ...Config) (*Relay, error) {
 	r.delta.InFrom(writes)
 	tpr.OutTo(writes)
 
-	sCtx, _ := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	r.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 
 	r.delta.Flow(
 		sCtx,
@@ -111,7 +149,6 @@ func Open(configs ...Config) (*Relay, error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 	)
-	r.wg = sCtx
 
 	startServer(cfg, r.NewStreamer)
 
@@ -120,14 +157,14 @@ func Open(configs ...Config) (*Relay, error) {
 
 func (r *Relay) Close() error {
 	r.demands.Close()
-	err := r.wg.Wait()
+	err := r.shutdown.Close()
 	return err
 }
 
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
-		addr = address.Newf(fmt.Sprintf("%s-%s", r.ins.Meta.Path, address.Rand().String()))
+		addr = address.Newf("%s-%s", r.ins.Meta.Path, address.Rand().String())
 	)
 	data.SetInletAddress(addr)
 	r.delta.Connect(data)

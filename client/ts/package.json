@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.38.1",
+  "version": "0.39.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -28,25 +28,27 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "fix": "eslint --cache --fix",
+    "madge": "madge --circular src"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "async-mutex": "^0.5.0",
-    "uuid": "^11.0.5",
-    "zod": "^3.24.1"
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.10.6",
+    "@types/node": "^22.13.10",
     "@types/uuid": "^10.0.0",
-    "eslint": "^9.18.0",
+    "eslint": "^9.22.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.7",
-    "vitest": "^2.1.8"
+    "madge": "^8.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.1",
+    "vitest": "^2.1.9"
   },
   "type": "module",
   "types": "dist/index.d.ts",

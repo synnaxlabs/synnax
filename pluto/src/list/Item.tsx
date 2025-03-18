@@ -39,7 +39,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   translate,
   style,
   sourceIndex: _,
-  ...props
+  ...rest
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
     id={entry.key.toString()}
@@ -62,6 +62,6 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
       transform: `translateY(${translate}px)`,
       ...style,
     }}
-    {...props}
+    {...rest}
   />
 );

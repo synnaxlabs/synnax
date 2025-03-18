@@ -12,9 +12,10 @@ import { type ReactElement, useCallback } from "react";
 
 import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input } from "@/input";
+import { type Input } from "@/input";
+import { Text as InputText } from "@/input/Text";
 import { type OptionalControl } from "@/input/types";
-import { useDataUtilContext } from "@/list/Data";
+import { useDataUtils } from "@/list/Data";
 import { state } from "@/state";
 import { type RenderProp } from "@/util/renderProp";
 
@@ -38,7 +39,7 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     value,
     initial: "",
   });
-  const { setTransform, deleteTransform } = useDataUtilContext<K, E>();
+  const { setTransform, deleteTransform } = useDataUtils<K, E>();
 
   const debounced = useDebouncedCallback(setTransform, debounce, []);
 
@@ -67,9 +68,9 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
  * interface for more details.
  */
 export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = (props) => <Input.Text placeholder="Filter" {...props} />,
-  ...props
-}: FilterProps): ReactElement | null => children(useFilter<K, E>(props));
+  children = (props) => <InputText placeholder="Filter" {...props} />,
+  ...rest
+}: FilterProps): ReactElement | null => children(useFilter<K, E>(rest));
 
 export interface Searcher<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   search: (term: string) => E[];

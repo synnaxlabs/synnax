@@ -43,8 +43,8 @@ type CoreBuilder struct {
 
 // NewCoreBuilder opens a new CoreBuilder that provisions cores using the given
 // configuration.
-func NewCoreBuilder(configs ...distribution.Config) *CoreBuilder {
-	cfg, err := config.New(distribution.DefaultConfig, append([]distribution.Config{{
+func NewCoreBuilder(configs ...core.Config) *CoreBuilder {
+	cfg, err := config.New(core.DefaultConfig, append([]core.Config{{
 		Storage: storage.Config{MemBacked: config.Bool(true)},
 	}}, configs...)...)
 	if err != nil {

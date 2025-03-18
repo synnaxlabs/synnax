@@ -43,10 +43,10 @@ export interface DataTypeProps
 
 export const DataType = ({
   hideVariableDensity = false,
-  ...props
+  ...rest
 }: DataTypeProps): ReactElement => (
   <DropdownButton<string, ListEntry>
-    {...props}
+    {...rest}
     data={hideVariableDensity ? FIXED_DENSITY_DATA : DATA}
     columns={COLUMNS}
     entryRenderKey="name"

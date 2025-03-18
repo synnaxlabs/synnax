@@ -12,7 +12,7 @@ import "@/input/Input.css";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
+import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -73,7 +73,7 @@ export const Text = ({
   borderWidth,
   borderShade = 4,
   disabledOverlay,
-  ...props
+  ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
   const [tempValue, setTempValue] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export const Text = ({
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={{ fontWeight: weight, color: Color.cssString(color) }}
-          {...props}
+          {...rest}
         />
         {endContent != null && (
           <div className={CSS.BE("input", "end-content")}>

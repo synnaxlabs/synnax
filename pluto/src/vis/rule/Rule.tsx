@@ -52,7 +52,7 @@ export const Rule = ({
   className,
   onSelect,
   style,
-  ...props
+  ...rest
 }: RuleProps): ReactElement | null => {
   const [internalLabel, setInternalLabel] = state.usePurePassthrough({
     value: label,
@@ -145,7 +145,7 @@ export const Rule = ({
           backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
           ...style,
         }}
-        {...props}
+        {...rest}
       >
         <Text.Editable
           className={CSS.B("label")}

@@ -72,7 +72,7 @@ var _ = Describe("Signals", Ordered, func() {
 		builder = mock.NewBuilder()
 		dist = builder.New(ctx)
 		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
-		dist.Ontology.RegisterService(svc)
+		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
@@ -96,7 +96,7 @@ var _ = Describe("Signals", Ordered, func() {
 			sCtx, cancel := signal.Isolated()
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(5 * time.Millisecond)
-			closeStreamer := signal.NewShutdown(sCtx, cancel)
+			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
 				return iter.All[schema.Change]([]schema.Change{
@@ -129,7 +129,7 @@ var _ = Describe("Signals", Ordered, func() {
 			sCtx, cancel := signal.Isolated()
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(5 * time.Millisecond)
-			closeStreamer := signal.NewShutdown(sCtx, cancel)
+			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
 				return iter.All[schema.Change]([]schema.Change{
@@ -162,7 +162,7 @@ var _ = Describe("Signals", Ordered, func() {
 		sCtx, cancel := signal.Isolated()
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		time.Sleep(10 * time.Millisecond)
-		closeStreamer := signal.NewShutdown(sCtx, cancel)
+		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 		defer func() {
 			GinkgoRecover()
 			Expect(closeStreamer.Close()).To(Succeed())
@@ -198,7 +198,7 @@ var _ = Describe("Signals", Ordered, func() {
 		sCtx, cancel := signal.Isolated()
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		time.Sleep(5 * time.Millisecond)
-		closeStreamer := signal.NewShutdown(sCtx, cancel)
+		closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 		defer func() {
 			GinkgoRecover()
 			Expect(closeStreamer.Close()).To(Succeed())

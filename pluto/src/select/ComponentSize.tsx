@@ -26,11 +26,6 @@ const SIZE_DATA: SizeEntry[] = [
 export interface SelectComponentSizeProps
   extends Omit<ButtonProps<BaseComponentSize, SizeEntry>, "data" | "entryRenderKey"> {}
 
-export const ComponentSize = ({
-  children,
-  ...props
-}: SelectComponentSizeProps): ReactElement => (
-  <Button {...props} data={SIZE_DATA} entryRenderKey="label">
-    {children}
-  </Button>
+export const ComponentSize = (props: SelectComponentSizeProps): ReactElement => (
+  <Button {...props} data={SIZE_DATA} entryRenderKey="label" />
 );

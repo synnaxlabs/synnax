@@ -1,6 +1,0 @@
-cc_library(
-    name="nidaqmx",
-    srcs=["NIDAQmx.lib"],
-    visibility=["//visibility:public"],
-    linkstatic=0,
-)

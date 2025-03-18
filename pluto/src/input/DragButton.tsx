@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
+import { preventDefault } from "@/util/event";
 
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
@@ -76,7 +77,7 @@ export const DragButton = ({
   size,
   resetValue,
   onDragEnd,
-  ...props
+  ...rest
 }: DragButtonProps): ReactElement => {
   const vRef = useRef({
     dragging: false,
@@ -134,9 +135,9 @@ export const DragButton = ({
         vRef.current.dragging = false;
         Cursor.clearGlobalStyle();
         onDragEnd?.(value);
-        props.onBlur?.();
+        rest.onBlur?.();
       },
-      [props.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
+      [rest.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
     ),
   });
 
@@ -151,8 +152,8 @@ export const DragButton = ({
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       onDoubleClick={handleDoubleClick}
-      onClick={(e) => e.preventDefault()}
-      {...props}
+      onClick={preventDefault}
+      {...rest}
     >
       <Icon.Drag />
     </Button.Icon>

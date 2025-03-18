@@ -1,5 +1,0 @@
-cc_library(
-    name = "nisyscfg",
-    srcs = ["nisyscfg.lib"],
-    visibility = ["//visibility:public"],
-)

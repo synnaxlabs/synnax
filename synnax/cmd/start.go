@@ -17,6 +17,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -39,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -61,8 +64,6 @@ import (
 )
 
 const stopKeyWord = "stop"
-
-var integrations = []string{"opc", "ni", "labjack"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -127,11 +128,11 @@ func start(cmd *cobra.Command) {
 	go scanForStopKeyword(interruptC)
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
-	// handle signal interrupts.
+	// handle signal interrupts. We'll also repeatedly check for context cancellations
+	// at each step in the process to ensure we can shut down early if necessary.
 	sCtx.Go(func(ctx context.Context) (err error) {
-
 		secProvider, err := configureSecurity(ins, insecure)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -148,7 +149,7 @@ func start(cmd *cobra.Command) {
 			grpcServerTransports,
 			verifier,
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		dist, err := distribution.Open(ctx, distConfig)
@@ -158,6 +159,9 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, dist.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
@@ -166,14 +170,21 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
+		tokenSvc, err := token.NewService(token.ServiceConfig{
+			KeyProvider:      secProvider,
+			Expiration:       24 * time.Hour,
+			RefreshThreshold: 1 * time.Hour,
+		})
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
 			DB:       gorpDB,
@@ -184,16 +195,22 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.Combine(err, rangeSvc.Close())
+		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		workspaceSvc, err := workspace.NewService(ctx, workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		schematicSvc, err := schematic.NewService(schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		schematicSvc, err := schematic.NewService(ctx, schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		linePlotSvc, err := lineplot.NewService(lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		linePlotSvc, err := lineplot.NewService(ctx, lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		labelSvc, err := label.OpenService(
@@ -208,14 +225,20 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		logSvc, err := log.NewService(log.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		defer func() {
+			err = errors.Combine(err, labelSvc.Close())
+		}()
+		logSvc, err := log.NewService(ctx, log.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		tableSvc, err := table.NewService(table.Config{
+		tableSvc, err := table.NewService(ctx, table.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 		})
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
 		hardwareSvc, err := hardware.OpenService(
 			ctx,
 			hardware.Config{
@@ -225,10 +248,17 @@ func start(cmd *cobra.Command) {
 				HostProvider: dist.Cluster,
 				Signals:      dist.Signals,
 				Channel:      dist.Channel,
+				Framer:       dist.Framer,
 			})
+		if err != nil {
+			return err
+		}
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		frameSvc, err := framer.OpenService(
 			ctx,
 			framer.Config{
@@ -243,14 +273,17 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, frameSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
+		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
 		// Set the base permissions for all users.
-		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil {
+		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -280,9 +313,19 @@ func start(cmd *cobra.Command) {
 				Hardware:        hardwareSvc,
 			},
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
+
+		// We run startup searching indexing after all services have been
+		// registered within the ontology. We used to fork a new goroutine for
+		// every service at registration time, but this caused a race condition
+		// where bleve would concurrently read and write to a map.
+		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
+		// for more details on this issue.
+		sCtx.Go(func(ctx context.Context) error {
+			return dist.Ontology.RunStartupSearchIndexing(ctx)
+		})
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
@@ -303,7 +346,7 @@ func start(cmd *cobra.Command) {
 			ins,
 			debug,
 		))
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		sCtx.Go(func(_ context.Context) error {
@@ -319,7 +362,8 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackName,
+				hardwareSvc.Rack.EmbeddedKey,
+				dist.Cluster.Key(),
 				insecure,
 			),
 		)
@@ -388,15 +432,15 @@ func buildDistributionConfig(
 	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
-	return distribution.Config{
+	coreCfg := core.Config{
 		Instrumentation:  ins.Child("distribution"),
 		AdvertiseAddress: address.Address(viper.GetString(listenFlag)),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
-		Verifier:         verifier,
-	}, err
+	}
+	return distribution.Config{Config: coreCfg, Verifier: verifier}, err
 }
 
 func buildServerConfig(
@@ -422,17 +466,20 @@ func buildServerConfig(
 
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
-	rackName string,
+	rackKey rack.Key,
+	clusterKey uuid.UUID,
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
 		Integrations: getIntegrations(
 			viper.GetStringSlice(enableIntegrationsFlag),
-			viper.GetStringSlice(disableIntegrationsFlag)),
+			viper.GetStringSlice(disableIntegrationsFlag),
+		),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
-		RackName:        rackName,
+		RackKey:         rackKey,
+		ClusterKey:      clusterKey,
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),
@@ -459,17 +506,9 @@ func getIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
-	if len(disabled) > 0 {
-		return lo.Filter(integrations, func(integration string, _ int) bool {
-			for _, disabledIntegration := range disabled {
-				if integration == disabledIntegration {
-					return false
-				}
-			}
-			return true
-		})
-	}
-	return integrations // Ensure a return value in case both slices are empty
+	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
 }
 
 // sets the base permissions that need to exist in the server.
@@ -575,7 +614,12 @@ func maybeProvisionRootUser(
 				return nil
 			}
 			policies := make([]rbac.Policy, 0, 1)
-			rbacSvc.NewRetriever().WhereSubjects(user.OntologyID(u.Key)).Entries(&policies).Exec(ctx, tx)
+			if err := rbacSvc.NewRetriever().
+				WhereSubjects(user.OntologyID(u.Key)).
+				Entries(&policies).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 			for _, p := range policies {
 				if lo.Contains(p.Objects, rbac.AllowAllOntologyID) {
 					return nil

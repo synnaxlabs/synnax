@@ -14,8 +14,8 @@ import { z } from "zod";
 import {
   type Key,
   keyZ,
-  type NewPolicy,
-  newPolicyZ,
+  type New,
+  newZ,
   type Policy,
   policyZ,
 } from "@/access/policy/payload";
@@ -36,8 +36,8 @@ export class Writer {
     this.client = client;
   }
 
-  async create(policies: NewPolicy | NewPolicy[]): Promise<Policy[]> {
-    const parsedPolicies = newPolicyZ.array().parse(toArray(policies));
+  async create(policies: New | New[]): Promise<Policy[]> {
+    const parsedPolicies = newZ.array().parse(toArray(policies));
     const req = parsedPolicies.map((policy) => ({
       objects: toArray(policy.objects),
       actions: toArray(policy.actions),

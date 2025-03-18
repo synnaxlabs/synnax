@@ -45,7 +45,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ranger")
 	validate.NotNil(v, "DB", c.DB)
@@ -54,7 +54,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -89,8 +89,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 		return nil, err
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(s)
-	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
+	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(ctx, &aliasOntologyService{db: cfg.DB})
 	if cfg.Signals == nil {
 		return
 	}

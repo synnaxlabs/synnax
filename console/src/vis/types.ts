@@ -14,6 +14,6 @@ import { type Table } from "@/table";
 
 export type LayoutType =
   | LinePlot.LayoutType
-  | Schematic.LayoutType
   | Log.LayoutType
+  | Schematic.LayoutType
   | Table.LayoutType;

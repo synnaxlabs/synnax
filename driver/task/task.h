@@ -9,14 +9,20 @@
 
 #pragma once
 
+/// std
 #include <memory>
 #include <thread>
 #include <utility>
+#include <future>
+
+/// external
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
+/// module
 #include "client/cpp/synnax.h"
-#include "driver/config/config.h"
-#include "driver/breaker/breaker.h"
+#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/breaker/breaker.h"
 
 using json = nlohmann::json;
 
@@ -26,19 +32,18 @@ struct Command {
     /// @brief the key of the task to be commanded.
     TaskKey task = 0;
     /// @brief the type of the command to execute.
-    std::string type = "";
+    std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
     /// state updates related to the command.
-    std::string key = "";
+    std::string key;
     /// @brief json arguments to the command.
     json args = {};
 
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(
-        config::Parser parser
-    ) : task(parser.required<TaskKey>("task")),
+    explicit Command(xjson::Parser parser) :
+        task(parser.required<TaskKey>("task")),
         type(parser.required<std::string>("type")),
         key(parser.optional<std::string>("key", "")),
         args(parser.optional<json>("args", json{})) {
@@ -48,12 +53,55 @@ struct Command {
     Command(const TaskKey task, std::string type, json args)
         : task(task), type(std::move(type)), args(std::move(args)) {
     }
+
+    [[nodiscard]] json to_json() const {
+        return {
+            {"task", task},
+            {"type", type},
+            {"key", key},
+            {"args", args}
+        };
+    }
+};
+
+/// @brief struct that represents the network portable state of a task. Used both
+/// internally by a task and externally by the driver to track its state.
+struct State {
+    /// @brief the key of the task.
+    TaskKey task = 0;
+    /// @brief an optional key to assign to the state update. This is particularly
+    /// useful for identifying responses to commands.
+    std::string key;
+    /// @brief the type of the task.
+    std::string variant;
+    /// @brief relevant details about the current state of the task.
+    json details = {};
+
+    /// @brief parses a state from the provided configuration parser.
+    static State parse(xjson::Parser parser) {
+        return State{
+            .task = parser.required<TaskKey>("task"),
+            .key = parser.optional<std::string>("key", ""),
+            .variant = parser.required<std::string>("variant"),
+            .details = parser.optional<json>("details", json{})
+        };
+    }
+
+    [[nodiscard]] json to_json() const {
+        return {
+            {"task", task},
+            {"key", key},
+            {"variant", variant},
+            {"details", details}
+        };
+    }
 };
 
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
 public:
+    /// @brief the key of the task
     synnax::TaskKey key = 0;
 
     virtual std::string name() { return ""; }
@@ -66,34 +114,9 @@ public:
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
     /// a call to the destructor.
-    virtual void stop() = 0;
+    virtual void stop(bool will_reconfigure) = 0;
 
     virtual ~Task() = default;
-};
-
-const std::string TASK_FAILED = "error";
-
-/// @brief struct that represents the network portable state of a task. Used both
-/// internally by a task and externally by the driver to track its state.
-struct State {
-    /// @brief the key of the task.
-    TaskKey task = 0;
-    /// @brief an optional key to assign to the state update. This is particularly
-    /// useful for identifying responses to commands.
-    std::string key = "";
-    /// @brief the type of the task.
-    std::string variant = "";
-    /// @brief relevant details about the current state of the task.
-    json details = {};
-
-    [[nodiscard]] json toJSON() const {
-        json j;
-        j["task"] = task;
-        j["key"] = key;
-        j["variant"] = variant;
-        j["details"] = details;
-        return j;
-    }
 };
 
 /// @brief name of the channel used in Synnax to communicate state updates.
@@ -120,31 +143,33 @@ public:
 
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
+    std::mutex mu;
+
 public:
     std::vector<State> states{};
 
-    explicit MockContext(std::shared_ptr<Synnax> client) : Context(client) {
+    explicit MockContext(const std::shared_ptr<Synnax> &client) : Context(client) {
     }
-
 
     void set_state(const State &state) override {
-        state_mutex.lock();
+        mu.lock();
         states.push_back(state);
-        state_mutex.unlock();
+        mu.unlock();
     }
-
-private:
-    std::mutex state_mutex;
 };
 
 class SynnaxContext final : public Context {
+    std::mutex mu;
+    std::unique_ptr<Writer> writer;
+    Channel chan;
+
 public:
-    explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
+    explicit SynnaxContext(const std::shared_ptr<Synnax> &client) : Context(client) {
     }
 
     void set_state(const State &state) override {
-        std::unique_lock lock(state_mutex);
-        if (state_updater == nullptr) {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
             if (err) {
                 LOG(ERROR) <<
@@ -154,7 +179,7 @@ public:
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.openWriter(WriterConfig{
+            auto [su, su_err] = client->telem.open_writer(WriterConfig{
                 .channels = {ch.key}
             });
             if (err) {
@@ -165,20 +190,21 @@ public:
                         message();
                 return;
             }
-            state_updater = std::make_unique<Writer>(std::move(su));
+            writer = std::make_unique<Writer>(std::move(su));
         }
-        auto s = Series(to_string(state.toJSON()), JSON);
-        auto fr = Frame(chan.key, std::move(s));
-        if (state_updater->write(fr)) return;
-        auto err = state_updater->close();
+        if (writer->write(Frame(chan.key, telem::Series(state.to_json())))) return;
+        auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
-        state_updater = nullptr;
+        writer = nullptr;
     }
 
-private:
-    std::mutex state_mutex;
-    std::unique_ptr<Writer> state_updater;
-    Channel chan;
+    ~SynnaxContext() override {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) return;
+        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in destructors.
+        if (const auto err = writer->close())
+            std::cerr << "[task.context] failed to close writer: " << err.message();
+    }
 };
 
 class Factory {
@@ -198,12 +224,15 @@ public:
 };
 
 class MultiFactory final : public Factory {
+    std::vector<std::unique_ptr<Factory> > factories;
+
 public:
-    explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
+    explicit MultiFactory(std::vector<std::unique_ptr<Factory> > &&factories)
         : factories(std::move(factories)) {
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configure_initial_tasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
+    configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
@@ -215,8 +244,7 @@ public:
         return tasks;
     }
 
-    std::pair<std::unique_ptr<Task>, bool>
-    configure_task(
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) override {
@@ -226,56 +254,82 @@ public:
         }
         return {nullptr, false};
     }
-
-private:
-    std::vector<std::shared_ptr<Factory> > factories;
 };
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
-/// acqusition and control tasks.
+/// acquisition and control tasks.
 class Manager {
 public:
     Manager(
-        const Rack &rack,
+        synnax::Rack rack,
         const std::shared_ptr<Synnax> &client,
-        std::unique_ptr<task::Factory> factory,
-        const breaker::Config &breaker
-    );
+        std::unique_ptr<task::Factory> factory
+    ): rack(std::move(rack)), ctx(std::make_shared<SynnaxContext>(client)),
+       factory(std::move(factory)), channels({}) {
+    }
 
-    ~Manager();
+    /// @brief runs the main task manager loop, booting up initial tasks retrieved
+    /// from the cluster, and processing task modifications (set, delete, and command)
+    /// requests through streamed channel values. Note that this function does not
+    /// for a thread to run in, and blocks until stop() is called.
+    ///
+    /// This function NOT be called concurrently with any other calls
+    /// to run(). It is safe to call run() concurrently with stop().
+    ///
+    /// @param started_promise an optional promise that will be set when the manager
+    /// has started successfully.
+    xerrors::Error run(std::promise<void> *started_promise = nullptr);
 
-    freighter::Error start();
-
-    freighter::Error stop();
-
+    /// @brief stops the task manager, halting all tasks and freeing all resources.
+    /// Once the manager has shut down, the run() function will return with any errors
+    /// encountered during operation.
+    void stop();
 private:
-    RackKey rack_key;
-    Rack internal;
+    /// @brief the rack that this task manager belongs to.
+    synnax::Rack rack;
+    /// @brief a common context object passed to all tasks.
     std::shared_ptr<task::Context> ctx;
-    std::unique_ptr<Streamer> streamer;
+    /// @brief the factory used to create tasks.
     std::unique_ptr<task::Factory> factory;
-    std::unordered_map<std::uint64_t, std::unique_ptr<task::Task> > tasks{};
+    /// @brief a map of tasks that have been configured on the rack.
+    std::unordered_map<synnax::TaskKey, std::unique_ptr<task::Task> > tasks{};
 
-    Channel task_set_channel;
-    Channel task_delete_channel;
-    Channel task_cmd_channel;
-    Channel task_state_channel;
+    /// @brief the streamer variable is read from in both the run() and stop() functions,
+    /// so we need to lock its assignment.
+    std::mutex mu;
+    /// @brief receives streamed values from the Synnax server to change tasks in the
+    /// manager.
+    std::unique_ptr<Streamer> streamer;
+    std::atomic<bool> exit_early = false;
 
-    breaker::Breaker breaker;
+    /// @brief information on channels we need to work with tasks.
+    struct {
+        Channel task_set;
+        Channel task_delete;
+        Channel task_cmd;
+    } channels;
 
-    std::thread run_thread;
-    freighter::Error run_err;
 
-    void run();
+    [[nodiscard]] bool skip_foreign_rack(const TaskKey &task_key) const;
 
-    freighter::Error runGuarded();
+    /// @brief opens the streamer for the task manager, which is used to listen for
+    /// incoming task set, delete, and command requests.
+    xerrors::Error open_streamer();
 
-    freighter::Error startGuarded();
+    /// @brief retrieves and configures all initial tasks for the rack from the server.
+    xerrors::Error configure_initial_tasks();
 
-    void processTaskSet(const Series &series);
+    /// @brief stops all tasks.
+    void stop_all_tasks();
 
-    void processTaskDelete(const Series &series);
+    /// @brief processes when a new task is created or an existing task needs to be
+    /// reconfigured.
+    void process_task_set(const telem::Series &series);
 
-    void processTaskCmd(const Series &series);
+    /// @brief processes when a task is deleted.
+    void process_task_delete(const telem::Series &series);
+
+    /// @brief processes when a command needs to be executed on a configured task.
+    void process_task_cmd(const telem::Series &series);
 };
 }

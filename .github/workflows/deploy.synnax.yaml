@@ -50,6 +50,7 @@ jobs:
               - freighter/go/**
               - synnax/**
               - x/go/**
+              - WORKSPACE
 
   create-release:
     runs-on: ubuntu-latest
@@ -79,10 +80,13 @@ jobs:
     needs: setup
     name: Build (${{ matrix.os }})
     if: needs.setup.outputs.changed == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        # macOS, Ubuntu for NI Linux RT, Ubuntu Latest, and Windows Latest
+        os: [macos-15, ubuntu-20.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -93,87 +97,98 @@ jobs:
         with:
           sdk-version: 22000
 
-      - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-          tar -xjf mbedtls-3.6.0.tar.bz2
-          mv mbedtls-3.6.0 mbedtls
-          cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
-          cmake --build mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: driver/vendor/mbedtls
-
-      - name: Install MbedTLS On Mac
-        if: matrix.os == 'macos-latest'
-        run: brew install mbedtls
-
-      - name: Install MbedTLS On Ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get install -y libmbedtls-dev
-
       - name: Update Submodules
         run: git submodule update --init --recursive
+
+      - name: Install Deps On Ubuntu Latest
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
-      - name: Build Open65421 on Windows
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS -DMBEDTLS_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedtls.lib" -DMBEDX509_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedx509.lib" -DMBEDCRYPTO_LIBRARY="C:\Program Files (x86)\Mbed TLS\lib\mbedcrypto.lib" -DMBEDTLS_INCLUDE_DIRS="C:\Program Files (x86)\Mbed TLS\include" -DCMAKE_OSX_ARCHITECTURES=x86_64 ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
-
-      - name: Build Open62541 on Mac and Ubuntu
-        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
-          cmake --build . --config RelWithDebInfo --target install
-        working-directory: driver/vendor/open62541/open62541
-
-      - name: Build Driver on Windows
-        if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
-
-      - name: Build Driver on on Mac and Ubuntu
+      - name: Build Driver
         if: matrix.os != 'windows-latest'
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
+            bazel build --enable_platform_specific_config --define=platform=nilinuxrt //driver
+          else
+            bazel build --enable_platform_specific_config //driver
+          fi
+
+      - name: Build Driver (Windows)
+        if: matrix.os == 'windows-latest'
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver
 
       - name: Upload Release Asset for Driver Symbols
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver.pdb
+
+      - name: Determine OS
+        id: os
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
+            echo "OS=macos" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            echo "OS=linux" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
+            echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            echo "OS=windows" >> $GITHUB_OUTPUT
+          fi
 
       - name: Determine Executable Name
         id: executable
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
+          else
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Move Driver
-        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/
+      - name: Upload and Move Driver Binary
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
-      - name: Rename Driver
-        run: mv synnax/pkg/service/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+      - name: Move Driver to Assets
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          else
+            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          fi
+
+      - name: Create Driver Install Script
+        if: matrix.os == 'ubuntu-20.04'
+        shell: bash
+        run: |
+          cat > install-driver-nilinuxrt.sh << 'EOF'
+          #!/bin/bash
+          VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
+          DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
+          curl -LO "https://github.com/synnaxlabs/synnax/releases/download/synnax-v${VERSION}/${DRIVER_BINARY}"
+          chmod +x $DRIVER_BINARY
+          ./$DRIVER_BINARY stop
+          sudo ./$DRIVER_BINARY install
+          ./$DRIVER_BINARY start
+          EOF
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -185,69 +200,33 @@ jobs:
         working-directory: synnax
         run: go mod download
 
-      - name: Build Windows Installer
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          # Navigate to the synnax binary directory
-          Push-Location .\synnax
-          # Read version from VERSION file
-          $version = "${{ needs.setup.outputs.VERSION }}"
-          if (-not $version) {
-              Write-Error "Failed to read version file"
-              exit 1
-          }
-          $version = $version.Trim()
-          Write-Host "Building version: $version"
-          # Build the synnax binary
-          Write-Host "Building synnax binary..."
-          & go build -tags driver -o synnax-server.exe
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build synnax binary"
-              exit 1
-          }
-          # Navigate back to scripts directory
-          Pop-Location
-          # Move the built binary to scripts directory
-          Write-Host "Moving synnax binary to scripts directory..."
-          Move-Item -Force .\synnax\synnax-server.exe .\scripts\
-          # Build the NSIS installer
-          Write-Host "Building Windows installer..."
-          & makensis /DVERSION=$version .\scripts\windows-installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
-          Write-Host "Build process completed successfully!"
-
-      - name: Upload Windows Installer
-        if: github.event_name == 'push'  && matrix.os == 'windows-latest'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
-
-      - name: Determine OS
-        id: os
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_OUTPUT
-          fi
-
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Upload Release Asset
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+
+      - name: Build Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: powershell
+        run: |
+          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to build Windows installer"
+              exit 1
+          }
+
+      - name: Upload Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'

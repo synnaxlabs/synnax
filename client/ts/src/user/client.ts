@@ -11,7 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type Key, type NewUser, type User } from "@/user/payload";
+import { ontology } from "@/ontology";
+import { type Key, type New, ONTOLOGY_TYPE, type User } from "@/user/payload";
 import { Retriever } from "@/user/retriever";
 import { Writer } from "@/user/writer";
 
@@ -24,11 +25,11 @@ export class Client {
     this.reader = new Retriever(client);
   }
 
-  async create(user: NewUser): Promise<User>;
+  async create(user: New): Promise<User>;
 
-  async create(users: NewUser[]): Promise<User[]>;
+  async create(users: New[]): Promise<User[]>;
 
-  async create(users: NewUser | NewUser[]): Promise<User | User[]> {
+  async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
     const res = await this.writer.create(users);
     return isMany ? res : res[0];
@@ -79,3 +80,6 @@ export class Client {
     await this.writer.delete(keys);
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

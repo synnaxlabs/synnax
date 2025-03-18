@@ -7,7 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from datetime import datetime
 from pathlib import Path
+
+import click
 from rich.progress import (
     BarColumn,
     Progress,
@@ -15,8 +18,6 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-import click
-from datetime import datetime
 
 from synnax.cli import default
 from synnax.cli.flow import Context
@@ -186,7 +187,8 @@ def pure_tsconvert(
                     chunk[input_channel], input_precision, output_precision
                 )
                 chunk[output_channel] = converted
-                writer.write(chunk)
+                if not writer.write(chunk):
+                    break
                 tp = chunk.size / (datetime.now() - t0).total_seconds()
                 progress.update(task, advance=chunk.size, tp=int(tp))
     finally:

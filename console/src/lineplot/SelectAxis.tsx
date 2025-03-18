@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import { Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
@@ -19,7 +18,7 @@ export interface SelectMultipleAxesInputItemProps
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
-  select?: Channel.SelectMultipleProps;
+  selectProps?: Partial<Channel.SelectMultipleProps>;
 }
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
@@ -31,15 +30,15 @@ export const SelectMultipleAxesInputItem = ({
   axis,
   onChange,
   value,
-  select,
-  ...props
+  selectProps,
+  ...rest
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
       searchOptions={SEARCH_OPTIONS}
       onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
-      {...select}
+      {...selectProps}
     />
   </Input.Item>
 );
@@ -48,22 +47,22 @@ export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChang
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key) => void;
   value: channel.Key;
-  select?: Channel.SelectSingleProps;
+  selectProps?: Partial<Channel.SelectSingleProps>;
 }
 
 export const SelectAxisInputItem = ({
   axis,
   onChange,
   value,
-  select,
-  ...props
+  selectProps,
+  ...rest
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
       searchOptions={SEARCH_OPTIONS}
-      {...select}
+      {...selectProps}
     />
   </Input.Item>
 );

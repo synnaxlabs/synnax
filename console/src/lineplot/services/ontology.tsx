@@ -10,16 +10,17 @@
 import { linePlot, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -43,10 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.linePlot.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete line plot");
+      handleError(err, "Failed to delete line plot");
     },
   }).mutate;
 };
@@ -57,7 +58,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { resources },
   } = props;
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = LinePlot.useExport();
   const group = Group.useCreateFromSelection();
   const onSelect = {
@@ -77,7 +78,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
@@ -102,15 +103,26 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name: prevName })),
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-}): Promise<void> => {
-  const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
-  placeLayout(
-    LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
-  );
+  handleError,
+}) => {
+  client.workspaces.linePlot
+    .retrieve(selection[0].id.key)
+    .then((linePlot) => {
+      placeLayout(
+        LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
+      );
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "line plot",
+      );
+      handleError(e, `Failed to select ${names}`);
+    });
 };
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
@@ -119,11 +131,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  handleError,
 }): void => {
-  void (async () => {
-    try {
-      const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+  client.workspaces.linePlot
+    .retrieve(id.key)
+    .then((linePlot) => {
       placeLayout(
         LinePlot.create({
           ...linePlot.data,
@@ -133,21 +145,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load line plot");
-    }
-  })();
+    })
+    .catch((e) => handleError(e, "Failed to load line plot"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: linePlot.ONTOLOGY_TYPE,
-  icon: <Icon.Visualize />,
+  icon: <Icon.LinePlot />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

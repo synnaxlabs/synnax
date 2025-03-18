@@ -19,6 +19,7 @@ from freighter import (
     UnaryClient,
 )
 
+from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
@@ -35,39 +36,8 @@ class TokenResponse(Payload):
 
 AUTHORIZATION_HEADER = "Authorization"
 TOKEN_REFRESH_HEADER = "Refresh-Token"
-
-
-def token_middleware(
-    token_provider: Callable[[], str], set_token: Callable[[str], None]
-) -> Middleware:
-    def mw(ctx: Context, _next: Next):
-        ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
-        out_ctx, exc = _next(ctx)
-        maybe_refresh_token(out_ctx, set_token)
-        return out_ctx, exc
-
-    return mw
-
-
-def async_token_middleware(
-    token_provider: Callable[[], str], set_token: Callable[[str], None]
-) -> AsyncMiddleware:
-    async def mw(ctx: Context, _next: AsyncNext):
-        ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
-        out_ctx, exc = await _next(ctx)
-        maybe_refresh_token(out_ctx, set_token)
-        return out_ctx, exc
-
-    return mw
-
-
-def maybe_refresh_token(
-    ctx: Context,
-    set_token: Callable[[str], None],
-) -> None:
-    refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
-    if refresh is not None:
-        set_token(refresh)
+RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
+TOKEN_PREFIX = "Bearer "
 
 
 class AuthenticationClient:
@@ -78,6 +48,7 @@ class AuthenticationClient:
     password: str
     token: str
     user: User
+    authenticated: bool
 
     def __init__(
         self,
@@ -88,6 +59,7 @@ class AuthenticationClient:
         self.client = transport
         self.username = username
         self.password = password
+        self.authenticated = False
 
     def authenticate(self) -> None:
         res = send_required(
@@ -98,15 +70,46 @@ class AuthenticationClient:
         )
         self.token = res.token
         self.user = res.user
-
-    def get_token(self) -> str:
-        return self.token
-
-    def set_token(self, token: str) -> None:
-        self.token = token
+        self.authenticated = True
 
     def middleware(self) -> list[Middleware]:
-        return [token_middleware(self.get_token, self.set_token)]
+        def mw(ctx: Context, _next: Next):
+            if not self.authenticated:
+                self.authenticate()
+
+            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            out_ctx, exc = _next(ctx)
+
+            if isinstance(exc, RETRY_ON_ERRORS):
+                self.authenticated = False
+                out_ctx, exc = mw(ctx, _next)
+
+            self.maybe_refresh_token(out_ctx)
+            return out_ctx, exc
+
+        return mw
 
     def async_middleware(self) -> list[AsyncMiddleware]:
-        return [async_token_middleware(self.get_token, self.set_token)]
+        async def mw(ctx: Context, _next: AsyncNext):
+            if not self.authenticated:
+                self.authenticate()
+
+            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            out_ctx, exc = await _next(ctx)
+
+            if isinstance(exc, RETRY_ON_ERRORS):
+                self.authenticated = False
+                out_ctx, exc = await mw(ctx, _next)
+
+            self.maybe_refresh_token(out_ctx)
+            return out_ctx, exc
+
+        return mw
+
+    def maybe_refresh_token(
+        self,
+        ctx: Context,
+    ) -> None:
+        refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
+        if refresh is not None:
+            self.token = refresh

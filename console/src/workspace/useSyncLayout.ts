@@ -25,8 +25,8 @@ const MAX_RETRY_COUNT = 3;
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const prevSync = useRef<unknown>(null);
   const sync = useMutation({
     retry: MAX_RETRY_COUNT,
@@ -52,7 +52,7 @@ export const useSyncLayout = (): void => {
         store.dispatch(setActive(null));
         return;
       }
-      handleException(e, "Failed to save workspace");
+      handleError(e, "Failed to save workspace");
     },
   });
 

@@ -18,7 +18,7 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
-#include "freighter/cpp/fgrpc/mock/freighter/cpp/freighter/fgrpc/mock/service.grpc.pb.h"
+#include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are
 /// done processing messages.

@@ -7,39 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Layout } from "@/layout";
+import { Sequence } from "@/hardware/task/sequence";
+import { type Layout } from "@/layout";
+import { Selector as CoreSelector } from "@/selector";
 
-export const SELECTABLES: Layout.Selectable[] = [
-  ...LabJack.SELECTABLES,
-  ...NI.SELECTABLES,
-  ...OPC.SELECTABLES,
+export const SELECTABLES: CoreSelector.Selectable[] = [
+  ...NI.Task.SELECTABLES,
+  ...LabJack.Task.SELECTABLES,
+  ...OPC.Task.SELECTABLES,
+  ...Sequence.SELECTABLES,
 ];
 
-export const SELECTOR_TYPE = "taskSelector";
+export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 
-export const createSelector = ({
-  location = "mosaic",
-  name = "New Task",
-  key = id.id(),
-  ...props
-}: Omit<Partial<Layout.State>, "type" | "icon">): Omit<Layout.State, "windowKey"> => ({
-  type: SELECTOR_TYPE,
+export const SELECTOR_LAYOUT: Layout.BaseState = {
+  type: SELECTOR_LAYOUT_TYPE,
   icon: "Task",
-  location,
-  name,
-  key,
-  ...props,
-});
+  location: "mosaic",
+  name: "New Task",
+};
 
-const SELECTOR = Layout.createSelectorComponent(SELECTABLES);
-
-export const Selector = ({
-  text = "Select a Task Type",
-  ...props
-}: Layout.SelectorProps): ReactElement => SELECTOR({ text, ...props });
+export const Selector = CoreSelector.createSelector(SELECTABLES, "Select a Task Type");

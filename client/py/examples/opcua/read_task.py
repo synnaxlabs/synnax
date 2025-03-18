@@ -17,13 +17,12 @@ https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server.
 import synnax as sy
 from synnax.hardware import opcua
 
-
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax.
-dev = client.hardware.devices.retrieve(name="New OPC Server")
+dev = client.hardware.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_time = client.channels.create(

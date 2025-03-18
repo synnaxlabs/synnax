@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { box, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useId, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { usePlacer } from "@/layout/hooks";
 import { select } from "@/layout/selectors";
 import { createMosaicWindow, moveMosaicTab, type StoreState } from "@/layout/slice";
+import { usePlacer } from "@/layout/usePlacer";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
   const store = useStore<Drift.StoreState>();
@@ -47,10 +47,11 @@ const useDropOutsideMacOS = ({
   const target: Haul.Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const windowsContain = useWindowsContains();
   const store = useStore<StoreState & Drift.StoreState>();
+  const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async () =>
       listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
-        void (async () => {
+        handleError(async () => {
           if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
           const state = store.getState();
           const layout = select(state, dragging.current.items[0].key as string);
@@ -65,7 +66,7 @@ const useDropOutsideMacOS = ({
           if (windowsContain(cursor)) return;
           const dropped = onDrop(dragging.current, rawCursor);
           drop({ target, dropped });
-        })();
+        }, "Failed to drop outside");
       }),
     [target],
   );
@@ -102,7 +103,7 @@ const canDrop: Haul.CanDrop = ({ items }) =>
 export const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
-export const useDropOutside = () => {
+export const useDropOutside = (): void => {
   const place = usePlacer();
   const dispatch = useDispatch();
   const handleDrop = useCallback(

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { Checker } from "@/connection/checker";
+import { connection } from "@/connection";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
 
@@ -24,7 +24,11 @@ describe("connectivity", () => {
       password: "seldon",
     });
     transport.use(client.middleware());
-    const connectivity = new Checker(transport.unary, undefined, __VERSION__);
+    const connectivity = new connection.Checker(
+      transport.unary,
+      undefined,
+      __VERSION__,
+    );
     const state = await connectivity.check();
     expect(state.status).toEqual("connected");
     expect(z.string().uuid().safeParse(state.clusterKey).success).toBe(true);
@@ -37,7 +41,11 @@ describe("connectivity", () => {
         password: "seldon",
       });
       transport.use(client.middleware());
-      const connectivity = new Checker(transport.unary, undefined, __VERSION__);
+      const connectivity = new connection.Checker(
+        transport.unary,
+        undefined,
+        __VERSION__,
+      );
       const state = await connectivity.check();
       expect(state.clientServerCompatible).toBe(true);
       expect(state.clientVersion).toBe(__VERSION__);
@@ -49,7 +57,11 @@ describe("connectivity", () => {
         password: "seldon",
       });
       transport.use(client.middleware());
-      const connectivity = new Checker(transport.unary, undefined, "50000.0.0");
+      const connectivity = new connection.Checker(
+        transport.unary,
+        undefined,
+        "50000.0.0",
+      );
       const state = await connectivity.check();
       expect(state.clientServerCompatible).toBe(false);
       expect(state.clientVersion).toBe("50000.0.0");
@@ -61,7 +73,7 @@ describe("connectivity", () => {
         password: "seldon",
       });
       transport.use(client.middleware());
-      const connectivity = new Checker(transport.unary, undefined, "0.0.0");
+      const connectivity = new connection.Checker(transport.unary, undefined, "0.0.0");
       const state = await connectivity.check();
       expect(state.clientServerCompatible).toBe(false);
       expect(state.clientVersion).toBe("0.0.0");

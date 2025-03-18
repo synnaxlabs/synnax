@@ -17,12 +17,12 @@ export interface LineProps
   extends Optional<Omit<line.State, "key">, "strokeWidth">,
     Aether.CProps {}
 
-export const Line = memo(({ aetherKey, ...props }: LineProps): ReactElement | null => {
+export const Line = memo(({ aetherKey, ...rest }: LineProps): ReactElement | null => {
   Aether.useUnidirectional({
     aetherKey,
     type: line.Line.TYPE,
     schema: line.stateZ,
-    state: props,
+    state: rest,
   });
   return null;
 });

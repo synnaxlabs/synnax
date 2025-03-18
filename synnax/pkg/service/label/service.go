@@ -49,7 +49,7 @@ var (
 	DefaultConfig = Config{}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("label")
 	validate.NotNil(v, "DB", c.DB)
@@ -58,7 +58,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -84,7 +84,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
 		if err != nil {
@@ -92,6 +92,15 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		}
 	}
 	return s, err
+}
+
+// Close closes the label service and releases any resources that it may have acquired.
+// Close must be called when the service is no longer needed to prevent resource leaks.
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
 }
 
 // NewRetrieve opens a new Retrieve query to fetch labels.

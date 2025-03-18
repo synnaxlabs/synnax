@@ -14,8 +14,8 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "//driver/opc:mbedtls",
-        "@open62541",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
     ],
 )
 
@@ -35,8 +35,8 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "//driver/opc:mbedtls",
-        "@open62541",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
     ],
 )
 
@@ -48,8 +48,8 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "//driver/opc:mbedtls",
-        "@open62541",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
     ],
 )
 
@@ -61,8 +61,8 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "@open62541",
-        "//driver/opc:mbedtls",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
     ],
 )
 
@@ -74,7 +74,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "@open62541",
-        "//driver/opc:mbedtls",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
     ],
 )

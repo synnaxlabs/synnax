@@ -17,30 +17,29 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls } from "@/components";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
+import { Controls } from "@/layout/Controls";
 import { useSelect } from "@/layout/selectors";
 import { type WindowProps } from "@/layout/slice";
 
-export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
+interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
 }
 
-export const NavTop = ({
+const NavTop = ({
   title,
   showTitle = true,
   navTop,
 }: NavTopProps): ReactElement | null => {
   const os = OS.use();
-  if (!navTop) return null;
-
-  return (
+  const isWindowsOS = os === "Windows";
+  return !navTop ? null : (
     <Nav.Bar
       className="console-main-nav-top"
       location="top"
-      size={"6rem"}
+      size="6rem"
       data-tauri-drag-region
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
@@ -49,7 +48,7 @@ export const NavTop = ({
           visibleIfOS="macOS"
           forceOS={os}
         />
-        {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
+        {isWindowsOS && <Logo className="console-main-nav-top__logo" />}
       </Nav.Bar.Start>
       {showTitle && (
         <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
@@ -64,7 +63,7 @@ export const NavTop = ({
           </Text.Text>
         </Nav.Bar.AbsoluteCenter>
       )}
-      {os === "Windows" && (
+      {isWindowsOS && (
         <Nav.Bar.End data-tauri-drag-region>
           <Controls
             className="console-controls--windows"
@@ -113,10 +112,7 @@ const WindowInternal = (): ReactElement | null => {
       ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
   };
 
-  if (layout == null) return null;
-  const content = <Content layoutKey={layout.key} />;
-
-  return (
+  return layout == null ? null : (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space
         empty
@@ -128,7 +124,7 @@ const WindowInternal = (): ReactElement | null => {
         onDragOver={handleDragOver}
       >
         <NavTop title={layout.name} {...layout.window} />
-        {content}
+        <Content layoutKey={layout.key} />
       </Align.Space>
     </PMenu.ContextMenu>
   );

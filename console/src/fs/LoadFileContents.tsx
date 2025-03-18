@@ -10,7 +10,7 @@
 import "@/fs/LoadFileContents.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, type Input } from "@synnaxlabs/pluto";
+import { Align, Button, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -29,18 +29,18 @@ export const InputFilePath = ({
   value,
   onChange,
   filters,
-  ...props
+  ...rest
 }: InputFilePathProps): ReactElement => {
   const path = value;
-  const handleClick = () => {
-    void (async () => {
+  const handleError = Status.useErrorHandler();
+  const handleClick = () =>
+    handleError(async () => {
       const path = await open({ directory: false, filters });
       if (path == null) return;
       onChange(path);
-    })();
-  };
+    }, "Failed to open file");
   return (
-    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...props}>
+    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...rest}>
       <Button.Button
         level="p"
         className={CSS.B("path")}
@@ -81,20 +81,20 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
   decoder = binary.TEXT_CODEC,
   initialPath,
   schema,
-  ...props
+  ...rest
 }: InputFileContentsProps<P>): ReactElement => {
+  const handleError = Status.useErrorHandler();
   const [path, setPath] = useState<string>("");
   useEffect(() => {
     if (initialPath == null || initialPath === path) return;
     handleChange(initialPath);
   }, [initialPath]);
-  const handleChange = (path: string) => {
-    void (async () => {
+  const handleChange = (path: string) =>
+    handleError(async () => {
       const contents = await readFile(path);
       if (contents == null) return;
       onChange(decoder.decode<P>(contents, schema), path);
       setPath(path);
-    })();
-  };
-  return <InputFilePath value={path} onChange={handleChange} {...props} />;
+    }, "Failed to read file");
+  return <InputFilePath value={path} onChange={handleChange} {...rest} />;
 };

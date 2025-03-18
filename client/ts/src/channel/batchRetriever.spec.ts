@@ -10,42 +10,45 @@
 import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Params, type Payload } from "@/channel/payload";
-import {
-  analyzeChannelParams,
-  DebouncedBatchRetriever,
-  type RetrieveOptions,
-  type Retriever,
-} from "@/channel/retriever";
+import { channel } from "@/channel";
 
-class MockRetriever implements Retriever {
-  func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>;
+class MockRetriever implements channel.Retriever {
+  func: (
+    channels: channel.Params,
+    options?: channel.RetrieveOptions,
+  ) => Promise<channel.Payload[]>;
 
   constructor(
-    func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>,
+    func: (
+      channels: channel.Params,
+      options?: channel.RetrieveOptions,
+    ) => Promise<channel.Payload[]>,
   ) {
     this.func = func;
   }
 
-  async search(): Promise<Payload[]> {
+  async search(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(): Promise<Payload[]> {
+  async page(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+  async retrieve(
+    channels: channel.Params,
+    options?: channel.RetrieveOptions,
+  ): Promise<channel.Payload[]> {
     return await this.func(channels, options);
   }
 }
 
-describe("channelRetriever", () => {
+describe("channelchannel.Retriever", () => {
   it("should batch multiple retrieve requests", async () => {
     const called = vi.fn();
-    const base = new MockRetriever(async (batch): Promise<Payload[]> => {
+    const base = new MockRetriever(async (batch): Promise<channel.Payload[]> => {
       called(batch);
-      const { normalized } = analyzeChannelParams(batch);
+      const { normalized } = channel.analyzeParams(batch);
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,
@@ -60,7 +63,7 @@ describe("channelRetriever", () => {
         requires: [],
       }));
     });
-    const retriever = new DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
       retriever.retrieve([1]),
       retriever.retrieve([2]),
@@ -72,9 +75,9 @@ describe("channelRetriever", () => {
   });
   it("should only fetch duplicate keys once", async () => {
     const called = vi.fn();
-    const base = new MockRetriever(async (batch): Promise<Payload[]> => {
+    const base = new MockRetriever(async (batch): Promise<channel.Payload[]> => {
       called(batch);
-      const { normalized } = analyzeChannelParams(batch);
+      const { normalized } = channel.analyzeParams(batch);
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,
@@ -89,7 +92,7 @@ describe("channelRetriever", () => {
         requires: [],
       }));
     });
-    const retriever = new DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
       retriever.retrieve([1]),
       retriever.retrieve([2]),
@@ -100,10 +103,10 @@ describe("channelRetriever", () => {
     expect(res.map((r) => r.map((c) => c.key))).toEqual([[1], [2], [1, 2]]);
   });
   it("should throw an error if the fetch fails", async () => {
-    const base = new MockRetriever(async (): Promise<Payload[]> => {
+    const base = new MockRetriever(async (): Promise<channel.Payload[]> => {
       throw new Error("failed to fetch");
     });
-    const retriever = new DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(base, 10);
     await expect(retriever.retrieve([1])).rejects.toThrow("failed to fetch");
   });
 });

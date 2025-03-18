@@ -9,24 +9,21 @@
 
 import { Button, Synnax } from "@synnaxlabs/pluto";
 
-import {
-  type NotificationAdapter,
-  type SugaredNotification,
-} from "@/notifications/Notifications";
+import { type Notifications } from "@/notifications";
 import { Version } from "@/version";
 
-export const versionOutdatedAdapter: NotificationAdapter = (status) => {
+export const versionOutdatedAdapter: Notifications.Adapter = (status) => {
   if (status.data == null) return null;
   if (status.data.type !== Synnax.SERVER_VERSION_MISMATCH) return null;
   const oldServer = status.data.oldServer as boolean;
-  const nextStatus: SugaredNotification = { ...status };
+  const nextStatus: Notifications.Sugared = { ...status };
   if (oldServer)
     nextStatus.actions = [
       <Button.Link
         key="update"
         variant="outlined"
         size="small"
-        href={"https://docs.synnaxlabs.com/reference/cluster/quick-start"}
+        href="https://docs.synnaxlabs.com/reference/cluster/quick-start"
         target="_blank"
       >
         Update Cluster

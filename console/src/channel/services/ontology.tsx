@@ -10,24 +10,24 @@
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Channel,
+  Channel as PChannel,
   type Haul,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
+  Tree,
 } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
 import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 
-import { createCalculatedLayout } from "@/channel/CreateCalculated";
-import { Menu } from "@/components/menu";
+import { Channel } from "@/channel";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -103,10 +103,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
   ];
 };
 
-const allowRename: Ontology.AllowRename = (res) => {
-  if (res.data?.internal === true) return false;
-  return true;
-};
+const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
 export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({
@@ -128,7 +125,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
     onError: (
       e,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -136,7 +133,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = "Failed to delete channels";
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };
@@ -154,12 +151,12 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to set alias for ${first.name}`);
+      handleError(e, `Failed to set alias for ${first.name}`);
     },
   }).mutate;
 
@@ -173,12 +170,12 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to rename ${first.name}`);
+      handleError(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
 
@@ -193,12 +190,12 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      { selection: { resources }, handleException, state: { setNodes } },
+      { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      handleException(e, `Failed to remove alias on ${first.name}`);
+      handleError(e, `Failed to remove alias on ${first.name}`);
     },
   }).mutate;
 
@@ -207,12 +204,10 @@ const useOpenCalculated =
   ({ selection: { resources }, placeLayout }: Ontology.TreeContextMenuProps) => {
     if (resources.length !== 1) return;
     const resource = resources[0];
-    const tabKey = `editCalculated-${resource.id.key}`;
     return placeLayout(
-      createCalculatedLayout({
-        key: tabKey,
-        name: `Edit ${resource.name}`,
-        args: { channelKey: Number(resource.id.key) },
+      Channel.createCalculatedLayout({
+        key: Number(resource.id.key),
+        name: resource.name,
       }),
     );
   };
@@ -228,7 +223,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
@@ -247,7 +242,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       {isCalc && (
         <>
           <PMenu.Divider />
@@ -285,25 +280,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
-  const alias = Channel.useAlias(Number(new ontology.ID(props.entry.key).key));
-  return (
-    <Tree.DefaultItem
-      {...props}
-      entry={{ ...props.entry, name: alias ?? props.entry.name }}
-    />
-  );
+export const Item: Tree.Item = ({ entry, ...rest }) => {
+  const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
+  return <Tree.DefaultItem {...rest} entry={{ ...entry, name: alias ?? entry.name }} />;
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: channel.ONTOLOGY_TYPE,
   icon: <Icon.Channel />,
   hasChildren: false,
-  allowRename,
-  onRename: undefined,
-  canDrop,
   onSelect: handleSelect,
+  canDrop,
   haulItems,
+  allowRename,
   Item,
   TreeContextMenu,
 };

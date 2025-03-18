@@ -26,8 +26,6 @@ package ontology
 
 import (
 	"context"
-	"io"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -59,8 +57,6 @@ type Ontology struct {
 	ResourceObserver     observe.Observer[iter.Nexter[schema.Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	search               struct {
-		signal.Go
-		io.Closer
 		*search.Index
 	}
 	registrar           serviceRegistrar
@@ -80,7 +76,7 @@ var (
 	}
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
 	validate.NotNil(v, "cesium", c.DB)
@@ -88,7 +84,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -100,6 +96,9 @@ func (c Config) Override(other Config) Config {
 // exist, it will be created.
 func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
 	o := &Ontology{
 		Config:               cfg,
 		ResourceObserver:     observe.New[iter.Nexter[schema.Change]](),
@@ -107,18 +106,15 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		registrar:            serviceRegistrar{BuiltIn: &builtinService{}},
 	}
 
-	err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB)
-	if errors.Is(err, query.NotFound) {
+	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
 		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, err
 	}
 
 	if *o.Config.EnableSearch {
 		o.search.Index, err = search.New(search.Config{Instrumentation: cfg.Instrumentation})
-		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-		o.search.Go = sCtx
-		o.search.Closer = signal.NewShutdown(sCtx, cancel)
 	}
 
 	return o, err
@@ -200,17 +196,16 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
-func (o *Ontology) RegisterService(s Service) {
+func (o *Ontology) RegisterService(ctx context.Context, s Service) {
 	o.L.Debug("registering service", zap.Stringer("type", s.Schema().Type))
 	o.registrar.register(s)
 
 	if !*o.Config.EnableSearch {
 		return
 	}
-	o.search.Register(context.TODO(), *s.Schema())
+	o.search.Register(ctx, *s.Schema())
 
 	d1 := s.OnChange(o.ResourceObserver.Notify)
-
 	// SetKV up a change handler to index new resources.
 	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
@@ -234,32 +229,42 @@ func (o *Ontology) RegisterService(s Service) {
 			)
 		}
 	})
-
-	o.search.Go.Go(func(ctx context.Context) error {
-		n, err := s.OpenNexter()
-		if err != nil {
-			return err
-		}
-		err = o.search.Index.WithTx(func(tx search.Tx) error {
-			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
-				if err := tx.Index(r); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		return errors.Combine(err, n.Close())
-	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
-
 	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
+}
+
+// RunStartupSearchIndexing indexes all resources from registered services into the search
+// index (if search is enabled). This method should be called AFTER all necessary services
+// have been registered. This method will block until all resources have been indexed,
+// so it should probably be run in a separate goroutine.
+func (o *Ontology) RunStartupSearchIndexing(ctx context.Context) error {
+	if !*o.EnableSearch {
+		return nil
+	}
+	oCtx, cancel := signal.WithCancel(ctx)
+	defer cancel()
+	for _, svc := range o.registrar {
+		oCtx.Go(func(ctx context.Context) error {
+			n, err := svc.OpenNexter()
+			if err != nil {
+				return err
+			}
+			err = o.search.Index.WithTx(func(tx search.Tx) error {
+				for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+					if err := tx.Index(r); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			return errors.Combine(err, n.Close())
+		}, signal.WithKeyf("startup-indexing-%s", svc.Schema().Type))
+	}
+	return oCtx.Wait()
 }
 
 func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
-	}
-	if *o.EnableSearch {
-		return o.search.Close()
 	}
 	return nil
 }

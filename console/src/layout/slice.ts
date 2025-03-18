@@ -14,15 +14,15 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
+import { type BaseState } from "@/layout/usePlacer";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
-export interface BaseState<A = unknown> extends Omit<latest.State<A>, "windowKey"> {}
 export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
@@ -97,14 +97,19 @@ interface ResizeNavDrawerPayload {
   size: number;
 }
 
+interface SetFocusPayload {
+  key: string | null;
+  windowKey: string;
+}
+
 interface SetAltKeyPayload {
   key: string;
   altKey: string;
 }
 
-interface SetFocusPayload {
-  key: string | null;
-  windowKey: string;
+interface SetUnsavedChangesPayload {
+  key: string;
+  unsavedChanges: boolean;
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
@@ -135,7 +140,7 @@ export interface SetColorContextPayload {
   state: Color.ContextState;
 }
 
-export const GET_STARTED_LAYOUT_TYPE = "getStarted";
+export const GET_STARTED_TYPE = "getStarted";
 
 const purgeEmptyMosaics = (state: SliceState) => {
   Object.entries(state.mosaics).forEach(([key, mosaic]) => {
@@ -165,12 +170,20 @@ const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State
     ),
   );
 
+const tabFromLayout = (layout: State): Tabs.Spec => ({
+  closable: true,
+  editable: layout.tab?.editable,
+  icon: layout.icon,
+  name: layout.name,
+  tabKey: layout.key,
+});
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
-      const { location, name, tab } = layout;
+      const { location, tab } = layout;
       let key = layout.key;
 
       const prev = select(state, key);
@@ -186,15 +199,7 @@ export const { actions, reducer } = createSlice({
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
         [mosaic.root] = Mosaic.removeTab(mosaic.root, key);
 
-      const mosaicTab = {
-        closable: true,
-        ...tab,
-        name,
-        icon: layout.icon,
-        tabKey: key,
-      };
-      delete mosaicTab.location;
-      delete mosaicTab.mosaicKey;
+      const mosaicTab = tabFromLayout(layout);
 
       let mosaicKey = tab?.mosaicKey;
       // If we didn't explicitly specify a mosaic node to put the new tab in, and
@@ -246,15 +251,6 @@ export const { actions, reducer } = createSlice({
         purgeEmptyMosaics(state);
       });
     },
-    setAltKey: (
-      state,
-      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
-    ) => {
-      const layout = select(state, key);
-      if (layout == null) return;
-      state.altKeyToKey[altKey] = key;
-      state.keyToAltKey[key] = altKey;
-    },
     moveMosaicTab: (
       state,
       { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
@@ -288,6 +284,13 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
+    },
+    setAltKey: (
+      state,
+      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
+    ) => {
+      state.keyToAltKey[key] = altKey;
+      state.altKeyToKey[altKey] = key;
     },
     splitMosaicNode: (
       state,
@@ -402,16 +405,16 @@ export const { actions, reducer } = createSlice({
         state.mosaics[MAIN_WINDOW].root,
         {
           closable: true,
-          tabKey: GET_STARTED_LAYOUT_TYPE,
+          tabKey: GET_STARTED_TYPE,
           name: "Get Started",
           editable: false,
         },
       );
       state.layouts.getStarted = {
         name: "Get Started",
-        key: GET_STARTED_LAYOUT_TYPE,
+        key: GET_STARTED_TYPE,
         location: "mosaic",
-        type: GET_STARTED_LAYOUT_TYPE,
+        type: GET_STARTED_TYPE,
         windowKey: MAIN_WINDOW,
         beta: false,
       };
@@ -465,6 +468,20 @@ export const { actions, reducer } = createSlice({
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
       state.colorContext = Color.transformColorsToHex(payload.state);
     },
+    setUnsavedChanges: (
+      state,
+      { payload }: PayloadAction<SetUnsavedChangesPayload>,
+    ) => {
+      const layout = select(state, payload.key);
+      if (layout == null) return;
+      layout.unsavedChanges = payload.unsavedChanges;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+        ...tabFromLayout(layout),
+        unsavedChanges: payload.unsavedChanges,
+      }));
+      state.mosaics[layout.windowKey] = mosaic;
+    },
   },
 });
 
@@ -472,12 +489,12 @@ export const {
   place,
   setFocus,
   remove,
-  setAltKey,
   toggleActiveTheme,
   setActiveTheme,
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
+  setAltKey,
   splitMosaicNode,
   rename,
   setNavDrawer,
@@ -488,6 +505,7 @@ export const {
   setWorkspace,
   setColorContext,
   clearWorkspace,
+  setUnsavedChanges,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
@@ -498,15 +516,15 @@ export type Payload = Action["payload"];
 
 export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
-export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
+export const createMosaicWindow = (window?: WindowProps): BaseState => ({
+  key: `${MOSAIC_WINDOW_TYPE}-${id.create()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: false,
+    navTop: true,
     visible: true,
     showTitle: false,
   },

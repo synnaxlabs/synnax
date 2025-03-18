@@ -28,10 +28,10 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { connectWindowLayout } from "@/cluster/Connect";
+import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
-import { Menu } from "@/components/menu";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -41,9 +41,9 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const active = useSelect();
-  const openWindow = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const selected = active?.key ?? null;
-  const addStatus = Status.useAggregator();
+  const addStatus = Status.useAdder();
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
@@ -73,7 +73,7 @@ export const List = (): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
 
       const handleSelect = (menuKey: string): void => {
@@ -146,7 +146,7 @@ export const List = (): ReactElement => {
           variant="outlined"
           size="medium"
           startIcon={<Icon.Add />}
-          onClick={() => openWindow(connectWindowLayout)}
+          onClick={() => placeLayout(CONNECT_LAYOUT)}
           className={CSS.B("cluster-list-add")}
         >
           Add
@@ -182,11 +182,11 @@ interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
   validateName: (name: string) => boolean;
 }
 
-const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
+const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
   const dispatch = useDispatch();
   const handleChange = (value: string) => {
     if (!validateName(value)) return;
-    dispatch(rename({ key: props.entry.key, name: value }));
+    dispatch(rename({ key: rest.entry.key, name: value }));
   };
 
   return (
@@ -194,19 +194,19 @@ const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
       className={CSS(CSS.B("cluster-list-item"))}
       direction="x"
       align="center"
-      {...props}
+      {...rest}
     >
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
         <Text.MaybeEditable
           level="p"
-          id={`cluster-dropdown-${props.entry.key}`}
+          id={`cluster-dropdown-${rest.entry.key}`}
           weight={450}
-          value={props.entry.name}
+          value={rest.entry.name}
           onChange={handleChange}
           allowDoubleClick={false}
         />
         <Text.Text level="p" shade={6}>
-          {props.entry.host}:{props.entry.port}
+          {rest.entry.host}:{rest.entry.port}
         </Text.Text>
       </Align.Space>
     </CoreList.ItemFrame>
@@ -224,11 +224,11 @@ export const NoneConnectedBoundary = ({
 };
 
 export const NoneConnected = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
-    place(connectWindowLayout);
+    placeLayout(CONNECT_LAYOUT);
   };
 
   return (
@@ -244,17 +244,18 @@ export const NoneConnected = (): ReactElement => {
 };
 
 export const Dropdown = (): ReactElement => {
-  const dropProps = Core.use();
+  const { close, toggle, visible } = Core.use();
   const cluster = useSelect();
   return (
     <Core.Dialog
-      {...dropProps}
+      close={close}
+      visible={visible}
       variant="floating"
       bordered={false}
       className={CSS.B("cluster-dropdown")}
     >
       <Button.Button
-        onClick={dropProps.toggle}
+        onClick={toggle}
         variant="text"
         startIcon={<Icon.Cluster />}
         justify="center"

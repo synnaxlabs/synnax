@@ -58,7 +58,7 @@ export const Canvas = ({
   children,
   resizeDebounce: debounce = 100,
   className,
-  ...props
+  ...rest
 }: CanvasProps): ReactElement => {
   const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
     type: canvas.Canvas.TYPE,
@@ -171,7 +171,7 @@ export const Canvas = ({
     <div
       ref={combinedElRef}
       className={CSS(CSS.B("canvas-container"), className)}
-      {...props}
+      {...rest}
     >
       <canvas
         ref={refCallback}

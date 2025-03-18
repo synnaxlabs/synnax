@@ -50,7 +50,7 @@ interface InternalState {
   client: Synnax | null;
   instrumentation: Instrumentation;
   stateProv: StateProvider;
-  addStatus: status.AddStatusFn;
+  addStatus: status.Adder;
   theme: theming.Theme;
   prevTrigger: number;
   telemCtx: telem.Context;
@@ -92,7 +92,7 @@ export class Controller
 
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
 
-    i.addStatus = status.useAggregator(ctx);
+    i.addStatus = status.useAdder(ctx);
 
     // Acquire or release control if necessary.
     if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
@@ -182,7 +182,7 @@ export class Controller
   }
 
   async set(
-    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+    frame: framer.Crude | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
@@ -290,7 +290,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(control.Authority.Absolute.valueOf()),
+  authority: z.number().default(control.Authority.ABSOLUTE),
   channel: z.number(),
 });
 

@@ -26,11 +26,12 @@ import { type FC, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
+import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
-import { overviewLayout } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
 
@@ -42,13 +43,13 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [parent, setParent] = useState<ranger.Range | null>();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
-      if (client == null) return;
+      if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await client.ranges.retrieve(rangeKey);
       const childRanges = await rng.retrieveParent();
       setParent(childRanges);
@@ -57,7 +58,7 @@ const ParentRangeButton = ({
       tracker.onChange((ranges) => setParent(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, "Failed to retrieve child ranges");
+      handleError(e, "Failed to retrieve child ranges");
       return undefined;
     }
   }, [rangeKey, client?.key]);
@@ -72,7 +73,9 @@ const ParentRangeButton = ({
         startIcon={<Icon.Range />}
         iconSpacing="small"
         style={{ padding: "1rem" }}
-        onClick={() => place({ ...overviewLayout, key: parent.key, name: parent.name })}
+        onClick={() =>
+          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+        }
       >
         {parent.name}
       </Button.Button>
@@ -155,7 +158,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     false,
     formCtx,
   );
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
   };

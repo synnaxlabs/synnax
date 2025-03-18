@@ -29,17 +29,11 @@ describe("Client", () => {
         index: time.key,
       });
       const start = TimeStamp.now();
-      await client.write(start, {
-        [time.key]: [start],
-        [data.key]: [1],
-      });
-      const frame = await client.read(
-        {
-          start,
-          end: start.add(TimeSpan.seconds(1)),
-        },
-        [time.key, data.key],
-      );
+      await client.write(start, { [time.key]: [start], [data.key]: [1] });
+      const frame = await client.read({ start, end: start.add(TimeSpan.seconds(1)) }, [
+        time.key,
+        data.key,
+      ]);
       expect(Array.from(frame.get(time.key))).toEqual([start.valueOf()]);
       expect(Array.from(frame.get(data.key))).toEqual([1]);
     });

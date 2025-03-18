@@ -77,11 +77,13 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 func (t *tapper) sink(ctx context.Context, d demand) error {
 	// update our demands, so we know what channels we want from what nodes
 	nodeDemands := t.updateDemands(d)
-	// make sure we have open taps to all demanded nodes/channels
+	// open/close any taps we need to in order to meet the new demands
 	t.updateTaps(ctx, nodeDemands)
 	return nil
 }
 
+// updateDemands modifies the current set of locations that the relay needs to stream
+// channel data from.
 func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 	if d.Variant == changex.Delete {
 		delete(t.demands, d.Key)
@@ -97,6 +99,8 @@ func (t *tapper) updateDemands(d demand) map[core.NodeKey]channel.Keys {
 	return nodeDemands
 }
 
+// Flow starts the tapper goroutines, which listen for demands that update relevant
+// taps into remote nodes, the host time-series db, or the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.taps[core.Free], _ = t.tapInto(sCtx, core.Free, channel.Keys{})
 	t.UnarySink.Flow(sCtx, append(opts,
@@ -155,15 +159,19 @@ func (t *tapper) tapInto(
 	keys channel.Keys,
 ) (tapController, error) {
 	var (
-		tp  tap
-		err error
+		tp     tap
+		err    error
+		tapKey string
 	)
 	if nodeKey.IsFree() {
 		tp, err = t.tapIntoFreeWrites()
+		tapKey = fmt.Sprintf("free-write-tap")
 	} else if nodeKey == t.HostResolver.HostKey() {
 		tp, err = t.tapIntoGateway(ctx, keys)
+		tapKey = fmt.Sprintf("gateway-tap")
 	} else {
 		tp, err = t.tapIntoPeer(ctx, nodeKey)
+		tapKey = fmt.Sprintf("peer-tap-%v", nodeKey)
 	}
 	if err != nil {
 		return tapController{}, err
@@ -171,11 +179,9 @@ func (t *tapper) tapInto(
 	requests := confluence.NewStream[Request](defaultBuffer)
 	tp.InFrom(requests)
 	tp.OutTo(t.AbstractUnarySource.Out)
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.Instrumentation.Child(fmt.Sprintf("tap-%v", nodeKey))),
-	)
-	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic())
-	return tapController{Inlet: requests, closer: signal.NewShutdown(sCtx, cancel)}, nil
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Instrumentation.Child(tapKey)))
+	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
+	return tapController{Inlet: requests, closer: signal.NewHardShutdown(sCtx, cancel)}, nil
 }
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
@@ -237,5 +243,5 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 			}
 		}
-	}, o.Signal...)
+	}, append(o.Signal, signal.WithKey("free-write-tap"))...)
 }

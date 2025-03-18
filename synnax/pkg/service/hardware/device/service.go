@@ -34,7 +34,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -43,7 +43,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("workspace")
 	validate.NotNil(v, "db", c.DB)
@@ -70,7 +70,10 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
+	if err := s.migrateDeviceParents(ctx); err != nil {
+		return s, err
+	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -80,6 +83,25 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s.shutdownSignals = cdcS
 	return
+}
+
+func (s *Service) migrateDeviceParents(ctx context.Context) error {
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var devices []Device
+		if err := s.NewRetrieve().Entries(&devices).Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := s.Ontology.NewWriter(tx)
+		for _, dev := range devices {
+			if err := w.DeleteIncomingRelationshipsOfType(ctx, dev.OntologyID(), ontology.ParentOf); err != nil {
+				return err
+			}
+			if err := w.DefineRelationship(ctx, dev.Rack.OntologyID(), ontology.ParentOf, dev.OntologyID()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *Service) Close() error {

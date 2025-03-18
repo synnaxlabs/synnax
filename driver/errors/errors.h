@@ -9,14 +9,16 @@
 
 #pragma once
 
+/// std
 #include <string>
-#include "client/cpp/errors/errors.h"
-#include "freighter/cpp/freighter.h"
+
+/// module
+#include "x/cpp/xerrors/errors.h"
 
 namespace driver {
-const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("driver");
-const freighter::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
-const freighter::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
-const freighter::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
-const freighter::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
+const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
+const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
+const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
+const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
+const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
 }

@@ -12,7 +12,6 @@
 .pluto-navbar {
     position: relative;
     flex-shrink: 0;
-    /* background: var(--pluto-gray-l0); */
 }
 
 .pluto-navbar.pluto--y {

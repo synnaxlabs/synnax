@@ -48,7 +48,6 @@ export type Variant = "connected" | "floating" | "modal";
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
   extends Pick<CoreDialog.UseReturn, "visible" | "close">,
-    Partial<Omit<CoreDialog.UseReturn, "visible" | "ref" | "close">>,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
@@ -93,12 +92,8 @@ export const Dialog = ({
   variant = "connected",
   close,
   maxHeight,
-  // It's common to pass these in, so we'll destructure and ignore them so we don't
-  // get an invalid prop on div tag error.
-  open,
-  toggle,
   zIndex = 5,
-  ...props
+  ...rest
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
   const visibleRef = useSyncedRef(visible);
@@ -212,9 +207,9 @@ export const Dialog = ({
 
   const ctxValue = useMemo(() => ({ close }), [close]);
   return (
-    <CoreDialog.Context.Provider value={ctxValue}>
+    <CoreDialog.Provider value={ctxValue}>
       <C
-        {...props}
+        {...rest}
         ref={combinedParentRef}
         borderShade={4}
         className={CSS(
@@ -228,7 +223,7 @@ export const Dialog = ({
         direction="y"
         reverse={dialogLoc.y === "top"}
         style={{
-          ...props.style,
+          ...rest.style,
           // @ts-expect-error - css variable
           [Z_INDEX_VARIABLE]: zIndex,
         }}
@@ -236,7 +231,7 @@ export const Dialog = ({
         {children[0]}
         {child}
       </C>
-    </CoreDialog.Context.Provider>
+    </CoreDialog.Provider>
   );
 };
 Dialog.displayName = "Dropdown";

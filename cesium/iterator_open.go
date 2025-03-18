@@ -41,9 +41,9 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
 	for i, key := range cfg.Channels {
-		uDB, ok := db.unaryDBs[key]
+		uDB, ok := db.mu.unaryDBs[key]
 		if !ok {
-			vdb, vok := db.virtualDBs[key]
+			vdb, vok := db.mu.virtualDBs[key]
 			if vok {
 				return nil, errors.Newf(
 					"cannot open iterator on virtual channel %v",
@@ -55,5 +55,5 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 	}
 
-	return &streamIterator{internal: internal}, nil
+	return &streamIterator{internal: internal, openSignal: cfg.OpenSignal}, nil
 }

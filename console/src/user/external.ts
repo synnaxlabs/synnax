@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { REGISTER_LAYOUT_TYPE, RegisterModal } from "@/user/RegisterModal";
+import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
 
-export * from "@/user/RegisterModal";
+export * from "@/user/Register";
 export * from "@/user/selectors";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [REGISTER_LAYOUT_TYPE]: RegisterModal,
+  [REGISTER_LAYOUT_TYPE]: Register,
 };

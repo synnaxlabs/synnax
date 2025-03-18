@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, type PropsWithChildren, useContext } from "react";
+import { createContext, type PropsWithChildren, type ReactElement, use } from "react";
 
 import { type Services } from "@/ontology/service";
 
 export interface ServicesContextValue extends Services {}
 
-export const ServicesContext = createContext<ServicesContextValue | null>(null);
+const Context = createContext<ServicesContextValue | null>(null);
 
 export const useServices = (): ServicesContextValue => {
-  const services = useContext(ServicesContext);
+  const services = use(Context);
   if (services == null)
     throw new Error("useServices must be used within a ServicesProvider");
   return services;
@@ -29,6 +29,6 @@ export interface ServicesProviderProps extends PropsWithChildren {
 export const ServicesProvider = ({
   services,
   children,
-}: ServicesProviderProps): React.ReactElement => (
-  <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>
+}: ServicesProviderProps): ReactElement => (
+  <Context value={services}>{children}</Context>
 );

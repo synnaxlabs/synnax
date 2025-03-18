@@ -12,7 +12,7 @@ import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/te
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnauthorizedError } from "@/errors";
+import { UnauthorizedError, ValidationError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
@@ -22,7 +22,7 @@ const client = newClient();
 const newChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
     leaseholder: 1,
-    name: `test-${id.id()}`,
+    name: `test-${id.create()}`,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
@@ -40,6 +40,7 @@ describe("Writer", () => {
       }
       expect(true).toBeTruthy();
     });
+
     test("write to unknown channel key", async () => {
       const ch = await newChannel();
       const writer = await client.openWriter({ start: 0, channels: ch.key });
@@ -48,6 +49,7 @@ describe("Writer", () => {
       ).rejects.toThrow("Channel billy bob not found");
       await writer.close();
     });
+
     test("stream when mode is set ot persist only", async () => {
       const ch = await newChannel();
       const stream = await client.openStreamer(ch.key);
@@ -68,6 +70,7 @@ describe("Writer", () => {
       ]);
       expect(v).toEqual(123);
     });
+
     test("write with auto commit on", async () => {
       const ch = await newChannel();
       const writer = await client.openWriter({
@@ -85,6 +88,7 @@ describe("Writer", () => {
       const f = await client.read(new TimeRange(0, TimeStamp.seconds(10)), ch.key);
       expect(f.length).toEqual(10);
     });
+
     test("write with auto commit and alwaysPersist", async () => {
       const ch = await newChannel();
       const writer = await client.openWriter({
@@ -100,6 +104,7 @@ describe("Writer", () => {
       }
       expect(true).toBeTruthy();
     });
+
     test("write with auto commit and a set interval", async () => {
       const ch = await newChannel();
       const writer = await client.openWriter({
@@ -115,6 +120,41 @@ describe("Writer", () => {
       }
       expect(true).toBeTruthy();
     });
+
+    test("write with out of order timestamp", async () => {
+      const indexCh = await client.channels.create({
+        name: "idx",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+      const dataCh = await client.channels.create({
+        name: "data",
+        dataType: DataType.FLOAT64,
+        index: indexCh.key,
+      });
+
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [indexCh.key, dataCh.key],
+        enableAutoCommit: true,
+      });
+
+      let errAccumulated: boolean = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        errAccumulated = !(await writer.write({
+          [indexCh.key]: BigInt(i),
+          [dataCh.key]: i,
+        }));
+        if (errAccumulated) break;
+      }
+
+      expect(errAccumulated).toBeTruthy();
+
+      await expect(writer.close()).rejects.toThrow(ValidationError);
+    });
+
     test("write with errOnUnauthorized", async () => {
       const ch = await newChannel();
       const w1 = await client.openWriter({
@@ -123,14 +163,11 @@ describe("Writer", () => {
       });
 
       await expect(
-        client.openWriter({
-          start: 0,
-          channels: ch.key,
-          errOnUnauthorized: true,
-        }),
+        client.openWriter({ start: 0, channels: ch.key, errOnUnauthorized: true }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
     });
+
     test("setAuthority", async () => {
       const ch = await newChannel();
       const w1 = await client.openWriter({
@@ -159,6 +196,7 @@ describe("Writer", () => {
       await w1.close();
       await w2.close();
     });
+
     test("setAuthority with name keys", async () => {
       const ch = await newChannel();
       const w1 = await client.openWriter({
@@ -187,6 +225,7 @@ describe("Writer", () => {
       await w1.close();
       await w2.close();
     });
+
     test("setAuthority with name-value pair", async () => {
       const ch = await newChannel();
       const w1 = await client.openWriter({
@@ -215,6 +254,7 @@ describe("Writer", () => {
       await w1.close();
       await w2.close();
     });
+
     test("setAuthority on all channels", async () => {
       const ch = await newChannel();
       const w1 = await client.openWriter({
@@ -244,6 +284,7 @@ describe("Writer", () => {
       await w2.close();
     });
   });
+
   describe("Client", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();

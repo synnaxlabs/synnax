@@ -22,7 +22,6 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -30,7 +29,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 const formSchema = z.object({
-  labels: label.newLabelPayloadZ.array(),
+  labels: label.newZ.array(),
 });
 
 const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
@@ -80,24 +79,20 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
 
 export const EDIT_LAYOUT_TYPE = "editLabels";
 
-export const createEditLayout = (): Layout.State => ({
+export const EDIT_LAYOUT: Layout.BaseState = {
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
-  windowKey: EDIT_LAYOUT_TYPE,
-  name: "Edit Labels",
+  name: "Labels.Edit",
   location: "modal",
   icon: "Label",
-  window: {
-    size: { height: 800, width: 500 },
-    navTop: true,
-  },
-});
+  window: { navTop: true, size: { height: 800, width: 500 } },
+};
 
 const listItem = componentRenderProp(LabelListItem);
 
 const initialState = formSchema.parse({ labels: [] });
 
-export const Edit: Layout.Renderer = (): ReactElement => {
+export const Edit: Layout.Renderer = () => {
   const methods = Form.useSynced<
     typeof formSchema,
     change.Change<string, label.Label>[]

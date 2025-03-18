@@ -10,17 +10,18 @@
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Log } from "@/log";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -44,10 +45,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.log.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete log");
+      handleError(err, "Failed to delete log");
     },
   }).mutate;
 };
@@ -58,7 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { resources },
   } = props;
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Log.useExport();
   const group = Group.useCreateFromSelection();
   const onSelect = useAsyncActionMenu({
@@ -74,7 +75,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
-      <Group.GroupMenuItem selection={selection} />
+      <Group.MenuItem selection={selection} />
       <PMenu.Divider />
       {isSingle && (
         <>
@@ -101,11 +102,20 @@ const loadLog = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Plac
   placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-}) => await loadLog(client, selection[0].id, placeLayout);
+  handleError,
+}) => {
+  loadLog(client, selection[0].id, placeLayout).catch((e) => {
+    const names = strings.naturalLanguageJoin(
+      selection.map(({ name }) => name),
+      "log",
+    );
+    handleError(e, `Failed to select ${names}`);
+  });
+};
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
@@ -113,11 +123,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  handleError,
 }) => {
-  void (async () => {
-    try {
-      const log = await client.workspaces.log.retrieve(id.key);
+  client.workspaces.log
+    .retrieve(id.key)
+    .then((log) => {
       placeLayout(
         Log.create({
           name: log.name,
@@ -127,21 +137,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load log");
-    }
-  })();
+    })
+    .catch((e) => handleError(e, "Failed to load log"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.NOOP_SERVICE,
   type: log.ONTOLOGY_TYPE,
   icon: <Icon.Log />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

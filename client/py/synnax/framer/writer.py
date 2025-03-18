@@ -8,13 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import overload, TypeAlias, Literal
+from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 from warnings import warn
-
-from numpy import can_cast as np_can_cast
-from pandas import DataFrame
-from pandas import concat as pd_concat
 
 from freighter import (
     EOF,
@@ -23,6 +19,10 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
+from numpy import can_cast as np_can_cast
+from pandas import DataFrame
+from pandas import concat as pd_concat
+
 from synnax import io
 from synnax.channel.payload import (
     ChannelKey,
@@ -33,9 +33,9 @@ from synnax.channel.payload import (
 )
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.frame import Frame, FramePayload, CrudeFrame
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
-from synnax.telem.control import Authority, Subject, CrudeAuthority
+from synnax.telem.control import Authority, CrudeAuthority, Subject
 from synnax.util.normalize import normalize
 
 
@@ -152,6 +152,7 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
+    __err_accumulated: bool = False
 
     start: CrudeTimeStamp
 
@@ -247,7 +248,7 @@ class Writer:
         the caller should acknowledge the error by calling the error method or closing
         the writer.
         """
-        if self.__stream.received():
+        if self._check_for_bad_ack():
             return False
 
         frame = self.__adapter.adapt(channels_or_data, series)
@@ -276,6 +277,15 @@ class Writer:
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
     ) -> bool: ...
+
+    def _check_for_bad_ack(self) -> bool:
+        if not self.__err_accumulated:
+            try:
+                self.__stream.receive(timeout=0)
+            except TimeoutError:
+                return False
+            self.__err_accumulated = True
+        return self.__err_accumulated
 
     def set_authority(
         self,
@@ -319,8 +329,8 @@ class Writer:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        if self.__stream.received():
-            return TimeStamp.ZERO, False
+        if self._check_for_bad_ack():
+            return TimeStamp.now(), False
         exc = self.__stream.send(_Request(command=_Command.COMMIT))
         if exc is not None:
             raise exc

@@ -18,56 +18,57 @@ import {
   componentRenderProp,
   Dropdown,
   Input,
+  List,
+  Status,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { CREATE_WINDOW_LAYOUT } from "@/workspace/Create";
+import { CREATE_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
-  const dProps = Dropdown.use();
+  const { close, toggle, visible } = Dropdown.use();
+  const handleError = Status.useErrorHandler();
   const handleChange = useCallback(
     (v: string | null) => {
-      dProps.close();
+      close();
       if (v === null) {
         dispatch(setActive(null));
         dispatch(Layout.clearWorkspace());
         return;
       }
-      if (v == null) {
-        dispatch(setActive(null));
-        return;
-      }
       if (client == null) return;
-      void (async () => {
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add(ws));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-      })();
+      client.workspaces
+        .retrieve(v)
+        .then((ws) => {
+          dispatch(add(ws));
+          dispatch(
+            Layout.setWorkspace({
+              slice: ws.layout as Layout.SliceState,
+              keepNav: false,
+            }),
+          );
+        })
+        .catch((e) => handleError(e, "Failed to switch workspace"));
     },
-    [active, client, dispatch, dProps.close],
+    [active, client, dispatch, close, handleError],
   );
 
   return (
     <Dropdown.Dialog
-      {...dProps}
+      close={close}
+      visible={visible}
       keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
@@ -75,14 +76,10 @@ export const Selector = (): ReactElement => {
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
         endIcon={
-          <Caret.Animated
-            enabledLoc="bottom"
-            disabledLoc="left"
-            enabled={dProps.visible}
-          />
+          <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
         }
         variant="text"
-        onClick={() => dProps.toggle()}
+        onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
         shade={8}
@@ -123,8 +120,8 @@ export const Selector = (): ReactElement => {
                       startIcon={<Icon.Add />}
                       variant="outlined"
                       onClick={() => {
-                        dProps.close();
-                        place(CREATE_WINDOW_LAYOUT);
+                        close();
+                        placeLayout(CREATE_LAYOUT);
                       }}
                       iconSpacing="small"
                       tooltip="Create a new workspace"
@@ -146,15 +143,15 @@ export const Selector = (): ReactElement => {
 
 export const SelectorListItem = ({
   onSelect,
-  ...props
+  ...rest
 }: List.ItemProps<string, workspace.Workspace>): ReactElement => {
-  const { entry } = props;
+  const { entry } = rest;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
     onSelect?.(entry.key);
   };
   return (
-    <List.ItemFrame {...props} onClick={handleSelect}>
+    <List.ItemFrame {...rest} onClick={handleSelect}>
       <Text.Text level="p">{entry.name}</Text.Text>
     </List.ItemFrame>
   );

@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "@fontsource-variable/inter";
+import "@fontsource/geist-mono";
 
 export * as Theming from "@/theming/external";

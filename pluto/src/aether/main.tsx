@@ -15,8 +15,8 @@ import {
   memo,
   type PropsWithChildren,
   type ReactElement,
+  use as reactUse,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -47,7 +47,7 @@ const ZERO_CONTEXT_VALUE = {
   create: () => ({ setState: () => {}, delete: () => {} }),
 };
 
-export const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 export interface ProviderProps extends PropsWithChildren {
   workerKey: string;
@@ -112,17 +112,17 @@ export const Provider = ({
 
   const value = useMemo<ContextValue>(() => ({ create, path: ["root"] }), [create]);
 
-  return <Context.Provider value={value}>{ready && children}</Context.Provider>;
+  return <Context value={value}>{ready && children}</Context>;
 };
 
-export const useAetherContext = (): ContextValue => useContext(Context);
+export const useContext = () => reactUse(Context);
 
 export interface UseLifecycleReturn<S extends z.ZodTypeAny> {
   path: string[];
   setState: (state: z.input<S>, transfer?: Transferable[]) => void;
 }
 
-export interface UseLifecycleProps<S extends z.ZodTypeAny> {
+interface UseLifecycleProps<S extends z.ZodTypeAny> {
   type: string;
   schema: S;
   aetherKey?: string;
@@ -141,7 +141,7 @@ const useLifecycle = <S extends z.ZodTypeAny>({
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
   const key = useUniqueKey(aetherKey);
   const comms = useRef<CreateReturn | null>(null);
-  const ctx = useAetherContext();
+  const ctx = useContext();
   const path = useMemoCompare(
     () => [...ctx.path, key],
     ([a], [b]) => compare.primitiveArrays(a, b) === 0,
@@ -213,7 +213,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
-export interface UsePropsProps<S extends z.ZodTypeAny>
+export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
   extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
   type: string;
   state: z.input<S>;
@@ -225,9 +225,9 @@ export interface UsePropsProps<S extends z.ZodTypeAny>
  */
 export const useUnidirectional = <S extends z.ZodTypeAny>({
   state,
-  ...props
-}: UsePropsProps<S>): ComponentContext => {
-  const { path, setState } = useLifecycle({ ...props, initialState: state });
+  ...rest
+}: UseUnidirectionalProps<S>): ComponentContext => {
+  const { path, setState } = useLifecycle({ ...rest, initialState: state });
   const ref = useRef(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
@@ -243,7 +243,7 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
  * the correct component type on the worker thread. A constructor for this type must
  * exist on the registry passed into aether.render on the worker thread.
  * @param props.aetherKey - A unique key for the component that is used to identify it
- * in the aether component tree. We recommend using `Aether.wrap` to generate unique keys.
+ * in the aether component tree. We recommend using `Aether.wrap` to create unique keys.
  * @param props.schema - The zod schema for the component's state. Used to validate state
  * changes on transfer to and from the worker thread.
  * @param props.initialState - The initial state for the component. Note that this state
@@ -251,9 +251,9 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
  * in the component's state. To alter the component's state, use the setState function
  * returned by the hook.
  * @returns A triplet with the following values:
- * 1. An object containing metadata about the generated component. This object contains
- * a path property, which is an array of strings representing the path to the component
- * in the aether component tree.
+ * 1. An object containing metadata about the created component. This object contains a
+ *    path property, which is an array of strings representing the path to the component
+ *    in the aether component tree.
  * 2. The component's current state. This is synchronized with the worker thread, and
  * can be updated by both the worker and the main thread.
  * 3. A function that can be used to update the component's state. This function takes
@@ -328,8 +328,8 @@ export interface CompositeProps extends PropsWithChildren {
  * Naturally, composites can be nested within each other. Child components that are
  */
 export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
-  const ctx = useAetherContext();
+  const ctx = useContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <Context value={value}>{children}</Context>;
 });
 Composite.displayName = "AetherComposite";

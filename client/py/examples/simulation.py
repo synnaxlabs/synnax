@@ -16,6 +16,7 @@ sensors.
 """
 
 import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -125,5 +126,6 @@ with client.open_streamer([channel.key for channel in valve_commands]) as stream
             for j, channel in enumerate(sensors):
                 sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100)
             sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
-            writer.write(sensor_states)
+            if not writer.write(sensor_states):
+                break
             i += 1

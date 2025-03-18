@@ -22,12 +22,9 @@ const reqZ = z.object({
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
+interface Request extends z.infer<typeof reqZ> {}
 
-type Request = z.infer<typeof reqZ>;
-
-const resZ = z.object({
-  labels: nullableArrayZ(labelZ),
-});
+const resZ = z.object({ labels: nullableArrayZ(labelZ) });
 
 export class Retriever {
   private static readonly ENDPOINT = "/label/retrieve";
@@ -38,8 +35,7 @@ export class Retriever {
   }
 
   async retrieve(labels: Params): Promise<Label[]> {
-    const normalized = toArray(labels);
-    return await this.execute({ keys: normalized });
+    return await this.execute({ keys: toArray(labels) });
   }
 
   async retrieveFor(id: ontology.ID): Promise<Label[]> {

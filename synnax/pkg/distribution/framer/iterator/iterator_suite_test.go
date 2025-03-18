@@ -31,7 +31,7 @@ var (
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IteratorServer Suite")
+	RunSpecs(t, "Iterator Suite")
 }
 
 type serviceContainer struct {

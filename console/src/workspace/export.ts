@@ -14,9 +14,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { Confirm } from "@/confirm";
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { select, selectActiveKey } from "@/workspace/selectors";
@@ -26,14 +27,14 @@ const removeDirectory = (name: string): string => name.split(sep()).join("_");
 export interface ExportContext {
   client: CSynnax | null;
   store: RootStore;
-  confirm: Confirm.CreateModal;
-  handleException: Status.ExceptionHandler;
+  confirm: Modals.PromptConfirm;
+  handleError: Status.ErrorHandler;
   extractors: Record<string, Export.Extractor>;
 }
 
 export const export_ = async (
   key: string | null,
-  { client, store, confirm, handleException, extractors }: ExportContext,
+  { client, store, confirm, handleError, extractors }: ExportContext,
 ): Promise<void> => {
   let name: string = "workspace"; // default name for error message
   try {
@@ -50,7 +51,7 @@ export const export_ = async (
         toExport = existingWorkspace.layout as Layout.SliceState;
         name = existingWorkspace.name;
       } else {
-        if (client == null) throw new Error("Cannot reach cluster");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const ws = await client.workspaces.retrieve(key);
         toExport = ws.layout as Layout.SliceState;
         name = ws.name;
@@ -94,7 +95,7 @@ export const export_ = async (
       }),
     );
   } catch (e) {
-    handleException(e, `Failed to export ${name}`);
+    handleError(e, `Failed to export ${name}`);
   }
 };
 
@@ -104,9 +105,9 @@ export const useExport = (
   extractors: Record<string, Export.Extractor>,
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const store = useStore<RootState, RootAction>();
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   return (key: string) =>
-    export_(key, { client, store, confirm, handleException, extractors });
+    export_(key, { client, store, confirm, handleError, extractors });
 };

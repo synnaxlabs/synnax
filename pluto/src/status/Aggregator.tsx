@@ -11,95 +11,64 @@ import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
-  type ReactElement,
+  use,
   useCallback,
-  useContext as reactUseContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
-import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
-  add: status.AddStatusFn;
-}
+const StatusesContext = createContext<status.Spec[]>([]);
 
-export type AddStatusFn = status.AddStatusFn;
-export type ExceptionHandler = status.ExceptionHandler;
+export interface Adder extends status.Adder {}
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  statuses: [],
-  add: () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
-export const useContext = reactUseContext;
+const AdderContext = createContext<Adder>(() => {});
 
 export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
 }
 
-export const Aggregator = ({
-  children,
-  maxHistory = 500,
-}: AggregatorProps): ReactElement => {
+const TRUNCATE_FACTOR = 0.9;
+
+export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   const [{ path }, { statuses }, setState] = Aether.use({
     type: status.Aggregator.TYPE,
     schema: status.aggregatorStateZ,
     initialState: { statuses: [] },
   });
-
-  if (maxHistory != null && statuses.length > maxHistory) {
-    const slice = Math.floor(maxHistory * 0.9);
+  if (statuses.length > maxHistory) {
+    const slice = Math.floor(maxHistory * TRUNCATE_FACTOR);
     setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
   }
-
-  const handleAdd: AddStatusFn = useCallback(
+  const handleAdd: Adder = useCallback(
     (status) => {
-      const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      const spec = { time: TimeStamp.now(), key: id.create(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
     },
     [setState],
   );
 
-  const value = useMemo<ContextValue>(
-    () => ({ statuses, add: handleAdd }),
-    [statuses, handleAdd],
-  );
-
   return (
-    <Context.Provider value={value}>
-      <Aether.Composite path={path}>{children}</Aether.Composite>
-    </Context.Provider>
+    <StatusesContext value={statuses}>
+      <AdderContext value={handleAdd}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </AdderContext>
+    </StatusesContext>
   );
 };
 
-export const useAggregator = (): status.AddStatusFn => useContext(Context).add;
+export const useAdder = () => use(AdderContext);
 
-export const useExceptionHandler = (): status.ExceptionHandler => {
-  const addStatus = useAggregator();
-  return useCallback(
-    (exc: unknown, message?: string): void => {
-      if (!(exc instanceof Error)) throw exc;
-      addStatus({
-        variant: "error",
-        message: message ?? exc.message,
-        description: message != null ? exc.message : undefined,
-      });
-    },
-    [addStatus],
-  );
+export interface ErrorHandler extends status.ErrorHandler {}
+
+export const useErrorHandler = (): ErrorHandler => {
+  const add = useAdder();
+  return useMemo(() => status.createErrorHandler(add), [add]);
 };
-
-export interface UseNotificationsProps {
-  expiration?: TimeSpan;
-}
-
-const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
 export interface NotificationSpec extends status.Spec {
   count: number;
@@ -110,58 +79,69 @@ export interface UseNotificationsReturn {
   silence: (key: string) => void;
 }
 
-export const useNotifications = (
-  props: UseNotificationsProps = {},
-): UseNotificationsReturn => {
-  const { statuses } = useContext(Context);
-  const { expiration = DEFAULT_EXPIRATION } = props;
+const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
+const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
+
+interface UseNotificationsProps {
+  expiration?: TimeSpan;
+  poll?: TimeSpan;
+}
+
+export const useNotifications = ({
+  expiration = DEFAULT_EXPIRATION,
+  poll = DEFAULT_EXPIRATION_POLL,
+}: UseNotificationsProps = {}): UseNotificationsReturn => {
+  const statuses = use(StatusesContext);
+  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
+  const [now, setNow] = useState(() => TimeStamp.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(TimeStamp.now()), poll.milliseconds);
+    return () => clearInterval(interval);
+  }, [poll.milliseconds]);
+
+  const filtered = useMemo(() => {
+    const threshold = now.sub(expiration);
+
+    const active = statuses.filter(
+      ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
+    );
+
+    const grouped = active.reduce((acc, status) => {
+      const key = `${status.variant}:${status.message}`;
+      if (!acc.has(key)) {
+        acc.set(key, { ...status, count: 1 });
+        return acc;
+      }
+      const existing = acc.get(key)!;
+      acc.set(key, {
+        ...existing,
+        count: existing.count + 1,
+        time: status.time.after(existing.time) ? status.time : existing.time,
+      });
+      return acc;
+    }, new Map<string, NotificationSpec>());
+    return Array.from(grouped.values());
+  }, [statuses, expiration, silencedKeys, now]);
+
   const statusesRef = useSyncedRef(statuses);
 
-  const [threshold, setThreshold] = useState<TimeStamp>(() => TimeStamp.now());
-  const [silenced, setSilenced] = useState<string[]>([]);
-
-  const filtered = statuses.filter((status) => {
-    const new_ = status.time.after(threshold);
-    if (new_)
-      setTimeout(
-        () => setThreshold((p) => (status.time.after(p) ? status.time : p)),
-        expiration.milliseconds,
-      );
-    return new_ && !silenced.includes(status.key);
-  });
-
-  const silence = useCallback(
-    (key: string) => {
-      const s = statusesRef.current.find((s) => s.key === key);
-      if (s == null) return;
-      const duplicates = findDuplicateStatus(s, statusesRef.current);
-      setSilenced((silenced) => [...silenced, ...duplicates.map((s) => s.key)]);
-    },
-    [setSilenced],
-  );
-
-  return {
-    statuses: reduceDuplicateStatuses(filtered),
-    silence,
-  };
-};
-
-const reduceDuplicateStatuses = (statuses: status.Spec[]): NotificationSpec[] =>
-  statuses.reduce<NotificationSpec[]>((acc, status) => {
-    const { message, variant } = status;
-    const existing = acc.find((s) => s.message === message && s.variant === variant);
-    if (existing != null) {
-      existing.count += 1;
-      if (existing.time.before(status.time)) existing.time = status.time;
-    } else acc.push({ ...status, count: 1 });
-    return acc;
+  const silence = useCallback((key: string) => {
+    setSilencedKeys((prev) => {
+      const next = new Set<string>();
+      const existing = statusesRef.current.find(({ key: k }) => k === key);
+      if (!prev.has(key)) next.add(key);
+      if (existing != null) {
+        const silenced = statusesRef.current.filter(
+          ({ message, variant }) =>
+            message === existing.message && variant === existing.variant,
+        );
+        silenced.forEach((status) => next.add(status.key));
+      }
+      if (next.size == 0) return prev;
+      return new Set([...next, ...prev]);
+    });
   }, []);
 
-const findDuplicateStatus = (
-  target: status.Spec,
-  statuses: status.Spec[],
-): status.Spec[] =>
-  statuses.filter((status) => {
-    const { message, variant } = status;
-    return message === target.message && variant === target.variant;
-  });
+  return { statuses: filtered, silence };
+};

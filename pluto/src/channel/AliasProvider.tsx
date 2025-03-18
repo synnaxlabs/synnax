@@ -13,48 +13,40 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  use,
   useCallback,
-  useContext as reactUseContext,
   useState,
 } from "react";
 
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
-interface AliasContextValue {
+export interface AliasContextValue {
   aliases: Record<channel.Key, string>;
   getName: (key: channel.Key) => Promise<string | undefined>;
   setAlias: ((key: channel.Key, alias: string) => Promise<void>) | null;
   activeRange?: string | null;
 }
 
-const AliasContext = createContext<AliasContextValue>({
+const Context = createContext<AliasContextValue>({
   aliases: {},
   getName: async () => await Promise.resolve(undefined),
   setAlias: null,
 });
 
-export const useContext = (): AliasContextValue => reactUseContext(AliasContext);
+export const useContext = () => use(Context);
 
-export interface AliasProviderProps extends PropsWithChildren {
-  activeRange?: string | null;
-}
+export const useAlias = (key: channel.Key): string | null =>
+  useContext().aliases[key] ?? null;
 
-export const useAlias = (key: channel.Key): string | null => {
-  const { aliases } = reactUseContext(AliasContext);
-  return aliases[key] ?? null;
-};
-
-export const useAliases = (): Record<channel.Key, string> => {
-  const { aliases } = reactUseContext(AliasContext);
-  return aliases;
-};
+export const useAliases = (): Record<channel.Key, string> => useContext().aliases;
 
 export const useName = (key: channel.Key, def: string = ""): string => {
-  const { getName } = reactUseContext(AliasContext);
+  const { getName } = useContext();
   const [name, setName] = useState<string | undefined>(def);
   useAsyncEffect(async () => {
     const n = await getName(key);
@@ -63,10 +55,11 @@ export const useName = (key: channel.Key, def: string = ""): string => {
   return name ?? def;
 };
 
-export const useActiveRange = (): string | undefined => {
-  const { activeRange } = reactUseContext(AliasContext);
-  return activeRange ?? undefined;
-};
+export const useActiveRange = () => useContext().activeRange ?? undefined;
+
+export interface AliasProviderProps extends PropsWithChildren {
+  activeRange?: string | null;
+}
 
 export const AliasProvider = ({
   activeRange,
@@ -127,7 +120,7 @@ export const AliasProvider = ({
   }, [c, activeRange]);
 
   return (
-    <AliasContext.Provider
+    <Context
       value={{
         aliases,
         activeRange,
@@ -136,7 +129,7 @@ export const AliasProvider = ({
       }}
     >
       {children}
-    </AliasContext.Provider>
+    </Context>
   );
 };
 
@@ -150,7 +143,7 @@ export const AliasInput = ({
   value,
   shadow,
   className,
-  ...props
+  ...rest
 }: AliasInputProps): ReactElement => {
   const [loading, setLoading] = useState(false);
   const { setAlias } = useContext();
@@ -161,18 +154,19 @@ export const AliasInput = ({
   else if (alias === value) icon = <Icon.Check />;
   const canSetAlias =
     setAlias != null && !loading && alias !== value && channelKey !== 0;
+  const handleError = Status.useErrorHandler();
   const handleSetAlias = (): void => {
     if (!canSetAlias) return;
-    void (async () => {
+    handleError(async () => {
       setLoading(true);
       await setAlias(channelKey, value);
       setLoading(false);
-    })();
+    }, "Failed to set channel alias");
   };
 
   const handleSetValueToAlias = (): void => {
     if (alias == null) return;
-    props.onChange?.(alias);
+    rest.onChange?.(alias);
   };
 
   const SetAliasTooltip = (): ReactElement => {
@@ -200,7 +194,7 @@ export const AliasInput = ({
   };
 
   return (
-    <Input.Text value={value} {...props}>
+    <Input.Text value={value} {...rest}>
       {canSetAlias && (
         <Button.Icon
           onClick={handleSetValueToAlias}

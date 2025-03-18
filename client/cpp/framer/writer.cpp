@@ -14,8 +14,6 @@
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 
-using namespace synnax;
-
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
     OPEN = 0,
@@ -26,91 +24,109 @@ enum WriterCommand : uint32_t {
     SET_MODE = 5,
 };
 
-
-std::pair<Writer, freighter::Error> FrameClient::openWriter(
-    const WriterConfig &config) const {
-    auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
+namespace synnax {
+std::pair<Writer, xerrors::Error>
+FrameClient::open_writer(const WriterConfig &config) const {
+    auto [w, err] = this->writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
-    config.toProto(req.mutable_config());
-    err = s->send(req);
-    if (err) return {Writer(), err};
-    auto [_, recExc] = s->receive();
-    return {Writer(std::move(s)), recExc};
+    config.to_proto(req.mutable_config());
+    if (!w->send(req).ok()) w->close_send();
+    auto [_, res_exc] = w->receive();
+    return {Writer(std::move(w)), res_exc};
 }
 
 Writer::Writer(std::unique_ptr<WriterStream> s) : stream(std::move(s)) {
 }
 
-
-void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
-    subject.to_proto(f->mutable_control_subject());
-    f->set_start(start.value);
-    for (auto &auth: authorities) f->add_authorities(auth);
-    for (auto &ch: channels) f->add_keys(ch);
-    f->set_mode(mode);
-    f->set_enable_auto_commit(enable_auto_commit);
-    f->set_auto_index_persist_interval(auto_index_persist_interval.value);
-    f->set_err_on_unauthorized(err_on_unauthorized);
+void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
+    this->subject.to_proto(f->mutable_control_subject());
+    f->set_start(this->start.nanoseconds());
+    f->mutable_authorities()->Add(this->authorities.begin(), this->authorities.end());
+    f->mutable_keys()->Add(this->channels.begin(), this->channels.end());
+    f->set_mode(this->mode);
+    f->set_enable_auto_commit(this->enable_auto_commit);
+    f->set_auto_index_persist_interval(this->auto_index_persist_interval.nanoseconds());
+    f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
 bool Writer::write(const Frame &fr) {
-    assertOpen();
-    if (err_accumulated) return false;
+    this->assert_open();
+    if (this->err_accumulated) return false;
     api::v1::FrameWriterRequest req;
     req.set_command(WRITE);
-    fr.toProto(req.mutable_frame());
-    if (const auto err = stream->send(req); err) err_accumulated = true;
-    return !err_accumulated;
+    fr.to_proto(req.mutable_frame());
+    if (const auto err = this->stream->send(req)) this->err_accumulated = true;
+    return !this->err_accumulated;
 }
 
-std::pair<synnax::TimeStamp, bool> Writer::commit() {
-    assertOpen();
-    if (err_accumulated) return {synnax::TimeStamp(), false};
-
+std::pair<telem::TimeStamp, bool> Writer::commit() {
+    this->assert_open();
+    if (err_accumulated) return {telem::TimeStamp(), false};
     api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
-
-    if (const auto err = stream->send(req); err) {
-        err_accumulated = true;
-        return {synnax::TimeStamp(0), false};
-    }
-
-    while (true) {
-        auto [res, recExc] = stream->receive();
-        if (recExc) {
-            err_accumulated = true;
-            return {synnax::TimeStamp(0), false};
-        }
-        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), res.ack()};
-    }
+    const auto res = this->ack(req);
+    return {telem::TimeStamp(res.end()), res.ack() && !this->err_accumulated};
 }
 
-freighter::Error Writer::error() const {
-    assertOpen();
+xerrors::Error Writer::error() {
+    assert_open();
     api::v1::FrameWriterRequest req;
     req.set_command(ERROR_MODE);
-    if (const auto err = stream->send(req); err) return err;
-    while (true) {
-        auto [res, recExc] = stream->receive();
-        if (recExc) return recExc;
-        if (res.command() == ERROR_MODE) return freighter::Error(res.error());
-    }
+    const auto res = this->ack(req);
+    return xerrors::Error(res.error());
 }
 
-freighter::Error Writer::close() const {
-    stream->closeSend();
+bool Writer::set_authority(const telem::Authority &auth) {
+    return this->set_authority({}, std::vector{auth});
+}
+
+bool Writer::set_authority(
+    const ChannelKey &key,
+    const telem::Authority &authority
+) {
+    return this->set_authority(std::vector{key}, std::vector{authority});
+}
+
+bool Writer::set_authority(
+    const std::vector<ChannelKey> &keys,
+    const std::vector<telem::Authority> &authorities
+) {
+    this->assert_open();
+    const WriterConfig config{.channels = keys, .authorities = authorities,};
+    api::v1::FrameWriterRequest req;
+    req.set_command(SET_AUTHORITY);
+    config.to_proto(req.mutable_config());
+    this->ack(req);
+    return !this->err_accumulated;
+}
+
+api::v1::FrameWriterResponse Writer::ack(api::v1::FrameWriterRequest &req) {
+    if (const auto err = this->stream->send(req); err) {
+        this->err_accumulated = true;
+        return {};
+    }
     while (true) {
-        if (const auto rec_exc = stream->receive().second; rec_exc) {
-            if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;
-            return rec_exc;
+        auto [res, res_err] = stream->receive();
+        if (res_err) {
+            this->err_accumulated = true;
+            return res;
         }
+        if (res.command() == req.command()) return res;
     }
 }
 
+xerrors::Error Writer::close() const {
+    stream->close_send();
+    while (true)
+        if (const auto rec_exc = stream->receive().second; rec_exc)
+            return rec_exc.skip(freighter::EOF_);
+}
 
-void Writer::assertOpen() const {
+
+void Writer::assert_open() const {
     if (closed)
         throw std::runtime_error("cannot call method on closed writer");
+}
 }

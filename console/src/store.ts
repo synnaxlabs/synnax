@@ -156,21 +156,20 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
   };
 };
 
+const BASE_MIDDLEWARE = [
+  ...LinePlot.MIDDLEWARE,
+  ...Layout.MIDDLEWARE,
+  ...Schematic.MIDDLEWARE,
+];
+
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
     preloadedState: initialState,
-    middleware: (def) =>
-      new Tuple(
-        ...def(),
-        ...LinePlot.MIDDLEWARE,
-        ...Layout.MIDDLEWARE,
-        ...Schematic.MIDDLEWARE,
-        persistMiddleware,
-      ),
+    middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
-    enablePrerender: true,
+    enablePrerender: false,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

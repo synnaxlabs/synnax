@@ -10,19 +10,13 @@
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { InvalidTokenError } from "@/errors";
+import { ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
-const insecureCredentialsZ = z.object({
-  username: z.string(),
-  password: z.string(),
-});
-type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
+const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
+interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
 
-const tokenResponseZ = z.object({
-  token: z.string(),
-  user: user.userZ,
-});
+const tokenResponseZ = z.object({ token: z.string(), user: user.userZ });
 
 const LOGIN_ENDPOINT = "/auth/login";
 
@@ -36,6 +30,8 @@ const changePasswordReqZ = z.object({
   newPassword: z.string().min(1),
 });
 const changePasswordResZ = z.object({});
+
+const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 
 export class Client {
   token: string | undefined;
@@ -94,7 +90,7 @@ export class Client {
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       const [resCtx, err] = await next(reqCtx);
-      if (InvalidTokenError.matches(err) && this.retryCount < MAX_RETRIES) {
+      if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
         this.authenticated = false;
         this.authenticating = undefined;
         this.retryCount += 1;

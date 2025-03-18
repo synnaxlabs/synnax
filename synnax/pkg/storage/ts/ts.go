@@ -70,14 +70,14 @@ var (
 	ErrChannelNotfound = cesium.ErrChannelNotFound
 )
 
-// Validate implements config.Properties.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ts")
 	validate.NotNil(v, "FS", c.FS)
 	return v.Error()
 }
 
-// Override implements config.Properties.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Dirname = override.String(c.Dirname, other.Dirname)
 	c.FS = override.Nil(c.FS, other.FS)

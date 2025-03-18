@@ -10,7 +10,7 @@
 import { type Link } from "@/link";
 import { Range } from "@/range";
 
-export const linkHandler: Link.Handler = async ({
+export const handleLink: Link.Handler = async ({
   client,
   dispatch,
   key,
@@ -19,5 +19,5 @@ export const linkHandler: Link.Handler = async ({
   const range = await client.ranges.retrieve(key);
   dispatch(Range.add({ ranges: Range.fromClientRange(range) }));
   dispatch(Range.setActive(range.key));
-  placeLayout({ ...Range.overviewLayout, key });
+  placeLayout({ ...Range.OVERVIEW_LAYOUT, key });
 };
