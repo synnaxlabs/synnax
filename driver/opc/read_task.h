@@ -22,6 +22,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/opc/util/util.h"
+#include "driver/task/common/sample_clock.h"
 #include "x/cpp/defer/defer.h"
 
 namespace opc {
@@ -117,6 +118,11 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
             auto ch = sy_channels[i];
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i].ch = ch;
+        }
+        for (std::size_t i = 0; i < sy_channels.size(); i++) {
+            auto ch = sy_channels[i];
+            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+                this->index_keys.erase(ch.key);
         }
     }
 
@@ -217,17 +223,15 @@ public:
             auto [s, err] = util::ua_array_to_series(
                 ch.ch.data_type,
                 &result.value,
-                this->cfg.array_size
+                this->cfg.array_size,
+                ch.ch.name
             );
             if (err) return {std::move(fr), err};
             fr.emplace(ch.synnax_key, std::move(s));
         }
-        if (!this->cfg.index_keys.empty()) {
-            auto start = telem::TimeStamp::now();
-            auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
-            auto s = telem::Series::linspace(start, end, this->cfg.array_size);
-            for (const auto &idx: this->cfg.index_keys) fr.emplace(idx, s.deep_copy());
-        }
+        auto start = telem::TimeStamp::now();
+        auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+        common::generate_index_data(fr, this->cfg.index_keys, start, end, this->cfg.array_size);
         return {std::move(fr), xerrors::NIL};
     }
 };
