@@ -247,7 +247,7 @@ export const wrapForm = <
               </Align.Space>
             </Align.Space>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} direction="x">
+            <Align.Space className={CSS.B("task-properties")} direction="x" wrap>
               <Properties />
             </Align.Space>
             <Align.Space

@@ -91,7 +91,11 @@ const Properties = (): ReactElement => {
           }}
         />
         {arrayMode ? (
-          <PForm.NumericField label="Array Size" path="config.arraySize" />
+          <PForm.NumericField
+            label="Array Size"
+            path="config.arraySize"
+            style={{ width: 100 }}
+          />
         ) : (
           <Common.Task.Fields.StreamRate />
         )}
