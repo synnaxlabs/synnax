@@ -476,3 +476,8 @@ export const constructWithAlternateRoot = (
     }
   return construct(first, second, undefined, undefined, newRoot);
 };
+
+export const round = (b: Crude): Box => {
+  const b_ = construct(b);
+  return construct(xy.round(b_.one), xy.round(b_.two), undefined, undefined, b_.root);
+};

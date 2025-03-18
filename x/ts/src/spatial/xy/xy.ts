@@ -279,3 +279,8 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
   }
   return miters;
 };
+
+export const round = (a: Crude): XY => {
+  const xy = construct(a);
+  return { x: Math.round(xy.x), y: Math.round(xy.y) };
+};

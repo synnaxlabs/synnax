@@ -9,18 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-legend {
-    position: absolute;
-    cursor: grabbing;
-    padding: 1rem;
-    padding-right: 1.5rem;
-    z-index: 4;
-    background-color: var(--pluto-gray-l2-80);
-    backdrop-filter: blur(4rem);
-    -webkit-backdrop-filter: blur(3rem);
-    border-radius: 1rem;
-    max-height: 50%;
-    overflow-y: auto;
-    overflow-x: visible;
-    width: fit-content;
+.pluto-modal__dialog {
+    .console-line-plot__nav-controls {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 20;
+        opacity: 0;
+        transition: opacity 0.1s ease-in-out;
+    }
+    &:hover {
+        .console-line-plot__nav-controls {
+            opacity: 1;
+        }
+    }
 }

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/lineplot/LinePlot.css";
+
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
@@ -51,6 +53,7 @@ import {
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
 import { create, LAYOUT_TYPE } from "@/lineplot/layout";
+import { NavControls } from "@/lineplot/NavControls";
 import {
   select,
   useSelect,
@@ -388,6 +391,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
       <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
+        <NavControls />
         <Channel.LinePlot
           hold={hold}
           title={name}

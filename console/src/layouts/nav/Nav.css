@@ -111,6 +111,17 @@
 
 .console-main-nav-drawer {
     flex: 0 0 auto;
+    &.console--hover {
+        position: absolute;
+    }
+}
+
+.console-main-nav-drawer--bottom.console--hover {
+    bottom: 0.5rem;
+    z-index: 200;
+    width: calc(100vw - 8rem - 2rem + 8px);
+    left: calc(8rem - 1px);
+    box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
 }
 
 .console-main-nav__content {

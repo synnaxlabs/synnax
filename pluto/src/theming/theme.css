@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-button:is(:focus, :focus-within, :active, :hover) {
+/* button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
@@ -17,7 +17,7 @@ button:is(:focus, :focus-within, :active, :hover) {
     & .pluto-input__internal {
         z-index: 3;
     }
-}
+} */
 
 :root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
@@ -29,12 +29,14 @@ button:is(:focus, :focus-within, :active, :hover) {
 }
 
 .pluto-theme-synnax-light {
-    --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
-        0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
+    --pluto-shadow-menu:
+        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.04),
+        0px 16px 24px -8px rgba(0, 0, 0, 0.06);
 }
 
 .pluto-theme-synnax-dark {
-    --pluto-shadow-menu: lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
+    --pluto-shadow-menu:
+        lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
         lch(0 0 0 / 0.188) 0px 1px 1px;
 }
 

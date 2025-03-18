@@ -24,15 +24,15 @@ import { SIZES } from "@/layouts/nav/sizes";
  * presentational.
  */
 export const Left = (): ReactElement => {
-  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer(
-    "left",
-    NAV_DRAWER_ITEMS,
-  );
+  const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
+    Layout.useNavDrawer("left", NAV_DRAWER_ITEMS);
   const os = OS.use();
   const {
     menuItems: bottomMenuItems,
     activeItem: bottomActiveItem,
     onSelect: onBottomSelect,
+    onStartHover: onBottomStartHover,
+    onStopHover: onBottomStopHover,
   } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
   return (
     <Nav.Bar
@@ -47,13 +47,23 @@ export const Left = (): ReactElement => {
         </Nav.Bar.Start>
       )}
       <Nav.Bar.Content className="console-main-nav__content">
-        <Menu activeItem={activeItem} onChange={onSelect}>
+        <Menu
+          activeItem={activeItem}
+          onChange={onSelect}
+          onStartHover={onStartHover}
+          onStopHover={onStopHover}
+        >
           {menuItems}
         </Menu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
         <Nav.Bar.End className="console-main-nav__content" bordered>
-          <Menu activeItem={bottomActiveItem} onChange={onBottomSelect}>
+          <Menu
+            activeItem={bottomActiveItem}
+            onChange={onBottomSelect}
+            onStartHover={onBottomStartHover}
+            onStopHover={onBottomStopHover}
+          >
             {bottomMenuItems}
           </Menu>
         </Nav.Bar.End>

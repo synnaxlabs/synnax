@@ -115,15 +115,16 @@ export const Dialog = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
+    const rounded = adjustedDialog;
     const nextState: State = {
       dialogLoc: location,
-      width: box.width(adjustedDialog),
-      left: box.left(adjustedDialog),
+      width: box.width(rounded),
+      left: box.left(rounded),
     };
-    if (location.y === "bottom") nextState.top = box.top(adjustedDialog);
+    if (location.y === "bottom") nextState.top = box.top(rounded);
     else {
       const windowBox = box.construct(window.document.documentElement);
-      nextState.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
+      nextState.bottom = box.height(windowBox) - box.bottom(rounded);
     }
     setState(nextState);
   }, [propsLocation, variant]);
@@ -276,7 +277,7 @@ const CONNECTED_PROPS: Partial<position.DialogProps> = {
   initial: { x: "center" },
   prefer: [{ y: "bottom" }],
 };
-const CONNECTED_TRANSLATE_AMOUNT: number = 1;
+const CONNECTED_TRANSLATE_AMOUNT: number = 0.5;
 
 const calcConnectedDialog = ({
   target,

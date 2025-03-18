@@ -131,6 +131,17 @@ interface SetNavDrawerVisiblePayload {
   value?: boolean;
 }
 
+interface StartNavHoverPayload {
+  windowKey: string;
+  location: NavDrawerLocation;
+  key: string;
+}
+
+interface StopNavHoverPayload {
+  windowKey: string;
+  location: NavDrawerLocation;
+}
+
 interface SetArgsPayload<T = unknown> {
   key: string;
   args: T;
@@ -373,11 +384,15 @@ export const { actions, reducer } = createSlice({
         navState = { drawers: {} };
         state.nav[windowKey] = navState;
       }
-
       if (key != null)
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key))
-            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
+          if (drawer.menuItems.includes(key)) {
+            const activeItem = (value ?? drawer.activeItem !== key) ? key : null;
+            if (drawer.hover) {
+              drawer.activeItem = key;
+              drawer.hover = false;
+            } else drawer.activeItem = activeItem;
+          }
         });
       else if (location != null) {
         let drawer = navState.drawers[location];
@@ -391,6 +406,28 @@ export const { actions, reducer } = createSlice({
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
       } else throw new Error("setNavDrawerVisible requires either a key or location");
+    },
+    startNavHover: (
+      state,
+      { payload: { windowKey, location, key } }: PayloadAction<StartNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawerState = navState.drawers[location];
+      if (drawerState == null || drawerState.activeItem == key) return;
+      drawerState.hover = true;
+      drawerState.activeItem = key;
+    },
+    stopNavHover: (
+      state,
+      { payload: { windowKey, location } }: PayloadAction<StopNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawerState = navState.drawers[location];
+      if (drawerState == null || !drawerState.hover) return;
+      drawerState.hover = false;
+      drawerState.activeItem = null;
     },
     maybeCreateGetStartedTab: (state) => {
       const checkedGetStarted = state.alreadyCheckedGetStarted;
@@ -505,6 +542,8 @@ export const {
   setWorkspace,
   setColorContext,
   clearWorkspace,
+  startNavHover,
+  stopNavHover,
   setUnsavedChanges,
 } = actions;
 

@@ -38,7 +38,6 @@
 .console-main--driven {
     flex-grow: 1;
     flex-shrink: 1;
-    overflow: hidden;
 }
 
 #root {
@@ -53,18 +52,14 @@ main {
     border: var(--pluto-border);
     border-radius: 1rem;
     background: var(--pluto-gray-l0);
-    overflow: hidden;
     border-color: var(--pluto-gray-l4);
-}
-
-.console-main-content-drawers {
-    overflow: hidden;
+    box-shadow: var(--pluto-shadow-menu);
 }
 
 .pluto-navdrawer__content {
+    overflow: hidden;
     background-color: var(--pluto-gray-l0);
     border-radius: 1rem;
-    overflow: hidden;
     border: var(--pluto-border);
     border-color: var(--pluto-gray-l4);
     .pluto-resize__handle {

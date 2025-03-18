@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/lineplot/NavControls.css";
-
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -61,7 +59,11 @@ export const NavControls = (): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <>
+    <Align.Space
+      className={CSS.BE("line-plot", "nav-controls")}
+      direction="x"
+      size="small"
+    >
       <Viewport.SelectMode
         value={mode}
         onChange={handleModeChange}
@@ -83,7 +85,7 @@ export const NavControls = (): ReactElement => {
             </Align.Space>
           </Align.Space>
         }
-        size="medium"
+        size="small"
       >
         <Icon.Expand />
       </Button.Icon>
@@ -91,8 +93,8 @@ export const NavControls = (): ReactElement => {
         value={control.enableTooltip}
         onChange={handleTooltipChange}
         checkedVariant="filled"
+        size="small"
         uncheckedVariant="outlined"
-        sharp
         tooltip={
           <Align.Space direction="x" align="center">
             <Text.Text level="small">Show Tooltip on Hover</Text.Text>
@@ -108,9 +110,8 @@ export const NavControls = (): ReactElement => {
       >
         value={control.clickMode}
         onChange={handleClickModeChange}
-        size="medium"
+        size="small"
         bordered={false}
-        rounded={false}
         entryRenderKey="icon"
         allowNone
         data={[
@@ -129,8 +130,7 @@ export const NavControls = (): ReactElement => {
           <Button.Icon
             {...rest}
             key={entry.key}
-            variant={rest.selected ? "filled" : "text"}
-            style={{}}
+            variant={rest.selected ? "filled" : "outlined"}
             tooltip={entry.tooltip}
             tooltipLocation={{ x: "left", y: "top" }}
           >
@@ -142,9 +142,9 @@ export const NavControls = (): ReactElement => {
         className={CSS.BE("control", "pause")}
         value={control.hold}
         onChange={handleHoldChange}
-        sharp
         uncheckedVariant="outlined"
         tooltipLocation={{ x: "right", y: "top" }}
+        size="small"
         tooltip={
           <Align.Space direction="x" align="center" size="small">
             <Text.Text level="small">
@@ -156,6 +156,6 @@ export const NavControls = (): ReactElement => {
       >
         {control.hold ? <Icon.Play /> : <Icon.Pause />}
       </Button.ToggleIcon>
-    </>
+    </Align.Space>
   );
 };

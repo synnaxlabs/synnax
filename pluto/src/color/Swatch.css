@@ -26,8 +26,8 @@
     }
 
     &.pluto--tiny {
-        width: 3.5rem;
-        height: 2.5rem;
+        width: 3rem;
+        height: 2.25rem;
         padding: 0;
     }
     &.pluto--small {

@@ -16,6 +16,8 @@ import {
   type NavDrawerLocation,
   resizeNavDrawer,
   setNavDrawerVisible,
+  startNavHover,
+  stopNavHover,
 } from "@/layout/slice";
 
 export interface NavMenuItem {
@@ -31,6 +33,9 @@ export interface UseNavDrawerReturn {
   menuItems: NavMenuItem[];
   onSelect: (item: string) => void;
   onResize: (size: number) => void;
+  onStartHover: (item: string) => void;
+  onStopHover: () => void;
+  hover: boolean;
 }
 
 export const useNavDrawer = (
@@ -53,6 +58,9 @@ export const useNavDrawer = (
       menuItems: [],
       onSelect: () => {},
       onResize: () => {},
+      hover: false,
+      onStartHover: () => {},
+      onStopHover: () => {},
     };
   let activeItem: NavDrawerItem | undefined;
   if (state.activeItem != null)
@@ -68,5 +76,9 @@ export const useNavDrawer = (
     menuItems,
     onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     onResize,
+    hover: state.hover ?? false,
+    onStartHover: (key: string) =>
+      dispatch(startNavHover({ windowKey, location, key })),
+    onStopHover: () => dispatch(stopNavHover({ windowKey, location })),
   };
 };

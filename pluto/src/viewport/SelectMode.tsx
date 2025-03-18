@@ -73,8 +73,8 @@ export const SelectMode = ({
         <Button.Icon
           {...rest}
           key={entry.key}
-          variant={rest.selected ? "filled" : "text"}
-          size="medium"
+          variant={rest.selected ? "filled" : "outlined"}
+          size="small"
           tooltip={entry.tooltip}
           tooltipLocation={{ x: "right", y: "top" }}
         >

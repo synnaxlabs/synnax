@@ -162,6 +162,7 @@ const navDrawerEntryStateZ = z.object({
   activeItem: z.string().nullable(),
   menuItems: z.string().array(),
   size: z.number().optional(),
+  hover: z.boolean().optional(),
 });
 
 export type NavDrawerEntryState = z.infer<typeof navDrawerEntryStateZ>;
