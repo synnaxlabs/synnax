@@ -67,13 +67,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const prevLayoutName = usePrevious(layoutName);
   const formCtx = Ranger.useSyncedForm({
     key: rangeKey,
+    name: "Range",
     values: {
       name: "",
       key: rangeKey,
-      timeRange: new TimeRange({
-        start: new TimeStamp(),
-        end: new TimeStamp(),
-      }),
+      timeRange: {
+        start: 0,
+        end: 0,
+      },
     },
   });
 

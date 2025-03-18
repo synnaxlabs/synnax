@@ -30,7 +30,6 @@ import {
   SCAN_TYPE,
   type ScanStateDetails,
 } from "@/hardware/opc/task/types";
-import { useQueryTask } from "@/whisper/Whisper";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -50,16 +49,16 @@ export interface BrowserProps {
 
 export const Browser = ({ device }: BrowserProps) => {
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
-  const scanTask = useQueryTask<[]>({
-    queryKey: [],
-    retrieve: async ({ client }) => {
-      const scanTasks = await client.hardware.tasks.retrieve(device.rack, {
-        types: [SCAN_TYPE],
-      });
-      if (scanTasks.length > 0) return scanTasks[0];
-      return null;
-    },
-  });
+  // const scanTask = useQueryTask<[]>({
+  //   queryKey: [],
+  //   retrieve: async ({ client }) => {
+  //     const scanTasks = await client.hardware.tasks.retrieve(device.rack, {
+  //       types: [SCAN_TYPE],
+  //     });
+  //     if (scanTasks.length > 0) return scanTasks[0];
+  //     return null;
+  //   },
+  // });
   const [loading, setLoading] = useState<string>();
   const expand = useMutation({
     mutationFn: async ({

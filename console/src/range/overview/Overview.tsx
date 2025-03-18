@@ -33,11 +33,11 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
   >
     <Details rangeKey={layoutKey} />
     <Labels rangeKey={layoutKey} />
-    <Divider.Divider direction="x" />
+    {/* <Divider.Divider direction="x" />
     <MetaData rangeKey={layoutKey} />
     <Divider.Divider direction="x" />
     <ChildRanges rangeKey={layoutKey} />
     <Divider.Divider direction="x" />
-    <Snapshots rangeKey={layoutKey} />
+    <Snapshots rangeKey={layoutKey} /> */}
   </Align.Space>
 );

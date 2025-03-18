@@ -85,8 +85,8 @@ interface DecodeArgs<T> {
   client: Synnax;
 }
 
-export interface Decoder<T> {
-  (args: DecodeArgs<T>): Promise<[T | null, boolean]>;
+export interface Decoder<I, O = I> {
+  (args: DecodeArgs<I>): Promise<[O | null, boolean]>;
 }
 
 export interface Retrieve<T> {
@@ -97,50 +97,54 @@ export interface RetrieveChannels {
   (props: ChannelsArgs): Promise<channel.Channel[]>;
 }
 
-export interface UseRetrieveArgs<T> {
+export interface UseRetrieveArgs<Value, InitialValue = undefined> {
   queryKey: Primitive[];
-  initialValue?: T;
-  retrieve: Retrieve<T>;
+  initialValue: InitialValue;
+  retrieve: Retrieve<Value>;
   retrieveChannels: RetrieveChannels;
-  decode: Decoder<T>;
+  decode: Decoder<Value>;
 }
 
-type RetrieveState<T> =
+export type RetrieveState<Value, InitialValue = null> =
   | {
-      value: T;
+      value: Value;
       isLoading: false;
       error: null;
     }
   | {
-      value: T | null;
+      value: InitialValue;
       isLoading: true;
       error: null;
     }
   | {
-      value: null;
+      value: InitialValue;
       isLoading: false;
       error: Error;
     };
 
-export type UseRetrieveReturn<T> = RetrieveState<T>;
+export type UseRetrieveReturn<Value, InitialValue = undefined> = RetrieveState<
+  Value,
+  InitialValue
+>;
 
-export interface UseRetrieveOnChangeArgs<T>
-  extends Omit<UseRetrieveArgs<T>, "initialValue"> {
-  onChange: (value: RetrieveState<T>) => void;
+export interface UseRetrieveOnChangeArgs<Value, InitialValue = undefined>
+  extends UseRetrieveArgs<Value, InitialValue> {
+  onChange: (value: RetrieveState<Value, InitialValue>) => void;
 }
 
-export const useRetrieveListener = <T,>({
+export const useRetrieveListener = <Value, InitialValue = undefined>({
   retrieve,
   retrieveChannels,
   decode,
   onChange,
-}: UseRetrieveOnChangeArgs<T>): void => {
+  initialValue,
+}: UseRetrieveOnChangeArgs<Value, InitialValue>): void => {
   const client = PSynnax.use();
   const { bindListener: bindConsumer } = useContext();
   useAsyncEffect(async () => {
     if (client == null)
       return onChange({
-        value: null,
+        value: initialValue,
         isLoading: false,
         error: new Error("Client not found"),
       });
@@ -148,32 +152,34 @@ export const useRetrieveListener = <T,>({
       const value = await retrieve({ client });
       onChange({ value, isLoading: false, error: null });
       const channels = await retrieveChannels({ client });
-      bindConsumer({
+      return bindConsumer({
         channels: channels.map((c) => c.key),
         onChange: (fr) => {
           decode({ fr, channels, client, current: value })
             .then(([v, shouldChange]) => {
               if (shouldChange)
-                onChange({ value: v as T, isLoading: false, error: null });
+                onChange({ value: v as Value, isLoading: false, error: null });
             })
-            .catch((error) => onChange({ value: null, isLoading: false, error }));
+            .catch((error) =>
+              onChange({ value: initialValue, isLoading: false, error }),
+            );
         },
       });
     } catch (error) {
-      onChange({ value: null, isLoading: false, error: error as Error });
+      onChange({ value: initialValue, isLoading: false, error: error as Error });
     }
   }, [client?.key]);
 };
 
-export const useRetrieve = <T,>({
+export const useRetrieve = <Value, InitialValue = undefined>({
   retrieve,
   retrieveChannels,
   decode,
   queryKey,
   initialValue,
-}: UseRetrieveArgs<T>): RetrieveState<T> => {
-  const [returnVal, setReturnVal] = useState<RetrieveState<T>>({
-    value: initialValue ?? null,
+}: UseRetrieveArgs<Value, InitialValue>): RetrieveState<Value, InitialValue> => {
+  const [returnVal, setReturnVal] = useState<RetrieveState<Value, InitialValue>>({
+    value: initialValue,
     isLoading: true,
     error: null,
   });
@@ -183,6 +189,7 @@ export const useRetrieve = <T,>({
     decode,
     onChange: setReturnVal,
     queryKey,
+    initialValue,
   });
   return returnVal;
 };
@@ -198,10 +205,15 @@ interface SyncLocalProps<Z extends z.ZodTypeAny> extends Form.OnChangeProps<Z> {
 
 export interface UseFormProps<Z extends z.ZodTypeAny, O = Z>
   extends Form.UseProps<Z>,
-    UseRetrieveArgs<z.output<Z> | null> {
+    Omit<UseRetrieveArgs<z.output<Z> | null>, "initialValue"> {
   name: string;
   applyObservable?: (props: ApplyObservableProps<Z, O>) => void;
   applyChanges?: (props: SyncLocalProps<Z>) => Promise<void>;
+  autoSave?: boolean;
+}
+
+export interface UseFormReturn<Z extends z.ZodTypeAny> extends Form.UseReturn<Z> {
+  save(): void;
 }
 
 export const useForm = <Z extends z.ZodTypeAny, O = Z>({
@@ -213,22 +225,38 @@ export const useForm = <Z extends z.ZodTypeAny, O = Z>({
   retrieve,
   decode,
   queryKey,
+  autoSave = true,
   ...rest
-}: UseFormProps<Z, O>): Form.UseReturn<Z> => {
+}: UseFormProps<Z, O>): UseFormReturn<Z> => {
   const client = PSynnax.use();
   const handleError = Status.useErrorHandler();
+  const handleApplyChanges = useCallback(
+    (props: Form.OnChangeProps<Z>) => {
+      void handleError(async () => {
+        if (client == null) return;
+        await applyChanges?.({ ...props, client });
+      }, `Failed to apply changes for ${name}`);
+    },
+    [applyChanges, client],
+  );
+
   const methods = Form.use({
     values: initialValues,
     ...rest,
     sync: false,
-    onChange: (props) => {
-      if (client == null) return;
-      handleError(async () => {
-        await applyChanges?.({ ...props, client });
-      }, `Failed to apply changes for ${name}`);
-    },
+    onChange: autoSave ? handleApplyChanges : undefined,
   });
-  useRetrieveListener<O | null>({
+
+  const save = useCallback(() => {
+    handleApplyChanges({
+      values: methods.value(),
+      path: "",
+      prev: null,
+      valid: true,
+    });
+  }, [handleApplyChanges, methods]);
+
+  useRetrieveListener<O | null, O | null>({
     retrieve,
     retrieveChannels,
     decode,
@@ -236,6 +264,7 @@ export const useForm = <Z extends z.ZodTypeAny, O = Z>({
       if (value != null) applyObservable?.({ changes: value, ctx: methods });
     },
     queryKey,
+    initialValue: null,
   });
-  return methods;
+  return { ...methods, save };
 };

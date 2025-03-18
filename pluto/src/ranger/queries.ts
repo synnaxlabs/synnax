@@ -39,7 +39,7 @@ const retrieveSingle: (key?: string) => Warp.Retrieve<ranger.Payload | null> =
   (key) =>
   async ({ client }) => {
     if (key == null) return null;
-    return await client.ranges.retrieve(key);
+    return (await client.ranges.retrieve(key)).payload;
   };
 
 export const useRetrieve = <T extends ranger.Payload = ranger.Range>(
@@ -55,10 +55,7 @@ export const useRetrieve = <T extends ranger.Payload = ranger.Range>(
   }) as Warp.UseRetrieveReturn<T>;
 
 export interface UseSyncFormArgs
-  extends Pick<
-    Warp.UseFormProps<typeof ranger.payloadZ>,
-    "values" | "applyChanges" | "applyObservable" | "name"
-  > {
+  extends Pick<Warp.UseFormProps<typeof ranger.payloadZ>, "values" | "name"> {
   key: string;
 }
 
@@ -148,8 +145,8 @@ const retrieveLabelsChannels: Warp.RetrieveChannels = async ({ client }) =>
 
 export const useRetrieveLabels = (
   key?: ranger.Key,
-): Warp.UseRetrieveReturn<label.Label[]> =>
-  Warp.useRetrieve({
+): Warp.UseRetrieveReturn<label.Label[], label.Label[]> =>
+  Warp.useRetrieve<label.Label[], label.Label[]>({
     queryKey: [key],
     initialValue: [],
     retrieve: retrieveLabels(key),

@@ -11,7 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 
-import { useQueryRack } from "@/whisper/Whisper";
+// import { useQueryRack } from "@/whisper/Whisper";
 
 interface RackProps {
   taskKey: task.Key;
@@ -20,11 +20,12 @@ interface RackProps {
 export const Rack = ({ taskKey }: RackProps) => {
   const client = Synnax.use();
   const rackKey = task.getRackKey(taskKey);
-  const rack = useQueryRack({
-    queryKey: ["rack", rackKey, client?.key],
-    retrieve: async ({ client }) => await client.hardware.racks.retrieve(rackKey),
-  });
-  if (rack == null) return null;
+  // const rack = useQueryRack({
+  //   queryKey: ["rack", rackKey, client?.key],
+  //   retrieve: async ({ client }) => await client.hardware.racks.retrieve(rackKey),
+  // });
+  // if (rack == null) return null;
+  const rack = {};
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" shade={8} weight={450}>
