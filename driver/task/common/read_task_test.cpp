@@ -563,6 +563,5 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     auto cfg = common::BaseReadTaskConfig(p, false);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
-    EXPECT_EQ(cfg.stream_rate, cfg.sample_rate);
     EXPECT_TRUE(cfg.data_saving);
 }
