@@ -1099,9 +1099,21 @@ xerrors::Error SugaredAPI::WriteToTEDSFromFile(const char physicalChannel[],
         dmx->WriteToTEDSFromFile(physicalChannel, filePath, basicTEDSOptions));
 }
 
+xerrors::Error SugaredAPI::SetReadRelativeTo(TaskHandle taskHandle, int32 data) {
+    return process_error(dmx->SetReadRelativeTo(taskHandle, data));
+}
+
+xerrors::Error SugaredAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
+    return process_error(dmx->SetReadOffset(taskHandle, data));
+}
+
+xerrors::Error SugaredAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
+    return process_error(dmx->SetReadOverWrite(taskHandle, data));
+}
+
 xerrors::Error SugaredAPI::CreateLinScale(const char scaleName[], float64 slope,
-                                            float64 yIntercept, int32 preScaledUnits,
-                                            const char customScaleName[]) {
+                                          float64 yIntercept, int32 preScaledUnits,
+                                          const char customScaleName[]) {
     return process_error(dmx->CreateLinScale(scaleName, slope, yIntercept,
                                              preScaledUnits, customScaleName));
 }
