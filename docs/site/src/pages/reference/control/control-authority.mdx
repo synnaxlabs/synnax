@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Control Authority"
-description: "Learn about control authority & handoff in Synnax."
+description: "Learn about control authority and handoff in Synnax."
 prevURL: "/reference/control/get-started"
 prev: "Get Started"
 nextURL: "/reference/control/embedded/get-started"
@@ -14,22 +14,22 @@ export const components = mdxOverrides;
 
 When operating multi-device hardware systems that also require manual control through
 operators, understanding which entities have control over actuators in a system is
-essential. Synnax's control authority & handoff mechanisms allows for smooth
+essential. Synnax's control authority and handoff mechanisms allows for smooth
 multi-operator and multi-automation interaction.
 
 <Divider.Divider direction="x" />
 
-## Sequence Control Authority
+## Control Authority
 
-Every entity that writes to Synnax has an assigned control authority for every channel
-that it is writing to. Each authority has a number between `0` and `255`, where `0` is the
-lowest authority and `255` is the highest (typically referred to as absolute control).
+Every entity that writes data to Synnax has an assigned control authority for every
+channel that it is writing to. The control authority is an 8-bit unsigned integer, which
+means minimum authority is 0 and maximum authority is 255.
 
-When a sequence is started (whether Python or Embedded), it assigns a control authority
-to each channel that it is writing to. If an existing sequence is already writing to a
-channel, the new sequence will take control of the channel from the existing sequence
-if its authority is higher. If not, the new sequence will not be allowed to write to the
-channel until the existing sequence releases control.
+When a control sequence is started, it assigns a control authority to each channel that
+it is writing to. Suppose an existing control sequence is writing to a channel. If the
+new sequence has a higher authority than the existing sequence, the new sequence will
+take control of the channel. Otherwise, the new sequence will not be able to write to
+the channel until the existing sequence releases control.
 
 In the case of equal authority, the first sequence to take control will maintain control
 of the channel.
@@ -52,8 +52,8 @@ if pressure > 100 then
 end
 ```
 
-In this case, the `press_vlv_cmd` channel will have an authority of `255` and the
-`vent_vlv_cmd` channel will have an authority of `100`.
+In this case, the `press_vlv_cmd` channel will have absolute authority of 255 and the
+`vent_vlv_cmd` channel will have an authority of 100.
 
 <Divider.Divider direction="x" />
 
@@ -61,5 +61,4 @@ In this case, the `press_vlv_cmd` channel will have an authority of `255` and th
 
 Manual control of channels through components such as
 [Schematics](/reference/console/schematics) follow the same control authority rules as
-sequences. This allows for operators to take manual control over channels if/when
-necessary.
+sequences. This allows for operators to conditionally take control of channels.
