@@ -16,19 +16,16 @@
 #include "x/cpp/xshutdown/xshutdown.h"
 
 namespace xshutdown::priv {
-    std::mutex shutdown_mutex;
-    std::condition_variable shutdown_cv;
-    bool should_stop = false;
+std::mutex shutdown_mutex;
+std::condition_variable shutdown_cv;
+bool should_stop = false;
 
-    BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
+BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
     if (ctrl_type == CTRL_C_EVENT) {
-    // Flush stdout and stderr before signaling shutdown
-    fflush(stdout);
-    fflush(stderr);
-    signal_shutdown();
-    return TRUE;
-}
-return FALSE;
+        signal_shutdown();
+        return TRUE;
+    }
+    return FALSE;
 }
 
 void listen_signal() {
@@ -52,8 +49,8 @@ void listen_stdin() {
                 size_t pos;
                 while ((pos = input.find('\n')) != std::string::npos) {
                     std::string line = input.substr(0, pos);
-                    if (!line.empty() && line[line.length()-1] == '\r') {
-                        line = line.substr(0, line.length()-1);
+                    if (!line.empty() && line[line.length() - 1] == '\r') {
+                        line = line.substr(0, line.length() - 1);
                     }
                     input.erase(0, pos + 1);
 
@@ -68,5 +65,4 @@ void listen_stdin() {
         Sleep(100);
     }
 }
-} 
-
+}
