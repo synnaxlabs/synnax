@@ -12,10 +12,12 @@ import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/p
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
+import { useStore } from "react-redux";
 import { type z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
+import { type RootState } from "@/store";
 
 export interface LayoutArgs {
   deviceKey?: device.Key;
@@ -76,7 +78,11 @@ export const wrap = <
 ): Layout.Renderer => {
   const { configSchema, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const { deviceKey, taskKey, rackKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
+    const store = useStore<RootState>();
+    const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
+      store.getState(),
+      layoutKey,
+    );
     const taskKeyRef = useSyncedRef(taskKey);
     const client = Synnax.use();
     const { data, error, isError, isPending } = useQuery<

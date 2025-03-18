@@ -3,56 +3,53 @@ layout: "@/layouts/Reference.astro"
 title: "Device Drivers"
 heading: "Device Drivers"
 description: "Acquire data and control hardware from a number of vendors."
+nextURL: "/reference/device-drivers/standalone"
+next: "Standalone Driver"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Our built-in device drivers make it easy to work with hardware from a number of vendors
-out of the box.
+Synnax has developed a number of device drivers for a variety of vendors, including
+[National Instruments](https://www.ni.com), [LabJack](https://labjack.com), and [OPC
+UA](https://opcfoundation.org) servers. Synnax also supports building custom drivers for
+devices that are not natively supported.
 
 <Divider.Divider direction="x" />
 
-## Built-In Integrations
+## Synnax Driver
 
-| Component                                                        | Description                               |
-| ---------------------------------------------------------------- | ----------------------------------------- |
-| [OPC UA](/reference/device-drivers/opc-ua/connect-server)        | Connect to OPC UA servers.                |
-| [National Instruments](/reference/device-drivers/ni/get-started) | Connect to National Instruments hardware. |
-| [LabJack](/reference/device-drivers/labjack/get-started)         | Connect to LabJack hardware.              |
+The Synnax device driver natively supports reading and writing data from[National
+Instruments](/reference/device-drivers/ni/get-started) hardware, [OPC
+UA](/reference/device-drivers/opc-ua/connect-server) servers, and
+[LabJack](/reference/device-drivers/labjack/get-started) devices.
 
-<Divider.Divider direction="x" />
+### Embedded Driver
 
-## Embedded vs. Standalone Driver
+Every instance of the [Synnax server](/reference/cluster/quick-start) comes with a
+built-in device driver. This driver will run on the same machine as the Synnax server,
+and starts automatically when the server starts. The embedded driver is recommended as
+the default driver for must users,
 
-Synnax's device driver comes in two flavors. The first is a cluster-embedded driver.
-This comes pre-installed with every [Synnax Cluster](/reference/cluster/get-started) and
-allows you to integrate data acquisition devices that are running on the same machine
-as the cluster. If you have no need to integrate data acquisition devices across
-multiple machines, this is the driver for you, and there are no extra installation steps
-required.
+### Standalone Driver
 
-The second is our standalone driver. This is identical to the cluster-embedded driver,
-but it is designed to run on a separate machine that communicates with the cluster over
-the network.
+The [standalone driver](/reference/device-drivers/standalone) is a separate binary that
+can run on a different machine from the Synnax server. It is used to integrate data
+acquisition devices across multiple machines. The standalone driver connects to a Synnax
+cluster over the network.
 
-### Support for NI Linux RT
+#### Support for NI Linux Real-Time
 
-The standalone driver supports deployment on [NI Linux Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html?srsltid=AfmBOoqnEnJuKCO4hPSA1QO7Niru2xvnnnxrzzqRwnbWJz80CGNAGmLz)
-controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html?srsltid=AfmBOoqV135bYP1kLcU-pnf6NQCKsCFFCv0EHRj1Wjw0A8r48D9LbLHG)
-and [NI PXI](https://www.ni.com/en/shop/pxi.html?srsltid=AfmBOoqsPrhSZSEL38oVdBsb-zBuN4U81ebnyIvws0wnWvyM_hL5Qefw)
-systems.
+The standalone driver supports deployment on [NI Linux
+Real-Time](https://www.ni.com/en/shop/linux/introduction-to-ni-linux-real-time.html)
+controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and [NI
+PXI](https://www.ni.com/en/shop/pxi.html) systems.
 
 In addition to performing data acquisition and control tasks on real-time controllers,
 the standalone driver also supports running [embedded control
-sequences](/reference/control/get-started) on the real-time controller, allowing for
-precisely timed control sequences that run close to the hardware.
-
-### Installing the Standalone Driver
-
-To install the standalone driver, see the [standalone
-driver](/reference/device-drivers/standalone-driver) page.
+sequences](/reference/control/embedded/get-started) on the real-time controller,
+allowing for precisely timed control sequences that run close to the hardware.
 
 <Divider.Divider direction="x" />
 

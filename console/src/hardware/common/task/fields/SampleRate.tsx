@@ -9,4 +9,10 @@
 
 import { Rate } from "@/hardware/common/task/fields/Rate";
 
-export const SampleRate = () => <Rate label="Sample Rate" path="config.sampleRate" />;
+export const SampleRate = () => (
+  <Rate
+    label="Sample Rate"
+    path="config.sampleRate"
+    style={{ width: 115, flexShrink: 0 }}
+  />
+);

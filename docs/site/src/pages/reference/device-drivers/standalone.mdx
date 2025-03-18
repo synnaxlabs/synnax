@@ -3,6 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "Standalone Driver"
 heading: "Standalone Driver"
 description: "Deploy the standalone driver on a separate machine from the cluster."
+prevURL: "/reference/device-drivers/get-started"
+prev: "Get Started"
 ---
 
 import { Tabs } from "@/components/driver/Tabs";
@@ -14,9 +16,7 @@ import DownloadURL from "@/components/driver/DownloadURL.astro";
 export const components = mdxOverrides;
 
 The standalone driver makes it possible to integrate data acquisition hardware from
-multiple host machines into a single Synnax deployment. For more information on whether
-you should use the standalone driver, see the [get
-started](/reference/device-drivers/get-started) page.
+multiple host machines into a single Synnax deployment.
 
 <Divider.Divider direction="x" />
 
@@ -33,16 +33,17 @@ operating system below to see the installation instructions:
 #### Supported Hardware & Software
 
 The Synnax standalone driver supports the cRIO-904x and cRIO-905x families of
-controllers running NI Linux RT 2024 Q1 and later.
+controllers running NI Linux Real-Time 2024 Q1 and later.
 
 #### NI-DAQmx Programming Mode
 
-Data acquisition hardware connected to the cRIO must be configured to use the
-NI-DAQmx real-time programming mode.
+Data acquisition hardware connected to the cRIO must be configured to use the NI-DAQmx
+real-time programming mode.
 
 To change the programming mode, use NI Measurement & Automation Explorer (MAX). For
-detailed instructions, see the [NI CompactRIO User Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html?srsltid=AfmBOoqFu5wG9ATXqPpjwPAodfxzyjIfzWoli0P7_R7flU0G9c0WrQrN)
-and the [NI-DAQmx on CompactRIO](https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019PUNSA2&l=en-US)
+detailed instructions, see the [NI CompactRIO User
+Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html)
+and the [NI-DAQmx on CompactRIO](https://knowledge.ni.com/KnowledgeArticleDetails)
 guide.
 
 #### SSH Access
@@ -59,8 +60,8 @@ running](/reference/cluster/quick-start) and have the connection parameters on h
 
 ### Install and Run the Driver
 
-Installing the Synnax standalone driver is as simple as opening an SSH connection to
-the cRIO and running the following command:
+Installing the Synnax standalone driver is as simple as opening an SSH connection to the
+cRIO and running the following command:
 
 <DownloadURL os="ni-linux-rt" />
 
@@ -162,22 +163,9 @@ synnax-driver start --standalone
 
 <Table
   columns={[
-    {
-      key: "option",
-      name: "Flag",
-      type: "code",
-      width: 175,
-    },
-    {
-      key: "default",
-      name: "Default",
-      type: "code",
-    },
-    {
-      key: "description",
-      name: "Description",
-      type: "html",
-    },
+    { key: "option", name: "Flag", type: "code", width: 175 },
+    { key: "default", name: "Default", type: "code" },
+    { key: "description", name: "Description", type: "html" },
   ]}
   data={[
     {

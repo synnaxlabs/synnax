@@ -10,5 +10,9 @@
 import { Rate } from "@/hardware/common/task/fields/Rate";
 
 export const StateUpdateRate = () => (
-  <Rate label="State Update Rate" path="config.stateRate" />
+  <Rate
+    label="State Update Rate"
+    path="config.stateRate"
+    style={{ width: 115, flexShrink: 0, flexGrow: 0 }}
+  />
 );

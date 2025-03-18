@@ -22,10 +22,7 @@ end
 ```
 
 During each sequence step, the value of `my_channel` will be updated with the latest
-value from the channel. The sequence editor's auto-complete will make sure to add
-the channel to the "Read From" list of channels for the sequence. Make sure every
-channel you'd like to read from is in the list by checking the dialog at the bottom
-of the editor.
+value from the channel.
 
 <Divider.Divider direction="x" />
 
@@ -40,8 +37,8 @@ set("my_channel", 100)
 ```
 
 The sequence editor's auto-complete will make sure to add the channel to the "Write To"
-list of channels for the sequence. Make sure every channel you'd like to write to is
-in the list by checking the dialog at the bottom of the editor.
+list of channels for the sequence. Make sure every channel you'd like to write to is in
+the list by checking the dialog at the bottom of the editor.
 
 <Divider.Divider direction="x" />
 
@@ -50,11 +47,11 @@ in the list by checking the dialog at the bottom of the editor.
 The embedded sequence editor allows you to set the control authority of a channel at
 arbitrary points in the sequence. This is particularly useful for [abort
 sequences](/reference/control/embedded/recipes#abort-sequence) where you'll need to
-seize control of a set channels from one or more separate sequences.
+seize control of a set of channels from one or more separate sequences.
 
 To set the control authority of a channel, use the `set_authority` function with the
 channel name and the desired authority. For example, if we have a channel called
-`my_channel`, we can set its authority to `100` as follows:
+`my_channel`, we can set its authority to 100 as follows:
 
 ```lua
 set_authority("my_channel", 100)
@@ -87,8 +84,8 @@ sequence, or to define control logic that executes for a specific number of iter
 
 The global `elapsed_time` variable is the number of seconds that have elapsed since the
 sequence started. Keep in mind that this value does not strictly follow the `increment *
-rate` rate. So `elapsed_time` for a sequence that runs at 1Hz and is at iteration 10
-will be very close to 10 seconds, but not exactly 10 seconds.
+rate` rate. So `elapsed_time` for a sequence that runs at 1 Hz and is at iteration 10
+will be very close to, but not exactly 10 seconds.
 
 ### Elapsed Time Within
 

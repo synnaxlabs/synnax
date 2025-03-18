@@ -120,6 +120,8 @@ struct AnalogReader final : Base, Reader<double> {
         size_t samples_per_channel,
         std::vector<double> &data
     ) override;
+
+    xerrors::Error start() override;
 };
 }
 

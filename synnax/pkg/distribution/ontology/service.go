@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"go.uber.org/zap"
 )
 
 // Service represents a service that exposes a set of entities to the ontology (such
@@ -42,7 +43,8 @@ type serviceRegistrar map[Type]Service
 func (s serviceRegistrar) register(svc Service) {
 	t := svc.Schema().Type
 	if _, ok := s[t]; ok {
-		panic("[ontology] - service already registered")
+		zap.S().DPanic("service already registered", zap.String("type", t.String()))
+		return
 	}
 	s[t] = svc
 }

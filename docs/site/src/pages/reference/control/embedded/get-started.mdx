@@ -1,6 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Embedded Sequences"
+nextURL: "/reference/control/embedded/recipes"
+next: "Recipes"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
@@ -11,21 +13,21 @@ export const components = mdxOverrides;
 Synnax's embedded sequence editor allows you to write, test, and run tightly
 controlled automations directly within the Synnax Console.
 
-Synnax's control sequences are written in [Lua](https://www.lua.org). If you're not
-familiar with Lua, don't worry. The syntax is very simple, and you'll only need
-to use a simple set of keywords for most sequences.
+Synnax's control sequences are written in [Lua](https://www.lua.org). Lua's syntax is
+very simple, and you'll only need a simple set of keywords for most sequences.
 
 <Divider.Divider direction="x" />
 
 ## Creating a New Sequence
 
 There are two ways to create a new control sequence. The first is by creating a new
-layout through the Synnax mosaic and choosing "Control Sequence" as the component type:
+component through the Synnax mosaic and choosing "Control Sequence" as the component
+type:
 
 <Video client:only="react" id="control/embedded/mosaic-create-sequence" />
 
-The second is through the command palette, which you can open using `Cmd + Shift + P'
-on Mac and 'Ctrl + Shift + P' on Windows.
+Control sequences can also be created through the command palette, which you can open
+using `Cmd + Shift + P' on macOS and 'Ctrl + Shift + P' on Windows.
 
 <Video client:only="react" id="control/embedded/palette-create-sequence" />
 
@@ -39,11 +41,11 @@ a set of configuration fields at the bottom.
 ### The Editor
 
 The editing area at the top of the dialog is where you'll write the body of your
-sequence, including conditional sequence. **Synnax control sequences are executed in
+sequence, including conditional logic. **Embedded control sequences are executed in
 precisely timed, fixed rate loops**.
 
-If you set the sequence rate at 1Hz, the code you write inside of this editor will be
-executed once every second.
+If you set the sequence rate to 1 Hz, the code you write inside of this editor will be
+executed once every second, even if the previous loop did not complete
 
 ### Configuration Parameters
 
@@ -52,12 +54,12 @@ configuring sequence parameters.
 
 #### Location
 
-This sets the [driver]() that the sequence will be executed on.
+This sets the [driver](/reference/device-drivers/get-started) that the sequence will be
+executed on.
 
 #### Rate
 
-This sets the rate at which the body of the sequence will be executed. For example, a
-rate at 10hz will execute your code 10 times per second .
+This sets the rate, in Hz, at which the sequence will be executed.
 
 #### Read From
 
@@ -71,5 +73,5 @@ automatically populated into this field.
 
 #### Write To
 
-The list of channels that we'd like to control within our sequence. For example, these
-could be digital output channels that actuate a valve.
+The list of channels that you would like to control within your sequence. For example,
+these could be digital output channels that actuate a valve.

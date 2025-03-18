@@ -13,39 +13,43 @@ import Diagram from "@/components/Diagram.astro";
 import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
 
-Control sequences are the primary mechanism for automating the operation of hardware
-actuators and other controllable mechanisms integrated with your Synnax deployment.
-This guide introduces the different types of control sequences and how they work.
+Control sequences are the primary means for automating hardware operations in your
+Synnax deployment. They provide a systematic way to control actuators and other
+mechanisms. On this page, we'll explore the different types of control sequences
+available within Synnax.
 
 <Divider.Divider direction="x" />
 
 ## Control Sequence Types
 
 There are two ways to write control sequences in Synnax: via our [Python
-Client](/reference/python-client/get-started) and our
-[Embedded Sequence Editor](/reference/control/embedded/get-started/get-started).
+Client](/reference/python-client/get-started) and our [Embedded Sequence
+Editor](/reference/control/embedded/get-started).
 
-Python-based control sequences are ideal for complex automations that require a high
-degree of customization. Embedded control sequences can be edited and deployed directly
-from within the [Synnax Console](/reference/console/get-started/get-started). Embedded
-control sequences can on real-time hardware controllers such as NI CRIOs via our NI
-Linux RT Driver (Link).
+Python control sequences are ideal for complex automations requiring a high degree of
+customization. Embedded control sequences are simple, but can be run on real-time OSs
+such as National Instruments cRIOs through our [NI Linux Real-Time
+Driver](/reference/device-drivers/standalone?platform=ni-linux-rt). Embedded control
+sequences can be edited and deployed directly from within the [Synnax
+Console](/reference/console/get-started).
 
 <Divider.Divider direction="x" />
 
 ## How Control Sequences Work
 
 Both our Python and embedded sequencing systems use the same conceptual approach to
-control. They rely on Synnax's channel streaming system. The same mechanisms
-that are used for acquiring data from sensors can be used to control actuators.
+control. Control sequences [stream data] from a set of input channels, perform
 
-A control sequence is just a process, such as a Python script or a loop,
-that reads data from a set of input channels, performs some computation, and writes
-to a set of output channels. To illustrate, here's a basic example of an embedded
+A control sequence is just a process, such as a Python script or a loop, that [streams
+data](/references/concepts/streams) from a set of input channels, performs some
+computation, and [writes data](/references/concepts/writes) to a set of output channels.
+They use the same underlying channel streaming mechanisms as schematics and line plots
+to propagate data through Synnax. To illustrate, here's a basic example of an embedded
 control sequence that reads pressure to determine if a valve should be opened or closed.
 
 ```lua
 --- This code block runs 10 times per second.
+
 --- Check if the current pressure is below the threshold.
 if pressure < 100 then
     --- If so, open the valve.
@@ -87,46 +91,44 @@ deployment that communicates with National Instruments devices:
     <tr>
       <td>[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task)</td>
       <td>
-        Reads data from the analog inputs of a 9205 Module at a fixed sample rate.
-        Scaling and calibration information is configured within this task. The task
-        pushed scaled values to the Synnax cluster for consumption by the control
+        Reads data from the analog input ports of an
+        [NI-9205](https://www.ni.com/en-us/shop/model/ni-9205.html) at a fixed sample
+        rate. Scaling and calibration information is configured within this task. The
+        task pushes scaled values to the Synnax cluster for consumption by the control
         sequence and console for visualization.
       </td>
     </tr>
     <tr>
       <td>[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task)</td>
       <td>
-        Writes to the digital outputs of a 9375 Module based on commands sent to the
-        `di_X_cmd` channels by the control sequence. The task also communicates the
-        state of the digital outputs to the control sequence via the `di_X_state`
-        channels.
+        Writes to the digital output ports of a
+        [NI-9375](https://www.ni.com/en-us/shop/model/ni-9375.html) based on commands
+        sent to the `di_X_cmd` channels by the control sequence. The task also
+        communicates the state of the digital outputs to the control sequence via the
+        `di_X_state` channels.
       </td>
     </tr>
     <tr>
       <td>[Synnax Cluster](/reference/cluster/quick-start)</td>
       <td>
-        The Synnax cluster that stores and streams all incoming and outgoing data from
-        the NI devices, control sequences, and console. This is the central hub for all
-        channel data.
+        Stores and streams all incoming and outgoing data from the NI devices, control
+        sequences, and Synnax Console. All data will pass through the cluster to travel
+        from one component to another.
       </td>
     </tr>
     <tr>
       <td>[Synnax Console](/reference/console/get-started/get-started)</td>
       <td>
-        A console that displays real-time sensor values and actuator states on line
-        visualizations.
+        Displays real-time sensor values and actuator states on [line
+        plots](/reference/console/line-plots).
       </td>
     </tr>
     <tr>
       <td>[Control Sequence](/reference/control/get-started)</td>
       <td>
-        A control sequence that reads the sensor values from the Analog Read Task and
-        writes commands to the Digital Write Task.
+        Reads the sensor values from the Analog Read Task and writes commands to the
+        Digital Write Task.
       </td>
     </tr>
   </tbody>
 </Table>
-
-This example illustrates that a control sequence is simply another component that uses
-the same channel streaming system as components such as Schematics, Line Plots, and
-data acquisition tasks themselves.

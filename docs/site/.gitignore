@@ -10,6 +10,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+.astro
+.vercel
+
 
 # environment variables
 .env

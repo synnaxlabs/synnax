@@ -22,6 +22,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/opc/util/util.h"
+#include "driver/task/common/sample_clock.h"
 #include "x/cpp/defer/defer.h"
 
 namespace opc {
@@ -43,7 +44,7 @@ struct InputChan {
     }
 };
 
-struct ReadTaskConfig: public common::BaseReadTaskConfig {
+struct ReadTaskConfig : public common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
     /// @brief array_size;
@@ -70,15 +71,19 @@ struct ReadTaskConfig: public common::BaseReadTaskConfig {
 
     /// @brief delete copy constructor and copy assignment to prevent accidental copies.
     ReadTaskConfig(const ReadTaskConfig &) = delete;
+
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ): common::BaseReadTaskConfig(parser),
-        device_key(parser.required<std::string>("device")),
-        array_size(parser.optional<std::size_t>("array_size", 1)),
-        samples_per_chan(this->sample_rate / this->stream_rate) {
+    ): common::BaseReadTaskConfig(
+           parser,
+           parser.optional("array_size", 1) <= 1
+       ),
+       device_key(parser.required<std::string>("device")),
+       array_size(parser.optional<std::size_t>("array_size", 1)),
+       samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
             const auto ch = InputChan(cp);
             if (ch.enabled) channels.push_back(ch);
@@ -113,6 +118,11 @@ struct ReadTaskConfig: public common::BaseReadTaskConfig {
             auto ch = sy_channels[i];
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i].ch = ch;
+        }
+        for (std::size_t i = 0; i < sy_channels.size(); i++) {
+            auto ch = sy_channels[i];
+            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+                this->index_keys.erase(ch.key);
         }
     }
 
@@ -201,7 +211,8 @@ public:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         this->timer.wait(breaker);
-        UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
+        UA_ReadResponse res = UA_Client_Service_read(
+            this->client.get(), this->request.base);
         x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
         auto fr = Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
@@ -212,17 +223,15 @@ public:
             auto [s, err] = util::ua_array_to_series(
                 ch.ch.data_type,
                 &result.value,
-                this->cfg.array_size
+                this->cfg.array_size,
+                ch.ch.name
             );
             if (err) return {std::move(fr), err};
             fr.emplace(ch.synnax_key, std::move(s));
         }
-        if (!this->cfg.index_keys.empty()) {
-            auto start = telem::TimeStamp::now();
-            auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
-            auto s = telem::Series::linspace(start, end, this->cfg.array_size);
-            for (const auto &idx: this->cfg.index_keys) fr.emplace(idx, s.deep_copy());
-        }
+        auto start = telem::TimeStamp::now();
+        auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+        common::generate_index_data(fr, this->cfg.index_keys, start, end, this->cfg.array_size);
         return {std::move(fr), xerrors::NIL};
     }
 };

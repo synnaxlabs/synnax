@@ -71,6 +71,9 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(ctx, s)
+	if err := s.migrateDeviceParents(ctx); err != nil {
+		return s, err
+	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -80,6 +83,25 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s.shutdownSignals = cdcS
 	return
+}
+
+func (s *Service) migrateDeviceParents(ctx context.Context) error {
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var devices []Device
+		if err := s.NewRetrieve().Entries(&devices).Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := s.Ontology.NewWriter(tx)
+		for _, dev := range devices {
+			if err := w.DeleteIncomingRelationshipsOfType(ctx, dev.OntologyID(), ontology.ParentOf); err != nil {
+				return err
+			}
+			if err := w.DefineRelationship(ctx, dev.Rack.OntologyID(), ontology.ParentOf, dev.OntologyID()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *Service) Close() error {

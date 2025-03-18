@@ -34,34 +34,26 @@ void listen_signal() {
 
 void listen_stdin() {
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-    GetConsoleMode(hStdin, &mode);
-    SetConsoleMode(hStdin, mode & ~ENABLE_MOUSE_INPUT & ~ENABLE_WINDOW_INPUT);
-    
     char buffer[256];
     std::string input;
-    
+
     while (true) {
         if (should_shutdown()) break;
-        
-        DWORD available;
-        INPUT_RECORD record;
-        PeekConsoleInput(hStdin, &record, 1, &available);
-        
-        if (available > 0) {
-            DWORD read;
-            if (ReadConsole(hStdin, buffer, sizeof(buffer) - 1, &read, nullptr)) {
-                buffer[read] = '\0';
+
+        DWORD bytesRead;
+        if (ReadFile(hStdin, buffer, sizeof(buffer) - 1, &bytesRead, nullptr)) {
+            if (bytesRead > 0) {
+                buffer[bytesRead] = '\0';
                 input += buffer;
-                
+
                 size_t pos;
                 while ((pos = input.find('\n')) != std::string::npos) {
                     std::string line = input.substr(0, pos);
-                    if (!line.empty() && line[line.length()-1] == '\r') {
-                        line = line.substr(0, line.length()-1);
+                    if (!line.empty() && line[line.length() - 1] == '\r') {
+                        line = line.substr(0, line.length() - 1);
                     }
                     input.erase(0, pos + 1);
-                    
+
                     if (line == "STOP") {
                         signal_shutdown();
                         return;
@@ -69,9 +61,8 @@ void listen_stdin() {
                 }
             }
         }
-        
+
         Sleep(100);
     }
 }
-} 
-
+}
