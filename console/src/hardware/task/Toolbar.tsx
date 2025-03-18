@@ -145,6 +145,7 @@ const Content = () => {
         });
         if (!confirmed) return;
       }
+      dispatch(Layout.rename({ key, name }));
       setTasks((prev) =>
         prev.map((task) => {
           if (task.key === key) task.name = name;

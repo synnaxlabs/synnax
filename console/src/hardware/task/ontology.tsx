@@ -16,7 +16,9 @@ import { useMutation } from "@tanstack/react-query";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Group } from "@/group";
+import { type LayoutArgs } from "@/hardware/common/task/Task";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
@@ -148,9 +150,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
+  execute: async ({ client, id, name, store }) => {
     const task = await client.hardware.tasks.retrieve(id.key);
     await client.hardware.tasks.create({ ...task, name });
+    const layout = Layout.selectByFilter(
+      store.getState(),
+      (l) => (l.args as LayoutArgs)?.taskKey === id.key,
+    );
+    if (layout == null) return;
+    store.dispatch(Layout.rename({ key: layout.key, name }));
   },
 };
 

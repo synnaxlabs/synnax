@@ -42,6 +42,7 @@ var _ = Describe("Label", Ordered, func() {
 		}))
 	})
 	AfterAll(func() {
+		Expect(svc.Close()).To(Succeed())
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})

@@ -22,7 +22,7 @@ import {
 import { type State } from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
 
-export interface ControlsProps {
+export interface ControlsProps extends Align.SpaceProps {
   layoutKey: string;
   state: State;
   onStartStop: (command: StartOrStopCommand) => void;
@@ -42,6 +42,7 @@ export const Controls = ({
   hasBeenConfigured,
   isConfiguring,
   isSnapshot,
+  ...props
 }: ControlsProps) => {
   const content = isSnapshot ? (
     <Status.Text.Centered hideIcon variant="disabled">
@@ -74,6 +75,7 @@ export const Controls = ({
       justify="spaceBetween"
       empty
       bordered
+      {...props}
     >
       <Align.Space className={CSS.B("task-state")} direction="x">
         {content}

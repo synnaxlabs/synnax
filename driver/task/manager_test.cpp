@@ -327,3 +327,33 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }
+
+/// @brief it should ignore snapshot tasks during configuration.
+TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
+    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    ASSERT_FALSE(ch_err) << ch_err;
+    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
+        .channels = {sy_task_state.key}
+    });
+    ASSERT_FALSE(s_err) << s_err;
+    auto snapshot_task = synnax::Task(
+        rack.key,
+        "snapshot_task",
+        "echo",
+        ""
+    );
+    snapshot_task.snapshot = true;
+    auto t_err = rack.tasks.create(snapshot_task);
+    ASSERT_FALSE(t_err) << t_err;
+    std::atomic received_state = false;
+    std::thread reader([&] {
+        auto [frame, err] = streamer.read();
+        if (!err) received_state = true;
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    streamer.close_send();
+    reader.join();
+    ASSERT_FALSE(received_state) << "Received unexpected state change for snapshot task";
+    const auto close_err = streamer.close();
+    ASSERT_FALSE(close_err) << close_err;
+}
