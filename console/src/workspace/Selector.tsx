@@ -82,7 +82,7 @@ export const Selector = (): ReactElement => {
         onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
-        shade={8}
+        shade={2}
         weight={400}
       >
         {active?.name ?? "No Workspace"}

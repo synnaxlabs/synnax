@@ -10,10 +10,12 @@
 import "@/layouts/nav/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Button, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { Align, Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Size } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { ChannelServices } from "@/channel/services";
+import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
@@ -30,6 +32,7 @@ import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
+import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
@@ -65,17 +68,67 @@ const TopPalette = (): ReactElement => (
   />
 );
 
+interface MemoryUsage {
+  used: Size;
+  total: Size;
+}
+
+interface PerformanceAPI {
+  memory: MemoryInfo;
+}
+
+interface MemoryInfo {
+  usedJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
+const MemoryBadge = (): ReactElement | null => {
+  const [memory, setMemory] = useState<MemoryUsage>({
+    used: Size.ZERO,
+    total: Size.ZERO,
+  });
+  const hasMemoryDisplayed = "memory" in performance;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if ("memory" in performance) {
+        const { memory } = performance as PerformanceAPI;
+        setMemory({
+          used: Size.bytes(memory.usedJSHeapSize),
+          total: Size.bytes(memory.jsHeapSizeLimit),
+        });
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+  return !hasMemoryDisplayed ? null : (
+    <>
+      <Divider.Divider />
+      <Text.Text level="p" style={{ padding: "0 2rem" }}>
+        {memory.used.truncate(Size.MEGABYTE).toString()} /
+        {memory.total.truncate(Size.MEGABYTE).toString()}
+      </Text.Text>
+    </>
+  );
+};
+
+/**
+ * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
+ * presentational.
+ */
 export const Top = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+
   const os = OS.use();
-  const handleDocs = useCallback(() => {
+  const handleDocs = (): void => {
     placeLayout(Docs.LAYOUT);
-  }, [placeLayout]);
+  };
+
   return (
     <Nav.Bar
       location="top"
       size={SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
+      bordered={false}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Layout.Controls className="console-controls--macos" visibleIfOS="macOS" />
@@ -95,8 +148,16 @@ export const Top = (): ReactElement => {
       <Nav.Bar.End
         className="console-main-nav-top__end"
         justify="end"
+        align="center"
         data-tauri-drag-region
+        size="small"
       >
+        <MemoryBadge />
+        <Version.Badge />
+        <Align.Pack style={{ "--pluto-pack-br": "0.5rem" }}>
+          <Cluster.Dropdown />
+          <Cluster.ConnectionBadge />
+        </Align.Pack>
         <Button.Icon
           size="medium"
           onClick={handleDocs}

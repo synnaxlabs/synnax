@@ -90,15 +90,15 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
-    <Align.Space className="console-main-fixed--y" direction="x" empty>
+    <Align.Space className="console-main-fixed--y" direction="x" size={0.5}>
       <Nav.Left />
       <Align.Space
         className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-        empty
+        size={0.5}
       >
-        <Align.Space className="console-main--driven" direction="x" empty>
+        <Align.Space className="console-main--driven" direction="x" size={0.5}>
           <Nav.Drawer location="left" />
-          <main className="console-main--driven" style={{ position: "relative" }}>
+          <main className="console-main--driven">
             <Mosaic />
           </main>
           <Nav.Drawer location="right" />
@@ -107,6 +107,5 @@ export const Main = (): ReactElement => (
       </Align.Space>
       <Nav.Right />
     </Align.Space>
-    <Nav.Bottom />
   </>
 );

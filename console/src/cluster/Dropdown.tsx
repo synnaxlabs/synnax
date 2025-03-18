@@ -253,12 +253,25 @@ export const Dropdown = (): ReactElement => {
       variant="floating"
       bordered={false}
       className={CSS.B("cluster-dropdown")}
+      borderShade={4}
+      style={{
+        borderRadius: "0.5rem",
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0,
+      }}
     >
       <Button.Button
         onClick={toggle}
-        variant="text"
+        variant="outlined"
         startIcon={<Icon.Cluster />}
         justify="center"
+        shade={2}
+        style={{
+          height: 25,
+          borderRadius: "0.5rem",
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 0,
+        }}
       >
         {cluster?.name ?? "No Active Cluster"}
       </Button.Button>

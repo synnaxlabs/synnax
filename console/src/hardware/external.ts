@@ -20,6 +20,7 @@ import { type Selector } from "@/selector";
 export * from "@/hardware/device";
 export * from "@/hardware/rack";
 export * from "@/hardware/task";
+export * from "@/hardware/toolbar/Toolbar";
 
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
 

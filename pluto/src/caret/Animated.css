@@ -28,7 +28,7 @@
     }
 
     &.pluto--top {
-        transform: rotate(90deg) scale(0.8);
+        transform: rotate(0deg) scale(0.8);
     }
 }
 

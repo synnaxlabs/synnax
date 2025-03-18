@@ -18,16 +18,14 @@ import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { Menu } from "@/layouts/nav/Menu";
 import { SIZES } from "@/layouts/nav/sizes";
 
-export const Right = (): ReactElement => {
+export const Right = (): ReactElement | null => {
   const { activeItem, menuItems, onSelect } = Layout.useNavDrawer(
     "right",
     NAV_DRAWER_ITEMS,
   );
-  const {
-    menuItems: bottomMenuItems,
-    activeItem: bottomActiveItem,
-    onSelect: onBottomSelect,
-  } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
+
+  if (menuItems.length === 0) return null;
+
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">
@@ -35,13 +33,6 @@ export const Right = (): ReactElement => {
           {menuItems}
         </Menu>
       </Nav.Bar.Content>
-      {bottomMenuItems.length > 0 && (
-        <Nav.Bar.End className="console-main-nav__content" bordered>
-          <Menu activeItem={bottomActiveItem} onChange={onBottomSelect}>
-            {bottomMenuItems}
-          </Menu>
-        </Nav.Bar.End>
-      )}
     </Nav.Bar>
   );
 };

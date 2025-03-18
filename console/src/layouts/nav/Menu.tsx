@@ -32,6 +32,7 @@ export const Menu = ({ children, activeItem, ...rest }: MenuProps): ReactElement
         itemKey={key}
         size="large"
         tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
+        shade={2}
       >
         {icon}
       </PMenu.Item.Icon>

@@ -211,7 +211,6 @@ export const Dialog = ({
       <C
         {...rest}
         ref={combinedParentRef}
-        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),
@@ -246,7 +245,7 @@ const FLOATING_PROPS: Partial<position.DialogProps> = {
   disable: ["center"],
   prefer: [{ y: "bottom" }],
 };
-const FLOATING_TRANSLATE_AMOUNT: number = 6;
+const FLOATING_TRANSLATE_AMOUNT: number = 3;
 
 const calcFloatingDialog = ({
   target: target_,
