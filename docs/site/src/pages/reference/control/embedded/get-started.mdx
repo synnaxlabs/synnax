@@ -1,0 +1,75 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Embedded Sequences"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax's embedded sequence editor allows you to write, test, and run tightly
+controlled automations directly within the Synnax Console.
+
+Synnax's control sequences are written in [Lua](https://www.lua.org). If you're not
+familiar with Lua, don't worry. The syntax is very simple, and you'll only need
+to use a simple set of keywords for most sequences.
+
+<Divider.Divider direction="x" />
+
+## Creating a New Sequence
+
+There are two ways to create a new control sequence. The first is by creating a new
+layout through the Synnax mosaic and choosing "Control Sequence" as the component type:
+
+<Video client:only="react" id="control/embedded/mosaic-create-sequence" />
+
+The second is through the command palette, which you can open using `Cmd + Shift + P'
+on Mac and 'Ctrl + Shift + P' on Windows.
+
+<Video client:only="react" id="control/embedded/palette-create-sequence" />
+
+<Divider.Divider direction="x" />
+
+## Structure of a Sequence
+
+Once you've created a sequence, you'll see a large area for editing text at the top and
+a set of configuration fields at the bottom.
+
+### The Editor
+
+The editing area at the top of the dialog is where you'll write the body of your
+sequence, including conditional sequence. **Synnax control sequences are executed in
+precisely timed, fixed rate loops**.
+
+If you set the sequence rate at 1Hz, the code you write inside of this editor will be
+executed once every second.
+
+### Configuration Parameters
+
+In addition to the main sequence body, there are a number of important fields for
+configuring sequence parameters.
+
+#### Location
+
+This sets the [driver]() that the sequence will be executed on.
+
+#### Rate
+
+This sets the rate at which the body of the sequence will be executed. For example, a
+rate at 10hz will execute your code 10 times per second .
+
+#### Read From
+
+The list of channels that we need to read values from in order to make control decisions
+from our sequence. An example could be a set of pressure transducers to determine when
+to open and close a valve.
+
+As you edit code within the body of the sequence, Synnax will suggest channels that
+match the variable you're typing. If you choose to accept the suggestion, it will be
+automatically populated into this field.
+
+#### Write To
+
+The list of channels that we'd like to control within our sequence. For example, these
+could be digital output channels that actuate a valve.

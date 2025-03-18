@@ -1,0 +1,272 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Standalone Driver"
+heading: "Standalone Driver"
+description: "Deploy the standalone driver on a separate machine from the cluster."
+---
+
+import { Tabs } from "@/components/driver/Tabs";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Divider } from "@synnaxlabs/pluto";
+import { Table } from "@/components/Table";
+import StepText from "@/components/StepText.astro";
+import DownloadURL from "@/components/driver/DownloadURL.astro";
+export const components = mdxOverrides;
+
+The standalone driver makes it possible to integrate data acquisition hardware from
+multiple host machines into a single Synnax deployment. For more information on whether
+you should use the standalone driver, see the [get
+started](/reference/device-drivers/get-started) page.
+
+<Divider.Divider direction="x" />
+
+## <StepText step="1" level="h2">Installation</StepText>
+
+To get started, you'll need to install the Synnax standalone driver. Choose your
+operating system below to see the installation instructions:
+
+<Tabs exclude={["docker", "windows", "macOS"]} client:only="react">
+<Fragment slot="ni-linux-rt">
+
+### Prerequisites
+
+#### Supported Hardware & Software
+
+The Synnax standalone driver supports the cRIO-904x and cRIO-905x families of
+controllers running NI Linux RT 2024 Q1 and later.
+
+#### NI-DAQmx Programming Mode
+
+Data acquisition hardware connected to the cRIO must be configured to use the
+NI-DAQmx real-time programming mode.
+
+To change the programming mode, use NI Measurement & Automation Explorer (MAX). For
+detailed instructions, see the [NI CompactRIO User Manual](https://www.ni.com/docs/en-US/bundle/ni-compactrio/page/programming-modes.html?srsltid=AfmBOoqFu5wG9ATXqPpjwPAodfxzyjIfzWoli0P7_R7flU0G9c0WrQrN)
+and the [NI-DAQmx on CompactRIO](https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019PUNSA2&l=en-US)
+guide.
+
+#### SSH Access
+
+The easiest way to install the Synnax standalone driver is to use an SSH connection to
+the cRIO. Once the driver is installed, SSH can be disabled, although we recommend
+keeping it enabled to install updates and manage the driver.
+
+#### Network Available Cluster
+
+In order to function properly, the standalone driver must be able to connect to a Synnax
+cluster running on the same local network. Make sure you have a [cluster
+running](/reference/cluster/quick-start) and have the connection parameters on hand.
+
+### Install and Run the Driver
+
+Installing the Synnax standalone driver is as simple as opening an SSH connection to
+the cRIO and running the following command:
+
+<DownloadURL os="ni-linux-rt" />
+
+This will download, install, and start the Synnax standalone driver. Once the driver is
+installed, we'll need to configure it to connect to your cluster.
+
+</Fragment>
+<Fragment slot="Linux">
+### Install and Run the Driver
+
+To install and start the driver on Linux, run the following command:
+
+<DownloadURL os="linux" />
+
+This will download, install, and start the Synnax standalone driver. Once the driver is
+installed, we'll need to configure it to connect to your cluster.
+
+</Fragment>
+<Fragment slot="Windows">
+### Install and Run the Driver
+
+The Synnax standalone driver is not yet supported on Windows.
+
+</Fragment>
+<Fragment slot="macOS">
+### Install and Run the Driver
+
+The Synnax standalone driver is not yet supported on macOS.
+
+</Fragment>
+</Tabs>
+
+<Divider.Divider direction="x" />
+
+## <StepText step="2" level="h2">Connect to a Cluster</StepText>
+
+To connect to a cluster, you'll need to know the cluster's IP address, port, username,
+and password. Then run the `synnax-driver login` command:
+
+```bash
+synnax-driver login
+```
+
+This will prompt you to enter the cluster's connection parameters. Once you've entered
+the parameters, the driver will automatically connect to the cluster. Here's an example
+of the output:
+
+```
+synnax-driver login
+host (default: localhost): 10.0.0.45
+port (default: 9090): 9090
+username: synnax
+password:
+I20250318 04:57:06.681439 25261 login.cpp:47] connecting to Synnax at 10.0.0.45:9090
+I20250318 04:57:06.792840 25261 login.cpp:53] successfully logged in!
+I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
+```
+
+<Divider.Divider direction="x" />
+
+## <StepText step="3" level="h2">Check the Driver Status</StepText>
+
+As a final step, you can check the driver's status by running the `synnax-driver status`
+command:
+
+```bash
+synnax-driver status
+```
+
+This will print the driver's status to the console. Here's an example of the output:
+
+```
+I20250318 05:07:04.312907  5935 daemon_nilinuxrt.cpp:490] Checking service status
+I20250318 05:07:04.346398  5937 version.cpp:21] Synnax Driver v0.39.0 (2025-03-16 00:08:18)
+Synnax Driver is running (PID: 28191)
+```
+
+<Divider.Divider direction="x" />
+
+## CLI Reference
+
+### Start
+
+The `start` command starts the driver as a background process on the host machine.
+
+#### Example Usage
+
+```bash
+synnax-driver start
+```
+
+To start the driver as a foreground process, use the `--standalone` flag:
+
+```bash
+synnax-driver start --standalone
+```
+
+#### Flags
+
+<Table
+  columns={[
+    {
+      key: "option",
+      name: "Flag",
+      type: "code",
+      width: 175,
+    },
+    {
+      key: "default",
+      name: "Default",
+      type: "code",
+    },
+    {
+      key: "description",
+      name: "Description",
+      type: "html",
+    },
+  ]}
+  data={[
+    {
+      option: "--standalone/-s",
+      default: "false",
+      description: "Run the driver directly within the terminal process.",
+    },
+  ]}
+/>
+
+### Stop
+
+The `stop` command stops the driver.
+
+#### Example Usage
+
+```bash
+synnax-driver stop
+```
+
+### Restart
+
+The `restart` command restarts the driver. This is equivalent to stopping and then
+starting the driver.
+
+#### Example Usage
+
+```bash
+synnax-driver restart
+```
+
+### Login
+
+The `login` command logs in to a Synnax cluster.
+
+#### Example Usage
+
+```bash
+synnax-driver login
+```
+
+This will prompt you to enter the cluster's connection parameters. Once you've entered
+the parameters, the driver will automatically connect to the cluster. Here's an example
+of the output:
+
+```
+synnax-driver login
+host (default: localhost): 10.0.0.45
+port (default: 9090): 9090
+username: synnax
+password:
+```
+
+### Status
+
+The `status` command prints the driver's status to the console.
+
+#### Example Usage
+
+```bash
+synnax-driver status
+```
+
+### Uninstall
+
+The `uninstall` command uninstalls the driver.
+
+#### Example Usage
+
+```bash
+synnax-driver uninstall
+```
+
+### Logs
+
+The `logs` command prints the driver's logs to the console.
+
+#### Example Usage
+
+```bash
+synnax-driver logs
+```
+
+### Version
+
+The `version` command prints the driver's version to the console.
+
+#### Example Usage
+
+```bash
+synnax-driver version
+```
