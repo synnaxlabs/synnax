@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Observe, type Status as PStatus, Synnax } from "@synnaxlabs/pluto";
+import {
+  Observe,
+  type Status as PStatus,
+  Synnax,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
 import { useCallback, useState as useReactState } from "react";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
@@ -38,15 +43,15 @@ const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
 
 /**
  * Explicit return type for the useState hook.
- * The tuple consists of:
+ * The object consists of:
  *  - state: The current state of the task.
  *  - triggerLoading: A function to set the state to "loading".
  */
-export type UseStateReturn = [
-  state: State,
-  triggerLoading: () => void,
-  triggerError: (message: string) => void,
-];
+export type UseStateReturn = {
+  state: State;
+  triggerError: (message: string) => void;
+  triggerLoading: () => void;
+};
 
 /**
  * useState takes in a task key and an optional initial state.
@@ -54,7 +59,7 @@ export type UseStateReturn = [
  * @param key - The unique identifier for the task.
  * @param initialState - The optional initial state of the task.
  *
- * @returns A tuple containing:
+ * @returns An object containing:
  *   - state: The current state of the task, which includes:
  *     - status: A string that can be "loading", "running", or "paused".
  *     - message: An optional message string.
@@ -68,19 +73,21 @@ export const useState = <D extends StateDetails>(
   const [state, setState] = useReactState<State>(parseState(initialState));
   const client = Synnax.use();
   const status = state.status;
+  const keyRef = useSyncedRef(key);
+  const statusRef = useSyncedRef(status);
   Observe.useListener({
-    key: [client?.key, key, status],
+    key: [client?.key],
     open: async () => client?.hardware.tasks.openCommandObserver(),
     onChange: ({ task, type }) => {
-      if (task !== key) return;
-      if (shouldExecuteCommand(status, type)) setState(LOADING_STATE);
+      if (task !== keyRef.current) return;
+      if (shouldExecuteCommand(statusRef.current, type)) setState(LOADING_STATE);
     },
   });
   Observe.useListener({
-    key: [client?.key, key],
-    open: async () => client?.hardware.tasks.openStateObserver(),
+    key: [client?.key],
+    open: async () => await client?.hardware.tasks.openStateObserver(),
     onChange: (state) => {
-      if (state.task !== key) return;
+      if (state.task !== keyRef.current) return;
       setState(parseState(state as task.State<D>));
     },
   });
@@ -89,7 +96,7 @@ export const useState = <D extends StateDetails>(
     (message: string) => setState({ status: "paused", message, variant: "error" }),
     [],
   );
-  return [state, triggerLoading, triggerError];
+  return { state, triggerError, triggerLoading };
 };
 
 export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };

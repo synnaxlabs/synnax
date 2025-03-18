@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC, useEffect } from "react";
+import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -37,7 +37,11 @@ import {
 } from "@/hardware/common/task/Task";
 import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { type StateDetails, useState } from "@/hardware/common/task/useState";
+import {
+  type State,
+  type StateDetails,
+  useState,
+} from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
 
 export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
@@ -82,7 +86,121 @@ export interface WrapFormArgs<
   onConfigure: OnConfigure<Config>;
 }
 
+export interface UseFormArgs<
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends StateDetails = StateDetails,
+  Type extends string = string,
+> extends TaskProps<Config, Details, Type>,
+    Pick<
+      WrapFormArgs<Config, Details, Type>,
+      "configSchema" | "onConfigure" | "type"
+    > {}
+
+export interface UseFormReturn<
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends StateDetails = StateDetails,
+  Type extends string = string,
+> {
+  formProps: FormProps<Config, Details, Type>;
+  handleConfigure: (config: Config, name: string) => Promise<void>;
+  handleStartOrStop: (command: StartOrStopCommand) => Promise<void>;
+  state: State;
+  isConfiguring: boolean;
+}
+
 const nameZ = z.string().min(1, "Name is required");
+
+export const useForm = <
+  Config extends UnknownRecord = UnknownRecord,
+  Details extends StateDetails = StateDetails,
+  Type extends string = string,
+>({
+  task: initialTask,
+  layoutKey,
+  configSchema,
+  onConfigure,
+  type,
+}: UseFormArgs<Config, Details, Type>) => {
+  const schema = z.object({ name: nameZ, config: configSchema });
+  const client = PSynnax.use();
+  const handleError_ = Status.useErrorHandler();
+  const values = { name: initialTask.name, config: initialTask.config };
+  const dispatch = useDispatch();
+  const handleUnsavedChanges = useCallback(
+    (hasUnsavedChanges: boolean) => {
+      dispatch(
+        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
+  const methods = PForm.use<Schema<Config>>({
+    schema,
+    values,
+    onHasTouched: handleUnsavedChanges,
+  });
+  const create = useCreate<Config, Details, Type>(layoutKey);
+  const name = Layout.useSelectName(layoutKey);
+  useEffect(() => {
+    if (name != null) methods.set("name", name);
+  }, [name]);
+  const [taskKey, setTaskKey] = useReactState<task.Key>(initialTask.key);
+  const configured = taskKey.length > 0;
+  const { state, triggerError, triggerLoading } = useState(
+    taskKey,
+    initialTask.state ?? undefined,
+  );
+  const handleError = (e: Error, action: string) => {
+    triggerError(e.message);
+    handleError_(e, `Failed to ${action} ${values.name}`);
+  };
+
+  const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
+    mutationFn: async () => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      if (initialTask.snapshot) return;
+      if (!(await methods.validateAsync())) return;
+      const { config, name } = methods.value();
+      if (config == null) throw new Error("Config is required");
+      const [newConfig, rackKey] = await onConfigure(
+        client,
+        config,
+        initialTask.key,
+        name,
+      );
+      methods.setCurrentStateAsInitialValues();
+      methods.set("config", newConfig);
+      // current work around for Pluto form issues (Issue: SY-1465)
+      if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
+      dispatch(Layout.rename({ key: layoutKey, name }));
+      const t = await create({ key: taskKey, name, type, config: newConfig }, rackKey);
+      setTaskKey(t.key);
+    },
+    onError: (e: Error) => handleError(e, "configure"),
+  });
+  const { mutate: handleStartOrStop } = useMutation({
+    mutationFn: async (command: StartOrStopCommand) => {
+      if (!configured) throw new UnexpectedError("Task has not been configured");
+      triggerLoading();
+      const sugaredTask = client?.hardware.tasks.sugar({
+        ...initialTask,
+        key: taskKey,
+      });
+      await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+    },
+    onError: handleError,
+  });
+  const isSnapshot = configured ? (initialTask.snapshot ?? false) : false;
+  const isRunning = configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
+  const formProps = {
+    methods,
+    configured,
+    task: initialTask,
+    isSnapshot,
+    isRunning,
+  } as FormProps<Config, Details, Type>;
+  return { formProps, handleConfigure, handleStartOrStop, state, isConfiguring };
+};
 
 export const wrapForm = <
   Config extends UnknownRecord = UnknownRecord,
@@ -96,66 +214,16 @@ export const wrapForm = <
   getInitialPayload,
   onConfigure,
 }: WrapFormArgs<Config, Details, Type>): Layout.Renderer => {
-  const schema = z.object({ name: nameZ, config: configSchema });
-  const Wrapper = ({
-    layoutKey,
-    task: tsk,
-    configured,
-  }: TaskProps<Config, Details, Type>) => {
-    const client = PSynnax.use();
-    const handleError = Status.useErrorHandler();
-    const values = { name: tsk.name, config: tsk.config };
-    const methods = PForm.use<Schema<Config>>({ schema, values });
-    const create = useCreate<Config, Details, Type>(layoutKey);
-    const dispatch = useDispatch();
-    const name = Layout.useSelectName(layoutKey);
-    useEffect(() => {
-      if (name != null) methods.set("name", name);
-    }, [name]);
-    const [state, triggerLoading, triggerError] = useState(
-      tsk.key,
-      tsk.state ?? undefined,
-    );
-    const configureMutation = useMutation({
-      mutationFn: async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
-        if (tsk.snapshot) return;
-        if (!(await methods.validateAsync())) return;
-        const { config, name } = methods.value();
-        if (config == null) throw new Error("Config is required");
-        const [newConfig, rackKey] = await onConfigure(client, config, tsk.key, name);
-        methods.set("config", newConfig);
-        // current work around for Pluto form issues (Issue: SY-1465)
-        if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        dispatch(Layout.rename({ key: layoutKey, name }));
-        await create({ key: tsk.key, name, type, config: newConfig }, rackKey);
-      },
-      onError: (e) => handleError(e, `Failed to configure ${values.name}`),
-    });
-    const startOrStopMutation = useMutation({
-      mutationFn: async (command: StartOrStopCommand) => {
-        if (!configured) throw new UnexpectedError("Task has not been configured");
-        triggerLoading();
-        try {
-          await tsk.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
-        } catch (e) {
-          if (e instanceof Error) triggerError(e.message);
-          throw e;
-        }
-      },
-      onError: (e, command) => handleError(e, `Failed to ${command} task`),
-    });
-    const isSnapshot = configured ? tsk.snapshot : false;
-    const isRunning =
-      configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
-    const formProps = {
-      methods,
-      configured,
-      task: tsk,
-      isSnapshot,
-      isRunning,
-    } as FormProps<Config, Details, Type>;
-
+  const Wrapper = ({ layoutKey, ...rest }: TaskProps<Config, Details, Type>) => {
+    const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
+      useForm({
+        ...rest,
+        layoutKey,
+        configSchema,
+        type,
+        onConfigure,
+      });
+    const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Align.Space
         direction="y"
@@ -173,14 +241,12 @@ export const wrapForm = <
                 <CopyButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
-                  taskKey={tsk.key}
+                  taskKey={task.key}
                 />
-                <Rack taskKey={tsk.key} />
+                <Rack taskKey={task.key} />
               </Align.Space>
             </Align.Space>
-            {configured && isSnapshot && (
-              <ParentRangeButton<Config, Details, Type> task={tsk} />
-            )}
+            {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
             <Align.Space className={CSS.B("task-properties")} direction="x">
               <Properties />
             </Align.Space>
@@ -198,11 +264,11 @@ export const wrapForm = <
           <Controls
             layoutKey={layoutKey}
             state={state}
-            isConfiguring={configureMutation.isPending}
-            onStartStop={startOrStopMutation.mutate}
-            onConfigure={configureMutation.mutate}
+            isConfiguring={isConfiguring}
+            onStartStop={handleStartOrStop}
+            onConfigure={handleConfigure}
             isSnapshot={isSnapshot}
-            configured={configured}
+            hasBeenConfigured={configured}
           />
         </Align.Space>
       </Align.Space>

@@ -45,6 +45,12 @@ const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
 
+const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
+  const task = await ontologyClient.retrieveParents(taskKey);
+  if (task.length === 0) return null;
+  return task[0];
+};
+
 export class Task<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
@@ -180,9 +186,7 @@ export class Task<
     if (this.ontologyClient == null || this.rangeClient == null)
       throw NOT_CREATED_ERROR;
     if (!this.snapshot) return null;
-    const parents = await this.ontologyClient.retrieveParents(this.ontologyID);
-    if (parents.length == 0) return null;
-    return parents[0];
+    return await retrieveSnapshottedTo(this.key, this.ontologyClient);
   }
 }
 
@@ -359,6 +363,11 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return this.sugar(tasks) as Task<Config, Details, Type>[];
   }
 
+  async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
+    if (this.ontologyClient == null) throw NOT_CREATED_ERROR;
+    return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
+  }
+
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
     const res = await sendRequired(
       this.client,
@@ -370,8 +379,21 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return res.tasks;
   }
 
-  private sugar(payloads: Payload[]): Task[] {
-    return payloads.map(
+  sugar<
+    Config extends UnknownRecord = UnknownRecord,
+    Details extends {} = UnknownRecord,
+    Type extends string = string,
+  >(payload: Payload<Config, Details, Type>): Task<Config, Details, Type>;
+
+  sugar<
+    Config extends UnknownRecord = UnknownRecord,
+    Details extends {} = UnknownRecord,
+    Type extends string = string,
+  >(payloads: Payload<Config, Details, Type>[]): Task<Config, Details, Type>[];
+
+  sugar(payloads: Payload | Payload[]): Task | Task[] {
+    const isSingle = !Array.isArray(payloads);
+    const res = toArray(payloads).map(
       ({ key, name, type, config, state, internal, snapshot }) =>
         new Task(
           key,
@@ -386,6 +408,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
           this.rangeClient,
         ),
     );
+    return isSingle ? res[0] : res;
   }
 
   async openTracker(): Promise<signals.Observable<string, string>> {
