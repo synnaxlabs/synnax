@@ -38,11 +38,10 @@ Console](/reference/console/get-started).
 ## How Control Sequences Work
 
 Both our Python and embedded sequencing systems use the same conceptual approach to
-control. Control sequences [stream data] from a set of input channels, perform
+control. Control sequences [stream data](/reference/concepts/streams) from a set
+of input channels, perform some computations, and [write
+data](/reference/concepts/writes) to a set of output channels.
 
-A control sequence is just a process, such as a Python script or a loop, that [streams
-data](/references/concepts/streams) from a set of input channels, performs some
-computation, and [writes data](/references/concepts/writes) to a set of output channels.
 They use the same underlying channel streaming mechanisms as schematics and line plots
 to propagate data through Synnax. To illustrate, here's a basic example of an embedded
 control sequence that reads pressure to determine if a valve should be opened or closed.
@@ -80,55 +79,46 @@ deployment that communicates with National Instruments devices:
   />
 </Diagram>
 
+{/* prettier-ignore */}
 <Table>
   <thead>
     <tr>
-      <th>Component</th>
+      <th style={{width: "160px"}}>Component</th>
       <th>Description</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task)</td>
-      <td>
-        Reads data from the analog input ports of an
+      <td>Reads data from the analog input ports of an
         [NI-9205](https://www.ni.com/en-us/shop/model/ni-9205.html) at a fixed sample
         rate. Scaling and calibration information is configured within this task. The
         task pushes scaled values to the Synnax cluster for consumption by the control
-        sequence and console for visualization.
-      </td>
+        sequence and console for visualization.</td>
     </tr>
     <tr>
       <td>[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task)</td>
-      <td>
-        Writes to the digital output ports of a
+      <td>Writes to the digital output ports of a
         [NI-9375](https://www.ni.com/en-us/shop/model/ni-9375.html) based on commands
         sent to the `di_X_cmd` channels by the control sequence. The task also
         communicates the state of the digital outputs to the control sequence via the
-        `di_X_state` channels.
-      </td>
+        `di_X_state` channels.</td>
     </tr>
     <tr>
       <td>[Synnax Cluster](/reference/cluster/quick-start)</td>
-      <td>
-        Stores and streams all incoming and outgoing data from the NI devices, control
+      <td>Stores and streams all incoming and outgoing data from the NI devices, control
         sequences, and Synnax Console. All data will pass through the cluster to travel
-        from one component to another.
-      </td>
+        from one component to another.</td>
     </tr>
     <tr>
       <td>[Synnax Console](/reference/console/get-started/get-started)</td>
-      <td>
-        Displays real-time sensor values and actuator states on [line
-        plots](/reference/console/line-plots).
-      </td>
+      <td>Displays real-time sensor values and actuator states on [line
+        plots](/reference/console/line-plots).</td>
     </tr>
     <tr>
       <td>[Control Sequence](/reference/control/get-started)</td>
-      <td>
-        Reads the sensor values from the Analog Read Task and writes commands to the
-        Digital Write Task.
-      </td>
+      <td>Reads the sensor values from the Analog Read Task and writes commands to the
+        Digital Write Task.</td>
     </tr>
   </tbody>
 </Table>
