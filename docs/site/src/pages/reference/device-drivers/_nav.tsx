@@ -21,6 +21,11 @@ export const deviceDriversNav: PageNavNode = {
       href: "/reference/device-drivers/get-started",
       name: "Get Started",
     },
+    {
+      key: "/reference/device-drivers/standalone",
+      href: "/reference/device-drivers/standalone",
+      name: "Standalone Driver",
+    },
     labjackNav,
     niNav,
     opcuaNav,

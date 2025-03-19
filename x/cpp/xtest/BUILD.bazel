@@ -12,6 +12,7 @@ cc_test(
     name = "xtest_test",
     srcs = ["xtest_test.cpp"],
     deps = [
+        "//x/cpp/xerrors",
         "//x/cpp/xtest",
         "@com_google_googletest//:gtest_main",
     ],
