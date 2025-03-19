@@ -241,7 +241,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
         throw new Error(
           `Channel ${ch.name} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
         );
-      if (rCh.name !== ch.name) await client.channels.rename(exKey, ch.name);
+      if (rCh.name !== ch.name) ch.name = rCh.name;
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
       else throw e;
