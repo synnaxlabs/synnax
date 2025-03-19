@@ -1,0 +1,29 @@
+{
+  "data_saving": true,
+  "device": "a73049b6-9a89-4c68-83f8-79acae4174d9",
+  "channels": [
+    {
+      "enabled": true,
+      "key": "NS=2;I=9",
+      "name": "my_float_1",
+      "node_id": "NS=2;I=9",
+      "node_name": "my_float_1",
+      "channel": 1048582,
+      "data_type": "float32",
+      "use_as_index": false
+    },
+    {
+      "enabled": true,
+      "key": "NS=2;I=10",
+      "name": "my_float_2",
+      "node_id": "NS=2;I=10",
+      "node_name": "my_float_2",
+      "channel": 1048583,
+      "data_type": "float32",
+      "use_as_index": false
+    }
+  ],
+  "sample_rate": 50,
+  "array_mode": false,
+  "stream_rate": 25
+}
