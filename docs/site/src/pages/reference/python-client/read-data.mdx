@@ -86,10 +86,10 @@ df = frame.to_df()
 
 ## Reading Channel Data from a Range
 
-While the above methods are useful for executing precise reads, they require us
-to know the exact range of time we're interested in reading. [Ranges](ranges)
-are a useful way of categorizing important time ranges in a cluster's data. We
-can read directly from these ranges.
+While the above methods are useful for executing precise reads, they require us to know
+the exact range of time we're interested in reading.
+[Ranges](/reference/python-client/ranges) are a useful way of categorizing important
+time ranges in a cluster's data. We can read directly from these ranges.
 
 We can access channels on a `Range` object and call `read` on them to access
 their data:

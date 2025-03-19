@@ -42,9 +42,16 @@ control. Control sequences [stream data](/reference/concepts/streams) from a set
 of input channels, perform some computations, and [write
 data](/reference/concepts/writes) to a set of output channels.
 
-They use the same underlying channel streaming mechanisms as schematics and line plots
-to propagate data through Synnax. To illustrate, here's a basic example of an embedded
-control sequence that reads pressure to determine if a valve should be opened or closed.
+# <<<<<<< Updated upstream
+
+A control sequence is just a process, such as a Python script or a loop, that [streams
+data](/reference/concepts/streams) from a set of input channels, performs some
+computation, and [writes data](/reference/concepts/writes) to a set of output channels.
+
+> > > > > > > Stashed changes
+> > > > > > > They use the same underlying channel streaming mechanisms as schematics and line plots
+> > > > > > > to propagate data through Synnax. To illustrate, here's a basic example of an embedded
+> > > > > > > control sequence that reads pressure to determine if a valve should be opened or closed.
 
 ```lua
 --- This code block runs 10 times per second.
@@ -111,7 +118,7 @@ deployment that communicates with National Instruments devices:
         from one component to another.</td>
     </tr>
     <tr>
-      <td>[Synnax Console](/reference/console/get-started/get-started)</td>
+      <td>[Synnax Console](/reference/console/get-started)</td>
       <td>Displays real-time sensor values and actuator states on [line
         plots](/reference/console/line-plots).</td>
     </tr>
