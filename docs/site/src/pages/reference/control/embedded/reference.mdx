@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Embedded Sequence Keywords and Functions"
+title: "Embedded Sequence Reference"
 description: "A reference for the keywords and functions available in Synnax's embedded sequence editor."
 prevURL: "/reference/control/embedded/recipes"
 prev: "Recipes"
@@ -89,12 +89,12 @@ will be very close to, but not exactly 10 seconds.
 
 ### Elapsed Time Within
 
-The `time_elapsed_within` function returns true if the the current `elapsed_time` is
+The `elapsed_time_within` function returns true if the the current `elapsed_time` is
 within a certain range of values. For example, if we want to check if somewhere between
 10 and 11 seconds have elapsed, we can do the following:
 
 ```lua
-if time_elapsed_within(10, 11) then
+if elapsed_time_within(10, 11) then
     -- do something
 end
 ```

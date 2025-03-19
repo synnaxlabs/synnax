@@ -47,10 +47,8 @@ end
 We'll set the sequence rate to 10 Hz, hit the play button, and see that it immediately
 crashes with the following error:
 
-{/* TODO: Add error message */}
-
 ```
-
+[sy.sequence.runtime] [string "if analog_input_1 > 50 then"]:1: attempt to compare number with nil
 ```
 
 Why isn't `analog_input_1` defined if we specified it in the list of channels to read

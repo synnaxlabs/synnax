@@ -8,13 +8,36 @@ next: "Recipes"
 import { Divider } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
 
 Synnax's embedded sequence editor allows you to write, test, and run tightly
 controlled automations directly within the Synnax Console.
 
 Synnax's control sequences are written in [Lua](https://www.lua.org). Lua's syntax is
-very simple, and you'll only need a simple set of keywords for most sequences.
+very simple, and you'll only need a simple set of keywords for most sequences. Here
+are some other useful resources for getting started:
+
+{/* prettier-ignore */}
+<Table>
+  <thead>
+    <tr>
+      <th>Resource</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>[Recipes](/reference/control/embedded/recipes)</td>
+      <td>A set of common control sequence patterns we see in the field</td>
+    </tr>
+    <tr>
+      <td>[Reference](/reference/control/embedded/reference)</td>
+      <td> A complete reference of all keywords and functions available in the sequence
+        editor</td>
+    </tr>
+  </tbody>
+</Table>
 
 <Divider.Divider direction="x" />
 
