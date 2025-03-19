@@ -43,7 +43,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
     id={entry.key.toString()}
-    direction="x"
+    x
     onClick={() => onSelect?.(entry.key)}
     tabIndex={0}
     className={CSS(

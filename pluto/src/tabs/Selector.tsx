@@ -55,53 +55,52 @@ export const Selector = ({
     onCreate,
   } = useContext();
   const menuProps = Menu.useContextMenu();
-  const content = (
-    <Align.Space
-      className={CSS(CSS.B(CLS), CSS.size(size), className)}
-      align="center"
-      justify="spaceBetween"
-      onDrop={onDrop}
-      empty
-      direction={direction}
-      {...rest}
-    >
-      <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
-        {tabs.map((tab) => (
-          <SelectorButton
-            key={tab.tabKey}
-            selected={selected}
-            altColor={altColor}
-            onSelect={onSelect}
-            onClose={onClose}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            onRename={onRename}
-            closable={tab.closable ?? closable}
-            size={size}
-            {...tab}
-          />
-        ))}
-      </Align.Space>
-      {onCreate != null && (
-        <Align.Space className={CSS.BE(CLS, "actions")}>
-          <Button.Icon size={size} sharp onClick={onCreate}>
-            <Icon.Add />
-          </Button.Icon>
-        </Align.Space>
+  return (
+    <>
+      {contextMenu != null && (
+        <Menu.ContextMenu
+          style={{ height: "fit-content" }}
+          {...menuProps}
+          menu={contextMenu}
+        />
       )}
-    </Align.Space>
-  );
-  if (contextMenu != null)
-    return (
-      <Menu.ContextMenu
-        style={{ height: "fit-content" }}
-        {...menuProps}
-        menu={contextMenu}
+      <Align.Space
+        className={CSS(CSS.B(CLS), CSS.size(size), className, menuProps.className)}
+        align="center"
+        justify="spaceBetween"
+        onDrop={onDrop}
+        empty
+        direction={direction}
+        onContextMenu={menuProps.open}
+        {...rest}
       >
-        {content}
-      </Menu.ContextMenu>
-    );
-  return content;
+        <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
+          {tabs.map((tab) => (
+            <SelectorButton
+              key={tab.tabKey}
+              selected={selected}
+              altColor={altColor}
+              onSelect={onSelect}
+              onClose={onClose}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onRename={onRename}
+              closable={tab.closable ?? closable}
+              size={size}
+              {...tab}
+            />
+          ))}
+        </Align.Space>
+        {onCreate != null && (
+          <Align.Space className={CSS.BE(CLS, "actions")}>
+            <Button.Icon size={size} sharp onClick={onCreate}>
+              <Icon.Add />
+            </Button.Icon>
+          </Align.Space>
+        )}
+      </Align.Space>
+    </>
+  );
 };
 
 interface CloseIconProps extends IconProps {
@@ -177,7 +176,7 @@ const SelectorButton = ({
         CSS.editable(onRename != null && editable),
       )}
       draggable
-      direction="x"
+      x
       justify="center"
       align="center"
       onClick={handleClick}

@@ -26,7 +26,7 @@ const CoreBar = ({
   size = "9rem",
   className,
   style,
-  bordered = true,
+  bordered = false,
   ...rest
 }: BarProps): ReactElement => {
   const loc = location.construct(location_);

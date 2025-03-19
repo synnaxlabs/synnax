@@ -110,7 +110,7 @@ export const Palette = ({
             shade={2}
             textShade={7}
           >
-            Quick Search & Command Palette
+            Search & Command
           </Button.Button>
           <PaletteDialog
             value={value}
@@ -228,11 +228,7 @@ const PaletteDialog = ({
       allowMultiple={false}
     >
       <List.Hover<Key, Entry> initialHover={0}>
-        <Align.Pack
-          className={CSS.BE("palette", "content")}
-          direction="y"
-          borderShade={4}
-        >
+        <Align.Pack className={CSS.BE("palette", "content")} y borderShade={4}>
           <Input.Text
             className={CSS(CSS.BE("palette", "input"))}
             placeholder={

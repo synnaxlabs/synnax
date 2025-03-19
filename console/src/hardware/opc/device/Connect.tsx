@@ -157,8 +157,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
             )}
           </Form.Field>
-          <Divider.Divider direction="x" padded="bottom" />
-          <Align.Space direction="x" justify="spaceBetween">
+          <Divider.Divider x padded="bottom" />
+          <Align.Space x justify="spaceBetween">
             <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
@@ -172,7 +172,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               {SelectSecurityMode}
             </Form.Field>
           </Align.Space>
-          <Divider.Divider direction="x" padded="bottom" />
+          <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
             path="connection.securityPolicy"

@@ -93,7 +93,7 @@ interface SelectMultipleInputItemProps
 const SelectEmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Center style={{ height: 150 }} direction="x">
+    <Align.Center style={{ height: 150 }} x>
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
@@ -111,7 +111,7 @@ export const SelectMultipleInputItem = ({
   selectProps,
   ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
-  <Input.Item direction="x" label="Ranges" {...rest}>
+  <Input.Item x label="Ranges" {...rest}>
     <SelectMultipleRanges
       data={data}
       value={value}

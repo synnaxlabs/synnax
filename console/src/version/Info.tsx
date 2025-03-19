@@ -13,7 +13,7 @@ import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { type Layout } from "@/layout";
 import { useSelectVersion } from "@/version/selectors";
@@ -24,7 +24,7 @@ export const INFO_LAYOUT: Layout.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
   name: "Version Info",
-  location: "window",
+  location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromWorkspace: true,
 };
@@ -76,11 +76,11 @@ export const Info: Layout.Renderer = () => {
       );
     else
       updateContent = (
-        <Align.Space direction="y" size="medium">
+        <Align.Space y size="medium">
           <Status.Text variant="loading" level="h4" size="medium">
             Downloading update
           </Status.Text>
-          <Align.Space direction="x" size="medium" align="center" justify="center">
+          <Align.Space x size="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
             <Text.Text level="p" shade={6} noWrap>
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
@@ -126,13 +126,8 @@ export const Info: Layout.Renderer = () => {
     );
 
   return (
-    <Align.Space
-      align="center"
-      direction="y"
-      size="large"
-      style={{ paddingTop: "6rem" }}
-    >
-      <Align.Space direction="y" size="small" justify="center" align="center">
+    <Align.Space align="center" y size="large" style={{ paddingTop: "6rem" }}>
+      <Align.Space y size="small" justify="center" align="center">
         <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
           <Logo variant="title" style={{ height: "10rem" }} />
         </a>

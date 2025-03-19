@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* button:is(:focus, :focus-within, :active, :hover) {
+button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
@@ -17,7 +17,7 @@
     & .pluto-input__internal {
         z-index: 3;
     }
-} */
+}
 
 :root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);

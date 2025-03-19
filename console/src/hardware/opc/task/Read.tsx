@@ -61,7 +61,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
     path={`${path}.useAsIndex`}
     label="Use as Index"
     hideIfNull
-    direction="x"
+    x
     align="center"
     showHelpText={false}
     required={false}
@@ -80,7 +80,7 @@ const Properties = (): ReactElement => {
   return (
     <>
       <Device.Select />
-      <Align.Space direction="x" grow>
+      <Align.Space x grow>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"

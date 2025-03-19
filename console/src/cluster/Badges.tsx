@@ -38,7 +38,7 @@ export const ConnectionStatusBadge = ({
   state: { status, message },
 }: ConnectionStateBadgeProps): ReactElement => (
   <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
-    <Align.Space direction="y" size={0.5}>
+    <Align.Space y size="tiny">
       <Status.Text
         variant={statusVariants[status]}
         weight={450}

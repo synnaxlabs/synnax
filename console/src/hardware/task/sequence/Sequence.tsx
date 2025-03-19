@@ -139,11 +139,7 @@ const Internal = ({
   });
 
   return (
-    <Align.Space
-      style={{ padding: 0, height: "100%", minHeight: 0 }}
-      direction="y"
-      empty
-    >
+    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
       <Form.Form {...methods}>
         <Form.Field<string>
           path="config.script"
@@ -155,7 +151,7 @@ const Internal = ({
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
         <Align.Pack
-          direction="y"
+          y
           bordered={false}
           style={{
             width: "100%",
@@ -166,11 +162,11 @@ const Internal = ({
           }}
         >
           <Align.Space
-            direction="y"
+            y
             style={{ padding: "2rem", paddingBottom: "3rem" }}
             size="medium"
           >
-            <Align.Space direction="x">
+            <Align.Space x>
               <Form.Field<rack.Key>
                 path="config.rack"
                 label="Location"

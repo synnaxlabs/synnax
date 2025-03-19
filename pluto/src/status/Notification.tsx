@@ -43,13 +43,13 @@ export const Notification = ({
 }: NotificationProps): ReactElement => (
   <Align.Space
     className={CSS(CSS.B("notification"), className)}
-    direction="y"
+    y
     key={time.toString()}
     empty
     {...rest}
   >
-    <Align.Space direction="x" justify="spaceBetween" grow style={{ width: "100%" }}>
-      <Align.Space direction="x" align="center" size="small">
+    <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
+      <Align.Space x align="center" size="small">
         <Circle style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
         <Text.Text level="small" shade={7}>
           {`x${count}`}
@@ -72,7 +72,7 @@ export const Notification = ({
       </Button.Icon>
     </Align.Space>
     <Align.Space
-      direction="y"
+      y
       align="start"
       className={CSS(CSS.BE("notification", "content"))}
       size="small"
@@ -100,7 +100,7 @@ export const Notification = ({
     </Align.Space>
     {actions != null && (
       <Align.Space
-        direction="x"
+        x
         align="center"
         justify="end"
         className={CSS(CSS.BE("notification", "actions"))}

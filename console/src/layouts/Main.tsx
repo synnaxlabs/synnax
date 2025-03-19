@@ -90,22 +90,31 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
-    <Align.Space className="console-main-fixed--y" direction="x" size={0.5}>
+    <Align.Space
+      x
+      size="tiny"
+      grow
+      style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
+    >
       <Nav.Left />
-      <Align.Space
-        className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-        size={0.5}
-      >
-        <Align.Space className="console-main--driven" direction="x" size={0.5}>
-          <Nav.Drawer location="left" />
-          <main className="console-main--driven">
+      <Align.Space size="tiny" grow>
+        <Align.Space x size="tiny" grow>
+          <Layout.Nav.Drawer location="left" menuItems={Nav.NAV_DRAWER_ITEMS} />
+          <Align.Space<"main">
+            el="main"
+            empty
+            rounded={1}
+            bordered
+            borderShade={4}
+            background={0}
+            grow
+          >
             <Mosaic />
-          </main>
-          <Nav.Drawer location="right" />
+          </Align.Space>
+          <Layout.Nav.Drawer location="right" menuItems={Nav.NAV_DRAWER_ITEMS} />
         </Align.Space>
-        <Nav.Drawer location="bottom" />
+        <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
       </Align.Space>
-      <Nav.Right />
     </Align.Space>
   </>
 );

@@ -40,7 +40,7 @@ export const Item = ({
   label,
   showLabel = true,
   helpText,
-  direction = "y",
+  direction,
   className,
   children,
   required,
@@ -57,7 +57,7 @@ export const Item = ({
   if (!showHelpText_ && !showLabel_) return <>{children}</>;
   if (direction === "x")
     inputAndHelp = (
-      <Align.Space direction="y" size="small">
+      <Align.Space y size="small">
         {children}
         {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
@@ -66,7 +66,7 @@ export const Item = ({
     );
   else
     inputAndHelp = (
-      <Align.Space direction="y" size={1 / 3}>
+      <Align.Space y size={1 / 3}>
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>

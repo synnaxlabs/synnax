@@ -129,7 +129,7 @@ const Internal = <
                   inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
                   path="identifier"
                 />
-                <Align.Space direction="x">
+                <Align.Space x>
                   <Button.Icon disabled size="small" variant="text">
                     <Icon.Bolt />
                   </Button.Icon>

@@ -565,11 +565,8 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
   );
 
   return (
-    <Menu.ContextMenu
-      style={{ height: "calc(100% - 32px)", paddingTop: "0.5rem" }}
-      menu={handleContextMenu}
-      {...menuProps}
-    >
+    <>
+      <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree
         onRename={handleRename}
         onDrop={handleDrop}
@@ -577,11 +574,13 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
         showRules
         loading={loading}
         virtual={false}
+        onContextMenu={menuProps.open}
+        className={menuProps.className}
         {...treeProps}
       >
         {item}
       </Core.Tree>
-    </Menu.ContextMenu>
+    </>
   );
 };
 

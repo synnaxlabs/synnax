@@ -45,7 +45,7 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
       root={root}
     >
       {window?.navTop && (
-        <Nav.Bar location="top" size="6rem">
+        <Nav.Bar location="top" size="6rem" bordered style={{ borderWidth: 1 }}>
           {(window?.showTitle ?? true) && (
             <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
               <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>

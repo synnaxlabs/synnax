@@ -30,20 +30,20 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space y style={{ padding: "2rem" }}>
             <Value.TelemForm path="" />
           </Align.Space>
         );
       case "redline":
         return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space y style={{ padding: "2rem" }}>
             <RedlineForm />
           </Align.Space>
         );
       default:
         return (
-          <Align.Space direction="y" grow empty style={{ padding: "2rem" }}>
-            <Align.Space direction="x">
+          <Align.Space y grow empty style={{ padding: "2rem" }}>
+            <Align.Space x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
               </Input.Item>
@@ -92,7 +92,7 @@ const RedlineForm = (): ReactElement => {
   const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
   const s = scale.Scale.scale<number>(0, 1).scale(b);
   return (
-    <Align.Space direction="x" grow>
+    <Align.Space x grow>
       <Form.NumericField
         inputProps={{ size: "small", showDragHandle: false }}
         style={{ width: 60 }}
@@ -151,7 +151,7 @@ const RedlineForm = (): ReactElement => {
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Align.Space direction="x" grow style={{ padding: "2rem" }}>
+  <Align.Space x grow style={{ padding: "2rem" }}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>

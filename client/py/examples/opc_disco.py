@@ -35,6 +35,6 @@ for c in channels:
             "virtual": c.virtual,
         }
     )
-json.dump(output, open("opc_remap.json", "w"))
+json.dump(output, open("opc_remap_v2.json", "w"))
 
 

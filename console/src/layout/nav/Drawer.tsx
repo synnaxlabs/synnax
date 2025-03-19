@@ -10,15 +10,16 @@
 import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/pluto";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
-import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { type NavDrawerLocation } from "@/layout/types";
+import { type NavDrawerItem, useNavDrawer } from "@/layout/useNavDrawer";
 
 export interface DrawerProps {
-  location: Layout.NavDrawerLocation;
+  location: NavDrawerLocation;
+  menuItems: NavDrawerItem[];
 }
 
 const mouseLeaveBy =
@@ -42,24 +43,23 @@ const mouseLeaveBy =
     window.addEventListener("mousemove", lis);
   };
 
-export const Drawer = ({ location: loc }: DrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect, hover, onStopHover } = Layout.useNavDrawer(
+export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement => {
+  const { activeItem, onResize, onSelect, hover, onStopHover } = useNavDrawer(
     loc,
-    NAV_DRAWER_ITEMS,
+    menuItems,
   );
   return (
     <Nav.Drawer
       location={loc}
-      className={CSS(
-        CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", location.direction(loc)),
-        CSS.BM("main-nav-drawer", loc),
-        hover && CSS.M("hover"),
-      )}
+      className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
       activeItem={activeItem}
       onResize={onResize}
       onSelect={onSelect}
       onMouseLeave={mouseLeaveBy(xy.construct(120, 20), onStopHover)}
+      background={0}
+      rounded={1}
+      bordered
+      borderShade={4}
     />
   );
 };

@@ -45,7 +45,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
       justify="spaceBetween"
       {...props}
     >
-      <Align.Space direction="x" size="small">
+      <Align.Space x size="small">
         <Form.Field<string>
           hideIfNull
           path={`labels.${index}.color`}
@@ -123,7 +123,7 @@ export const Edit: Layout.Renderer = () => {
   const theme = Layout.useSelectTheme();
 
   return (
-    <Align.Space direction="y" style={{ padding: "2rem" }} grow>
+    <Align.Space y style={{ padding: "2rem" }} grow>
       <Form.Form {...methods}>
         <List.List
           data={arr.value}
@@ -135,7 +135,7 @@ export const Edit: Layout.Renderer = () => {
             </Align.Center>
           }
         >
-          <Align.Space direction="x" justify="spaceBetween">
+          <Align.Space x justify="spaceBetween">
             <List.Filter>
               {(p) => (
                 <Input.Text

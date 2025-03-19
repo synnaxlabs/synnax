@@ -31,17 +31,3 @@
         height: 150px;
     }
 }
-
-.console-palette__item {
-    width: 100%;
-}
-
-.console-palette__item--hovered {
-    background: var(--pluto-gray-l2) !important;
-    border-left: 2px var(--pluto-primary-z) solid !important;
-}
-
-.console-palette__input.pluto-haul-drop-region .pluto-input__internal {
-    background: var(--haul-background) !important;
-    border-color: var(--haul-border-color) !important;
-}

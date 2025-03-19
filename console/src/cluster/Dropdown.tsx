@@ -124,20 +124,9 @@ export const List = (): ReactElement => {
   );
 
   return (
-    <Align.Pack borderShade={4} className={CSS.B("cluster-list")} direction="y">
-      <Align.Pack
-        borderShade={4}
-        direction="x"
-        justify="spaceBetween"
-        size="large"
-        grow
-      >
-        <Align.Space
-          className={CSS.B("cluster-list-title")}
-          direction="y"
-          justify="center"
-          grow
-        >
+    <Align.Pack borderShade={4} className={CSS.B("cluster-list")} y>
+      <Align.Pack borderShade={4} x justify="spaceBetween" size="large" grow>
+        <Align.Space className={CSS.B("cluster-list-title")} y justify="center" grow>
           <Text.WithIcon level="h5" startIcon={<Icon.Cluster />}>
             Clusters
           </Text.WithIcon>
@@ -156,24 +145,27 @@ export const List = (): ReactElement => {
         style={{ width: "100%", height: 300 }}
         menu={contextMenu}
         {...menuProps}
+      />
+      <CoreList.List<string, Cluster>
+        data={allClusters}
+        emptyContent={<NoneConnected />}
       >
-        <CoreList.List<string, Cluster>
-          data={allClusters}
-          emptyContent={<NoneConnected />}
+        <CoreList.Selector
+          value={selected}
+          allowMultiple={false}
+          onChange={handleConnect}
         >
-          <CoreList.Selector
-            value={selected}
-            allowMultiple={false}
-            onChange={handleConnect}
+          <CoreList.Core<string, Cluster>
+            style={{ height: "100%", width: "100%" }}
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
           >
-            <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
-              {({ key, ...p }) => (
-                <ListItem key={key} {...p} validateName={validateName} />
-              )}
-            </CoreList.Core>
-          </CoreList.Selector>
-        </CoreList.List>
-      </PMenu.ContextMenu>
+            {({ key, ...p }) => (
+              <ListItem key={key} {...p} validateName={validateName} />
+            )}
+          </CoreList.Core>
+        </CoreList.Selector>
+      </CoreList.List>
     </Align.Pack>
   );
 };
@@ -192,11 +184,11 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
   return (
     <CoreList.ItemFrame
       className={CSS(CSS.B("cluster-list-item"))}
-      direction="x"
+      x
       align="center"
       {...rest}
     >
-      <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
+      <Align.Space y justify="spaceBetween" size="tiny" grow>
         <Text.MaybeEditable
           level="p"
           id={`cluster-dropdown-${rest.entry.key}`}
@@ -233,7 +225,7 @@ export const NoneConnected = (): ReactElement => {
 
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} size="small">
         <Text.Text level="p">No cluster connected.</Text.Text>
         <Text.Link level="p" onClick={handleCluster}>
           Connect a cluster

@@ -10,15 +10,15 @@
 import {
   type ComponentPropsWithRef,
   createElement,
-  type JSX,
+  type ElementType,
   type ReactElement,
 } from "react";
 
-export type JSXElementType = keyof JSX.IntrinsicElements;
+export type JSXElementType = ElementType;
 
-export type ElementProps<E extends JSXElementType> = ComponentPropsWithRef<E> & {
+export type ElementProps<E extends JSXElementType> = {
   el: E;
-};
+} & ComponentPropsWithRef<E>;
 
 /**
  * Generic renders a component with the given element type .

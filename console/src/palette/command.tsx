@@ -34,7 +34,7 @@ export const CommandListItem = (props: CommandListItemProps): ReactElement => {
       <Text.WithIcon startIcon={icon} level="p" weight={400} shade={9} size="medium">
         {name}
       </Text.WithIcon>
-      {endContent != null && <Align.Space direction="x">{endContent}</Align.Space>}
+      {endContent != null && <Align.Space x>{endContent}</Align.Space>}
     </List.ItemFrame>
   );
 };

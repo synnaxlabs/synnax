@@ -16,7 +16,6 @@ import {
   Caret,
   componentRenderProp,
   Eraser,
-  Icon as PIcon,
   Menu as PMenu,
   Modal,
   Mosaic as Core,
@@ -44,11 +43,12 @@ import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
+import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Logo.Watermark />;
+    <Logo.Watermark />
   </Eraser.Eraser>
 );
 
@@ -284,12 +284,14 @@ const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
   const { activeItem, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
+  const activeName = Layout.useSelectActiveMosaicTabName();
+  const activeWorkspaceName = Workspace.useSelectActiveName();
   const button = (
     <Button.Button
       variant="outlined"
       onClick={() => onSelect("visualization")}
       justify="center"
-      direction="x"
+      x
       size="small"
       shade={2}
       textShade={7}
@@ -307,33 +309,26 @@ const NavTop = (): ReactElement | null => {
     </Button.Button>
   );
   return (
-    <PNav.Bar
-      className="console-main-nav-top"
-      location="top"
-      size="4.5rem"
-      data-tauri-drag-region
-      bordered={false}
-    >
-      <PNav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Controls
-          className="console-controls--macos"
-          visibleIfOS="macOS"
-          forceOS={os}
-        />
-        {isWindowsOS && <Logo className="console-main-nav-top__logo" />}
+    <Layout.Nav.Bar location="top" size="6rem" data-tauri-drag-region bordered={false}>
+      <PNav.Bar.Start data-tauri-drag-region align="center">
+        <Controls visibleIfOS="macOS" forceOS={os} />
+        {isWindowsOS && <Logo />}
       </PNav.Bar.Start>
-      <PNav.Bar.End data-tauri-drag-region style={{ paddingRight: "1rem" }}>
-        {isWindowsOS ? (
-          <Controls
-            className="console-controls--windows"
-            visibleIfOS="Windows"
-            forceOS={os}
-          />
-        ) : (
-          button
-        )}
+      <PNav.Bar.AbsoluteCenter>
+        <Text.Text
+          level="small"
+          weight={500}
+          shade={6}
+          data-tauri-drag-region
+          style={{ cursor: "pointer" }}
+        >
+          {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
+        </Text.Text>
+      </PNav.Bar.AbsoluteCenter>
+      <PNav.Bar.End data-tauri-drag-region align="center">
+        {isWindowsOS ? <Controls visibleIfOS="Windows" forceOS={os} /> : button}
       </PNav.Bar.End>
-    </PNav.Bar>
+    </Layout.Nav.Bar>
   );
 };
 
@@ -355,7 +350,12 @@ export const MosaicWindow = memo<Layout.Renderer>(
     return (
       <>
         <NavTop />
-        <Align.Space direction="y" size={0.5} grow style={{ padding: "0.5rem" }}>
+        <Align.Space
+          y
+          size="tiny"
+          grow
+          style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
+        >
           <div
             style={{
               width: "100%",
@@ -368,7 +368,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
           >
             <Internal windowKey={windowKey} mosaic={mosaic} />
           </div>
-          <Nav.Drawer location="bottom" />
+          <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
         </Align.Space>
       </>
     );

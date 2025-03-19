@@ -14,30 +14,22 @@ import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
+import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
-  children: Layout.NavMenuItem[];
-  activeItem?: Layout.NavDrawerItem;
-  onChange: (key: string, hover?: boolean) => void;
-  onStartHover: (key: string) => void;
-  onStopHover: () => void;
+  location: Layout.NavDrawerLocation;
 }
 
-export const Menu = ({
-  children,
-  activeItem,
-  onChange,
-  onStartHover,
-  onStopHover,
-  ...rest
-}: MenuProps): ReactElement => {
+export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
   const positionRef = useRef<xy.XY>({ ...xy.ZERO });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
+    Layout.useNavDrawer(location, NAV_DRAWER_ITEMS);
 
   return (
-    <PMenu.Menu {...rest} onChange={onChange}>
-      {children.map(({ key, tooltip, icon }) => (
+    <PMenu.Menu {...rest} onChange={onSelect}>
+      {menuItems.map(({ key, tooltip, icon }) => (
         <PMenu.Item.Icon
           className={CSS(
             CSS.BE("main-nav", "item"),

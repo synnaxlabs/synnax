@@ -149,7 +149,7 @@ export const Breadcrumb = <
       shade={shade}
       weight={weight}
       size={size}
-      direction="x"
+      x
       {...rest}
     >
       {PIcon.resolve(icon)}
@@ -191,7 +191,7 @@ export const URL = ({
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
-      direction="x"
+      x
       size="small"
       align="center"
     >

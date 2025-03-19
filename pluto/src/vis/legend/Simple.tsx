@@ -38,7 +38,7 @@ export const legendSwatches = (
       <Align.Space
         key={key}
         style={{ cursor: "pointer" }}
-        direction="x"
+        x
         align="center"
         size="small"
       >

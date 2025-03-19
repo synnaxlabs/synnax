@@ -59,11 +59,7 @@ export const NavControls = (): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Align.Space
-      className={CSS.BE("line-plot", "nav-controls")}
-      direction="x"
-      size="small"
-    >
+    <Align.Space className={CSS.BE("line-plot", "nav-controls")} x size="small">
       <Viewport.SelectMode
         value={mode}
         onChange={handleModeChange}
@@ -75,9 +71,9 @@ export const NavControls = (): ReactElement => {
         variant="outlined"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
-          <Align.Space direction="x" align="center">
+          <Align.Space x align="center">
             <Text.Text level="small">Reset Zoom</Text.Text>
-            <Align.Space direction="x" empty>
+            <Align.Space x empty>
               <Text.Keyboard level="small">
                 <Text.Symbols.Meta />
               </Text.Keyboard>
@@ -96,7 +92,7 @@ export const NavControls = (): ReactElement => {
         size="small"
         uncheckedVariant="outlined"
         tooltip={
-          <Align.Space direction="x" align="center">
+          <Align.Space x align="center">
             <Text.Text level="small">Show Tooltip on Hover</Text.Text>
           </Align.Space>
         }
@@ -119,7 +115,7 @@ export const NavControls = (): ReactElement => {
             key: "measure",
             icon: <Icon.Rule />,
             tooltip: (
-              <Align.Space direction="x" align="center">
+              <Align.Space x align="center">
                 <Text.Text level="small">Slope</Text.Text>
               </Align.Space>
             ),
@@ -146,7 +142,7 @@ export const NavControls = (): ReactElement => {
         tooltipLocation={{ x: "right", y: "top" }}
         size="small"
         tooltip={
-          <Align.Space direction="x" align="center" size="small">
+          <Align.Space x align="center" size="small">
             <Text.Text level="small">
               {control.hold ? "Resume live plotting" : "Pause live plotting"}
             </Text.Text>

@@ -9,43 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-html {
-    overflow: hidden;
-}
-
-body {
-    overflow: hidden;
-}
-
-#root {
-    overflow: hidden;
-}
-
 .console-main {
     height: 100%;
     width: 100%;
     background: var(--pluto-gray-l2);
-}
-
-.console-controls--windows button {
-    height: 100% !important;
-    border-radius: 0 !important;
-    padding: 1.5rem;
-    border: none !important;
-}
-
-.console-controls--windows {
-    height: 100%;
-}
-
-.console-main-nav-top__logo {
-    height: 55%;
-}
-
-.console-main-nav-left__logo {
-    width: 100%;
-}
-
-.console-main-nav-top__title {
-    cursor: default;
 }

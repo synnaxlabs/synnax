@@ -386,75 +386,78 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   };
   const addRangeToNewPlot = Range.useAddToNewPlot();
   return (
-    <PMenu.ContextMenu
-      {...props}
-      menu={() => <ContextMenuContent layoutKey={layoutKey} />}
+    <div
+      style={{ height: "100%", width: "100%", padding: "2rem" }}
+      className={props.className}
     >
-      <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
-        <NavControls />
-        <Channel.LinePlot
-          hold={hold}
-          title={name}
-          axes={axes}
-          lines={propsLines}
-          rules={vis.rules}
-          clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={handleTitleChange}
-          visible={visible}
-          titleLevel={vis.title.level}
-          showTitle={vis.title.visible}
-          showLegend={vis.legend.visible}
-          onLineChange={handleLineChange}
-          onRuleChange={handleRuleChange}
-          onAxisChannelDrop={handleChannelAxisDrop}
-          onAxisChange={handleAxisChange}
-          onViewportChange={handleViewportChange}
-          initialViewport={initialViewport}
-          onLegendPositionChange={handleLegendPositionChange}
-          legendPosition={legendPosition}
-          viewportTriggers={triggers}
-          enableTooltip={enableTooltip}
-          legendVariant={focused ? "fixed" : "floating"}
-          enableMeasure={clickMode === "measure"}
-          onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
-          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-          annotationProvider={{
-            menu: ({ key, timeRange, name }) => {
-              const handleSelect = (itemKey: string) => {
-                switch (itemKey) {
-                  case "download":
-                    if (client == null) return;
-                    download({ client, lines, timeRange, name, handleError });
-                    break;
-                  case "metadata":
-                    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
-                    break;
-                  case "line-plot":
-                    addRangeToNewPlot(key);
-                    break;
-                  default:
-                    break;
-                }
-              };
-              return (
-                <PMenu.Menu level="small" key={key} onChange={handleSelect}>
-                  <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-                    Download as CSV
-                  </PMenu.Item>
-                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
-                    Open in New Plot
-                  </PMenu.Item>
-                  <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
-                    View Details
-                  </PMenu.Item>
-                </PMenu.Menu>
-              );
-            },
-          }}
-        />
-      </div>
-    </PMenu.ContextMenu>
+      <PMenu.ContextMenu
+        {...props}
+        menu={() => <ContextMenuContent layoutKey={layoutKey} />}
+      />
+      <NavControls />
+      <Channel.LinePlot
+        hold={hold}
+        onContextMenu={props.open}
+        title={name}
+        axes={axes}
+        lines={propsLines}
+        rules={vis.rules}
+        clearOverScan={{ x: 5, y: 5 }}
+        onTitleChange={handleTitleChange}
+        visible={visible}
+        titleLevel={vis.title.level}
+        showTitle={vis.title.visible}
+        showLegend={vis.legend.visible}
+        onLineChange={handleLineChange}
+        onRuleChange={handleRuleChange}
+        onAxisChannelDrop={handleChannelAxisDrop}
+        onAxisChange={handleAxisChange}
+        onViewportChange={handleViewportChange}
+        initialViewport={initialViewport}
+        onLegendPositionChange={handleLegendPositionChange}
+        legendPosition={legendPosition}
+        viewportTriggers={triggers}
+        enableTooltip={enableTooltip}
+        legendVariant={focused ? "fixed" : "floating"}
+        enableMeasure={clickMode === "measure"}
+        onDoubleClick={handleDoubleClick}
+        onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
+        onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+        annotationProvider={{
+          menu: ({ key, timeRange, name }) => {
+            const handleSelect = (itemKey: string) => {
+              switch (itemKey) {
+                case "download":
+                  if (client == null) return;
+                  download({ client, lines, timeRange, name, handleError });
+                  break;
+                case "metadata":
+                  placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
+                  break;
+                case "line-plot":
+                  addRangeToNewPlot(key);
+                  break;
+                default:
+                  break;
+              }
+            };
+            return (
+              <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+                <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+                  Download as CSV
+                </PMenu.Item>
+                <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
+                  Open in New Plot
+                </PMenu.Item>
+                <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
+                  View Details
+                </PMenu.Item>
+              </PMenu.Menu>
+            );
+          },
+        }}
+      />
+    </div>
   );
 };
 

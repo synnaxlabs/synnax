@@ -75,7 +75,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
   return (
     <List.ItemFrame
       style={{ padding: "1.5rem" }}
-      size={0.5}
+      size="tiny"
       {...props}
       onSelect={handleSelect}
     >
@@ -121,7 +121,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   }, [client, rangeKey]);
 
   return (
-    <Align.Space direction="y">
+    <Align.Space y>
       <Text.Text level="h4" shade={8} weight={500}>
         Snapshots
       </Text.Text>

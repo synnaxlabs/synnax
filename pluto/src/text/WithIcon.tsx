@@ -67,16 +67,16 @@ export const WithIcon = <
         CSS.noWrap(noWrap),
         className,
       )}
-      direction="x"
+      x
       size="small"
       align="center"
       {...rest}
       style={{ ...rest.style, color }}
     >
       {startIcons}
-      {divided && startIcon != null && <Divider.Divider direction="y" />}
+      {divided && startIcon != null && <Divider.Divider y />}
       {formatted}
-      {divided && endIcon != null && <Divider.Divider direction="y" />}
+      {divided && endIcon != null && <Divider.Divider y />}
       {endIcons}
     </Align.Space>
   );

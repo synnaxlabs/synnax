@@ -31,7 +31,7 @@ export const NavControls = (): ReactElement | null => {
   const Controls = REGISTRY[layout.type as LayoutType];
   return Controls == null ? null : (
     <Align.Space
-      direction="x"
+      x
       size="medium"
       className={CSS.B("nav-controls")}
       style={{ paddingLeft: "0.5rem" }}

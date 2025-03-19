@@ -86,7 +86,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Align.Space direction="x">
+      <Align.Space x>
         <Input.Item label="Notation">
           <Notation.Select
             value={stringifier.notation}

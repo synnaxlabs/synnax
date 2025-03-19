@@ -9,20 +9,18 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Align, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
-import { SIZES } from "@/layouts/nav/sizes";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
@@ -116,57 +114,28 @@ const MemoryBadge = (): ReactElement | null => {
  * presentational.
  */
 export const Top = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
-
   const os = OS.use();
-  const handleDocs = (): void => {
-    placeLayout(Docs.LAYOUT);
-  };
 
   return (
-    <Nav.Bar
-      location="top"
-      size={SIZES.top}
-      className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
-      bordered={false}
-    >
-      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Layout.Controls className="console-controls--macos" visibleIfOS="macOS" />
-        {os === "Windows" && (
-          <Logo className="console-main-nav-top__logo" variant="icon" />
-        )}
+    <Layout.Nav.Bar location="top" size="6.5rem">
+      <Nav.Bar.Start data-tauri-drag-region>
+        <Layout.Controls visibleIfOS="macOS" />
+        {os === "Windows" && <Logo variant="icon" />}
         <Workspace.Selector />
       </Nav.Bar.Start>
-      <Nav.Bar.Content
-        grow
-        justify="center"
-        className="console-main-nav-top__center"
-        data-tauri-drag-region
-      >
+      <Nav.Bar.Content grow justify="center" data-tauri-drag-region>
         <TopPalette />
       </Nav.Bar.Content>
-      <Nav.Bar.End
-        className="console-main-nav-top__end"
-        justify="end"
-        align="center"
-        data-tauri-drag-region
-        size="small"
-      >
+      <Nav.Bar.End justify="end" align="center" data-tauri-drag-region size="small">
         <MemoryBadge />
         <Version.Badge />
-        <Align.Pack style={{ "--pluto-pack-br": "0.5rem" }}>
+        <Align.Pack>
           <Cluster.Dropdown />
           <Cluster.ConnectionBadge />
         </Align.Pack>
-        <Button.Icon
-          size="medium"
-          onClick={handleDocs}
-          tooltip={<Text.Text level="small">Documentation</Text.Text>}
-        >
-          <Icon.QuestionMark />
-        </Button.Icon>
-        <Layout.Controls className="console-controls--windows" visibleIfOS="Windows" />
+        <Docs.OpenButton />
+        <Layout.Controls visibleIfOS="Windows" />
       </Nav.Bar.End>
-    </Nav.Bar>
+    </Layout.Nav.Bar>
   );
 };

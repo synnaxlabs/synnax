@@ -106,7 +106,7 @@ const EmptyContent = () => {
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} size="small">
         <Text.Text level="p">No existing tasks.</Text.Text>
         <Text.Link level="p" onClick={handleClick}>
           Add a task
@@ -342,8 +342,14 @@ const Content = () => {
     [handleListItemStopStart, rename],
   );
   return (
-    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
+    <>
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+      <Align.Space
+        empty
+        style={{ height: "100%" }}
+        className={CSS(CSS.B("task-toolbar"), menuProps.className)}
+        onContextMenu={menuProps.open}
+      >
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Header.Actions>{actions}</Header.Actions>
@@ -354,7 +360,7 @@ const Content = () => {
           </List.Selector>
         </List.List>
       </Align.Space>
-    </PMenu.ContextMenu>
+    </>
   );
 };
 
@@ -396,13 +402,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   );
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
-      <Align.Space
-        direction="y"
-        size="small"
-        grow
-        className={CSS.BE("task", "metadata")}
-      >
-        <Align.Space direction="x" align="center" size="small">
+      <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
+        <Align.Space x align="center" size="small">
           <Status.Circle
             variant={status === Common.Task.LOADING_STATUS ? "loading" : variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}

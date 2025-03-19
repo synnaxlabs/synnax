@@ -24,6 +24,20 @@ body {
     width: 100%;
 }
 
+::-webkit-scrollbar {
+    width: 1rem;
+    height: 1rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pluto-gray-l4);
+    border-radius: var(--pluto-border-radius);
+}
+
 #root {
     height: 100%;
     width: 100%;

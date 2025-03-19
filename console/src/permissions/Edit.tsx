@@ -107,12 +107,12 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (rootUser) return <></>;
 
   return (
-    <Align.Space direction="y" grow>
-      <Align.Space direction="y" grow style={{ padding: "5rem" }}>
+    <Align.Space y grow>
+      <Align.Space y grow style={{ padding: "5rem" }}>
         <Form.Form {...methods}>
-          <Align.Space direction="y" size="large">
-            <Align.Space direction="x" align="center" size={8}>
-              <Align.Space direction="y">
+          <Align.Space y size="large">
+            <Align.Space x align="center" size={8}>
+              <Align.Space y>
                 <Text.WithIcon
                   startIcon={<Icon.Access />}
                   level="h4"
@@ -128,8 +128,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
               </Align.Space>
               <Form.SwitchField path="admin" showLabel={false} padHelpText={false} />
             </Align.Space>
-            <Divider.Divider direction="x" />
-            <Align.Space direction="y">
+            <Divider.Divider x />
+            <Align.Space y>
               <Text.WithIcon
                 startIcon={<Icon.Schematic />}
                 level="h4"
@@ -138,13 +138,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
               >
                 Schematics
               </Text.WithIcon>
-              <Align.Space
-                direction="x"
-                size={8}
-                align="center"
-                style={{ marginLeft: "2rem" }}
-              >
-                <Align.Space direction="y">
+              <Align.Space x size={8} align="center" style={{ marginLeft: "2rem" }}>
+                <Align.Space y>
                   <Text.Text level="h5" shade={8}>
                     Edit
                   </Text.Text>

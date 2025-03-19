@@ -10,13 +10,13 @@
 import "@/resize/Core.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
 
-export interface CoreProps
-  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+export interface CoreProps extends Align.SpaceProps<"div"> {
   location: location.Crude;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -40,7 +40,7 @@ export const Core = ({
   const dir = location.direction(loc_);
   const dim = direction.dimension(dir);
   return (
-    <div
+    <Align.Core
       className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}
@@ -56,6 +56,6 @@ export const Core = ({
           onDragEnd={preventDefault}
         />
       )}
-    </div>
+    </Align.Core>
   );
 };

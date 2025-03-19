@@ -74,4 +74,4 @@ export const Menu = ({
   return <Context value={ctxValue}>{children}</Context>;
 };
 
-export const Divider = (): ReactElement => <CoreDivider.Divider direction="x" padded />;
+export const Divider = (): ReactElement => <CoreDivider.Divider x padded />;

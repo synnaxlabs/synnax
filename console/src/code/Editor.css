@@ -19,7 +19,7 @@ Monaco does some fancy stuff with web workers to move the cursor around, and
 Geist Mono runs a bit larger than the standard monospace font on Windows, so we need
 to manually downsize a tad. 
 */
-.console-main--windows .monaco-editor *:not(.codicon) {
+.console--os-windows .monaco-editor *:not(.codicon) {
     font-size: 13px !important;
 }
 

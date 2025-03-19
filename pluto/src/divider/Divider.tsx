@@ -9,15 +9,16 @@
 
 import "@/divider/Divider.css";
 
-import { type direction, type location } from "@synnaxlabs/x/spatial";
-import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
+import { type location } from "@synnaxlabs/x";
+import { type HTMLAttributes, type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 
 /** The props for the {@link Divider} component. */
 export interface DividerProps
-  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
-  direction?: direction.Direction;
+  extends Omit<HTMLAttributes<HTMLDivElement>, "children">,
+    Pick<Align.SpaceProps, "x" | "y" | "direction"> {
   padded?: boolean | location.Location;
 }
 
@@ -35,7 +36,7 @@ export const Divider = ({
 }: DividerProps): ReactElement => {
   if (padded === true) padded = "center";
   return (
-    <div
+    <Align.Space
       className={CSS(
         CSS.B("divider"),
         CSS.dir(direction),

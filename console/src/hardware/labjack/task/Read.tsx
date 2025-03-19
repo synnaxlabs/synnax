@@ -55,7 +55,7 @@ export const READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space x grow>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
@@ -117,7 +117,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const Form = FORMS[channel.type];
   return (
     <>
-      <Align.Space direction="x">
+      <Align.Space x>
         <SelectInputChannelTypeField
           path={path}
           grow

@@ -220,7 +220,7 @@ export const Dialog = ({
           CSS.loc(dialogLoc.x),
           CSS.loc(dialogLoc.y),
         )}
-        direction="y"
+        y
         reverse={dialogLoc.y === "top"}
         style={{
           ...rest.style,

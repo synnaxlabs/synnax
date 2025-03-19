@@ -35,7 +35,7 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
     const footer = (
       <>
         <Triggers.SaveHelpText action={confirmLabel} />
-        <Nav.Bar.End direction="x" align="center">
+        <Nav.Bar.End x align="center">
           <Button.Button
             variant="outlined"
             status={cancelVariant}

@@ -161,7 +161,7 @@ const CreateLayoutForm = ({
               />
             )}
           </Form.Field>
-          <Align.Space direction="x" size="large">
+          <Align.Space x size="large">
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
@@ -170,7 +170,7 @@ const CreateLayoutForm = ({
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, ...p }) => (
                 <Ranger.SelectSingle

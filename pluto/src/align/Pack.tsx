@@ -11,7 +11,12 @@ import "@/align/Pack.css";
 
 import { type ReactElement } from "react";
 
-import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
+import {
+  parseDirection,
+  Space,
+  type SpaceElementType,
+  type SpaceProps,
+} from "@/align/Space";
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 
@@ -43,15 +48,18 @@ export const Pack = <E extends SpaceElementType = "div">({
   className,
   size = "medium",
   reverse = false,
-  direction = "x",
+  direction,
   bordered = true,
   borderShade = 3 as text.Shade,
   rounded = true,
   shadow = false,
   borderWidth,
   style,
+  x,
+  y,
   ...rest
 }: PackProps<E>): ReactElement => {
+  const dir = parseDirection(direction, x, y, "x");
   const pStyle = {
     [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
     ...style,
@@ -63,7 +71,7 @@ export const Pack = <E extends SpaceElementType = "div">({
   return (
     // @ts-expect-error - generic element issues
     <Space<E>
-      direction={direction}
+      direction={dir}
       reverse={reverse}
       className={CSS(
         CSS.B("pack"),

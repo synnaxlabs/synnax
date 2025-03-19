@@ -47,7 +47,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Align.Center direction="x" size="small">
+    <Align.Center x size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
@@ -128,11 +128,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <Core.Header>
-        <Align.Space direction="x" empty>
+        <Align.Space x empty>
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
-        <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+        <Align.Space x align="center" empty>
+          <Align.Space x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
