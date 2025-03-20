@@ -429,6 +429,8 @@ class SugaredAPI {
   xerrors::Error WriteRaw(TaskHandle task, int32 numSamps, bool32 autoStart, float64 timeout, const uInt8 writeArray[], int32* sampsPerChanWritten, bool32* reserved);
   xerrors::Error WriteToTEDSFromArray(const char physicalChannel[], const uInt8 bitStream[], uInt32 arraySize, int32 basicTEDSOptions);
   xerrors::Error WriteToTEDSFromFile(const char physicalChannel[], const char filePath[], int32 basicTEDSOptions);
-
+  xerrors::Error SetReadRelativeTo(TaskHandle taskHandle, int32 data);
+  xerrors::Error SetReadOffset(TaskHandle taskHandle, int32 data);
+  xerrors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
 };
 }

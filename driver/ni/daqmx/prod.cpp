@@ -1856,6 +1856,15 @@ ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
     function_pointers_.WriteToTEDSFromFile = reinterpret_cast<WriteToTEDSFromFilePtr>(
         const_cast<void *>(lib->get_func_ptr(
             "DAQmxWriteToTEDSFromFile")));
+    function_pointers_.SetReadRelativeTo = reinterpret_cast<SetReadRelativeToPtr>(
+        const_cast<void *>(lib->get_func_ptr(
+            "DAQmxSetReadRelativeTo")));
+    function_pointers_.SetReadOffset = reinterpret_cast<SetReadOffsetPtr>(
+        const_cast<void *>(lib->get_func_ptr(
+            "DAQmxSetReadOffset")));
+    function_pointers_.SetReadOverWrite = reinterpret_cast<SetReadOverWritePtr>(
+        const_cast<void *>(lib->get_func_ptr(
+            "DAQmxSetReadOverWrite")));
 }
 
 ProdAPI::~ProdAPI() {
@@ -5980,4 +5989,14 @@ int32 ProdAPI::WriteToTEDSFromFile(const char physicalChannel[],
     return function_pointers_.WriteToTEDSFromFile(physicalChannel, filePath,
                                                   basicTEDSOptions);
 }
+
+int32 ProdAPI::SetReadRelativeTo(TaskHandle taskHandle, int32 data) {
+    return function_pointers_.SetReadRelativeTo(taskHandle, data);
+};
+int32 ProdAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
+    return function_pointers_.SetReadOffset(taskHandle, data);
+};
+int32 ProdAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
+    return function_pointers_.SetReadOverWrite(taskHandle, data);
+};
 }

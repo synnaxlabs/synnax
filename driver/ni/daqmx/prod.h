@@ -2371,7 +2371,9 @@ public:
 
     int32 WriteToTEDSFromFile(const char physicalChannel[], const char filePath[],
                               int32 basicTEDSOptions) override;
-
+    int32 SetReadRelativeTo(TaskHandle taskHandle, int32 data) override;
+    int32 SetReadOffset(TaskHandle taskHandle, int32 data) override;
+    int32 SetReadOverWrite(TaskHandle taskHandle, int32 data) override;
 private:
     using AddCDAQSyncConnectionPtr = decltype(&DAQmxAddCDAQSyncConnection);
     using AddGlobalChansToTaskPtr = decltype(&DAQmxAddGlobalChansToTask);
@@ -2821,6 +2823,9 @@ private:
     using WriteRawPtr = decltype(&DAQmxWriteRaw);
     using WriteToTEDSFromArrayPtr = decltype(&DAQmxWriteToTEDSFromArray);
     using WriteToTEDSFromFilePtr = decltype(&DAQmxWriteToTEDSFromFile);
+    using SetReadRelativeToPtr = decltype(&DAQmxSetReadRelativeTo);
+    using SetReadOffsetPtr = decltype(&DAQmxSetReadOffset);
+    using SetReadOverWritePtr = decltype(&DAQmxSetReadOverWrite);
 
     typedef struct FunctionPointers {
         AddCDAQSyncConnectionPtr AddCDAQSyncConnection;
@@ -3220,6 +3225,9 @@ private:
         WriteRawPtr WriteRaw;
         WriteToTEDSFromArrayPtr WriteToTEDSFromArray;
         WriteToTEDSFromFilePtr WriteToTEDSFromFile;
+        SetReadRelativeToPtr SetReadRelativeTo;
+        SetReadOffsetPtr SetReadOffset;
+        SetReadOverWritePtr SetReadOverWrite;
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
