@@ -7,11 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { type device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
+
+type PortToIndexMap = Map<number, number>;
+
+const validateAnalogPorts = (
+  channels: { port: number; device: device.Key }[],
+  { addIssue }: z.RefinementCtx,
+) => {
+  const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
+  channels.forEach(({ device, port }, i) => {
+    if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
+    const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
+    if (!portToIndexMap.has(port)) {
+      portToIndexMap.set(port, i);
+      return;
+    }
+    const index = portToIndexMap.get(port) as number;
+    const baseIssue = {
+      code: z.ZodIssueCode.custom,
+      message: `Port ${port} has already been used on another channel on the same device`,
+    };
+    addIssue({ ...baseIssue, path: [index, "port"] });
+    addIssue({ ...baseIssue, path: [i, "port"] });
+  });
+};
 
 const aiChanExtensionShape = { device: Common.Device.keyZ };
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
@@ -229,7 +253,7 @@ const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
     channels: z
       .array(aiChannelZ)
       .superRefine(Common.Task.validateReadChannels)
-      .superRefine(v0.validateAnalogPorts),
+      .superRefine(validateAnalogPorts),
   })
   .superRefine(Common.Task.validateStreamRate);
 export interface AnalogReadConfig extends z.infer<typeof baseAnalogReadConfigZ> {}

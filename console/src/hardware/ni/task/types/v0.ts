@@ -1074,7 +1074,7 @@ const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
   stateRate: 10,
 };
 
-export const validateAnalogPorts = (
+const validateAnalogPorts = (
   channels: { port: number }[],
   { addIssue }: z.RefinementCtx,
 ) => {
