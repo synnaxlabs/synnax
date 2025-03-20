@@ -82,7 +82,10 @@ export const Selector = ({
               altColor={altColor}
               onSelect={onSelect}
               onClose={onClose}
-              onDragStart={onDragStart}
+              onDragStart={(e, rest) => {
+                console.log(e, rest);
+                onDragStart?.(e, rest);
+              }}
               onDragEnd={onDragEnd}
               onRename={onRename}
               closable={tab.closable ?? closable}

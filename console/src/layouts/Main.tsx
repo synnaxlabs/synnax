@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/Main.css";
-
 import {
   channel,
   linePlot,
@@ -100,17 +98,7 @@ export const Main = (): ReactElement => (
       <Align.Space size="tiny" grow>
         <Align.Space x size="tiny" grow>
           <Layout.Nav.Drawer location="left" menuItems={Nav.NAV_DRAWER_ITEMS} />
-          <Align.Space<"main">
-            el="main"
-            empty
-            rounded={1}
-            bordered
-            borderShade={4}
-            background={0}
-            grow
-          >
-            <Mosaic />
-          </Align.Space>
+          <Mosaic />
           <Layout.Nav.Drawer location="right" menuItems={Nav.NAV_DRAWER_ITEMS} />
         </Align.Space>
         <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />

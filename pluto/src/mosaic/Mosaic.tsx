@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 
+import { type Align } from "@/align";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { mapNodes } from "@/mosaic/tree";
@@ -30,10 +31,14 @@ import { Tabs } from "@/tabs";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
-  extends Omit<
-    Tabs.TabsProps,
-    "onDrop" | "tabs" | "onResize" | "onCreate" | "children" | "onDragOver"
-  > {
+  extends Pick<
+      Tabs.TabsProps,
+      "onSelect" | "contextMenu" | "emptyContent" | "onRename" | "onClose"
+    >,
+    Omit<
+      Align.CoreProps,
+      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
+    > {
   root: Node;
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
@@ -58,48 +63,83 @@ export interface MosaicProps
  * @param props.onResize - The callback executed when a pane is resized. This prop is
  *  provided by the Mosaic.use hook.
  */
-export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
-  const { onResize, ...tabsProps } = props;
-  const {
-    root: { tabs, direction, first, last, key, size },
+export const Mosaic = memo(
+  ({
+    root,
+    onDrop,
+    onResize,
+    onCreate,
+    onFileDrop,
+    children,
+    activeTab,
     emptyContent,
-    ...childProps
-  } = tabsProps;
+    onSelect,
+    onClose,
+    onRename,
+    contextMenu,
+    ...rest
+  }: MosaicProps): ReactElement | null => {
+    const { tabs, direction, first, last, key, size } = root;
+    const childProps = {
+      onDrop,
+      onResize,
+      onCreate,
+      onFileDrop,
+      children,
+      onClose,
+      contextMenu,
+      onSelect,
+      onRename,
+    };
 
-  const handleResize = useCallback(
-    ([size]: number[]) => onResize(key, size),
-    [onResize],
-  );
-
-  const { props: resizeProps } = Resize.useMultiple({
-    direction,
-    onResize: handleResize,
-    count: 2,
-    initialSizes: size != null ? [size] : undefined,
-  });
-
-  let content: ReactElement | null;
-  if (tabs !== undefined)
-    content = <TabLeaf emptyContent={emptyContent} {...tabsProps} />;
-  else if (first != null && last != null)
-    content = (
-      <Resize.Multiple
-        id={`mosaic-${key}`}
-        align="stretch"
-        className={CSS.BE("mosaic", "resize")}
-        {...resizeProps}
-      >
-        <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
-        <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
-      </Resize.Multiple>
+    const handleResize = useCallback(
+      ([size]: number[]) => onResize(key, size),
+      [onResize],
     );
-  else {
-    content = null;
-    console.warn("Mosaic tree is malformed");
-  }
 
-  return key === 1 ? <Haul.Provider>{content}</Haul.Provider> : content;
-});
+    const { props: resizeProps } = Resize.useMultiple({
+      direction,
+      onResize: handleResize,
+      count: 2,
+      initialSizes: size != null ? [size] : undefined,
+    });
+    let extraProps: Partial<Align.CoreProps> = {};
+    if (key == 1)
+      extraProps = {
+        ...rest,
+        className: CSS(CSS.B("mosaic")),
+      };
+
+    let content: ReactElement | null;
+    if (tabs !== undefined)
+      content = (
+        <TabLeaf
+          root={root}
+          emptyContent={emptyContent}
+          {...extraProps}
+          {...childProps}
+        />
+      );
+    else if (first != null && last != null)
+      content = (
+        <Resize.Multiple
+          id={`mosaic-${key}`}
+          align="stretch"
+          {...resizeProps}
+          {...extraProps}
+        >
+          <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
+          <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
+        </Resize.Multiple>
+      );
+    else {
+      content = null;
+      console.warn("Mosaic tree is malformed");
+    }
+
+    return content;
+  },
+);
 Mosaic.displayName = "Mosaic";
 
 interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
@@ -178,6 +218,7 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
+        console.log(event);
         if (event == null) return;
         const location: location.Location =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
@@ -209,7 +250,7 @@ const TabLeaf = memo(
     const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
     return (
-      <div id={`mosaic-${key}`} className={CSS.BE("mosaic", "leaf")}>
+      <>
         <Tabs.Tabs
           id={`tab-${key}`}
           tabs={tabs}
@@ -218,8 +259,8 @@ const TabLeaf = memo(
           selectedAltColor={activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
-          {...rest}
           {...haulProps}
+          {...rest}
         >
           {node.selected != null &&
             children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
@@ -235,12 +276,11 @@ const TabLeaf = memo(
               }}
             />
           )}
+          {dragMask != null && (
+            <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
+          )}
         </Tabs.Tabs>
-
-        {dragMask != null && (
-          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
-        )}
-      </div>
+      </>
     );
   },
 );

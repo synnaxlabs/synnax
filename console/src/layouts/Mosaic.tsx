@@ -262,6 +262,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     <>
       {portalNodes}
       <Core.Mosaic
+        rounded={1}
+        bordered
+        borderShade={4}
+        background={0}
         root={mosaic}
         onDrop={handleDrop}
         onClose={handleClose}
