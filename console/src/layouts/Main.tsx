@@ -96,10 +96,9 @@ export const Main = (): ReactElement => (
     >
       <Nav.Left />
       <Align.Space size="tiny" grow>
-        <Align.Space x size="tiny" grow>
+        <Align.Space x size="tiny" grow style={{ height: 0 }}>
           <Layout.Nav.Drawer location="left" menuItems={Nav.NAV_DRAWER_ITEMS} />
           <Mosaic />
-          <Layout.Nav.Drawer location="right" menuItems={Nav.NAV_DRAWER_ITEMS} />
         </Align.Space>
         <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
       </Align.Space>

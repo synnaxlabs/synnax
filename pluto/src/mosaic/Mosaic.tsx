@@ -218,7 +218,6 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
-        console.log(event);
         if (event == null) return;
         const location: location.Location =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));

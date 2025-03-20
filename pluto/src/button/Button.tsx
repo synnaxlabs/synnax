@@ -15,7 +15,6 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
-  type ReactNode,
   useCallback,
   useRef,
 } from "react";
@@ -49,7 +48,6 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
-  stopPropagation?: boolean;
   textShade?: Text.Shade;
 }
 
@@ -66,7 +64,6 @@ export type ButtonProps = Omit<
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
-    endContent?: ReactNode;
   };
 
 /**
@@ -110,9 +107,7 @@ export const Button = Tooltip.wrap(
     color,
     status,
     style,
-    endContent,
     onMouseDown,
-    stopPropagation,
     shade = 0,
     textShade,
     ...rest
@@ -127,7 +122,6 @@ export const Button = Tooltip.wrap(
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (stopPropagation) e.stopPropagation();
       if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };
@@ -193,7 +187,7 @@ export const Button = Tooltip.wrap(
           CSS.shade(shade),
           variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
-          CSS.BM("btn", variant),
+          CSS.M(variant),
           hasCustomColor && CSS.BM("btn", "custom-color"),
           className,
         )}
@@ -210,11 +204,6 @@ export const Button = Tooltip.wrap(
         shade={textShade}
       >
         {children}
-        {endContent != null ? (
-          <div className={CSS.BE("btn", "end-content")}>
-            {Text.formatChildren(level ?? Text.ComponentSizeLevels[size], endContent)}
-          </div>
-        ) : undefined}
       </Text.WithIcon>
     );
   },

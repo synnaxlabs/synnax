@@ -45,7 +45,7 @@ const CSS_JUSTIFICATIONS: Record<Justification, CSSProperties["justifyContent"]>
 /** The justification for the main axis of a space */
 export type Justification = (typeof JUSTIFICATIONS)[number];
 
-export type SpaceElementType =
+export type ElementType =
   | "div"
   | "header"
   | "nav"
@@ -60,7 +60,7 @@ export type SpaceElementType =
   | "main";
 
 export interface CoreExtensionProps {
-  el?: SpaceElementType;
+  el?: ElementType;
   bordered?: boolean;
   borderShade?: Theming.Shade;
   borderWidth?: number;
@@ -82,7 +82,7 @@ export interface SpaceExtensionProps extends CoreExtensionProps {
   wrap?: boolean;
 }
 
-export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
+export type SpaceProps<E extends ElementType = "div"> = Omit<
   Generic.ElementProps<E>,
   "el"
 > &
@@ -107,9 +107,9 @@ export const parseDirection = (
   y?: boolean,
   def: direction.Direction = "y",
 ): direction.Direction => {
-  if (dir != null) return direction.construct(dir);
   if (x) return "x";
   if (y) return "y";
+  if (dir != null) return direction.construct(dir);
   return def;
 };
 
@@ -137,7 +137,7 @@ export const parseDirection = (
  * children.
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
-export const Space = <E extends SpaceElementType = "div">({
+export const Space = <E extends ElementType = "div">({
   style,
   align,
   className,
@@ -187,13 +187,13 @@ export const Space = <E extends SpaceElementType = "div">({
   );
 };
 
-export type CoreProps<E extends SpaceElementType = "div"> = Omit<
+export type CoreProps<E extends ElementType = "div"> = Omit<
   Generic.ElementProps<E>,
   "el"
 > &
   CoreExtensionProps & { el?: E };
 
-export const Core = <E extends SpaceElementType = "div">({
+export const Core = <E extends ElementType = "div">({
   style,
   el = "div" as E,
   bordered = false,

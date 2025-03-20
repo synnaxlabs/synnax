@@ -36,7 +36,7 @@ export type Segments = string | Segment | (string | Segment)[];
  * @template L - The text level.
  */
 export type BreadcrumbProps<
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
@@ -124,7 +124,7 @@ const getContent = ({
  * @returns The Breadcrumb component.
  */
 export const Breadcrumb = <
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 >({
   children: segments,

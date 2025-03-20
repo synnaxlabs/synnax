@@ -17,8 +17,8 @@
             transition: background 0.3s;
 
             &::after {
-                top: 3px;
-                height: calc(100% - 6px);
+                top: 0.5rem;
+                height: calc(100% - 1rem);
                 opacity: 1;
                 transition: all 0.15s;
             }
@@ -26,7 +26,7 @@
         &::after {
             content: "";
             position: absolute;
-            width: 3px;
+            width: 0.5rem;
             background: var(--pluto-primary-z);
             top: 50%;
             opacity: 0;
@@ -76,15 +76,30 @@
 
 .console-nav__drawer {
     overflow: hidden;
-    &.console--hover {
-        position: absolute;
+    box-shadow: var(--pluto-shadow-menu);
 
+    &.console--hover,
+    &.pluto--hidden {
+        transition: transform 0.15s linear;
+        position: absolute;
+        z-index: 200;
         &.pluto--bottom {
-            bottom: 0.5rem;
-            z-index: 200;
-            width: calc(100vw - 8rem - 2rem + 8px);
-            left: calc(8rem - 1px);
-            box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
+            bottom: 1rem;
+            width: calc(100vw - 8rem - 1px);
+            left: calc(8rem - 2px);
+        }
+        &.pluto--left {
+            left: 8.5rem;
+            top: 6rem;
+            height: calc(100vh - 6rem - 0.5rem);
+        }
+    }
+    &.pluto--hidden {
+        &.pluto--bottom {
+            transform: translateY(calc(100% + 3rem));
+        }
+        &.pluto--left {
+            transform: translateX(calc(-100% - 10rem));
         }
     }
 }

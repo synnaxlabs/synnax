@@ -64,8 +64,7 @@
     & .pluto-input__internal {
         position: relative;
         display: inline-flex;
-        border: var(--pluto-border);
-        border-width: 1px;
+        border: var(--pluto-border-l4);
         align-items: center;
         height: 100%;
         background: var(--pluto-gray-l2);
@@ -112,6 +111,7 @@
     & > .pluto-input__internal:focus-within {
         --c: rgba(var(--pluto-input-color), 1);
         border-color: var(--c, var(--pluto-primary-z)) !important;
+        border-width: 1px;
         & input {
             outline: none;
         }

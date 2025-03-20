@@ -30,8 +30,10 @@
 .pluto-tabs-selector__btn--close {
     .pluto-tabs-selector__icon--unsaved {
         fill: var(--pluto-gray-l6) !important;
-        width: 2rem;
-        height: 2rem;
+        top: 30%;
+        left: 30%:
+        width: 40%;
+        height: 40%;
     }
     &:has(.pluto-tabs-selector__icon--unsaved) {
         .pluto-tabs-selector__icon--close {

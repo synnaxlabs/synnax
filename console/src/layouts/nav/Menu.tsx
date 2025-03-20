@@ -29,7 +29,7 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
 
   return (
     <PMenu.Menu {...rest} onChange={onSelect}>
-      {menuItems.map(({ key, tooltip, icon }) => (
+      {menuItems.map(({ key, icon }) => (
         <PMenu.Item.Icon
           className={CSS(
             CSS.BE("main-nav", "item"),
@@ -48,13 +48,13 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
               positionRef.current = xy.construct(e);
               const lis = (e: MouseEvent) => {
                 const delta = xy.translation(xy.construct(e), positionRef.current);
-                if (delta.y > 20 && Math.abs(delta.x) < 20) {
+                if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
                   onStopHover();
                   window.removeEventListener("mousemove", lis);
                 }
               };
               window.addEventListener("mousemove", lis);
-            }, 250);
+            }, 350);
           }}
           onMouseLeave={() => {
             if (timeoutRef.current != null) {
@@ -65,7 +65,6 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
           key={key}
           itemKey={key}
           size="large"
-          tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
           shade={2}
         >
           {icon}

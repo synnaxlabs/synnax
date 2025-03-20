@@ -14,16 +14,13 @@ import { type ReactElement } from "react";
 import {
   parseDirection,
   Space,
-  type SpaceElementType,
+  type ElementType,
   type SpaceProps,
 } from "@/align/Space";
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 
-export type PackProps<E extends SpaceElementType = "div"> = Omit<
-  SpaceProps<E>,
-  "empty"
-> & {
+export type PackProps<E extends ElementType = "div"> = Omit<SpaceProps<E>, "empty"> & {
   shadow?: boolean;
   borderWidth?: number;
 };
@@ -44,7 +41,7 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
  * @param props.el  - The element type to use as the root element for the Pack.
  * Defaults to "div".
  */
-export const Pack = <E extends SpaceElementType = "div">({
+export const Pack = <E extends ElementType = "div">({
   className,
   size = "medium",
   reverse = false,

@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
+
 import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { UserServices } from "@/user/services";
@@ -25,3 +28,28 @@ export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   WorkspaceServices.TOOLBAR,
   UserServices.TOOLBAR,
 ];
+
+const MODE_CONFIG: Triggers.ModeConfig<string> = Object.fromEntries(
+  NAV_DRAWER_ITEMS.filter((item) => item.trigger?.length > 0).flatMap((item) => [
+    [item.key, [item.trigger]],
+    [`${item.key}-double`, [[item.trigger[0], item.trigger[0]]]],
+  ]),
+) as Triggers.ModeConfig<string>;
+
+const flattenedConfig = Triggers.flattenConfig(MODE_CONFIG);
+
+export const useTriggers = () => {
+  const dispatch = useDispatch();
+  Triggers.use({
+    triggers: flattenedConfig,
+    callback: (e) => {
+      if (e.stage === "end") return;
+      const mode = Triggers.determineMode(MODE_CONFIG, e.triggers);
+      if (mode.length === 0) return;
+      if (mode.includes("double")) {
+        const key = mode.split("-")[0];
+        dispatch(Layout.setNavDrawerVisible({ windowKey: "main", key, value: true }));
+      } else dispatch(Layout.toggleNavHover({ windowKey: "main", key: mode }));
+    },
+  });
+};

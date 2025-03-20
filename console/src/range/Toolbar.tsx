@@ -414,10 +414,10 @@ const ListItem = (props: ListItemProps): ReactElement => {
   return (
     <CoreList.ItemFrame
       className={CSS.B("range-list-item")}
-      y
       rightAligned
       {...props}
       size="small"
+      y
     >
       {!entry.persisted && (
         <Tooltip.Dialog location="left">
@@ -473,6 +473,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Ranges",
+  trigger: ["R"],
   initialSize: 300,
   minSize: 175,
   maxSize: 400,

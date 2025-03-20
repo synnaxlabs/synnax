@@ -368,6 +368,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,
+  trigger: ["T"],
   tooltip: "Tasks",
   initialSize: 300,
   minSize: 225,

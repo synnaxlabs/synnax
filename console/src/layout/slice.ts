@@ -137,6 +137,11 @@ interface StartNavHoverPayload {
   key: string;
 }
 
+interface ToggleNavHoverPayload {
+  windowKey: string;
+  key: string;
+}
+
 interface StopNavHoverPayload {
   windowKey: string;
   location: NavDrawerLocation;
@@ -414,9 +419,37 @@ export const { actions, reducer } = createSlice({
       const navState = state.nav[windowKey];
       if (navState == null) return;
       const drawerState = navState.drawers[location];
-      if (drawerState == null || drawerState.activeItem == key) return;
+      if (
+        drawerState == null ||
+        (drawerState.activeItem != null && drawerState.hover !== true)
+      )
+        return;
       drawerState.hover = true;
       drawerState.activeItem = key;
+    },
+    toggleNavHover: (
+      state,
+      { payload: { windowKey, key } }: PayloadAction<ToggleNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawer = Object.values(navState.drawers).find((drawer) =>
+        drawer.menuItems.includes(key),
+      );
+      if (drawer == null) return;
+      if (drawer.activeItem != null && drawer.hover === false) {
+        drawer.activeItem = null;
+        return;
+      }
+
+      if (drawer.hover === true && key !== drawer.activeItem) {
+        drawer.activeItem = key;
+        return;
+      }
+
+      drawer.hover = !(drawer.hover ?? false);
+      if (!drawer.hover && key == drawer.activeItem) drawer.activeItem = null;
+      else drawer.activeItem = key;
     },
     stopNavHover: (
       state,
@@ -543,6 +576,7 @@ export const {
   setColorContext,
   clearWorkspace,
   startNavHover,
+  toggleNavHover,
   stopNavHover,
   setUnsavedChanges,
 } = actions;

@@ -37,6 +37,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   icon: <Icon.Workspace />,
   content: <Content />,
   tooltip: "Workspaces",
+  trigger: ["W"],
   initialSize: 300,
   minSize: 175,
   maxSize: 400,

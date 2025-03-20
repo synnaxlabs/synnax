@@ -23,18 +23,18 @@ import { getRootElement } from "@/util/rootElement";
 export interface ModalProps
   extends Pick<Core.UseReturn, "visible" | "close">,
     Align.SpaceProps {
-  centered?: boolean;
   enabled?: boolean;
   root?: string;
+  offset?: number;
 }
 
 export const Dialog = ({
   children,
-  centered,
   visible,
   enabled = true,
   close,
   style,
+  offset = 15,
   ...rest
 }: ModalProps): ReactElement => {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,12 +72,12 @@ export const Dialog = ({
       align="center"
     >
       <Align.Space
-        className={CSS(CSS.BE("modal", "dialog"), centered && CSS.M("centered"))}
+        className={CSS(CSS.BE("modal", "dialog"))}
         role="dialog"
         empty
         ref={dialogRef}
         {...rest}
-        style={{ zIndex: enabled ? 11 : undefined, ...style }}
+        style={{ zIndex: enabled ? 11 : undefined, ...style, top: `${offset}%` }}
       >
         <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
           {children}

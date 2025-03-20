@@ -83,7 +83,6 @@ export const Selector = ({
               onSelect={onSelect}
               onClose={onClose}
               onDragStart={(e, rest) => {
-                console.log(e, rest);
                 onDragStart?.(e, rest);
               }}
               onDragEnd={onDragEnd}

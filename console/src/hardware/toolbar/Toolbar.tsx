@@ -18,12 +18,9 @@ const Content = (): ReactElement => {
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      console.log(res);
       return res?.filter((r) => r.name === "Devices")[0].id;
     },
   });
-
-  console.log(group.data);
 
   return (
     <Align.Space empty style={{ height: "100%" }}>

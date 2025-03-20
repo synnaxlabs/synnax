@@ -10,12 +10,11 @@
 import "@/layout/Modals.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Modal as Core, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
-import { Version } from "@/version";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
   width: "100%",
@@ -29,23 +28,21 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
 interface ModalProps {
   state: State;
   remove: (key: string) => void;
-  centered?: boolean;
   root?: string;
 }
 
-export const Modal = ({ state, remove, centered, root }: ModalProps) => {
+export const Modal = ({ state, remove, root }: ModalProps) => {
   const { key, name, window, icon } = state;
   return (
     <Core.Modal
       key={key}
-      centered={centered}
       visible
       close={() => remove(key)}
       style={layoutCSS(window)}
       root={root}
     >
       {window?.navTop && (
-        <Nav.Bar location="top" size="6rem" bordered style={{ borderWidth: 1 }}>
+        <Nav.Bar location="top" size="6rem" bordered>
           {(window?.showTitle ?? true) && (
             <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
               <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
@@ -54,7 +51,6 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
             </Nav.Bar.Start>
           )}
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            {state.beta != null && <Version.BetaTag />}
             <Button.Icon onClick={() => remove(key)} size="small">
               <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
             </Button.Icon>

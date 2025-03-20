@@ -41,6 +41,8 @@ export const Item = ({
   showLabel = true,
   helpText,
   direction,
+  x,
+  y,
   className,
   children,
   required,
@@ -51,11 +53,12 @@ export const Item = ({
   showHelpText = true,
   ...rest
 }: ItemProps): ReactElement => {
+  const dir = Align.parseDirection(direction, x, y, "y");
   let inputAndHelp: ReactElement;
   const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
   const showLabel_ = showLabel && label != null && label.length > 0;
   if (!showHelpText_ && !showLabel_) return <>{children}</>;
-  if (direction === "x")
+  if (dir === "x")
     inputAndHelp = (
       <Align.Space y size="small">
         {children}
@@ -77,9 +80,9 @@ export const Item = ({
   return (
     <Align.Space
       className={CSS(CSS.B("input-item"), className)}
-      direction={direction}
+      direction={dir}
       size={size}
-      align={maybeDefaultAlignment(align, direction)}
+      align={maybeDefaultAlignment(align, dir)}
       {...rest}
     >
       {showLabel_ && <Label required={required}>{label}</Label>}

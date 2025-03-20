@@ -28,7 +28,7 @@ interface IconProps {
 type IconElement = ReactElement<IconProps>;
 
 export type WithIconProps<
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
@@ -39,7 +39,7 @@ export type WithIconProps<
   };
 
 export const WithIcon = <
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends text.Level = text.Level,
 >({
   level = "h1" as L,

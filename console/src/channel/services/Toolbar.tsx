@@ -19,10 +19,8 @@ const Content = (): ReactElement => {
     },
   });
 
-  console.log(group.data);
-
   return (
-    <Align.Space empty style={{ height: "100%" }}>
+    <Align.Space empty style={{ height: "100%", overflow: "hidden" }}>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Header.Actions>
@@ -39,6 +37,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   icon: <Icon.Channel />,
   content: <Content />,
   tooltip: "Channels",
+  trigger: ["C"],
   initialSize: 300,
   minSize: 175,
   maxSize: 400,

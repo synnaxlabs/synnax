@@ -39,8 +39,7 @@
 
     .pluto-dropdown__dialog {
         /* contain: layout size style; */
-        top: 30%;
-        transform: translateY(-25%);
+        top: 15%;
         --pluto-pack-br: 1rem;
         border-radius: 1rem;
         background: var(--pluto-gray-l0);
@@ -60,7 +59,9 @@
     position: fixed;
     box-shadow: var(--pluto-shadow-menu);
     overflow: hidden;
-    border: var(--pluto-border-l4);
+    &.pluto--bordered {
+        border: var(--pluto-border-l4);
+    }
 
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;

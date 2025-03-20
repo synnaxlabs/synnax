@@ -93,7 +93,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Modal.Dialog visible close={handleClose} centered enabled={focused}>
+    <Modal.Dialog visible close={handleClose} enabled={focused} offset={0}>
       <PNav.Bar
         location="top"
         size="5rem"
@@ -360,18 +360,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
           grow
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              background: "var(--pluto-gray-l0)",
-              border: "var(--pluto-border-l4)",
-              borderRadius: "1rem",
-              overflow: "hidden",
-            }}
-          >
-            <Internal windowKey={windowKey} mosaic={mosaic} />
-          </div>
+          <Internal windowKey={windowKey} mosaic={mosaic} />
           <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
         </Align.Space>
       </>

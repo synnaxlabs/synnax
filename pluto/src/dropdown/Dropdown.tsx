@@ -93,6 +93,7 @@ export const Dialog = ({
   close,
   maxHeight,
   zIndex = 5,
+  bordered = true,
   ...rest
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
@@ -185,6 +186,7 @@ export const Dialog = ({
       )}
       role="dialog"
       empty
+      bordered={bordered}
       style={dialogStyle}
     >
       {(keepMounted || visible) && children[1]}

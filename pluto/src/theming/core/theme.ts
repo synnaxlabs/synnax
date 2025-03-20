@@ -129,7 +129,7 @@ const LIGHT_SCALE = [
   "#f9f9f9", // l1
   "#F2F2F2", // l2
   "#E1E1E1", // l3
-  "#D5D5D5", // l4
+  "#D2D2D2", // l4
   "#ADADAD", // l5
   "#878787", // l6
   "#636363", // l7
@@ -141,6 +141,13 @@ const LIGHT_SCALE = [
 const lightGrayScale: GrayScale = Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
+
+const supportsThinBorder = () => {
+  if (typeof window === "undefined") return false;
+  return window.devicePixelRatio > 1;
+};
+
+const SUPPORTS_THIN_BORDER = supportsThinBorder();
 
 const SYNNAX_BASE: ThemeSpec = {
   key: "synnaxBase",
@@ -206,7 +213,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: { radius: 3, width: 0.5 },
+    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1 },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {

@@ -10,7 +10,7 @@
 import "@/nav/Drawer.css";
 
 import { type box, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useLayoutEffect, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
@@ -38,7 +38,9 @@ export interface UseDrawerReturn {
 export interface DrawerProps
   extends Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
-    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold">> {}
+    Partial<
+      Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">
+    > {}
 
 export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerReturn => {
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
@@ -56,14 +58,15 @@ export const Drawer = ({
   collapseThreshold = 0.65,
   className,
   onResize,
+  onCollapse,
   ...rest
 }: DrawerProps): ReactElement | null => {
   const dir = location.direction(loc_);
-  const handleCollapse = useCallback(
-    () => activeItem != null && onSelect?.(activeItem.key),
-    [onSelect, activeItem?.key],
-  );
-  const { erase, setEnabled } = Eraser.use({});
+  const handleCollapse = useCallback(() => {
+    if (onCollapse) onCollapse();
+    else if (activeItem != null) onSelect?.(activeItem.key);
+  }, [onSelect, activeItem?.key, onCollapse]);
+  const { erase } = Eraser.use({ enabled: activeItem != null });
   const handleResize = useCallback(
     (size: number, box: box.Box) => {
       onResize?.(size, box);
@@ -71,15 +74,15 @@ export const Drawer = ({
     },
     [onResize, erase],
   );
-  useLayoutEffect(() => {
-    setEnabled(activeItem != null);
-  }, [activeItem, setEnabled]);
-  if (activeItem == null) return null;
-  const { content, key, minSize, maxSize, initialSize } = activeItem;
+  const { content, minSize, maxSize, initialSize = 0 } = activeItem ?? {};
   return (
     <Resize.Single
-      key={key}
-      className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
+      className={CSS(
+        CSS.B("nav-drawer"),
+        CSS.dir(dir),
+        CSS.visible(activeItem != null),
+        className,
+      )}
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
       location={loc_}

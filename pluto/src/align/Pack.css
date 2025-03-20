@@ -209,7 +209,7 @@
 }
 
 .pluto-pack {
-    & .pluto-btn--filled {
+    & .pluto--filled {
         z-index: 4;
     }
 }

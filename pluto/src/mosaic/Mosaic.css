@@ -13,6 +13,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    box-shadow: var(--pluto-shadow-menu);
 
     .pluto-mosaic__mask {
         position: absolute;

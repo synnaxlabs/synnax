@@ -14,13 +14,13 @@
         margin-left: auto;
     }
 
-    &.pluto-btn--preview svg {
+    &.pluto--preview svg {
         display: none;
     }
 }
 
 .pluto-select-button {
-    & .pluto-btn--filled {
+    & .pluto--filled {
         z-index: 3;
     }
 }

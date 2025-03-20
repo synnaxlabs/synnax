@@ -39,23 +39,25 @@
         .pluto-modal__dialog {
             container-type: inline-size;
             position: relative;
-            top: 30%;
             z-index: 11;
-            transform: translateY(-25%);
             background: var(--pluto-gray-l0);
-            box-shadow: var(--pluto-shadow-menu);
+            box-shadow:
+                lch(0 0 0 / 0.088) 0px 9px 48px,
+                lch(0 0 0 / 0.11) 0px 6px 24px,
+                lch(0 0 0 / 0.044) 0px 1px 1px;
             border-radius: 1rem;
             min-width: 400px;
             min-height: 150px;
 
             &.pluto--centered {
-                top: 50%;
-                transform: translateY(-50%);
+                top: 0%;
             }
 
             & > div {
                 border: var(--pluto-border-l4);
                 border-radius: 1rem;
+                overflow: hidden;
+                border-width: 1px;
                 height: 100%;
 
                 & > div:first-child {

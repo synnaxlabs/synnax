@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { type Icon, type Nav, useDebouncedCallback } from "@synnaxlabs/pluto";
+import {
+  type Icon,
+  type Nav,
+  type Triggers,
+  useDebouncedCallback,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
+import { useSynced } from "@synnaxlabs/pluto/dist/src/form/synced.js";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelectNavDrawer } from "@/layout/selectors";
@@ -24,6 +32,7 @@ export interface NavMenuItem {
   key: string;
   icon: Icon.Element;
   tooltip: string;
+  trigger: Triggers.Trigger;
 }
 
 export interface NavDrawerItem extends Nav.DrawerItem, NavMenuItem {}
@@ -32,6 +41,7 @@ export interface UseNavDrawerReturn {
   activeItem: NavDrawerItem | undefined;
   menuItems: NavMenuItem[];
   onSelect: (item: string) => void;
+  onCollapse: () => void;
   onResize: (size: number) => void;
   onStartHover: (item: string) => void;
   onStopHover: () => void;
@@ -57,6 +67,7 @@ export const useNavDrawer = (
       activeItem: undefined,
       menuItems: [],
       onSelect: () => {},
+      onCollapse: () => {},
       onResize: () => {},
       hover: false,
       onStartHover: () => {},
@@ -71,14 +82,39 @@ export const useNavDrawer = (
 
   if (activeItem != null) activeItem.initialSize = state.size;
 
+  const onSelect = useCallback(
+    (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
+    [dispatch, windowKey],
+  );
+
+  const hoverRef = useSyncedRef(state.hover);
+
+  const onCollapse = useCallback(() => {
+    if (hoverRef.current) dispatch(stopNavHover({ windowKey, location }));
+    else
+      dispatch(
+        setNavDrawerVisible({ windowKey, key: undefined, value: false, location }),
+      );
+  }, [dispatch, windowKey, location, hoverRef]);
+
+  const onStartHover = useCallback(
+    (key: string) => dispatch(startNavHover({ windowKey, location, key })),
+    [dispatch, windowKey, location],
+  );
+
+  const onStopHover = useCallback(
+    () => dispatch(stopNavHover({ windowKey, location })),
+    [dispatch, windowKey, location],
+  );
+
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
+    onSelect,
+    onCollapse,
     onResize,
     hover: state.hover ?? false,
-    onStartHover: (key: string) =>
-      dispatch(startNavHover({ windowKey, location, key })),
-    onStopHover: () => dispatch(stopNavHover({ windowKey, location })),
+    onStartHover,
+    onStopHover,
   };
 };

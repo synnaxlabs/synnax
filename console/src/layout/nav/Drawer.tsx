@@ -10,7 +10,7 @@
 import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/pluto";
-import { box, xy } from "@synnaxlabs/x";
+import { box, direction, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -24,7 +24,7 @@ export interface DrawerProps {
 
 const mouseLeaveBy =
   (threshold: xy.XY, onLeave: (e: MouseEvent) => void) => (e: React.MouseEvent) => {
-    const content = (e.target as HTMLElement).closest(".pluto-navdrawer__content");
+    const content = (e.target as HTMLElement).closest(".pluto-nav-drawer");
     if (content == null) return;
     let b = box.construct(content);
     b = box.translate(b, xy.scale(threshold, -1));
@@ -34,20 +34,32 @@ const mouseLeaveBy =
     });
     const lis = (e: MouseEvent) => {
       const pos = xy.construct(e);
-      if (e.buttons != 0) window.removeEventListener("mousemove", lis);
-      else if (!box.contains(b, pos)) {
+      if (!box.contains(b, pos)) {
         window.removeEventListener("mousemove", lis);
         onLeave(e);
-      }
+      } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
     };
     window.addEventListener("mousemove", lis);
+    // window.addEventListener(
+    //   "mousedown",
+    //   (e) => {
+    //     window.removeEventListener("mousemove", lis);
+    //     const rawBox = box.construct(content);
+    //     const pos = xy.construct(e);
+    //     if (!box.contains(rawBox, pos)) onLeave(e);
+    //   },
+    //   { once: true },
+    // );
   };
 
+const LONG_AXIS_THRESHOLD = 36;
+const SHORT_AXIS_THRESHOLD = 24;
+
+const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
+
 export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect, hover, onStopHover } = useNavDrawer(
-    loc,
-    menuItems,
-  );
+  const { activeItem, onResize, onSelect, hover, onStopHover, onCollapse } =
+    useNavDrawer(loc, menuItems);
   return (
     <Nav.Drawer
       location={loc}
@@ -55,7 +67,11 @@ export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement 
       activeItem={activeItem}
       onResize={onResize}
       onSelect={onSelect}
-      onMouseLeave={mouseLeaveBy(xy.construct(120, 20), onStopHover)}
+      onMouseLeave={mouseLeaveBy(
+        xy.swap(X_THRESHOLD, direction.construct(loc) === "y"),
+        onStopHover,
+      )}
+      onCollapse={onCollapse}
       background={0}
       rounded={1}
       bordered

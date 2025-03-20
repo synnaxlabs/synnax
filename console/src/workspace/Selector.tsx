@@ -72,6 +72,7 @@ export const Selector = (): ReactElement => {
       keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
+      bordered={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
@@ -109,6 +110,7 @@ export const Selector = (): ReactElement => {
                   >
                     <Button.Button
                       startIcon={<Icon.Close />}
+                      size="large"
                       variant="outlined"
                       onClick={() => handleChange(null)}
                       iconSpacing="small"
@@ -117,6 +119,7 @@ export const Selector = (): ReactElement => {
                       Clear
                     </Button.Button>
                     <Button.Button
+                      size="large"
                       startIcon={<Icon.Add />}
                       variant="outlined"
                       onClick={() => {
@@ -132,7 +135,9 @@ export const Selector = (): ReactElement => {
                   </Input.Text>
                 )}
               </List.Search>
-              <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+              <List.Core bordered borderShade={4}>
+                {componentRenderProp(SelectorListItem)}
+              </List.Core>
             </List.Selector>
           </List.List>
         </Cluster.NoneConnectedBoundary>
