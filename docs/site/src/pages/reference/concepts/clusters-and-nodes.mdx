@@ -44,12 +44,12 @@ Nodes are uniquely identified by both a reachable address and an ID. A node's
 address allows clients and other nodes to communicate with it. Synnax
 multiplexes client and node communication over the same port.
 
-A node's ID is a 16-bit integer that uniquely identifies it within the cluster.
-The first node in the cluster, called the bootstrap node, is assigned the ID 1.
-Subsquent nodes are assigned IDs through a process called pledging. Even if a
-node permanently leaves the cluster, it's ID will not be reassigned. Node ID's
-are used to generate cluster-wide unique ID's for components such as
-[channels](channels) as well as synchronizing operations across the cluster.
+A node's ID is a 16-bit integer that uniquely identifies it within the cluster. The
+first node in the cluster, called the bootstrap node, is assigned the ID 1. Subsquent
+nodes are assigned IDs through a process called pledging. Even if a node permanently
+leaves the cluster, it's ID will not be reassigned. Node ID's are used to generate
+cluster-wide unique ID's for components such as [channels](/reference/concepts/channels)
+as well as synchronizing operations across the cluster.
 
 ### Heartbeats and Gossip
 

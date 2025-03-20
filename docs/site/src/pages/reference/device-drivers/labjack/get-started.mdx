@@ -20,8 +20,7 @@ of the important prerequisites necessary to get started with the LabJack driver.
 ## Supported Devices
 
 Synnax supports reading and writing data to all LabJack devices that are supported by
-the [LJM
-Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).
+the [LJM Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).
 
 <Note.Note variant="warning">
   Currently, only T-Series LabJack devices are supported by Synnax. If you are
@@ -31,9 +30,23 @@ Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7
 
 <Divider.Divider direction="x" />
 
+## Supported Operating Systems
+
+The LabJack driver supports Linux, Windows, and macOS machines that have the LJM library
+installed. The driver will not be able to connect to external devices when running
+within a containerized environment (even if that container is running on a supported
+OS).
+
 ## Installation
 
-The LabJack driver comes installed with every Synnax deployment.
+The LabJack driver comes pre-installed with every Synnax Cluster, and will automatically
+detect LabJack devices connected to the same host machine as the cluster.
+
+We also offer a standalone driver that can be used to acquire data from LabJack devices
+on host machines separate from the Synnax Cluster. For details on when this is useful,
+see the [getting started guide](/reference/device-drivers/get-started). For standalone
+driver installation instructions, see the [standalone
+driver](/reference/device-drivers/standalone) page.
 
 ### Installing LJM
 
@@ -47,9 +60,3 @@ website.](<https://support.labjack.com/docs/ljm-software-installer-downloads-t4-
 </Note.Note>
 
 <Divider.Divider direction="x" />
-
-## OS Compatibility
-
-The LabJack driver is only compatible when running the Synnax Database on a **Windows**
-machine. The driver will not be able to find your devices when running on Linux, macOS,
-or within a Docker container (even if that container is running on Windows).

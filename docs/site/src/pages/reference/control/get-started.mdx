@@ -1,62 +1,124 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Control"
-heading: "Control Hardware"
-next: "Sequence Basics"
-nextURL: "/reference/control/sequence-basics"
+title: "Control Sequences"
+description: "Get started with control sequences in Synnax."
+nextURL: "/reference/control/control-authority"
+next: "Control Authority"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Image } from "@/components/Media";
+import { Image, Video } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Diagram from "@/components/Diagram.astro";
+import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
 
-Synnax allows you to control hardware both manually through our
-[operator console](/reference/console/get-started) and programmatically through our
-Python control module.
+Control sequences are the primary means for automating hardware operations in your
+Synnax deployment. They provide a systematic way to control actuators and other
+mechanisms. On this page, we'll explore the different types of control sequences
+available within Synnax.
 
 <Divider.Divider direction="x" />
 
-## Using Channels for Control
+## Control Sequence Types
 
-Synnax controls hardware through its channel streaming system. In Synnax, channels are
-simply pipes that pass samples from one place to another. Internally, Synnax treats
-channels that are used for data acquisition and channels used for control the same way.
-While this may seem strange at first, it allows for high-degrees of flexibility in how
-your configure your system.
+There are two ways to write control sequences in Synnax: via our [Python
+Client](/reference/python-client/get-started) and our [Embedded Sequence
+Editor](/reference/control/embedded/get-started).
 
-If you haven't already, we recommend that you read the
-[channels](/reference/concepts/channels) documentation to get a better understanding of
-just what channels are.
+Python control sequences are ideal for complex automations requiring a high degree of
+customization. Embedded control sequences are simple, but can be run on real-time OSs
+such as National Instruments cRIOs through our [NI Linux Real-Time
+Driver](/reference/device-drivers/standalone?platform=ni-linux-rt). Embedded control
+sequences can be edited and deployed directly from within the [Synnax
+Console](/reference/console/get-started).
 
 <Divider.Divider direction="x" />
 
-## Basic Control Flow
+## How Control Sequences Work
 
-Control flow in Synnax typically requires two types of channels: a command and a state
-channel. Command channels, typically suffixed with `_cmd`, are used to send commands to
-the device. State channels, suffixed with `_state`, are used as acknowledgements from a
-device driver that a command has been executed.
+Both our Python and embedded sequencing systems use the same conceptual approach to
+control. Control sequences [stream data](/reference/concepts/streams) from a set
+of input channels, perform some computations, and [write
+data](/reference/concepts/writes) to a set of output channels.
 
-To illustrate this, consider a simple where we're commanding a digital output on a device
-with the name `daq`. We'd create a command channel called `daq_do_1_cmd` with a data type of
-`uint8` and a state channel called `daq_do_1_state`, also with a data type of `uint8`.
+A control sequence is just a process, such as a Python script or a loop, that [streams
+data](/reference/concepts/streams) from a set of input channels, performs some
+computation, and [writes data](/reference/concepts/writes) to a set of output channels.
 
-If you're using one of Synnax's [built-in device drivers](/reference/device-drivers/get-started),
-these channels will be created automatically when you start a control/digital output task.
+```lua
+--- This code block runs 10 times per second.
 
-The following diagram illustrates what a basic control flow might look like when
-commanding the digital output from a Python script:
+--- Check if the current pressure is below the threshold.
+if pressure < 100 then
+    --- If so, open the valve.
+    set("press_vlv_cmd", true)
+else
+    --- Otherwise, close the valve.
+    set("press_vlv_cmd", false)
+end
+```
 
-<Image client:only="react" id="control/get-started/basic-control" themed={false} />
+There is no mention of hardware configuration in this sequence.
+Parameters like acquisition rates, scaling, and other hardware specific details are
+kept independent from sequencing mechanisms. This allows for a high degree of
+flexibility, including the ability to move and change hardware without changing the
+control sequence algorithms.
 
-The general flow is as follows:
+### Example Deployment
 
-1. The Python script writes the command value of `1` to the `daq_do_1_cmd` channel.
-2. The Synnax database node receives the command value and forwards it to a device
-   driver. This device driver can be either Synnax's built-in driver or a driver for a custom
-   device.
-3. The device driver receives and executes the command, sending an acknowledgement value
-   of `1` to the `daq_do_1_state` channel.
-4. The Synnax database node receives the state value and forwards it to the Python script.
-5. The Python script acknowledges the state value and continues executing.
+To illustrate how control sequences fit into a larger system, here's an example Synnax
+deployment that communicates with National Instruments devices:
+
+<Diagram>
+  <Image
+    client:only="react"
+    id="control/sequence-structure-v2"
+    themed={false}
+    extension="svg"
+  />
+</Diagram>
+
+{/* prettier-ignore */}
+<Table>
+  <thead>
+    <tr>
+      <th style={{width: "160px"}}>Component</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task)</td>
+      <td>Reads data from the analog input ports of an
+        [NI-9205](https://www.ni.com/en-us/shop/model/ni-9205.html) at a fixed sample
+        rate. Scaling and calibration information is configured within this task. The
+        task pushes scaled values to the Synnax cluster for consumption by the control
+        sequence and console for visualization.</td>
+    </tr>
+    <tr>
+      <td>[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task)</td>
+      <td>Writes to the digital output ports of a
+        [NI-9375](https://www.ni.com/en-us/shop/model/ni-9375.html) based on commands
+        sent to the `di_X_cmd` channels by the control sequence. The task also
+        communicates the state of the digital outputs to the control sequence via the
+        `di_X_state` channels.</td>
+    </tr>
+    <tr>
+      <td>[Synnax Cluster](/reference/cluster/quick-start)</td>
+      <td>Stores and streams all incoming and outgoing data from the NI devices, control
+        sequences, and Synnax Console. All data will pass through the cluster to travel
+        from one component to another.</td>
+    </tr>
+    <tr>
+      <td>[Synnax Console](/reference/console/get-started)</td>
+      <td>Displays real-time sensor values and actuator states on [line
+        plots](/reference/console/line-plots).</td>
+    </tr>
+    <tr>
+      <td>[Control Sequence](/reference/control/get-started)</td>
+      <td>Reads the sensor values from the Analog Read Task and writes commands to the
+        Digital Write Task.</td>
+    </tr>
+  </tbody>
+</Table>

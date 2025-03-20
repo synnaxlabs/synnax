@@ -117,40 +117,70 @@ describe("analog read task", () => {
       }).success,
     ).toEqual(true);
   });
-});
 
-describe("analog write task", () => {
-  it("should be able to parse a valid task", () => {
-    expect(
-      analogWriteConfigZ.safeParse({
-        ...ZERO_ANALOG_WRITE_PAYLOAD.config,
-        device: "Dev1",
-        channels: [{ ...ZERO_AO_CHANNEL, key: "0" }],
-      }).success,
-    ).toEqual(true);
+  describe("should be able to parse a task on multiple devices", () => {
+    it("should properly parse a task with the same ports on different devices", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 1000,
+          sampleRate: 2000,
+          channels: [
+            { ...ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
+            { ...ZERO_AI_CHANNEL, key: "1", device: "35", port: 0 },
+          ],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should properly parse a task with the same ports on the same device", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 1000,
+          sampleRate: 2000,
+          channels: [
+            { ...ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
+            { ...ZERO_AI_CHANNEL, key: "1", device: "34", port: 0 },
+          ],
+        }).success,
+      ).toEqual(false);
+    });
   });
-});
 
-describe("digital read task", () => {
-  it("should be able to parse a valid task", () => {
-    expect(
-      digitalReadConfigZ.safeParse({
-        ...ZERO_DIGITAL_READ_PAYLOAD.config,
-        device: "Dev1",
-        channels: [{ ...ZERO_DI_CHANNEL, key: "0" }],
-      }).success,
-    ).toEqual(true);
+  describe("analog write task", () => {
+    it("should be able to parse a valid task", () => {
+      expect(
+        analogWriteConfigZ.safeParse({
+          ...ZERO_ANALOG_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [{ ...ZERO_AO_CHANNEL, key: "0" }],
+        }).success,
+      ).toEqual(true);
+    });
   });
-});
 
-describe("digital write task", () => {
-  it("should be able to parse a valid task", () => {
-    expect(
-      digitalWriteConfigZ.safeParse({
-        ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
-        device: "Dev1",
-        channels: [{ ...ZERO_DO_CHANNEL, key: "0" }],
-      }).success,
-    ).toEqual(true);
+  describe("digital read task", () => {
+    it("should be able to parse a valid task", () => {
+      expect(
+        digitalReadConfigZ.safeParse({
+          ...ZERO_DIGITAL_READ_PAYLOAD.config,
+          device: "Dev1",
+          channels: [{ ...ZERO_DI_CHANNEL, key: "0" }],
+        }).success,
+      ).toEqual(true);
+    });
+  });
+
+  describe("digital write task", () => {
+    it("should be able to parse a valid task", () => {
+      expect(
+        digitalWriteConfigZ.safeParse({
+          ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
+          device: "Dev1",
+          channels: [{ ...ZERO_DO_CHANNEL, key: "0" }],
+        }).success,
+      ).toEqual(true);
+    });
   });
 });

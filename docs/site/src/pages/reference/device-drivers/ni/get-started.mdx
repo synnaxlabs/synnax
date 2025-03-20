@@ -28,7 +28,20 @@ Aside from very old DAQ modules, Synnax is generally compatible with every NI de
 
 ## Installation
 
-The NI Driver comes pre-installed with every Synnax Deployment.
+The NI Driver comes pre-installed with every Synnax Cluster, so there are no additional
+installation steps unless you're using the Real-Time Linux Driver for CompactRIO.
+
+### Real-Time Linux Driver for CompactRIO
+
+We also have a standalone driver that can be used to run data acquisition and control
+tasks on NI controllers that support NI Linux RT. For installation instructions, see
+the [standalone driver](/reference/device-drivers/standalone) page.
+
+## OS Compatibility
+
+The NI driver is compatible with Linux, Windows, and NI Linux RT. The driver will not be
+able to find your devices when running on macOS or within a containerized environment
+(even if the container is running on a supported OS).
 
 ### Installing DAQmx and System Configuration Libraries
 
@@ -43,9 +56,3 @@ Instructions for installing System Configuration can be found on the [following 
 </Note.Note>
 
 <Divider.Divider direction="x" />
-
-## OS Compatibility
-
-The NI driver is only compatible when running the Synnax Database on a Windows machine.
-The driver will not be able to find your devices when running on Linux, macOS, or
-within a Docker container (even if that container is running on Windows).
