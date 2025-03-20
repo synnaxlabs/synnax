@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, type IconProps } from "@synnaxlabs/media";
+import { box, type location, scale, xy } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
   useCallback,
+  useState,
 } from "react";
 
 import { Align } from "@/align";
@@ -26,10 +28,15 @@ import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export interface SelectorProps
-  extends Omit<Align.SpaceProps, "children" | "contextMenu"> {
+  extends Omit<Align.SpaceProps, "children" | "contextMenu" | "onDrop"> {
   size?: ComponentSize;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
+  onDrop?: (
+    e: React.DragEvent<HTMLDivElement>,
+    tabKey?: string,
+    position?: location.X,
+  ) => void;
 }
 
 const CLS = "tabs-selector";
@@ -68,10 +75,10 @@ export const Selector = ({
         className={CSS(CSS.B(CLS), CSS.size(size), className, menuProps.className)}
         align="center"
         justify="spaceBetween"
-        onDrop={onDrop}
         empty
         direction={direction}
         onContextMenu={menuProps.open}
+        onDrop={onDrop}
         {...rest}
       >
         <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
@@ -82,6 +89,7 @@ export const Selector = ({
               altColor={altColor}
               onSelect={onSelect}
               onClose={onClose}
+              onDrop={onDrop}
               onDragStart={(e, rest) => {
                 onDragStart?.(e, rest);
               }}
@@ -121,6 +129,16 @@ const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement =
   return closeIcon;
 };
 
+const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location.X => {
+  const b = box.construct(
+    (e.target as HTMLElement).closest(".pluto-tabs-selector__btn"),
+  );
+  const cursor = xy.construct(e);
+  const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
+  if (s < 0.5) return "left";
+  return "right";
+};
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -136,6 +154,7 @@ const SelectorButton = ({
   size,
   editable = true,
   unsavedChanges = false,
+  onDrop,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -156,6 +175,24 @@ const SelectorButton = ({
   );
 
   const handleClick = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
+  const [dragOverPosition, setDragOverPosition] = useState<location.X | null>(null);
+
+  const handleDragOver: DragEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      setDragOverPosition(calculateDragOverPosition(e));
+    },
+    [setDragOverPosition],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      const position = calculateDragOverPosition(e);
+      onDrop?.(e, tabKey, position);
+      setDragOverPosition(null);
+    },
+    [onDrop, tabKey, dragOverPosition],
+  );
 
   const isSelected = selected === tabKey;
   const hasIcon = icon != null;
@@ -176,14 +213,21 @@ const SelectorButton = ({
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
         hasIcon && CSS.BEM(CLS, "btn", "has-icon"),
         CSS.editable(onRename != null && editable),
+        dragOverPosition != null && CSS.BM("drag-over", dragOverPosition),
       )}
       draggable
       x
       justify="center"
       align="center"
       onClick={handleClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragLeave={() => setDragOverPosition(null)}
       onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(e) => {
+        setDragOverPosition(null);
+        handleDragEnd(e);
+      }}
       bordered={false}
       rounded={false}
     >
@@ -220,6 +264,11 @@ export interface SelectorButtonProps extends Spec {
   altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDrop?: (
+    e: React.DragEvent<HTMLDivElement>,
+    tabKey?: string,
+    position?: location.X,
+  ) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;

@@ -55,5 +55,6 @@ to manually downsize a tad.
     border-color: var(--pluto-gray-l4);
     &:has(.focused) {
         border-color: var(--pluto-primary-z);
+        border-width: 1px;
     }
 }

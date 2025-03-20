@@ -31,6 +31,12 @@ interface ModalProps {
   root?: string;
 }
 
+const calculateOffset = (window?: WindowProps): number => {
+  if (window?.size?.height == null) return 0;
+  if (window?.size?.height < 500) return 15;
+  return Math.round(window.size.height / 75);
+};
+
 export const Modal = ({ state, remove, root }: ModalProps) => {
   const { key, name, window, icon } = state;
   return (
@@ -40,6 +46,7 @@ export const Modal = ({ state, remove, root }: ModalProps) => {
       close={() => remove(key)}
       style={layoutCSS(window)}
       root={root}
+      offset={calculateOffset(window)}
     >
       {window?.navTop && (
         <Nav.Bar location="top" size="6rem" bordered>

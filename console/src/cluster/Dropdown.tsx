@@ -124,21 +124,29 @@ export const List = (): ReactElement => {
   );
 
   return (
-    <Align.Pack borderShade={4} className={CSS.B("cluster-list")} y>
-      <Align.Pack borderShade={4} x justify="spaceBetween" size="large" grow>
-        <Align.Space className={CSS.B("cluster-list-title")} y justify="center" grow>
+    <Align.Pack className={CSS.B("cluster-list")} y>
+      <Align.Pack x justify="spaceBetween" size="large" grow>
+        <Align.Space
+          className={CSS.B("cluster-list-title")}
+          y
+          justify="center"
+          grow
+          bordered
+          borderShade={4}
+        >
           <Text.WithIcon level="h5" startIcon={<Icon.Cluster />}>
             Clusters
           </Text.WithIcon>
         </Align.Space>
         <Button.Button
-          variant="outlined"
+          variant="filled"
           size="medium"
-          startIcon={<Icon.Add />}
+          iconSpacing="small"
+          startIcon={<Icon.Connect />}
           onClick={() => placeLayout(CONNECT_LAYOUT)}
           className={CSS.B("cluster-list-add")}
         >
-          Add
+          Connect
         </Button.Button>
       </Align.Pack>
       <PMenu.ContextMenu
@@ -156,9 +164,11 @@ export const List = (): ReactElement => {
           onChange={handleConnect}
         >
           <CoreList.Core<string, Cluster>
-            style={{ height: "100%", width: "100%" }}
+            style={{ height: 200, width: "100%", borderTop: "none" }}
             onContextMenu={menuProps.open}
             className={menuProps.className}
+            bordered
+            borderShade={4}
           >
             {({ key, ...p }) => (
               <ListItem key={key} {...p} validateName={validateName} />

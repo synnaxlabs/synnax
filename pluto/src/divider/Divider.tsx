@@ -29,7 +29,7 @@ export interface DividerProps
  * @param props.direction - The direction to render the divider in.
  */
 export const Divider = ({
-  direction = "y",
+  direction,
   className,
   padded = false,
   ...rest
@@ -39,7 +39,6 @@ export const Divider = ({
     <Align.Space
       className={CSS(
         CSS.B("divider"),
-        CSS.dir(direction),
         padded !== false && CSS.BM("divider", "padded"),
         typeof padded === "string" && CSS.loc(padded),
         className,

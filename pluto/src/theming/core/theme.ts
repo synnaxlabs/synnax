@@ -129,9 +129,9 @@ const LIGHT_SCALE = [
   "#f9f9f9", // l1
   "#F2F2F2", // l2
   "#E1E1E1", // l3
-  "#D2D2D2", // l4
+  "#c5c5c5", // l4
   "#ADADAD", // l5
-  "#878787", // l6
+  "#787878", // l6
   "#636363", // l7
   "#444444", // l8
   "#1C1C1C", // l9
@@ -155,7 +155,7 @@ const SYNNAX_BASE: ThemeSpec = {
   colors: {
     primary: {
       m2: "#041B3D",
-      m1: "#164FA0",
+      m1: "#356fc5",
       z: "#3774D0",
       p1: "#5E94EE",
       p2: "#8AB8FF",

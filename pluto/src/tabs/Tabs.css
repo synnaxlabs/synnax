@@ -92,6 +92,24 @@
     cursor: pointer;
     border: none;
     transition: box-shadow 0.25s;
+    &.pluto-drag-over--left::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -1px;
+        width: 2px;
+        height: 100%;
+        background: var(--pluto-primary-z);
+    }
+    &.pluto-drag-over--right::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: -1px;
+        width: 2px;
+        height: 100%;
+        background: var(--pluto-primary-z);
+    }
     &.pluto--selected.pluto--alt-color {
         .pluto-text {
             color: var(--pluto-primary-z);

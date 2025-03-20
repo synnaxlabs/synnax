@@ -207,7 +207,7 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
   return Core.defaultSort(a, b);
 };
 
-export interface TreeProps extends Core.TreeProps {
+export interface TreeProps {
   root?: ontology.ID;
 }
 

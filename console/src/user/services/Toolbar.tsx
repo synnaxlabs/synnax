@@ -10,10 +10,10 @@ import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | null>({
+  const group = useQuery<ontology.ID | undefined>({
     queryKey: [client?.key, "user-group"],
     queryFn: async () => {
-      if (client == null) return null;
+      if (client == null) return undefined;
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
@@ -40,4 +40,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  trigger: ["U"],
 };

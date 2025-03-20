@@ -120,6 +120,7 @@ export interface TabsProps
   size?: ComponentSize;
   selectedAltColor?: boolean;
   contextMenu?: SelectorProps["contextMenu"];
+  onDrop?: SelectorProps["onDrop"];
 }
 
 /**

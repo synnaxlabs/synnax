@@ -38,9 +38,9 @@ export interface UseDrawerReturn {
 export interface DrawerProps
   extends Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
-    Partial<
-      Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">
-    > {}
+    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
+  eraseEnabled?: boolean;
+}
 
 export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerReturn => {
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
@@ -59,14 +59,16 @@ export const Drawer = ({
   className,
   onResize,
   onCollapse,
+  eraseEnabled,
   ...rest
 }: DrawerProps): ReactElement | null => {
   const dir = location.direction(loc_);
+  eraseEnabled ??= activeItem != null;
   const handleCollapse = useCallback(() => {
     if (onCollapse) onCollapse();
     else if (activeItem != null) onSelect?.(activeItem.key);
   }, [onSelect, activeItem?.key, onCollapse]);
-  const { erase } = Eraser.use({ enabled: activeItem != null });
+  const { erase } = Eraser.use({ enabled: eraseEnabled });
   const handleResize = useCallback(
     (size: number, box: box.Box) => {
       onResize?.(size, box);

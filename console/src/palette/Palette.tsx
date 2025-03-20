@@ -98,6 +98,7 @@ export const Palette = ({
           className={CSS.B("palette")}
           location="bottom"
           variant="modal"
+          bordered={false}
         >
           <Button.Button
             onClick={open}
@@ -262,7 +263,13 @@ const PaletteList = ({ mode, services }: PaletteListProps): ReactElement => {
     return componentRenderProp(Item);
   }, [mode, services]);
   return (
-    <List.Core<Key, Entry> className={CSS.BE("palette", "list")} itemHeight={27} grow>
+    <List.Core<Key, Entry>
+      className={CSS.BE("palette", "list")}
+      itemHeight={27}
+      grow
+      bordered
+      borderShade={4}
+    >
       {item}
     </List.Core>
   );

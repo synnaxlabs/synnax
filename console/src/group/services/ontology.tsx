@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
@@ -22,19 +23,22 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes, parentID, resources },
+    selection: { nodes, resources },
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
   const createFromSelection = useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     newGroup: () => createEmptyGroup(props),
     group: () => createFromSelection(props),
     link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+      handleLink({
+        name: resources[0].name,
+        ontologyID: resources[0].id.payload,
+      }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -257,10 +261,10 @@ export const useCreateFromSelection = (): ((
       await client.ontology.groups.create(parentID, groupName, newID.key);
       await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
     },
-    onError: async (e, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e.message)) return;
-      handleException(e, "Failed to group resources");
+      handleError(e, "Failed to group resources");
     },
   });
   return (props: Ontology.TreeContextMenuProps) =>

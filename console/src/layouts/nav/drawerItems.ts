@@ -12,8 +12,8 @@ import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
+import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
@@ -21,9 +21,9 @@ import { WorkspaceServices } from "@/workspace/services";
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
-  Ontology.TOOLBAR,
   Range.TOOLBAR,
   Vis.TOOLBAR,
+  Device.TOOLBAR,
   ChannelServices.TOOLBAR,
   WorkspaceServices.TOOLBAR,
   UserServices.TOOLBAR,
@@ -43,6 +43,7 @@ export const useTriggers = () => {
   Triggers.use({
     triggers: flattenedConfig,
     callback: (e) => {
+      console.log(e);
       if (e.stage === "end") return;
       const mode = Triggers.determineMode(MODE_CONFIG, e.triggers);
       if (mode.length === 0) return;

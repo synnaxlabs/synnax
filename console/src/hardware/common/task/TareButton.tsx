@@ -23,6 +23,7 @@ export const TareButton = ({ onTare, disabled }: TareButtonProps) => (
       e.stopPropagation();
       onTare();
     }}
+    size="small"
     tooltip="Tare"
   >
     <Icon.Tare />

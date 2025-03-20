@@ -93,11 +93,17 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Modal.Dialog visible close={handleClose} enabled={focused} offset={0}>
+    <Modal.Dialog
+      close={handleClose}
+      visible={focused}
+      style={{ width: "100%", height: "100%" }}
+      offset={0}
+    >
       <PNav.Bar
         location="top"
         size="5rem"
         style={{ display: focused ? "flex" : "none" }}
+        bordered
       >
         {/*
          * We do this to reduce the number of mounted DOM nodes. For some reason removing

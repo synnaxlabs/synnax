@@ -47,6 +47,7 @@ export const Tag = ({
         aria-label="close"
         size="small"
         className={CSS.BE("tag", "close")}
+        shade={1}
         onClick={(e) => {
           e.stopPropagation();
           onClose();

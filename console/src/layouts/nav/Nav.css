@@ -76,11 +76,19 @@
 
 .console-nav__drawer {
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-menu);
+    box-shadow: var(--pluto-shadow-v1);
+    opacity: 1;
 
     &.console--hover,
     &.pluto--hidden {
-        transition: transform 0.15s linear;
+        &.pluto--bottom {
+            transition: transform 0.15s linear;
+        }
+        &.pluto--left {
+            transition:
+                opacity 0.05s linear,
+                transform 0.15s linear;
+        }
         position: absolute;
         z-index: 200;
         &.pluto--bottom {
@@ -95,11 +103,13 @@
         }
     }
     &.pluto--hidden {
+        pointer-events: none;
         &.pluto--bottom {
             transform: translateY(calc(100% + 3rem));
         }
         &.pluto--left {
-            transform: translateX(calc(-100% - 10rem));
+            opacity: 0;
+            transform: translateX(-2rem);
         }
     }
 }

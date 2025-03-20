@@ -156,7 +156,7 @@ const Internal = ({
           style={{
             width: "100%",
             background: "var(--pluto-gray-l0)",
-            boxShadow: "var(--pluto-shadow-menu)",
+            boxShadow: "var(--pluto-shadow-v1)",
             borderTop: "var(--pluto-border)",
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}

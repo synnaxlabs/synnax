@@ -40,16 +40,6 @@ const mouseLeaveBy =
       } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
     };
     window.addEventListener("mousemove", lis);
-    // window.addEventListener(
-    //   "mousedown",
-    //   (e) => {
-    //     window.removeEventListener("mousemove", lis);
-    //     const rawBox = box.construct(content);
-    //     const pos = xy.construct(e);
-    //     if (!box.contains(rawBox, pos)) onLeave(e);
-    //   },
-    //   { once: true },
-    // );
   };
 
 const LONG_AXIS_THRESHOLD = 36;
@@ -71,6 +61,7 @@ export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement 
         xy.swap(X_THRESHOLD, direction.construct(loc) === "y"),
         onStopHover,
       )}
+      eraseEnabled={activeItem != null && !hover}
       onCollapse={onCollapse}
       background={0}
       rounded={1}

@@ -33,6 +33,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
+import { Modal } from "@/modal";
 import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
@@ -159,11 +160,13 @@ export const Dialog = ({
   const exclude = useCallback(
     (e: { target: EventTarget | null }) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
+      return false;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
         const isDialog = el?.getAttribute("role") === "dialog";
         if (!isDialog) return false;
         const zi = el.style.zIndex;
+        console.log(zi, zIndex, el, e.target);
         return Number(zi) > zIndex;
       });
       return parent != null;
@@ -195,16 +198,16 @@ export const Dialog = ({
   if (variant === "floating") child = createPortal(child, getRootElement());
   else if (variant === "modal")
     child = createPortal(
-      <Align.Space
-        className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
+      <Modal.Background
         role="dialog"
         empty
         align="center"
         // @ts-expect-error - css variable
         style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex }}
+        visible={visible}
       >
         {child}
-      </Align.Space>,
+      </Modal.Background>,
       getRootElement(),
     );
 

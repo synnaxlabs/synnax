@@ -1,13 +1,12 @@
 import { type group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, Synnax } from "@synnaxlabs/pluto";
+import { Align, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { CREATE_LAYOUT } from "@/range/Create";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -23,9 +22,6 @@ const Content = (): ReactElement => {
     <Align.Space empty style={{ height: "100%", overflow: "hidden" }}>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
-        <Header.Actions>
-          {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
-        </Header.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={group.data?.ontologyID} />
     </Align.Space>

@@ -10,10 +10,10 @@ import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | null>({
+  const group = useQuery<ontology.ID | undefined>({
     queryKey: [client?.key, "workspace-group"],
     queryFn: async () => {
-      if (client == null) return null;
+      if (client == null) return undefined;
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });

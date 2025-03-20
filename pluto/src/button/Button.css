@@ -95,23 +95,35 @@
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);
+        --pluto-border-color: var(--pluto-primary-z);
+        --pluto-hover-border-color: var(--pluto-primary-p1);
+        --pluto-active-border-color: var(--pluto-primary-m1);
 
         &.pluto-btn--custom-color {
             --pluto-bg: rgba(var(--pluto-btn-color), 1);
             --pluto-hover-bg: rgba(var(--pluto-btn-color), 0.85);
             --pluto-active-bg: rgba(var(--pluto-btn-color), 0.7);
+            --pluto-border-color: rgba(var(--pluto-btn-color), 1);
+            --pluto-hover-border-color: rgba(var(--pluto-btn-color), 0.85);
+            --pluto-active-border-color: rgba(var(--pluto-btn-color), 0.7);
         }
 
         &.pluto--warning {
             --pluto-bg: var(--pluto-warning-z);
             --pluto-hover-bg: var(--pluto-warning-p1);
             --pluto-active-bg: var(--pluto-warning-m1);
+            --pluto-border-color: var(--pluto-warning-z);
+            --pluto-hover-border-color: var(--pluto-warning-p1);
+            --pluto-active-border-color: var(--pluto-warning-m1);
         }
 
         &.pluto--error {
             --pluto-bg: var(--pluto-error-z);
             --pluto-hover-bg: var(--pluto-error-p1);
             --pluto-active-bg: var(--pluto-error-m1);
+            --pluto-border-color: var(--pluto-error-z);
+            --pluto-hover-border-color: var(--pluto-error-p1);
+            --pluto-active-border-color: var(--pluto-error-m1);
         }
 
         &::after {
@@ -181,6 +193,8 @@
 
         &.pluto--shade-1 {
             --pluto-bg: var(--pluto-gray-l1);
+            --pluto-hover-bg: var(--pluto-gray-l2);
+            --pluto-active-bg: var(--pluto-gray-l3);
         }
 
         &.pluto--shade-2 {
