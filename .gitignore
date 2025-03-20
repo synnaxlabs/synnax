@@ -111,3 +111,4 @@ vendor/mbedtls/mbedtls
 # |||| ESLINT ||||
 .eslintcache
 
+.obsidian
