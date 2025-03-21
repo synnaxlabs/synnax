@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { bounds } from "@/spatial/bounds";
 
 export const NOTATIONS = ["standard", "scientific", "engineering"] as const;
 export const notationZ = z.enum(NOTATIONS);
