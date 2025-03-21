@@ -225,7 +225,7 @@ const SYNNAX_BASE: ThemeSpec = {
     h4: { size: 2.6666, weight: "medium", lineHeight: 2.6666 * 1.5 },
     h5: { size: 2.333333, weight: 450, lineHeight: 2.333333 * 1.5 },
     p: { size: 2.1666666666, weight: "regular", lineHeight: 2 * 1.5 },
-    small: { size: 1.916666, weight: "regular", lineHeight: 1.9166666 * 1.5 },
+    small: { size: 1.916666, weight: "regular", lineHeight: 2.3333333 },
   },
 };
 

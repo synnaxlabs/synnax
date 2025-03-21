@@ -21,7 +21,6 @@ import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
-import { useTriggers } from "@/layouts/nav/drawerItems";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
@@ -116,8 +115,6 @@ const MemoryBadge = (): ReactElement | null => {
  */
 export const Top = (): ReactElement => {
   const os = OS.use();
-  useTriggers();
-
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region>

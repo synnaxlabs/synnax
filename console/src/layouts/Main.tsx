@@ -70,6 +70,7 @@ const SideEffect = (): null => {
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   Layout.useTriggers();
+  Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
   return null;
@@ -97,10 +98,10 @@ export const Main = (): ReactElement => (
       <Nav.Left />
       <Align.Space size="tiny" grow>
         <Align.Space x size="tiny" grow style={{ height: 0 }}>
-          <Layout.Nav.Drawer location="left" menuItems={Nav.NAV_DRAWER_ITEMS} />
+          <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
           <Mosaic />
         </Align.Space>
-        <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
+        <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
       </Align.Space>
     </Align.Space>
   </>

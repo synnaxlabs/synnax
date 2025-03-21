@@ -33,16 +33,17 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
-import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
+import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
@@ -158,9 +159,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: location.Location): void => {
+    (key: number, tabKey: string, loc: location.Location, index?: number): void => {
       if (windowKey == null) return;
-      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey }));
+      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey, index }));
     },
     [dispatch, windowKey],
   );
@@ -290,12 +291,15 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
+const NAV_ITEMS = [Vis.TOOLBAR];
+
 const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
-  const { activeItem, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
+  const { activeItem, onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeWorkspaceName = Workspace.useSelectActiveName();
+  Layout.Nav.useTriggers({ items: NAV_ITEMS });
   const button = (
     <Button.Button
       variant="outlined"
@@ -364,10 +368,11 @@ export const MosaicWindow = memo<Layout.Renderer>(
           y
           size="tiny"
           grow
+          className={CSS.B("mosaic-window")}
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
-          <Layout.Nav.Drawer location="bottom" menuItems={Nav.NAV_DRAWER_ITEMS} />
+          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
         </Align.Space>
       </>
     );

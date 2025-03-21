@@ -58,7 +58,8 @@
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    width: 100%;
+    width: fit-content;
+    flex-grow: 1;
 
     &::-webkit-scrollbar {
         height: 3px;
@@ -88,6 +89,11 @@
     height: 100%;
 }
 
+.pluto-tabs-selector.pluto--drag-over .pluto-tabs-selector__tabs > *:last-child {
+    border-left: 2px solid var(--pluto-primary-z);
+    height: 100%;
+}
+
 .pluto-tabs-selector__btn {
     cursor: pointer;
     border: none;
@@ -110,6 +116,11 @@
         height: 100%;
         background: var(--pluto-primary-z);
     }
+
+    &:first-child.pluto-drag-over--left::after {
+        left: 0;
+    }
+
     &.pluto--selected.pluto--alt-color {
         .pluto-text {
             color: var(--pluto-primary-z);

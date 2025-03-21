@@ -225,13 +225,16 @@ export const Content = (): ReactNode | null => {
   const { tabs, selected, content: renderProp, emptyContent, onSelect } = useContext();
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
-  if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null)
+  if (selected == null || selectedTab == null) content = emptyContent ?? null;
+  else if (renderProp != null)
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
   else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
-    <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
+    <div
+      className={CSS.B("tabs-content")}
+      onClick={() => selected != null && onSelect?.(selected)}
+    >
       {content}
     </div>
   );

@@ -14,11 +14,11 @@ import { z } from "zod";
 import * as v1 from "@/layout/types/v1";
 import * as v3 from "@/layout/types/v3";
 
-const VERSION = "4.0.0";
+export const VERSION = "4.0.0";
 
 export const sliceStateZ = v3.sliceStateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
-  colorContext: Color.contextStateZ,
+  colorContext: Color.contextStateZ.transform(Color.transformColorsToHex),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

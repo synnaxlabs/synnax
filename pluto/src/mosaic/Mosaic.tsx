@@ -40,9 +40,20 @@ export interface MosaicProps
       "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
     > {
   root: Node;
-  onDrop: (key: number, tabKey: string, loc: location.Location) => void;
+  onDrop: (
+    key: number,
+    droppedTabKey: string,
+    loc: location.Location,
+    index?: number,
+  ) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
+  onReorder?: (
+    key: number,
+    droppedTabKey: string,
+    targetTabKey: string,
+    location: location.X,
+  ) => void;
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
@@ -76,6 +87,7 @@ export const Mosaic = memo(
     onSelect,
     onClose,
     onRename,
+    onReorder,
     contextMenu,
     ...rest
   }: MosaicProps): ReactElement | null => {
@@ -90,6 +102,8 @@ export const Mosaic = memo(
       contextMenu,
       onSelect,
       onRename,
+      onReorder,
+      activeTab,
     };
 
     const handleResize = useCallback(
@@ -177,6 +191,8 @@ const TabLeaf = memo(
     onCreate,
     activeTab,
     children,
+    className,
+    onReorder,
     onFileDrop,
     ...rest
   }: TabLeafProps): ReactElement => {
@@ -193,6 +209,7 @@ const TabLeaf = memo(
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
         if (event == null) return [];
+        const index = getDragLocationIndex(event);
         setDragMask(null);
         const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
         const loc =
@@ -204,7 +221,7 @@ const TabLeaf = memo(
         const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
         if (dropped.length > 0) {
           const tabKey = dropped.map(({ key }) => key)[0];
-          onDrop(key, tabKey as string, loc);
+          onDrop(key, tabKey as string, loc, index);
         }
         const created = Haul.filterByType(HAUL_CREATE_TYPE, items);
         if (created.length > 0) {
@@ -248,11 +265,14 @@ const TabLeaf = memo(
 
     const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
+    const isEmpty = key == 1 && tabs.length == 0;
+
     return (
       <>
         <Tabs.Tabs
           id={`tab-${key}`}
           tabs={tabs}
+          className={CSS(className, isEmpty && dragMask != null && CSS.M("drag-over"))}
           onDragLeave={handleDragLeave}
           selected={node.selected}
           selectedAltColor={activeTab === node.selected}
@@ -305,6 +325,12 @@ const getDragLocationPercents = (
   // we need to handle this better in the future.
   if (y < 24) return { px: 0.5, py: 0.5 };
   return { px: x / rect.width, py: y / rect.height };
+};
+
+const getDragLocationIndex = (e: React.DragEvent<Element>): number | undefined => {
+  const btn = (e.target as HTMLElement).closest(".pluto-tabs-selector__btn");
+  if (btn == null) return undefined;
+  return Array.from(btn.parentElement?.children ?? []).indexOf(btn);
 };
 
 const crossHairA = (px: number): number => px;

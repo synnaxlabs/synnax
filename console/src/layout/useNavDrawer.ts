@@ -62,32 +62,22 @@ export const useNavDrawer = (
     100,
     [dispatch, windowKey],
   );
-  if (state == null)
-    return {
-      activeItem: undefined,
-      menuItems: [],
-      onSelect: () => {},
-      onCollapse: () => {},
-      onResize: () => {},
-      hover: false,
-      onStartHover: () => {},
-      onStopHover: () => {},
-    };
+
   let activeItem: NavDrawerItem | undefined;
-  if (state.activeItem != null)
+  if (state?.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
-  const menuItems = state.menuItems
+  const menuItems = state?.menuItems
     .map((key) => items.find((item) => item.key === key))
     .filter((item) => item != null);
 
-  if (activeItem != null) activeItem.initialSize = state.size;
+  if (activeItem != null) activeItem.initialSize = state?.size;
 
   const onSelect = useCallback(
     (key: string) => dispatch(setNavDrawerVisible({ windowKey, key })),
     [dispatch, windowKey],
   );
 
-  const hoverRef = useSyncedRef(state.hover);
+  const hoverRef = useSyncedRef(state?.hover ?? false);
 
   const onCollapse = useCallback(() => {
     if (hoverRef.current) dispatch(stopNavHover({ windowKey, location }));
@@ -109,11 +99,11 @@ export const useNavDrawer = (
 
   return {
     activeItem,
-    menuItems,
+    menuItems: menuItems ?? [],
     onSelect,
     onCollapse,
     onResize,
-    hover: state.hover ?? false,
+    hover: state?.hover ?? false,
     onStartHover,
     onStopHover,
   };

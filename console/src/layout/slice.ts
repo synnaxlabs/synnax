@@ -68,6 +68,7 @@ export interface MoveMosaicTabPayload {
   windowKey?: string;
   key?: number;
   loc: location.Location;
+  index?: number;
 }
 
 interface ResizeMosaicTabPayload {
@@ -269,7 +270,9 @@ export const { actions, reducer } = createSlice({
     },
     moveMosaicTab: (
       state,
-      { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
+      {
+        payload: { tabKey, windowKey, key, loc, index },
+      }: PayloadAction<MoveMosaicTabPayload>,
     ) => {
       const layout = select(state, tabKey);
       if (layout == null) return;
@@ -278,7 +281,7 @@ export const { actions, reducer } = createSlice({
         // This is a redundant operation, so we leave everything as is.
         if (key == null) return;
         const mosaic = state.mosaics[prevWindowKey];
-        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
+        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key, index);
         state.mosaics[prevWindowKey] = mosaic;
         return;
       }

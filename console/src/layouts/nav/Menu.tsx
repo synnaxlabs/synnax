@@ -9,13 +9,13 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { CSS as PCSS, Menu as PMenu, Text } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
   location: Layout.NavDrawerLocation;
@@ -25,7 +25,7 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
   const positionRef = useRef<xy.XY>({ ...xy.ZERO });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
-    Layout.useNavDrawer(location, NAV_DRAWER_ITEMS);
+    Layout.useNavDrawer(location, DRAWER_ITEMS);
 
   return (
     <PMenu.Menu {...rest} onChange={onSelect}>

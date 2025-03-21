@@ -32,11 +32,7 @@ export interface SelectorProps
   size?: ComponentSize;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
-  onDrop?: (
-    e: React.DragEvent<HTMLDivElement>,
-    tabKey?: string,
-    position?: location.X,
-  ) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
 const CLS = "tabs-selector";
@@ -62,6 +58,7 @@ export const Selector = ({
     onCreate,
   } = useContext();
   const menuProps = Menu.useContextMenu();
+  const [draggingOver, setDraggingOver] = useState<boolean>(false);
   return (
     <>
       {contextMenu != null && (
@@ -72,7 +69,13 @@ export const Selector = ({
         />
       )}
       <Align.Space
-        className={CSS(CSS.B(CLS), CSS.size(size), className, menuProps.className)}
+        className={CSS(
+          CSS.B(CLS),
+          CSS.size(size),
+          className,
+          menuProps.className,
+          draggingOver && CSS.M("drag-over"),
+        )}
         align="center"
         justify="spaceBetween"
         empty
@@ -89,10 +92,7 @@ export const Selector = ({
               altColor={altColor}
               onSelect={onSelect}
               onClose={onClose}
-              onDrop={onDrop}
-              onDragStart={(e, rest) => {
-                onDragStart?.(e, rest);
-              }}
+              onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onRename={onRename}
               closable={tab.closable ?? closable}
@@ -100,7 +100,17 @@ export const Selector = ({
               {...tab}
             />
           ))}
+          {onDrop != null && (
+            <Align.Space
+              onDragOver={() => setDraggingOver(true)}
+              onDragLeave={() => setDraggingOver(false)}
+              onDragEnd={() => setDraggingOver(false)}
+              onDrop={() => setDraggingOver(false)}
+              grow
+            />
+          )}
         </Align.Space>
+
         {onCreate != null && (
           <Align.Space className={CSS.BE(CLS, "actions")}>
             <Button.Icon size={size} sharp onClick={onCreate}>
@@ -181,17 +191,15 @@ const SelectorButton = ({
     (e) => {
       setDragOverPosition(calculateDragOverPosition(e));
     },
-    [setDragOverPosition],
+    [setDragOverPosition, onDrop],
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
-      e.stopPropagation();
-      const position = calculateDragOverPosition(e);
-      onDrop?.(e, tabKey, position);
+      onDrop?.(e);
       setDragOverPosition(null);
     },
-    [onDrop, tabKey, dragOverPosition],
+    [onDrop, setDragOverPosition],
   );
 
   const isSelected = selected === tabKey;
@@ -264,11 +272,7 @@ export interface SelectorButtonProps extends Spec {
   altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
-  onDrop?: (
-    e: React.DragEvent<HTMLDivElement>,
-    tabKey?: string,
-    position?: location.X,
-  ) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
