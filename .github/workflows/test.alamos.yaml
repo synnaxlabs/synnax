@@ -72,7 +72,7 @@ jobs:
 
       - name: Format
         if: matrix.format
-        run: scripts/gofmt-check.sh alamos/go
+        run: bash scripts/gofmt-check.sh alamos/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo

@@ -71,7 +71,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: scripts/gofmt-check.sh x/go
+        run: bash scripts/gofmt-check.sh x/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
