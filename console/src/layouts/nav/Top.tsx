@@ -10,9 +10,8 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Align, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { Size } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { Align, Nav, OS } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";

@@ -99,6 +99,7 @@ export const OpenButton = (): ReactElement => {
   return (
     <Button.Icon
       size="small"
+      shade={2}
       onClick={handleDocs}
       tooltip={<Text.Text level="small">Documentation</Text.Text>}
     >

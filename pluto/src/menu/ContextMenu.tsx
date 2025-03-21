@@ -109,18 +109,18 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const refCallback = (el: HTMLDivElement): void => {
     menuRef.current = el;
     if (el == null) return;
-    setMenuState((prev) => {
-      if (!prev.visible) return prev;
-      const { adjustedDialog } = position.dialog({
-        container: box.construct(0, 0, window.innerWidth, window.innerHeight),
-        dialog: box.construct(el),
-        target: box.construct(prev.cursor, 0, 0),
-        prefer: [{ y: "bottom" }],
-      });
-      const nextPos = box.topLeft(adjustedDialog);
-      if (xy.equals(prev.position, nextPos)) return prev;
-      return { ...prev, position: nextPos };
-    });
+    // setMenuState((prev) => {
+    //   if (!prev.visible) return prev;
+    //   const { adjustedDialog } = position.dialog({
+    //     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    //     dialog: box.construct(el),
+    //     target: box.construct(prev.cursor, 0, 0),
+    //     prefer: [{ y: "bottom" }],
+    //   });
+    //   const nextPos = box.topLeft(adjustedDialog);
+    //   if (xy.equals(prev.position, nextPos)) return prev;
+    //   return { ...prev, position: nextPos };
+    // });
   };
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
@@ -193,10 +193,11 @@ export const ContextMenu = ({
   visible,
   open,
   close,
-  position: xy,
+  position,
   keys,
   className,
   cursor: _,
+  style,
   ...rest
 }: ContextMenuProps): ReactElement | null => {
   if (!visible) return null;
@@ -204,7 +205,7 @@ export const ContextMenu = ({
     <Align.Space
       className={CSS(CSS.B("menu-context"), CSS.bordered())}
       ref={ref}
-      style={{ left: xy.x, top: xy.y }}
+      style={{ ...xy.css(position), ...style }}
       onClick={close}
       size="tiny"
       {...rest}

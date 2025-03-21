@@ -56,7 +56,7 @@ const EmptyContent = (): ReactElement => (
           New Component
         </Text.Text>
         <Align.Space x empty>
-          <Triggers.Text level="h5" shade={7} trigger={["Control", "N"]} />
+          <Triggers.Text level="h5" shade={7} trigger={["Control", "T"]} />
         </Align.Space>
       </Align.Space>
     </Align.Center>

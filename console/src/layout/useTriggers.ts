@@ -72,7 +72,7 @@ export const useTriggers = (): void => {
     },
   });
   Triggers.use({
-    triggers: [["Control", "N"]],
+    triggers: [["Control", "T"]],
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;

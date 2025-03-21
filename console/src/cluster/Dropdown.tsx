@@ -14,6 +14,7 @@ import {
   Align,
   Button,
   Dropdown as Core,
+  Header,
   List as CoreList,
   Menu as PMenu,
   Status,
@@ -126,21 +127,14 @@ export const List = (): ReactElement => {
   return (
     <Align.Pack className={CSS.B("cluster-list")} y>
       <Align.Pack x justify="spaceBetween" size="large" grow>
-        <Align.Space
-          className={CSS.B("cluster-list-title")}
-          y
-          justify="center"
-          grow
-          bordered
-          borderShade={4}
-        >
-          <Text.WithIcon level="h5" startIcon={<Icon.Cluster />}>
+        <Header.Header grow bordered borderShade={4} size="small">
+          <Header.Title level="h5" startIcon={<Icon.Cluster />}>
             Clusters
-          </Text.WithIcon>
-        </Align.Space>
+          </Header.Title>
+        </Header.Header>
         <Button.Button
           variant="filled"
-          size="medium"
+          size="large"
           iconSpacing="small"
           startIcon={<Icon.Connect />}
           onClick={() => placeLayout(CONNECT_LAYOUT)}
@@ -149,11 +143,7 @@ export const List = (): ReactElement => {
           Connect
         </Button.Button>
       </Align.Pack>
-      <PMenu.ContextMenu
-        style={{ width: "100%", height: 300 }}
-        menu={contextMenu}
-        {...menuProps}
-      />
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
       <CoreList.List<string, Cluster>
         data={allClusters}
         emptyContent={<NoneConnected />}
@@ -248,6 +238,7 @@ export const NoneConnected = (): ReactElement => {
 export const Dropdown = (): ReactElement => {
   const { close, toggle, visible } = Core.use();
   const cluster = useSelect();
+  const disconnected = cluster == null;
   return (
     <Core.Dialog
       close={close}
@@ -256,26 +247,16 @@ export const Dropdown = (): ReactElement => {
       bordered={false}
       className={CSS.B("cluster-dropdown")}
       borderShade={4}
-      style={{
-        borderRadius: "0.5rem",
-        borderTopRightRadius: 0,
-        borderBottomRightRadius: 0,
-      }}
+      rounded={0.5}
     >
       <Button.Button
         onClick={toggle}
-        variant="outlined"
-        startIcon={<Icon.Cluster />}
+        startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
         justify="center"
         shade={2}
-        style={{
-          height: 25,
-          borderRadius: "0.5rem",
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0,
-        }}
+        variant={disconnected ? "filled" : "outlined"}
       >
-        {cluster?.name ?? "No Active Cluster"}
+        {cluster?.name ?? "Connect Cluster"}
       </Button.Button>
       <List />
     </Core.Dialog>
