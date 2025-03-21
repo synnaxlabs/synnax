@@ -13,7 +13,6 @@ import {
   Align,
   Breadcrumb,
   Button,
-  Caret,
   componentRenderProp,
   Eraser,
   Menu as PMenu,

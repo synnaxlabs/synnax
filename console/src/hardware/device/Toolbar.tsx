@@ -1,6 +1,6 @@
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Header, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 

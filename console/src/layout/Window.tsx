@@ -11,8 +11,7 @@ import "@/layout/Window.css";
 
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Logo } from "@synnaxlabs/media";
-import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Align, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";

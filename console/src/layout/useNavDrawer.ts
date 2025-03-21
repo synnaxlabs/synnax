@@ -15,7 +15,6 @@ import {
   useDebouncedCallback,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { useSynced } from "@synnaxlabs/pluto/dist/src/form/synced.js";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
