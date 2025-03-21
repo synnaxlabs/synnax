@@ -20,7 +20,7 @@
     --tl: var(--pluto-pack-br) 0 0 0;
     --pluto-pack--middle: 0 !important;
     --all: var(--pluto-pack-br);
-    --pluto-pack-border-width: 1px;
+    --pluto-pack-border-width: var(--pluto-border-width);
 
     &.pluto--rounded {
         --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));

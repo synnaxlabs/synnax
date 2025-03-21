@@ -64,7 +64,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
-  window: { resizable: false, size: { height: 710, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 720, width: 800 }, navTop: true },
 };
 
 const formSchema = z.object({

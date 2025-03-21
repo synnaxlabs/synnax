@@ -164,7 +164,7 @@ export const List = (): ReactElement => {
           onChange={handleConnect}
         >
           <CoreList.Core<string, Cluster>
-            style={{ height: 200, width: "100%", borderTop: "none" }}
+            style={{ height: 200, width: "100%" }}
             onContextMenu={menuProps.open}
             className={menuProps.className}
             bordered
