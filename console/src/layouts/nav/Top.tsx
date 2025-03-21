@@ -66,49 +66,6 @@ const TopPalette = (): ReactElement => (
   />
 );
 
-interface MemoryUsage {
-  used: Size;
-  total: Size;
-}
-
-interface PerformanceAPI {
-  memory: MemoryInfo;
-}
-
-interface MemoryInfo {
-  usedJSHeapSize: number;
-  jsHeapSizeLimit: number;
-}
-
-const MemoryBadge = (): ReactElement | null => {
-  const [memory, setMemory] = useState<MemoryUsage>({
-    used: Size.ZERO,
-    total: Size.ZERO,
-  });
-  const hasMemoryDisplayed = "memory" in performance;
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if ("memory" in performance) {
-        const { memory } = performance as PerformanceAPI;
-        setMemory({
-          used: Size.bytes(memory.usedJSHeapSize),
-          total: Size.bytes(memory.jsHeapSizeLimit),
-        });
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  });
-  return !hasMemoryDisplayed ? null : (
-    <>
-      <Divider.Divider />
-      <Text.Text level="p" style={{ padding: "0 2rem" }}>
-        {memory.used.truncate(Size.MEGABYTE).toString()} /
-        {memory.total.truncate(Size.MEGABYTE).toString()}
-      </Text.Text>
-    </>
-  );
-};
-
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.
@@ -126,7 +83,6 @@ export const Top = (): ReactElement => {
         <TopPalette />
       </Nav.Bar.Content>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region size="small">
-        <MemoryBadge />
         <Version.Badge />
         <Align.Pack>
           <Cluster.Dropdown />
