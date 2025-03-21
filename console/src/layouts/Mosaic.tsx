@@ -26,6 +26,7 @@ import {
   Synnax,
   type Tabs,
   Text,
+  Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
@@ -49,11 +50,19 @@ import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Logo.Watermark />
+    <Align.Center size={5}>
+      <Logo className="synnax-logo-watermark" />
+      <Align.Space x size="small" align="center">
+        <Text.Text level="h5" weight={450} shade={6}>
+          New Component
+        </Text.Text>
+        <Align.Space x empty>
+          <Triggers.Text level="h5" shade={7} trigger={["Control", "N"]} />
+        </Align.Space>
+      </Align.Space>
+    </Align.Center>
   </Eraser.Eraser>
 );
-
-const EMPTY_CONTENT = <EmptyContent />;
 
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
@@ -279,7 +288,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onSelect={handleSelect}
         contextMenu={contextMenu}
         onResize={handleResize}
-        emptyContent={EMPTY_CONTENT}
+        emptyContent={<EmptyContent />}
         onRename={handleRename}
         onCreate={handleCreate}
         activeTab={activeTab ?? undefined}

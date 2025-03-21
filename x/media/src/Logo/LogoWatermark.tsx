@@ -9,17 +9,23 @@
 
 import "@/Logo/LogoWatermark.css";
 
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Logo, type LogoProps } from "@/Logo/Logo";
+
+export interface LogoWatermarkProps extends PropsWithChildren<LogoProps> {}
 
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the screen.
  *
  * @param props - The same props as Logo.
  */
-export const LogoWatermark = (props: LogoProps): ReactElement => (
+export const LogoWatermark = ({
+  children,
+  ...props
+}: LogoWatermarkProps): ReactElement => (
   <div className="synnax-logo-watermark__container">
     <Logo className="synnax-logo-watermark" {...props} />
+    {children}
   </div>
 );

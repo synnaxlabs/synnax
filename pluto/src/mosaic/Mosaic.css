@@ -35,4 +35,8 @@
     &.pluto--drag-over > * {
         background: var(--pluto-gray-l5-30);
     }
+
+    .pluto-tabs-selector__tabs {
+        width: 0;
+    }
 }
