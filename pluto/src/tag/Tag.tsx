@@ -48,6 +48,7 @@ export const Tag = ({
         size="small"
         className={CSS.BE("tag", "close")}
         shade={1}
+        sharp
         onClick={(e) => {
           e.stopPropagation();
           onClose();

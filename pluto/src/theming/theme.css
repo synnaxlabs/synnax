@@ -9,11 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-/* button:is(:focus, :focus-within, :active, :hover) {
+button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
-} */
+}
 
-.pluto-input:is(:focus-within, :active, :hover) .pluto-input__internal {
+.pluto-input__internal {
     z-index: 3;
 }
 

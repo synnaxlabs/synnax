@@ -30,15 +30,13 @@
     position: relative;
 
     .pluto-tag__close {
-        z-index: 3;
         opacity: 0;
         position: absolute;
-        z-index: 20;
         left: 0;
+        width: 0;
         transition:
             width 0.1s ease-in,
             opacity 0.1s ease-in;
-        width: 0;
 
         & svg {
             color: var(--pluto-gray-l6);
@@ -49,9 +47,9 @@
 
     &:hover .pluto-tag__close {
         opacity: 1;
+        width: var(--pluto-height-small);
         transition:
             width 0.1s ease-out,
             opacity 0.1s ease-out;
-        width: var(--pluto-height-small);
     }
 }
