@@ -14,6 +14,33 @@
     max-width: 800px;
 }
 
+@media (max-width: 1400px) {
+    .console-palette {
+        width: 100% !important;
+        max-width: 550px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .console-palette {
+        width: 100% !important;
+        max-width: 300px;
+    }
+}
+
+@media (max-width: 800px) {
+    .console-palette {
+        width: 100% !important;
+        max-width: 50px;
+        .pluto-text {
+            display: none;
+        }
+    }
+    .console-nav__bar.pluto--top .pluto-navbar__content.pluto-- {
+        justify-content: start !important;
+    }
+}
+
 .console-palette__content {
     width: 100%;
     max-width: 1200px;

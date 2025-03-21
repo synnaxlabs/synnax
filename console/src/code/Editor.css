@@ -54,6 +54,7 @@ to manually downsize a tad.
     padding: 2rem 0;
     border-color: var(--pluto-gray-l4);
     &:has(.focused) {
+        box-sizing: border-box !important;
         border-color: var(--pluto-primary-z);
         border-width: 1px;
     }
