@@ -50,6 +50,7 @@ export const Swatch = ({
     <BaseSwatch
       disabled={!canPick && onClick == null}
       onClick={handleClick}
+      onChange={onChange}
       value={value}
       style={style}
       tooltip={tooltip}
