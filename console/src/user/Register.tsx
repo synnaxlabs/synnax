@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 const formSchema = z.object({
@@ -49,7 +50,7 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -59,7 +60,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
       await client.user.create({ ...values });
       onClose();
     },
-    onError: (e) => handleException(e, "Failed to register user"),
+    onError: (e) => handleError(e, "Failed to register user"),
   });
 
   return (
@@ -103,7 +104,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Nav.Bar location="bottom" size={48}>
+      <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
@@ -121,7 +122,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             Register
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Modals.BottomNavBar>
     </Align.Space>
   );
 };

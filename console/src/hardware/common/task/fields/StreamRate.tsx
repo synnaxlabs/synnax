@@ -9,4 +9,10 @@
 
 import { Rate } from "@/hardware/common/task/fields/Rate";
 
-export const StreamRate = () => <Rate label="Stream Rate" path="config.streamRate" />;
+export const StreamRate = () => (
+  <Rate
+    label="Stream Rate"
+    path="config.streamRate"
+    style={{ width: 115, flexShrink: 0 }}
+  />
+);

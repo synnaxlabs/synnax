@@ -111,7 +111,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
 
 	if cfg.Signals != nil {
 		cdcS, err := signals.PublishFromGorp[Key](

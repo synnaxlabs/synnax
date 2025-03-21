@@ -100,27 +100,11 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest'
-        shell: bash
+      - name: Install Deps On Ubuntu Latest
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-          tar -xjf mbedtls-3.6.0.tar.bz2
-          mv mbedtls-3.6.0 mbedtls
-          cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
-          cmake --build mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release
-          cmake --install mbedtls-build --config Release --prefix mbedtls-install
-        working-directory: vendor/mbedtls
-
-      - name: Install MbedTLS On Mac
-        if: matrix.os == 'macos-15'
-        run: brew install mbedtls
-
-      - name: Install Deps On Ubuntu
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get install -y libmbedtls-dev libsystemd-dev
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
@@ -228,7 +212,7 @@ jobs:
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
         shell: powershell
         run: |
           Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
@@ -237,6 +221,12 @@ jobs:
               Write-Error "Failed to build Windows installer"
               exit 1
           }
+
+      - name: Upload Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'

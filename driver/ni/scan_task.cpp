@@ -82,11 +82,10 @@ std::pair<ni::Device, xerrors::Error> ni::Scanner::parse_device(
             1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
-    for (const auto &pattern: this->cfg.ignored_models)
-        if (std::regex_match(dev.model, pattern))
-            return {dev, xerrors::NIL};
-
-    return {dev, xerrors::NIL};
+    auto err = xerrors::NIL;
+    if (this->cfg.should_ignore(dev.model))
+        err = SKIP_DEVICE_ERR;
+    return {dev, err};
 }
 
 std::pair<std::vector<synnax::Device>, xerrors::Error> ni::Scanner::scan(
@@ -108,9 +107,7 @@ std::pair<std::vector<synnax::Device>, xerrors::Error> ni::Scanner::scan(
             this->session,
             resources,
             &curr_resource
-        )) {
-            break;
-        }
+        )) break;
         auto [dev, parse_err] = this->parse_device(curr_resource);
         err = parse_err;
         if (err) continue;

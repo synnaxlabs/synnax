@@ -102,6 +102,13 @@ struct ScanTaskConfig {
         );
         for (const auto &pattern: i) ignored_models.emplace_back(pattern);
     }
+
+    /// @brief returns if the device with the given model should be ignored.
+    bool should_ignore(const std::string &model) const {
+        for (const auto &pattern: this->ignored_models)
+            if (std::regex_match(model, pattern)) return true;
+        return false;
+    }
 };
 
 /// @brief a task that scans for NI devices.

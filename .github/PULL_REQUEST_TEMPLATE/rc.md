@@ -439,6 +439,32 @@ I can successfully:
   - Visualization Toolbar
   - Range Details Overview
 
+### Control Sequences
+
+I can successfully:
+
+- [ ] Create a new control sequence from the mosaic.
+- **Search and Command Palette**
+  - [ ] Create a new control sequence.
+  - [ ] Open an existing control sequence.
+- **Context Menu**
+  - [ ] Rename a control sequence.
+  - [ ] Delete a control sequence.
+- **Sequence Editing**
+  - [ ] Edit a control sequence and see auto-complete suggestions for channels.
+  - [ ] Edit a control sequence and see auto-complete suggestions for the following
+    built-in functions:
+    - [ ] `elapsed_time_within`
+    - [ ] `elapsed_time`
+    - [ ] `iteration`
+    - [ ] `set`
+    - [ ] `set_authority`
+  - [ ] Accept channel auto-complete suggestions and see the correct channel populated
+    in the "read_from" or "write_to" fields.
+  - [ ] Manually configure the `read_from` and `write_to` fields.
+  - [ ] Set the sequence control rate.
+  - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
+
 ### Tasks
 
 I can successfully:

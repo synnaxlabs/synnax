@@ -26,6 +26,18 @@ describe("Rack", () => {
       await expect(client.hardware.racks.create({})).rejects.toThrow(ZodError);
     });
   });
+  describe("update", () => {
+    it("should update a rack if the key is provided", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      const updated = await client.hardware.racks.create({
+        key: r.key,
+        name: "updated",
+      });
+      expect(updated.name).toBe("updated");
+      const retrieved = await client.hardware.racks.retrieve(r.key);
+      expect(retrieved.name).toBe("updated");
+    });
+  });
   describe("retrieve", () => {
     it("should retrieve a rack by its key", async () => {
       const r = await client.hardware.racks.create({ name: "test" });

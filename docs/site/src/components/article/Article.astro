@@ -2,13 +2,21 @@
 import Breadcrumb from "@/components/article/Breadcrumb.astro";
 import NextPrev from "@/components/NextPrev.astro";
 import { Text } from "@synnaxlabs/pluto";
-const { title, description, url, next, prev, nextURL, prevURL, showBreadcrumb } =
-    Astro.props;
+const {
+    title,
+    description,
+    url,
+    next,
+    prev,
+    nextURL,
+    prevURL,
+    showBreadcrumb = true,
+} = Astro.props;
 ---
 
 <article transition:animate="none">
-    {showBreadcrumb && <Breadcrumb url={url} />}
-    <Text.Text className="article-title" level={title.length > 50 ? "h2" : "h1"}
+    {showBreadcrumb && url.split("/").length > 2 && <Breadcrumb url={url} />}
+    <Text.Text className="article-title" level={title.length > 30 ? "h2" : "h1"}
         >{title}</Text.Text
     >
     <h4 class="article-description">{description}</h4>

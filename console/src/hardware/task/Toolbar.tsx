@@ -86,7 +86,11 @@ const updateTaskStatus = (tsk: SugaredTask, state: task.State): SugaredTask => {
       : running === false
         ? Common.Task.PAUSED_STATUS
         : tsk.state.details.status;
-  tsk.state = { ...tsk.state, details: { ...tsk.state.details, status: newStatus } };
+  tsk.state = {
+    ...tsk.state,
+    ...state,
+    details: { ...tsk.state.details, ...state.details, status: newStatus },
+  };
   return tsk;
 };
 
@@ -126,7 +130,7 @@ const Content = () => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<SugaredTask[]>([]);
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const rename = useMutation({
     onMutate: ({ key }) => tasks.find((t) => t.key === key)?.name ?? "task",
     mutationFn: async ({ name, key }: RenameArgs) => {
@@ -141,6 +145,7 @@ const Content = () => {
         });
         if (!confirmed) return;
       }
+      dispatch(Layout.rename({ key, name }));
       setTasks((prev) =>
         prev.map((task) => {
           if (task.key === key) task.name = name;
@@ -158,7 +163,7 @@ const Content = () => {
             return tsk;
           }),
         );
-      handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
+      handleError(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
   const menuProps = PMenu.useContextMenu();
@@ -199,7 +204,7 @@ const Content = () => {
       const addedOrUpdated = update
         .filter(({ variant }) => variant === "set")
         .map(({ key }) => key);
-      handleException(async () => {
+      handleError(async () => {
         const changedTasks = await client.hardware.tasks.retrieve(addedOrUpdated, {
           includeState: true,
         });
@@ -262,7 +267,7 @@ const Content = () => {
     },
     onError: (e) => {
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete tasks");
+      handleError(e, "Failed to delete tasks");
     },
   }).mutate;
   const actions = useMemo(
@@ -298,7 +303,7 @@ const Content = () => {
         });
       });
     },
-    onError: (e, { command }) => handleException(e, `Failed to ${command} tasks`),
+    onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
   }).mutate;
   const handleStart = useCallback(
     (keys: string[]) => startOrStop({ command: Common.Task.START_COMMAND, keys }),

@@ -22,7 +22,10 @@ interface AnalogChannelExtension
   extends z.infer<z.ZodObject<typeof analogChannelExtensionShape>> {}
 const ZERO_ANALOG_CHANNEL_EXTENSION: AnalogChannelExtension = { port: 0 };
 
-const digitalChannelExtensionShape = { port: portZ, line: lineZ };
+const digitalChannelExtensionShape = {
+  port: portZ,
+  line: lineZ,
+};
 interface DigitalChannelExtension
   extends z.infer<z.ZodObject<typeof digitalChannelExtensionShape>> {}
 const ZERO_DIGITAL_CHANNEL_EXTENSION: DigitalChannelExtension = { port: 0, line: 0 };
@@ -1022,18 +1025,31 @@ export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
 };
 export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
 
-const diChannelZ = Common.Task.readChannelZ.extend(digitalChannelExtensionShape);
+const DIGITAL_INPUT_TYPE = "digital_input";
+const DIGITAL_OUTPUT_TYPE = "digital_output";
+
+const diChannelZ = Common.Task.readChannelZ
+  .extend(digitalChannelExtensionShape)
+  .extend({
+    type: z.literal(DIGITAL_INPUT_TYPE),
+  });
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 export const ZERO_DI_CHANNEL: DIChannel = {
   ...Common.Task.ZERO_READ_CHANNEL,
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
+  type: DIGITAL_INPUT_TYPE,
 };
 
-const doChannelZ = Common.Task.writeChannelZ.extend(digitalChannelExtensionShape);
+const doChannelZ = Common.Task.writeChannelZ
+  .extend(digitalChannelExtensionShape)
+  .extend({
+    type: z.literal(DIGITAL_OUTPUT_TYPE),
+  });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 export const ZERO_DO_CHANNEL: DOChannel = {
   ...Common.Task.ZERO_WRITE_CHANNEL,
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
+  type: DIGITAL_OUTPUT_TYPE,
 };
 
 export type DigitalChannel = DIChannel | DOChannel;
@@ -1058,7 +1074,7 @@ const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
   stateRate: 10,
 };
 
-export const validateAnalogPorts = (
+const validateAnalogPorts = (
   channels: { port: number }[],
   { addIssue }: z.RefinementCtx,
 ) => {

@@ -106,6 +106,7 @@ struct Config {
                 .port << "\n"
                 << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.
                 connection.username << "\n"
+                << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.connection.is_secure()) << "\n"
                 << "  " << xlog::SHALE() << "rack" << xlog::RESET() << ": " << cfg.rack.
                 name
                 << " (" << cfg.rack.key << ")\n"

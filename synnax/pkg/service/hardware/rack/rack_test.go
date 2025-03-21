@@ -33,7 +33,7 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
 			DB:           db,
 			Ontology:     otg,
@@ -120,7 +120,7 @@ var _ = Describe("Migration", func() {
 	It("Should correctly migrate a v1 rack to a v2 rack", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
 
 		v1EmbeddedRack := rack.Rack{
 			Key:  65538,

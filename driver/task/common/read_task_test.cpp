@@ -450,3 +450,118 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.variant, "success");
     EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
 }
+
+/// @brief Tests for BaseReadTaskConfig parsing
+TEST(BaseReadTaskConfigTest, testValidConfig) {
+    json j{
+        {"data_saving", true},
+        {"sample_rate", 100.0},
+        {"stream_rate", 50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
+}
+
+TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
+    json j{
+        {"sample_rate", 100.0},
+        {"stream_rate", 50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_FALSE(cfg.data_saving); // Default should be false
+    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
+}
+
+TEST(BaseReadTaskConfigTest, testEqualRates) {
+    json j{
+        {"sample_rate", 100.0},
+        {"stream_rate", 100.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, telem::Rate(100.0));
+}
+
+TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
+    json j{
+        {"stream_rate", 50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_TRUE(p.error());
+    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+}
+
+TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
+    json j{
+        {"sample_rate", 100.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_TRUE(p.error());
+    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+}
+
+TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
+    json j{
+        {"sample_rate", -100.0},
+        {"stream_rate", 50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_TRUE(p.error());
+    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+}
+
+TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
+    json j{
+        {"sample_rate", 100.0},
+        {"stream_rate", -50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_TRUE(p.error());
+    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+}
+
+TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
+    json j{
+        {"sample_rate", 25.0},
+        {"stream_rate", 50.0}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p);
+    ASSERT_TRUE(p.error());
+    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+}
+
+TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
+    json j{
+        {"sample_rate", 100.0},
+        {"data_saving", true}
+        // No stream_rate provided
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = common::BaseReadTaskConfig(p, false);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_TRUE(cfg.data_saving);
+}

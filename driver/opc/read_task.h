@@ -22,6 +22,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/opc/util/util.h"
+#include "driver/task/common/sample_clock.h"
 #include "x/cpp/defer/defer.h"
 
 namespace opc {
@@ -43,15 +44,9 @@ struct InputChan {
     }
 };
 
-struct ReadTaskConfig {
-    /// @brief whether to enable data saving for this task.
-    const bool data_saving;
+struct ReadTaskConfig : public common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
-    /// @brief sets the acquisition rate.
-    const telem::Rate sample_rate;
-    /// @brief sets the stream rate.
-    const telem::Rate stream_rate;
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
@@ -63,16 +58,32 @@ struct ReadTaskConfig {
     /// @brief the number of samples to read on each iteration.
     const size_t samples_per_chan;
 
+    /// @brief Move constructor to allow transfer of ownership
+    ReadTaskConfig(ReadTaskConfig &&other) noexcept:
+        common::BaseReadTaskConfig(std::move(other)),
+        device_key(other.device_key),
+        array_size(other.array_size),
+        conn(std::move(other.conn)),
+        index_keys(std::move(other.index_keys)),
+        channels(std::move(other.channels)),
+        samples_per_chan(other.samples_per_chan) {
+    }
+
+    /// @brief delete copy constructor and copy assignment to prevent accidental copies.
+    ReadTaskConfig(const ReadTaskConfig &) = delete;
+
+    const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
+
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ):
-        data_saving(parser.optional<bool>("data_saving", true)),
-        device_key(parser.required<std::string>("device")),
-        sample_rate(parser.required<float>("sample_rate")),
-        stream_rate(parser.required<float>("stream_rate")),
-        array_size(parser.optional<std::size_t>("array_size", 1)),
-        samples_per_chan(this->sample_rate / this->stream_rate) {
+    ): common::BaseReadTaskConfig(
+           parser,
+           parser.optional("array_size", 1) <= 1
+       ),
+       device_key(parser.required<std::string>("device")),
+       array_size(parser.optional<std::size_t>("array_size", 1)),
+       samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
             const auto ch = InputChan(cp);
             if (ch.enabled) channels.push_back(ch);
@@ -107,6 +118,11 @@ struct ReadTaskConfig {
             auto ch = sy_channels[i];
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i].ch = ch;
+        }
+        for (std::size_t i = 0; i < sy_channels.size(); i++) {
+            auto ch = sy_channels[i];
+            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+                this->index_keys.erase(ch.key);
         }
     }
 
@@ -161,7 +177,7 @@ struct ReadRequest {
 
 class BaseReadTaskSource : public common::Source {
 protected:
-    ReadTaskConfig cfg;
+    const ReadTaskConfig cfg;
     std::shared_ptr<UA_Client> client;
     ReadRequest request;
     loop::Timer timer;
@@ -185,8 +201,8 @@ class ArrayReadTaskSource final : public BaseReadTaskSource {
 public:
     ArrayReadTaskSource(
         const std::shared_ptr<UA_Client> &client,
-        const ReadTaskConfig &cfg
-    ): BaseReadTaskSource(client, cfg, cfg.sample_rate / cfg.array_size) {
+        ReadTaskConfig cfg
+    ): BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate / cfg.array_size) {
     }
 
     std::vector<synnax::Channel> channels() const override {
@@ -195,7 +211,8 @@ public:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         this->timer.wait(breaker);
-        UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
+        UA_ReadResponse res = UA_Client_Service_read(
+            this->client.get(), this->request.base);
         x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
         auto fr = Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
@@ -206,17 +223,15 @@ public:
             auto [s, err] = util::ua_array_to_series(
                 ch.ch.data_type,
                 &result.value,
-                this->cfg.array_size
+                this->cfg.array_size,
+                ch.ch.name
             );
             if (err) return {std::move(fr), err};
             fr.emplace(ch.synnax_key, std::move(s));
         }
-        if (!this->cfg.index_keys.empty()) {
-            auto start = telem::TimeStamp::now();
-            auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
-            auto s = telem::Series::linspace(start, end, this->cfg.array_size);
-            for (const auto &idx: this->cfg.index_keys) fr.emplace(idx, s.deep_copy());
-        }
+        auto start = telem::TimeStamp::now();
+        auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+        common::generate_index_data(fr, this->cfg.index_keys, start, end, this->cfg.array_size);
         return {std::move(fr), xerrors::NIL};
     }
 };
@@ -225,8 +240,8 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
 public:
     UnaryReadTaskSource(
         const std::shared_ptr<UA_Client> &client,
-        const ReadTaskConfig &cfg
-    ): BaseReadTaskSource(client, cfg, cfg.sample_rate) {
+        ReadTaskConfig cfg
+    ): BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate) {
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {

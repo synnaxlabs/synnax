@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// @brief noop implementation of daemon functions that do nothing on MacOS and Windows.
+/// @brief noop implementation of daemon functions that do nothing on macOS and Windows.
 
 /// internal
 #include "driver/daemon/daemon.h"
@@ -30,4 +30,4 @@ xerrors::Error stop_service() { return NOT_SUPPORTED; }
 xerrors::Error restart_service() { return NOT_SUPPORTED; }
 xerrors::Error view_logs() { return NOT_SUPPORTED; }
 xerrors::Error status() { return NOT_SUPPORTED; }
-} 
+}

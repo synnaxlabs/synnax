@@ -34,7 +34,12 @@ struct OutputChan {
     explicit OutputChan(xjson::Parser &parser) :
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
-        cmd_channel(parser.required<synnax::ChannelKey>("cmd_channel", "channel")) {
+        cmd_channel([&parser]() {
+            auto ch = parser.optional("cmd_channel", 0);
+            if (ch == 0) ch = parser.optional("channel", 0);
+            if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
+            return ch;
+        }()) {
     }
 };
 

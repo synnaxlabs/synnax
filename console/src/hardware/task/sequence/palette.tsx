@@ -16,12 +16,12 @@ const CREATE_SEQUENCE_COMMAND: Palette.Command = {
   key: "create-control-sequence",
   name: "Create a Control Sequence",
   icon: <Icon.Control />,
-  onSelect: ({ placeLayout, rename, handleException }) => {
+  onSelect: ({ placeLayout, rename, handleError }) => {
     createLayout({ rename })
       .then((layout) => {
         if (layout != null) placeLayout(layout);
       })
-      .catch((e) => handleException(e, "Failed to create a control sequence"));
+      .catch((e) => handleError(e, "Failed to create a control sequence"));
   },
 };
 

@@ -45,6 +45,22 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
   });
+  describe("update", () => {
+    it("should update a task if the key is provided", async () => {
+      const m = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const updated = await client.hardware.tasks.create({
+        ...m,
+        name: "updated",
+      });
+      expect(updated.name).toBe("updated");
+      const retrieved = await client.hardware.tasks.retrieve(m.key);
+      expect(retrieved.name).toBe("updated");
+    });
+  });
   describe("retrieve", () => {
     it("should retrieve a task by its key", async () => {
       const m = await testRack.createTask({

@@ -10,38 +10,28 @@
 import { ontology, ranger, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
-export interface ParentRangeButtonProps<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
-  Type extends string = string,
-> {
-  task: task.Task<Config, Details, Type>;
+export interface ParentRangeButtonProps {
+  taskKey: task.Key;
 }
 
-export const ParentRangeButton = <
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
-  Type extends string = string,
->({
-  task,
-}: ParentRangeButtonProps<Config, Details, Type>) => {
+export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const [parent, setParent] = useState<ontology.Resource>();
   const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
     try {
       if (client == null) return;
-      const parent = await task.snapshottedTo();
-      if (parent != null) setParent(parent);
+      const parent = await client.hardware.tasks.retrieveSnapshottedTo(taskKey);
+      if (parent == null) return;
+      setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: task.ontologyID,
+        target: parent.id,
         dependents: parent == null ? [] : [parent],
         relationshipDirection: ontology.TO_RELATIONSHIP_DIRECTION,
       });
@@ -51,11 +41,11 @@ export const ParentRangeButton = <
       });
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, `Failed to retrieve parent ranges for ${task.name}`);
+      handleError(e, `Failed to retrieve parent ranges for task`);
       setParent(undefined);
       return undefined;
     }
-  }, [task, client?.key]);
+  }, [taskKey, client?.key]);
   if (parent == null) return null;
   const handleClick = () =>
     placeLayout({ ...OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });

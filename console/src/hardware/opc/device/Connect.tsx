@@ -82,10 +82,10 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
   const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnectionMutation = useMutation({
-    onError: (e) => handleException(e, "Failed to test connection"),
+    onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
@@ -105,7 +105,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     },
   });
   const connectMutation = useMutation({
-    onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
+    onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) throw new Error("Invalid configuration");
@@ -150,7 +150,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
-            {(p) => <Rack.SelectSingle {...p}></Rack.SelectSingle>}
+            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (

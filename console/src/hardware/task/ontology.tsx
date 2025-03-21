@@ -16,7 +16,9 @@ import { useMutation } from "@tanstack/react-query";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Group } from "@/group";
+import { type LayoutArgs } from "@/hardware/common/task/Task";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
@@ -25,13 +27,14 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
-  handleException,
+  handleError,
 }) => {
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  retrieveAndPlaceLayout(client, key, placeLayout).catch((e) =>
-    handleException(e, `Could not open ${name}`),
+  handleError(
+    async () => await retrieveAndPlaceLayout(client, key, placeLayout),
+    `Could not open ${name}`,
   );
 };
 
@@ -58,12 +61,12 @@ const useDelete = () => {
       await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
       removeLayout(...resources.map(({ id }) => id.key));
     },
-    onError: (e: Error, { handleException, selection: { resources } }) => {
+    onError: (e: Error, { handleError, selection: { resources } }) => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, message);
+      handleError(e, message);
     },
   }).mutate;
 };
@@ -86,12 +89,11 @@ const useRangeSnapshot = () =>
         ...otgIDs,
       );
     },
-    onError: (e: Error, { handleException }) =>
-      handleException(e, "Failed to create snapshot"),
+    onError: (e: Error, { handleError }) => handleError(e, "Failed to create snapshot"),
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleException } = props;
+  const { store, selection, client, addStatus, handleError } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -107,7 +109,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         client,
         addStatus,
         store,
-        handleException,
+        handleError,
         removeLayout: props.removeLayout,
         services: props.services,
       }),
@@ -122,7 +124,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Group.MenuItem selection={selection} />
-      {hasNoSnapshots && (
+      {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />
           <PMenu.Divider />
@@ -148,9 +150,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
+  execute: async ({ client, id, name, store }) => {
     const task = await client.hardware.tasks.retrieve(id.key);
     await client.hardware.tasks.create({ ...task, name });
+    const layout = Layout.selectByFilter(
+      store.getState(),
+      (l) => (l.args as LayoutArgs)?.taskKey === id.key,
+    );
+    if (layout == null) return;
+    store.dispatch(Layout.rename({ key: layout.key, name }));
   },
 };
 
@@ -160,7 +168,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   nodeKey,
   location,
-  handleException,
+  handleError,
 }) => {
   client.hardware.tasks
     .retrieve(id.key)
@@ -168,7 +176,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       const layout = createLayout(task);
       placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
     })
-    .catch(handleException);
+    .catch(handleError);
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

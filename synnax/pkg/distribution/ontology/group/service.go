@@ -52,13 +52,13 @@ type Service struct {
 	signals io.Closer
 }
 
-func OpenService(configs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(ctx, s)
 	return s, nil
 }
 

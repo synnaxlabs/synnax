@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.39.0"
+version = "0.40.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -78,6 +78,7 @@ markers = [
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
     "writer: mark test as a writer test",
+    "focus: marker to temporarily focus a test"
 ]
 
 

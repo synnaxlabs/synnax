@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
+import { preventDefault } from "@/util/event";
 
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
@@ -151,7 +152,7 @@ export const DragButton = ({
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       onDoubleClick={handleDoubleClick}
-      onClick={(e) => e.preventDefault()}
+      onClick={preventDefault}
       {...rest}
     >
       <Icon.Drag />

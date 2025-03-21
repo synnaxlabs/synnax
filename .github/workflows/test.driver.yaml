@@ -90,10 +90,10 @@ jobs:
 
       - name: Install Deps On Ubuntu
         run: |
-          sudo apt-get install -y libmbedtls-dev libsystemd-dev
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev
 
       - name: Update Submodules
-        if: hashFiles('vendor/open62541/open62541/out') == ''
         run: git submodule update --init --recursive
 
       - name: Setup Bazel

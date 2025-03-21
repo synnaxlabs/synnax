@@ -134,6 +134,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 	if d.Group, err = group.OpenService(
+		ctx,
 		cfg.Group,
 		group.Config{
 			DB:       gorpDB,
@@ -148,8 +149,8 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Cluster:  d.Cluster,
 	}
 	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
-	d.Ontology.RegisterService(clusterOntologySvc)
-	d.Ontology.RegisterService(nodeOntologySvc)
+	d.Ontology.RegisterService(ctx, clusterOntologySvc)
+	d.Ontology.RegisterService(ctx, nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)
 

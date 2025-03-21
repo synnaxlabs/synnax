@@ -13,10 +13,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -127,11 +128,11 @@ func start(cmd *cobra.Command) {
 	go scanForStopKeyword(interruptC)
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
-	// handle signal interrupts.
+	// handle signal interrupts. We'll also repeatedly check for context cancellations
+	// at each step in the process to ensure we can shut down early if necessary.
 	sCtx.Go(func(ctx context.Context) (err error) {
-
 		secProvider, err := configureSecurity(ins, insecure)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -148,7 +149,7 @@ func start(cmd *cobra.Command) {
 			grpcServerTransports,
 			verifier,
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		dist, err := distribution.Open(ctx, distConfig)
@@ -158,6 +159,9 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, dist.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
@@ -166,11 +170,11 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		rbacSvc, err := rbac.NewService(rbac.Config{DB: gorpDB})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		tokenSvc, err := token.NewService(token.ServiceConfig{
@@ -178,7 +182,7 @@ func start(cmd *cobra.Command) {
 			Expiration:       24 * time.Hour,
 			RefreshThreshold: 1 * time.Hour,
 		})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		authenticator := &auth.KV{DB: gorpDB}
@@ -191,16 +195,22 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.Combine(err, rangeSvc.Close())
+		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		workspaceSvc, err := workspace.NewService(ctx, workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		schematicSvc, err := schematic.NewService(schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		schematicSvc, err := schematic.NewService(ctx, schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		linePlotSvc, err := lineplot.NewService(lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		linePlotSvc, err := lineplot.NewService(ctx, lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		labelSvc, err := label.OpenService(
@@ -215,14 +225,20 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		logSvc, err := log.NewService(log.Config{DB: gorpDB, Ontology: dist.Ontology})
-		if err != nil {
+		defer func() {
+			err = errors.Combine(err, labelSvc.Close())
+		}()
+		logSvc, err := log.NewService(ctx, log.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		tableSvc, err := table.NewService(table.Config{
+		tableSvc, err := table.NewService(ctx, table.Config{
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 		})
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
 		hardwareSvc, err := hardware.OpenService(
 			ctx,
 			hardware.Config{
@@ -234,9 +250,15 @@ func start(cmd *cobra.Command) {
 				Channel:      dist.Channel,
 				Framer:       dist.Framer,
 			})
+		if err != nil {
+			return err
+		}
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 		frameSvc, err := framer.OpenService(
 			ctx,
 			framer.Config{
@@ -251,14 +273,17 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, frameSvc.Close())
 		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil {
+		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
 		// Set the base permissions for all users.
-		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil {
+		if err = maybeSetBasePermission(ctx, gorpDB, rbacSvc); err != nil || ctx.Err() != nil {
 			return err
 		}
 
@@ -288,9 +313,19 @@ func start(cmd *cobra.Command) {
 				Hardware:        hardwareSvc,
 			},
 		)
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
+
+		// We run startup searching indexing after all services have been
+		// registered within the ontology. We used to fork a new goroutine for
+		// every service at registration time, but this caused a race condition
+		// where bleve would concurrently read and write to a map.
+		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
+		// for more details on this issue.
+		sCtx.Go(func(ctx context.Context) error {
+			return dist.Ontology.RunStartupSearchIndexing(ctx)
+		})
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
@@ -311,7 +346,7 @@ func start(cmd *cobra.Command) {
 			ins,
 			debug,
 		))
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			return err
 		}
 		sCtx.Go(func(_ context.Context) error {
@@ -579,7 +614,12 @@ func maybeProvisionRootUser(
 				return nil
 			}
 			policies := make([]rbac.Policy, 0, 1)
-			rbacSvc.NewRetriever().WhereSubjects(user.OntologyID(u.Key)).Entries(&policies).Exec(ctx, tx)
+			if err := rbacSvc.NewRetriever().
+				WhereSubjects(user.OntologyID(u.Key)).
+				Entries(&policies).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
 			for _, p := range policies {
 				if lo.Contains(p.Objects, rbac.AllowAllOntologyID) {
 					return nil

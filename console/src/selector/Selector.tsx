@@ -37,19 +37,13 @@ export const Selector = ({
   layoutKey,
   selectables,
   text,
-  ...rest
 }: SelectorProps): ReactElement => {
   const place = Layout.usePlacer();
   const rename = Modals.useRename();
-  const handleException = Status.useExceptionHandler();
+  const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Align.Center
-        className={CSS.B("vis-layout-selector")}
-        size="large"
-        {...rest}
-        wrap
-      >
+      <Align.Center className={CSS.B("vis-layout-selector")} size="large" wrap>
         <Text.Text level="h4" shade={6} weight={400}>
           {text}
         </Text.Text>
@@ -65,7 +59,7 @@ export const Selector = ({
               key={key}
               variant="outlined"
               onClick={() =>
-                handleException(async () => {
+                handleError(async () => {
                   const layout = await create({ layoutKey, rename });
                   if (layout != null) place(layout);
                 }, `Failed to create ${title}`)

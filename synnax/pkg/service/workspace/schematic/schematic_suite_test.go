@@ -50,7 +50,7 @@ var _ = BeforeSuite(func() {
 		EnableSearch: config.False(),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(group.Config{
+	g := MustSucceed(group.OpenService(ctx, group.Config{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(schematic.NewService(schematic.Config{
+	svc = MustSucceed(schematic.NewService(ctx, schematic.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

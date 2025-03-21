@@ -36,7 +36,7 @@ var _ = Describe("Device", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g = MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+		g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
 		rackSvc = MustSucceed(rack.OpenService(ctx, rack.Config{
 			DB:           db,
 			Ontology:     otg,
@@ -202,5 +202,47 @@ var _ = Describe("Device", Ordered, func() {
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
+	})
+})
+
+var _ = Describe("Migration", func() {
+	It("Should correctly move devices in the ontology tree", func() {
+		db := gorp.Wrap(memkv.New())
+		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+		}))
+		svc := MustSucceed(device.OpenService(ctx, device.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		defer func() {
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+		}()
+		d := device.Device{Key: "device16", Rack: rackSvc.EmbeddedKey, Location: "dev16", Name: "Fish"}
+		Expect(svc.NewWriter(nil).Create(ctx, d)).To(Succeed())
+		otgW := otg.NewWriter(nil)
+		Expect(otgW.DeleteRelationship(ctx, rackSvc.EmbeddedKey.OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		Expect(otgW.DefineRelationship(ctx, svc.RootGroup().OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		var resources []ontology.Resource
+		Expect(otg.NewRetrieve().WhereIDs(rackSvc.EmbeddedKey.OntologyID()).TraverseTo(ontology.Children).Entries(&resources).Exec(ctx, nil)).To(Succeed())
+		Expect(resources).To(BeEmpty())
+		svc = MustSucceed(device.OpenService(ctx, device.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		Expect(otg.NewRetrieve().WhereIDs(svc.RootGroup().OntologyID()).TraverseTo(ontology.Children).Entries(&resources).Exec(ctx, nil)).To(Succeed())
+		Expect(resources).To(HaveLen(1))
 	})
 })

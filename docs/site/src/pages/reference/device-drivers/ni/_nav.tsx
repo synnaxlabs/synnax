@@ -29,6 +29,11 @@ export const niNav: PageNavNode = {
       name: "Analog Read Task",
     },
     {
+      key: "/reference/device-drivers/ni/analog-write-task",
+      href: "/reference/device-drivers/ni/analog-write-task",
+      name: "Analog Write Task",
+    },
+    {
       key: "/reference/device-drivers/ni/digital-read-task",
       href: "/reference/device-drivers/ni/digital-read-task",
       name: "Digital Read Task",

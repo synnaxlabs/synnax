@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, rack, task, UnexpectedError } from "@synnaxlabs/client";
+import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
   Channel,
   Form,
   type Input,
@@ -19,18 +18,16 @@ import {
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { TimeSpan, unique } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { unique } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantom as usePhantomGlobals, type UsePhantomReturn } from "@/code/phantom";
-import { useSuggestChannels } from "@/code/useSuggestChannels";
-import { NULL_CLIENT_ERROR } from "@/errors";
+import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
+import { Controls } from "@/hardware/common/task/Controls";
+import { useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
@@ -40,9 +37,10 @@ import {
   type Type,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
-import { Layout } from "@/layout";
 import { type Modals } from "@/modals";
 import { type Selector } from "@/selector";
+
+const FAILED_TO_UPDATE_AUTOCOMPLETE = "Failed to update sequence auto-complete";
 
 export const LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -75,7 +73,7 @@ export const SELECTABLE: Selector.Selectable = {
 };
 
 interface EditorProps extends Input.Control<string> {
-  globals: UsePhantomReturn;
+  globals: UsePhantomGlobalsReturn;
 }
 
 const Editor = ({ value, onChange, globals }: EditorProps) => {
@@ -107,85 +105,32 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
   return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
 };
 
-const schema = z.object({
+const schema = configZ.extend({
   rack: rack.keyZ.min(1, "Location is required"),
-  config: configZ,
 });
 
 const Internal = ({
   task: base,
   layoutKey,
-  configured,
   rackKey,
 }: Common.Task.TaskProps<Config, StateDetails, Type>) => {
   const client = Synnax.use();
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const handleException = Status.useExceptionHandler();
-  const dispatch = useDispatch();
-  const handleUnsavedChanges = useCallback(
-    (hasUnsavedChanges: boolean) => {
-      dispatch(
-        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
-      );
-    },
-    [dispatch, layoutKey],
-  );
-  const methods = Form.use({
-    values: {
-      rack: rackKey ?? task.getRackKey(base.key ?? "0"),
-      config: base.config,
-    },
-    schema,
-    onHasTouched: handleUnsavedChanges,
-  });
-  const create = Common.Task.useCreate(layoutKey);
-  const [state, triggerLoading, triggerError] = Common.Task.useState(
-    base?.key,
-    base?.state ?? undefined,
-  );
-  const isLoading = state.status === Common.Task.LOADING_STATUS;
-  const isRunning = state.status === Common.Task.RUNNING_STATUS;
-  const isSnapshot = base?.snapshot ?? false;
-
-  useEffect(() => {
-    dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
-  }, [layoutKey]);
-
-  const { isPending: isConfiguring, mutate: configure } = useMutation({
-    mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      if (!(await methods.validateAsync())) return;
-      const { config, rack } = methods.value();
-      if (base.key != null) {
-        const prevRack = task.getRackKey(base.key);
-        if (prevRack !== rack) await client.hardware.tasks.delete(BigInt(base.key));
-      }
-      await create({ key: base.key, name, type: TYPE, config }, rack);
-      methods.setCurrentStateAsInitialValues();
-    },
-    onError: (e) => handleException(e, `Failed to configure ${base.name}`),
-  });
-  const handleConfigure = useCallback(() => configure(), [configure]);
-  const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
-
-  const startOrStop = useMutation({
-    mutationFn: async (command: Common.Task.StartOrStopCommand) => {
-      if (!configured) throw new UnexpectedError("Sequence has not been configured");
-      triggerLoading();
-      try {
-        await base.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
-      } catch (e) {
-        if (e instanceof Error) triggerError(e.message);
-        throw e;
-      }
-    },
-    onError: (e, command) => handleException(e, `Failed to ${command} task`),
-  }).mutate;
-  const canStartOrStop = !isLoading && !isConfiguring && !isSnapshot && configured;
-  const handleStartOrStop = useCallback(
-    () => startOrStop(isRunning ? Common.Task.STOP_COMMAND : Common.Task.START_COMMAND),
-    [startOrStop, isRunning],
-  );
+  const handleError = Status.useErrorHandler();
+  const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
+    useForm({
+      task: {
+        ...base,
+        config: {
+          ...base.config,
+          rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+        },
+      },
+      layoutKey,
+      configSchema: schema,
+      type: TYPE,
+      onConfigure: async (_, config) => [config, config.rack],
+    });
+  const { configured, isSnapshot, methods } = formProps;
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -199,7 +144,7 @@ const Internal = ({
       direction="y"
       empty
     >
-      <Form.Form {...methods} mode={base?.snapshot ? "preview" : "normal"}>
+      <Form.Form {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -227,7 +172,7 @@ const Internal = ({
           >
             <Align.Space direction="x">
               <Form.Field<rack.Key>
-                path="rack"
+                path="config.rack"
                 label="Location"
                 padHelpText={false}
                 grow
@@ -251,9 +196,17 @@ const Internal = ({
               label="Read From"
               padHelpText={false}
               onChange={(v, extra) => {
-                const prev = extra.get<channel.Key[]>("config.read").value;
-                const removed = prev.filter((ch) => !v.includes(ch));
-                removed.forEach((ch) => globals.del(ch.toString()));
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.read").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
               }}
             >
               {({ value, onChange }) => (
@@ -268,6 +221,19 @@ const Internal = ({
               path="config.write"
               label="Write To"
               padHelpText={false}
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("config.write").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
+              }}
             >
               {({ value, onChange }) => (
                 <Channel.SelectMultiple
@@ -278,35 +244,20 @@ const Internal = ({
               )}
             </Form.Field>
           </Align.Space>
-          <Align.Space
-            direction="x"
-            rounded
-            style={{ padding: "2rem", borderTop: "var(--pluto-border)" }}
-            justify="spaceBetween"
-          >
-            <Align.Space direction="x" style={{ borderRadius: "1rem", width: "100%" }}>
-              {state.message != null && (
-                <Status.Text variant={state.variant ?? "info"}>
-                  {state.message}
-                </Status.Text>
-              )}
-            </Align.Space>
-            <Button.Button
-              loading={isConfiguring}
-              disabled={!canConfigure}
-              onClick={handleConfigure}
-            >
-              Configure
-            </Button.Button>
-            <Button.Icon
-              loading={isLoading}
-              disabled={!canStartOrStop}
-              onClick={handleStartOrStop}
-              variant="outlined"
-            >
-              {isRunning ? <Icon.Pause /> : <Icon.Play />}
-            </Button.Icon>
-          </Align.Space>
+          <Controls
+            layoutKey={layoutKey}
+            state={state}
+            isConfiguring={isConfiguring}
+            onStartStop={handleStartOrStop}
+            onConfigure={handleConfigure}
+            isSnapshot={isSnapshot}
+            hasBeenConfigured={configured}
+            style={{
+              padding: "2rem",
+              border: "none",
+              borderTop: "var(--pluto-border)",
+            }}
+          />
         </Align.Pack>
       </Form.Form>
     </Align.Space>

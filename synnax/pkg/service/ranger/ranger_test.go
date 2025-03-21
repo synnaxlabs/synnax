@@ -43,7 +43,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{DB: db, Ontology: otg, Group: g}))
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})

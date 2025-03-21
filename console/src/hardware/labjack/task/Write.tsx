@@ -47,7 +47,7 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space direction="x">
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>
@@ -111,7 +111,7 @@ const ChannelListItem = ({
                   hideIfNull
                   onChange={(value) => {
                     if (type === value) return;
-                    const port = Device.DEVICES[device.model].ports[value][0].key;
+                    const port = Device.PORTS[device.model][value][0].key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
                       Common.Device.ZERO_COMMAND_STATE_PAIR;
@@ -229,7 +229,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_o_state_time`,
+      name: `${dev.properties.identifier}_write_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -264,10 +264,10 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   if (stateChannelsToCreate.length > 0) {
     modified = true;
     const stateChannels = await client.channels.create(
-      stateChannelsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
+      stateChannelsToCreate.map(({ port, type }) => ({
+        name: `${dev.properties.identifier}_${port}_state`,
         index: dev.properties.writeStateIndex,
-        dataType: c.type === "AO" ? "float32" : "uint8",
+        dataType: type === "AO" ? "float32" : "uint8",
       })),
     );
     stateChannels.forEach((c, i) => {
@@ -284,17 +284,17 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   if (commandChannelsToCreate.length > 0) {
     modified = true;
     const commandIndexes = await client.channels.create(
-      commandChannelsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd_time`,
+      commandChannelsToCreate.map(({ port }) => ({
+        name: `${dev.properties.identifier}_${port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
-      commandChannelsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
+      commandChannelsToCreate.map(({ port, type }, i) => ({
+        name: `${dev.properties.identifier}_${port}_cmd`,
         index: commandIndexes[i].key,
-        dataType: c.type === "AO" ? "float32" : "uint8",
+        dataType: type === "AO" ? "float32" : "uint8",
       })),
     );
     commandChannels.forEach((c, i) => {

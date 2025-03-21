@@ -14,7 +14,7 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "@astrojs/mdx": "^4.1.1",
+    "@astrojs/mdx": "^4.2.0",
     "@astrojs/react": "^4.2.1",
     "@astrojs/vercel": "^8.1.2",
     "@fontsource/geist-mono": "^5.2.5",
@@ -22,7 +22,7 @@
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "astro": "^5.4.3",
+    "astro": "^5.5.2",
     "astro-embed": "^0.9.0",
     "astro-seo": "^0.8.4",
     "clsx": "^2.1.1",

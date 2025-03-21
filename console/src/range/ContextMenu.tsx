@@ -19,9 +19,9 @@ export interface SnapshotMenuItemProps {
 
 export const SnapshotMenuItem = ({
   range,
-}: SnapshotMenuItemProps): ReactElement | false =>
-  range?.persisted === true && (
+}: SnapshotMenuItemProps): ReactElement | null =>
+  range?.persisted === true ? (
     <Menu.Item itemKey="rangeSnapshot" startIcon={<Icon.Snapshot />}>
       Snapshot to {range.name}
     </Menu.Item>
-  );
+  ) : null;
