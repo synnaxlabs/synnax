@@ -11,7 +11,7 @@ import "@/status/Notification.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { toArray } from "@synnaxlabs/x";
-import { isValidElement, type ReactElement, useLayoutEffect, useRef } from "react";
+import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";

@@ -24,7 +24,6 @@ import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
-import { type Icon as PIcon } from "@/icon";
 import { type List } from "@/list";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Select } from "@/select";

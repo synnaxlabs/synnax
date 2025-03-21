@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const NOTATIONS = ["standard", "scientific", "engineering"] as const;
@@ -58,4 +59,16 @@ export const stringifyNumber = (
   else exp = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
   const mantissa = value / 10 ** exp;
   return `${mantissa.toFixed(precision)}ᴇ${exp}`;
+};
+
+export const roundSmart = (value: number, b: bounds.Bounds<number>): number => {
+  if (Number.isNaN(value) || !Number.isFinite(value)) return value;
+  if (bounds.span(b) === 0) return value;
+  const span = bounds.span(b);
+  let significantDigits: number;
+  if (span >= 1000) significantDigits = 2;
+  else if (span >= 1) significantDigits = 3;
+  else significantDigits = Math.max(2, Math.abs(Math.floor(Math.log10(span))) + 2);
+  const multiplier = 10 ** significantDigits;
+  return Math.round(value * multiplier) / multiplier;
 };

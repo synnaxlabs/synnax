@@ -12,9 +12,9 @@ import "@/align/Pack.css";
 import { type ReactElement } from "react";
 
 import {
+  type ElementType,
   parseDirection,
   Space,
-  type ElementType,
   type SpaceProps,
 } from "@/align/Space";
 import { CSS } from "@/css";

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { notation } from "@synnaxlabs/x";
 import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
-import { notationZ } from "@/notation/notation";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { text } from "@/text/core";
@@ -30,7 +30,7 @@ const valueState = z.object({
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
-  notation: notationZ.optional().default("standard"),
+  notation: notation.notationZ.optional().default("standard"),
   location: location.xy.optional().default({ x: "left", y: "center" }),
 });
 

@@ -11,7 +11,7 @@ import "@/align/Center.css";
 
 import { type ReactElement } from "react";
 
-import { Space, type ElementType, type SpaceProps } from "@/align/Space";
+import { type ElementType, Space, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 
 /**
