@@ -305,7 +305,7 @@ const NAV_ITEMS = [Vis.TOOLBAR];
 const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
-  const { activeItem, onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
+  const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeWorkspaceName = Workspace.useSelectActiveName();
   Layout.Nav.useTriggers({ items: NAV_ITEMS });
@@ -321,11 +321,9 @@ const NavTop = (): ReactElement | null => {
       weight={450}
       startIcon={<Icon.Visualize />}
       endIcon={
-        <Caret.Animated
-          enabledLoc="top"
-          disabledLoc="right"
-          enabled={activeItem?.key === "visualization"}
-        />
+        <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
+          <Triggers.Text level="small" shade={7} weight={450} trigger={["V"]} />
+        </Align.Space>
       }
     >
       Controls

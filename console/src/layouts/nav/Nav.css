@@ -78,6 +78,7 @@
     overflow: hidden;
     box-shadow: var(--pluto-shadow-v1);
     opacity: 1;
+    flex-shrink: 0;
 
     &.console--hover,
     &.pluto--hidden {
