@@ -48,7 +48,7 @@ export const Selector = ({
           {text}
         </Text.Text>
         <Align.Space
-          direction="x"
+          x
           wrap
           style={{ maxWidth: "500px", width: "100%" }}
           justify="center"

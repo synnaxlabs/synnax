@@ -26,6 +26,7 @@ export * from "@/kv";
 export * from "@/link";
 export * from "@/math";
 export * from "@/migrate";
+export * from "@/notation";
 export * from "@/observe";
 export * from "@/optional";
 export * from "@/primitive";

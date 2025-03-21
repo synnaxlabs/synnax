@@ -72,8 +72,8 @@ export const Register: Layout.Renderer = ({ onClose }) => {
         grow
       >
         <Form.Form {...methods}>
-          <Align.Space direction="y">
-            <Align.Space direction="x">
+          <Align.Space y>
+            <Align.Space x>
               <Form.Field<string> path="firstName" label="First Name">
                 {(p) => (
                   <Input.Text

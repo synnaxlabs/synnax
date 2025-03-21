@@ -38,7 +38,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     <>
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
-        <Align.Space direction="x" style={{ width: 66 }} empty>
+        <Align.Space x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
@@ -46,7 +46,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Align.Space>
       </Core.Header>
-      <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">
+      <Align.Space style={{ padding: "2rem", width: "100%" }} x>
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
             value={state.channels[0]}

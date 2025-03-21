@@ -36,7 +36,7 @@ export type Segments = string | Segment | (string | Segment)[];
  * @template L - The text level.
  */
 export type BreadcrumbProps<
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
@@ -124,7 +124,7 @@ const getContent = ({
  * @returns The Breadcrumb component.
  */
 export const Breadcrumb = <
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 >({
   children: segments,
@@ -149,7 +149,7 @@ export const Breadcrumb = <
       shade={shade}
       weight={weight}
       size={size}
-      direction="x"
+      x
       {...rest}
     >
       {PIcon.resolve(icon)}
@@ -191,7 +191,7 @@ export const URL = ({
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
-      direction="x"
+      x
       size="small"
       align="center"
     >

@@ -25,7 +25,7 @@ export const SaveHelpText = ({
 }: SaveHelpTextProps): ReactElement => {
   const content = (
     <>
-      <Align.Space direction="x" empty>
+      <Align.Space x empty>
         <Triggers.Text shade={7} level="small" trigger={trigger} />
       </Align.Space>
       <Text.Text shade={7} level="small">

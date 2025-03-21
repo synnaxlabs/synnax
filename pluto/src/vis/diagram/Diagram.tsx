@@ -488,12 +488,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack
-    direction="y"
-    borderShade={4}
-    className={CSS.BE("diagram", "controls")}
-    {...props}
-  />
+  <Align.Pack y borderShade={4} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps

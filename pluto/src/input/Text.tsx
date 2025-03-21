@@ -126,11 +126,11 @@ export const Text = ({
 
   const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
-  const C = variant === "natural" ? Align.Space : Align.Pack;
+  const Wrapper = variant === "natural" ? Align.Space : Align.Pack;
 
   return (
-    <C
-      direction="x"
+    <Wrapper
+      x
       empty
       style={style}
       className={CSS(
@@ -192,6 +192,6 @@ export const Text = ({
         )}
       </div>
       {children}
-    </C>
+    </Wrapper>
   );
 };

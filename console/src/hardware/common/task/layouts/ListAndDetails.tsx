@@ -97,8 +97,8 @@ export const ListAndDetails = <C extends Channel>({
         createChannel={handleCreateChannel}
         createChannels={handleDuplicateChannels}
       />
-      <Divider.Divider direction="y" />
-      <Align.Space direction="y" grow empty className={CSS.B("details")}>
+      <Divider.Divider y />
+      <Align.Space y grow empty className={CSS.B("details")}>
         <Header.Header level="p">
           <Header.Title weight={500} wrap={false} shade={8}>
             Details
@@ -116,7 +116,7 @@ export const ListAndDetails = <C extends Channel>({
           </Header.Actions>
         </Header.Header>
         {selectedIndex === -1 ? null : (
-          <Align.Space direction="y" className={CSS.BE("details", "form")} empty grow>
+          <Align.Space y className={CSS.BE("details", "form")} empty grow>
             {details({ path: `config.channels.${selectedIndex}` })}
           </Align.Space>
         )}

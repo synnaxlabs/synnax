@@ -42,10 +42,10 @@ export const InputFilePath = ({
   return (
     <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...rest}>
       <Button.Button
-        level="p"
+        level="small"
         className={CSS.B("path")}
         variant="outlined"
-        shade={path == null ? 7 : 9}
+        shade={0}
         grow
         onClick={handleClick}
         startIcon={
@@ -54,6 +54,8 @@ export const InputFilePath = ({
           )
         }
         size="medium"
+        textShade={8}
+        weight={450}
       >
         {path == null ? "No file selected" : path}
       </Button.Button>

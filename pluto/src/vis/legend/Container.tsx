@@ -197,7 +197,6 @@ export const Container = memo(
         {...rest}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
-        empty
       />
     );
   },

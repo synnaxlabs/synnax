@@ -93,7 +93,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       emptyContent={
         <Align.Center>
           {zeroChannel ? (
-            <Align.Space direction="x" size="small" align="center">
+            <Align.Space x size="small" align="center">
               <Text.Text level="p" shade={6}>
                 No channel configured for {name}.
               </Text.Text>

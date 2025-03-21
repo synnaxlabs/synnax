@@ -109,7 +109,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
             arr.push({ key: "", value: "" });
         }}
       />
-      <Divider.Divider direction="y" />
+      <Divider.Divider y />
 
       {key != null && key.length !== 0 && (
         <>
@@ -199,7 +199,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
-    <Align.Space direction="y">
+    <Align.Space y>
       <Text.Text level="h4" shade={9} weight={450}>
         Metadata
       </Text.Text>

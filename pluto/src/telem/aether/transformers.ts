@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, scale } from "@synnaxlabs/x";
+import { bounds, notation, scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { color } from "@/color/core";
-import { notationZ, stringifyNumber as stringify } from "@/notation/notation";
 import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -165,7 +164,7 @@ export const stringifyNumberProps = z.object({
   precision: z.number().optional().default(2),
   prefix: z.string().optional().default(""),
   suffix: z.string().optional().default(""),
-  notation: notationZ.optional().default("standard"),
+  notation: notation.notationZ.optional().default("standard"),
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
@@ -178,7 +177,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    return `${this.props.prefix}${stringify(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
+    return `${this.props.prefix}${notation.stringifyNumber(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
   }
 }
 

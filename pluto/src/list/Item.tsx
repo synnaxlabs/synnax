@@ -32,6 +32,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   hovered,
   onSelect,
   className,
+  direction = "x",
   draggingOver: __,
   rightAligned = false,
   highlightHovered = false,
@@ -43,7 +44,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
     id={entry.key.toString()}
-    direction="x"
+    direction={direction}
     onClick={() => onSelect?.(entry.key)}
     tabIndex={0}
     className={CSS(

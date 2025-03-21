@@ -30,8 +30,10 @@
 .pluto-tabs-selector__btn--close {
     .pluto-tabs-selector__icon--unsaved {
         fill: var(--pluto-gray-l6) !important;
-        width: 2rem;
-        height: 2rem;
+        top: 30%;
+        left: 30%;
+        width: 40%;
+        height: 40%;
     }
     &:has(.pluto-tabs-selector__icon--unsaved) {
         .pluto-tabs-selector__icon--close {
@@ -56,7 +58,8 @@
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    width: 100%;
+    width: fit-content;
+    flex-grow: 1;
 
     &::-webkit-scrollbar {
         height: 3px;
@@ -73,7 +76,7 @@
 }
 
 .pluto-tabs-selector.pluto--x {
-    box-shadow: inset 0 -1px 0 var(--pluto-border-color);
+    box-shadow: inset 0 -0.5px 0 var(--pluto-border-color);
     z-index: 3;
 }
 
@@ -86,10 +89,38 @@
     height: 100%;
 }
 
+.pluto-tabs-selector.pluto--drag-over .pluto-tabs-selector__tabs > *:last-child {
+    border-left: 2px solid var(--pluto-primary-z);
+    height: 100%;
+}
+
 .pluto-tabs-selector__btn {
     cursor: pointer;
     border: none;
     transition: box-shadow 0.25s;
+    &.pluto-drag-over--left::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -1px;
+        width: 2px;
+        height: 100%;
+        background: var(--pluto-primary-z);
+    }
+    &.pluto-drag-over--right::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: -1px;
+        width: 2px;
+        height: 100%;
+        background: var(--pluto-primary-z);
+    }
+
+    &:first-child.pluto-drag-over--left::after {
+        left: 0;
+    }
+
     &.pluto--selected.pluto--alt-color {
         .pluto-text {
             color: var(--pluto-primary-z);

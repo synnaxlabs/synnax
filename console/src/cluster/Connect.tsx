@@ -91,7 +91,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
       <Form.Form {...methods}>
-        <Align.Space className="console-form" grow size={0.5} justify="center">
+        <Align.Space className="console-form" grow size="tiny" justify="center">
           <Form.TextField
             path="name"
             inputProps={{
@@ -101,7 +101,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
               placeholder: "My Synnax Cluster",
             }}
           />
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Form.Field>
@@ -112,7 +112,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
           <Form.Field<string> path="username">
             {(p) => <Input.Text placeholder="synnax" {...p} />}
           </Form.Field>
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
               {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>

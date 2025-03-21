@@ -33,7 +33,7 @@ export const SelectMultipleAxesInputItem = ({
   selectProps,
   ...rest
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
+  <Input.Item x label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
       searchOptions={SEARCH_OPTIONS}
@@ -57,7 +57,7 @@ export const SelectAxisInputItem = ({
   selectProps,
   ...rest
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item direction="x" label={axisLabel(axis)} {...rest}>
+  <Input.Item x label={axisLabel(axis)} {...rest}>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}

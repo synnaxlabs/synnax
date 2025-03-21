@@ -32,6 +32,8 @@
     padding: 0.25rem 1rem;
     overflow-x: scroll;
     flex-wrap: wrap;
+    height: 100%;
+    border: var(--pluto-border-l4);
 }
 
 .pluto-select-multiple__tags::-webkit-scrollbar {

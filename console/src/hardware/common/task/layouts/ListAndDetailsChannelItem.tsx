@@ -58,7 +58,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
     align="center"
     style={{ padding: "1.25rem 2rem" }}
   >
-    <Align.Space direction="x" size="small" align="center">
+    <Align.Space x size="small" align="center">
       <Text.Text
         level="p"
         shade={6}
@@ -73,7 +73,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
         <ChannelName {...NAME_PROPS} channel={channel} />
       )}
     </Align.Space>
-    <Align.Pack direction="x" align="center" size="small">
+    <Align.Pack x align="center" size="small">
       {hasTareButton && (
         <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
       )}

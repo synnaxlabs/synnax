@@ -49,7 +49,7 @@ export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x">
+    <Align.Space x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>

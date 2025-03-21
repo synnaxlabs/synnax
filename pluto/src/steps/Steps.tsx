@@ -34,7 +34,7 @@ export const Steps = ({
 }: StepsProps): ReactElement => {
   const selectedIdx = steps.findIndex((step) => step.key === value);
   return (
-    <Align.Space direction="x" align="center" className={CSS.B("steps")} {...rest}>
+    <Align.Space x align="center" className={CSS.B("steps")} {...rest}>
       {steps.map((step, i) => (
         <Fragment key={step.key}>
           <Button.Button

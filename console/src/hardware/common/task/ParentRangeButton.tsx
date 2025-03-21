@@ -50,8 +50,10 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const handleClick = () =>
     placeLayout({ ...OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });
   return (
-    <Align.Space align="center" direction="x" size="small">
-      <Text.Text level="p">Snapshotted to</Text.Text>
+    <Align.Space x align="center" size="small">
+      <Text.Text level="p" shade={7}>
+        Snapshotted to
+      </Text.Text>
       <Button.Button
         iconSpacing="small"
         onClick={handleClick}

@@ -50,7 +50,7 @@ const ChannelListItem = ({
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="y" size="small">
+      <Align.Space y size="small">
         <Text.WithIcon
           startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
           level="p"
@@ -71,7 +71,7 @@ const ChannelListItem = ({
           {nodeName} {opcNode}
         </Text.WithIcon>
       </Align.Space>
-      <Align.Space direction="x" align="center">
+      <Align.Space x align="center">
         {children({ path, snapshot: isSnapshot })}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}

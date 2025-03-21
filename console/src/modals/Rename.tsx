@@ -35,7 +35,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
     const footer = (
       <>
         <Triggers.SaveHelpText action="Save" trigger={SAVE_TRIGGER} />
-        <Nav.Bar.End direction="x" align="center">
+        <Nav.Bar.End x align="center">
           <Button.Button
             status="success"
             disabled={!allowEmpty && name.length === 0}

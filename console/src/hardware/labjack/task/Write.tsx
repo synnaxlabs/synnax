@@ -47,7 +47,7 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x">
+    <Align.Space x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>
@@ -75,9 +75,9 @@ const ChannelListItem = ({
       style={{ width: "100%" }}
       justify="spaceBetween"
       align="center"
-      direction="x"
+      x
     >
-      <Align.Pack direction="x" align="center">
+      <Align.Pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}
           showLabel={false}
@@ -132,7 +132,7 @@ const ChannelListItem = ({
           )}
         </PForm.Field>
       </Align.Pack>
-      <Align.Space direction="x" align="center" justify="spaceEvenly">
+      <Align.Space x align="center" justify="spaceEvenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
           stateChannel={stateChannel}
