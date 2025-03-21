@@ -12,8 +12,8 @@
 .pluto-modal__bg {
     .console-line-plot__nav-controls {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        top: 0rem;
+        right: 2rem;
         z-index: 20;
         opacity: 0;
         transition: opacity 0.1s ease-in-out;

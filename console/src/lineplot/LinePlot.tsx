@@ -394,7 +394,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {...props}
         menu={() => <ContextMenuContent layoutKey={layoutKey} />}
       />
-      <NavControls />
       <Channel.LinePlot
         hold={hold}
         onContextMenu={props.open}
@@ -456,7 +455,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             );
           },
         }}
-      />
+      >
+        <NavControls />
+      </Channel.LinePlot>
     </div>
   );
 };
