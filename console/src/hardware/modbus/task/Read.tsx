@@ -11,14 +11,7 @@ import "@/hardware/modbus/task/Read.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  componentRenderProp,
-  Form as PForm,
-  Input,
-  List,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Align, Form as PForm, List, Select } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
