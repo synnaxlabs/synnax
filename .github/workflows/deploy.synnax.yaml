@@ -97,11 +97,16 @@ jobs:
         with:
           sdk-version: 22000
 
-      - name: Install Build Dependencies on Windows
+      - name: Install MSYS2
         if: matrix.os == 'windows-latest'
-        run: |
-          choco install autoconf automake libtool
-        shell: powershell
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-autoconf
+            mingw-w64-x86_64-automake
+            mingw-w64-x86_64-libtool
 
       - name: Update Submodules
         run: git submodule update --init --recursive
