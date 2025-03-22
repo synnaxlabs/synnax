@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
+import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
 import { type Palette } from "@/palette";
 
 const CREATE_READ_COMMAND: Palette.Command = {
@@ -19,4 +20,11 @@ const CREATE_READ_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_READ_COMMAND];
+const CREATE_WRITE_COMMAND: Palette.Command = {
+  key: "modbus-create-write-task",
+  name: "Create Modbus Write Task",
+  icon: <Icon.Logo.Modbus />,
+  onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
+};
+
+export const COMMANDS = [CREATE_READ_COMMAND, CREATE_WRITE_COMMAND];

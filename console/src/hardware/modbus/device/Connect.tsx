@@ -36,8 +36,8 @@ import {
 import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandResponse,
   type TestConnectionCommandState,
+  type TestConnectionCommandStateDetails,
 } from "@/hardware/modbus/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -88,7 +88,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
 
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
+      const state = await task.executeCommandSync<TestConnectionCommandStateDetails>(
         TEST_CONNECTION_COMMAND_TYPE,
         {
           connection: methods.get("connection").value,
@@ -203,9 +203,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
 };
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  // ... existing code ...
   const client = Synnax.use();
-  const { isPending, isError, data, error } = useQuery<[FormSchema, Properties]>({
+  const { isPending, isError, data } = useQuery<[FormSchema, Properties]>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
       if (client == null || layoutKey === CONNECT_LAYOUT_TYPE)

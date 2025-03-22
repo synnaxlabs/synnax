@@ -18,6 +18,8 @@ export const COIL_INPUT_TYPE = "coil_input";
 export const DISCRETE_INPUT_TYPE = "discrete_input";
 export const HOLDING_REGISTER_INPUT_TYPE = "holding_register_input";
 export const REGISTER_INPUT_TYPE = "register_input";
+export const COIL_OUTPUT_TYPE = "coil_output";
+export const HOLDING_REGISTER_OUTPUT_TYPE = "holding_register_output";
 
 const baseInputZ = Common.Task.readChannelZ.extend({
   address: z.number(),
@@ -146,16 +148,94 @@ export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 export type TestConnectionCommandType = typeof TEST_CONNECTION_COMMAND_TYPE;
 
-export interface TestConnectionCommandState
-  extends task.State<{
-    message: string;
-  }> {}
-
-export interface TestConnectionCommandResponse {
-  variant: "success" | "error";
-  details?: {
-    message: string;
-  };
+export interface TestConnectionCommandStateDetails {
+  message: string;
 }
+export interface TestConnectionCommandState
+  extends task.State<TestConnectionCommandStateDetails> {}
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
+
+const baseOutputZ = Common.Task.channelZ.extend({
+  address: z.number(),
+  channel: z.number(),
+});
+
+const coilOutputZ = baseOutputZ.extend({
+  type: z.literal(COIL_OUTPUT_TYPE),
+});
+
+export type CoilOutput = z.infer<typeof coilOutputZ>;
+
+const holdingRegisterOutputZ = baseOutputZ.extend({
+  type: z.literal(HOLDING_REGISTER_OUTPUT_TYPE),
+  dataType: z.string(),
+});
+
+export type HoldingRegisterOutput = z.infer<typeof holdingRegisterOutputZ>;
+
+export const outputChannelZ = z.union([coilOutputZ, holdingRegisterOutputZ]);
+export type OutputChannel = z.infer<typeof outputChannelZ>;
+export type OutputChannelType = OutputChannel["type"];
+
+export const ZERO_OUTPUT_CHANNELS: Record<OutputChannelType, OutputChannel> = {
+  [COIL_OUTPUT_TYPE]: {
+    type: COIL_OUTPUT_TYPE,
+    address: 0,
+    channel: 0,
+    enabled: true,
+    key: id.create(),
+  },
+  [HOLDING_REGISTER_OUTPUT_TYPE]: {
+    type: HOLDING_REGISTER_OUTPUT_TYPE,
+    address: 0,
+    channel: 0,
+    enabled: true,
+    key: id.create(),
+    dataType: DataType.UINT8.toString(),
+  },
+};
+
+export const writeConfigZ = Common.Task.baseConfigZ.extend({
+  channels: z.array(outputChannelZ),
+});
+
+export type WriteConfig = z.infer<typeof writeConfigZ>;
+
+export const ZERO_WRITE_CONFIG: WriteConfig = {
+  ...Common.Task.ZERO_BASE_CONFIG,
+  channels: [],
+};
+
+export interface WriteStateDetails extends Common.Task.StateDetails {
+  running: boolean;
+  message: string;
+  errors?: { message: string; path: string }[];
+}
+
+export interface WriteState extends task.State<WriteStateDetails> {}
+
+export const WRITE_TYPE = `${PREFIX}_write`;
+export type WriteType = typeof WRITE_TYPE;
+
+export interface WritePayload
+  extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
+
+export const ZERO_WRITE_PAYLOAD: WritePayload = {
+  key: "",
+  name: "Modbus Write Task",
+  config: ZERO_WRITE_CONFIG,
+  type: WRITE_TYPE,
+};
+
+export interface WriteTask
+  extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
+export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}
+
+export const OUTPUT_CHANNEL_SCHEMAS: Record<
+  OutputChannelType,
+  z.ZodSchema<OutputChannel>
+> = {
+  [COIL_OUTPUT_TYPE]: coilOutputZ,
+  [HOLDING_REGISTER_OUTPUT_TYPE]: holdingRegisterOutputZ,
+};
