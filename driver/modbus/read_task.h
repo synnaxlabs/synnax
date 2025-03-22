@@ -45,6 +45,10 @@ public:
         const std::vector<channel::InputRegister> &chs,
         const bool read_holding
     ): channels(chs), read_holding(read_holding) {
+        auto first_addr = this->channels.front().address;
+        auto last_addr = this->channels.back().address;
+        last_addr += this->channels.back().value_type.density() / 2;
+        this->buffer.resize(last_addr - first_addr);
     }
 
     std::vector<synnax::Channel> sy_channels() override {
@@ -97,7 +101,8 @@ class BitReader final : public Reader {
 
 public:
     explicit BitReader(std::vector<channel::InputBit> chs, const bool read_coils):
-        channels(std::move(chs)), read_coils(read_coils) {
+        channels(std::move(chs)), read_coils(read_coils),
+        buffer(this->channels.back().address - this->channels.front().address + 1) {
     }
 
     std::vector<synnax::Channel> sy_channels() override {
@@ -136,18 +141,16 @@ public:
     }
 };
 
-struct ReadTaskConfig {
-    const bool data_saving;
-    const telem::Rate sample_rate;
-    const telem::Rate stream_rate;
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t channel_count;
     std::set<synnax::ChannelKey> indexes;
     std::vector<std::unique_ptr<Reader> > ops;
+    device::ConnectionConfig conn;
+    std::string dev;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
-        sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate),
+        BaseReadTaskConfig(std::move(other)),
+        conn(std::move(other.conn)),
         channel_count(other.channel_count),
         indexes(std::move(other.indexes)),
         ops(std::move(other.ops)) {
@@ -160,26 +163,41 @@ struct ReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
-    ): data_saving(cfg.optional<bool>("data_saving", false)),
-       sample_rate(telem::Rate(cfg.required<float>("sample_rate"))),
-       stream_rate(telem::Rate(cfg.required<float>("stream_rate"))),
+    ): BaseReadTaskConfig(cfg),
+       dev(cfg.required<std::string>("device")),
        channel_count(0) {
         std::vector<channel::InputRegister> holding_registers;
         std::vector<channel::InputRegister> input_registers;
         std::vector<channel::InputBit> coils;
         std::vector<channel::InputBit> discrete_inputs;
 
+        auto [dev, dev_err] = client->hardware.retrieve_device(this->dev);
+        if (dev_err) {
+            cfg.field_err("device", dev_err.message());
+            return;
+        }
+
+        auto conn_parser = xjson::Parser(dev.properties);
+        this->conn = device::ConnectionConfig(conn_parser.child("connection"));
+        if (conn_parser.error()) {
+            cfg.field_err("device", conn_parser.error().message());
+            return;
+        }
+
         cfg.iter("channels", [&, this](xjson::Parser &ch) {
             const auto type = ch.required<std::string>("type");
-
             if (type == "holding_register_input")
                 holding_registers.emplace_back(ch);
-            else if (type == "input_register_input")
+            else if (type == "register_input")
                 input_registers.emplace_back(ch);
             else if (type == "coil_input")
                 coils.emplace_back(ch);
-            else if (type == "discrete_input_input")
+            else if (type == "discrete_input")
                 discrete_inputs.emplace_back(ch);
+            else {
+                cfg.field_err("channels", "invalid channel type: " + type);
+                return;
+            }
             this->channel_count++;
         });
 
@@ -234,7 +252,8 @@ struct ReadTaskConfig {
                 std::move(discrete_inputs),
                 false
             ));
-        for (const auto &ch: synnax_channels) this->indexes.insert(ch.key);
+        for (const auto &ch: synnax_channels)
+            if (ch.index != 0) this->indexes.insert(ch.index);
     }
 
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
@@ -268,9 +287,10 @@ struct ReadTaskConfig {
     }
 };
 
-class ReadTaskSource final : common::Source {
+class ReadTaskSource final : public common::Source {
     const ReadTaskConfig config;
     std::shared_ptr<device::Device> dev;
+
 public:
     explicit ReadTaskSource(
         const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg

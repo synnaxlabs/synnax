@@ -53,7 +53,7 @@ struct ConnectionConfig {
     ConnectionConfig() = default;
 
     explicit ConnectionConfig(
-        xjson::Parser &parser
+        xjson::Parser parser
     ) : endpoint(parser.required<std::string>("endpoint")),
         username(parser.optional<std::string>("username", "")),
         password(parser.optional<std::string>("password", "")),

@@ -18,12 +18,19 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+/// network headers
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 /// external
 #include "modbus/modbus.h"
 
 /// internal
 #include "x/cpp/xerrors/errors.h"
 
+/// glog
+#include "glog/logging.h"
 
 namespace modbus::mock {
 
@@ -34,9 +41,7 @@ struct SlaveConfig {
     std::unordered_map<int, uint8_t> discrete_inputs;
     std::unordered_map<int, uint16_t> holding_registers;
     std::unordered_map<int, uint16_t> input_registers;
-    
-    // IP and port configuration
-    std::string ip_address = "127.0.0.1";
+    std::string host = "127.0.0.1";
     int port = 1502;
 };
 
@@ -77,14 +82,28 @@ class Slave {
         const int nb_registers = max_holding >= 0 ? max_holding + 1 : 0;
         const int nb_input_registers = max_input >= 0 ? max_input + 1 : 0;
 
-        // Create the mapping
+        LOG(INFO) << "Creating mapping with sizes:"
+                  << " coils=" << nb_bits
+                  << " discrete_inputs=" << nb_input_bits
+                  << " holding_registers=" << nb_registers
+                  << " input_registers=" << nb_input_registers;
+
         modbus_mapping_t* mb_mapping = modbus_mapping_new(nb_bits, nb_input_bits, 
                                                          nb_registers, nb_input_registers);
-        if (mb_mapping == nullptr) return nullptr;
+        if (mb_mapping == nullptr) {
+            LOG(ERROR) << "modbus_mapping_new failed: " << modbus_strerror(errno);
+            return nullptr;
+        }
 
-        for (const auto& pair : config_.coils)
-            if (pair.first < nb_bits)
+        // Log the configuration being applied
+        for (const auto& pair : config_.coils) {
+            if (pair.first < nb_bits) {
                 mb_mapping->tab_bits[pair.first] = pair.second ? 1 : 0;
+                LOG(INFO) << "Set coil[" << pair.first << "] = " << (pair.second ? 1 : 0);
+            } else {
+                LOG(WARNING) << "Coil address " << pair.first << " out of range";
+            }
+        }
 
         for (const auto& pair : config_.discrete_inputs)
             if (pair.first < nb_input_bits)
@@ -101,12 +120,120 @@ class Slave {
         return mb_mapping;
     }
 
+    void server_loop() {
+        uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
+        int master_socket;
+        fd_set refset;
+        fd_set rdset;
+        int fdmax;
+
+        FD_ZERO(&refset);
+        FD_SET(socket_, &refset);
+        fdmax = socket_;
+
+        while (running_) {
+            rdset = refset;
+            
+            // Add timeout to allow checking running_ flag
+            struct timeval timeout;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 100000;  // 100ms timeout
+            
+            int ready = select(fdmax + 1, &rdset, NULL, NULL, &timeout);
+            if (ready == -1) {
+                if (errno == EINTR) continue;
+                LOG(ERROR) << "Select error: " << strerror(errno);
+                break;
+            }
+            
+            // Timeout or no events, continue to check running_ flag
+            if (ready == 0) continue;
+
+            for (master_socket = 0; master_socket <= fdmax; master_socket++) {
+                if (!FD_ISSET(master_socket, &rdset)) {
+                    continue;
+                }
+
+                if (master_socket == socket_) {
+                    // Handle new connection
+                    socklen_t addrlen;
+                    struct sockaddr_in clientaddr;
+                    int newfd;
+
+                    addrlen = sizeof(clientaddr);
+                    memset(&clientaddr, 0, sizeof(clientaddr));
+                    newfd = accept(socket_, (struct sockaddr*)&clientaddr, &addrlen);
+                    
+                    if (newfd == -1) {
+                        LOG(ERROR) << "Accept error: " << strerror(errno);
+                        continue;
+                    }
+
+                    LOG(INFO) << "New connection from " << inet_ntoa(clientaddr.sin_addr)
+                            << ":" << ntohs(clientaddr.sin_port) 
+                            << " on socket " << newfd;
+
+                    FD_SET(newfd, &refset);
+                    if (newfd > fdmax) {
+                        fdmax = newfd;
+                    }
+                } else {
+                    // Handle existing connection
+                    modbus_set_socket(ctx_, master_socket);
+                    int rc = modbus_receive(ctx_, query);
+                    
+                    if (rc > 0) {
+                        // Log the function code and data from the query
+                        uint8_t function_code = query[7];  // Function code is at offset 7 in TCP ADU
+                        LOG(INFO) << "Received Modbus request on socket " << master_socket
+                                  << ", length: " << rc
+                                  << ", function code: 0x" << std::hex << (int)function_code;
+
+                        std::lock_guard lock(mutex_);
+                        modbus_mapping_t* mb_mapping = create_mapping();
+                        if (mb_mapping != nullptr) {
+                            // Log the current mapping state for the requested address
+                            if (function_code == 0x01) {  // Read Coils
+                                LOG(INFO) << "Current coil values:";
+                                for (const auto& pair : config_.coils) {
+                                    LOG(INFO) << "  Coil[" << pair.first << "] = " << (int)pair.second;
+                                }
+                            }
+                            
+                            modbus_reply(ctx_, query, rc, mb_mapping);
+                            LOG(INFO) << "Replied to request on socket " << master_socket;
+                            
+                            // Log the response data
+                            LOG(INFO) << "Response data:";
+                            for (int i = 0; i < rc; i++) {
+                                LOG(INFO) << "  byte[" << i << "] = 0x" << std::hex << (int)query[i];
+                            }
+                            
+                            modbus_mapping_free(mb_mapping);
+                        } else {
+                            LOG(ERROR) << "Failed to create mapping: " << modbus_strerror(errno);
+                        }
+                    } else if (rc == -1) {
+                        LOG(INFO) << "Connection closed on socket " << master_socket;
+                        close(master_socket);
+                        FD_CLR(master_socket, &refset);
+                        if (master_socket == fdmax) {
+                            fdmax--;
+                        }
+                    }
+                }
+            }
+        }
+        
+        LOG(INFO) << "Server loop exiting";
+    }
+
 public:
     /// @brief Create a new Modbus TCP slave with the given configuration
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig& config) 
         : running_(false),
-          ip_address_(config.ip_address),
+          ip_address_(config.host),
           port_(config.port),
           socket_(-1),
           config_(config) {
@@ -134,60 +261,19 @@ public:
     /// @brief Start the slave server in a background thread
     xerrors::Error start() {
         if (running_) {
-            return xerrors::NIL;  // Already running
+            return xerrors::NIL;
         }
 
         socket_ = modbus_tcp_listen(ctx_, 1);
         if (socket_ == -1) {
             return xerrors::Error("Failed to listen on modbus socket: " + 
-                                 std::string(modbus_strerror(errno)));
+                                std::string(modbus_strerror(errno)));
         }
 
         modbus_set_debug(ctx_, FALSE);
         running_ = true;
-
-        server_thread_ = std::thread([this] {
-            uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
-
-            while (running_) {
-                fd_set refset;
-                FD_ZERO(&refset);
-                FD_SET(socket_, &refset);
-
-                // Use a timeout to allow checking the running flag
-                timeval tv = {0, 100000};  // 0 seconds, 100000 microseconds (100ms)
-
-                int rc = select(socket_ + 1, &refset, nullptr, nullptr, &tv);
-                if (rc == -1) {
-                    if (errno == EINTR) {
-                        continue;
-                    }
-                    break;
-                }
-
-                if (rc == 0) {
-                    continue;  // Timeout, check running flag
-                }
-
-                if (FD_ISSET(socket_, &refset)) {
-                    modbus_set_socket(ctx_, socket_);
-                    rc = modbus_receive(ctx_, query);
-                    if (rc > 0) {
-                        std::lock_guard lock(mutex_);
-                        // Create a fresh mapping with current values
-                        modbus_mapping_t* mb_mapping = create_mapping();
-                        if (mb_mapping != nullptr) {
-                            modbus_reply(ctx_, query, rc, mb_mapping);
-                            modbus_mapping_free(mb_mapping);
-                        }
-                    } else if (rc == -1 && errno != EMBBADCRC) {
-                        // Connection closed or error
-                        break;
-                    }
-                }
-            }
-        });
-
+        
+        server_thread_ = std::thread([this] { server_loop(); });
         return xerrors::NIL;
     }
 

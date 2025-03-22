@@ -30,6 +30,7 @@
 #include "driver/labjack/labjack.h"
 #include "driver/sequence/sequence.h"
 #include "driver/heartbeat/heartbeat.h"
+#include "driver/modbus/modbus.h"
 #include "driver/opc/opc.h"
 #include "driver/task/task.h"
 
@@ -61,6 +62,7 @@ inline std::vector<std::string> default_integrations() {
         sequence::INTEGRATION_NAME,
         heartbeat::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
+        modbus::INTEGRATION_NAME,
     };
 }
 
@@ -106,7 +108,8 @@ struct Config {
                 .port << "\n"
                 << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.
                 connection.username << "\n"
-                << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.connection.is_secure()) << "\n"
+                << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " <<
+                xlog::bool_to_str(cfg.connection.is_secure()) << "\n"
                 << "  " << xlog::SHALE() << "rack" << xlog::RESET() << ": " << cfg.rack.
                 name
                 << " (" << cfg.rack.key << ")\n"

@@ -3,6 +3,7 @@ cc_library(
     hdrs = ["device.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/errors",
         "//vendor/libmodbus",
         "//x/cpp/xerrors",
     ],

@@ -10,35 +10,66 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
-#include "driver/labjack/device/device.h"
+#include "device/device.h"
 #include "driver/task/task.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace modbus {
-
-
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
-class ScanTask final: public task::Task {
+struct ScanCommandArgs {
+    device::ConnectionConfig connection;
+
+    explicit ScanCommandArgs(
+        xjson::Parser &parser
+    ): connection(device::ConnectionConfig(parser.child("connection"))) {
+    }
+};
+
+class ScanTask final : public task::Task {
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     std::shared_ptr<device::Manager> devices;
 
-    void test_connection(const task::Command &cmd) const;
+    void test_connection(const task::Command &cmd) const {
+        xjson::Parser parser(cmd.args);
+        const ScanCommandArgs args(parser);
+        task::State state;
+        state.task = task.key;
+        state.key = cmd.key;
+        x::defer set_state([&] { this->ctx->set_state(state); });
+        if (!parser.ok()) {
+            state.details = parser.error_json();
+            return;
+        }
+        auto [dev, err] = this->devices->acquire(args.connection);
+        if (err) {
+            state.variant = "error";
+            state.details = {{"message", err.data}};
+        } else {
+            state.variant = "success";
+            state.details = {{"message", "Connection successful"}};
+        }
+    }
+
 public:
     explicit ScanTask(
         const std::shared_ptr<task::Context> &context,
-        const synnax::Task &task,
+        synnax::Task task,
         const std::shared_ptr<device::Manager> &devices
-    ): ctx(context), task(task), devices(devices) {
+    ): ctx(context), task(std::move(task)), devices(devices) {
     }
 
     void exec(task::Command &cmd) override {
-        this->devices->acquire()
-
+        if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 
     std::string name() override { return this->task.name; }
+
+    void stop(bool will_reconfigure) override {
+    }
 };
 }
