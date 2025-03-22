@@ -10,14 +10,18 @@
 // ReSharper disable CppUseStructuredBinding
 
 /// external
+#include "gtest/gtest.h"
+
+/// external
 #include "read_task.h"
 
-#include "client/cpp/synnax.h"
-#include "client/cpp/testutil/testutil.h"
+/// internal
 #include "driver/modbus/device/device.h"
 #include "driver/pipeline/mock/pipeline.h"
-#include "gtest/gtest.h"
-#include "mock/slave.h"
+#include "driver/modbus/mock/slave.h"
+
+/// module
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xtest/xtest.h"
 
@@ -46,7 +50,7 @@ protected:
         // Create rack and device
         rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
 
-        auto conn_cfg = device::ConnectionConfig{
+        auto conn_cfg = modbus::device::ConnectionConfig{
             "127.0.0.1",
             1502
         };
@@ -81,8 +85,7 @@ protected:
         };
     }
 
-    // Helper to create a channel configuration
-    json create_channel_config(
+    static json create_channel_config(
         const std::string &type,
         const synnax::Channel &channel,
         uint16_t address,
@@ -104,18 +107,16 @@ protected:
     }
 };
 
-// 1. Configuration Tests
-
 TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
-    // auto cfg = create_base_config();
-    // cfg["device"] = "non_existent_device";
-    //
-    // auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
-    // cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
-    //
-    // auto p = xjson::Parser(cfg);
-    // auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
-    // ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto cfg = create_base_config();
+    cfg["device"] = "non_existent_device";
+
+    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
 TEST_F(ModbusReadTest, testInvalidChannelConfig) {

@@ -147,13 +147,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::vector<std::unique_ptr<Reader> > ops;
     device::ConnectionConfig conn;
     std::string dev;
+    std::size_t samples_per_chan;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
         conn(std::move(other.conn)),
         channel_count(other.channel_count),
         indexes(std::move(other.indexes)),
-        ops(std::move(other.ops)) {
+        ops(std::move(other.ops)),
+        dev(std::move(other.dev)),
+        samples_per_chan(other.samples_per_chan) {
     }
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -164,8 +167,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
     ): BaseReadTaskConfig(cfg),
+       channel_count(0),
        dev(cfg.required<std::string>("device")),
-       channel_count(0) {
+       samples_per_chan(this->sample_rate / this->stream_rate) {
         std::vector<channel::InputRegister> holding_registers;
         std::vector<channel::InputRegister> input_registers;
         std::vector<channel::InputBit> coils;
@@ -290,14 +294,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     const ReadTaskConfig config;
     std::shared_ptr<device::Device> dev;
+    loop::Timer timer;
 
 public:
     explicit ReadTaskSource(
         const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg
-    ): config(std::move(cfg)), dev(dev) {
+    ): config(std::move(cfg)), dev(dev), timer(this->config.sample_rate) {
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        this->timer.wait(breaker);
         synnax::Frame fr;
         fr.reserve(this->config.channel_count + this->config.indexes.size());
         for (const auto &op: this->config.ops)

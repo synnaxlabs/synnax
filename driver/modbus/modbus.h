@@ -15,11 +15,13 @@
 
 namespace modbus {
 const std::string INTEGRATION_NAME = "modbus";
-const std::string READ_TASK_TYPE = "modbus_read";
-const std::string SCAN_TASK_TYPE = "modbus_scan";
+const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
+const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
+const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 
-class Factory final: public task::Factory {
+class Factory final : public task::Factory {
     const std::shared_ptr<device::Manager> devices;
+
 public:
     Factory(): devices(std::make_shared<device::Manager>()) {
     }
@@ -27,9 +29,10 @@ public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> configure_initial_tasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+    configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
-        ) override;
+    ) override;
 };
 }

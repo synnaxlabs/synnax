@@ -37,6 +37,7 @@ import {
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
+  FaNetworkWired,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -331,6 +332,7 @@ export interface IconType {
     NI: IconFC;
     OPC: IconFC;
     Windows: IconFC;
+    Modbus: IconFC;
   };
   Keyboard: {
     Command: IconFC;
@@ -480,6 +482,7 @@ export const Icon: IconType = {
     NI: wrapIcon(NI, "logo-ni"),
     OPC: wrapIcon(OPC, "logo-opc"),
     Windows: wrapIcon(FaWindows, "logo-windows"),
+    Modbus: wrapIcon(FaNetworkWired, "logo-modbus"),
   },
   Arrow: {
     Right: wrapIcon(TbArrowRight, "arrow-right"),

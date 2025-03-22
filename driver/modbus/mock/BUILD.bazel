@@ -6,3 +6,14 @@ cc_library(
         "//vendor/libmodbus",
     ],
 )
+
+cc_binary(
+    name = "mock_slave",
+    srcs = ["main.cpp"],
+    deps = [
+        "//driver/modbus/mock",
+        "//vendor/libmodbus",
+        "//x/cpp/xerrors",
+        "@com_github_google_glog//:glog",
+    ],
+)

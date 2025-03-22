@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// internal
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
+#include "driver/modbus/write_task.h"
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<modbus::device::Manager> &devs,
@@ -25,7 +27,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<modbus::ReadTaskSource>(nullptr, std::move(cfg))
+            std::make_unique<modbus::ReadTaskSource>(dev, std::move(cfg))
         ),
         xerrors::NIL
     };
@@ -40,6 +42,25 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
     return {std::move(scan_task), xerrors::NIL};
 }
 
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
+    const std::shared_ptr<modbus::device::Manager> &devs,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    auto [cfg, err] = modbus::WriteTaskConfig::parse(ctx->client, task);
+    if (err) return {nullptr, err};
+    auto [dev, d_err] = devs->acquire(cfg.conn);
+    if (d_err) return {nullptr, d_err};
+    return {
+        std::make_unique<common::WriteTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<modbus::WriteTaskSink>(dev, std::move(cfg))
+        ),
+        xerrors::NIL
+    };
+}
 
 std::pair<std::unique_ptr<task::Task>, bool> modbus::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
@@ -47,7 +68,9 @@ std::pair<std::unique_ptr<task::Task>, bool> modbus::Factory::configure_task(
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->devices, ctx, task);
-    if (task.type == SCAN_TASK_TYPE)
+    else if (task.type == WRITE_TASK_TYPE)
+        res = configure_write(this->devices, ctx, task);
+    else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task);
     common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};

@@ -9,13 +9,17 @@
 
 #pragma once
 
+/// std
 #include <string>
 #include <utility>
 
-#include "device/device.h"
-#include "driver/task/task.h"
+/// module
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xjson/xjson.h"
+
+/// internal
+#include "driver/modbus/device/device.h"
+#include "driver/task/task.h"
 
 namespace modbus {
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
@@ -24,7 +28,7 @@ struct ScanCommandArgs {
     device::ConnectionConfig connection;
 
     explicit ScanCommandArgs(
-        xjson::Parser &parser
+        const xjson::Parser &parser
     ): connection(device::ConnectionConfig(parser.child("connection"))) {
     }
 };

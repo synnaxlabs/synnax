@@ -29,36 +29,49 @@ inline xerrors::Error parse_error(const int code) {
     const auto err = modbus_strerror(errno);
     return xerrors::Error(CRITICAL_ERROR, err);
 }
+
 struct Device {
-    modbus_t* ctx;
-    
-    Device(modbus_t* ctx = nullptr): ctx(ctx) {}
+    modbus_t *ctx;
+
+    explicit Device(modbus_t *ctx = nullptr): ctx(ctx) {
+    }
+
     ~Device() {
         if (ctx != nullptr) {
             modbus_free(ctx);
         }
     }
-    
-    // Delete copy operations
-    Device(const Device&) = delete;
-    Device& operator=(const Device&) = delete;
+
+    Device(const Device &) = delete;
+
+    Device &operator=(const Device &) = delete;
 
     xerrors::Error read_bits(const int addr, const size_t nb, uint8_t *dest) const {
         return parse_error(modbus_read_bits(ctx, addr, nb, dest));
     }
-    xerrors::Error read_input_bits(const int addr, const size_t nb, uint8_t *dest) const {
+
+    xerrors::Error read_input_bits(const int addr, const size_t nb,
+                                   uint8_t *dest) const {
         return parse_error(modbus_read_input_bits(ctx, addr, nb, dest));
     }
-    xerrors::Error read_registers(const int addr, const size_t nb, uint16_t *dest) const {
+
+    xerrors::Error read_registers(const int addr, const size_t nb,
+                                  uint16_t *dest) const {
         return parse_error(modbus_read_registers(ctx, addr, nb, dest));
     }
-    xerrors::Error read_input_registers(const int addr, const size_t nb, uint16_t *dest) const {
+
+    xerrors::Error read_input_registers(const int addr, const size_t nb,
+                                        uint16_t *dest) const {
         return parse_error(modbus_read_input_registers(ctx, addr, nb, dest));
     }
-    xerrors::Error write_bits(const int addr, const size_t nb, const uint8_t *src) const {
+
+    xerrors::Error write_bits(const int addr, const size_t nb,
+                              const uint8_t *src) const {
         return parse_error(modbus_write_bits(ctx, addr, nb, src));
     }
-    xerrors::Error write_registers(const int addr, const size_t nb, const uint16_t *src) const {
+
+    xerrors::Error write_registers(const int addr, const size_t nb,
+                                   const uint16_t *src) const {
         return parse_error(modbus_write_registers(ctx, addr, nb, src));
     }
 };
@@ -81,35 +94,35 @@ struct ConnectionConfig {
         const uint16_t port,
         const bool swap_bytes = false,
         const bool swap_words = false
-    ): host(host), port(port), swap_bytes(swap_bytes), swap_words(swap_words) {}
+    ): host(host), port(port), swap_bytes(swap_bytes), swap_words(swap_words) {
+    }
 
     explicit ConnectionConfig(
         xjson::Parser parser
-    ):  host(parser.required<std::string>("host")),
-        port(parser.required<uint16_t>("port")),
-        swap_bytes(parser.required<bool>("swap_bytes")),
-        swap_words(parser.required<bool>("swap_words")) {
+    ): host(parser.required<std::string>("host")),
+       port(parser.required<uint16_t>("port")),
+       swap_bytes(parser.required<bool>("swap_bytes")),
+       swap_words(parser.required<bool>("swap_words")) {
     }
 
     json to_json() const {
         return {
-                {"host", host},
-                {"port", port},
-                {"swap_bytes", swap_bytes},
-                {"swap_words", swap_words}
+            {"host", host},
+            {"port", port},
+            {"swap_bytes", swap_bytes},
+            {"swap_words", swap_words}
         };
     }
 };
 
 class Manager {
-private:
-    std::unordered_map<std::string, std::weak_ptr<Device>> devices;
-    
+    std::unordered_map<std::string, std::weak_ptr<Device> > devices;
+
 public:
     Manager() = default;
-    
+
     std::pair<std::shared_ptr<Device>, xerrors::Error> acquire(
-      const ConnectionConfig &config
+        const ConnectionConfig &config
     ) {
         const std::string id = config.host + ":" + std::to_string(config.port);
         const auto it = devices.find(id);
@@ -119,21 +132,19 @@ public:
                 return {existing, xerrors::NIL};
             devices.erase(it);
         }
-        
+
         auto ctx = modbus_new_tcp(config.host.c_str(), config.port);
-        if (ctx == nullptr) {
+        if (ctx == nullptr)
             return {nullptr, parse_error(errno)};
-        }
-        
-        if (modbus_connect(ctx) == -1) {
-            auto err = parse_error(errno);
+
+        if (const auto err = parse_error(modbus_connect(ctx))) {
             modbus_free(ctx);
             return {nullptr, err};
         }
-        
+
         auto dev = std::make_shared<Device>(ctx);
         devices[config.host] = dev;
-        
+
         return {dev, xerrors::NIL};
     }
 };

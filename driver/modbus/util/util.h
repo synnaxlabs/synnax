@@ -137,4 +137,122 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
         };
     }
 }
+
+inline xerrors::Error format_register(
+    const telem::SampleValue &value,
+    uint16_t *dest,
+    const telem::DataType &dt,
+    const bool swap_bytes,
+    const bool swap_words
+) {
+    auto swap_bytes_if_needed = [swap_bytes](const uint16_t v) -> uint16_t {
+        if (swap_bytes)
+            return (v & 0xFF) << 8 | (v & 0xFF00) >> 8;
+        return v;
+    };
+
+    try {
+        if (dt == telem::UINT16_T) {
+            dest[0] = swap_bytes_if_needed(telem::cast<uint16_t>(value));
+            return xerrors::NIL;
+        }
+        if (dt == telem::INT16_T) {
+            dest[0] = swap_bytes_if_needed(telem::cast<int16_t>(value));
+            return xerrors::NIL;
+        }
+        if (dt == telem::UINT32_T) {
+            const uint32_t raw = telem::cast<uint32_t>(value);
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 16);
+                dest[1] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::INT32_T) {
+            const int32_t raw = telem::cast<int32_t>(value);
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 16);
+                dest[1] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::FLOAT32_T) {
+            const float val = telem::cast<float>(value);
+            uint32_t raw;
+            std::memcpy(&raw, &val, sizeof(float));
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 16);
+                dest[1] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::UINT64_T) {
+            const uint64_t raw = telem::cast<uint64_t>(value);
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 48);
+                dest[1] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw >> 48);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::INT64_T) {
+            const uint64_t raw = telem::cast<int64_t>(value);
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 48);
+                dest[1] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw >> 48);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::FLOAT64_T) {
+            const double val = telem::cast<double>(value);
+            uint64_t raw;
+            std::memcpy(&raw, &val, sizeof(double));
+            if (swap_words) {
+                dest[0] = swap_bytes_if_needed(raw >> 48);
+                dest[1] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw & 0xFFFF);
+            } else {
+                dest[0] = swap_bytes_if_needed(raw & 0xFFFF);
+                dest[1] = swap_bytes_if_needed(raw >> 16 & 0xFFFF);
+                dest[2] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
+                dest[3] = swap_bytes_if_needed(raw >> 48);
+            }
+            return xerrors::NIL;
+        }
+        if (dt == telem::UINT8_T) {
+            dest[0] = swap_bytes_if_needed(telem::cast<uint8_t>(value));
+            return xerrors::NIL;
+        }
+        if (dt == telem::INT8_T) {
+            dest[0] = swap_bytes_if_needed(telem::cast<int8_t>(value));
+            return xerrors::NIL;
+        }
+        return xerrors::Error("Unsupported data type: " + dt.name());
+    } catch (const std::exception &e) {
+        return xerrors::Error("Failed to format register: " + std::string(e.what()));
+    }
+}
 }

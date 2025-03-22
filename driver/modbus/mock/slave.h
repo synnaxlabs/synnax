@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <sys/select.h>
 #include <unistd.h>
+#include <algorithm>
 
 /// network headers
 #include <sys/socket.h>
@@ -53,8 +54,9 @@ class Slave {
     std::string ip_address_;
     int port_;
     int socket_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     SlaveConfig config_;
+    modbus_mapping_t* mb_mapping_;  // Add as member
 
     // Helper function to find the highest address in a map
     template<typename T>
@@ -71,16 +73,16 @@ class Slave {
     // Create mapping based on configured values
     modbus_mapping_t* create_mapping() {
         // Find the highest address for each type to determine mapping size
-        const int max_coil = get_max_address(config_.coils);
-        const int max_discrete = get_max_address(config_.discrete_inputs);
-        const int max_holding = get_max_address(config_.holding_registers);
-        const int max_input = get_max_address(config_.input_registers);
+        const int max_coil = std::max(16, get_max_address(config_.coils));  // Minimum size of 16
+        const int max_discrete = std::max(16, get_max_address(config_.discrete_inputs));
+        const int max_holding = std::max(16, get_max_address(config_.holding_registers));
+        const int max_input = std::max(16, get_max_address(config_.input_registers));
 
         // Add 1 to get the size (addresses are 0-based)
-        const int nb_bits = max_coil >= 0 ? max_coil + 1 : 0;
-        const int nb_input_bits = max_discrete >= 0 ? max_discrete + 1 : 0;
-        const int nb_registers = max_holding >= 0 ? max_holding + 1 : 0;
-        const int nb_input_registers = max_input >= 0 ? max_input + 1 : 0;
+        const int nb_bits = max_coil + 1;
+        const int nb_input_bits = max_discrete + 1;
+        const int nb_registers = max_holding + 1;
+        const int nb_input_registers = max_input + 1;
 
         LOG(INFO) << "Creating mapping with sizes:"
                   << " coils=" << nb_bits
@@ -190,28 +192,13 @@ class Slave {
                                   << ", function code: 0x" << std::hex << (int)function_code;
 
                         std::lock_guard lock(mutex_);
-                        modbus_mapping_t* mb_mapping = create_mapping();
-                        if (mb_mapping != nullptr) {
-                            // Log the current mapping state for the requested address
-                            if (function_code == 0x01) {  // Read Coils
-                                LOG(INFO) << "Current coil values:";
-                                for (const auto& pair : config_.coils) {
-                                    LOG(INFO) << "  Coil[" << pair.first << "] = " << (int)pair.second;
-                                }
-                            }
-                            
-                            modbus_reply(ctx_, query, rc, mb_mapping);
-                            LOG(INFO) << "Replied to request on socket " << master_socket;
-                            
-                            // Log the response data
-                            LOG(INFO) << "Response data:";
-                            for (int i = 0; i < rc; i++) {
-                                LOG(INFO) << "  byte[" << i << "] = 0x" << std::hex << (int)query[i];
-                            }
-                            
-                            modbus_mapping_free(mb_mapping);
-                        } else {
-                            LOG(ERROR) << "Failed to create mapping: " << modbus_strerror(errno);
+                        modbus_reply(ctx_, query, rc, mb_mapping_);
+                        LOG(INFO) << "Replied to request on socket " << master_socket;
+                        
+                        // Log the response data
+                        LOG(INFO) << "Response data:";
+                        for (int i = 0; i < rc; i++) {
+                            LOG(INFO) << "  byte[" << i << "] = 0x" << std::hex << (int)query[i];
                         }
                     } else if (rc == -1) {
                         LOG(INFO) << "Connection closed on socket " << master_socket;
@@ -242,20 +229,23 @@ public:
         if (ctx_ == nullptr) {
             throw std::runtime_error("Failed to create modbus context");
         }
+
+        // Create initial mapping using existing create_mapping function
+        mb_mapping_ = create_mapping();
+        if (mb_mapping_ == nullptr) {
+            modbus_free(ctx_);
+            throw std::runtime_error("Failed to create modbus mapping");
+        }
     }
 
     ~Slave() {
         stop();
+        if (mb_mapping_ != nullptr) {
+            modbus_mapping_free(mb_mapping_);
+        }
         if (ctx_ != nullptr) {
             modbus_free(ctx_);
         }
-    }
-
-    /// @brief Update the slave configuration
-    /// @param config The new configuration
-    void update_config(const SlaveConfig& config) {
-        std::lock_guard lock(mutex_);
-        config_ = config;
     }
 
     /// @brief Start the slave server in a background thread
@@ -297,6 +287,17 @@ public:
 
     /// @brief Get the port this slave is listening on
     int port() const { return port_; }
+
+    // Add getters that read directly from the mapping
+    uint8_t get_coil(int addr) const {
+        std::lock_guard lock(mutex_);
+        return mb_mapping_->tab_bits[addr];
+    }
+
+    uint16_t get_holding_register(int addr) const {
+        std::lock_guard lock(mutex_);
+        return mb_mapping_->tab_registers[addr];
+    }
 };
 
 } // namespace modbus::mock

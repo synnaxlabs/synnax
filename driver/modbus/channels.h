@@ -12,9 +12,6 @@
 /// std
 #include <string>
 
-/// external
-#include "modbus/modbus.h"
-
 /// module
 #include "x/cpp/xjson/xjson.h"
 #include "client/cpp/synnax.h"
@@ -26,12 +23,12 @@ struct Channel {
     bool enabled;
     /// @brief The Modbus register address
     uint16_t address;
-    
+
     explicit Channel(xjson::Parser &parser) :
         enabled(parser.optional<bool>("enabled", true)),
         address(parser.required<uint16_t>("address")) {
     }
-    
+
     /// @brief Virtual destructor
     virtual ~Channel() = default;
 };
@@ -47,33 +44,10 @@ struct Input : virtual Channel {
         Channel(parser),
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {
     }
-    
+
     /// @brief Binds remote channel information
     void bind_remote_info(const synnax::Channel &remote_ch) {
         this->ch = remote_ch;
-    }
-};
-
-/// @brief Base class for output channels (writing to Modbus)
-struct Output : virtual Channel {
-    /// @brief The key of the command channel
-    synnax::ChannelKey cmd_ch_key;
-    
-    /// @brief The key of the state channel
-    synnax::ChannelKey state_ch_key;
-    
-    /// @brief The state channel object
-    synnax::Channel state_ch;
-    
-    explicit Output(xjson::Parser &parser) :
-        Channel(parser),
-        cmd_ch_key(parser.required<synnax::ChannelKey>("cmd_key", "cmd_channel")),
-        state_ch_key(parser.required<synnax::ChannelKey>("state_key", "state_channel")) {
-    }
-    
-    /// @brief Binds remote state channel information
-    void bind_state_info(const synnax::Channel &remote_state_ch) {
-        this->state_ch = remote_state_ch;
     }
 };
 
@@ -94,7 +68,7 @@ struct InputRegister final : Input {
     bool swap_words;
     /// @brief String length for STRING data type
     int string_length;
-    
+
     explicit InputRegister(xjson::Parser &parser) :
         Channel(parser),
         Input(parser),
@@ -102,40 +76,37 @@ struct InputRegister final : Input {
         swap_bytes(parser.optional<bool>("swap_bytes", false)),
         swap_words(parser.optional<bool>("swap_words", false)),
         string_length(parser.optional<int>("string_length", 0)) {
-        }
+    }
 };
 
 /// @brief Output channel for writing to coils
-struct OutputCoilChannel final : Output {
-    explicit OutputCoilChannel(xjson::Parser &parser) : 
+struct OutputCoilChannel final : Channel {
+    /// @brief The key of the channel to write to the coil
+    synnax::ChannelKey channel;
+
+    explicit OutputCoilChannel(xjson::Parser &parser) :
         Channel(parser),
-        Output(parser) {
+        channel(parser.required<synnax::ChannelKey>("channel")) {
     }
 };
 
 /// @brief Output channel for writing to holding registers
-struct OutputHoldingRegisterChannel final : Output {
+struct OutputHoldingRegisterChannel final : Channel {
+    /// @brief The key of the channel to write to the register
+    synnax::ChannelKey channel;
     /// @brief The data type to interpret the register(s) as
     telem::DataType value_type;
     /// @brief The byte order for multi-register values
     bool swap_bytes;
     /// @brief The word order for multi-register values
     bool swap_words;
-    /// @brief String length for STRING data type
-    int string_length;
-    
+
     explicit OutputHoldingRegisterChannel(xjson::Parser &parser) :
         Channel(parser),
-        Output(parser),
+        channel(parser.required<synnax::ChannelKey>("channel")),
         value_type(telem::DataType(parser.required<std::string>("data_type"))),
         swap_bytes(parser.optional<bool>("swap_bytes", false)),
-        swap_words(parser.optional<bool>("swap_words", false)),
-        string_length(parser.optional<int>("string_length", 0)) {
+        swap_words(parser.optional<bool>("swap_words", false)) {
     }
 };
-
-const std::string INPUT_BIT_TYPE = "input_bit";
-const std::string INPUT_REGISTER_TYPE = "input_register";
-const std::string OUTPUT_COIL_TYPE = "output_coil";
-const std::string OUTPUT_HOLDING_REGISTER_TYPE = "output_holding_register";
 }
