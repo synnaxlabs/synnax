@@ -1,6 +1,6 @@
 [project]
 name = "synnax-freighter"
-version = "0.39.0"
+version = "0.40.0"
 description = ""
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
