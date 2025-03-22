@@ -97,6 +97,12 @@ jobs:
         with:
           sdk-version: 22000
 
+      - name: Install Build Dependencies on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install autoconf automake libtool
+        shell: powershell
+
       - name: Update Submodules
         run: git submodule update --init --recursive
 
