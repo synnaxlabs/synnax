@@ -169,7 +169,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ): BaseReadTaskConfig(cfg),
        channel_count(0),
        dev(cfg.required<std::string>("device")),
-       samples_per_chan(this->sample_rate / this->stream_rate) {
+       samples_per_chan(sample_rate / stream_rate) {
         std::vector<channel::InputRegister> holding_registers;
         std::vector<channel::InputRegister> input_registers;
         std::vector<channel::InputBit> coils;
@@ -284,8 +284,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (const auto &ch: this->channels()) keys.push_back(ch.key);
         for (const auto &idx: this->indexes) keys.push_back(idx);
         return synnax::WriterConfig{
-            .start = telem::TimeStamp::now(),
             .channels = keys,
+            .start = telem::TimeStamp::now(),
             .mode = synnax::data_saving_writer_mode(this->data_saving),
         };
     }

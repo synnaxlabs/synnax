@@ -26,7 +26,7 @@ TEST(StreamerTests, testStreamBasic) {
     auto data = ASSERT_NIL_P(client.channels.create(
         "data",
         telem::INT32_T,
-        1 * telem::HZ));
+        1 * telem::HERTZ));
     auto now = telem::TimeStamp::now();
 
     std::vector channels = {data.key};
@@ -59,7 +59,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto data = ASSERT_NIL_P(client.channels.create(
         "data",
         telem::FLOAT32_T,
-        1 * telem::HZ));
+        1 * telem::HERTZ));
     auto now = telem::TimeStamp::now();
 
 
@@ -143,7 +143,7 @@ void test_downsample(
     auto data = ASSERT_NIL_P(client.channels.create(
         "data",
         telem::INT32_T,
-        1 * telem::HZ));
+        1 * telem::HERTZ));
     auto now = telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{

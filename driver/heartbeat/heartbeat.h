@@ -23,7 +23,7 @@ const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
 const std::string INTEGRATION_NAME = "heartbeat";
 const std::string TASK_NAME = "Heartbeat";
 const std::string TASK_TYPE = INTEGRATION_NAME;
-const auto EMISSION_RATE = telem::HZ * 1;
+const telem::Rate EMISSION_RATE = telem::HERTZ * 1;
 
 /// @brief uint64 heartbeat value that communicates the aliveness of a rack. The
 /// first 32 bits are the rack key and the last 32 bits are the version.

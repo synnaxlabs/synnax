@@ -23,7 +23,7 @@ class MemInfoSource final : public pipeline::Source {
 
 public:
     explicit MemInfoSource(const synnax::ChannelKey &key) : key(key),
-                                                            timer(telem::HZ * 1) {
+                                                            timer(telem::HERTZ * 1) {
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {

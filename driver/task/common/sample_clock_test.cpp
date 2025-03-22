@@ -15,7 +15,7 @@
 
 /// @brief it should correctly use the system clock to time samples.
 TEST(TestSampleClock, testSoftwareTimedSampleClock) {
-    auto clock = common::SoftwareTimedSampleClock(telem::HZ * 250);
+    auto clock = common::SoftwareTimedSampleClock(telem::HERTZ * 250);
     auto now = telem::TimeStamp::now();
     breaker::Breaker b;
     const auto start = clock.wait(b);
@@ -27,7 +27,7 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
 
 /// @brief it should correctly rely on steady sample spacing to time samples.
 TEST(TestSampleClock, testHardwareTimedSampleClock) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
+    auto clock = common::HardwareTimedSampleClock(telem::HERTZ * 1);
     const auto now = telem::TimeStamp::now();
     clock.reset();
     breaker::Breaker b;
@@ -40,7 +40,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClock) {
 /// @brief it should correctly reset the hardware timed sample clock to the current
 /// time.
 TEST(TestSampleclock, testHardwareTimedSampleClockReset) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
+    auto clock = common::HardwareTimedSampleClock(telem::HERTZ * 1);
     clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
@@ -55,7 +55,7 @@ TEST(TestSampleclock, testHardwareTimedSampleClockReset) {
 
 /// @brief it should return the same high water-mark as the end time of n_read is 0.
 TEST(TestSampleClock, testHardwareTimedSampleClockNRead0) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
+    auto clock = common::HardwareTimedSampleClock(telem::HERTZ * 1);
     clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
@@ -79,7 +79,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNRead0) {
 /// @brief it should throw a runtime error if the hardware timed sample clock was not
 /// reset before a call to wait()
 TEST(TestSampleClock, testHardwareSampleClockNotResetBeforeWait) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
+    auto clock = common::HardwareTimedSampleClock(telem::HERTZ * 1);
     breaker::Breaker b;
     // We deliberately don't call reset() before wait()
     EXPECT_THROW(clock.wait(b), std::runtime_error);
