@@ -74,7 +74,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto errors = std::make_shared<std::vector<xerrors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
-        telem::HZ * 10,
+        telem::HERTZ * 10,
         std::set<synnax::ChannelKey>{2},
         std::vector{state},
         std::vector<synnax::ChannelKey>{1},

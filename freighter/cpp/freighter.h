@@ -211,7 +211,7 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            int index;
+            std::size_t index;
             const MiddlewareCollector &collector;
             RQ req;
             freighter::Finalizer<RQ, RS> *finalizer;

@@ -1,0 +1,19 @@
+.console-task-configure--modbus_read {
+    .console-channel-item {
+        & > *:first-child {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+        }
+        & > *:nth-child(2):not(:last-child) {
+            width: 15rem;
+            .pluto-input__internal {
+                border-radius: 0 !important;
+            }
+        }
+        & > *:last-child {
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            width: 150px;
+        }
+    }
+}

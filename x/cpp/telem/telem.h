@@ -501,11 +501,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = Rate(1);
+inline const auto HERTZ = telem::Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * HZ;
+inline const Rate KHZ = 1000 * telem::HERTZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * KHZ;
+inline const Rate MHZ = 1000 * telem::KHZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.

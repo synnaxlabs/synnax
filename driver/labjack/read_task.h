@@ -533,7 +533,7 @@ public:
 
     xerrors::Error start() override { return this->restart(); }
 
-    std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
