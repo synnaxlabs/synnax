@@ -109,7 +109,7 @@ jobs:
       - name: Install Deps on Macos
         if: matrix.os == 'macos-15'
         run: |
-          brew install autoconf
+          brew install autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
