@@ -90,7 +90,7 @@ const getContent = ({
         <Icon.Caret.Right
           key={`${label}-${index}`}
           style={{
-            transform: "scale(0.8) translateY(1px)",
+            transform: "scale(0.8) translateY(0.5px)",
             color: CSS.shade(shade),
           }}
         />,

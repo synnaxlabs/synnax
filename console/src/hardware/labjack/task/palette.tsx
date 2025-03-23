@@ -15,14 +15,14 @@ import { type Palette } from "@/palette";
 
 const CREATE_READ_COMMAND: Palette.Command = {
   key: "labjack-create-read-task",
-  name: "Create LabJack Read Task",
+  name: "Create a LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
 const CREATE_WRITE_COMMAND: Palette.Command = {
   key: "labjack-create-write-task",
-  name: "Create LabJack Write Task",
+  name: "Create a LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };

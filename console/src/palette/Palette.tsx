@@ -110,6 +110,7 @@ export const Palette = ({
             startIcon={<Icon.Search />}
             shade={2}
             textShade={7}
+            iconSpacing="small"
           >
             Search & Command
           </Button.Button>

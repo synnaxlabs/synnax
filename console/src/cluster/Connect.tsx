@@ -72,21 +72,14 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       setLoading("submit");
       const state = await testConnection(data);
       setLoading(null);
-      if (state.status !== "connected") return setConnState(state);
-      dispatch(set({ ...data, key: state.clusterKey }));
-      dispatch(setActive(state.clusterKey));
-      onClose();
-    }, "Failed to connect to cluster");
-
-  const handleTestConnection = (): void =>
-    handleError(async () => {
-      if (!methods.validate()) return;
-      setConnState(null);
-      setLoading("test");
-      const state = await testConnection(methods.value());
       setConnState(state);
-      setLoading(null);
-    }, "Failed to test connection");
+      if (state.status !== "connected") return;
+      setTimeout(() => {
+        dispatch(set({ ...data, key: state.clusterKey }));
+        dispatch(setActive(state.clusterKey));
+        onClose();
+      }, 500);
+    }, "Failed to connect to cluster");
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
@@ -129,25 +122,17 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
                 : connState.message}
             </Status.Text>
           ) : (
-            <Triggers.SaveHelpText action="Test Connection" noBar />
+            <Triggers.SaveHelpText action="Connect" noBar />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            loading={loading === "test"}
-            disabled={loading !== null}
-            variant="text"
-            onClick={handleTestConnection}
-            triggers={Triggers.SAVE}
-          >
-            Test Connection
-          </Button.Button>
-          <Button.Button
             onClick={handleSubmit}
             loading={loading === "submit"}
             disabled={loading !== null}
+            triggers={Triggers.SAVE}
           >
-            Done
+            Connect
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>

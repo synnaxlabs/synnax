@@ -74,7 +74,7 @@ export const Top = (): ReactElement => {
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region>
-        <Layout.Controls visibleIfOS="macOS" />
+        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
         {os === "Windows" && <Logo variant="icon" />}
         <Workspace.Selector />
       </Nav.Bar.Start>
@@ -88,7 +88,7 @@ export const Top = (): ReactElement => {
           <Cluster.ConnectionBadge />
         </Align.Pack>
         <Docs.OpenButton />
-        <Layout.Controls visibleIfOS="Windows" />
+        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
     </Layout.Nav.Bar>
   );

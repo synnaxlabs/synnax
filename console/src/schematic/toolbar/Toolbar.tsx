@@ -128,9 +128,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <Core.Header>
-        <Align.Space x empty>
-          <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        </Align.Space>
+        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         <Align.Space x align="center" empty>
           <Align.Space x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(state.key)} />

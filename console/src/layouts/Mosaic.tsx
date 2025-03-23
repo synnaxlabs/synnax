@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layouts/Mosaic.css";
+
 import { ontology } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
@@ -292,6 +294,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onCreate={handleCreate}
         activeTab={activeTab ?? undefined}
         onFileDrop={handleFileDrop}
+        addTooltip="Create a Component"
       >
         {renderProp}
       </Core.Mosaic>
@@ -311,6 +314,7 @@ const NavTop = (): ReactElement | null => {
   const button = (
     <Button.Button
       variant="outlined"
+      className={CSS.BE("mosaic", "controls-button")}
       onClick={() => onSelect("visualization")}
       justify="center"
       x
@@ -329,10 +333,17 @@ const NavTop = (): ReactElement | null => {
     </Button.Button>
   );
   return (
-    <Layout.Nav.Bar location="top" size="6rem" data-tauri-drag-region bordered={false}>
+    <Layout.Nav.Bar
+      location="top"
+      size="6rem"
+      data-tauri-drag-region
+      bordered={false}
+      className={CSS.BE("mosaic", "bar")}
+    >
       <PNav.Bar.Start data-tauri-drag-region align="center">
         <Controls visibleIfOS="macOS" forceOS={os} />
         {isWindowsOS && <Logo />}
+        {isWindowsOS && button}
       </PNav.Bar.Start>
       <PNav.Bar.AbsoluteCenter>
         <Text.Text
@@ -340,7 +351,7 @@ const NavTop = (): ReactElement | null => {
           weight={500}
           shade={6}
           data-tauri-drag-region
-          style={{ cursor: "pointer" }}
+          style={{ cursor: "default" }}
         >
           {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
         </Text.Text>

@@ -9,28 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-docs {
-    width: 100%;
-    height: 100%;
+.console-mosaic-window {
+    .console-nav__drawer:is(.console--hover, .pluto--hidden) {
+        left: 0.5rem;
+        width: calc(100vw - 1rem - 1px);
+    }
 }
 
-.console--os-macos .console-docs__open-button {
+.console-mosaic__controls-button {
     border-top-right-radius: 1rem;
-}
-
-.console-docs iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-/** This masks the iframe so drop operations in the mosaic work. */
-.console-docs.console--hover:after {
-    content: "";
-    display: block;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
 }

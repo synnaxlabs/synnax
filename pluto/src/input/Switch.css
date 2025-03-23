@@ -20,6 +20,12 @@
         display: inline-block;
         width: 5rem;
         height: 2.5rem;
+        border-radius: 1rem;
+        &:focus-within {
+            box-shadow:
+                0 0 0 2px var(--pluto-gray-l1),
+                0 0 0 3px var(--pluto-primary-z);
+        }
     }
 
     .pluto-input-switch__input {
@@ -38,7 +44,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: var(--pluto-gray-l4);
+        background: var(--pluto-gray-l3);
         transition: 0.15s;
         border-radius: 4rem;
     }
@@ -65,12 +71,14 @@
     }
 
     &.pluto--disabled {
+        * {
+            cursor: not-allowed !important;
+        }
         .pluto-input-switch__slider {
-            background: var(--pluto-gray-l3);
-            cursor: not-allowed;
+            background: var(--pluto-gray-l3-50);
         }
         .pluto-input-switch__slider::before {
-            background: var(--pluto-gray-l4);
+            background: var(--pluto-gray-l4-70);
         }
 
         .pluto-input-switch__input:checked + .pluto-input-switch__slider {

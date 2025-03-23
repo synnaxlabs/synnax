@@ -130,7 +130,7 @@ const LIGHT_SCALE = [
   "#F2F2F2", // l2
   "#E1E1E1", // l3
   "#c5c5c5", // l4
-  "#ADADAD", // l5
+  "#aaaaaa", // l5
   "#787878", // l6
   "#636363", // l7
   "#444444", // l8
@@ -237,11 +237,11 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202", // l0
-  "#0C0C0C", // l1
+  "#101010", // l1
   "#161616", // l2
   "#252525", // l3
   "#323232", // l4
-  "#464646", // l5
+  "#414141", // l5
   "#646464", // l6
   "#989898", // l7
   "#b2b1b1", // l8

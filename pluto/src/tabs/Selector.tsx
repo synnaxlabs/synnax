@@ -33,6 +33,7 @@ export interface SelectorProps
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
+  addTooltip?: string;
 }
 
 const CLS = "tabs-selector";
@@ -43,6 +44,7 @@ export const Selector = ({
   size = "medium",
   direction = "x",
   contextMenu,
+  addTooltip,
   ...rest
 }: SelectorProps): ReactElement | null => {
   const {
@@ -113,7 +115,7 @@ export const Selector = ({
 
         {onCreate != null && (
           <Align.Space className={CSS.BE(CLS, "actions")}>
-            <Button.Icon size={size} sharp onClick={onCreate}>
+            <Button.Icon size={size} sharp onClick={onCreate} tooltip={addTooltip}>
               <Icon.Add />
             </Button.Icon>
           </Align.Space>

@@ -15,7 +15,6 @@ import {
   AiFillDelete,
   AiFillFolder,
   AiFillGithub,
-  AiFillInfoCircle,
   AiFillLinkedin,
   AiFillWarning,
   AiOutlineBorder,
@@ -27,7 +26,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -431,7 +430,7 @@ export const Icon: IconType = {
   Subtract: wrapIcon(AiOutlineMinus, "subtract"),
   Copy: wrapIcon(IoCopy, "copy"),
   Close: wrapIcon(AiOutlineClose, "close"),
-  Info: wrapIcon(AiFillInfoCircle, "info"),
+  Info: wrapIcon(BsFillInfoSquareFill, "info"),
   Warning: wrapIcon(AiFillWarning, "warning"),
   Check: wrapIcon(AiOutlineCheck, "check"),
   Refresh: wrapIcon(IoMdRefresh, "refresh"),

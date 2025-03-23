@@ -24,6 +24,7 @@ export const INFO_LAYOUT: Layout.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
   name: "Version Info",
+  icon: "Info",
   location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromWorkspace: true,
@@ -98,7 +99,7 @@ export const Info: Layout.Renderer = () => {
             Version {version} available
           </Status.Text>
           <Button.Button
-            variant="outlined"
+            variant="filled"
             disabled={updateMutation.isPending}
             onClick={() => updateMutation.mutate()}
           >
@@ -142,7 +143,7 @@ export const Info: Layout.Renderer = () => {
         weight={350}
         style={{ position: "absolute", bottom: "2rem" }}
       >
-        © 2022-2024 Synnax Labs, Inc. All rights reserved
+        © 2022-2025 Synnax Labs, Inc. All rights reserved
       </Text.Text>
     </Align.Space>
   );

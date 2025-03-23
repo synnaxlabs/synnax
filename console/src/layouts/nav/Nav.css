@@ -74,6 +74,11 @@
     padding-left: 2rem;
 }
 
+.console--os-windows .console-nav__bar.pluto--x,
+.console-mosaic__bar.console-nav__bar.pluto--x {
+    padding-right: 1rem;
+}
+
 .console-nav__drawer {
     overflow: hidden;
     box-shadow: var(--pluto-shadow-v1);
@@ -113,9 +118,4 @@
             transform: translateX(-2rem);
         }
     }
-}
-
-.console-mosaic-window .console-nav__drawer:is(.console--hover, .pluto--hidden) {
-    left: 0.5rem;
-    width: calc(100vw - 1rem - 1px);
 }

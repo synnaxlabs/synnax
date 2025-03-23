@@ -28,6 +28,13 @@
 }
 
 .pluto-tabs-selector__btn--close {
+    opacity: 0;
+    height: 100% !important;
+    transition: unset;
+    margin-left: 1px !important;
+    > svg {
+        fill: var(--pluto-gray-l6);
+    }
     .pluto-tabs-selector__icon--unsaved {
         fill: var(--pluto-gray-l6) !important;
         top: 30%;
@@ -36,6 +43,7 @@
         height: 40%;
     }
     &:has(.pluto-tabs-selector__icon--unsaved) {
+        opacity: 1;
         .pluto-tabs-selector__icon--close {
             display: none;
         }
@@ -54,12 +62,33 @@
     color: var(--pluto-text-color);
 }
 
+.pluto-tabs-selector__btn {
+    flex: 1 1 auto !important;
+    min-width: 100px;
+    max-width: fit-content;
+    overflow: hidden;
+    &.pluto-tabs-selector__btn--uneditable {
+        min-width: 0;
+    }
+    & svg {
+        flex-shrink: 0;
+    }
+    .pluto-tabs-selector__name {
+        overflow: hidden;
+        .pluto-text {
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    }
+}
+
 .pluto-tabs-selector__tabs {
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    width: fit-content;
     flex-grow: 1;
+    width: 100%;
+    max-width: 100%;
 
     &::-webkit-scrollbar {
         height: 3px;
@@ -130,25 +159,6 @@
             color: var(--pluto-primary-z) !important;
         }
     }
-    .pluto-btn-icon {
-        opacity: 0;
-        height: 100% !important;
-        transition: unset;
-        margin-left: 1px !important;
-        > svg {
-            fill: var(--pluto-gray-l6);
-        }
-    }
-
-    &:not(.pluto--selected) .pluto-btn-icon {
-        &:hover {
-            background: var(--pluto-gray-l3);
-        }
-
-        &:active {
-            background: var(--pluto-gray-l4);
-        }
-    }
 
     &:not(.pluto--selected)
         svg:not(.logo)
@@ -164,11 +174,11 @@
     }
 
     &:hover:not(.pluto--selected) {
-        background: var(--pluto-gray-l2-80);
+        background: var(--pluto-gray-l2);
     }
 
     &:active:not(.pluto--selected) {
-        background: var(--pluto-gray-l2);
+        background: var(--pluto-gray-l3);
     }
 
     .pluto-text-icon {
@@ -219,4 +229,8 @@
             }
         }
     }
+}
+
+.pluto-tabs-selector__actions {
+    border-left: var(--pluto-border);
 }

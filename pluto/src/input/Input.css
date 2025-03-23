@@ -116,6 +116,10 @@
         border-width: 1px;
         & input {
             outline: none;
+            padding: 0 calc(1.5rem - 0.5px);
+        }
+        & .pluto-input__placeholder {
+            padding-left: calc(1.75rem - 0.5px);
         }
     }
 
@@ -227,6 +231,14 @@
         border: none !important;
         background: none !important;
         height: initial !important;
+        &:focus-within {
+            input {
+                padding: 0;
+            }
+            & .pluto-input__placeholder {
+                padding-left: 1px;
+            }
+        }
     }
 
     & input {
@@ -246,28 +258,16 @@
         transition:
             background 0.15s ease-in-out,
             border-color 0.15s ease-in-out;
-        .pluto-input__end-content {
-            transition:
-                background 0.15s ease-in-out,
-                border-color 0.15s ease-in-out;
-        }
         &:hover:not(:focus-within) {
-            --pluto-bg: var(--pluto-gray-l3);
-            background: var(--pluto-bg) !important;
+            background: var(--pluto-gray-l3-75);
         }
         &:active:not(:focus-within) {
-            --pluto-bg: var(--pluto-gray-l3);
-            background: var(--pluto-bg) !important;
+            background: var(--pluto-gray-l3-75);
         }
         &:focus-within {
             transition:
                 background 0s ease-in-out,
                 border-color 0s ease-in-out;
-            .pluto-input__end-content {
-                transition:
-                    background 0s ease-in-out,
-                    border-color 0s ease-in-out;
-            }
         }
     }
 }

@@ -9,7 +9,7 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { type box, type location } from "@synnaxlabs/x";
+import { type box, type location, type xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
   memo,
@@ -33,7 +33,12 @@ import { Tabs } from "@/tabs";
 export interface MosaicProps
   extends Pick<
       Tabs.TabsProps,
-      "onSelect" | "contextMenu" | "emptyContent" | "onRename" | "onClose"
+      | "onSelect"
+      | "contextMenu"
+      | "emptyContent"
+      | "onRename"
+      | "onClose"
+      | "addTooltip"
     >,
     Omit<
       Align.CoreProps,
@@ -89,6 +94,7 @@ export const Mosaic = memo(
     onRename,
     onReorder,
     contextMenu,
+    addTooltip,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -104,6 +110,7 @@ export const Mosaic = memo(
       onRename,
       onReorder,
       activeTab,
+      addTooltip,
     };
 
     const handleResize = useCallback(
@@ -194,6 +201,7 @@ const TabLeaf = memo(
     className,
     onReorder,
     onFileDrop,
+    addTooltip,
     ...rest
   }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
@@ -212,8 +220,8 @@ const TabLeaf = memo(
         const index = getDragLocationIndex(event);
         setDragMask(null);
         const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
-        const loc =
-          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
+        const { percents } = getDragLocationPercents(event);
+        const loc = tabs.length === 0 ? "center" : insertLocation(percents);
         if (hasFiles) {
           onFileDrop?.(key, loc, event);
           return items;
@@ -236,8 +244,10 @@ const TabLeaf = memo(
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
         if (event == null) return;
-        const location: location.Location =
-          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
+        const { percents, inSelector } = getDragLocationPercents(event);
+        let location: location.Location | null = null;
+        if (!inSelector)
+          location = tabs.length === 0 ? "center" : insertLocation(percents);
         setDragMask(location);
       },
       [tabs.length],
@@ -278,6 +288,7 @@ const TabLeaf = memo(
           selectedAltColor={activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
+          addTooltip={addTooltip}
           {...haulProps}
           {...rest}
         >
@@ -314,17 +325,22 @@ const maskStyle: Record<location.Location, box.CSS> = {
   center: { left: "0%", top: "0%", width: "100%", height: "100%" },
 };
 
+interface DragLocationPercentsResult {
+  percents: xy.XY;
+  inSelector: boolean;
+}
+
 const getDragLocationPercents = (
   e: React.DragEvent<Element>,
-): { px: number; py: number } => {
+): DragLocationPercentsResult => {
   const rect = e.currentTarget.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   // This means we're in the selector.
   // TODO: This size depends on the theme and the size of the tabs,
   // we need to handle this better in the future.
-  if (y < 24) return { px: 0.5, py: 0.5 };
-  return { px: x / rect.width, py: y / rect.height };
+  if (y < 24) return { percents: { x: 0.5, y: 0.5 }, inSelector: true };
+  return { percents: { x: x / rect.width, y: y / rect.height }, inSelector: false };
 };
 
 const getDragLocationIndex = (e: React.DragEvent<Element>): number | undefined => {
@@ -337,7 +353,7 @@ const crossHairA = (px: number): number => px;
 
 const crossHairB = (px: number): number => 1 - px;
 
-const insertLocation = ({ px, py }: { px: number; py: number }): location.Location => {
+const insertLocation = ({ x: px, y: py }: xy.XY): location.Location => {
   if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return "center";
   const [aY, bY] = [crossHairA(px), crossHairB(px)];
   if (py > aY && py > bY) return "bottom";
