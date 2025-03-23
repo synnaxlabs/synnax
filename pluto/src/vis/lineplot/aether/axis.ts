@@ -114,7 +114,7 @@ export class CoreAxis<
         ? DEFAULT_Y_BOUND_PADDING
         : DEFAULT_X_BOUND_PADDING;
     this.internal.core = new axis.Canvas(this.internal.render, {
-      color: theme.colors.gray.l8,
+      color: theme.colors.gray.l10,
       font: fontString(theme, { level: "small" }),
       gridColor: theme.colors.gray.l1,
       ...this.state,

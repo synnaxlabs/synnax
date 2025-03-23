@@ -63,7 +63,7 @@ export const Picker = ({
         (onDelete != null && (
           <Align.Space x justify="spaceBetween">
             {position != null && (
-              <Text.Text level="small" shade={7}>
+              <Text.Text level="small" shade={11}>
                 {position} %
               </Text.Text>
             )}

@@ -129,7 +129,7 @@ export const Edit: Layout.Renderer = () => {
           data={arr.value}
           emptyContent={
             <Align.Center>
-              <Text.Text level="h3" shade={6}>
+              <Text.Text level="h3" shade={10}>
                 No labels created
               </Text.Text>
             </Align.Center>

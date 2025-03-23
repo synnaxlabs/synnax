@@ -116,12 +116,12 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
                 <Text.WithIcon
                   startIcon={<Icon.Access />}
                   level="h4"
-                  shade={8}
+                  shade={10}
                   weight={450}
                 >
                   Admin
                 </Text.WithIcon>
-                <Text.Text level="p" shade={7}>
+                <Text.Text level="p" shade={11}>
                   Allows the user to manage other users, including registering users and
                   setting permissions for those users.
                 </Text.Text>
@@ -133,17 +133,17 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
               <Text.WithIcon
                 startIcon={<Icon.Schematic />}
                 level="h4"
-                shade={8}
+                shade={10}
                 weight={450}
               >
                 Schematics
               </Text.WithIcon>
               <Align.Space x size={8} align="center" style={{ marginLeft: "2rem" }}>
                 <Align.Space y>
-                  <Text.Text level="h5" shade={8}>
+                  <Text.Text level="h5" shade={10}>
                     Edit
                   </Text.Text>
-                  <Text.Text level="p" shade={7}>
+                  <Text.Text level="p" shade={11}>
                     Allow the user to create and edit schematics. If the user does not
                     have this permission, they will still be able to control symbols on
                     the schematic.

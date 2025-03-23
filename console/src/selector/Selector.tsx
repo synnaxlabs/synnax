@@ -44,7 +44,7 @@ export const Selector = ({
   return (
     <Eraser.Eraser>
       <Align.Center className={CSS.B("vis-layout-selector")} size="large" wrap>
-        <Text.Text level="h4" shade={6} weight={400}>
+        <Text.Text level="h4" shade={10} weight={400}>
           {text}
         </Text.Text>
         <Align.Space

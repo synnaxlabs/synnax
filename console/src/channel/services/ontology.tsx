@@ -291,7 +291,7 @@ export const Item: Tree.Item = ({ entry, ...rest }) => {
       entry={{
         ...entry,
         name: alias ?? entry.name,
-        icon: <I style={{ color: "var(--pluto-gray-l8" }} />,
+        icon: <I style={{ color: "var(--pluto-gray-l10" }} />,
       }}
     >
       {({ entry, onRename, key }) => (
@@ -306,7 +306,7 @@ export const Item: Tree.Item = ({ entry, ...rest }) => {
           />
           {data.virtual && (
             <Icon.Virtual
-              style={{ color: "var(--pluto-gray-l6)", transform: "scale(0.9)" }}
+              style={{ color: "var(--pluto-gray-l8)", transform: "scale(0.9)" }}
             />
           )}
         </>

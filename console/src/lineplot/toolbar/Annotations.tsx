@@ -60,7 +60,7 @@ const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElemen
       value={entry.label}
       level="p"
       noWrap
-      shade={8}
+      shade={10}
       weight={500}
       style={{ overflow: "hidden", textOverflow: "ellipsis" }}
       onChange={onChangeLabel}

@@ -52,19 +52,19 @@ const ChannelListItem = ({
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space y size="small">
         <Text.WithIcon
-          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
+          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l9)" }} />}
           level="p"
           weight={500}
-          shade={9}
+          shade={11}
           align="end"
         >
           {name}
         </Text.WithIcon>
         <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
+          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l9)" }} />}
           level="small"
           weight={350}
-          shade={7}
+          shade={11}
           color={opcNodeColor}
           size="small"
         >
@@ -84,7 +84,7 @@ const ChannelListItem = ({
 
 const Header = () => (
   <PHeader.Header level="p">
-    <PHeader.Title weight={500} shade={8}>
+    <PHeader.Title weight={500} shade={10}>
       Channels
     </PHeader.Title>
   </PHeader.Header>
@@ -92,7 +92,7 @@ const Header = () => (
 
 const EmptyContent = () => (
   <Align.Center>
-    <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+    <Text.Text shade={10} level="p" style={{ maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.

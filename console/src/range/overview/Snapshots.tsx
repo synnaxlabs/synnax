@@ -79,7 +79,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
       {...props}
       onSelect={handleSelect}
     >
-      <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={9}>
+      <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={11}>
         {name}
       </Text.WithIcon>
     </List.ItemFrame>
@@ -89,7 +89,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
 const snapshotsListItem = componentRenderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
-  <Text.Text level="p" weight={400} shade={6}>
+  <Text.Text level="p" weight={400} shade={10}>
     No Snapshots.
   </Text.Text>
 );
@@ -122,7 +122,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
 
   return (
     <Align.Space y>
-      <Text.Text level="h4" shade={8} weight={500}>
+      <Text.Text level="h4" shade={10} weight={500}>
         Snapshots
       </Text.Text>
       <List.List data={snapshots} emptyContent={EMPTY_LIST_CONTENT}>

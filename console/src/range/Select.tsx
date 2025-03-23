@@ -42,7 +42,7 @@ const listColumns: Array<List.ColumnSpec<string, Range>> = [
     render: ({ entry }) => {
       if (entry.variant === "dynamic")
         return (
-          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={7}>
+          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={11}>
             {new TimeSpan(entry.span).toString()}
           </Text.WithIcon>
         );
@@ -58,7 +58,7 @@ const RenderTag = ({
   <Tag.Tag
     icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
     onClose={onClose}
-    shade={9}
+    shade={11}
     level="small"
   >
     {entry?.name}

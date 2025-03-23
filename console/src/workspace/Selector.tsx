@@ -88,7 +88,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack y borderShade={4} style={{ width: 500, height: 200 }}>
+      <Align.Pack y borderShade={5} style={{ width: 500, height: 200 }}>
         <Cluster.NoneConnectedBoundary>
           <List.List>
             <List.Selector
@@ -135,7 +135,7 @@ export const Selector = (): ReactElement => {
                   </Input.Text>
                 )}
               </List.Search>
-              <List.Core bordered borderShade={4}>
+              <List.Core bordered borderShade={5}>
                 {componentRenderProp(SelectorListItem)}
               </List.Core>
             </List.Selector>

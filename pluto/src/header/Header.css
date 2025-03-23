@@ -10,7 +10,7 @@
  */
 
 .pluto-header {
-    padding: 0 0.5rem;
+    padding-left: 0.5rem;
     box-sizing: content-box;
 
     .pluto-header__text,

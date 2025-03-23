@@ -33,7 +33,7 @@
     overflow-x: scroll;
     flex-wrap: wrap;
     height: 100%;
-    border: var(--pluto-border-l4);
+    border: var(--pluto-border-l5);
 }
 
 .pluto-select-multiple__tags::-webkit-scrollbar {

@@ -127,7 +127,7 @@ export const List = (): ReactElement => {
   return (
     <Align.Pack className={CSS.B("cluster-list")} y>
       <Align.Pack x justify="spaceBetween" size="large" grow>
-        <Header.Header grow bordered borderShade={4} size="small">
+        <Header.Header grow bordered borderShade={5} size="small">
           <Header.Title level="h5" startIcon={<Icon.Cluster />}>
             Clusters
           </Header.Title>
@@ -158,7 +158,7 @@ export const List = (): ReactElement => {
             onContextMenu={menuProps.open}
             className={menuProps.className}
             bordered
-            borderShade={4}
+            borderShade={5}
           >
             {({ key, ...p }) => (
               <ListItem key={key} {...p} validateName={validateName} />
@@ -197,7 +197,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
           onChange={handleChange}
           allowDoubleClick={false}
         />
-        <Text.Text level="p" shade={6}>
+        <Text.Text level="p" shade={10}>
           {rest.entry.host}:{rest.entry.port}
         </Text.Text>
       </Align.Space>
@@ -246,7 +246,7 @@ export const Dropdown = (): ReactElement => {
       variant="floating"
       bordered={false}
       className={CSS.B("cluster-dropdown")}
-      borderShade={4}
+      borderShade={5}
       rounded={0.5}
     >
       <Button.Button

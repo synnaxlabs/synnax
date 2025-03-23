@@ -63,7 +63,7 @@ export class Value
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
+    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l10;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
@@ -159,7 +159,7 @@ export class Value
         lower2d.fill();
         upper2d.fillStyle = color.pickByContrast(
           theme.colors.gray.l0,
-          theme.colors.gray.l9,
+          theme.colors.gray.l11,
         ).hex;
       }
     }

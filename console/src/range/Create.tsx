@@ -181,7 +181,7 @@ const CreateLayoutForm = ({
                   entryRenderKey={(e) => (
                     <Text.WithIcon
                       level="p"
-                      shade={9}
+                      shade={11}
                       startIcon={parentRangeIcon}
                       size="small"
                     >
@@ -193,7 +193,7 @@ const CreateLayoutForm = ({
                   placeholder={
                     <Text.WithIcon
                       level="p"
-                      shade={7}
+                      shade={11}
                       startIcon={parentRangeIcon}
                       size="small"
                     >

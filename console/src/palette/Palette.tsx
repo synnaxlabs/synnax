@@ -109,7 +109,7 @@ export const Palette = ({
             justify="center"
             startIcon={<Icon.Search />}
             shade={2}
-            textShade={7}
+            textShade={9}
             iconSpacing="small"
           >
             Search & Command
@@ -269,7 +269,7 @@ const PaletteList = ({ mode, services }: PaletteListProps): ReactElement => {
       itemHeight={27}
       grow
       bordered
-      borderShade={4}
+      borderShade={5}
     >
       {item}
     </List.Core>

@@ -54,11 +54,11 @@ const EmptyContent = (): ReactElement => (
     <Align.Center size={5}>
       <Logo className="synnax-logo-watermark" />
       <Align.Space x size="small" align="center">
-        <Text.Text level="h5" weight={450} shade={6}>
+        <Text.Text level="h5" weight={450} shade={10}>
           New Component
         </Text.Text>
         <Align.Space x empty>
-          <Triggers.Text level="h5" shade={7} trigger={["Control", "T"]} />
+          <Triggers.Text level="h5" shade={11} trigger={["Control", "T"]} />
         </Align.Space>
       </Align.Space>
     </Align.Center>
@@ -129,10 +129,10 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
             </PNav.Bar.Start>
             <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
               <Button.Icon onClick={handleOpenInNewWindow} size="small">
-                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l8)" }} />
+                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
               </Button.Icon>
               <Button.Icon onClick={handleClose} size="small">
-                <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
+                <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
               </Button.Icon>
             </PNav.Bar.End>
           </>
@@ -281,7 +281,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
       <Core.Mosaic
         rounded={1}
         bordered
-        borderShade={4}
+        borderShade={5}
         background={0}
         root={mosaic}
         onDrop={handleDrop}
@@ -320,12 +320,12 @@ const NavTop = (): ReactElement | null => {
       x
       size="small"
       shade={2}
-      textShade={7}
+      textShade={9}
       weight={450}
       startIcon={<Icon.Visualize />}
       endIcon={
         <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
-          <Triggers.Text level="small" shade={7} weight={450} trigger={["V"]} />
+          <Triggers.Text level="small" shade={11} weight={450} trigger={["V"]} />
         </Align.Space>
       }
     >
@@ -349,7 +349,7 @@ const NavTop = (): ReactElement | null => {
         <Text.Text
           level="small"
           weight={500}
-          shade={6}
+          shade={10}
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >

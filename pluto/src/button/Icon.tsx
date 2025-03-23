@@ -63,6 +63,7 @@ export const Icon = Tooltip.wrap(
         className={clsx(
           className,
           CSS.B("btn"),
+          CSS.M("clickable"),
           CSS.B("btn-icon"),
           CSS.size(size),
           CSS.sharp(sharp),

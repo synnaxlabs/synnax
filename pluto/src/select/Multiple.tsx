@@ -247,7 +247,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         })}
         {arrValue.length > 0 ? (
           <Button.Icon onClick={open}>
-            <Icon.Add style={{ color: "var(--pluto-gray-l7)" }} />
+            <Icon.Add style={{ color: "var(--pluto-gray-l9)" }} />
           </Button.Icon>
         ) : (
           <Button.Button

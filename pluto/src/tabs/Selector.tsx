@@ -244,7 +244,7 @@ const SelectorButton = ({
       {PIcon.resolve(icon as PIcon.Element, {
         className: CSS.BE(CLS, "icon"),
         style: {
-          color: CSS.shadeVar(7),
+          color: CSS.shadeVar(9),
           height: CSS.levelSizeVar(level),
           width: CSS.levelSizeVar(level),
         },

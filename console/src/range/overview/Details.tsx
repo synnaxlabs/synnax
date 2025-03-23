@@ -65,12 +65,12 @@ const ParentRangeButton = ({
   if (parent == null) return null;
   return (
     <Align.Space x size="small" align="center">
-      <Text.Text level="p" shade={7} weight={450}>
+      <Text.Text level="p" shade={11} weight={450}>
         Child Range of
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={7}
+        shade={11}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -225,7 +225,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               >
                 <Icon.Python
                   onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l7)" }}
+                  style={{ color: "var(--pluto-gray-l9)" }}
                 />
               </Button.Icon>
               <Button.Icon
@@ -234,7 +234,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l7)" }} />
+                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
               </Button.Icon>
             </Align.Space>
             <Divider.Divider y />

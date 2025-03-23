@@ -83,7 +83,7 @@ export const Info: Layout.Renderer = () => {
           </Status.Text>
           <Align.Space x size="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
-            <Text.Text level="p" shade={6} noWrap>
+            <Text.Text level="p" shade={10} noWrap>
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
               {Math.ceil(updateSize.megabytes)} MB
             </Text.Text>
@@ -139,7 +139,7 @@ export const Info: Layout.Renderer = () => {
       {updateContent}
       <Text.Text
         level="small"
-        shade={6}
+        shade={10}
         weight={350}
         style={{ position: "absolute", bottom: "2rem" }}
       >

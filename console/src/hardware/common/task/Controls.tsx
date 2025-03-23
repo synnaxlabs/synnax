@@ -90,8 +90,8 @@ export const Controls = ({
             tooltip={
               hasTriggers ? (
                 <Align.Space x align="center" size="small">
-                  <Triggers.Text level="small" shade={7} trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small" shade={7}>
+                  <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small" shade={11}>
                     To Configure
                   </Text.Text>
                 </Align.Space>

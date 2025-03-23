@@ -24,7 +24,7 @@
     backdrop-filter: blur(5rem);
     width: 275px;
     box-shadow: var(--pluto-shadow-v2);
-    border: var(--pluto-border-l4);
+    border: var(--pluto-border-l5);
     border-radius: 1rem;
     z-index: 20;
     overflow: hidden;

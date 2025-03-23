@@ -422,7 +422,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       {!entry.persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small" shade={7}>
+          <Text.Text className="save-button" weight={700} level="small" shade={11}>
             L
           </Text.Text>
         </Tooltip.Dialog>

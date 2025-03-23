@@ -185,7 +185,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
         <Nav.Bar.End align="center" size="large">
           <Align.Space x align="center" size="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text level="p" shade={7}>
+            <Text.Text level="p" shade={11}>
               Create More
             </Text.Text>
           </Align.Space>

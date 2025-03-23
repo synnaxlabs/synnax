@@ -30,7 +30,7 @@
     box-shadow: var(--pluto-shadow-v1);
     overflow: hidden;
     &.pluto--bordered {
-        border: var(--pluto-border-l4);
+        border: var(--pluto-border-l5);
     }
 
     & > .pluto-pack.pluto--rounded {
@@ -42,7 +42,7 @@
     }
 
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l0);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;

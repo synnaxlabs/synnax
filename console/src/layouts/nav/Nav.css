@@ -13,7 +13,7 @@
     .pluto-menu-item {
         position: relative;
         &.pluto--selected {
-            background: var(--pluto-gray-l3-80);
+            background: var(--pluto-gray-l4);
             transition: background 0.3s;
 
             &::after {

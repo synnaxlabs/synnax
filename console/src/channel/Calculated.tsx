@@ -303,7 +303,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
           {initialValues.key !== 0 && (
             <Align.Space x align="center" size="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text level="p" shade={7}>
+              <Text.Text level="p" shade={11}>
                 Create More
               </Text.Text>
             </Align.Space>

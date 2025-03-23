@@ -303,7 +303,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         startIcon={<Icon.Range />}
         level="p"
         weight={450}
-        shade={9}
+        shade={11}
         size="medium"
       >
         {entry.name}{" "}

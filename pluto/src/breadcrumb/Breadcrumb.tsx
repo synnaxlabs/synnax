@@ -129,7 +129,7 @@ export const Breadcrumb = <
 >({
   children: segments,
   icon,
-  shade = 7,
+  shade = 9,
   weight,
   size = 0.5,
   url,
@@ -168,7 +168,7 @@ export const URL = ({
   level = "p",
   separator = "/",
   weight,
-  shade = 7,
+  shade = 9,
 }: URLProps) => {
   const content = getContent({
     segments: url,

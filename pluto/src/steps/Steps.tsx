@@ -47,7 +47,7 @@ export const Steps = ({
           </Button.Button>
           {i !== steps.length - 1 && (
             <Icon.Arrow.Right
-              style={{ fontSize: "15px", color: "var(--pluto-gray-l8)" }}
+              style={{ fontSize: "15px", color: "var(--pluto-gray-l10)" }}
             />
           )}
         </Fragment>

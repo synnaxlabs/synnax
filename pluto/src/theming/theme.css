@@ -19,11 +19,13 @@ button:is(:focus, :focus-within, :active, :hover) {
 
 :root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
-    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    --pluto-border-l5: var(--pluto-border-width) solid var(--pluto-gray-l5);
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
+    --pluto-btn-transition:
+        background 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
 
 .pluto-theme-synnax-light {

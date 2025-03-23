@@ -425,7 +425,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             />
           </Text.WithIcon>
         </Align.Space>
-        <Text.Text level="small" shade={6}>
+        <Text.Text level="small" shade={10}>
           {parseType(type)}
         </Text.Text>
       </Align.Space>

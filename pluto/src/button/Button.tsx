@@ -182,6 +182,7 @@ export const Button = Tooltip.wrap(
         el="button"
         className={CSS(
           CSS.B("btn"),
+          CSS.M("clickable"),
           CSS.size(size),
           CSS.sharp(sharp),
           CSS.shade(shade),

@@ -51,13 +51,13 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
     placeLayout({ ...OVERVIEW_LAYOUT, key: parent.id.key, name: parent.name });
   return (
     <Align.Space x align="center" size="small">
-      <Text.Text level="p" shade={7}>
+      <Text.Text level="p" shade={11}>
         Snapshotted to
       </Text.Text>
       <Button.Button
         iconSpacing="small"
         onClick={handleClick}
-        shade={7}
+        shade={11}
         startIcon={<Icon.Range />}
         style={{ padding: "1rem" }}
         variant="text"

@@ -26,9 +26,9 @@ export const SaveHelpText = ({
   const content = (
     <>
       <Align.Space x empty>
-        <Triggers.Text shade={7} level="small" trigger={trigger} />
+        <Triggers.Text shade={11} level="small" trigger={trigger} />
       </Align.Space>
-      <Text.Text shade={7} level="small">
+      <Text.Text shade={11} level="small">
         {action}
       </Text.Text>
     </>

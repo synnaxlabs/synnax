@@ -43,10 +43,10 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       {...props}
     >
       <Text.WithIcon
-        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l9)" }} />}
+        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
         level="p"
         weight={450}
-        shade={9}
+        shade={11}
         size="small"
       >
         {entry.name}
@@ -88,7 +88,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
 
   return (
     <Align.Space y>
-      <Text.Text level="h4" shade={9} weight={450}>
+      <Text.Text level="h4" shade={11} weight={450}>
         Child Ranges
       </Text.Text>
       <List.List data={childRanges}>
@@ -96,7 +96,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       </List.List>
       <Button.Button
         size="medium"
-        shade={8}
+        shade={10}
         weight={500}
         startIcon={<Icon.Add />}
         style={{ width: "fit-content" }}

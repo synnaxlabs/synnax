@@ -94,7 +94,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Align.Center>
           {zeroChannel ? (
             <Align.Space x size="small" align="center">
-              <Text.Text level="p" shade={6}>
+              <Text.Text level="p" shade={10}>
                 No channel configured for {name}.
               </Text.Text>
               <Text.Link level="p" onClick={handleDoubleClick}>
@@ -102,7 +102,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               </Text.Link>
             </Align.Space>
           ) : (
-            <Text.Text level="p" shade={6}>
+            <Text.Text level="p" shade={10}>
               No data received yet.
             </Text.Text>
           )}

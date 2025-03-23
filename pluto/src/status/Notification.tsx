@@ -55,7 +55,7 @@ export const Notification = ({
       <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
         <Align.Space x align="center" size="small">
           <Circle style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
-          <Text.Text level="small" shade={7}>
+          <Text.Text level="small" shade={11}>
             {`x${count}`}
           </Text.Text>
           <Text.DateTime

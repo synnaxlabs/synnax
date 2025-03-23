@@ -31,7 +31,7 @@
         -webkit-user-select: none;
         user-select: none;
 
-        background: var(--pluto-gray-l5-30);
+        background: var(--pluto-gray-l7-30);
         @media (prefers-color-scheme: dark) {
             background: var(--pluto-gray-l1-60);
         }

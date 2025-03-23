@@ -27,7 +27,7 @@ to manually downsize a tad.
     font-family: "Geist Mono" !important;
 }
 .mtk1 {
-    color: var(--pluto-gray-l9) !important;
+    color: var(--pluto-gray-l11) !important;
 }
 .mtk5 {
     color: var(--editor-token-keyword) !important;
@@ -45,14 +45,14 @@ to manually downsize a tad.
     background: var(--pluto-gray-l1) !important;
 }
 .monaco-editor .line-numbers {
-    color: var(--pluto-gray-l7) !important;
+    color: var(--pluto-gray-l9) !important;
 }
 
 .console-editor {
     height: 100%;
     background: var(--pluto-gray-l1);
     padding: 2rem 0;
-    border-color: var(--pluto-gray-l4);
+    border-color: var(--pluto-gray-l6);
     &:has(.focused) {
         box-sizing: border-box !important;
         border-color: var(--pluto-primary-z);

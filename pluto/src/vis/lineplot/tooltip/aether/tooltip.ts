@@ -49,7 +49,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (this.state.backgroundColor.isZero)
       this.state.backgroundColor = theme.colors.gray.l1;
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
-    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l5;
+    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 

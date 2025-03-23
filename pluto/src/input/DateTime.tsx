@@ -149,8 +149,8 @@ const DateTimeModal = ({
     </Align.Space>
     <Nav.Bar location="bottom" size="7rem">
       <Nav.Bar.Start size="small">
-        <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-        <Text.Text shade={7} level="small">
+        <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
+        <Text.Text shade={11} level="small">
           To Finish
         </Text.Text>
       </Nav.Bar.Start>
@@ -250,13 +250,13 @@ const AISelector = ({
         emptyContent={
           <Align.Center empty grow>
             <Align.Space y size="tiny">
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "April 1 at 2PM"
               </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "Add 2 two hours"
               </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "Next Friday"
               </Text.Text>
             </Align.Space>

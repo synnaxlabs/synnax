@@ -105,7 +105,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     {
       label: name,
       weight: 500,
-      shade: 8,
+      shade: 10,
       level: "h5",
       icon: <Icon.Schematic />,
     },
@@ -114,7 +114,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     breadCrumbSegments.push({
       label: selectedNames[0],
       weight: 400,
-      shade: 7,
+      shade: 8,
       level: "p",
     });
   if (state == null) return null;

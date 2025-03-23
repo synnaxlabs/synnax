@@ -100,7 +100,7 @@ export const ListAndDetails = <C extends Channel>({
       <Divider.Divider y />
       <Align.Space y grow empty className={CSS.B("details")}>
         <Header.Header level="p">
-          <Header.Title weight={500} wrap={false} shade={8}>
+          <Header.Title weight={500} wrap={false} shade={10}>
             Details
           </Header.Title>
           <Header.Actions>
@@ -110,8 +110,9 @@ export const ListAndDetails = <C extends Channel>({
               tooltipLocation="left"
               variant="text"
               onClick={handleCopyChannelDetails}
+              shade={2}
             >
-              <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+              <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
             </Button.Icon>
           </Header.Actions>
         </Header.Header>

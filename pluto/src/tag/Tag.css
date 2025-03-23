@@ -12,11 +12,11 @@
 .pluto-tag {
     padding: 0rem 1.5rem 0rem 1rem;
     border-radius: var(--pluto-border-radius);
-    border: var(--pluto-border-l4);
+    border: var(--pluto-border-l5);
     border-width: 0.5px;
     width: fit-content;
     height: 4rem;
-    background: var(--pluto-gray-l1);
+    background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -39,7 +39,7 @@
             opacity 0.1s ease-in;
 
         & svg {
-            color: var(--pluto-gray-l6);
+            color: var(--pluto-gray-l8);
             height: 50%;
             width: 50%;
         }

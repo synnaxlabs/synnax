@@ -29,7 +29,7 @@ const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
     variant="text"
     {...rest}
   >
-    <Icon style={{ color: "var(--pluto-gray-l7)" }} />
+    <Icon style={{ color: "var(--pluto-gray-l9)" }} />
   </Button.Icon>
 );
 

@@ -173,7 +173,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
       data={results}
       emptyContent={
         <Align.Center style={{ height: "100%" }}>
-          <Text.Text level="p" shade={7} weight={400}>
+          <Text.Text level="p" shade={11} weight={400}>
             {value.length === 0 ? "Type to search..." : "No Results"}
           </Text.Text>
         </Align.Center>
@@ -188,7 +188,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
         }}
       >
         <List.Hover>
-          <Align.Pack className="search-results__content" direction="y" borderShade={4}>
+          <Align.Pack className="search-results__content" direction="y" borderShade={5}>
             <Input.Text
               className="search-results__input"
               ref={inputRef}

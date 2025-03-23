@@ -48,7 +48,7 @@ export const ConnectionStatusBadge = ({
         {caseconv.capitalize(status)}
       </Status.Text>
       {message && (
-        <Text.Text level="p" color="var(--pluto-gray-l7)" weight={450}>
+        <Text.Text level="p" color="var(--pluto-gray-l9)" weight={450}>
           {message}
         </Text.Text>
       )}
@@ -60,7 +60,7 @@ export const ConnectionStatusBadge = ({
       style={{
         backgroundColor:
           status === "failed" ? "var(--pluto-error-z-20)" : "var(--pluto-gray-l0)",
-        border: "var(--pluto-border-l4)",
+        border: "var(--pluto-border-l5)",
       }}
     />
   </Tooltip.Dialog>

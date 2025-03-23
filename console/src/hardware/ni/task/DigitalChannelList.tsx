@@ -63,7 +63,7 @@ const ListItem = <C extends DigitalChannel>({
       <Text.Text
         level="small"
         className={CSS.BE("port-line-input", "label")}
-        shade={7}
+        shade={11}
         weight={450}
       >
         Port/Line

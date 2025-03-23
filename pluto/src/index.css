@@ -48,6 +48,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-l4);
+    background: var(--pluto-gray-l6);
     border-radius: var(--pluto-border-radius);
 }

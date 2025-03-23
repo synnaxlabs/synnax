@@ -18,7 +18,7 @@
     .pluto-mosaic__mask {
         position: absolute;
         pointer-events: none;
-        background: var(--pluto-gray-l5-30);
+        background: var(--pluto-gray-l7-30);
         z-index: 7;
         transition: 0.1s ease-in-out;
     }
@@ -33,7 +33,7 @@
     }
 
     &.pluto--drag-over > * {
-        background: var(--pluto-gray-l5-30);
+        background: var(--pluto-gray-l7-30);
     }
 
     .pluto-tabs-selector__tabs {

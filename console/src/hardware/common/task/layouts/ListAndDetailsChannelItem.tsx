@@ -29,7 +29,7 @@ export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K
 
 const NAME_PROPS: Text.TextProps = {
   level: "p",
-  shade: 7,
+  shade: 9,
   weight: 450,
   style: {
     maxWidth: 150,
@@ -61,7 +61,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
     <Align.Space x size="small" align="center">
       <Text.Text
         level="p"
-        shade={6}
+        shade={10}
         weight={500}
         style={{ width: `${portMaxChars * 1.25}rem` }}
       >
