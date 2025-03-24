@@ -55,11 +55,20 @@ const registerInputZ = typedInputZ.extend({
 
 export type RegisterInput = z.infer<typeof registerInputZ>;
 
-export const inputChannelZ = z.union([
-  coilInputZ,
-  discreteInputZ,
+export const variableDensityInputChannelZ = z.union([
   holdingRegisterInputZ,
   registerInputZ,
+]);
+
+export type VariableDensityInputChannel = z.infer<typeof variableDensityInputChannelZ>;
+
+export const fixedDensityInputChannelZ = z.union([coilInputZ, discreteInputZ]);
+
+export type FixedDensityInputChannel = z.infer<typeof fixedDensityInputChannelZ>;
+
+export const inputChannelZ = z.union([
+  fixedDensityInputChannelZ,
+  variableDensityInputChannelZ,
 ]);
 export type InputChannel = z.infer<typeof inputChannelZ>;
 export type InputChannelType = InputChannel["type"];
@@ -106,6 +115,31 @@ export const INPUT_CHANNEL_SCHEMAS: Record<
   [HOLDING_REGISTER_INPUT_TYPE]: holdingRegisterInputZ,
   [REGISTER_INPUT_TYPE]: registerInputZ,
 };
+
+export const VARIABLE_DENSITY_INPUT_CHANNEL_TYPES = new Set([
+  HOLDING_REGISTER_INPUT_TYPE,
+  REGISTER_INPUT_TYPE,
+]);
+
+export const FIXED_DENSITY_INPUT_CHANNEL_TYPES = new Set([
+  COIL_INPUT_TYPE,
+  DISCRETE_INPUT_TYPE,
+]);
+
+export const isVariableDensityInputChannelType = (
+  type: InputChannelType,
+): type is VariableDensityInputChannel["type"] =>
+  VARIABLE_DENSITY_INPUT_CHANNEL_TYPES.has(type);
+
+export const isVariableDensityInputChannel = (
+  channel: InputChannel,
+): channel is VariableDensityInputChannel =>
+  isVariableDensityInputChannelType(channel.type);
+
+export const isFixedDensityInputChannelType = (
+  type: InputChannelType,
+): type is FixedDensityInputChannel["type"] =>
+  FIXED_DENSITY_INPUT_CHANNEL_TYPES.has(type);
 
 export const readConfigZ = Common.Task.baseConfigZ
   .extend({

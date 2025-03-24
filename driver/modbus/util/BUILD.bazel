@@ -7,3 +7,13 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "util_test",
+    srcs = ["util_test.cpp"],
+    deps = [
+        "//driver/modbus/util",
+        "//x/cpp/xtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

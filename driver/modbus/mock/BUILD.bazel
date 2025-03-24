@@ -12,6 +12,7 @@ cc_binary(
     srcs = ["main.cpp"],
     deps = [
         "//driver/modbus/mock",
+        "//driver/modbus/util",
         "//vendor/libmodbus",
         "//x/cpp/xerrors",
         "@com_github_google_glog//:glog",

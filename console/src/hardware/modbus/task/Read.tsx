@@ -26,6 +26,7 @@ import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
+  isVariableDensityInputChannel,
   READ_TYPE,
   type ReadConfig,
   readConfigZ,
@@ -181,8 +182,18 @@ const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = 
   return <ChannelList isSnapshot={isSnapshot} />;
 };
 
-const readMapKey = (channel: InputChannel) =>
-  `${channel.type}-${channel.address.toString()}`.replace("_", "-");
+const readMapKey = (channel: InputChannel) => {
+  let s = `${channel.type}-${channel.address.toString()}`;
+  if (isVariableDensityInputChannel(channel)) s += `-${channel.dataType}`;
+  return s.replaceAll("_", "-");
+};
+
+const channelName = (device: Device.Device, channel: InputChannel) => {
+  let s = `${device.name}_${channel.type}_${channel.address}`;
+  if (isVariableDensityInputChannel(channel))
+    s += `_${new DataType(channel.dataType).toString(true)}`;
+  return s;
+};
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
@@ -197,8 +208,9 @@ const getInitialPayload: Common.Task.GetInitialPayload<
 });
 
 const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
-  console.log(dev.properties);
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
+    config.device,
+  );
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
     try {
@@ -219,11 +231,11 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
     dev.properties.read.index = index.key;
   }
 
-  // Create channels if they don't exist
   const toCreate: InputChannel[] = [];
   for (const c of config.channels) {
     const key = readMapKey(c);
     const existing = dev.properties.read.channels[key];
+    console.log(existing, key, dev.properties.read.channels);
     if (existing == null) toCreate.push(c);
     else
       try {
@@ -237,7 +249,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.name}_${c.type}_${c.address}`,
+        name: channelName(dev, c),
         dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
         index: dev.properties.read.index,
       })),
