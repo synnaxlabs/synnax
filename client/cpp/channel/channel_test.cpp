@@ -24,7 +24,7 @@ TEST(TestChannel, testCreate) {
     auto channel = ASSERT_NIL_P(client.channels.create(
         "test",
         telem::FLOAT64_T,
-        1 * telem::HZ));
+        1 * telem::HERTZ));
     ASSERT_EQ(channel.name, "test");
     ASSERT_FALSE(channel.key == 0);
 }
@@ -77,9 +77,9 @@ TEST(TestChannel, testCreateVirtual) {
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
-        {"test1", telem::FLOAT64_T, 2 * telem::HZ},
-        {"test2", telem::FLOAT64_T, 4 * telem::HZ},
-        {"test3", telem::FLOAT64_T, 8 * telem::HZ}
+        {"test1", telem::FLOAT64_T, 2 * telem::HERTZ},
+        {"test2", telem::FLOAT64_T, 4 * telem::HERTZ},
+        {"test3", telem::FLOAT64_T, 8 * telem::HERTZ}
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
@@ -143,9 +143,9 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
-        {"test1", telem::FLOAT64_T, 5 * telem::HZ},
-        {"test2", telem::FLOAT64_T, 10 * telem::HZ},
-        {"test3", telem::FLOAT64_T, 20 * telem::HZ}
+        {"test1", telem::FLOAT64_T, 5 * telem::HERTZ},
+        {"test2", telem::FLOAT64_T, 10 * telem::HERTZ},
+        {"test3", telem::FLOAT64_T, 20 * telem::HERTZ}
     };
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(

@@ -12,6 +12,7 @@ cc_library(
     deps = [
         "//driver/heartbeat",
         "//driver/labjack",
+        "//driver/modbus",
         "//driver/ni",
         "//driver/opc",
         "//driver/sequence",
