@@ -36,7 +36,7 @@
         background: var(--pluto-gray-l7-30);
     }
 
-    .pluto-tabs-selector__tabs {
+    .pluto-tabs-selector .pluto-tabs-selector__tabs {
         width: 0;
     }
 }

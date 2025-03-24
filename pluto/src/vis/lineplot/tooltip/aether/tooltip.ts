@@ -111,6 +111,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
 
+    const maxLabelLength = values.reduce(
+      (p, c) => Math.max(p, c.label?.length ?? 0),
+      0,
+    );
+
     draw.list({
       root,
       offset: { x: 12, y: 12 },
@@ -118,7 +123,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       padding: { x: 6, y: 6 },
       itemHeight: 14,
       spacing: 3,
-      width: 186,
+      width: maxLabelLength * 7 + 48,
       position: this.state.position,
       draw: (i, b) => {
         let label = "";

@@ -84,7 +84,7 @@ export const Dialog = ({
       style: { zIndex: 11, ...style, top: `${offset}%` },
       rounded: 1,
       bordered: true,
-      borderShade: 4,
+      borderShade: 5,
     };
 
   return (

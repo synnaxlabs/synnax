@@ -268,7 +268,7 @@
             --pluto-active-border-color: var(--pluto-error-m1);
         }
     }
-    &:not(.pluto--disabled) {
+    &:not(.pluto--disabled):not(:focus-within) {
         &:hover {
             --pluto-bg: var(--pluto-hover-bg);
             --pluto-border-color: var(--pluto-hover-border-color);

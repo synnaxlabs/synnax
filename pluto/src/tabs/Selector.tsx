@@ -130,11 +130,11 @@ interface CloseIconProps extends IconProps {
 }
 
 const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement => {
-  const closeIcon = <Icon.Close className={CSS.BEM(CLS, "icon", "close")} {...props} />;
+  const closeIcon = <Icon.Close {...props} />;
   if (unsavedChanges)
     return (
       <>
-        <Icon.Circle className={CSS.BEM(CLS, "icon", "unsaved")} />
+        <Icon.Circle />
         {closeIcon}
       </>
     );
@@ -205,8 +205,6 @@ const SelectorButton = ({
   );
 
   const isSelected = selected === tabKey;
-  const hasIcon = icon != null;
-
   const level = Text.ComponentSizeLevels[size];
 
   return (
@@ -216,14 +214,13 @@ const SelectorButton = ({
       className={CSS(
         CSS.BE(CLS, "btn"),
         Menu.CONTEXT_TARGET,
-        onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
         CSS.altColor(altColor),
-        closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
-        hasIcon && CSS.BEM(CLS, "btn", "has-icon"),
-        CSS.editable(onRename != null && editable),
-        dragOverPosition != null && CSS.BM("drag-over", dragOverPosition),
+        closable && onClose != null && CSS.M("closable"),
+        CSS.editable(editable && onRename != null),
+        dragOverPosition != null && CSS.M("drag-over"),
+        dragOverPosition != null && CSS.loc(dragOverPosition),
       )}
       draggable
       x
@@ -260,7 +257,7 @@ const SelectorButton = ({
         <Button.Icon
           aria-label="pluto-tabs__close"
           onClick={handleClose}
-          className={CSS.BEM(CLS, "btn", "close")}
+          className={CSS.E("close")}
         >
           <CloseIcon unsavedChanges={unsavedChanges} />
         </Button.Icon>
@@ -288,8 +285,6 @@ interface NameProps extends Text.CoreProps<Text.Level> {
   editable?: boolean;
 }
 
-const NAME_CLS = CSS.BE(CLS, "name");
-
 const Name = ({
   onRename,
   name,
@@ -299,19 +294,17 @@ const Name = ({
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text className={NAME_CLS} noWrap {...rest}>
+      <Text.Text noWrap {...rest}>
         {name}
       </Text.Text>
     );
   return (
-    <div className={NAME_CLS}>
-      <Text.Editable<Text.Level>
-        id={CSS.B(`tab-${tabKey}`)}
-        onChange={(newText: string) => onRename(tabKey, newText)}
-        value={name}
-        noWrap
-        {...rest}
-      />
-    </div>
+    <Text.Editable<Text.Level>
+      id={CSS.B(`tab-${tabKey}`)}
+      onChange={(newText: string) => onRename(tabKey, newText)}
+      value={name}
+      noWrap
+      {...rest}
+    />
   );
 };
