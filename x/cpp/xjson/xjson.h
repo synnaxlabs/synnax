@@ -67,8 +67,8 @@ class Parser {
         try {
             config = parser();
         } catch (const json::parse_error &e) {
-            noop = true;
             field_err("", e.what());
+            noop = true;
         }
     }
 public:
@@ -100,8 +100,11 @@ public:
 
 
     /// @brief default constructor constructs a parser that will fail fast.
-    Parser(): noop(true), errors(nullptr) {
+    Parser(): noop(true), errors(std::make_shared<std::vector<json> >()) {
     }
+
+    /// @brief constructs a valid, empty parser {
+    explicit Parser(const bool noop): noop(noop), errors(std::make_shared<std::vector<json> >()) {}
 
 
     /// @brief gets the field at the given path. If the field is not found,
@@ -287,7 +290,7 @@ public:
     /// @param path The JSON path to the field.
     /// @param message The error message to bind.
     void field_err(const std::string &path, const std::string &message) const {
-        if (this->noop) return;
+        if (this->noop || this->errors == nullptr) return;
         this->errors->push_back({
             {"path", path_prefix + path},
             {"message", message}
@@ -297,7 +300,7 @@ public:
     /// @returns true if the parser has accumulated no errors, false otherwise.
     [[nodiscard]] bool ok() const {
         if (this->noop) return false;
-        return this->errors->empty();
+        return this->errors == nullptr || this->errors->empty();
     }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
@@ -309,6 +312,11 @@ public:
 
     [[nodiscard]] xerrors::Error error() const {
         if (this->errors->empty()) return xerrors::Error{};
+        if (this->errors->size() == 1) {
+            const auto& err = this->errors->at(0);
+            if (err["path"].get<std::string>().empty())
+                return xerrors::Error{xerrors::VALIDATION, err["message"].get<std::string>()};
+        }
         return xerrors::Error{xerrors::VALIDATION, error_json().dump()};
     }
 
@@ -321,13 +329,11 @@ public:
     static Parser from_file_path(const std::string &path) {
         std::ifstream file(path);
         if (!file.is_open()) {
-            Parser p;
+            Parser p(false);
             p.field_err("", "failed to open file: " + path);
             return p;
         }
         return Parser(file);
     }
-
-
 };
 }

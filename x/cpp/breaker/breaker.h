@@ -64,7 +64,7 @@ class Breaker {
     /// @brief current retry interval.
     telem::TimeSpan interval;
     /// @brief the current number of retries.
-    uint32_t retries;
+    size_t retries;
     /// @brief a flag to indicate if the breaker is currently running.
     std::atomic<bool> is_running;
     /// @brief a condition variable used to notify the breaker to shut down immediately.
@@ -191,6 +191,12 @@ public:
         this->shutdown_cv.notify_all();
         return true;
     }
+
+    /// @brief returns the current retry cont of the breaker, which is the number of
+    /// times wait() has been called. Note that accessing this field is not thread-safe,
+    /// and should only be treated as a rough estimate of the number of retries.
+    [[nodiscard]]
+    size_t retry_count() const { return this->retries; }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has been
     /// called, but stop() has not been called yet.

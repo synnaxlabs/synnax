@@ -25,8 +25,7 @@ protected:
     }
 
     static void cleanup(const int argc, char **argv) {
-        for (int i = 0; i < argc; i++)
-            delete[] argv[i];
+        for (int i = 0; i < argc; i++) delete[] argv[i];
         delete[] argv;
     }
 
@@ -124,7 +123,68 @@ TEST_F(XArgsTest, TestError) {
 }
 
 TEST(XArgs, Regression) {
-    auto parser = xargs::Parser(std::vector<std::string>{"program", "--state-file", "/tmp/rack-config-test/state.json"});
+    auto parser = xargs::Parser(std::vector<std::string>{
+        "program", "--state-file", "/tmp/rack-config-test/state.json"
+    });
     const std::string value = parser.optional("--state-file", "");
     ASSERT_EQ(value, "/tmp/rack-config-test/state.json");
+}
+
+TEST_F(XArgsTest, TestEqualsFormatString) {
+    auto [argc, argv] = make_args({"program", "--name=test"});
+    parser = xargs::Parser(argc, argv);
+    const auto name = parser.required<std::string>("--name");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(name, "test");
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestEqualsFormatInteger) {
+    auto [argc, argv] = make_args({"program", "--count=42"});
+    parser = xargs::Parser(argc, argv);
+    const auto count = parser.required<int>("--count");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(count, 42);
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestEqualsFormatOptional) {
+    auto [argc, argv] = make_args({"program", "--value=123"});
+    parser = xargs::Parser(argc, argv);
+    const auto value = parser.optional<int>("--value", 100);
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(value, 123);
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestEqualsFormatInvalid) {
+    auto [argc, argv] = make_args({"program", "--count=not_a_number"});
+    parser = xargs::Parser(argc, argv);
+    const auto count = parser.required<int>("--count");
+    ASSERT_EQ(count, 0);
+    EXPECT_FALSE(parser.errors.empty());
+    ASSERT_EQ(parser.errors.at(0).message(), "[--count] Invalid value");
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestMixedFormatArguments) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--name=test",
+        "--count", "42",
+        "--verbose",
+        "--debug=true"
+    });
+    parser = xargs::Parser(argc, argv);
+    const auto name = parser.required<std::string>("--name");
+    const auto count = parser.required<int>("--count");
+    const auto verbose = parser.flag("--verbose");
+    const auto debug = parser.flag("--debug");
+
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(name, "test");
+    ASSERT_EQ(count, 42);
+    ASSERT_TRUE(verbose);
+    ASSERT_TRUE(debug);
+    cleanup(argc, argv);
 }

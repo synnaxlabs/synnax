@@ -1,6 +1,7 @@
 cc_library(
     name = "rack",
     srcs = [
+        "env.cpp",
         "factories.cpp",
         "file.cpp",
         "persist.cpp",
@@ -18,8 +19,10 @@ cc_library(
         "//driver/task",
         "//x/cpp/kv",
         "//x/cpp/xargs",
+        "//x/cpp/xenv",
         "//x/cpp/xlog",
         "//x/cpp/xos",
+        "//x/cpp/xpath",
     ],
 )
 

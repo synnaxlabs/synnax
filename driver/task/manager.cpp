@@ -62,9 +62,9 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
         if (task.snapshot) continue;
-        auto [driver_task, ok] = this->factory->configure_task(this->ctx, task);
-        if (ok && driver_task != nullptr)
-            this->tasks[task.key] = std::move(driver_task);
+        auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
+        if (handled && driver_task != nullptr)
+                this->tasks[task.key] = std::move(driver_task);
     }
     auto initial_tasks =
             this->factory->configure_initial_tasks(this->ctx, this->rack);
@@ -133,7 +133,8 @@ void task::Manager::process_task_set(const telem::Series &series) {
 
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
         if (sy_task.snapshot) {
-            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" << task_key << ")";
+            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" <<
+ task_key << ")";
             continue;
         }
         if (err) {
