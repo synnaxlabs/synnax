@@ -9,21 +9,22 @@
 
 #include "rack.h"
 
-bool rack::Rack::should_exit(const xerrors::Error &err) {
+bool rack::Rack::should_exit(const xerrors::Error &err,
+                             const std::function<void()> &on_shutdown) {
     this->run_err = err;
     if (!err) return false;
     const auto breaker_ok = err.matches(freighter::UNREACHABLE) && breaker.wait(err);
+    if (!breaker_ok && on_shutdown) on_shutdown();
     return !breaker_ok;
 }
 
-void rack::Rack::run(xargs::Parser &args) {
+void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdown) {
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {
-            if (this->should_exit(err)) return;
+            if (this->should_exit(err, on_shutdown)) return;
             continue;
         }
-        LOG(INFO) << cfg;
         if (!this->breaker.running()) return;
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
@@ -31,15 +32,15 @@ void rack::Rack::run(xargs::Parser &args) {
             cfg.new_factory()
         );
         err = this->task_manager->run();
-        if (err && this->should_exit(err)) return;
+        if (err && this->should_exit(err, on_shutdown)) return;
     }
     this->run_err = xerrors::NIL;
 }
 
-void rack::Rack::start(xargs::Parser &args) {
+void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
     this->breaker.start();
-    this->run_thread = std::thread([this, &args] {
-        this->run(args);
+    this->run_thread = std::thread([this, &args, callback = std::move(on_shutdown)] {
+        this->run(args, callback);
     });
 }
 

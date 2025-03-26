@@ -363,3 +363,61 @@ TEST(testConfig, testNoError) {
     const auto err = parser.error();
     ASSERT_FALSE(err);
 }
+
+TEST(testConfig, testParseFromFileSuccess) {
+    struct MyConfig {
+        std::string name;
+        float value;
+    };
+
+    // Create a temporary test file
+    std::string test_file = "test_config.json";
+    std::ofstream file(test_file);
+    file << R"({
+        "name": "test",
+        "value": 42.5
+    })";
+    file.close();
+
+    MyConfig v;
+    auto parser = xjson::Parser::from_file_path(test_file);
+    v.name = parser.required<std::string>("name");
+    v.value = parser.required<float>("value");
+    
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(v.name, "test");
+    ASSERT_EQ(v.value, 42.5);
+
+    // Clean up
+    std::remove(test_file.c_str());
+}
+
+TEST(testConfig, testParseFromFileFailure) {
+    auto parser = xjson::Parser::from_file_path("nonexistent_file.json");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "");
+    EXPECT_EQ(err["message"], "failed to open file: nonexistent_file.json");
+}
+
+TEST(testConfig, testParseFromFileInvalidJSON) {
+    // Create a temporary test file with invalid JSON
+    std::string test_file = "invalid_config.json";
+    std::ofstream file(test_file);
+    file << R"({
+        "name": "test",
+        invalid json here
+    })";
+    file.close();
+
+    auto parser = xjson::Parser::from_file_path(test_file);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "");
+    EXPECT_TRUE(err["message"].get<std::string>().find("parse error") != std::string::npos);
+
+    // Clean up
+    std::remove(test_file.c_str());
+}

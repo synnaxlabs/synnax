@@ -100,19 +100,7 @@ struct Config {
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "[driver] configuration:\n"
-                << "  " << xlog::SHALE() << "cluster address" << xlog::RESET() << ": "
-                <<
-                cfg.connection.host << ":" << cfg.connection
-                .port << "\n"
-                << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.
-                connection.username << "\n"
-                << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.connection.is_secure()) << "\n"
-                << "  " << xlog::SHALE() << "rack" << xlog::RESET() << ": " << cfg.rack.
-                name
-                << " (" << cfg.rack.key << ")\n"
-                << "  " << xlog::SHALE() << "cluster key" << xlog::RESET() << ": " <<
-                cfg.
-                remote_info.cluster_key << "\n"
+                << cfg.connection
                 << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() <<
                 ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -138,7 +126,17 @@ struct Config {
         };
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
         if (const auto err = cfg.load_config_file(parser)) return {cfg, err};
+        if (const auto err = cfg.load_env()) return {cfg, err};
+        if (breaker.retry_count() == 0)
+            LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
+        LOG(INFO) << xlog::BLUE() << "successfully reached cluster at " << cfg.
+                connection.address() << ". Continuing with driver startup." <<
+                xlog::RESET();
+        LOG(INFO) << "[driver] remote info" << "\n" <<
+                xlog::SHALE() << "  rack: " << xlog::RESET() << cfg.rack.name << " (" << cfg.remote_info.rack_key <<
+                ")\n" <<
+                xlog::SHALE() << "  cluster: " << xlog::RESET() << cfg.remote_info.cluster_key;
         const auto err = cfg.save_remote_info(parser, cfg.remote_info);
         return {cfg, err};
     }
@@ -163,6 +161,8 @@ struct Config {
 
     [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args);
 
+    [[nodiscard]] xerrors::Error load_env();
+
     [[nodiscard]] xerrors::Error load_remote(breaker::Breaker &breaker);
 };
 
@@ -186,14 +186,17 @@ class Rack {
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down.
-    bool should_exit(const xerrors::Error &err);
+    bool should_exit(const xerrors::Error &err,
+                     const std::function<void()> &on_shutdown);
 
     /// @brief starts the main loop for the rack.
-    void run(xargs::Parser &args);
+    void run(xargs::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
     /// @brief starts the rack.
-    void start(xargs::Parser &args);
+    /// @param args Parser containing command line arguments
+    /// @param on_shutdown Optional callback that will be called if the rack shuts down prematurely
+    void start(xargs::Parser &args, std::function<void()> on_shutdown = nullptr);
 
     /// @brief stops the rack.
     xerrors::Error stop();

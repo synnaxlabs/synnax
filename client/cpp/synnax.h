@@ -21,6 +21,7 @@
 
 /// module
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xlog/xlog.h"
 
 using namespace synnax;
 
@@ -77,10 +78,27 @@ struct Config {
         this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
+    friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
+        os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": " << cfg.address() << "\n"
+        << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.username << "\n"
+        << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.is_secure()) << "\n";
+        if (!cfg.is_secure()) return os;
+        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": " << cfg.ca_cert_file << "\n"
+        << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": " << cfg.client_cert_file << "\n"
+        << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": " << cfg.client_key_file << "\n";
+        return os;
+    }
+
     /// @brief returns true if the configuration uses TLS encryption to secure
     /// communications with the cluster.
     bool is_secure() const {
         return !this->ca_cert_file.empty();
+    }
+
+    /// @brief returns the address of the cluster in the form "host:port".
+    [[nodiscard]]
+    std::string address() const {
+        return this->host + ":" + std::to_string(this->port);
     }
 
     [[nodiscard]] json to_json() const {

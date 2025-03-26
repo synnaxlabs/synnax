@@ -23,7 +23,15 @@ class Parser {
     template<typename... Args>
     std::pair<std::string, bool> find_arg(const Args&... names) {
         for (size_t i = 0; i < argv_.size(); i++) {
-            if ((... || (argv_[i] == names)))
+            const std::string& arg = argv_[i];
+            // Check for --arg=value format
+            for (const auto& name : {names...}) {
+                if (arg.starts_with(std::string(name) + "=")) {
+                    return {arg.substr(arg.find('=') + 1), true};
+                }
+            }
+            // Check for --arg value format
+            if ((... || (arg == names)))
                 if (i + 1 < argv_.size())
                     return {argv_[i + 1], true};
         }
@@ -67,7 +75,8 @@ class Parser {
     template<typename... Args>
     bool has_arg(const Args&... names) {
         for (const auto& arg : argv_) {
-            if ((... || (arg == names)))
+            // Check for exact match or --arg=value format
+            if ((... || (arg == names || arg.starts_with(std::string(names) + "="))))
                 return true;
         }
         return false;

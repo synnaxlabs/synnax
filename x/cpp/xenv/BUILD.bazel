@@ -1,19 +1,21 @@
 cc_library(
-    name = "xargs",
+    name = "xenv",
     hdrs = [
-        "xargs.h",
+        "xenv.h",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//x/cpp/xerrors"],
+    deps = [
+        "@com_github_google_glog//:glog",
+    ],
 )
 
 cc_test(
-    name = "xargs_test",
+    name = "xenv_test",
     srcs = [
-        "xargs_test.cpp",
+        "xenv_test.cpp",
     ],
     deps = [
-        "//x/cpp/xargs",
+        "//x/cpp/xenv",
         "@com_google_googletest//:gtest_main",
     ],
 )
