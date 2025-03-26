@@ -163,6 +163,10 @@ jobs:
         run: poetry install
         working-directory: client/py
 
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: client/py
+
       - name: Format
         run: poetry run black --check --diff --color .
         working-directory: client/py

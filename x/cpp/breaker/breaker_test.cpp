@@ -109,3 +109,18 @@ TEST(BreakerTests, testStopAlreadyStopped) {
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.stop());
 }
+
+/// @brief it should increment the retry count when the breaker is triggered, starting
+/// at 0.
+TEST(BreakerTest, testRetryCount) {
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 5, 1});
+    EXPECT_TRUE(b.start());
+    EXPECT_EQ(b.retry_count(), 0);
+    EXPECT_TRUE(b.wait("first retry"));
+    EXPECT_EQ(b.retry_count(), 1);
+    EXPECT_TRUE(b.wait("second retry"));
+    EXPECT_EQ(b.retry_count(), 2);
+    b.reset();
+    EXPECT_EQ(b.retry_count(), 0);
+    EXPECT_TRUE(b.stop());
+}

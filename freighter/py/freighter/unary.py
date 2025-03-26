@@ -7,46 +7,47 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Protocol, Type
+from typing import Protocol
 
 from freighter.transport import RQ, RS, AsyncTransport, Transport
 
 
 class UnaryClient(Transport, Protocol):
-    """Protocol for an entity that implements a simple request-response transport
-    between two entities.
+    """
+    Protocol for an entity that implements a simple request-response transport between
+    two entities.
     """
 
     def send(
         self,
         target: str,
         req: RQ,
-        res_t: Type[RS],
+        res_t: type[RS],
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
-        Sends a request to the target server and waits until a response is
-        returned.
+        Sends a request to the target server and waits until a response is returned.
 
         :param target: the target address of the server
         :param req: the request to issue to the server
-        :param res_t: the response type expected from the server. Implementations can use
-        this to validate the response.
+        :param res_t: the response type expected from the server. Implementations can
+            use this to validate the response.
         :return: any errors encountered
         :raises Unreachable: when the provided target cannot be reached
         """
         ...
 
 
-def send_required(client: UnaryClient, target: str, req: RQ, res_t: Type[RS]) -> RS:
+def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) -> RS:
     """Utility wrapper that throws an exception if the request returns an error."""
-    res, exc = client.send(target, req, res_t)
-    if exc is not None:
-        raise exc
-    return res
+    res = client.send(target, req, res_t)
+    if res[1] is not None:
+        raise res[1]
+    return res[0]
 
 
 class AsyncUnaryClient(AsyncTransport, Protocol):
-    """Protocol for an entity that implements a simple asynchronous request-response
+    """
+    Protocol for an entity that implements a simple asynchronous request-response
     transport between two entities.
     """
 
@@ -54,16 +55,15 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
         self,
         target: str,
         req: RQ,
-        res_t: Type[RS],
+        res_t: type[RS],
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
-        Sends a request to the target server and waits until a response is
-        returned.
+        Sends a request to the target server and waits until a response is returned.
 
         :param target: the target address of the server
         :param req: the request to issue to the server
-        :param res_t: the response from the server. Implementations can use
-        this to validate the response.
+        :param res_t: the response from the server. Implementations can use this to
+            validate the response.
         :return: any errors encountered
         :raises Unreachable: when the provided target cannot be reached
         """

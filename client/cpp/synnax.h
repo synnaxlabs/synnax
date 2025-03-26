@@ -12,6 +12,9 @@
 /// std
 #include <memory>
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
@@ -21,6 +24,8 @@
 
 /// module
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xpath/xpath.h"
 
 using namespace synnax;
 
@@ -32,8 +37,7 @@ namespace priv {
 inline void check_little_endian() {
     int num = 1;
     if (*reinterpret_cast<char *>(&num) == 1) return;
-    std::cout
-            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+    LOG(WARNING)<< "Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
             << std::endl;
 }
 }
@@ -77,10 +81,28 @@ struct Config {
         this->max_retries = parser.optional("max_retries", this->max_retries);
     }
 
+    friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
+        os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": " << cfg.address() << "\n"
+        << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.username << "\n"
+        << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": " << xlog::sensitive_string(cfg.password) << "\n"
+        << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.is_secure()) << "\n";
+        if (!cfg.is_secure()) return os;
+        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.ca_cert_file) << "\n"
+        << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.client_cert_file) << "\n"
+        << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.client_key_file) << "\n";
+        return os;
+    }
+
     /// @brief returns true if the configuration uses TLS encryption to secure
     /// communications with the cluster.
     bool is_secure() const {
         return !this->ca_cert_file.empty();
+    }
+
+    /// @brief returns the address of the cluster in the form "host:port".
+    [[nodiscard]]
+    std::string address() const {
+        return this->host + ":" + std::to_string(this->port);
     }
 
     [[nodiscard]] json to_json() const {

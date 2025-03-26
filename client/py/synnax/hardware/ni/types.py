@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Dict, List, Literal, Optional, Union
+from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, confloat, conint, validator
+from pydantic import BaseModel, confloat, conint, field_validator, validator
 
 from synnax import ValidationError
 from synnax.hardware.task import (
@@ -51,36 +51,36 @@ UnitsInchLbs = Literal["InchPounds"]
 UnitsInOz = Literal["InchOunces"]
 UnitsFtLbs = Literal["FootPounds"]
 
-Units = Union[
-    UnitsVolts,
-    UnitsAmps,
-    UnitsDegF,
-    UnitsDegC,
-    UnitsDegR,
-    UnitsKelvins,
-    UnitsStrain,
-    UnitsOhms,
-    UnitsHz,
-    UnitsSeconds,
-    UnitsMeters,
-    UnitsInches,
-    UnitsDegAngle,
-    UnitsRadiansAngle,
-    UnitsGravity,
-    UnitsMetersPerSecondSquared,
-    UnitsNewtons,
-    UnitsPounds,
-    UnitsKgForce,
-    UnitsLbsPerSquareInch,
-    UnitsBar,
-    UnitsPascals,
-    UnitsVoltsPerVolt,
-    UnitsmVoltsPerVolt,
-    UnitsNewtonMeters,
-    UnitsInchLbs,
-    UnitsInOz,
-    UnitsFtLbs,
-]
+Units = (
+    UnitsVolts
+    | UnitsAmps
+    | UnitsDegF
+    | UnitsDegC
+    | UnitsDegR
+    | UnitsKelvins
+    | UnitsStrain
+    | UnitsOhms
+    | UnitsHz
+    | UnitsSeconds
+    | UnitsMeters
+    | UnitsInches
+    | UnitsDegAngle
+    | UnitsRadiansAngle
+    | UnitsGravity
+    | UnitsMetersPerSecondSquared
+    | UnitsNewtons
+    | UnitsPounds
+    | UnitsKgForce
+    | UnitsLbsPerSquareInch
+    | UnitsBar
+    | UnitsPascals
+    | UnitsVoltsPerVolt
+    | UnitsmVoltsPerVolt
+    | UnitsNewtonMeters
+    | UnitsInchLbs
+    | UnitsInOz
+    | UnitsFtLbs
+)
 
 
 class LinScale(BaseModel):
@@ -120,8 +120,8 @@ class TableScale(BaseModel):
     """
 
     type: Literal["table"] = "table"
-    pre_scaled_vals: List[float]
-    scaled_vals: List[float]
+    pre_scaled_vals: list[float]
+    scaled_vals: list[float]
     pre_scaled_units: Units
 
 
@@ -133,8 +133,8 @@ class PolynomialScale(BaseModel):
     """
 
     type: Literal["polynomial"] = "polynomial"
-    forward_coeffs: List[float]
-    reverse_coeffs: List[float]
+    forward_coeffs: list[float]
+    reverse_coeffs: list[float]
     pre_scaled_units: Units
     scaled_units: Units
 
@@ -147,7 +147,7 @@ class NoScale(BaseModel):
     type: Literal["none"] = "none"
 
 
-Scale = Union[LinScale, MapScale, TableScale, NoScale]
+Scale = LinScale | MapScale | TableScale | NoScale
 ScaleType = Literal["linear", "map", "table", "polynomial", "none"]
 TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 ExcitationSource = Literal["Internal", "External", "None"]
@@ -303,8 +303,8 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
     nominal_bridge_resistance: float
-    forward_coeffs: List[float]
-    reverse_coeffs: List[float]
+    forward_coeffs: list[float]
+    reverse_coeffs: list[float]
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
     physical_units: Literal["Newtons", "Pounds", "KilogramForce"]
     custom_scale: Scale = NoScale()
@@ -325,9 +325,9 @@ class AIForceBridgeTableChan(BaseAIChan, MinMaxVal):
     voltage_excit_val: float
     nominal_bridge_resistance: float
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
-    electrical_vals: List[float]
+    electrical_vals: list[float]
     physical_units: Literal["Newtons", "Pounds", "KilogramForce"]
-    physical_vals: List[float]
+    physical_vals: list[float]
     custom_scale: Scale = NoScale()
 
 
@@ -420,8 +420,8 @@ class AIPressureBridgePolynomialChan(BaseAIChan, MinMaxVal):
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
     nominal_bridge_resistance: float
-    forward_coeffs: List[float]
-    reverse_coeffs: List[float]
+    forward_coeffs: list[float]
+    reverse_coeffs: list[float]
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
     physical_units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
     custom_scale: Scale = NoScale()
@@ -442,9 +442,9 @@ class AIPressureBridgeTableChan(BaseAIChan, MinMaxVal):
     voltage_excit_val: float
     nominal_bridge_resistance: float
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
-    electrical_vals: List[float]
+    electrical_vals: list[float]
     physical_units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
-    physical_vals: List[float]
+    physical_vals: list[float]
     custom_scale: Scale = NoScale()
 
 
@@ -503,7 +503,7 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     rosette_type: Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
     gage_orientation: float
-    rosette_meas_types: List[
+    rosette_meas_types: list[
         Literal[
             "PrincipleStrain1",
             "PrincipleStrain2",
@@ -599,8 +599,8 @@ class AIThermocoupleChan(BaseAIChan, MinMaxVal):
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
     thermocouple_type: Literal["J", "K", "N", "R", "S", "T", "B", "E"]
     cjc_source: Literal["BuiltIn", "ConstVal", "Chan"]
-    cjc_val: Optional[float]
-    cjc_port: Optional[int]
+    cjc_val: float | None
+    cjc_port: int | None
 
 
 class AIThermistorChanIex(BaseAIChan, MinMaxVal):
@@ -654,8 +654,8 @@ class AITorqueBridgePolynomialChan(BaseAIChan, MinMaxVal):
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
     nominal_bridge_resistance: float
-    forward_coeffs: List[float]
-    reverse_coeffs: List[float]
+    forward_coeffs: list[float]
+    reverse_coeffs: list[float]
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
     physical_units: Literal["NewtonMeters", "InchOunces", "FootPounds"]
     custom_scale: Scale = NoScale()
@@ -676,9 +676,9 @@ class AITorqueBridgeTableChan(BaseAIChan, MinMaxVal):
     voltage_excit_val: float
     nominal_bridge_resistance: float
     electrical_units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
-    electrical_vals: List[float]
+    electrical_vals: list[float]
     physical_units: Literal["NewtonMeters", "InchOunces", "FootPounds"]
-    physical_vals: List[float]
+    physical_vals: list[float]
     custom_scale: Scale = NoScale()
 
 
@@ -770,26 +770,26 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
     custom_scale: Scale = NoScale()
 
 
-AIChan = Union[
-    AIVoltageChan,
-    AIThermocoupleChan,
-    AIRTDChan,
-    AIPressureBridgeTwoPointLinChan,
-    AIAccelChan,
-    AIBridgeChan,
-    AICurrentChan,
-    AIForceBridgeTableChan,
-    AIForceBridgeTwoPointLinChan,
-    AIForceIEPEChan,
-    AIMicrophoneChan,
-    AIPressureBridgeTableChan,
-    AIResistanceChan,
-    AIStrainGageChan,
-    AITempBuiltInChan,
-    AITorqueBridgeTableChan,
-    AITorqueBridgeTwoPointLinChan,
-    AIVelocityIEPEChan,
-]
+AIChan = (
+    AIVoltageChan
+    | AIThermocoupleChan
+    | AIRTDChan
+    | AIPressureBridgeTwoPointLinChan
+    | AIAccelChan
+    | AIBridgeChan
+    | AICurrentChan
+    | AIForceBridgeTableChan
+    | AIForceBridgeTwoPointLinChan
+    | AIForceIEPEChan
+    | AIMicrophoneChan
+    | AIPressureBridgeTableChan
+    | AIResistanceChan
+    | AIStrainGageChan
+    | AITempBuiltInChan
+    | AITorqueBridgeTableChan
+    | AITorqueBridgeTwoPointLinChan
+    | AIVelocityIEPEChan
+)
 
 
 class DOChan(BaseChan):
@@ -847,7 +847,7 @@ class AnalogReadTaskConfig(BaseModel):
 
 class DigitalWriteConfig(BaseModel):
     device: str
-    channels: List[DOChan]
+    channels: list[DOChan]
     state_rate: conint(ge=0, le=50000)
     data_saving: bool
 
@@ -857,7 +857,7 @@ class DigitalReadConfig(BaseModel):
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
     data_saving: bool
-    channels: List[DIChan]
+    channels: list[DIChan]
 
 
 class TaskStateDetails(BaseModel):
@@ -866,7 +866,7 @@ class TaskStateDetails(BaseModel):
 
 
 class AnalogReadStateDetails(TaskStateDetails):
-    errors: Optional[List[Dict[str, str]]]
+    errors: list[dict[str, str]] | None
 
 
 class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
@@ -897,7 +897,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
-        channels: List[DOChan] = None,
+        channels: list[DOChan] = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -944,7 +944,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
-        channels: List[DIChan] = None,
+        channels: list[DIChan] = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -992,7 +992,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
-        channels: List[AIChan] = None,
+        channels: list[AIChan] = None,
     ) -> None:
         if internal is not None:
             self._internal = internal

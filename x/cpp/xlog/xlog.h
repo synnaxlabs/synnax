@@ -24,4 +24,8 @@ inline std::string BLUE() { return get_color("\033[1;34m"); }
 inline std::string SHALE() { return get_color("\033[1;38;2;112;128;144m"); }
 
 inline std::string bool_to_str(const bool b) { return b ? "true" : "false"; }
+
+inline std::string sensitive_string(const std::string &s) {
+    return std::string(s.length(), '*');
+}
 }
