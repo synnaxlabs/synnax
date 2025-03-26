@@ -63,11 +63,8 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     for (const auto &task: tasks) {
         if (task.snapshot) continue;
         auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
-        if (handled) {
-            if (driver_task != nullptr)
+        if (handled && driver_task != nullptr)
                 this->tasks[task.key] = std::move(driver_task);
-            break;
-        }
     }
     auto initial_tasks =
             this->factory->configure_initial_tasks(this->ctx, this->rack);

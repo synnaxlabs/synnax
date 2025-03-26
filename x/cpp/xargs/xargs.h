@@ -26,7 +26,8 @@ class Parser {
             const std::string& arg = argv_[i];
             // Check for --arg=value format
             for (const auto& name : {names...}) {
-                if (arg.starts_with(std::string(name) + "=")) {
+                std::string prefix = std::string(name) + "=";
+                if (arg.compare(0, prefix.length(), prefix) == 0) {
                     return {arg.substr(arg.find('=') + 1), true};
                 }
             }
@@ -76,7 +77,9 @@ class Parser {
     bool has_arg(const Args&... names) {
         for (const auto& arg : argv_) {
             // Check for exact match or --arg=value format
-            if ((... || (arg == names || arg.starts_with(std::string(names) + "="))))
+            if ((... || (arg == names || 
+                (arg.compare(0, std::string(names).length() + 1, 
+                           std::string(names) + "=") == 0))))
                 return true;
         }
         return false;

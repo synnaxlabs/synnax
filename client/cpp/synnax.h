@@ -12,6 +12,9 @@
 /// std
 #include <memory>
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "client/cpp/transport.h"
 #include "client/cpp/channel/channel.h"
@@ -33,8 +36,7 @@ namespace priv {
 inline void check_little_endian() {
     int num = 1;
     if (*reinterpret_cast<char *>(&num) == 1) return;
-    std::cout
-            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+    LOG(WARNING)<< "Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
             << std::endl;
 }
 }
