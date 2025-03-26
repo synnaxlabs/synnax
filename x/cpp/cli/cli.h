@@ -68,8 +68,8 @@ inline bool confirm(const std::string& message, std::optional<bool> default_valu
     while (true) {
         std::string input = prompt(message + " (Y/N)", 
             default_value.has_value() ? std::optional<std::string>(default_value.value() ? "Y" : "N") : std::nullopt);
-        if (input.empty()) continue;
-        char response = std::toupper(input[0]);
+        if (input.empty() || input.size() > 1) continue;
+        const char response = std::toupper(input[0]);
         if (response == 'Y') return true;
         if (response == 'N') return false;
         std::cout << "Please enter Y or N" << std::endl;

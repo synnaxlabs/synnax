@@ -21,17 +21,14 @@
 namespace xargs {
 class Parser {
     template<typename... Args>
-    std::pair<std::string, bool> find_arg(const Args&... names) {
+    std::pair<std::string, bool> find_arg(const Args &... names) {
         for (size_t i = 0; i < argv_.size(); i++) {
-            const std::string& arg = argv_[i];
-            // Check for --arg=value format
-            for (const auto& name : {names...}) {
+            const std::string &arg = argv_[i];
+            for (const auto &name: {names...}) {
                 std::string prefix = std::string(name) + "=";
-                if (arg.compare(0, prefix.length(), prefix) == 0) {
+                if (arg.compare(0, prefix.length(), prefix) == 0)
                     return {arg.substr(arg.find('=') + 1), true};
-                }
             }
-            // Check for --arg value format
             if ((... || (arg == names)))
                 if (i + 1 < argv_.size())
                     return {argv_[i + 1], true};
@@ -40,7 +37,8 @@ class Parser {
     }
 
     template<typename T>
-    T parse_value(const std::string& value, const std::string& name, const char* error_msg) {
+    T parse_value(const std::string &value, const std::string &name,
+                  const char *error_msg) {
         try {
             if constexpr (std::is_same_v<T, std::string>)
                 return value;
@@ -50,20 +48,20 @@ class Parser {
                 return static_cast<T>(std::stoll(value));
             else if constexpr (std::is_same_v<T, bool>)
                 return value == "true" || value == "1";
-            else if constexpr (std::is_same_v<T, const char*>)
+            else if constexpr (std::is_same_v<T, const char *>)
                 return value.c_str();
             else {
                 errors.push_back(xerrors::Error(name, "Unsupported type"));
                 return T();
             }
-        } catch (const std::exception&) {
+        } catch (const std::exception &) {
             errors.push_back(xerrors::Error(name, error_msg));
             return T();
         }
     }
 
     template<typename T>
-    T handle_required(const std::string& name, const char* error_msg) {
+    T handle_required(const std::string &name, const char *error_msg) {
         const auto [value, found] = find_arg(name);
         if (!found) {
             errors.push_back(xerrors::Error(name, "Required argument not found"));
@@ -74,12 +72,12 @@ class Parser {
 
     // Add a new helper method for flag checking
     template<typename... Args>
-    bool has_arg(const Args&... names) {
-        for (const auto& arg : argv_) {
+    bool has_arg(const Args &... names) {
+        for (const auto &arg: argv_) {
             // Check for exact match or --arg=value format
-            if ((... || (arg == names || 
-                (arg.compare(0, std::string(names).length() + 1, 
-                           std::string(names) + "=") == 0))))
+            if ((... || (arg == names ||
+                         arg.compare(0, std::string(names).length() + 1,
+                                     std::string(names) + "=") == 0)))
                 return true;
         }
         return false;
@@ -91,32 +89,34 @@ public:
 
     Parser() = default;
 
-    explicit Parser(const int argc, char* argv[]) : 
-        argv_(argv, argv + argc) {}
-    
-    explicit Parser(std::vector<std::string> argv) : 
-        argv_(std::move(argv)) {}
+    explicit Parser(const int argc, char *argv[]) :
+        argv_(argv, argv + argc) {
+    }
+
+    explicit Parser(std::vector<std::string> argv) :
+        argv_(std::move(argv)) {
+    }
 
     template<typename T>
-    T required(const std::string& name) {
+    T required(const std::string &name) {
         return handle_required<T>(name, "Invalid value");
     }
 
     template<typename T>
-    T optional(const std::string& name, const T& default_value) {
+    T optional(const std::string &name, const T &default_value) {
         const auto [value, found] = find_arg(name);
         if (!found) return default_value;
         return parse_value<T>(value, name, "Invalid value");
     }
 
-    std::string optional(const std::string& name, const char* default_value) {
+    std::string optional(const std::string &name, const char *default_value) {
         const auto [value, found] = find_arg(name);
         if (!found) return std::string(default_value);
         return value;
     }
 
     template<typename... Args>
-    [[nodiscard]] bool flag(const Args&... names) {
+    [[nodiscard]] bool flag(const Args &... names) {
         // Just check if the flag exists, don't look for a value after it
         return has_arg(names...);
     }
@@ -132,11 +132,11 @@ public:
             return "";
         }
         return argv_[index];
-    };
+    }
 };
 
 template<>
-inline std::string Parser::required<std::string>(const std::string& name) {
+inline std::string Parser::required<std::string>(const std::string &name) {
     const auto [value, found] = find_arg(name);
     if (!found) {
         errors.push_back(xerrors::Error(name, "Required argument not found"));
@@ -146,7 +146,7 @@ inline std::string Parser::required<std::string>(const std::string& name) {
 }
 
 template<>
-inline bool Parser::required<bool>(const std::string& name) {
+inline bool Parser::required<bool>(const std::string &name) {
     const auto [value, found] = find_arg(name);
     if (!found) {
         errors.push_back(xerrors::Error(name, "Required argument not found"));

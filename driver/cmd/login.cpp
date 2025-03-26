@@ -12,8 +12,6 @@
 
 int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;
-    bool valid_input = false;
-
     config.host = cli::prompt("Host", "localhost");
     config.port = cli::prompt<uint16_t>("Port", 9090);
     config.username = cli::prompt("Username");
