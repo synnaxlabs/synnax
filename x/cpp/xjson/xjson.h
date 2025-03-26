@@ -335,7 +335,5 @@ public:
         }
         return Parser(file);
     }
-
-
 };
 }

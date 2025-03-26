@@ -18,13 +18,13 @@ int cmd::sub::login(xargs::Parser &args) {
     config.port = cli::prompt<uint16_t>("Port", 9090);
     config.username = cli::prompt("Username");
     config.password = cli::prompt("Password", std::nullopt, true);
-    if (cli::confirm("secure")) {
+    if (cli::confirm("Secure")) {
         config.ca_cert_file = cli::prompt("Path to CA certificate file");
         config.client_cert_file = cli::prompt("Path to client certificate file");
         config.client_key_file = cli::prompt("Path to client key file");
     }
 
-    LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
+    LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << xlog::RED() << "failed to authenticate: " << err << xlog::RESET();

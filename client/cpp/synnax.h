@@ -83,6 +83,7 @@ struct Config {
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": " << cfg.address() << "\n"
         << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": " << cfg.username << "\n"
+        << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": " << xlog::sensitive_string(cfg.password) << "\n"
         << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.is_secure()) << "\n";
         if (!cfg.is_secure()) return os;
         os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": " << cfg.ca_cert_file << "\n"

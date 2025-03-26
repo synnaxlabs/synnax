@@ -22,6 +22,7 @@ cc_library(
         "//x/cpp/xenv",
         "//x/cpp/xlog",
         "//x/cpp/xos",
+        "//x/cpp/xpath",
     ],
 )
 
