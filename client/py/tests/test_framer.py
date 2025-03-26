@@ -643,12 +643,15 @@ class TestDeleter:
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
+        print(channel.key, "has been written to")
         client.delete(
             [channel.key],
             TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
         )
+        print(channel.key, "has been deleted")
 
         data = channel.read(TimeRange.MAX)
+        print(data.to_numpy().size)
         assert data.to_numpy().size == 26
         assert data.time_range == TimeRange(
             TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1

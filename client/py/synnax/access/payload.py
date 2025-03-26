@@ -21,6 +21,6 @@ ALLOW_ALL = ID(type="allow_all", key="")
 
 class Policy(Payload):
     key: UUID | None = None
-    subjects: list[ID] = None
-    objects: list[ID] = None
-    actions: list[str] = None
+    subjects: list[ID] = []
+    objects: list[ID] = []
+    actions: list[str] = []

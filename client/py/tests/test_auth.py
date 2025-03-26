@@ -59,7 +59,7 @@ class TestClusterAuth:
 @pytest.mark.auth
 class TestAuthRetry:
     @pytest.fixture(scope="function")
-    def auth_setup(self):
+    def auth_setup(self) -> MockUnaryClient[int, int]:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
         res = sy.auth.TokenResponse(
@@ -76,26 +76,18 @@ class TestAuthRetry:
         )
         mock_login_client = MockUnaryClient[
             sy.auth.InsecureCredentials, sy.auth.TokenResponse
-        ](
-            responses=[
-                res,
-                res,
-            ],
-            response_errors=[None, None],
-        )
+        ](responses=[res, res], response_errors=[None, None])
 
         # Create auth client
         auth = sy.auth.AuthenticationClient(mock_login_client, "synnax", "seldon")
 
         # Create base mock client
-        mock_client = MockUnaryClient[int, int](
-            responses=[1, 1],
-        )
+        mock_client = MockUnaryClient[int, int](responses=[1, 1])
         mock_client.use(auth.middleware())
 
         return mock_client
 
-    def test_retry_on_invalid_token(self, auth_setup):
+    def test_retry_on_invalid_token(self, auth_setup: MockUnaryClient[int, int]):
         """Test that authentication retries when receiving an invalid token error."""
         mock_client = auth_setup
         mock_client.response_errors = [sy.InvalidToken("invalid token"), None]

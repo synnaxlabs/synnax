@@ -15,18 +15,14 @@ Homepage = "https://synnaxlabs.com"
 Repository = "https://github.com/synnaxlabs/synnax"
 
 
-[tool.poetry]
-packages = [{ include = "synnax" }]
-
-
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
 click = "^8.1.8"
 keyring = "^25.6.0"
 nptdms = "^1.10.0"
-numpy = "^2.2.3"
+numpy = "^2.2.4"
 pandas = "^2.2.3"
-pydantic = "^1.10.21"
+pydantic = "^2.10.6"
 rich = "^13.9.4"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.3.0"
@@ -39,7 +35,7 @@ matplotlib = "^3.10.1"
 mypy = "^1.15.0"
 poetry = "^2.1.1"
 pytest = "^8.3.5"
-pytest-asyncio = "^0.25.3"
+pytest-asyncio = "^0.26.0"
 scipy = "^1.15.2"
 vermin = "^1.6.0"
 
@@ -49,8 +45,17 @@ profile = "black"
 
 
 [tool.mypy]
-plugins = ["numpy.typing.mypy_plugin"]
+mypy_path = "stubs"
+# plugins = ["numpy.typing.mypy_plugin"]
+plugins = ["pydantic.mypy"]
+strict = true
 ignore_missing_imports = true
+
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_types = true
+warn_required_dynamic_aliases = true
 
 
 [tool.pytest.ini_options]
@@ -78,7 +83,7 @@ markers = [
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
     "writer: mark test as a writer test",
-    "focus: marker to temporarily focus a test"
+    "focus: marker to temporarily focus a test",
 ]
 
 

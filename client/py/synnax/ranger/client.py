@@ -91,7 +91,7 @@ class _InternalScopedChannel(ChannelPayload):
         payload: ChannelPayload,
         aliaser: Aliaser | None = None,
     ):
-        super().__init__(**payload.dict())
+        super().__init__(**payload.model_dump())
         self.__range = rng
         self.__frame_client = frame_client
         self.__aliaser = aliaser
@@ -317,16 +317,27 @@ class Range(RangePayload):
         self._tasks = _tasks
         self._ontology = _ontology
 
-    def __getattr__(self, query: str) -> ScopedChannel:
-        channels = self._channel_retriever.retrieve(query)
-        aliases = self._aliaser.resolve([query])
-        channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
-        if len(channels) == 0:
-            raise QueryError(f"Channel matching {query} not found")
+    def __getattr__(self, query: str | ChannelKey) -> ScopedChannel:
 
-        return ScopedChannel(query, self.__splice_cached(channels))
+        if isinstance(query, str):
+            try:
+                return super().__getattr__(query)
+            except AttributeError:
+                pass
+        channels = self._channel_retriever.retrieve(query)
+        if isinstance(query, str):
+            aliases = self._aliaser.resolve([query])
+            channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
+        if len(channels) == 0:
+            raise QueryError(f"Channel matching {query.__str__()} not found")
+        return ScopedChannel(query.__str__(), self.__splice_cached(channels))
 
     def __getitem__(self, name: str | ChannelKey) -> ScopedChannel:
+        if isinstance(name, ChannelKey):
+            channels = self._channel_retriever.retrieve(name)
+            if len(channels) == 0:
+                raise QueryError(f"Channel matching {name} not found")
+            return ScopedChannel(name.__str__(), self.__splice_cached(channels))
         return self.__getattr__(name)
 
     def __splice_cached(
@@ -423,8 +434,9 @@ class Range(RangePayload):
         self,
         to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
-    ):
-        self.__frame_client.write(self.time_range.start, to, series)
+    ) -> None:
+        start = self.time_range.start
+        self.__frame_client.write(start, to, series)
 
     def create_sub_range(
         self,
@@ -542,7 +554,7 @@ class RangeClient:
 
     def create(
         self,
-        ranges: Range | list[Range] = None,
+        ranges: Range | list[Range] | None = None,
         *,
         key: RangeKey = UUID(int=0),
         name: str = "",
@@ -626,7 +638,7 @@ class RangeClient:
     def __sugar(self, ranges: list[RangePayload]):
         return [
             Range(
-                **r.dict(),
+                **r.model_dump(),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=KV(r.key, self._unary_client),

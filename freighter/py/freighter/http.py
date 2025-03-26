@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Type
+from typing import Any
 
 import urllib3
 from urllib3 import PoolManager
@@ -25,8 +25,9 @@ from freighter.url import URL
 
 
 class HTTPClient(MiddlewareCollector):
-    """HTTPClientFactory provides a factory for creating POST and GET implementation of
-    the UnaryClient protocol.
+    """
+    HTTPClientFactory provides a factory for creating POST and GET implementation of the
+    UnaryClient protocol.
     """
 
     __ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
@@ -42,8 +43,8 @@ class HTTPClient(MiddlewareCollector):
         url: URL,
         codec: Codec,
         secure: bool = False,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         :param url: The base URL for the client.
         :param codec: The encoder/decoder to use for the client.
@@ -61,7 +62,7 @@ class HTTPClient(MiddlewareCollector):
         return self
 
     def send(
-        self, target: str, req: RQ, res_t: Type[RS]
+        self, target: str, req: RQ, res_t: type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """Implements the UnaryClient protocol."""
         return self.request(
@@ -84,15 +85,14 @@ class HTTPClient(MiddlewareCollector):
         method: str,
         url: str,
         role: Role,
-        request: RQ | None = None,
-        res_t: Type[RS] | None = None,
+        request: RQ,
+        res_t: type[RS],
     ) -> tuple[RS, None] | tuple[None, Exception]:
         in_ctx = Context(url, self.__endpoint.protocol, role)
 
-        res: RS | None = None
+        res_container: list[RS | None] = [None]
 
         def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
-            nonlocal res
             out_meta_data = Context(url, self.__endpoint.protocol, role)
             data = None
             if request is not None:
@@ -119,8 +119,13 @@ class HTTPClient(MiddlewareCollector):
             if http_res.data is None:
                 return out_meta_data, None
 
-            res = self.__codec.decode(http_res.data, res_t)
+            res_container[0] = self.__codec.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_ctx, finalizer)
-        return res, exc
+        return res_container[0], exc
+        if exc is not None:
+            return None, exc
+        res = res_container[0]
+        assert res is not None
+        return res, None
