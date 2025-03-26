@@ -46,8 +46,7 @@ profile = "black"
 
 [tool.mypy]
 mypy_path = "stubs"
-# plugins = ["numpy.typing.mypy_plugin"]
-plugins = ["pydantic.mypy"]
+plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
 ignore_missing_imports = true
 

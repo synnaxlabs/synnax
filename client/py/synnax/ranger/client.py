@@ -317,27 +317,27 @@ class Range(RangePayload):
         self._tasks = _tasks
         self._ontology = _ontology
 
-    def __getattr__(self, query: str | ChannelKey) -> ScopedChannel:
-
-        if isinstance(query, str):
-            try:
-                return super().__getattr__(query)
-            except AttributeError:
-                pass
-        channels = self._channel_retriever.retrieve(query)
-        if isinstance(query, str):
-            aliases = self._aliaser.resolve([query])
-            channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
+    def _get_scoped_channel(
+        self, channels: list[ChannelPayload], query: str
+    ) -> ScopedChannel:
         if len(channels) == 0:
-            raise QueryError(f"Channel matching {query.__str__()} not found")
-        return ScopedChannel(query.__str__(), self.__splice_cached(channels))
+            raise QueryError(f"Channel matching {query} not found")
+        return ScopedChannel(query, self.__splice_cached(channels))
+
+    def __getattr__(self, query: str) -> ScopedChannel:
+        try:
+            return super().__getattr__(query)
+        except AttributeError:
+            pass
+        channels = self._channel_retriever.retrieve(query)
+        aliases = self._aliaser.resolve([query])
+        channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
+        return self._get_scoped_channel(channels, query)
 
     def __getitem__(self, name: str | ChannelKey) -> ScopedChannel:
         if isinstance(name, ChannelKey):
             channels = self._channel_retriever.retrieve(name)
-            if len(channels) == 0:
-                raise QueryError(f"Channel matching {name} not found")
-            return ScopedChannel(name.__str__(), self.__splice_cached(channels))
+            return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
     def __splice_cached(
