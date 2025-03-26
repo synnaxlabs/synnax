@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, framer } from "@synnaxlabs/client";
+import { channel, framer } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -50,8 +50,6 @@ const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 const schema = createFormValidator(
   baseFormSchema
     .extend({
-      name: z.string().min(1, "Name must not be empty"),
-      dataType: DataType.z.transform((v) => v.toString()),
       expression: z
         .string()
         .min(1, "Expression must not be empty")
@@ -158,7 +156,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
       if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
       if (client == null) throw NULL_CLIENT_ERROR;
       const ch = await client.channels.retrieve(args.channelKey);
-      return { ...ch, dataType: ch.dataType.toString() };
+      return { ...ch.payload, dataType: ch.dataType.toString() };
     },
   });
 
