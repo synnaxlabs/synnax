@@ -9,7 +9,6 @@
 
 from typing import Callable, Literal
 
-
 Environment = Literal["bench", "debug", "prod"]
 
 

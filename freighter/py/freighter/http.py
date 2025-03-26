@@ -123,7 +123,6 @@ class HTTPClient(MiddlewareCollector):
             return out_meta_data, None
 
         _, exc = self.exec(in_ctx, finalizer)
-        return res_container[0], exc
         if exc is not None:
             return None, exc
         res = res_container[0]
