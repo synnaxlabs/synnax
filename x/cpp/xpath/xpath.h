@@ -15,8 +15,8 @@ inline std::string cwd() {
 }
 
 inline std::string resolve_relative(const std::string &path) {
-    std::filesystem::path base = std::filesystem::current_path();
-    std::filesystem::path relative(path);
+    const std::filesystem::path base = std::filesystem::current_path();
+    const std::filesystem::path relative(path);
     return (base / relative).lexically_normal().string();
 }
 }

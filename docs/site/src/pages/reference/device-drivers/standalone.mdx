@@ -141,6 +141,81 @@ Synnax Driver is running (PID: 28191)
 
 <Divider.Divider direction="x" />
 
+## Configuration Methods
+
+In addition to using the `synnax-driver login` command, the standalone driver also
+allows you to configure parameters for the driver via a configuration file and/or
+environment variables.
+
+### Precedence
+
+The precedence of the different configuration methods is as follows, with earlier
+methods taking precedence over later ones:
+
+1. Environment variables (Highest)
+2. Configuration file
+3. Parameters passed to the `synnax-driver login` command
+4. Internal defaults (Lowest)
+
+### Configuration File
+
+The standalone driver can optionally read connection parameters from a JSON configuration
+file with the following format:
+
+```json
+{
+  // Connection parameters
+  "connection": {
+    // The host of the Synnax cluster.
+    "host": "localhost",
+    // The port of the Synnax cluster.
+    "port": 9090,
+    // The username to use when logging in to the Synnax cluster.
+    "username": "synnax",
+    // The password to use when logging in to the Synnax cluster.
+    "password": "password",
+    // The path to the CA certificate file to use when connecting to the Synnax cluster.
+    // This is only required if the cluster is configured to use TLS.
+    "ca_cert_file": "/path/to/ca.crt",
+    // The path to the client certificate file to use when connecting to the Synnax cluster.
+    // This is only required when the cluster is configured to use TLS and client certificates
+    // for authentication.
+    "client_cert_file": "/path/to/client.crt",
+    // The path to the client key file to use when connecting to the Synnax cluster.
+    // This is only required when the cluster is configured to use TLS and client certificates
+    // for authentication.
+    "client_key_file": "/path/to/client.key"
+  }
+}
+```
+
+### Environment Variables
+
+The standalone driver also supports setting connection parameters via environment
+variables.
+
+```bash
+# The host of the Synnax cluster.
+export SYNNAX_DRIVER_HOST=localhost
+# The port of the Synnax cluster.
+export SYNNAX_DRIVER_PORT=9090
+# The username to use when logging in to the Synnax cluster.
+export SYNNAX_DRIVER_USERNAME=synnax
+# The password to use when logging in to the Synnax cluster.
+export SYNNAX_DRIVER_PASSWORD=password
+# The path to the CA certificate file to use when connecting to the Synnax cluster.
+# This is only required if the cluster is configured to use TLS.
+export SYNNAX_DRIVER_CA_CERT_FILE=/path/to/ca.crt
+# The path to the client certificate file to use when connecting to the Synnax cluster.
+# This is only required when the cluster is configured to use TLS and client certificates
+# for authentication.
+export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
+# The path to the client key file to use when connecting to the Synnax cluster.
+# This is only required when the cluster is configured to use TLS and client certificates
+# for authentication.
+export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
+```
+
 ## CLI Reference
 
 ### Start
