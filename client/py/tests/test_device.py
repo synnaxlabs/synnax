@@ -84,3 +84,10 @@ class TestDevice:
         assert device.key == d1.key
         assert device.name.startswith("My Device 1")
         assert device.model == d1.model
+
+    def test_delete(self, client: sy.Synnax, new_devices: BasicDevices):
+        d1, _ = new_devices
+        client.hardware.devices.create(d1)
+        client.hardware.devices.delete(keys=[d1.key])
+        with pytest.raises(sy.NotFoundError):
+            client.hardware.devices.retrieve(key=d1.key)

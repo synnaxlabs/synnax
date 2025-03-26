@@ -18,7 +18,8 @@ from alamos.trace import NOOP_TRACER, Tracer
 
 
 class Instrumentation:
-    """Instrumentation is alamos' core data type, and represents a collection of
+    """
+    Instrumentation is alamos's core data type, and represents a collection of
     instrumentation tools: a logger and a tracer.
 
     Instrumentation is specifically designed for dependency injection into different
@@ -30,16 +31,16 @@ class Instrumentation:
     value in function or constructor arguments. This allows you to inject preconfigured
     instrumentation when you want to, and simply default to noop when you don't.
 
-    Instrumentation is organized as a hierarchy, where the child method is used to create
-    instrumentation that extends the key of its parent. This allows for your logs and
-    traces to match the architecture of your application. For example, instrumentation
-    that tracks low-level db requests could be created with the key child("db") and
-    instrumentation that tracks api requests could be created with the key child("api").
-    See the child method for more details.
+    Instrumentation is organized as a hierarchy, where the child method is used to
+    create instrumentation that extends the key of its parent. This allows for your logs
+    and traces to match the architecture of your application. For example,
+    instrumentation that tracks low-level db requests could be created with the key
+    child("db") and instrumentation that tracks api requests could be created with the
+    key child("api"). See the child method for more details.
     """
 
     Meta: InstrumentationMeta
-    """Metadata bout the instrumentation."""
+    """Metadata about the instrumentation."""
     L: Logger
     """The logger for this instrumentation."""
     T: Tracer
@@ -63,12 +64,13 @@ class Instrumentation:
         self.T._meta = self.Meta
 
     def child(self, key: str) -> Instrumentation:
-        """Creates a child of this instrumentation with the given key.
+        """
+        Creates a child of this instrumentation with the given key.
 
-        :param key: The key to set on the child. If the parent's path is "parent" and the
-        provided key is "child", the child's path will be "parent.child". We recommend
-        keeping this key unique within the children of the parent, as name conflicts
-        may cause unexpected behavior.
+        :param key: The key to set on the child. If the parent's path is "parent" and
+            the provided key is "child", the child's path will be "parent.child". We
+            recommend keeping this key unique within the children of the parent, as name
+            conflicts may cause unexpected behavior.
         :returns: A new child Instrumentation.
         """
         meta = self.Meta.child_(key)
@@ -82,13 +84,16 @@ class Instrumentation:
 
 
 NOOP = Instrumentation("")
-"""Noop is instrumentation that does nothing. We highly recommend using this as a
-default value for instrumentation fields or function arguments."""
+"""
+Noop is instrumentation that does nothing. We highly recommend using this as a default
+value for instrumentation fields or function arguments.
+"""
 
 
 class Traceable(Protocol):
-    """A protocol for classes whose methods can be traced using the trace
-    decorator"""
+    """
+    A protocol for classes whose methods can be traced using the trace decorator.
+    """
 
     instrumentation: Instrumentation
 
@@ -101,16 +106,17 @@ T = TypeVar("T", bound=Traceable)
 def trace(
     env: Environment, key: str | None = None
 ) -> Callable[[Callable[Concatenate[T, P], R]], Callable[Concatenate[T, P], R]]:
-    """Trace the given method on the class. This method can only be used on a class that
+    """
+    Trace the given method on the class. This method can only be used on a class that
     implements the Traceable protocol.
 
     :param key: The key of the span.
     :param env: The environment to run this span under. If the Tracer's environment
-    filter rejects the env, a no-op span is returned.
+        filter reject the env, a no-op span is returned.
     """
 
     def decorator(f: Callable[Concatenate[T, P], R]) -> Callable[Concatenate[T, P], R]:
-        def wrapper(self: T, *args: P.args, **kwargs: P.kwargs):
+        def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> R:
             _key = f.__name__ if key is None else key
             with self.instrumentation.T.trace(_key, env):
                 return f(self, *args, **kwargs)

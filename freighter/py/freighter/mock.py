@@ -7,27 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, List, Type
-
 from freighter.context import Context
-from freighter.transport import RQ, RS, MiddlewareCollector, Payload
-from freighter.unary import UnaryClient
+from freighter.transport import RQ, RS, Middleware, MiddlewareCollector, Transport
 
 
-class MockUnaryClient(UnaryClient, Generic[RQ, RS]):
-    """MockUnaryClient implements a mock unary client with a pre-configured set of
+class MockUnaryClient[RQ, RS](Transport):
+    """
+    MockUnaryClient implements a mock unary client with a pre-configured set of
     responses.
     """
 
-    requests: List[RQ]
-    responses: List[RS]
-    response_errors: List[Exception]
+    requests: list[RQ]
+    responses: list[RS]
+    response_errors: list[Exception]
     _mw: MiddlewareCollector
 
     def __init__(
         self,
-        responses: List[RS] | None = None,
-        response_errors: List[Exception] | None = None,
+        responses: list[RS] | None = None,
+        response_errors: list[Exception] | None = None,
     ):
         """
         Initialize a new MockUnaryClient.
@@ -35,27 +33,23 @@ class MockUnaryClient(UnaryClient, Generic[RQ, RS]):
         :param responses: List of responses to return
         :param response_errors: List of errors to return
         """
-        self.requests: List[RQ] = []
+        self.requests: list[RQ] = []
         self.responses = responses or []
         self.response_errors = response_errors or []
         self._mw = MiddlewareCollector()
 
-    def use(self, *middleware) -> None:
+    def use(self, *middleware: Middleware) -> None:
         """Implements the Transport protocol."""
         self._mw.use(*middleware)
 
     def send(
-        self,
-        target: str,
-        req: RQ,
-        res_t: Type[RS],
+        self, target: str, req: RQ, res_t: type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Mock implementation of send that returns pre-configured responses or errors.
 
         :param target: the target address of the server
         :param req: the request to issue to the server
-        :param res_t: the response type expected from the server
         :return: a tuple of (response, error)
         :raises RuntimeError: when no more responses are available
         """

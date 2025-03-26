@@ -11,7 +11,7 @@ from alamos.log import NOOP_LOGGER
 
 
 class TestLog:
-    def test_noop(self):
+    def test_noop(self) -> None:
         """
         Should not raise an exception.
         """
