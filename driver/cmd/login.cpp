@@ -18,7 +18,7 @@ int cmd::sub::login(xargs::Parser &args) {
     config.port = cli::prompt<uint16_t>("Port", 9090);
     config.username = cli::prompt("Username");
     config.password = cli::prompt("Password", std::nullopt, true);
-    if (cli::confirm("Secure")) {
+    if (cli::confirm("Secure", false)) {
         config.ca_cert_file = cli::prompt("Path to CA certificate file");
         config.client_cert_file = cli::prompt("Path to client certificate file");
         config.client_key_file = cli::prompt("Path to client key file");

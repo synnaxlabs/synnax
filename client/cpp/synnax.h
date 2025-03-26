@@ -25,6 +25,7 @@
 /// module
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xpath/xpath.h"
 
 using namespace synnax;
 
@@ -86,9 +87,9 @@ struct Config {
         << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": " << xlog::sensitive_string(cfg.password) << "\n"
         << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": " << xlog::bool_to_str(cfg.is_secure()) << "\n";
         if (!cfg.is_secure()) return os;
-        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": " << cfg.ca_cert_file << "\n"
-        << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": " << cfg.client_cert_file << "\n"
-        << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": " << cfg.client_key_file << "\n";
+        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.ca_cert_file) << "\n"
+        << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.client_cert_file) << "\n"
+        << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": " << xpath::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }
 

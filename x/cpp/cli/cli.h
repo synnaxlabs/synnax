@@ -62,10 +62,12 @@ inline std::string prompt(
 
 /// @brief prompts the user to confirm an action with a yes/no question.
 /// @param message the confirmation message to display to the user.
+/// @param default_value optional default value to use if input is empty
 /// @return true if the user confirms (Y/y), false if denied (N/n).
-inline bool confirm(const std::string& message) {
+inline bool confirm(const std::string& message, std::optional<bool> default_value = std::nullopt) {
     while (true) {
-        std::string input = prompt(message + " (Y/N): ");
+        std::string input = prompt(message + " (Y/N)", 
+            default_value.has_value() ? std::optional<std::string>(default_value.value() ? "Y" : "N") : std::nullopt);
         if (input.empty()) continue;
         char response = std::toupper(input[0]);
         if (response == 'Y') return true;
