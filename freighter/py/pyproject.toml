@@ -16,7 +16,6 @@ msgpack = "^1.1.0"
 pydantic = "^2.10.6"
 urllib3 = "^2.3.0"
 websockets = "^13.1"
-bump-pydantic = "^0.8.0"
 
 
 [tool.poetry.group.dev.dependencies]
