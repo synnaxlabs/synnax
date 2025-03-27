@@ -412,5 +412,6 @@ public:
     virtual int32 SetReadRelativeTo(TaskHandle taskHandle, int32 data) = 0;
     virtual int32 SetReadOffset(TaskHandle taskHandle, int32 data) = 0;
     virtual int32 SetReadOverWrite(TaskHandle taskHandle, int32 data) = 0;
+    virtual int32 GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64* data) = 0;
 };
 }
