@@ -2374,6 +2374,7 @@ public:
     int32 SetReadRelativeTo(TaskHandle taskHandle, int32 data) override;
     int32 SetReadOffset(TaskHandle taskHandle, int32 data) override;
     int32 SetReadOverWrite(TaskHandle taskHandle, int32 data) override;
+    int32 GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) override;
 private:
     using AddCDAQSyncConnectionPtr = decltype(&DAQmxAddCDAQSyncConnection);
     using AddGlobalChansToTaskPtr = decltype(&DAQmxAddGlobalChansToTask);
@@ -2826,6 +2827,7 @@ private:
     using SetReadRelativeToPtr = decltype(&DAQmxSetReadRelativeTo);
     using SetReadOffsetPtr = decltype(&DAQmxSetReadOffset);
     using SetReadOverWritePtr = decltype(&DAQmxSetReadOverWrite);
+    using GetReadTotalSampPerChanAcquiredPtr = decltype(&DAQmxGetReadTotalSampPerChanAcquired);
 
     typedef struct FunctionPointers {
         AddCDAQSyncConnectionPtr AddCDAQSyncConnection;
@@ -3228,6 +3230,7 @@ private:
         SetReadRelativeToPtr SetReadRelativeTo;
         SetReadOffsetPtr SetReadOffset;
         SetReadOverWritePtr SetReadOverWrite;
+        GetReadTotalSampPerChanAcquiredPtr GetReadTotalSampPerChanAcquired;
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
