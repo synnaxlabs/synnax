@@ -15,12 +15,10 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
   const handleError = Status.useErrorHandler();
   return useCallback(
     (text: string, name: string) => {
-      navigator.clipboard
-        .writeText(text)
-        .then(() =>
-          addStatus({ variant: "success", message: `Copied ${name} to clipboard.` }),
-        )
-        .catch((e) => handleError(e, `Failed to copy ${name} to clipboard`));
+      handleError(async () => {
+        await navigator.clipboard.writeText(text);
+        addStatus({ variant: "success", message: `Copied ${name} to clipboard.` });
+      }, `Failed to copy ${name} to clipboard`);
     },
     [addStatus, handleError],
   );
