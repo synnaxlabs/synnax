@@ -15,8 +15,9 @@ import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";
 
 export interface PromptRenameLayoutArgs extends BaseArgs<string> {
-  result?: string;
   allowEmpty?: boolean;
+  initialValue?: string;
+  label?: string;
 }
 
 export const RENAME_LAYOUT_TYPE = "rename";
@@ -28,10 +29,12 @@ const SAVE_TRIGGER: PTrigger.Trigger = ["Enter"];
 export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
   "Name",
   RENAME_LAYOUT_TYPE,
-  ({ value: { result, allowEmpty = false }, onFinish }) => {
-    const [name, setName] = useState(result ?? "");
+  ({
+    value: { result, allowEmpty = false, label = "Name", initialValue },
+    onFinish,
+  }) => {
+    const [name, setName] = useState(result ?? initialValue ?? "");
     const [error, setError] = useState<string | undefined>(undefined);
-
     const footer = (
       <>
         <Triggers.SaveHelpText action="Save" trigger={SAVE_TRIGGER} />
@@ -41,7 +44,8 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             disabled={!allowEmpty && name.length === 0}
             onClick={() => {
               if (allowEmpty && name.length === 0) return onFinish(null);
-              if (!allowEmpty && name.length === 0) return setError("Name is required");
+              if (!allowEmpty && name.length === 0)
+                return setError(`${label} is required`);
               return onFinish(name);
             }}
             triggers={SAVE_TRIGGER}
@@ -55,7 +59,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
     return (
       <ModalContentLayout footer={footer}>
         <Input.Item
-          label="Name"
+          label={label}
           required={!allowEmpty}
           helpText={error}
           helpTextVariant={error != null ? "error" : "success"}
@@ -63,7 +67,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
         >
           <Input.Text
             autoFocus
-            placeholder="Name"
+            placeholder={label}
             level="h2"
             variant="natural"
             value={name}
