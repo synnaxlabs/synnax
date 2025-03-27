@@ -432,5 +432,6 @@ class SugaredAPI {
   xerrors::Error SetReadRelativeTo(TaskHandle taskHandle, int32 data);
   xerrors::Error SetReadOffset(TaskHandle taskHandle, int32 data);
   xerrors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
+    xerrors::Error GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64* data);
 };
 }

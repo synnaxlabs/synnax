@@ -26,6 +26,11 @@ struct Hardware {
     [[nodiscard]] virtual xerrors::Error stop() = 0;
 };
 
+struct ReadDigest {
+    size_t samps_per_chan_read;
+    size_t total_samps_per_chan_read;
+};
+
 /// @brief a thing shim on top of NI DAQMX that allows us to use different read
 /// interfaces for analog and digital tasks. It also allows us to mock the hardware
 /// during testing.
@@ -36,7 +41,7 @@ struct Reader : virtual Hardware {
     /// @param data the buffer to read data into.
     /// @return a pair containing the number of samples read and an error if one
     /// occurred.
-    [[nodiscard]] virtual std::pair<size_t, xerrors::Error> read(
+    [[nodiscard]] virtual std::pair<ReadDigest, xerrors::Error> read(
         size_t samples_per_channel,
         std::vector<T> &data
     ) = 0;
@@ -104,8 +109,8 @@ struct DigitalReader final : Base, Reader<uint8_t> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    std::pair<size_t, xerrors::Error> read(
-        const size_t samples_per_channel,
+    std::pair<ReadDigest, xerrors::Error> read(
+        size_t samples_per_channel,
         std::vector<unsigned char> &data
     ) override;
 };
@@ -116,7 +121,7 @@ struct AnalogReader final : Base, Reader<double> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    std::pair<size_t, xerrors::Error> read(
+    std::pair<ReadDigest, xerrors::Error> read(
         size_t samples_per_channel,
         std::vector<double> &data
     ) override;
@@ -157,6 +162,8 @@ public:
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
     /// @brief Number of times read() was called
     size_t read_call_count;
+    /// @brief Total number of samples acquired.
+    size_t total_samples_acquired;
     
     /// @brief Constructs a new mock reader
     /// @param start_errors Sequence of errors to return from start()
@@ -168,7 +175,7 @@ public:
         std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {{{0.5}, xerrors::NIL}}
     );
 
-    std::pair<size_t, xerrors::Error> read(
+    std::pair<ReadDigest, xerrors::Error> read(
         size_t samples_per_channel,
         std::vector<T>& data
     ) override;

@@ -13,7 +13,6 @@
 
 const std::string ENV_PREFIX = "SYNNAX_DRIVER_";
 
-
 xerrors::Error rack::Config::load_env() {
     this->connection.host = xenv::load(
         ENV_PREFIX + "HOST",

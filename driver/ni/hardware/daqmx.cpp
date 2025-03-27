@@ -74,7 +74,7 @@ DigitalReader::DigitalReader(
 ): Base(task_handle, dmx) {
 }
 
-std::pair<size_t, xerrors::Error> DigitalReader::read(
+std::pair<ReadDigest, xerrors::Error> DigitalReader::read(
     const size_t samples_per_channel,
     std::vector<unsigned char> &data
 ) {
@@ -90,7 +90,9 @@ std::pair<size_t, xerrors::Error> DigitalReader::read(
         nullptr,
         nullptr
     );
-    return {static_cast<size_t>(samples_read), err};
+    ReadDigest dig;
+    dig.samps_per_chan_read = samples_read;
+    return {dig, err};
 }
 
 AnalogReader::AnalogReader(
@@ -99,7 +101,7 @@ AnalogReader::AnalogReader(
 ): Base(task_handle, dmx) {
 }
 
-std::pair<size_t, xerrors::Error> AnalogReader::read(
+std::pair<ReadDigest, xerrors::Error> AnalogReader::read(
     const size_t samples_per_channel,
     std::vector<double> &data
 ) {
@@ -114,7 +116,13 @@ std::pair<size_t, xerrors::Error> AnalogReader::read(
         &samples_read,
         nullptr
     );
-    return {static_cast<size_t>(samples_read), err};
+    ReadDigest dig;
+    dig.samps_per_chan_read = samples_read;
+    uInt64 total_samples_read = 0;
+    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &total_samples_read))
+        return {dig, err};
+    dig.total_samps_per_chan_read = total_samples_read;
+    return {dig, err};
 }
 
 xerrors::Error AnalogReader::start() {

@@ -17,20 +17,17 @@
 /// module
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
-#include "x/cpp/loop/loop.h"
 
 /// internal
 #include "driver/ni/channel/channels.h"
-#include "driver/pipeline/acquisition.h"
 #include "driver/ni/hardware/hardware.h"
-#include "driver/task/task.h"
 #include "driver/task/common/read_task.h"
 #include "driver/ni/ni.h"
 #include "driver/task/common/sample_clock.h"
 
 namespace ni {
 /// @brief the configuration for a read task.
-struct ReadTaskConfig: common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device key that will be used for the channels in the task. Analog
     /// read tasks can specify multiple devices. In this case, the device key field
     /// is empty and automatically set to "cross-device".
@@ -45,7 +42,7 @@ struct ReadTaskConfig: common::BaseReadTaskConfig {
     /// @brief the indexes of the channels in the task.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
-    std::vector<std::unique_ptr<channel::Input>> channels;
+    std::vector<std::unique_ptr<channel::Input> > channels;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -72,7 +69,7 @@ struct ReadTaskConfig: common::BaseReadTaskConfig {
        timing_source(cfg.optional<std::string>("timing_source", "")),
        samples_per_chan(sample_rate / stream_rate),
        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
-       channels(cfg.map<std::unique_ptr<channel::Input>>(
+       channels(cfg.map<std::unique_ptr<channel::Input> >(
            "channels",
            [](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
        bool> {
@@ -137,7 +134,7 @@ struct ReadTaskConfig: common::BaseReadTaskConfig {
         return {ReadTaskConfig(client, parser, task.type), parser.error()};
     }
 
-    std::vector<synnax::Channel> sy_channels() const {
+    [[nodiscard]] std::vector<synnax::Channel> sy_channels() const {
         std::vector<synnax::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels) chs.push_back(ch->ch);
@@ -148,7 +145,7 @@ struct ReadTaskConfig: common::BaseReadTaskConfig {
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        TaskHandle handle
+        const TaskHandle handle
     ) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
@@ -177,7 +174,8 @@ struct ReadTaskConfig: common::BaseReadTaskConfig {
 
     [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
         if (this->software_timed)
-            return std::make_unique<common::SoftwareTimedSampleClock>(this->stream_rate);
+            return std::make_unique<
+                common::SoftwareTimedSampleClock>(this->stream_rate);
         return std::make_unique<common::HardwareTimedSampleClock>(this->sample_rate);
     }
 };
@@ -188,8 +186,10 @@ template<typename T>
 class ReadTaskSource final : public common::Source {
 public:
     /// @brief constructs a source bound to the provided parent read task.
-    explicit ReadTaskSource(ReadTaskConfig cfg,
-                            std::unique_ptr<hardware::Reader<T>> hw_reader):
+    explicit ReadTaskSource(
+        ReadTaskConfig cfg,
+        std::unique_ptr<hardware::Reader<T> > hw_reader
+    ):
         cfg(std::move(cfg)),
         buffer(this->cfg.samples_per_chan * this->cfg.channels.size()),
         hw_reader(std::move(hw_reader)),
@@ -204,7 +204,7 @@ private:
     /// pre-allocated and reused.
     std::vector<T> buffer;
     /// @brief interface used to read data from the hardware.
-    std::unique_ptr<hardware::Reader<T>> hw_reader;
+    std::unique_ptr<hardware::Reader<T> > hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
     std::unique_ptr<common::SampleClock> sample_clock;
@@ -212,7 +212,7 @@ private:
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
 
-    std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -231,10 +231,11 @@ private:
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         auto start = this->sample_clock->wait(breaker);
-        const auto [n, err] = this->hw_reader->read(
+        const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
             buffer
         );
+        const auto n = dig.samps_per_chan_read;
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         if (this->curr_read_err) return {Frame(), this->curr_read_err};

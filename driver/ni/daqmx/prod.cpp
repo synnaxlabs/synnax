@@ -1865,6 +1865,10 @@ ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
     function_pointers_.SetReadOverWrite = reinterpret_cast<SetReadOverWritePtr>(
         const_cast<void *>(lib->get_func_ptr(
             "DAQmxSetReadOverWrite")));
+    function_pointers_.GetReadTotalSampPerChanAcquired = reinterpret_cast<
+        GetReadTotalSampPerChanAcquiredPtr>(const_cast<void *>(lib->
+        get_func_ptr(
+            "DAQmxGetReadTotalSampPerChanAcquired")));
 }
 
 ProdAPI::~ProdAPI() {
@@ -5999,4 +6003,8 @@ int32 ProdAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
 int32 ProdAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
     return function_pointers_.SetReadOverWrite(taskHandle, data);
 };
+
+int32 ProdAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) {
+    return function_pointers_.GetReadTotalSampPerChanAcquired(taskHandle, data);
+}
 }

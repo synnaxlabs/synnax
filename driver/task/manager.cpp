@@ -143,8 +143,8 @@ void task::Manager::process_task_set(const telem::Series &series) {
         }
         LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key <<
                 ")";
-        auto [driver_task, ok] = this->factory->configure_task(this->ctx, sy_task);
-        if (ok && driver_task != nullptr)
+        auto [driver_task, handled] = this->factory->configure_task(this->ctx, sy_task);
+        if (handled && driver_task != nullptr)
             this->tasks[task_key] = std::move(driver_task);
         else
             LOG(ERROR) << "[driver] failed to configure task: " << sy_task.name;
