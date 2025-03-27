@@ -61,10 +61,7 @@
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "dragDropEnabled": false,
-        "dangerousOptions": {
-          "allowsInsecureHttpLoads": true
-        }
+        "dragDropEnabled": false
       }
     ],
     "security": { "csp": null }

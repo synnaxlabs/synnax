@@ -4,7 +4,7 @@
   "version": "0.39.4",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev --features dev",
+    "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tsc --noEmit && tauri build",
     "dev-vite": "vite --force",
