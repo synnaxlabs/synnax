@@ -87,7 +87,10 @@ public:
     /// to the parser.
     explicit Parser(const std::string &encoded) : errors(
         std::make_shared<std::vector<json> >()) {
-        parse_with_err_handling([&encoded] { return json::parse(encoded); });
+        parse_with_err_handling([&encoded] {
+            if (encoded.empty()) return json::object();
+            return json::parse(encoded);
+        });
     }
 
     /// @brief constructs a parser from an input stream (e.g., file stream).
