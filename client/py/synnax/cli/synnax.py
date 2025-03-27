@@ -15,7 +15,7 @@ from .ts_convert import tsconvert
 
 
 @click.group()
-def synnax(): ...
+def synnax() -> None: ...
 
 
 synnax.add_command(ingest)

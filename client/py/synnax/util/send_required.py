@@ -8,15 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import Type
-
 from freighter import URL, UnaryClient
 from freighter import send_required as fsend_required
 from freighter.exceptions import Unreachable
-from freighter.transport import RQ, RS, Transport
+from freighter.transport import RQ, RS
 
 
-def send_required(client: UnaryClient, target: str, req: RQ, res_t: Type[RS]) -> RS:
+def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) -> RS:
     """Sends a request to a target and returns the response. Raises an exception if the
     request returns an error.
     """

@@ -7,11 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Callable, Generic, TypeVar
+from typing import Callable
 
 from synnax.cli.console import Console, SugaredConsole
-
-T = TypeVar("T")
 
 
 class Context:
@@ -23,7 +21,7 @@ class Context:
         )
 
 
-class Flow(Generic[T]):
+class Flow[T]():
     steps: dict[str, Callable[[Context, T], str | None]]
     context: Context
 

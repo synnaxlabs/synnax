@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from asyncio import events, tasks
+from asyncio import AbstractEventLoop, events, tasks
 from threading import Thread
 
 
-def _cancel_all_tasks(loop):
+def _cancel_all_tasks(loop: AbstractEventLoop) -> None:
     to_cancel = tasks.all_tasks(loop)
     if not to_cancel:
         return
@@ -37,10 +37,10 @@ def _cancel_all_tasks(loop):
 class AsyncThread(Thread):
     loop: events.AbstractEventLoop
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    def run(self):
+    def run(self) -> None:
         self.loop = events.new_event_loop()
         try:
             events.set_event_loop(self.loop)
@@ -54,4 +54,4 @@ class AsyncThread(Thread):
                 events.set_event_loop(None)
                 self.loop.close()
 
-    async def run_async(self): ...
+    async def run_async(self) -> None: ...

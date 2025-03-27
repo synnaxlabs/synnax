@@ -1,5 +1,5 @@
 import functools
-from typing import Callable, Optional, Tuple, TypeVar, Any, cast
+from typing import Any, Callable, TypeVar, cast
 
 # Define a generic type variable for the function
 F = TypeVar("F", bound=Callable[..., Any])
@@ -15,7 +15,7 @@ class RequiresNamedParams(TypeError):
 
 
 def require_named_params(
-    func: Optional[F] = None, *, example_params: Optional[Tuple[str, str]] = None
+    func: F | None = None, *, example_params: tuple[str, str] | None = None
 ) -> Callable[[F], F]:
     """
     Decorator that catches TypeError exceptions related to positional arguments

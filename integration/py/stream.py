@@ -1,5 +1,5 @@
 import sys
-from typing import NamedTuple, List
+from typing import NamedTuple
 
 import synnax as sy
 from integration import FILE_NAME
@@ -11,7 +11,7 @@ class TestConfig(NamedTuple):
     start_time_stamp: sy.TimeStamp
     samples_expected: int
     expected_error: str
-    channels: List[str]
+    channels: list[str]
 
 
 client = sy.Synnax(
@@ -26,7 +26,7 @@ client = sy.Synnax(
 class Stream_Test:
     _tc: TestConfig
 
-    def __init__(self, argv: List[str]):
+    def __init__(self, argv: list[str]):
         argv_counter = 1
         identifier = argv[argv_counter]
         argv_counter += 1

@@ -66,16 +66,16 @@ class TestRackClient:
         client.hardware.devices.create(
             key=str(uuid4()), name="test", rack=rack.key, location="dev1"
         )
-        with pytest.raises(sy.ValidationError, match="devices are still attached"):
+        with pytest.raises(
+            sy.ValidationError,
+            match="cannot delete rack when devices are still attached",
+        ):
             client.hardware.racks.delete([rack.key])
 
     def test_delete_task_attached(self, client: sy.Synnax):
         """Should raise a validation error if tasks are attached to the rack"""
         rack = client.hardware.racks.create(name="test")
-        client.hardware.tasks.create(
-            name="test",
-            rack=rack.key,
-        )
+        client.hardware.tasks.create(name="test", rack=rack.key)
         with pytest.raises(sy.ValidationError, match="tasks are still attached"):
             client.hardware.racks.delete([rack.key])
 

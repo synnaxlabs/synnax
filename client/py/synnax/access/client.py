@@ -61,9 +61,9 @@ class PolicyClient:
     def create(
         self,
         *,
-        subjects: list[ID] = None,
-        objects: list[ID] = None,
-        actions: list[str] = None,
+        subjects: list[ID] = [],
+        objects: list[ID] = [],
+        actions: list[str] = [],
     ) -> Policy: ...
 
     @overload
@@ -82,9 +82,9 @@ class PolicyClient:
         self,
         policies: Policy | list[Policy] | None = None,
         *,
-        subjects: list[ID] = None,
-        objects: list[ID] = None,
-        actions: list[str] = None,
+        subjects: list[ID] = [],
+        objects: list[ID] = [],
+        actions: list[str] = [],
     ) -> Policy | list[Policy]:
         is_single = not isinstance(policies, list)
         if policies is None:
@@ -106,7 +106,7 @@ class PolicyClient:
             _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
         )
-        return [] if res is None else res.policies
+        return [] if res.policies is None else res.policies
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

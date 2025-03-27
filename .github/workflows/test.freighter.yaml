@@ -184,8 +184,16 @@ jobs:
         run: poetry install
         working-directory: freighter/py
 
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: freighter/py
+
       - name: Format
         run: poetry run black --check --diff --color .
+        working-directory: freighter/py
+
+      - name: Mypy
+        run: poetry run mypy .
         working-directory: freighter/py
 
       - name: Test

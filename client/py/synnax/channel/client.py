@@ -393,7 +393,10 @@ class ChannelClient:
         self._creator.rename(normalize(keys), normalize(names))
 
     def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
-        return [Channel(**c.dict(), _frame_client=self._frame_client) for c in channels]
+        return [
+            Channel(**c.model_dump(), _frame_client=self._frame_client)
+            for c in channels
+        ]
 
 
 def _multiple_results_error(

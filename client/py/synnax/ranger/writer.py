@@ -15,8 +15,8 @@ from synnax.ranger.payload import RangeKey, RangePayload
 
 
 class _CreateRequest(Payload):
-    parent: ID | None
-    ranges: list[RangePayload]
+    parent: ID | None = None
+    ranges: list[RangePayload] = []
 
 
 _CreateResponse = _CreateRequest
