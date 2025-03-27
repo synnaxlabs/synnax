@@ -182,6 +182,9 @@ public:
             auto remote_dev = iter->second;
             if (scanned_dev.rack != remote_dev.rack &&
                 this->update_threshold_exceeded(scanned_dev.key)) {
+                scanned_dev.properties = remote_dev.properties;
+                scanned_dev.name = remote_dev.name;
+                scanned_dev.identifier = remote_dev.identifier;
                 to_create.push_back(scanned_dev);
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
             }
