@@ -117,7 +117,8 @@ struct DigitalReader final : Base, Reader<uint8_t> {
 
 /// @brief a hardware interface for analog tasks.
 struct AnalogReader final : Base, Reader<double> {
-    size_t high_water = 0;
+    size_t total_samples_acquired_high_water = 0;
+    size_t requested_total_samples = 0;
 
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,

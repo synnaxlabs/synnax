@@ -211,6 +211,7 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
+    loop::Gauge g;
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -231,6 +232,9 @@ private:
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        g.stop();
+        g.start();
+        if (g.iterations() % 500 == 0) VLOG(1) << "[driver.ni] average loop time" << g.average();
         auto start = this->sample_clock->wait(breaker);
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,

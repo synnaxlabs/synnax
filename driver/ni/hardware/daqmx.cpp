@@ -121,12 +121,20 @@ std::pair<ReadDigest, xerrors::Error> AnalogReader::read(
     uInt64 next_high_water = 0;
     if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &next_high_water))
         return {dig, err};
-    dig.samps_per_chan_acquired = next_high_water - this->high_water;
-    this->high_water = next_high_water;
+    dig.samps_per_chan_acquired = next_high_water - this->total_samples_acquired_high_water;
+    if (dig.samps_per_chan_acquired < dig.samps_per_chan_read) dig.samps_per_chan_acquired = dig.samps_per_chan_read;
+    this->total_samples_acquired_high_water = next_high_water;
+    this->requested_total_samples += samples_read;
+    if (this->total_samples_acquired_high_water > this->requested_total_samples) {
+        auto skew = this->total_samples_acquired_high_water  -   this->requested_total_samples;
+        VLOG(1) << "[driver.ni] application is trailing data acquisition loop by " << skew << " samples";
+    }
     return {dig, err};
 }
 
 xerrors::Error AnalogReader::start() {
+    this->total_samples_acquired_high_water = 0;
+    this->requested_total_samples = 0;
     if (const auto err = this->dmx->SetReadOverWrite(this->task_handle, DAQmx_Val_OverwriteUnreadSamps)) return err;
     return Base::start();
 }
