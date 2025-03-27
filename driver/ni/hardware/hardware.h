@@ -28,7 +28,7 @@ struct Hardware {
 
 struct ReadDigest {
     size_t samps_per_chan_read;
-    size_t total_samps_per_chan_read;
+    size_t samps_per_chan_acquired;
 };
 
 /// @brief a thing shim on top of NI DAQMX that allows us to use different read
@@ -117,6 +117,8 @@ struct DigitalReader final : Base, Reader<uint8_t> {
 
 /// @brief a hardware interface for analog tasks.
 struct AnalogReader final : Base, Reader<double> {
+    size_t high_water = 0;
+
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle

@@ -118,16 +118,15 @@ std::pair<ReadDigest, xerrors::Error> AnalogReader::read(
     );
     ReadDigest dig;
     dig.samps_per_chan_read = samples_read;
-    uInt64 total_samples_read = 0;
-    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &total_samples_read))
+    uInt64 next_high_water = 0;
+    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &next_high_water))
         return {dig, err};
-    dig.total_samps_per_chan_read = total_samples_read;
+    dig.samps_per_chan_acquired = next_high_water - this->high_water;
+    this->high_water = next_high_water;
     return {dig, err};
 }
 
 xerrors::Error AnalogReader::start() {
-    if (const auto err = this->dmx->SetReadRelativeTo(this->task_handle, DAQmx_Val_MostRecentSamp)) return err;
-    if (const auto err  = this->dmx->SetReadOffset(this->task_handle, 0)) return err;
     if (const auto err = this->dmx->SetReadOverWrite(this->task_handle, DAQmx_Val_OverwriteUnreadSamps)) return err;
     return Base::start();
 }

@@ -52,7 +52,7 @@ std::pair<ReadDigest, xerrors::Error> Reader<T>::read(
     total_samples_acquired += response.first.size();
     ReadDigest dig;
     dig.samps_per_chan_read = samples_per_channel;
-    dig.total_samps_per_chan_read = total_samples_acquired;
+    dig.samps_per_chan_acquired = total_samples_acquired;
     return {dig, response.second};
 }
 

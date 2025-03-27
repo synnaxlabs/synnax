@@ -235,22 +235,23 @@ private:
             this->cfg.samples_per_chan,
             buffer
         );
-        const auto n = dig.samps_per_chan_read;
+        const auto n_read = dig.samps_per_chan_read;
+        const auto n_acquired = dig.samps_per_chan_acquired;
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         if (this->curr_read_err) return {Frame(), this->curr_read_err};
         // If we just recovered from an error, we need to reset the sample clock so
         // we can start timing samples again from a steady state.
         if (prev_read_err) this->sample_clock->reset();
-        auto end = this->sample_clock->end(n);
+        auto end = this->sample_clock->end(n_acquired);
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
-                telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n, n)
+                telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read, n_read)
             );
-        common::generate_index_data(f, this->cfg.indexes, start, end, n);
+        common::generate_index_data(f, this->cfg.indexes, start, end, n_read);
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 };
