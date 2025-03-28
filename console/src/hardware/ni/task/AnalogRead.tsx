@@ -148,11 +148,10 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  // TODO: check that multiple devices are not being configured at once.
   let rackKey: rack.Key | undefined;
   for (const devKey of devices) {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
-    if (!dev.configured) throw new Error(`${dev.name} is not configured`);
+    Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
     if (rackKey != null && dev.rack !== rackKey)
       throw new Error("All devices must be on the same rack");
