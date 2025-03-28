@@ -62,7 +62,7 @@ class HardwareTimedSampleClock final : public SampleClock {
     /// @brief the sample rate of the task.
     const telem::Rate sample_rate;
     /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water{};
+    telem::TimeStamp high_water = telem::TimeStamp(0);
 
 public:
     explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
@@ -80,10 +80,7 @@ public:
     }
 
     telem::TimeStamp end(const size_t n_read) override {
-        if (n_read == 0) return this->high_water;
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
-        this->high_water = end + this->sample_rate.period();
-        return end;
+        return this->
     }
 };
 
