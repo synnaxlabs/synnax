@@ -1,10 +1,8 @@
 [project]
 name = "synnax-freighter"
 version = "0.40.0"
-description = ""
-readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 dynamic = ["dependencies"]
 
 
@@ -15,7 +13,7 @@ packages = [{ include = "freighter" }]
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
 msgpack = "^1.1.0"
-pydantic = "^1.10.21"
+pydantic = "^2.10.6"
 urllib3 = "^2.3.0"
 websockets = "^13.1"
 
@@ -26,7 +24,7 @@ isort = "^6.0.1"
 mypy = "^1.15.0"
 poetry = "^2.1.1"
 pytest = "^8.3.5"
-pytest-asyncio = "^0.25.3"
+pytest-asyncio = "^0.26.0"
 vermin = "^1.6.0"
 
 
@@ -35,8 +33,15 @@ profile = "black"
 
 
 [tool.mypy]
-ignore_missing_imports = true
-strict_optional = false
+mypy_path = "stubs"
+plugins = ["pydantic.mypy"]
+strict = true
+
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_types = true
+warn_required_dynamic_aliases = true
 
 
 [tool.pytest.ini_options]

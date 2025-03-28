@@ -38,6 +38,7 @@ inline bool should_shutdown() {
     std::lock_guard lock(priv::shutdown_mutex);
     return priv::should_stop;
 }
+}
 
 /// @brief signals the shutdown condition to all listeners.
 inline void signal_shutdown() { {
@@ -46,8 +47,6 @@ inline void signal_shutdown() { {
     }
     priv::shutdown_cv.notify_all();
 }
-}
-
 
 /// @brief listens for shutdown signals from SIGINT, SIGTERM, and stdin.
 /// @param sig_enabled whether to listen for SIGINT and SIGTERM signals. Default is true.

@@ -11,28 +11,28 @@ from freighter import URL
 
 
 class TestURL:
-    def test_child(self):
+    def test_child(self) -> None:
         """
         Should generate a correct path.
         """
         url = URL("localhost", 8080, "/api", "http")
         assert url.child("echo").stringify() == "http://localhost:8080/api/echo/"
 
-    def test_child_with_trailing_slash(self):
+    def test_child_with_trailing_slash(self) -> None:
         """
         Should generate a correct path.
         """
         url = URL("localhost", 8080, "/api/", "http")
         assert url.child("echo/").stringify() == "http://localhost:8080/api/echo/"
 
-    def test_child_with_trailing_slash_and_path(self):
+    def test_child_with_trailing_slash_and_path(self) -> None:
         """
         Should generate a correct path.
         """
         url = URL("localhost", 8080, "/api/", "http")
         assert url.child("/echo/").stringify() == "http://localhost:8080/api/echo/"
 
-    def test_child_replace_protocol(self):
+    def test_child_replace_protocol(self) -> None:
         """
         Should generate a correct child endpoint.
         """

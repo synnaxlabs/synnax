@@ -9,23 +9,25 @@
 
 from typing import Callable, Literal
 
-ENVIRONMENTS = ["bench", "debug", "prod"]
-"""List of valid environments"""
-
 Environment = Literal["bench", "debug", "prod"]
-"""Environment defines the environment in which instrumentation is running. Traces can
-be constrained to run only in certain environments.
-"""
+
+
+ENVIRONMENTS: list[Environment] = ["bench", "debug", "prod"]
+"""List of valid environments."""
+
 
 EnvironmentFilter = Callable[[Environment], bool]
-"""EnvironmentFilter is a function takes a environment and returns true if the environment
-is valid for use i.e. 'should this trace be executed?'"""
+"""
+Function that returns True if a given environment is valid for use (i.e., should this
+trace be executed?).
+"""
 
 
 def env_threshold_filter(threshold: Environment) -> EnvironmentFilter:
-    """returns an environment filter that returns true if the environment is greater than
-    or equal to the threshold.
+    """
+    Returns an environment filter that evaluates True if the provided environment is
+    greater than or equal to the threshold.
 
-    :param threshold: The threshold environment to compare against
+    :param threshold: The minimum environment level to allow.
     """
     return lambda env: ENVIRONMENTS.index(env) >= ENVIRONMENTS.index(threshold)

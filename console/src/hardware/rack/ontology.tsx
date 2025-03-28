@@ -14,7 +14,9 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components";
+import { Group } from "@/group";
 import { Sequence } from "@/hardware/task/sequence";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
@@ -43,6 +45,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
+const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const copy = useCopyToClipboard();
+  return ({ selection: { resources } }) => {
+    copy(resources[0].id.key, `key to ${resources[0].name}`);
+  };
+};
+
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name }) => {
     const rack = await client.hardware.racks.retrieve(id.key);
@@ -57,6 +66,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
+  const group = Group.useCreateFromSelection();
+  const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
     Sequence.createLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
       .then((layout) => {
@@ -66,25 +77,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       .catch((e) => handleError(e, "Failed to create control sequence"));
   };
   const onSelect = {
+    group: () => group(props),
     rename: () => Tree.startRenaming(nodes[0].key),
-    delete: () => handleDelete(props),
     createSequence,
+    copy: () => copyKeyToClipboard(props),
+    delete: () => handleDelete(props),
   };
+  const isSingle = nodes.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Menu.RenameItem />
+      <Group.MenuItem selection={selection} showBottomDivider />
+      {isSingle && (
+        <>
+          <Menu.RenameItem />
+          <PMenu.Item
+            itemKey="createSequence"
+            startIcon={
+              <PIcon.Create>
+                <Icon.Control />
+              </PIcon.Create>
+            }
+          >
+            Create Control Sequence
+          </PMenu.Item>
+          <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+            Copy Key
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.DeleteItem />
       <PMenu.Divider />
-      <PMenu.Item
-        itemKey="createSequence"
-        startIcon={
-          <PIcon.Create>
-            <Icon.Control />
-          </PIcon.Create>
-        }
-      >
-        Create Control Sequence
-      </PMenu.Item>
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };

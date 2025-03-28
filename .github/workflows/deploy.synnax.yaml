@@ -175,7 +175,7 @@ jobs:
           fi
 
       - name: Create Driver Install Script
-        if: matrix.os == 'ubuntu-20.04'
+        if: matrix.os == 'ubuntu-20.04' && github.event_name == 'push'
         shell: bash
         run: |
           cat > install-driver-nilinuxrt.sh << 'EOF'

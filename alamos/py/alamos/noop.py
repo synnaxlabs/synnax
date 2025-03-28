@@ -11,7 +11,7 @@ from typing import Callable, Concatenate, ParamSpec, Protocol, TypeVar
 
 
 class Noop(Protocol):
-    """A protocol for a class that can be marked as noop based on a boolean"""
+    """A protocol for a class that can be marked as noop based on a boolean flag."""
 
     noop: bool
 
@@ -23,11 +23,12 @@ T = TypeVar("T", bound=Noop)
 def noop(
     f: Callable[Concatenate[T, P], None],
 ) -> Callable[Concatenate[T, P], None]:
-    """Decorator around a Noop class that will not call the decorated function if the
-    Noop.noop is True.
+    """
+    Decorator for methods on a Noop class. If the instance's `noop` flag is True, the
+    decorated function call is skipped and returns None. Otherwise, it executes normally.
     """
 
-    def wrapper(self: T, *args: P.args, **kwargs: P.kwargs) -> None:
+    def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> None:
         if self.noop:
             return
         return f(self, *args, **kwargs)

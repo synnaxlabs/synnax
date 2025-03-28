@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uptrace
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.trace import get_tracer_provider
+from uptrace import configure_opentelemetry
 
 from alamos import Instrumentation, Tracer
 
@@ -17,11 +17,13 @@ DEV_DSN = "http://synnax_dev@localhost:14317/2"
 
 
 def instrumentation() -> Instrumentation:
-    """:returns: development instrumentation that connects to a locally hosted uptrace
-    server (see alamos/dev/README.md). It's best to only call this function once within
-    a testing environment, such as using a session scoped fixture in conftest.py.
     """
-    uptrace.configure_opentelemetry(
+    :returns: development instrumentation that connects to a locally hosted uptrace
+        server (see `alamos/dev/README.md`). It's best to only call this function once
+        within a testing environment, such as using a session scoped fixture in
+        conftest.py.
+    """
+    configure_opentelemetry(
         dsn=DEV_DSN,
         service_name="synnax",
         deployment_environment="dev",

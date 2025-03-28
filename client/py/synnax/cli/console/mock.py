@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, TextIO, Type
+from typing import Generic, TextIO
 
 from pydantic import BaseModel
 
@@ -28,7 +28,7 @@ class Entry(BaseModel, Generic[R]):
     choices: list[R] | None = None
     default: R | None = None
     response: R | None = None
-    type_: Type[R] | None = None
+    type_: type[R] | None = None
     password: bool | None = None
 
 

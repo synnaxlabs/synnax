@@ -38,7 +38,7 @@ class TimeStamp(int):
     * int - Treats the int as a nanosecond duration since the Unix epoch in UTC.
     """
 
-    def __new__(cls, value: CrudeTimeStamp):
+    def __new__(cls, value: CrudeTimeStamp) -> TimeStamp:
         if isinstance(value, str):
             value = int(value)
         elif isinstance(value, TimeStamp):
@@ -68,10 +68,9 @@ class TimeStamp(int):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
-        """Implemented for pydantic validation"""
-        # if its a string, cast the string to a number
-        return cls(v)
+    def validate(cls, value, *args, **kwargs):
+        """Implemented for pydantic validation. Should not be used externally."""
+        return cls(value)
 
     @classmethod
     def now(cls) -> TimeStamp:
@@ -215,7 +214,7 @@ class TimeSpan(int):
         yield cls.validate
 
     @classmethod
-    def validate(cls, value):
+    def validate(cls, value, *args, **kwargs):
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(value)
 
@@ -546,7 +545,7 @@ class Rate(float):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, *args, **kwargs):
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
@@ -649,7 +648,7 @@ class TimeRange(BaseModel):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, *args, **kwargs):
         """Implemented for pydantic validation. Should not be used externally."""
         if isinstance(v, TimeRange):
             return cls(v.start, v.end)
@@ -772,7 +771,7 @@ class Density(int):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, *args, **kwargs):
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
@@ -981,7 +980,7 @@ class DataType(str):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, *args, **kwargs):
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
@@ -989,6 +988,11 @@ class DataType(str):
     def __modify_schema__(cls, field_schema):
         """Implemented for pydantic validation. Should not be used externally."""
         field_schema.update(type="string")
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, _schema_generator, _field_schema):
+        """Implemented for pydantic validation. Should not be used externally."""
+        return {"type": "string"}
 
     @property
     def np(self) -> np.dtype:

@@ -152,6 +152,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   let rackKey: rack.Key | undefined;
   for (const devKey of devices) {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
+    if (!dev.configured) throw new Error(`${dev.name} is not configured`);
     dev.properties = Device.enrich(dev.model, dev.properties);
     if (rackKey != null && dev.rack !== rackKey)
       throw new Error("All devices must be on the same rack");
