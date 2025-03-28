@@ -21,7 +21,7 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
     const auto start = clock.wait(b);
     EXPECT_GE(start, now + telem::MILLISECOND * 2);
     now = telem::TimeStamp::now();
-    const auto end = clock.end(0);
+    const auto end = clock.end();
     ASSERT_GE(end, now);
 }
 
@@ -32,55 +32,35 @@ TEST(TestSampleClock, testHardwareTimedSampleClock) {
     clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
-    ASSERT_GE(start, now);
-    const auto end = clock.end(5);
-    ASSERT_EQ(end, start + telem::SECOND * 4);
+    ASSERT_EQ(start, telem::TimeStamp(0));  // After reset, first wait returns 0
+    const auto end = clock.end();
+    ASSERT_GE(end, now);  // End should return current time
 }
 
-/// @brief it should correctly reset the hardware timed sample clock to the current
-/// time.
+/// @brief it should correctly reset the hardware timed sample clock
 TEST(TestSampleclock, testHardwareTimedSampleClockReset) {
     auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
     clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
-    const auto end = clock.end(5);
-    ASSERT_EQ(end, start + telem::SECOND * 4);
+    ASSERT_EQ(start, telem::TimeStamp(0));
+    const auto end = clock.end();
     const auto start_2 = clock.wait(b);
-    ASSERT_EQ(start_2,  start + telem::SECOND * 5);
+    ASSERT_EQ(start_2, end);  // Next wait should return previous end time
     clock.reset();
     const auto start_3 = clock.wait(b);
-    ASSERT_LT(start_3, start + telem::SECOND);
+    ASSERT_EQ(start_3, telem::TimeStamp(0));  // After reset, should return 0 again
 }
 
-/// @brief it should return the same high water-mark as the end time of n_read is 0.
-TEST(TestSampleClock, testHardwareTimedSampleClockNRead0) {
+/// @brief it should return the current high water-mark
+TEST(TestSampleClock, testHardwareTimedSampleClockHighWater) {
     auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
     clock.reset();
     breaker::Breaker b;
     const auto start = clock.wait(b);
-    // When n_read is 0, end() should return the same high water-mark
-    const auto end = clock.end(0);
-    ASSERT_EQ(end, start);
+    const auto end = clock.end();
+    ASSERT_GE(end, start);
     
-    // Verify that the high water-mark hasn't changed by calling wait() again
     const auto next_start = clock.wait(b);
-    ASSERT_EQ(next_start, start);
-    
-    // Now test with a non-zero n_read to confirm different behavior
-    const auto end_with_samples = clock.end(5);
-    ASSERT_EQ(end_with_samples, start + telem::SECOND * 4);
-    
-    // Verify that the high water-mark has been updated
-    const auto next_start_after_samples = clock.wait(b);
-    ASSERT_EQ(next_start_after_samples, start + telem::SECOND * 5);
-}
-
-/// @brief it should throw a runtime error if the hardware timed sample clock was not
-/// reset before a call to wait()
-TEST(TestSampleClock, testHardwareSampleClockNotResetBeforeWait) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
-    breaker::Breaker b;
-    // We deliberately don't call reset() before wait()
-    EXPECT_THROW(clock.wait(b), std::runtime_error);
+    ASSERT_EQ(next_start, end);  // Next wait should return previous end time
 }

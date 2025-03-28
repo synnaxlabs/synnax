@@ -722,16 +722,20 @@ public:
     /// @param start The starting timestamp
     /// @param end The ending timestamp
     /// @param count The number of points to generate
+    /// @param inclusive Whether to include the end timestamp as the last value
+    /// in the series.
     /// @return A Series containing evenly spaced timestamps
     static Series linspace(
         const TimeStamp &start,
         const TimeStamp &end,
-        const size_t count
+        const size_t count,
+        const bool inclusive = false
     ) {
         if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
-        const auto step = (end - start) / (static_cast<int64_t>(count) - 1);
+        const auto adjusted_count = inclusive ? count - 1 : count;
+        const auto step = (end - start) / adjusted_count;
         for (size_t i = 0; i < count; i++) s.write(start + step * i);
         s.size_ = count;
         return s;

@@ -240,15 +240,14 @@ private:
             this->cfg.samples_per_chan,
             buffer
         );
+        // Don't return read data on the first iteration to allow the sample clock
+        // to stabilize.
+        if (start == 0) return {Frame(0), xerrors::NIL};
         const auto n_read = dig.samps_per_chan_read;
-        const auto n_acquired = dig.samps_per_chan_acquired;
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         if (this->curr_read_err) return {Frame(), this->curr_read_err};
-        // If we just recovered from an error, we need to reset the sample clock so
-        // we can start timing samples again from a steady state.
-        if (prev_read_err) this->sample_clock->reset();
-        auto end = this->sample_clock->end(n_acquired);
+        auto end = this->sample_clock->end();
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         for (const auto &ch: this->cfg.channels)

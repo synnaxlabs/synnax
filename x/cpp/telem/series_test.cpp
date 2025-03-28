@@ -509,10 +509,10 @@ TEST(TestSeriesLinspace, BasicEvenSpacing) {
     ASSERT_EQ(s.size(), count);
     const auto values = s.values<uint64_t>();
     ASSERT_EQ(values[0], 100);
-    ASSERT_EQ(values[1], 200);
-    ASSERT_EQ(values[2], 300);
-    ASSERT_EQ(values[3], 400);
-    ASSERT_EQ(values[4], 500);
+    ASSERT_EQ(values[1], 180);
+    ASSERT_EQ(values[2], 260);
+    ASSERT_EQ(values[3], 340);
+    ASSERT_EQ(values[4], 420);
 }
 
 TEST(TestSeriesLinspace, SinglePoint) {
@@ -530,8 +530,8 @@ TEST(TestSeriesLinspace, LargeTimestamps) {
     const auto s = telem::Series::linspace(start, end, count);
     const auto values = s.values<uint64_t>();
     ASSERT_EQ(values[0], 1000000000000ULL);
-    ASSERT_EQ(values[1], 1000000000500ULL);
-    ASSERT_EQ(values[2], 1000000001000ULL);
+    ASSERT_EQ(values[1], 1000000000333ULL);
+    ASSERT_EQ(values[2], 1000000000666ULL);
 }
 
 TEST(TestSeriesLinspace, EqualStartEnd) {
