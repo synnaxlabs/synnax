@@ -82,6 +82,8 @@ class ReadTask final : public task::Task {
         /// @brief the parent read task.
         ReadTask &p;
 
+        loop::Gauge g = loop::Gauge("read", 500, 0.5);
+
     public:
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;
@@ -98,6 +100,8 @@ class ReadTask final : public task::Task {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+            g.stop();
+            g.start();
             auto [fr, err] = this->internal->read(breaker);
             if (!err)
                 this->p.state.clear_warning();
@@ -113,6 +117,7 @@ class ReadTask final : public task::Task {
 
     /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
     pipeline::Acquisition pipe;
+
 
 public:
     /// @brief base constructor that takes in a pipeline writer factory to allow the

@@ -14,6 +14,9 @@
 #include <cmath>
 #include <thread>
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/breaker/breaker.h"
@@ -124,8 +127,17 @@ class Gauge {
     telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
     telem::TimeSpan max_duration{0};
     std::chrono::time_point<std::chrono::high_resolution_clock> curr_start;
+    
+    // New parameters for logging
+    size_t log_every = 0;  // 0 means no logging
+    double anomaly_threshold = 0.0;  // percentage threshold for anomaly detection
+    std::string name = "gauge";
 
 public:
+    // Add constructor with logging parameters
+    explicit Gauge(std::string name = "gauge", size_t log_every = 0, double anomaly_threshold = 0.0)
+        : log_every(log_every), anomaly_threshold(anomaly_threshold), name(name) {}
+
     void start() {
         curr_start = std::chrono::high_resolution_clock::now();
     }
@@ -138,6 +150,25 @@ public:
         min_duration = std::min(min_duration, duration);
         max_duration = std::max(max_duration, duration);
         count++;
+
+        // Log average if log_every is set and we've hit the interval
+        if (log_every > 0 && count % log_every == 0) {
+            LOG(INFO) << "[" << name << "] average after " << count << " samples: "
+                     << average();
+        }
+
+        // Check for anomalies if threshold is set
+        if (anomaly_threshold > 0.0) {
+            const auto curr_avg = average();
+            const auto deviation = std::abs((duration.nanoseconds() - curr_avg.nanoseconds()) / 
+                                         static_cast<double>(curr_avg.nanoseconds()));
+            
+            if (deviation > anomaly_threshold) {
+                LOG(WARNING) << "[" << name << "] Anomaly detected: Sample duration " << duration
+                           << "ns deviates " << (deviation * 100) << "% from average "
+                           << curr_avg;
+            }
+        }
     }
 
     [[nodiscard]] telem::TimeSpan average() const {

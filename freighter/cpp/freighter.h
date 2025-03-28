@@ -281,7 +281,7 @@ public:
     /// @brief Sends a request to the stream. It is not safe to call send concurrently
     /// with itself or close_send.
     /// @param request - the request to send.
-    virtual xerrors::Error send(RQ &request) const = 0;
+    virtual xerrors::Error send(RQ &request) = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no
     /// more requests will be sent, and (if desired) allowing the server to close the

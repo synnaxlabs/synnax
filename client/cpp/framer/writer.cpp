@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include "glog/logging.h"
 
 #include "client/cpp/framer/framer.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -55,9 +56,11 @@ bool Writer::write(const Frame &fr) {
     this->assert_open();
     if (this->err_accumulated) return false;
     api::v1::FrameWriterRequest req;
+    this->g.start();
     req.set_command(WRITE);
     fr.to_proto(req.mutable_frame());
     if (const auto err = this->stream->send(req)) this->err_accumulated = true;
+    this->g.stop();
     return !this->err_accumulated;
 }
 

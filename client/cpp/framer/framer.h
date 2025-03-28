@@ -24,6 +24,7 @@
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "x/cpp/loop/loop.h"
 
 using namespace synnax;
 
@@ -417,6 +418,7 @@ private:
     bool closed = false;
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
+    loop::Gauge g = loop::Gauge("writer", 500, 0.5);
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
