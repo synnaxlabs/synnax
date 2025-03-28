@@ -231,7 +231,14 @@ public:
         }
         auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
-        common::generate_index_data(fr, this->cfg.index_keys, start, end, this->cfg.array_size);
+        common::generate_index_data(
+            fr,
+            this->cfg.index_keys,
+            start,
+            end,
+            this->cfg.array_size,
+            true
+        );
         return {std::move(fr), xerrors::NIL};
     }
 };

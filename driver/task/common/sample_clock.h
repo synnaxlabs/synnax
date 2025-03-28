@@ -31,7 +31,7 @@ struct SampleClock {
 
     /// @brief ends the acquisition loop, interpolating an ending timestamp based
     /// on the number of samples read.
-    virtual telem::TimeStamp end(size_t n_read) = 0;
+    virtual telem::TimeStamp end() = 0;
 };
 
 /// @brief a sample clock that regulates the acquisition rate at the application
@@ -50,7 +50,7 @@ public:
         return telem::TimeStamp::now();
     }
 
-    telem::TimeStamp end(const size_t _) override {
+    telem::TimeStamp end() override {
         return telem::TimeStamp::now();
     }
 };
@@ -70,20 +70,20 @@ public:
     }
 
     void reset() override {
-        this->high_water = telem::TimeStamp::now();
+        // We use a sample clock value of 0 to indicate that the clock has not yet
+        // completed a full cycle, and that the first wait will return 0 so that
+        // the application can wait for the first sample.
+        this->high_water = telem::TimeStamp(0);
     }
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
-        if (this->high_water == 0)
-            throw std::runtime_error("hardware sample clock not reset before first `wait` called. Call `reset` before waiting on the sample clock.");
-        return this->high_water;
+        const auto start = this->high_water;
+        this->high_water = telem::TimeStamp::now();
+        return start;
     }
 
-    telem::TimeStamp end(const size_t n_read) override {
-        if (n_read == 0) return this->high_water;
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
-        this->high_water = end + this->sample_rate.period();
-        return end;
+    telem::TimeStamp end() override {
+        return telem::TimeStamp(this->high_water);
     }
 };
 
@@ -92,10 +92,11 @@ inline void generate_index_data(
     const std::set<synnax::ChannelKey> &index_keys,
     const telem::TimeStamp &start,
     const telem::TimeStamp &end,
-    const size_t n_read
+    const size_t n_read,
+    const bool inclusive = false
 ) {
     if (index_keys.empty()) return;
-    const auto index_data = telem::Series::linspace(start, end, n_read);
+    const auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
     for (const auto &idx: index_keys)
         f.emplace(idx, std::move(index_data.deep_copy()));
 }
