@@ -23,7 +23,10 @@ client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
-channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
+channels = ["dt4_time"]
+
+max_ = 0
+i = 0
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
@@ -31,4 +34,11 @@ with client.open_streamer(channels) as streamer:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll print out the frame of data.
     while True:
-        print(streamer.read())
+        span = sy.TimeSpan(sy.TimeStamp.now() - streamer.read()["dt4_time"][-1])
+        i+=1
+        if span > max_:
+            if i == 1:
+                print("FIRST")
+                continue
+            max_ = span
+            print(max_)

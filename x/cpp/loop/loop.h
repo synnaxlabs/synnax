@@ -123,16 +123,17 @@ class Gauge {
     telem::TimeSpan total_duration{0};
     telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
     telem::TimeSpan max_duration{0};
-    telem::TimeStamp curr_start = telem::TimeStamp(0);
+    std::chrono::time_point<std::chrono::high_resolution_clock> curr_start;
 
 public:
     void start() {
-        curr_start = telem::TimeStamp::now();
+        curr_start = std::chrono::high_resolution_clock::now();
     }
 
     void stop() {
-        if (curr_start == telem::TimeStamp(0)) return;
-        const auto duration = telem::TimeStamp::now() - curr_start;
+        if (curr_start == std::chrono::time_point<std::chrono::high_resolution_clock>{}) return;
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto duration = telem::TimeSpan(std::chrono::duration_cast<nanos>(now - curr_start));
         total_duration += duration;
         min_duration = std::min(min_duration, duration);
         max_duration = std::max(max_duration, duration);

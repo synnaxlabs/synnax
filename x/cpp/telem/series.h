@@ -731,7 +731,7 @@ public:
         if (count == 1) return Series(start);
         Series s(TIMESTAMP_T, count);
         if (count == 0) return s;
-        const auto step = (end - start) / (static_cast<int64_t>(count) - 1);
+        const auto step = (end - start) / (static_cast<int64_t>(count));
         for (size_t i = 0; i < count; i++) s.write(start + step * i);
         s.size_ = count;
         return s;

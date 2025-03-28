@@ -515,7 +515,6 @@ class StreamSource final : public common::Source {
     /// @brief re-usable buffer of values we load data into before converting it to a
     /// frame.
     std::vector<double> buf;
-
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
@@ -585,6 +584,7 @@ public:
                 this->restart();
             return {Frame(), err};
         }
+        if (start == 0) return {Frame(0), xerrors::NIL};
         const auto end = this->sample_clock.end();
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;

@@ -80,7 +80,7 @@ public:
     }
 
     telem::TimeStamp end() override {
-        return telem::TimeStamp(this->high_water - this->sample_rate.period());
+        return telem::TimeStamp(this->high_water);
     }
 };
 
