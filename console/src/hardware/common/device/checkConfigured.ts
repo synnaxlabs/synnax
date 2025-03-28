@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/common/device/checkConfigured";
-export * from "@/hardware/common/device/Configure";
-export * from "@/hardware/common/device/Provider";
-export * from "@/hardware/common/device/Select";
-export * from "@/hardware/common/device/types";
-export * from "@/hardware/common/device/use";
+import { type device } from "@synnaxlabs/client";
+
+export const checkConfigured = (device: device.Device): void => {
+  if (!device.configured) throw new Error(`${device.name} is not configured.`);
+};
