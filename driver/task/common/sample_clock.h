@@ -31,7 +31,7 @@ struct SampleClock {
 
     /// @brief ends the acquisition loop, interpolating an ending timestamp based
     /// on the number of samples read.
-    virtual telem::TimeStamp end(size_t n_read) = 0;
+    virtual telem::TimeStamp end() = 0;
 };
 
 /// @brief a sample clock that regulates the acquisition rate at the application
@@ -50,7 +50,7 @@ public:
         return telem::TimeStamp::now();
     }
 
-    telem::TimeStamp end(const size_t _) override {
+    telem::TimeStamp end() override {
         return telem::TimeStamp::now();
     }
 };
@@ -62,7 +62,7 @@ class HardwareTimedSampleClock final : public SampleClock {
     /// @brief the sample rate of the task.
     const telem::Rate sample_rate;
     /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water = telem::TimeStamp(0);
+    telem::TimeStamp high_water{};
 
 public:
     explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
@@ -70,17 +70,17 @@ public:
     }
 
     void reset() override {
-        this->high_water = telem::TimeStamp::now();
+        this->high_water = telem::TimeStamp(0);
     }
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
-        if (this->high_water == 0)
-            throw std::runtime_error("hardware sample clock not reset before first `wait` called. Call `reset` before waiting on the sample clock.");
-        return this->high_water;
+        const auto start = this->high_water;
+        this->high_water = telem::TimeStamp::now();
+        return start;
     }
 
-    telem::TimeStamp end(const size_t n_read) override {
-        return this->
+    telem::TimeStamp end() override {
+        return telem::TimeStamp(this->high_water - this->sample_rate.period());
     }
 };
 

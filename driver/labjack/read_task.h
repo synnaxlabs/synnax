@@ -585,7 +585,7 @@ public:
                 this->restart();
             return {Frame(), err};
         }
-        const auto end = this->sample_clock.end(n);
+        const auto end = this->sample_clock.end();
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)

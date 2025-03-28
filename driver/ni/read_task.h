@@ -211,7 +211,7 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
-    telem::TimeStamp curr_read_time = telem::TimeStamp(0);
+    loop::Gauge g;
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -231,30 +231,23 @@ private:
         return this->cfg.writer();
     }
 
-    std::pair<telem::TimeStamp, telem::TimeStamp> start_end() {
-        if (this->curr_read_time == 0) {
-            this->curr_read_time = telem::TimeStamp::now();
-            return (this->curr_read_time, this->curr_read_time + this->cfg.stream_rate.period());
-        }
-        auto start = this->curr_read_time;
-        this->curr_read_time = telem::TimeStamp::now();
-        return (start, this->curr_read_time);
-    }
-
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        auto [start, end] = this->start_end();
+        g.stop();
+        g.start();
+        if (g.iterations() % 500 == 0) VLOG(1) << "[driver.ni] average loop time" << g.average();
+        auto start = this->sample_clock->wait(breaker);
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
             buffer
         );
-
+        // Don't return read data on the first iteration to allow the sample clock
+        // to stabilize.
+        if (start == 0) return {Frame(0), xerrors::NIL};
         const auto n_read = dig.samps_per_chan_read;
         auto prev_read_err = this->curr_read_err;
-
         this->curr_read_err = translate_error(err);
-
         if (this->curr_read_err) return {Frame(), this->curr_read_err};
-
+        auto end = this->sample_clock->end();
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         for (const auto &ch: this->cfg.channels)

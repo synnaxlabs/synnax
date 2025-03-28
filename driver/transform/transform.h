@@ -196,6 +196,7 @@ public:
     }
 
     xerrors::Error transform(Frame &frame) override {
+        if (frame.empty()) return xerrors::NIL;
         for (const auto [key, series]: frame) {
             auto it = scales.find(key);
             if (it == scales.end()) continue;
