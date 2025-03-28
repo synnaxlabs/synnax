@@ -46,8 +46,9 @@ public:
     }
 
     telem::TimeStamp wait(breaker::Breaker &breaker) override {
+        const auto start = telem::TimeStamp::now();
         this->timer.wait(breaker);
-        return telem::TimeStamp::now();
+        return start;
     }
 
     telem::TimeStamp end() override {
@@ -96,8 +97,11 @@ inline void generate_index_data(
     const bool inclusive = false
 ) {
     if (index_keys.empty()) return;
-    const auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
-    for (const auto &idx: index_keys)
-        f.emplace(idx, std::move(index_data.deep_copy()));
+    auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
+    if (index_keys.size() == 1)
+        f.emplace(*index_keys.begin(), std::move(index_data));
+    else
+        for (const auto &idx: index_keys)
+            f.emplace(idx, std::move(index_data.deep_copy()));
 }
 }

@@ -818,11 +818,14 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
+    size_t cached_density = 0;
 public:
     DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
+        auto cached_density_iter = DENSITIES.find(value);
+        if (cached_density_iter != DENSITIES.end()) this->cached_density = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -864,7 +867,10 @@ public:
     [[nodiscard]] std::string name() const { return value; }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return DENSITIES[value]; }
+    [[nodiscard]] size_t density() const {
+        if (this->cached_density != 0) return this->cached_density;
+        return DENSITIES.at(value);
+    }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(_priv::VARIABLE_TYPES);

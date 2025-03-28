@@ -453,11 +453,8 @@ public:
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
             if (this->size() >= this->cap()) return 0;
             const auto v = d.nanoseconds();
-            memcpy(
-                data.get() + this->size() * this->data_type().density(),
-                &v,
-                this->data_type().density()
-            );
+            auto* dest = reinterpret_cast<int64_t*>(data.get() + this->size() * this->data_type().density());
+            *dest = v;
             this->size_++;
             return 1;
         } else {
@@ -466,21 +463,18 @@ public:
                 "generic argument to write must be a numeric type, string, or TimeStamp"
             );
             if (this->size() >= this->cap()) return 0;
-            memcpy(
-                data.get() + this->size() * this->data_type().density(),
-                &d,
-                this->data_type().density()
-            );
-            this->size_++;
+            const auto density = this->data_type().density();
+            auto* dest = reinterpret_cast<T*>(data.get() + this->size_++ * density);
+            *dest = d;
             return 1;
         }
     }
 
-    /// @brief writes the given timestamp to the series. If the series is at capacity,
-    /// returns 0 and does not write the timestamp. If the series is not at capacity,
-    /// writes the timestamp and returns 1.
+    /// @brief Optimized hot path for writing timestamps to the series.
+    /// @param ts the timestamp to write
+    /// @returns 1 if the timestamp was written, 0 if the series is at capacity
     size_t write(const telem::TimeStamp &ts) {
-        return this->write<int64_t>(ts.nanoseconds());
+        return this->write(ts.nanoseconds());
     }
 
     /// @brief writes the given array of numeric data to the series.
@@ -732,11 +726,14 @@ public:
         const bool inclusive = false
     ) {
         if (count == 1) return Series(start);
+        if (count == 0) return Series(TIMESTAMP_T, 0);
         Series s(TIMESTAMP_T, count);
-        if (count == 0) return s;
         const auto adjusted_count = inclusive ? count - 1 : count;
-        const auto step = (end - start) / adjusted_count;
-        for (size_t i = 0; i < count; i++) s.write(start + step * i);
+        const int64_t start_ns = start.nanoseconds();
+        const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
+        auto* data_ptr = reinterpret_cast<int64_t*>(s.data.get());
+        for (size_t i = 0; i < count; i++)
+            data_ptr[i] = start_ns + step_ns * i;
         s.size_ = count;
         return s;
     }

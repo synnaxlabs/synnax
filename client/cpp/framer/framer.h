@@ -155,7 +155,7 @@ public:
         using reference = value_type &;
 
         Iterator(
-            std::vector<ChannelKey> &channels_ref, 
+            std::vector<ChannelKey> &channels_ref,
             std::vector<telem::Series> &series_ref,
             const size_t pos
         ): channels(channels_ref), series(series_ref), pos(pos) {
@@ -173,7 +173,7 @@ public:
         bool operator!=(const Iterator &other) const {
             return pos != other.pos;
         }
-        
+
         bool operator==(const Iterator &other) const {
             return pos == other.pos;
         }
@@ -376,7 +376,7 @@ public:
     /// @param auth the authority level to set all channels to.
     [[nodiscard]] bool set_authority(const telem::Authority &auth);
 
-    /// @brief changes the authority of the given channel to the given authority level. 
+    /// @brief changes the authority of the given channel to the given authority level.
     /// This does not affect the authority levels of any other channels in the writer.
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
@@ -418,7 +418,7 @@ private:
     bool closed = false;
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
-    loop::Gauge g = loop::Gauge("writer", 500, 0.5);
+    loop::Gauge g = loop::Gauge("writer", 0, 0);
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
