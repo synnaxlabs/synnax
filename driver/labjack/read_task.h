@@ -489,7 +489,7 @@ public:
         for (const auto &chan: this->cfg.channels)
             f.emplace(
                 chan->synnax_key,
-                telem::Series(chan->ch.data_type.cast(values[i++]))
+                telem::Series::cast(chan->ch.data_type, &values[i++], 1)
             );
         const auto start = telem::TimeStamp::now();
         const auto end = start;

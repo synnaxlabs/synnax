@@ -8,7 +8,15 @@ cc_library(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "-fopt-info-vec-all",  # Show all vectorization information
+            "-fopt-info-loop-all",  # Show all loop optimizations
+            "-O3",
+            "-march=native",
+            "-ftree-vectorize",
+            "-fopt-info-inline-all",  # Show inlining decisions
+            "-fverbose-asm",  # Generate detailed assembly
+        ],
     }),
     visibility = ["//visibility:public"],
     deps = [
@@ -22,7 +30,6 @@ cc_test(
     name = "telem_test",
     srcs = [
         "clock_skew_test.cpp",
-        "sample_value_test.cpp",
         "series_test.cpp",
         "telem_test.cpp",
     ],
@@ -31,6 +38,7 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
+        "//x/cpp/loop",
         "//x/cpp/telem",
         "@com_google_googletest//:gtest_main",
     ],

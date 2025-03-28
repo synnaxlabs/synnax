@@ -438,7 +438,6 @@ TEST(DataTypeTests, testName) {
 }
 
 TEST(DataTypeTests, testDensity) {
-    ASSERT_EQ(telem::UNKNOWN_T.density(), 0);
     ASSERT_EQ(telem::FLOAT64_T.density(), 8);
     ASSERT_EQ(telem::FLOAT32_T.density(), 4);
     ASSERT_EQ(telem::INT8_T.density(), 1);

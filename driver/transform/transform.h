@@ -56,8 +56,8 @@ private:
 /// This middleware should added to the pipeline middleware chain first so that it can tare the data before any other middleware
 /// can process it.
 class Tare final : public Transform {
-    std::map<synnax::ChannelKey, telem::NumericSampleValue> tare_values;
-    std::map<synnax::ChannelKey, telem::NumericSampleValue> last_raw_value;
+    std::map<synnax::ChannelKey, double> tare_values;
+    std::map<synnax::ChannelKey, double> last_raw_value;
     std::unordered_map<synnax::ChannelKey, synnax::Channel> tare_channels;
     std::mutex mutex;
 
@@ -65,7 +65,7 @@ public:
     explicit Tare(const std::vector<synnax::Channel> &channels): tare_channels(
         synnax::map_channel_Keys(channels)) {
         for (auto &[key, ch]: this->tare_channels)
-            tare_values[key] = telem::narrow_numeric(ch.data_type.cast(0));
+            tare_values[key] = 0;
     }
 
     xerrors::Error tare(json &arg) {
@@ -101,28 +101,25 @@ public:
         for (const auto &[ch_key, series]: frame) {
             auto tare_it = tare_values.find(ch_key);
             if (tare_it == tare_values.end()) continue;
-            auto v = telem::narrow_numeric(series.at(-1));
-            this->last_raw_value[ch_key] = v;
+            this->last_raw_value[ch_key] = telem::cast<double>(series.at(-1));
             auto tare = tare_it->second;
-            series.map_inplace([tare](const telem::NumericSampleValue &val) {
-                return val - tare;
-            });
+            series.subtract_inplace(tare);
         }
         return xerrors::NIL;
     }
 };
 
 class UnaryLinearScale {
-    telem::NumericSampleValue slope;
-    telem::NumericSampleValue offset;
+    double slope;
+    double offset;
     telem::DataType dt;
 
 public:
     explicit UnaryLinearScale(
         xjson::Parser &parser,
         telem::DataType dt
-    ) : slope(telem::narrow_numeric(dt.cast(parser.required<double>("slope")))),
-        offset(telem::narrow_numeric(dt.cast(parser.required<double>("offset")))),
+    ) : slope(parser.required<double>("slope")),
+        offset(parser.required<double>("offset")),
         dt(dt) {
     }
 
@@ -130,28 +127,30 @@ public:
         if (this->dt != series.data_type())
             return xerrors::Error(xerrors::VALIDATION, "series data type " + series.data_type().name() +
                                                        " does not match scale data type " + this->dt.name());
-        series.map_inplace([this, &series](const telem::NumericSampleValue &val) {
-            return val * this->slope + this->offset;
-        });
+        
+        // val * slope + offset
+        series.multiply_inplace(slope);  // val * slope
+        series.add_inplace(offset);      // + offset
+        
         return xerrors::NIL;
     }
 };
 
 class UnaryMapScale {
-    telem::NumericSampleValue prescaled_min;
-    telem::NumericSampleValue prescaled_max;
-    telem::NumericSampleValue scaled_min;
-    telem::NumericSampleValue scaled_max;
+    double prescaled_min;
+    double prescaled_max;
+    double scaled_min;
+    double scaled_max;
     telem::DataType dt;
 
 public:
     explicit UnaryMapScale(
         xjson::Parser &parser,
         const telem::DataType &dt
-    ) : prescaled_min(telem::narrow_numeric(dt.cast(parser.required<double>("pre_scaled_min")))),
-        prescaled_max(telem::narrow_numeric(dt.cast(parser.required<double>("pre_scaled_max")))),
-        scaled_min(telem::narrow_numeric(dt.cast(parser.required<double>("scaled_min")))),
-        scaled_max(telem::narrow_numeric(dt.cast(parser.required<double>("scaled_max")))),
+    ) : prescaled_min(parser.required<double>("pre_scaled_min")),
+        prescaled_max(parser.required<double>("pre_scaled_max")),
+        scaled_min(parser.required<double>("scaled_min")),
+        scaled_max(parser.required<double>("scaled_max")),
         dt(dt) {
     }
 
@@ -159,11 +158,14 @@ public:
         if (this->dt != series.data_type())
             return xerrors::Error(xerrors::VALIDATION, "series data type " + series.data_type().name() +
                                                        " does not match scale data type " + this->dt.name());
-        series.map_inplace([this](const telem::NumericSampleValue &v) {
-            return (v - prescaled_min) / (prescaled_max - prescaled_min) * (
-                       scaled_max - scaled_min) +
-                   scaled_min;
-        });
+        
+        // (v - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) + scaled_min
+        // Rewritten using inplace operations:
+        series.subtract_inplace(prescaled_min);  // v - prescaled_min
+        series.divide_inplace(prescaled_max - prescaled_min);  // / (prescaled_max - prescaled_min)
+        series.multiply_inplace(scaled_max - scaled_min);  // * (scaled_max - scaled_min)
+        series.add_inplace(scaled_min);  // + scaled_min
+        
         return xerrors::NIL;
     }
 };

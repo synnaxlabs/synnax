@@ -28,6 +28,16 @@ constexpr char NEWLINE_CHAR = '\n';
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
 
 namespace telem {
+
+// Move the helper function outside, before the Series class
+template<typename DestType, typename SrcType>
+static void cast_to_type(std::byte* dest, SrcType* src, size_t count) {
+    auto* typed_dest = reinterpret_cast<DestType*>(dest);
+    #pragma omp simd
+    for (size_t i = 0; i < count; i++)
+        typed_dest[i] = static_cast<DestType>(src[i]);
+}
+
 template<typename T>
 void output_partial_vector(
     std::ostream &os,
@@ -56,7 +66,6 @@ inline void output_partial_vector_byte(
     for (size_t i = vec.size() - 3; i < vec.size(); ++i)
         os << static_cast<uint64_t>(vec[i]) << " ";
 }
-
 
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
@@ -105,6 +114,65 @@ class Series {
         data(std::make_unique<std::byte[]>(other.byte_size())),
         time_range(other.time_range) {
         memcpy(data.get(), other.data.get(), other.byte_size());
+    }
+
+    template<typename T>
+    void vectorized_op(T* data_ptr, const T value, const size_t size, auto op) const {
+        // #pragma omp simd
+        for (size_t i = 0; i < size; i++)
+            data_ptr[i] = op(data_ptr[i], value);
+    }
+
+    template<typename SourceType, typename TargetType, typename Op>
+    void apply_numeric_op(const TargetType& rhs, Op op) const {
+        auto* data_ptr = reinterpret_cast<SourceType*>(this->data.get());
+        const auto size = this->size();
+        const auto cast_rhs = static_cast<SourceType>(rhs);
+
+        // Fast path for common types using vectorization
+        if constexpr (std::is_same_v<SourceType, float> ||
+                     std::is_same_v<SourceType, double> ||
+                     std::is_same_v<SourceType, int32_t> ||
+                     std::is_same_v<SourceType, int64_t>) {
+            vectorized_op(data_ptr, cast_rhs, size, op);
+        } else {
+            // Fallback for other types
+            for (size_t i = 0; i < size; i++) {
+                data_ptr[i] = op(data_ptr[i], cast_rhs);
+            }
+        }
+    }
+
+    template<typename T, typename Op>
+    void numeric_op(const T& rhs, Op op) const {
+        const auto lhs_type = this->data_type();
+        const auto dt = lhs_type;
+
+        if (dt == FLOAT64_T)
+            apply_numeric_op<double, T>(rhs, op);
+        else if (dt == FLOAT32_T)
+            apply_numeric_op<float, T>(rhs, op);
+        else if (dt == INT64_T)
+            apply_numeric_op<int64_t, T>(rhs, op);
+        else if (dt == INT32_T)
+            apply_numeric_op<int32_t, T>(rhs, op);
+        else if (dt == INT16_T)
+            apply_numeric_op<int16_t, T>(rhs, op);
+        else if (dt == INT8_T)
+            apply_numeric_op<int8_t, T>(rhs, op);
+        else if (dt == UINT64_T)
+            apply_numeric_op<uint64_t, T>(rhs, op);
+        else if (dt == UINT32_T)
+            apply_numeric_op<uint32_t, T>(rhs, op);
+        else if (dt == UINT16_T)
+            apply_numeric_op<uint16_t, T>(rhs, op);
+        else if (dt == UINT8_T)
+            apply_numeric_op<uint8_t, T>(rhs, op);
+        else
+            throw std::runtime_error(
+                "Cannot perform numeric operation on series with data type: " +
+                lhs_type.name()
+            );
     }
 
 public:
@@ -335,11 +403,8 @@ public:
             "NumericType must be a numeric type"
         );
         const auto adjusted = this->validate_bounds(index);
-        memcpy(
-            this->data.get() + adjusted * this->data_type().density(),
-            &value,
-            this->data_type().density()
-        );
+        auto* dest = reinterpret_cast<NumericType*>(data.get() + adjusted * this->data_type().density());
+        *dest = value;
     }
 
     /// @brief sets the given array of numeric data at the given index.
@@ -649,7 +714,7 @@ public:
 
     void map_inplace(const std::function<NumericSampleValue(const NumericSampleValue &)> &func) {
         if (size() == 0) return;
-        
+
         const auto dt = this->data_type();
 
         try {
@@ -711,7 +776,7 @@ public:
         }
     }
 
-    /// @brief Creates a timestamp series with evenly spaced values between start and 
+    /// @brief Creates a timestamp series with evenly spaced values between start and
     /// end (inclusive).
     /// @param start The starting timestamp
     /// @param end The ending timestamp
@@ -748,29 +813,57 @@ public:
     template<typename T>
     static Series cast(const DataType &data_type, T *data, const size_t size) {
         auto s = Series(data_type, size);
-        if (DataType::infer<T>() == data_type) s.write(data, size);
-        else for (size_t i = 0; i < size; i++) s.write(data_type.cast(data[i]));
+        auto inferred_type = DataType::infer<T>();
+        if (inferred_type == data_type) {
+            s.write(data, size);
+            return s;
+        }
+        if (data_type == FLOAT64_T)
+            cast_to_type<double>(s.data.get(), data, size);
+        else if (data_type == FLOAT32_T)
+            cast_to_type<float>(s.data.get(), data, size);
+        else if (data_type == INT64_T)
+            cast_to_type<int64_t>(s.data.get(), data, size);
+        else if (data_type == INT32_T)
+            cast_to_type<int32_t>(s.data.get(), data, size);
+        else if (data_type == INT16_T)
+            cast_to_type<int16_t>(s.data.get(), data, size);
+        else if (data_type == INT8_T)
+            cast_to_type<int8_t>(s.data.get(), data, size);
+        else if (data_type == UINT64_T)
+            cast_to_type<uint64_t>(s.data.get(), data, size);
+        else if (data_type == UINT32_T)
+            cast_to_type<uint32_t>(s.data.get(), data, size);
+        else if (data_type == UINT16_T)
+            cast_to_type<uint16_t>(s.data.get(), data, size);
+        else if (data_type == UINT8_T)
+            cast_to_type<uint8_t>(s.data.get(), data, size);
+        else
+            throw std::runtime_error("Unsupported data type for casting: " + data_type.name());
+
+        s.size_ = size;
         return s;
     }
 
-    static Series cast(
-        const DataType &target_type,
-        const void *data,
-        const size_t size,
-        const DataType &source_type
-    ) {
-        auto s = Series(target_type, size);
-        if (source_type == target_type) s.write(static_cast<const std::uint8_t *>(data),
-                                               size);
-        else {
-            const size_t element_size = source_type.density();
-            const auto byte_data = static_cast<const std::byte *>(data);
-            for (size_t i = 0; i < size; i++) {
-                const void *element_ptr = byte_data + i * element_size;
-                s.write(target_type.cast(element_ptr, source_type));
-            }
-        }
-        return s;
+    template<typename T>
+    void add_inplace(const T& rhs) const noexcept {
+        numeric_op(rhs, std::plus<>());
+    }
+
+    template<typename T>
+    void subtract_inplace(const T& rhs) const noexcept {
+        numeric_op(rhs, std::minus<>());
+    }
+
+    template<typename T>
+    void multiply_inplace(const T& rhs) const noexcept {
+        numeric_op(rhs, std::multiplies<>());
+    }
+
+    template<typename T>
+    void divide_inplace(const T& rhs) const {
+        if (rhs == 0) throw std::runtime_error("Division by zero");
+        numeric_op(rhs, std::divides<>());
     }
 
     /// @brief deep copies the series, including all of its data. This function
