@@ -230,8 +230,15 @@ public:
             fr.emplace(ch.synnax_key, std::move(s));
         }
         auto start = telem::TimeStamp::now();
-        auto end = start + (this->cfg.array_size + 1) * this->cfg.sample_rate.period();
-        common::generate_index_data(fr, this->cfg.index_keys, start, end, this->cfg.array_size);
+        auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+        common::generate_index_data(
+            fr,
+            this->cfg.index_keys,
+            start,
+            end,
+            this->cfg.array_size,
+            true
+        );
         return {std::move(fr), xerrors::NIL};
     }
 };

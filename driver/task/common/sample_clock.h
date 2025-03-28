@@ -70,6 +70,9 @@ public:
     }
 
     void reset() override {
+        // We use a sample clock value of 0 to indicate that the clock has not yet
+        // completed a full cycle, and that the first wait will return 0 so that
+        // the application can wait for the first sample.
         this->high_water = telem::TimeStamp(0);
     }
 
@@ -89,10 +92,11 @@ inline void generate_index_data(
     const std::set<synnax::ChannelKey> &index_keys,
     const telem::TimeStamp &start,
     const telem::TimeStamp &end,
-    const size_t n_read
+    const size_t n_read,
+    const bool inclusive = false
 ) {
     if (index_keys.empty()) return;
-    const auto index_data = telem::Series::linspace(start, end, n_read);
+    const auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
     for (const auto &idx: index_keys)
         f.emplace(idx, std::move(index_data.deep_copy()));
 }
