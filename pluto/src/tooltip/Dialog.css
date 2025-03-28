@@ -15,16 +15,16 @@
     left: 0;
     z-index: 11;
     pointer-events: none;
-    background: var(--pluto-gray-l1);
-    border: var(--pluto-border-l4);
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border-l5);
     border-radius: calc(var(--pluto-border-radius) * 2);
-    box-shadow: var(--pluto-shadow-menu);
+    box-shadow: var(--pluto-shadow-v1);
     padding: 1rem 1.5rem;
     opacity: 0;
     transition: opacity 0.2s ease;
 
     .pluto-text {
-        color: var(--pluto-gray-l9);
+        color: var(--pluto-gray-l11);
         font-weight: 350;
     }
 
@@ -49,14 +49,14 @@
             );
             &::after {
                 right: -2rem;
-                border-color: transparent transparent transparent var(--pluto-gray-l4);
+                border-color: transparent transparent transparent var(--pluto-gray-l6);
             }
         }
         &.pluto--right {
             transform: translate(calc(var(--pos-x) + 1rem), calc(var(--pos-y) - 50%));
             &::after {
                 left: -2rem;
-                border-color: transparent var(--pluto-gray-l4) transparent transparent;
+                border-color: transparent var(--pluto-gray-l6) transparent transparent;
             }
         }
 
@@ -89,7 +89,7 @@
 
     &.pluto--top {
         &::after {
-            border-color: var(--pluto-gray-l4) transparent transparent transparent;
+            border-color: var(--pluto-gray-l6) transparent transparent transparent;
             top: 100%;
         }
         &.pluto--right {
@@ -105,7 +105,7 @@
 
     &.pluto--bottom {
         &::after {
-            border-color: transparent transparent var(--pluto-gray-l4) transparent;
+            border-color: transparent transparent var(--pluto-gray-l6) transparent;
             bottom: 100%;
         }
         &.pluto--right {

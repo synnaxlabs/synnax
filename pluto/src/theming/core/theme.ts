@@ -24,11 +24,13 @@ const grayScaleZ = z.object({
   l8: color.Color.z,
   l9: color.Color.z,
   l10: color.Color.z,
+  l11: color.Color.z,
+  l12: color.Color.z,
 });
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
-export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type Shade = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
@@ -125,22 +127,31 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 // Grayscale
 
 const LIGHT_SCALE = [
-  "#FDFDFD", // l0
-  "#f9f9f9", // l1
-  "#F2F2F2", // l2
-  "#E6E6E6", // l3
-  "#D8D8D8", // l4
-  "#ADADAD", // l5
-  "#878787", // l6
-  "#636363", // l7
-  "#444444", // l8
-  "#1C1C1C", // l9
-  "#050505", // l10
+  "#FEFEFE", // l0 - background
+  "#FBFBFB", // l1 - large surfaces
+  "#F2F2F2", // l2 - small surfaces
+  "#ECECEC", // l3 - small surfaces hover
+  "#E4E4E4", // l4 - border 1
+  "#D1D1D1", // l5 - border 2
+  "#bcbcbc", // l6 - border 2 hover
+  "#ACACAC", // l7 - border 2 active
+  "#8F8F8F", // l8 - text 1
+  "#727272", // l9 - text 2
+  "#4F4F4F", // l10 - text 3
+  "#292929", // l11 - text 4
+  "#050505", // l12 - text 5
 ];
 
 const lightGrayScale: GrayScale = Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
+
+const supportsThinBorder = () => {
+  if (typeof window === "undefined") return false;
+  return window.devicePixelRatio > 1;
+};
+
+const SUPPORTS_THIN_BORDER = supportsThinBorder();
 
 const SYNNAX_BASE: ThemeSpec = {
   key: "synnaxBase",
@@ -148,7 +159,7 @@ const SYNNAX_BASE: ThemeSpec = {
   colors: {
     primary: {
       m2: "#041B3D",
-      m1: "#164FA0",
+      m1: "#356fc5",
       z: "#3774D0",
       p1: "#5E94EE",
       p2: "#8AB8FF",
@@ -161,7 +172,7 @@ const SYNNAX_BASE: ThemeSpec = {
       p2: "#96DEAE",
     },
     gray: lightGrayScale,
-    border: lightGrayScale.l3,
+    border: lightGrayScale.l4,
     error: {
       m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
       m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
@@ -200,25 +211,25 @@ const SYNNAX_BASE: ThemeSpec = {
     logo: "url(#synnax-linear-gradient)",
     white: "#FFFFFF",
     black: "#000000",
-    text: lightGrayScale.l9,
+    text: lightGrayScale.l11,
     textInverted: lightGrayScale.l0,
     textOnPrimary: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
-    border: { radius: 3, width: 1 },
+    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1 },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {
     family: fontFamily,
     codeFamily: codeFontFamily,
-    h1: { size: 7, weight: "500", lineHeight: 7 * 1.5 },
+    h1: { size: 6, weight: "500", lineHeight: 6 * 1.5 },
     h2: { size: 4.5, weight: "medium", lineHeight: 4.5 * 1.5 },
     h3: { size: 3.5, weight: "medium", lineHeight: 3.5 * 1.5 },
     h4: { size: 2.6666, weight: "medium", lineHeight: 2.6666 * 1.5 },
     h5: { size: 2.333333, weight: 450, lineHeight: 2.333333 * 1.5 },
     p: { size: 2.1666666666, weight: "regular", lineHeight: 2 * 1.5 },
-    small: { size: 1.916666, weight: "regular", lineHeight: 1.9166666 * 1.5 },
+    small: { size: 1.916666, weight: "regular", lineHeight: 2.3333333 },
   },
 };
 
@@ -230,16 +241,18 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202", // l0
-  "#0C0C0C", // l1
-  "#161616", // l2
-  "#252525", // l3
-  "#323232", // l4
-  "#464646", // l5
-  "#646464", // l6
-  "#989898", // l7
-  "#b2b1b1", // l8
-  "#d8d8d8", // l9
-  "#FDFDFD", // l10
+  "#080808", // l1
+  "#171717", // l2
+  "#242424", // l3
+  "#2F2F2F", // l4
+  "#3B3B3B", // l5
+  "#4A4A4A", // l6
+  "#5C5C5C", // l7
+  "#767676", // l10
+  "#969696", // l11
+  "#B9B9B9", // l10
+  "#DBDBDB", // l11
+  "#FDFDFD", // l12
 ];
 
 const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
@@ -255,9 +268,9 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     gray: DARK_GRAY_SCALE,
     logo: "var(--pluto-text-color)",
     border: DARK_GRAY_SCALE.l3,
-    text: DARK_GRAY_SCALE.l9,
+    text: DARK_GRAY_SCALE.l11,
     textInverted: DARK_GRAY_SCALE.l0,
-    textOnPrimary: DARK_GRAY_SCALE.l10,
+    textOnPrimary: DARK_GRAY_SCALE.l12,
   },
 });
 

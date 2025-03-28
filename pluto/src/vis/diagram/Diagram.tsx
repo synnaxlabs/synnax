@@ -244,7 +244,7 @@ const Core = ({
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-  const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
+  const defaultEdgeColor = Theming.use().colors.gray.l11.hex;
 
   const triggers = useMemoCompare(
     () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
@@ -488,12 +488,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack
-    direction="y"
-    borderShade={4}
-    className={CSS.BE("diagram", "controls")}
-    {...props}
-  />
+  <Align.Pack y borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps

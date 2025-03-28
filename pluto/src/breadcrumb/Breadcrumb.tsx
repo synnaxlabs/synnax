@@ -36,7 +36,7 @@ export type Segments = string | Segment | (string | Segment)[];
  * @template L - The text level.
  */
 export type BreadcrumbProps<
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
@@ -90,7 +90,7 @@ const getContent = ({
         <Icon.Caret.Right
           key={`${label}-${index}`}
           style={{
-            transform: "scale(0.8) translateY(1px)",
+            transform: "scale(0.8) translateY(0.5px)",
             color: CSS.shade(shade),
           }}
         />,
@@ -124,12 +124,12 @@ const getContent = ({
  * @returns The Breadcrumb component.
  */
 export const Breadcrumb = <
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends Text.Level = Text.Level,
 >({
   children: segments,
   icon,
-  shade = 7,
+  shade = 9,
   weight,
   size = 0.5,
   url,
@@ -149,7 +149,7 @@ export const Breadcrumb = <
       shade={shade}
       weight={weight}
       size={size}
-      direction="x"
+      x
       {...rest}
     >
       {PIcon.resolve(icon)}
@@ -168,7 +168,7 @@ export const URL = ({
   level = "p",
   separator = "/",
   weight,
-  shade = 7,
+  shade = 9,
 }: URLProps) => {
   const content = getContent({
     segments: url,
@@ -191,7 +191,7 @@ export const URL = ({
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
-      direction="x"
+      x
       size="small"
       align="center"
     >

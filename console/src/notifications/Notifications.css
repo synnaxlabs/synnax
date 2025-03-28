@@ -13,6 +13,7 @@
     height: unset !important;
     position: absolute;
     z-index: 20;
-    bottom: 7rem;
-    left: 2rem;
+    bottom: 3rem;
+    right: 3rem;
+    overflow: unset;
 }

@@ -48,11 +48,7 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
       size={size ?? iconSpacing}
       endIcon={
         trigger && (
-          <Align.Space
-            className={CSS(CSS.BE("menu-item", "trigger"))}
-            direction="x"
-            size={0.5}
-          >
+          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x size="tiny">
             <TriggersText level={level} trigger={trigger} />
           </Align.Space>
         )
@@ -111,11 +107,7 @@ export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement 
       size={size ?? iconSpacing}
       endIcon={
         trigger && (
-          <Align.Space
-            className={CSS(CSS.BE("menu-item", "trigger"))}
-            direction="x"
-            size={0.5}
-          >
+          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x size="tiny">
             <TriggersText level={level} trigger={trigger} />
           </Align.Space>
         )

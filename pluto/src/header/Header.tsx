@@ -49,7 +49,7 @@ export const Header = ({
   <Context value={{ level, divided }}>
     <Align.Space
       el="header"
-      direction="x"
+      x
       justify="spaceBetween"
       className={CSS(
         CSS.B("header"),

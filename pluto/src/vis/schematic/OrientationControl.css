@@ -16,7 +16,7 @@
     .symbol {
         height: 2px;
         width: calc(100% - 9px);
-        background-color: var(--pluto-gray-l8);
+        background-color: var(--pluto-gray-l10);
         border-radius: var(--pluto-border-radius);
     }
 

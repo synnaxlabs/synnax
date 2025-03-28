@@ -72,6 +72,7 @@ export const Selector = (): ReactElement => {
       keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
+      bordered={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
@@ -82,12 +83,12 @@ export const Selector = (): ReactElement => {
         onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
-        shade={8}
+        shade={2}
         weight={400}
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" borderShade={4} style={{ width: 500, height: 200 }}>
+      <Align.Pack y borderShade={5} style={{ width: 500, height: 200 }}>
         <Cluster.NoneConnectedBoundary>
           <List.List>
             <List.Selector
@@ -109,6 +110,7 @@ export const Selector = (): ReactElement => {
                   >
                     <Button.Button
                       startIcon={<Icon.Close />}
+                      size="large"
                       variant="outlined"
                       onClick={() => handleChange(null)}
                       iconSpacing="small"
@@ -117,6 +119,7 @@ export const Selector = (): ReactElement => {
                       Clear
                     </Button.Button>
                     <Button.Button
+                      size="large"
                       startIcon={<Icon.Add />}
                       variant="outlined"
                       onClick={() => {
@@ -132,7 +135,9 @@ export const Selector = (): ReactElement => {
                   </Input.Text>
                 )}
               </List.Search>
-              <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+              <List.Core bordered borderShade={5}>
+                {componentRenderProp(SelectorListItem)}
+              </List.Core>
             </List.Selector>
           </List.List>
         </Cluster.NoneConnectedBoundary>

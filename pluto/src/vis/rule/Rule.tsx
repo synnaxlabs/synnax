@@ -133,7 +133,7 @@ export const Rule = ({
         draggable
       />
       <Align.Space
-        direction="x"
+        x
         align="center"
         className={CSS(className, CSS.BE("rule", "tag"))}
         bordered
@@ -154,11 +154,8 @@ export const Rule = ({
           onChange={setInternalLabel}
           color={textColor}
         />
-        <Divider.Divider
-          direction="y"
-          style={{ borderColor: Color.cssString(color) }}
-        />
-        <Align.Space size="small" direction="x" align="center">
+        <Divider.Divider y style={{ borderColor: Color.cssString(color) }} />
+        <Align.Space size="small" x align="center">
           <Text.Editable
             value={propsPosition.toFixed(2)}
             onChange={(v) => {

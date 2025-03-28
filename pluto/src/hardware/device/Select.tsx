@@ -24,7 +24,7 @@ const deviceColumns: Array<List.ColumnSpec<device.Key, device.Device>> = [
     render: ({ entry }) => (
       <Breadcrumb.Breadcrumb
         level="small"
-        shade={7}
+        shade={11}
         weight={500}
         style={{ marginTop: "0.25rem" }}
       >

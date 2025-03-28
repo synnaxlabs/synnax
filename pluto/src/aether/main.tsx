@@ -131,7 +131,7 @@ interface UseLifecycleProps<S extends z.ZodTypeAny> {
   onReceive?: StateHandler;
 }
 
-const useLifecycle = <S extends z.ZodTypeAny>({
+export const useLifecycle = <S extends z.ZodTypeAny>({
   type,
   aetherKey,
   initialState,

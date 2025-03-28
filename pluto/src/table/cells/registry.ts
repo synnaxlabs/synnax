@@ -54,7 +54,7 @@ const value: Spec<typeof valuePropsZ> = {
       outlet: "stringifier",
     }),
     redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
-    color: t.colors.gray.l8.hex,
+    color: t.colors.gray.l10.hex,
     level: "h5",
     units: "",
   }),

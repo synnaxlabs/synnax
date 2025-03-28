@@ -53,7 +53,7 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
 
 const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   key: "ni-toggle-scan-task",
-  name: "Toggle NI Device Scanner",
+  name: "Toggle the NI Device Scanner",
   icon: <Icon.Logo.NI />,
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {

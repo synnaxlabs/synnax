@@ -10,13 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, position, unique, xy } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  type RefCallback,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -50,6 +44,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
   close: () => void;
   open: ContextMenuOpen;
   ref: RefCallback<HTMLDivElement>;
+  className: string;
 }
 
 const INITIAL_STATE: ContextMenuState = {
@@ -114,18 +109,18 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const refCallback = (el: HTMLDivElement): void => {
     menuRef.current = el;
     if (el == null) return;
-    setMenuState((prev) => {
-      if (!prev.visible) return prev;
-      const { adjustedDialog } = position.dialog({
-        container: box.construct(0, 0, window.innerWidth, window.innerHeight),
-        dialog: box.construct(el),
-        target: box.construct(prev.cursor, 0, 0),
-        prefer: [{ y: "bottom" }],
-      });
-      const nextPos = box.topLeft(adjustedDialog);
-      if (xy.equals(prev.position, nextPos)) return prev;
-      return { ...prev, position: nextPos };
-    });
+    // setMenuState((prev) => {
+    //   if (!prev.visible) return prev;
+    //   const { adjustedDialog } = position.dialog({
+    //     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    //     dialog: box.construct(el),
+    //     target: box.construct(prev.cursor, 0, 0),
+    //     prefer: [{ y: "bottom" }],
+    //   });
+    //   const nextPos = box.topLeft(adjustedDialog);
+    //   if (xy.equals(prev.position, nextPos)) return prev;
+    //   return { ...prev, position: nextPos };
+    // });
   };
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
@@ -137,6 +132,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     close: hideMenu,
     open: handleOpen,
     ref: refCallback,
+    className: CONTEXT_MENU_CONTAINER,
   };
 };
 
@@ -145,8 +141,8 @@ export interface ContextMenuMenuProps {
 }
 
 export interface ContextMenuProps
-  extends UseContextMenuReturn,
-    ComponentPropsWithoutRef<"div"> {
+  extends Omit<UseContextMenuReturn, "className">,
+    Omit<Align.SpaceProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
@@ -197,33 +193,25 @@ export const ContextMenu = ({
   visible,
   open,
   close,
-  position: xy,
+  position,
   keys,
   className,
   cursor: _,
+  style,
   ...rest
-}: ContextMenuProps): ReactElement => {
-  const menuC = visible ? menu?.({ keys }) : null;
-  return (
-    <div
-      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
-      onContextMenu={open}
+}: ContextMenuProps): ReactElement | null => {
+  if (!visible) return null;
+  return createPortal(
+    <Align.Space
+      className={CSS(CSS.B("menu-context"), CSS.bordered())}
+      ref={ref}
+      style={{ ...xy.css(position), ...style }}
+      onClick={close}
+      size="tiny"
       {...rest}
     >
-      {children}
-      {menuC != null &&
-        createPortal(
-          <Align.Space
-            className={CSS(CSS.B("menu-context"), CSS.bordered())}
-            ref={ref}
-            style={{ left: xy.x, top: xy.y }}
-            onClick={close}
-            size={1 / 2}
-          >
-            {menuC}
-          </Align.Space>,
-          document.body,
-        )}
-    </div>
+      {menu?.({ keys })}
+    </Align.Space>,
+    document.body,
   );
 };
