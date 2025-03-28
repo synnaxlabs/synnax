@@ -722,8 +722,8 @@ public:
     /// @param start The starting timestamp
     /// @param end The ending timestamp
     /// @param count The number of points to generate
-    /// @param inclusive Whether or not to include the end timestamp as the last value
-    /// in th series.
+    /// @param inclusive Whether to include the end timestamp as the last value
+    /// in the series.
     /// @return A Series containing evenly spaced timestamps
     static Series linspace(
         const TimeStamp &start,
