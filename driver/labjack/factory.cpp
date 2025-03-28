@@ -101,7 +101,7 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const synnax::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    if (!this->check_health(ctx, task)) return {nullptr, false};
+    if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->dev_manager, ctx, task);
@@ -143,11 +143,10 @@ labjack::Factory::configure_initial_tasks(
             LOG(ERROR) << "[labjack] Failed to create scanner task: " << c_err;
             return tasks;
         }
-        auto [task, ok] = configure_task(ctx, sy_task);
-        if (ok && task != nullptr)
-            tasks.emplace_back(sy_task, std::move(task));
-        else
-            LOG(ERROR) << "[labjack] Failed to configure scanner task";
+        auto [task, handled] = configure_task(ctx, sy_task);
+        if (handled)
+            if (task != nullptr) tasks.emplace_back(sy_task, std::move(task));
+        else LOG(ERROR) << "[labjack] Failed to configure scanner task";
     } else if (err) {
         LOG(ERROR) << "[labjack] Failed to list existing tasks: " << err;
         return tasks;

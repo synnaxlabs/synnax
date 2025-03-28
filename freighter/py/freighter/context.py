@@ -15,7 +15,8 @@ Role = Literal["client", "server"]
 
 @dataclass
 class Context:
-    """Context is the metadata associated with a freighter transport request.
+    """
+    Context is the metadata associated with a freighter transport request.
 
     :param protocol: The protocol to use for the transport request.
     :param target: The target to use for the transport request.
@@ -25,14 +26,16 @@ class Context:
     """Protocol used to issue the request."""
 
     target: str
-    """Target is the target of the request."""
+    """Target of the request."""
 
     role: Role
-    """Location is the location of the request."""
+    """Location of the request."""
 
     params: MutableMapping[str, str]
-    """Arbitrary string parameters that can be set by client side middleware
-    and read by server side middleware"""
+    """
+    Arbitrary string parameters that can be set by client-side middleware and read by
+    server-side middleware.
+    """
 
     def __init__(self, protocol: str, target: str, role: Role):
         self.protocol = protocol

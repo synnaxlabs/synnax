@@ -272,6 +272,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
 
 const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  Common.Device.checkConfigured(dev);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)
     try {

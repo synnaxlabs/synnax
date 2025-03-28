@@ -19,9 +19,12 @@ import {
   CONFIGURE_LAYOUTS,
   getContextMenuItems,
   getIcon,
+  getIconString,
   getMake,
+  hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
+import { useRename } from "@/modals/Rename";
 import { Ontology } from "@/ontology";
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -43,6 +46,41 @@ const handleConfigure = ({
   } catch (e) {
     handleError(e, `Failed to configure ${resource.name}`);
   }
+};
+
+const useHandleChangeIdentifier = () => {
+  const rename = useRename();
+  return ({
+    selection: { resources },
+    handleError,
+    client,
+  }: Ontology.TreeContextMenuProps) => {
+    const resource = resources[0];
+    handleError(async () => {
+      const device = await client.hardware.devices.retrieve(resource.id.key);
+      const identifier =
+        typeof device.properties.identifier === "string"
+          ? device.properties.identifier
+          : "";
+      try {
+        const newIdentifier = await rename(
+          { initialValue: identifier, allowEmpty: false, label: "Identifier" },
+          {
+            icon: getIconString(getMake(resource.data?.make)),
+            name: "Device.Identifier",
+          },
+        );
+        if (newIdentifier == null) return;
+        await client.hardware.devices.create({
+          ...device,
+          properties: { ...device.properties, identifier: newIdentifier },
+        });
+      } catch (e) {
+        if (e instanceof Error && errors.CANCELED.matches(e)) return;
+        throw e;
+      }
+    }, "Failed to change identifier");
+  };
 };
 
 const useDelete = () => {
@@ -78,28 +116,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const first = resources[0];
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
+  const handleChangeIdentifier = useHandleChangeIdentifier();
   if (nodes.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => group(props),
+    changeIdentifier: () => handleChangeIdentifier(props),
   };
   const C = singleResource ? getContextMenuItems(resources[0].data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
+  const showConfigure = singleResource && first.data?.configured !== true;
+  const showChangeIdentifier =
+    singleResource &&
+    first.data?.configured === true &&
+    hasIdentifier(getMake(first.data?.make));
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.MenuItem selection={selection} />
       {singleResource && (
         <>
           <Menu.RenameItem />
-          {first.data?.configured !== true && (
-            <>
-              <PMenu.Divider />
-              <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
-                Configure
-              </PMenu.Item>
-            </>
+          {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
+          {showConfigure && (
+            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+              Configure
+            </PMenu.Item>
+          )}
+          {showChangeIdentifier && (
+            <PMenu.Item itemKey="changeIdentifier" startIcon={<Icon.Hardware />}>
+              Change Identifier
+            </PMenu.Item>
           )}
         </>
       )}

@@ -6,13 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 import uuid
 
 import pytest
 
 import synnax as sy
 from synnax.ontology.payload import ID
-from synnax.user.payload import ontology_type as USER_ONTOLOGY_TYPE
 
 
 @pytest.mark.access
@@ -40,13 +40,13 @@ class TestAccessClient:
             ]
         )
 
-    def test_create_list(self, two_policies: list[sy.Policy]):
+    def test_create_list(self, two_policies: list[sy.Policy]) -> None:
         assert len(two_policies) == 2
         for policy in two_policies:
             assert "create" in policy.actions
             assert policy.key is not None
 
-    def test_create_single(self, client: sy.Synnax):
+    def test_create_single(self, client: sy.Synnax) -> None:
         p = sy.Policy(
             subjects=[ID(type="user", key=str(uuid.uuid4()))],
             objects=[
@@ -61,7 +61,7 @@ class TestAccessClient:
         assert policy.subjects == p.subjects
         assert policy.objects == p.objects
 
-    def test_create_from_kwargs(self, client: sy.Synnax):
+    def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         resource_id = str(uuid.uuid4())
         policy = client.access.create(
             subjects=[ID(type="user", key=resource_id)],
@@ -79,14 +79,18 @@ class TestAccessClient:
             ID(type="label", key=resource_id),
         ]
 
-    def test_retrieve_by_subject_not_found(self, client: sy.Synnax):
+    def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
         res = client.access.retrieve(subjects=[ID(type="channel", key="hehe")])
-        assert res is None
+        assert res == []
 
-    def test_delete_by_key(self, two_policies: list[sy.Policy], client: sy.Synnax):
-        client.access.delete(two_policies[0].key)
+    def test_delete_by_key(
+        self, two_policies: list[sy.Policy], client: sy.Synnax
+    ) -> None:
+        key = two_policies[0].key
+        assert key is not None
+        client.access.delete(key)
         with pytest.raises(sy.NotFoundError):
-            client.access.retrieve(keys=[two_policies[0].key])
+            client.access.retrieve(keys=[key])
 
 
 @pytest.mark.access
@@ -94,7 +98,7 @@ class TestAccessClient:
 class TestAccessAuthClient:
     def test_create_user(
         self, client: sy.Synnax, login_info: tuple[str, int, str, str]
-    ):
+    ) -> None:
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         client.user.create(username=username, password="pwd2")
@@ -110,7 +114,7 @@ class TestAccessAuthClient:
 
     def test_user_privileges(
         self, client: sy.Synnax, login_info: tuple[str, int, str, str]
-    ):
+    ) -> None:
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         usr = client.user.create(username=username, password="pwd3")

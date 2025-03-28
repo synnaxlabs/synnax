@@ -1111,6 +1111,11 @@ xerrors::Error SugaredAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
     return process_error(dmx->SetReadOverWrite(taskHandle, data));
 }
 
+xerrors::Error SugaredAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) {
+    return process_error(dmx->GetReadTotalSampPerChanAcquired(taskHandle, data));
+}
+
+
 xerrors::Error SugaredAPI::CreateLinScale(const char scaleName[], float64 slope,
                                           float64 yIntercept, int32 preScaledUnits,
                                           const char customScaleName[]) {

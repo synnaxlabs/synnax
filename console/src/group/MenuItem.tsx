@@ -16,11 +16,18 @@ import { type Ontology } from "@/ontology";
 
 export interface MenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];
+  showBottomDivider?: boolean;
 }
 
-export const MenuItem = ({ selection }: MenuItemProps): ReactElement | null =>
+export const MenuItem = ({
+  selection,
+  showBottomDivider = false,
+}: MenuItemProps): ReactElement | null =>
   canGroupSelection(selection) ? (
-    <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
-      Group
-    </PMenu.Item>
+    <>
+      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
+        Group
+      </PMenu.Item>
+      {showBottomDivider && <PMenu.Divider />}
+    </>
   ) : null;

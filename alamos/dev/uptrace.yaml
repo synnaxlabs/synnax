@@ -70,17 +70,17 @@ ch_schema:
   replicated: false
   spans:
     ttl_delete: 30 DAY
-    storage_policy: 'default'
+    storage_policy: "default"
   metrics:
     ttl_delete: 90 DAY
-    storage_policy: 'default'
+    storage_policy: "default"
 listen:
   grpc:
-    addr: ':14317'
+    addr: ":14317"
   http:
-    addr: ':14318'
+    addr: ":14318"
 site:
-  path: '/'
+  path: "/"
 spans:
 metrics:
   drop_attrs:

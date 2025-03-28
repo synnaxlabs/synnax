@@ -41,7 +41,7 @@ Reader<T>::Reader(
     read_call_count(0) {}
 
 template<typename T>
-std::pair<size_t, xerrors::Error> Reader<T>::read(
+std::pair<ReadDigest, xerrors::Error> Reader<T>::read(
     size_t samples_per_channel,
     std::vector<T>& data
 ) {
@@ -49,7 +49,11 @@ std::pair<size_t, xerrors::Error> Reader<T>::read(
     read_call_count++;
     if (!response.first.empty())
         std::copy(response.first.begin(), response.first.end(), data.begin());
-    return {response.first.size(), response.second};
+    total_samples_acquired += response.first.size();
+    ReadDigest dig;
+    dig.samps_per_chan_read = samples_per_channel;
+    dig.samps_per_chan_acquired = samples_per_channel;
+    return {dig, response.second};
 }
 
 template<typename T>

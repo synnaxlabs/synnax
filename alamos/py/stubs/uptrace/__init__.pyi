@@ -7,17 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from functools import wraps
+from opentelemetry.sdk.resources import Attributes, Resource
 
-
-def memo(param: str):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if not hasattr(self, param):
-                setattr(self, param, func(self, *args, **kwargs))
-            return getattr(self, param)
-
-        return wrapper
-
-    return decorator
+def configure_opentelemetry(
+    dsn: str = "",
+    service_name: str | None = "",
+    service_version: str | None = "",
+    deployment_environment: str | None = "",
+    resource_attributes: Attributes | None = None,
+    resource: Resource | None = None,
+    logging_level: int = ...,
+) -> None: ...

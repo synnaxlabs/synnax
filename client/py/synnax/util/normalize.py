@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TypeVar
 
-T = TypeVar("T")
+from typing import Any
 
 
-def normalize(*args: T | tuple[T] | list[T] | None) -> list[T]:
+def normalize[T](*args: T | tuple[T] | list[T] | None) -> list[T]:
     """Flatten a list of lists into a single list.
 
     Args:
@@ -27,12 +26,12 @@ def normalize(*args: T | tuple[T] | list[T] | None) -> list[T]:
     for arg in args:
         if isinstance(arg, (list, tuple)):
             results.extend(arg)
-        else:
+        elif arg is not None:
             results.append(arg)
     return results
 
 
-def check_for_none(*args: T | None) -> bool:
+def check_for_none(*args: Any) -> bool:
     """Check if any of the arguments are None.
 
     Args:
@@ -44,9 +43,7 @@ def check_for_none(*args: T | None) -> bool:
     return all(arg is None for arg in args)
 
 
-def override(
-    *args: T | tuple[T] | list[T] | None,
-) -> list[T] | None:
+def override[T](*args: T | tuple[T] | list[T] | None) -> list[T] | None:
     for arg in args:
         if arg is not None:
             return normalize(arg)
