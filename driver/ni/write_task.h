@@ -142,7 +142,8 @@ struct WriteTaskConfig {
     /// if the task could not be parsed.
     static std::pair<WriteTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task
+        const synnax::Task &task,
+        common::TimingConfig
     ) {
         auto parser = xjson::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};

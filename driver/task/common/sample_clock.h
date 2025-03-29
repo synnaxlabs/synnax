@@ -36,6 +36,14 @@ struct SampleClock {
     virtual telem::TimeStamp end() = 0;
 };
 
+struct TimingConfig {
+    bool correct_skew = true;
+
+    void override(xjson::Parser &p) {
+        this->correct_skew = p.optional("enable_skew_correction", this->correct_skew);
+    }
+};
+
 /// @brief a sample clock that regulates the acquisition rate at the application
 /// layer by using a software timer.
 class SoftwareTimedSampleClock final : public SampleClock {
@@ -58,9 +66,10 @@ public:
     }
 };
 
+
 struct HardwareTimedSampleClockConfig {
     /// @brief allows the sample clock to use a custom time function for testing.
-    telem::NowFunc now;
+    telem::NowFunc now = telem::TimeStamp::now;
     /// @brief the sample rate of the task.
     telem::Rate sample_rate, stream_rate;
     /// @brief the proportional, integral, and derivative gains of the PID controller.
@@ -79,6 +88,22 @@ struct HardwareTimedSampleClockConfig {
 
     telem::TimeSpan max_back_correction() const {
         return this->stream_rate.period() * this->max_back_correction_factor;
+    }
+
+    static HardwareTimedSampleClockConfig create_simple(
+        const telem::Rate &sample_rate,
+        const telem::Rate &stream_rate,
+        const bool enable_skew_correction = true
+    ) {
+        common::HardwareTimedSampleClockConfig cfg{
+            .sample_rate = sample_rate,
+            .stream_rate = stream_rate
+        };
+        if (enable_skew_correction) return cfg;
+        cfg.k_p = 0;
+        cfg.k_d = 0;
+        cfg.k_i = 0;
+        return cfg;
     }
 };
 

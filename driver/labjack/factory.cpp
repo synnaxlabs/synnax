@@ -22,9 +22,10 @@ const std::string NO_LIBS_MSG =
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    common::TimingConfig timing_cfg
 ) {
-    auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task);
+    auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {nullptr, err};
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {nullptr, d_err};
@@ -106,19 +107,20 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)
-        res = configure_read(this->dev_manager, ctx, task);
+        res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task);
     common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }
 
-std::unique_ptr<labjack::Factory> labjack::Factory::create() {
+std::unique_ptr<labjack::Factory> labjack::Factory::create(common::TimingConfig timing_cfg) {
     auto [ljm, ljm_err] = ljm::API::load();
     if (ljm_err)
         LOG(WARNING) << ljm_err;
     return std::make_unique<labjack::Factory>(
-        ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr
+        ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr,
+        timing_cfg
     );
 }
 

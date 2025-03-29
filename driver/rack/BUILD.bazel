@@ -17,6 +17,7 @@ cc_library(
         "//driver/opc",
         "//driver/sequence",
         "//driver/task",
+        "//driver/task/common",
         "//x/cpp/kv",
         "//x/cpp/xargs",
         "//x/cpp/xenv",

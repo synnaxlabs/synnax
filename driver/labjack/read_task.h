@@ -320,6 +320,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the model of device being read from.
     std::string dev_model;
     transform::Chain transform;
+    common::TimingConfig timing_cfg;
+    std::string timing_source;
+    bool software_timed;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         common::BaseReadTaskConfig(std::move(other)),
@@ -329,7 +332,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
         dev_model(std::move(other.dev_model)),
-        transform(std::move(other.transform)) {
+        transform(std::move(other.transform)),
+        timing_cfg(std::move(other.timing_cfg)),
+        timing_source(std::move(other.timing_source)),
+        software_timed(other.software_timed) {
     }
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -338,11 +344,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &parser
-    ): common::BaseReadTaskConfig(parser),
-       device_key(parser.required<std::string>("device")),
+        xjson::Parser &parser,
+        common::TimingConfig timing_cfg = common::TimingConfig()
+    ): common::BaseReadTaskConfig(parser, timing_cfg),
+       device_key(parser.optional<std::string>("device", "cross-device")),
        conn_method(parser.optional<std::string>("conn_method", "")),
        samples_per_chan(sample_rate / stream_rate),
+       software_timed(parser.optional<std::string>("timing_source", "").empty()),
+       timing_cfg(timing_cfg),
        channels(parser.map<std::unique_ptr<InputChan> >(
            "channels",
            [&](xjson::Parser &ch_cfg)-> std::pair<std::unique_ptr<InputChan>, bool> {
@@ -409,10 +418,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// is invalid and should not be used.
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task
+        const synnax::Task &task,
+        common::TimingConfig timing_cfg
     ) {
         auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser), parser.error()};
+        return {ReadTaskConfig(client, parser, timing_cfg), parser.error()};
     }
 
     /// @brief returns true if the task has any thermocouples.
@@ -422,12 +432,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return false;
     }
 
-    [[nodiscard]] xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
+    [[nodiscard]] xerrors::Error
+    apply(const std::shared_ptr<device::Device> &dev) const {
         for (const auto &ch: this->channels)
             if (const auto err = ch->apply(dev, this->dev_model))
                 return err;
         return xerrors::NIL;
     }
+
 };
 
 /// @brief a source implementation that reads from labjack devices via a unary
@@ -523,10 +535,12 @@ public:
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        dev(dev),
-       sample_clock(common::HardwareTimedSampleClockConfig{
-           .sample_rate = this->cfg.sample_rate,
-           .stream_rate = this->cfg.stream_rate
-       }),
+       sample_clock(
+           common::HardwareTimedSampleClockConfig::create_simple(
+               this->cfg.sample_rate,
+               this->cfg.stream_rate,
+               this->cfg.timing_cfg.correct_skew
+           )),
        buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 

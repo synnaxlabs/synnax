@@ -43,6 +43,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<channel::Input> > channels;
+    common::TimingConfig timing_cfg;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -63,8 +64,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     explicit ReadTaskConfig(
         std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg,
-        const std::string &task_type
-    ): BaseReadTaskConfig(cfg),
+        const std::string &task_type,
+        common::TimingConfig timing_cfg = common::TimingConfig()
+    ): BaseReadTaskConfig(cfg, timing_cfg),
        device_key(cfg.optional<std::string>("device", "cross-device")),
        timing_source(cfg.optional<std::string>("timing_source", "")),
        samples_per_chan(sample_rate / stream_rate),
@@ -128,10 +130,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
         std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task
+        const synnax::Task &task,
+        common::TimingConfig timing_cfg
     ) {
         auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser, task.type), parser.error()};
+        return {ReadTaskConfig(client, parser, task.type, timing_cfg), parser.error()};
     }
 
     [[nodiscard]] std::vector<synnax::Channel> sy_channels() const {
@@ -176,10 +179,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (this->software_timed)
             return std::make_unique<
                 common::SoftwareTimedSampleClock>(this->stream_rate);
-        return std::make_unique<common::HardwareTimedSampleClock>(common::HardwareTimedSampleClockConfig{
-            .sample_rate = this->sample_rate,
-            .stream_rate =this->stream_rate
-        });
+        return std::make_unique<common::HardwareTimedSampleClock>(
+            common::HardwareTimedSampleClockConfig::create_simple(
+                sample_rate,
+                stream_rate,
+                this->timing_cfg.correct_skew
+            ));
     }
 };
 
@@ -221,7 +226,7 @@ private:
 
     xerrors::Error start() override {
         this->sample_clock->reset();
-        auto err =  this->hw_reader->start();
+        auto err = this->hw_reader->start();
         return err;
     }
 
@@ -249,7 +254,8 @@ private:
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
-                telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read, n_read)
+                telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read,
+                                    n_read)
             );
         common::generate_index_data(f, this->cfg.indexes, start, end, n_read);
         return std::make_pair(std::move(f), xerrors::NIL);

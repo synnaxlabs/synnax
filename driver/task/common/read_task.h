@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
-#include <queue>
-
 /// internal
+#include "sample_clock.h"
 #include "driver/task/common/state.h"
 #include "driver/task/task.h"
 #include "driver/errors/errors.h"
@@ -27,11 +25,13 @@ struct BaseReadTaskConfig {
     const telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
     const telem::Rate stream_rate;
+    common::TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
         data_saving(other.data_saving),
         sample_rate(other.sample_rate),
-        stream_rate(other.stream_rate) {
+        stream_rate(other.stream_rate),
+        timing(other.timing) {
     }
 
     BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
@@ -40,10 +40,12 @@ struct BaseReadTaskConfig {
 
     explicit BaseReadTaskConfig(
         xjson::Parser &cfg,
+        const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ): data_saving(cfg.optional<bool>("data_saving", false)),
        sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
-       stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))) {
+       stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
+       timing(timing_cfg) {
         if (sample_rate <= telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
         if (stream_rate_required && stream_rate <= telem::Rate(0))

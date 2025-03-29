@@ -560,7 +560,7 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p, false);
+    auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_TRUE(cfg.data_saving);

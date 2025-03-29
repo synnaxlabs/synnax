@@ -79,6 +79,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
         xjson::Parser &parser
     ): common::BaseReadTaskConfig(
            parser,
+           common::TimingConfig(),
            parser.optional("array_size", 1) <= 1
        ),
        device_key(parser.required<std::string>("device")),

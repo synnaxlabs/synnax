@@ -26,37 +26,7 @@
 const std::string NO_LIBS_MSG =
         "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
 
-template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task);
-    if (cfg_err) return {nullptr, cfg_err};
-    TaskHandle handle;
-    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
-    if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle))
-        return {nullptr, err};
-    // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
-    // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
-    // sure it gets cleared.
-    auto hw = std::make_unique<HardwareT>(dmx, handle);
-    if (const auto err = cfg.apply(dmx, handle)) return {nullptr, err};
-    // NI will look for invalid configuration parameters internally, so we quickly
-    // cycle the task in order to catch and communicate any errors as soon as possible.
-    if (const auto err = hw->start()) return {nullptr, err};
-    if (const auto err = hw->stop()) return {nullptr, err};
-    return {
-        std::make_unique<TaskT>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
-        ),
-        xerrors::NIL
-    };
-}
+
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
@@ -79,9 +49,9 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
 
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg
-): dmx(dmx), syscfg(syscfg) {
-}
+    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    common::TimingConfig timing_cfg
+): dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
 
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
@@ -96,7 +66,7 @@ bool ni::Factory::check_health(
     return false;
 }
 
-std::unique_ptr<ni::Factory> ni::Factory::create() {
+std::unique_ptr<ni::Factory> ni::Factory::create(common::TimingConfig timing_cfg) {
     auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
     if (syscfg_err)
         LOG(WARNING) << syscfg_err;
@@ -105,10 +75,10 @@ std::unique_ptr<ni::Factory> ni::Factory::create() {
         LOG(WARNING) << dmx_err;
     return std::make_unique<ni::Factory>(
         dmx != nullptr ? std::make_shared<daqmx::SugaredAPI>(dmx) : nullptr,
-        syscfg != nullptr ? std::make_shared<syscfg::SugaredAPI>(syscfg) : nullptr
+        syscfg != nullptr ? std::make_shared<syscfg::SugaredAPI>(syscfg) : nullptr,
+        timing_cfg
     );
 }
-
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
@@ -125,28 +95,28 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::ReadTaskConfig,
             ni::ReadTaskSource<double>,
             common::ReadTask
-        >(dmx, ctx, task);
+        >(ctx, task);
     else if (task.type == DIGITAL_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
             common::ReadTask
-        >(dmx, ctx, task);
+        >(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<double>,
             common::WriteTask
-        >(dmx, ctx, task);
+        >(ctx, task);
     else if (task.type == DIGITAL_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask
-        >(dmx, ctx, task);
+        >(ctx, task);
     common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }

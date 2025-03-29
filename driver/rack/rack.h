@@ -32,6 +32,7 @@
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/opc/opc.h"
 #include "driver/task/task.h"
+#include "driver/task/common/sample_clock.h"
 
 
 using json = nlohmann::json;
@@ -82,6 +83,8 @@ struct Config {
     /// connecting to a cluster. This is cached on the local file system to compare
     /// and contrast.
     RemoteInfo remote_info;
+    /// @brief timing options for tasks in the driver.
+    common::TimingConfig timing;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.

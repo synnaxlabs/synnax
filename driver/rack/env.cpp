@@ -52,5 +52,9 @@ xerrors::Error rack::Config::load_env() {
         ENV_PREFIX + "CLIENT_KEY_FILE",
         this->connection.client_key_file
     );
+    this->timing.correct_skew = xenv::load(
+        ENV_PREFIX + "CORRECT_SKEW",
+        this->timing.correct_skew
+    );
     return xerrors::NIL;
 }
