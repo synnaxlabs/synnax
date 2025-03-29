@@ -12,6 +12,7 @@
 /// std
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <iostream>
 #include <typeindex>
