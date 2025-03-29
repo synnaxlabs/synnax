@@ -144,6 +144,7 @@ public:
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;
+
     [[nodiscard]] xerrors::Error open() override;
 };
 
@@ -234,7 +235,7 @@ public:
 /// @brief a plugin that adds timing utilities to the sequence.
 class Time final : public Plugin {
     /// @brief a function that returns the current time.
-    const std::function<std::uint64_t()> now;
+    const telem::NowFunc now;
     /// @brief the start time for the sequence.
     telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
@@ -244,12 +245,11 @@ class Time final : public Plugin {
     int64_t iteration;
 
 public:
-    explicit Time(
-        std::function<std::int64_t()> now = [] {
-            return std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()
-            ).count();
-        }): now(std::move(now)), start_time(0), elapsed(0), iteration(0) {
+    explicit Time(telem::NowFunc now = telem::TimeStamp::now):
+        now(std::move(now)),
+        start_time(0),
+        elapsed(0),
+        iteration(0) {
     }
 
     xerrors::Error before_all(lua_State *L) override;

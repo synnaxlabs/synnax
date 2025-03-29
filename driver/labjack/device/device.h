@@ -123,8 +123,8 @@ public:
         int *ljm_scan_backlog
     ) const override {
         return parse_error(
-            ljm,
-            ljm->e_stream_read(
+            this->ljm,
+            this->ljm->e_stream_read(
                 dev_handle,
                 data,
                 dev_scan_backlog,
@@ -134,8 +134,8 @@ public:
 
     [[nodiscard]] xerrors::Error e_stream_stop() const override {
         return parse_error(
-            ljm,
-            ljm->e_stream_stop(dev_handle)
+            this->ljm,
+            this->ljm->e_stream_stop(dev_handle)
         );
     }
 
@@ -313,7 +313,7 @@ public:
 /// and release devices for use at will.
 class Manager {
     std::mutex mu;
-    std::map<std::string, std::weak_ptr<Device> > handles;
+    std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
 
 public:

@@ -594,3 +594,104 @@ TEST(TestSeries, testCastVoidPointer) {
     TEST_CAST_FROM_VOID_POINTER(float, FLOAT32_DATA);
     TEST_CAST_FROM_VOID_POINTER(double, FLOAT64_DATA);
 }
+
+TEST(TestSeriesInplace, testAddInplace) {
+    // Test with integer type
+    std::vector<int32_t> int_data = {1, 2, 3, 4, 5};
+    telem::Series int_series(int_data);
+    int_series.add_inplace(2);
+    auto int_result = int_series.values<int32_t>();
+    std::vector<int32_t> expected_int = {3, 4, 5, 6, 7};
+    ASSERT_EQ(int_result, expected_int);
+
+    // Test with floating point type
+    std::vector<float> float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
+    telem::Series float_series(float_data);
+    float_series.add_inplace(1.5f);
+    auto float_result = float_series.values<float>();
+    std::vector<float> expected_float = {3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
+    ASSERT_EQ(float_result, expected_float);
+}
+
+TEST(TestSeriesInplace, testSubInplace) {
+    // Test with integer type
+    std::vector<int32_t> int_data = {5, 6, 7, 8, 9};
+    telem::Series int_series(int_data);
+    int_series.sub_inplace(2);
+    auto int_result = int_series.values<int32_t>();
+    std::vector<int32_t> expected_int = {3, 4, 5, 6, 7};
+    ASSERT_EQ(int_result, expected_int);
+
+    // Test with floating point type
+    std::vector<float> float_data = {3.5f, 4.5f, 5.5f, 6.5f, 7.5f};
+    telem::Series float_series(float_data);
+    float_series.sub_inplace(1.5f);
+    auto float_result = float_series.values<float>();
+    std::vector<float> expected_float = {2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    ASSERT_EQ(float_result, expected_float);
+}
+
+TEST(TestSeriesInplace, testMultiplyInplace) {
+    // Test with integer type
+    std::vector<int32_t> int_data = {1, 2, 3, 4, 5};
+    telem::Series int_series(int_data);
+    int_series.multiply_inplace(2);
+    auto int_result = int_series.values<int32_t>();
+    std::vector<int32_t> expected_int = {2, 4, 6, 8, 10};
+    ASSERT_EQ(int_result, expected_int);
+
+    // Test with floating point type
+    std::vector<float> float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
+    telem::Series float_series(float_data);
+    float_series.multiply_inplace(2.0f);
+    auto float_result = float_series.values<float>();
+    std::vector<float> expected_float = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
+    ASSERT_EQ(float_result, expected_float);
+}
+
+TEST(TestSeriesInplace, testDivideInplace) {
+    // Test with integer type
+    std::vector<int32_t> int_data = {2, 4, 6, 8, 10};
+    telem::Series int_series(int_data);
+    int_series.divide_inplace(2);
+    auto int_result = int_series.values<int32_t>();
+    std::vector<int32_t> expected_int = {1, 2, 3, 4, 5};
+    ASSERT_EQ(int_result, expected_int);
+
+    // Test with floating point type
+    std::vector<float> float_data = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
+    telem::Series float_series(float_data);
+    float_series.divide_inplace(2.0f);
+    auto float_result = float_series.values<float>();
+    std::vector<float> expected_float = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
+    ASSERT_EQ(float_result, expected_float);
+
+    // Test division by zero
+    telem::Series zero_test(std::vector<int32_t>{1, 2, 3});
+    ASSERT_THROW(zero_test.divide_inplace(0), std::runtime_error);
+}
+
+// Test all operations with different numeric types
+TEST(TestSeriesInplace, testMultipleTypes) {
+    // Test uint8_t
+    std::vector<uint8_t> uint8_data = {1, 2, 3, 4, 5};
+    telem::Series uint8_series(uint8_data);
+    uint8_series.add_inplace(1);
+    uint8_series.multiply_inplace(2);
+    uint8_series.sub_inplace(2);
+    uint8_series.divide_inplace(2);
+    auto uint8_result = uint8_series.values<uint8_t>();
+    std::vector<uint8_t> expected_uint8 = {1, 2, 3, 4, 5};
+    ASSERT_EQ(uint8_result, expected_uint8);
+
+    // Test double
+    std::vector<double> double_data = {1.0, 2.0, 3.0, 4.0, 5.0};
+    telem::Series double_series(double_data);
+    double_series.add_inplace(1.0);
+    double_series.multiply_inplace(2.0);
+    double_series.sub_inplace(2.0);
+    double_series.divide_inplace(2.0);
+    auto double_result = double_series.values<double>();
+    std::vector<double> expected_double = {1.0, 2.0, 3.0, 4.0, 5.0};
+    ASSERT_EQ(double_result, expected_double);
+}

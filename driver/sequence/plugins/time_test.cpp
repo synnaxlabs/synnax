@@ -18,8 +18,8 @@ extern "C" {
 /// @brief it should correctly return the elapsed sequence time based on the current time.
 TEST(TimePluginTest, testElapsed) {
     auto current_time = telem::TimeSpan(0);
-    auto now = [&current_time]() -> int64_t {
-        return current_time.nanoseconds();
+    auto now = [&current_time]() -> telem::TimeStamp {
+        return telem::TimeStamp(current_time);
     };
 
     lua_State* L = luaL_newstate();
@@ -73,8 +73,8 @@ TEST(TimePluginTest, testIteration) {
 
 TEST(TimePluginTest, testElapsedWithin) {
     auto current_time = telem::TimeSpan(0);
-    auto now = [&current_time]() -> int64_t {
-        return current_time.nanoseconds();
+    auto now = [&current_time]() -> telem::TimeStamp {
+        return telem::TimeStamp(current_time);
     };
 
     lua_State* L = luaL_newstate();

@@ -58,38 +58,6 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
     };
 }
 
-template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
-    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task);
-    if (cfg_err) return {nullptr, cfg_err};
-    TaskHandle handle;
-    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
-    if (const auto err = dmx->CreateTask(dmx_task_name.c_str(), &handle))
-        return {nullptr, err};
-    // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
-    // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
-    // sure it gets cleared.
-    auto hw = std::make_unique<HardwareT>(dmx, handle);
-    if (const auto err = cfg.apply(dmx, handle)) return {nullptr, err};
-    // NI will look for invalid configuration parameters internally, so we quickly
-    // cycle the task in order to catch and communicate any errors as soon as possible.
-    if (const auto err = hw->start()) return {nullptr, err};
-    if (const auto err = hw->stop()) return {nullptr, err};
-    return {
-        std::make_unique<TaskT>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
-        ),
-        xerrors::NIL
-    };
-}
-
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
@@ -152,7 +120,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->syscfg, ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
-        res = configure_read<
+        res = configure<
             hardware::daqmx::AnalogReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<double>,

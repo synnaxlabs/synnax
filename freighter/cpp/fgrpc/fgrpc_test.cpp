@@ -126,7 +126,7 @@ TEST(testGRPC, testBasicStream) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto client = fgrpc::AsyncStreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
     auto [streamer, err] = client.stream("");

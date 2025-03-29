@@ -8,15 +8,7 @@ cc_library(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [
-            "-fopt-info-vec-all",  # Show all vectorization information
-            "-fopt-info-loop-all",  # Show all loop optimizations
-            "-O3",
-            "-march=native",
-            "-ftree-vectorize",
-            "-fopt-info-inline-all",  # Show inlining decisions
-            "-fverbose-asm",  # Generate detailed assembly
-        ],
+        "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [

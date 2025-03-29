@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
-#include "glog/logging.h"
 
 #include "client/cpp/framer/framer.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"

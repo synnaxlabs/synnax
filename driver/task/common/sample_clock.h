@@ -56,35 +56,27 @@ public:
     }
 };
 
-using NowFunc = std::function<telem::TimeStamp()>;
-
 /// @brief a sample clock that relies on an external, steady hardware clock to
 /// regulate the acquisition rate. Timestamps are interpolated based on a fixed
 /// sample rate.
 class HardwareTimedSampleClock final : public SampleClock {
-    NowFunc now;
+    telem::NowFunc now;
     /// @brief the sample rate of the task.
-    const telem::Rate sample_rate;
-    /// @brief the stream rate of the task.
-    const telem::Rate stream_rate;
-    /// @brief the number of samples per acquisition loop.
-    const size_t samples_per_channel;
-
-
+    const telem::Rate sample_rate, stream_rate;
     /// @brief track the system time marking the end of the previous acquisition loop.
     telem::TimeStamp prev_system_end = telem::TimeStamp(0);
     /// @brief timestamp of the first sample in the current acquisition loop.
     telem::TimeStamp curr_start_sample_time = telem::TimeStamp(0);
-
+    /// @brief the maximum value of the integral term of the PID controller. This is used
+    /// to prevent windup.
     static constexpr double MAX_INTEGRAL = 1000.0;
-    const double k_p = 0.1;
-    const double k_i = 0.1;
-    const double k_d = 0.0;
-
+    /// @brief the proportional, integral, and derivative gains of the PID controller.
+    const double k_p, k_i, k_d;
     /// @brief the current integral term of the PID controller.
     double integral = 0.0;
     /// @brief the previous error term of the PID controller.
     double prev_error = 0.0;
+
 public:
     explicit HardwareTimedSampleClock(
         const telem::Rate sample_rate,
@@ -92,11 +84,10 @@ public:
         const double k_p = 0.1,
         const double k_i = 0.1,
         const double k_d = 0.0,
-        const NowFunc &now = telem::TimeStamp::now
-    ): sample_rate(sample_rate),
+        const telem::NowFunc &now = telem::TimeStamp::now
+    ): now(now),
+       sample_rate(sample_rate),
        stream_rate(stream_rate),
-       samples_per_channel(sample_rate / stream_rate),
-       now(now),
        k_p(k_p),
        k_i(k_i),
        k_d(k_d) {
@@ -150,6 +141,7 @@ inline void generate_index_data(
 ) {
     if (index_keys.empty()) return;
     auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
+    // Hot path: Common to have one index, and it means we can avoid a deep copy.
     if (index_keys.size() == 1)
         f.emplace(*index_keys.begin(), std::move(index_data));
     else

@@ -516,8 +516,6 @@ class StreamSource final : public common::Source {
     /// @brief re-usable buffer of values we load data into before converting it to a
     /// frame.
     std::vector<double> buf;
-
-    loop::Gauge g = loop::Gauge("read", 500, 0);
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
@@ -590,8 +588,6 @@ public:
         if (num_skipped_scans > 0) {
             LOG(WARNING) << "skipped " << num_skipped_scans << " scans";
         }
-        g.stop();
-        g.start();
         const auto end = this->sample_clock.end();
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;

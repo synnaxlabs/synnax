@@ -15,9 +15,11 @@ part of Synnax's control sequence and data streaming capabilities.
 This example requires the `stream_write.py` file to be running in a separate terminal.
 """
 
-import synnax as sy
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import synnax as sy
+
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
@@ -62,45 +64,48 @@ diff_std = np.std(diffs)
 # Create the offset plot
 plt.figure(figsize=(10, 6))
 # Create custom bins with more resolution in 0-500 range
-bins_offset = np.concatenate([
-    np.linspace(min(offsets), max(offsets), 1000)  # 10 bins for the rest
-])
-hist_offset, bins_offset, _ = plt.hist(offsets, bins=bins_offset, alpha=0.7, color='b')
+bins_offset = np.concatenate(
+    [np.linspace(min(offsets), max(offsets), 1000)]  # 10 bins for the rest
+)
+hist_offset, bins_offset, _ = plt.hist(offsets, bins=bins_offset, alpha=0.7, color="b")
 
 # Plot the Gaussian fit for offsets
 x_offset = np.linspace(min(offsets), max(offsets), 100)
-gaussian_offset = (hist_offset.max() * np.exp(-(x_offset-offset_mean)**2 / (2*offset_std**2)))
-plt.plot(x_offset, gaussian_offset, 'r-', lw=2, label='Gaussian fit')
+gaussian_offset = hist_offset.max() * np.exp(
+    -((x_offset - offset_mean) ** 2) / (2 * offset_std**2)
+)
+plt.plot(x_offset, gaussian_offset, "r-", lw=2, label="Gaussian fit")
 
-plt.title('Distribution of Clock Offsets')
-plt.xlabel('Offset (microseconds)')
-plt.ylabel('Count')
+plt.title("Distribution of Clock Offsets")
+plt.xlabel("Offset (microseconds)")
+plt.ylabel("Count")
 plt.legend()
 plt.grid(True)
-plt.savefig('clock_offsets.png')
+plt.savefig("clock_offsets.png")
 
 # Create the diffs plot
 plt.figure(figsize=(10, 6))
 # Create custom bins with more resolution in 0-500 range
-bins_diff = np.concatenate([
-    np.linspace(min(diffs), max(diffs), 500)  # 10 bins for the rest
-])
-hist_diff, bins_diff, _ = plt.hist(diffs, bins=bins_diff, alpha=0.7, color='g')
+bins_diff = np.concatenate(
+    [np.linspace(min(diffs), max(diffs), 500)]  # 10 bins for the rest
+)
+hist_diff, bins_diff, _ = plt.hist(diffs, bins=bins_diff, alpha=0.7, color="g")
 
 # Plot the Gaussian fit for diffs
 x_diff = np.linspace(min(diffs), max(diffs), 100)
-gaussian_diff = (hist_diff.max() * np.exp(-(x_diff-diff_mean)**2 / (2*diff_std**2)))
-plt.plot(x_diff, gaussian_diff, 'r-', lw=2, label='Gaussian fit')
+gaussian_diff = hist_diff.max() * np.exp(
+    -((x_diff - diff_mean) ** 2) / (2 * diff_std**2)
+)
+plt.plot(x_diff, gaussian_diff, "r-", lw=2, label="Gaussian fit")
 
-plt.title('Distribution of Time Differences')
-plt.xlabel('Time Difference (microseconds)')
-plt.ylabel('Count')
+plt.title("Distribution of Time Differences")
+plt.xlabel("Time Difference (microseconds)")
+plt.ylabel("Count")
 plt.legend()
 plt.grid(True)
-plt.savefig('time_differences.png')
+plt.savefig("time_differences.png")
 
 print(f"Mean offset: {offset_mean:.2f} microseconds")
 print(f"Standard deviation: {offset_std:.2f} microseconds")
 print(f"Mean time difference: {diff_mean:.2f} microseconds")
 print(f"Standard deviation of time differences: {diff_std:.2f} microseconds")
-

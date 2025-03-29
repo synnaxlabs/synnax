@@ -252,6 +252,7 @@ public:
     }
 };
 
+
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
 class TimeStamp {
     /// @property value holds the internal, primitive value of the timestamp.
@@ -591,7 +592,7 @@ template<typename T>
     }, value);
 }
 
-
+using NowFunc = std::function<TimeStamp()>;
 
 namespace _priv {
 const std::string UNKNOWN_T;

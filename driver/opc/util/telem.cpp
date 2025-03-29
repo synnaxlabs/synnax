@@ -96,7 +96,6 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
             acc += s.write(ua_datetime_to_unix_nano(data[j]));
         return {std::move(s), xerrors::NIL};
     }
-    return {telem::Series(0), xerrors::NIL};
     return {
         telem::Series::cast(
             target_type,
