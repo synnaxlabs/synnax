@@ -79,3 +79,31 @@ TEST_F(XEnvTest, LoadUInt16) {
     EXPECT_EQ(xenv::load("NONEXISTENT_VAR", uint16_t(100)), uint16_t(100));
     EXPECT_EQ(xenv::load("TEST_INVALID_NUM", uint16_t(100)), uint16_t(100));
 }
+
+TEST_F(XEnvTest, LoadBooleanTrueDefault) {
+    setenv("TEST_BOOL_TRUE", "true", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", false), true); 
+
+    setenv("TEST_BOOL_ONE", "1", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", false), true); 
+
+    setenv("TEST_BOOL_ZERO", "0", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", true), false); 
+
+    setenv("TEST_BOOL_FALSE", "false", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", true), false); 
+}
+
+TEST_F(XEnvTest, LoadBooleanFalseDefault) {
+    setenv("TEST_BOOL_TRUE", "true", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", true), true); 
+
+    setenv("TEST_BOOL_ONE", "1", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", true), true); 
+
+    setenv("TEST_BOOL_ZERO", "0", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", false), false); 
+
+    setenv("TEST_BOOL_FALSE", "false", 1);
+    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", false), false); 
+}

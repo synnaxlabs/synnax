@@ -24,6 +24,12 @@ T load(const std::string& name, const T& default_value) {
     if (value == nullptr) return default_value;
     VLOG(1) << "Loaded " << name << " from environment variable.";
     try {
+        if constexpr (std::is_same_v<T, bool>) {
+            const std::string str_value(value);
+            if (!default_value)
+                return (str_value == "true" || str_value == "1");
+            return !(str_value == "false" || str_value == "0");
+        }
         if constexpr (std::is_same_v<T, std::string>)
             return std::string(value);
         if constexpr (std::is_floating_point_v<T>)
@@ -33,7 +39,9 @@ T load(const std::string& name, const T& default_value) {
         if constexpr (std::is_integral_v<T>)
             return static_cast<T>(std::stoll(value));
         return default_value;
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
+        LOG(WARNING) << "Failed to convert environment variable " << name
+                     << " to type " << typeid(T).name() << ": " << e.what();
         return default_value;
     }
 }
