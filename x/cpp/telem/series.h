@@ -118,7 +118,7 @@ class Series {
 
     template<typename T>
     void vectorized_op(T* data_ptr, const T value, const size_t size, auto op) const {
-        // #pragma omp simd
+        #pragma omp simd
         for (size_t i = 0; i < size; i++)
             data_ptr[i] = op(data_ptr[i], value);
     }
@@ -797,8 +797,8 @@ public:
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
         auto* data_ptr = reinterpret_cast<int64_t*>(s.data.get());
-        for (size_t i = 0; i < count; i++)
-            data_ptr[i] = start_ns + step_ns * i;
+        #pragma omp simd
+        for (size_t i = 0; i < count; i++) data_ptr[i] = start_ns + step_ns * i;
         s.size_ = count;
         return s;
     }
@@ -870,5 +870,5 @@ public:
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
-}; 
-} 
+};
+}

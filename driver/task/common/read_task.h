@@ -9,6 +9,9 @@
 
 #pragma once
 
+/// std
+#include <queue>
+
 /// internal
 #include "driver/task/common/state.h"
 #include "driver/task/task.h"
@@ -176,8 +179,6 @@ class ReadTask final : public task::Task {
         }
 
         std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            g.stop();
-            g.start();
             auto [fr, err] = this->internal->read(breaker);
             if (!err)
                 this->p.state.clear_warning();

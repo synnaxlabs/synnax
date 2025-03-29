@@ -125,7 +125,7 @@ std::pair<ReadDigest, xerrors::Error> AnalogReader::read(
     if (dig.samps_per_chan_acquired < dig.samps_per_chan_read) dig.samps_per_chan_acquired = dig.samps_per_chan_read;
     this->total_samples_acquired_high_water = next_high_water;
     this->requested_total_samples += samples_read;
-    if (this->total_samples_acquired_high_water > this->requested_total_samples) {
+    if ((this->total_samples_acquired_high_water - 30) > this->requested_total_samples) {
         auto skew = this->total_samples_acquired_high_water  -   this->requested_total_samples;
         VLOG(1) << "[driver.ni] application is trailing data acquisition loop by " << skew << " samples";
     }

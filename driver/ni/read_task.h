@@ -211,7 +211,7 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
-    loop::Gauge g;
+    loop::Gauge g = loop::Gauge("ni", 500, 1);
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -232,9 +232,6 @@ private:
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        g.stop();
-        g.start();
-        if (g.iterations() % 500 == 0) VLOG(1) << "[driver.ni] average loop time" << g.average();
         auto start = this->sample_clock->wait(breaker);
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
@@ -243,6 +240,7 @@ private:
         // Don't return read data on the first iteration to allow the sample clock
         // to stabilize.
         if (start == 0) return {Frame(0), xerrors::NIL};
+
         const auto n_read = dig.samps_per_chan_read;
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
@@ -250,12 +248,14 @@ private:
         auto end = this->sample_clock->end();
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
+        g.start();
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
                 telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read, n_read)
             );
         common::generate_index_data(f, this->cfg.indexes, start, end, n_read);
+        g.stop();
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 };
