@@ -36,11 +36,14 @@ struct SampleClock {
     virtual telem::TimeStamp end() = 0;
 };
 
+/// @brief common timing options for all tasks.
 struct TimingConfig {
+    /// @brief whether to automatically correct clock skew in hardware timed sample
+    /// clocks.
     bool correct_skew = true;
 
     void override(xjson::Parser &p) {
-        this->correct_skew = p.optional("enable_skew_correction", this->correct_skew);
+        this->correct_skew = p.optional("correct_skew", this->correct_skew);
     }
 };
 

@@ -27,31 +27,12 @@ const std::string NO_LIBS_MSG =
         "Cannot create the task because the National Instruments DAQMX and System Configuration libraries are not installed on this system.";
 
 
-
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto parser = xjson::Parser(task.config);
-    auto cfg = ni::ScanTaskConfig(parser);
-    if (parser.error()) return {nullptr, parser.error()};
-    auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<ni::Scanner>(syscfg, cfg, task),
-        ctx,
-        task,
-        breaker::default_config(task.name),
-        cfg.rate
-    );
-    if (cfg.enabled) scan_task->start();
-    return {std::move(scan_task), xerrors::NIL,};
-}
-
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
     common::TimingConfig timing_cfg
-): dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
+): dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {
+}
 
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
@@ -87,8 +68,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
-    if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(this->syscfg, ctx, task);
+    if (task.type == SCAN_TASK_TYPE) res = configure_scan(ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogReader,
@@ -122,13 +102,13 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
 }
 
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
     if (!this->check_health(ctx, synnax::Task())) return {};
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
     auto [existing, err] = rack.tasks.list();
     if (err) {
@@ -153,10 +133,26 @@ ni::Factory::configure_initial_tasks(
         return tasks;
     }
     tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task>>({
+        std::pair<synnax::Task, std::unique_ptr<task::Task> >({
             sy_task,
             std::move(task)
         })
     );
     return tasks;
+}
+
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::Factory::configure_scan(
+    const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+    auto parser = xjson::Parser(task.config);
+    auto cfg = ScanTaskConfig(parser);
+    if (parser.error()) return {nullptr, parser.error()};
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.rate
+    );
+    if (cfg.enabled) scan_task->start();
+    return {std::move(scan_task), xerrors::NIL,};
 }

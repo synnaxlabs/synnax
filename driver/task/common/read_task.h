@@ -25,6 +25,7 @@ struct BaseReadTaskConfig {
     const telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
     const telem::Rate stream_rate;
+    /// @brief timing configuration options for the task.
     common::TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:

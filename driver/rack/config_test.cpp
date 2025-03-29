@@ -108,6 +108,40 @@ TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     ASSERT_NE(cfg.remote_info.cluster_key, "abc");
 }
 
+TEST_F(RackConfigTest, testDefaultTimingConfig) {
+    auto [cfg, err] = rack::Config::load(args, brk);
+    ASSERT_FALSE(err) << err;
+    // Assert default timing values
+    ASSERT_TRUE(cfg.timing.correct_skew); // Assuming the default is true
+}
+
+TEST_F(RackConfigTest, loadTimingConfigFromFile) {
+    // Create a temporary config file with timing settings
+    const std::string config_path = "/tmp/rack-config-test/config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({
+        "timing": {
+            "correct_skew": false
+        }
+    })";
+    config_file.close();
+    
+    // Set up args with config file
+    xargs::Parser config_args(std::vector<std::string>{
+        "program", 
+        "--state-file", "/tmp/rack-config-test/state.json",
+        "--config", config_path
+    });
+    
+    // Load config and verify timing settings
+    auto [cfg, err] = rack::Config::load(config_args, brk);
+    ASSERT_FALSE(err) << err;
+    ASSERT_FALSE(cfg.timing.correct_skew); // Verify the loaded value
+    
+    // Clean up
+    std::remove(config_path.c_str());
+}
+
 // We need to explicitly define a main function here instead of using gtest_main
 // because otherwise the lua interpreters main function will get executed instead.
 int main(int argc, char** argv) {
