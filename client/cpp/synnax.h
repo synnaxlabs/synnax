@@ -69,7 +69,8 @@ struct Config {
     /// @brief sets the maximum number of login retries before giving up.
     std::uint32_t max_retries = 5;
 
-    void override(xjson::Parser &parser) {
+    template<typename ParserT>
+    void override(ParserT& parser) {
         this->host = parser.optional("host", this->host);
         this->port = parser.optional("port", this->port);
         this->username = parser.optional("username", this->username);

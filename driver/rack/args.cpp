@@ -9,14 +9,10 @@
 
 /// internal
 #include "driver/rack/rack.h"
-#include "x/cpp/xenv/xenv.h"
 
-const std::string ENV_PREFIX = "SYNNAX_DRIVER_";
-
-xerrors::Error rack::Config::load_env() {
-    xenv::Parser p(ENV_PREFIX);
-    this->connection.override(p);
-    this->timing.override(p);
-    this->remote_info.override(p);
+xerrors::Error rack::Config::load_args(xargs::Parser &args) {
+    this->connection.override(args);
+    this->timing.override(args);
+    this->remote_info.override(args);
     return xerrors::NIL;
 }

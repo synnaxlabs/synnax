@@ -17,19 +17,28 @@
 
 /// internal
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/caseconv/caseconv.h"
 
 namespace xargs {
 class Parser {
+    static std::string normalize_arg_name(const std::string& name) {
+        if (name.empty()) return name;
+        if (name[0] == '-') return name;
+        if (name.length() == 1) return "-" + name;
+        return "--" + caseconv::snake_to_kebab(name);
+    }
+
     template<typename... Args>
     std::pair<std::string, bool> find_arg(const Args &... names) {
         for (size_t i = 0; i < argv_.size(); i++) {
             const std::string &arg = argv_[i];
             for (const auto &name: {names...}) {
-                std::string prefix = std::string(name) + "=";
+                std::string normalized = normalize_arg_name(name);
+                std::string prefix = normalized + "=";
                 if (arg.compare(0, prefix.length(), prefix) == 0)
                     return {arg.substr(arg.find('=') + 1), true};
             }
-            if ((... || (arg == names)))
+            if ((... || (arg == normalize_arg_name(names))))
                 if (i + 1 < argv_.size())
                     return {argv_[i + 1], true};
         }
@@ -74,11 +83,17 @@ class Parser {
     template<typename... Args>
     bool has_arg(const Args &... names) {
         for (const auto &arg: argv_) {
-            // Check for exact match or --arg=value format
-            if ((... || (arg == names ||
-                         arg.compare(0, std::string(names).length() + 1,
-                                     std::string(names) + "=") == 0)))
-                return true;
+            for (const auto &name: {names...}) {
+                std::string normalized = normalize_arg_name(name);
+                std::string single_dash = "-" + (normalized.starts_with("--") ? normalized.substr(2) : normalized.substr(1));
+                std::string double_dash = "--" + (normalized.starts_with("--") ? normalized.substr(2) : normalized.substr(1));
+                if (arg == normalized || arg == single_dash || arg == double_dash)
+                    return true;
+                if (arg.compare(0, normalized.length() + 1, normalized + "=") == 0 ||
+                    arg.compare(0, single_dash.length() + 1, single_dash + "=") == 0) {
+                    return true;
+                }
+            }
         }
         return false;
     }

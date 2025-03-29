@@ -188,3 +188,47 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
     ASSERT_TRUE(debug);
     cleanup(argc, argv);
 }
+
+TEST_F(XArgsTest, TestPrefixHandling) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--long-flag",
+        "-v",
+        "--unprefixed=value",
+        "-f", "file.txt"
+    });
+    parser = xargs::Parser(argc, argv);
+    
+    // Test different prefix scenarios
+    ASSERT_TRUE(parser.flag("--long-flag"));     // Original --
+    ASSERT_TRUE(parser.flag("long-flag"));       // Auto-add --
+    ASSERT_TRUE(parser.flag("-v"));              // Preserve single -
+    ASSERT_TRUE(parser.flag("v"));               // Auto-add --
+    ASSERT_EQ(parser.required<std::string>("-f"), "file.txt");        // Preserve single -
+    ASSERT_EQ(parser.required<std::string>("unprefixed"), "value");   // Auto-add --
+    
+    EXPECT_TRUE(parser.errors.empty());
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestSingleLetterFlags) {
+    auto [argc, argv] = make_args({
+        "program",
+        "-v",
+        "--f",
+        "-x=true"
+    });
+    parser = xargs::Parser(argc, argv);
+    
+    // Test single letter flags with different prefixes
+    ASSERT_TRUE(parser.flag("v"));      // Should match -v
+    ASSERT_TRUE(parser.flag("-v"));     // Should match -v
+    ASSERT_TRUE(parser.flag("--v"));    // Should match -v
+    ASSERT_TRUE(parser.flag("f"));      // Should match --f
+    ASSERT_TRUE(parser.flag("-f"));     // Should match --f
+    ASSERT_TRUE(parser.flag("--f"));    // Should match --f
+    ASSERT_TRUE(parser.flag("x"));      // Should match -x=true
+    
+    EXPECT_TRUE(parser.errors.empty());
+    cleanup(argc, argv);
+}

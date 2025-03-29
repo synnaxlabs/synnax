@@ -42,8 +42,15 @@ struct TimingConfig {
     /// clocks.
     bool correct_skew = true;
 
-    void override(xjson::Parser &p) {
+    template<typename ParserT>
+    void override(ParserT &p) {
         this->correct_skew = p.optional("correct_skew", this->correct_skew);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const TimingConfig& cfg) {
+        os << "  " << xlog::SHALE() << "clock skew correction" << xlog::RESET() << ": " 
+           << (cfg.correct_skew ? "enabled" : "disabled");
+        return os;
     }
 };
 
