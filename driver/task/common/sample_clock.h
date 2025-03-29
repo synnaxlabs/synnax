@@ -81,10 +81,10 @@ public:
     explicit HardwareTimedSampleClock(
         const telem::Rate sample_rate,
         const telem::Rate stream_rate,
+        const telem::NowFunc &now = telem::TimeStamp::now,
         const double k_p = 0.1,
-        const double k_i = 0.1,
-        const double k_d = 0.0,
-        const telem::NowFunc &now = telem::TimeStamp::now
+     const double k_i = 0.1,
+     const double k_d = 0.0
     ): now(now),
        sample_rate(sample_rate),
        stream_rate(stream_rate),

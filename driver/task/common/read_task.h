@@ -45,14 +45,14 @@ struct BaseReadTaskConfig {
        sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
        stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))) {
         if (sample_rate <= telem::Rate(0))
-            cfg.field_err(
-                "sample_rate", "must be greater than 0");
+            cfg.field_err("sample_rate", "must be greater than 0");
         if (stream_rate_required && stream_rate <= telem::Rate(0))
-            cfg.field_err(
-                "stream_rate", "must be greater than 0");
+            cfg.field_err("stream_rate", "must be greater than 0");
         if (stream_rate_required && sample_rate < stream_rate)
-            cfg.field_err("sample_rate",
-                          "must be greater than or equal to stream rate");
+            cfg.field_err(
+                "sample_rate",
+                "must be greater than or equal to stream rate"
+            );
     }
 };
 

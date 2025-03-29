@@ -596,8 +596,7 @@ public:
                 ch->synnax_key,
                 telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
             );
-
-        common::generate_index_data(f, this->cfg.index_keys, start, end, n, false);
+        common::generate_index_data(f, this->cfg.index_keys, start, end, n);
         auto t_err = this->cfg.transform.transform(f);
         return {std::move(f), t_err};
     }
