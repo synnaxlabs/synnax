@@ -87,8 +87,6 @@ class ReadTask final : public task::Task {
         /// @brief the parent read task.
         ReadTask &p;
 
-        loop::Gauge g = loop::Gauge("read", 0, 0);
-
     public:
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;

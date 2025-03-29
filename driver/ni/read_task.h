@@ -232,20 +232,15 @@ private:
     }
 
     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        g.stop();
-        g.start();
-        auto start = telem::TimeStamp::now();
+        auto start = this->sample_clock->wait(breaker);
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
             buffer
         );
-        // Don't return read data on the first iteration to allow the sample clock
-        // to stabilize.
-        if (start == 0) return {Frame(0), xerrors::NIL};
-
         const auto n_read = dig.samps_per_chan_read;
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
+        const auto end = this->sample_clock->end();
         if (this->curr_read_err) return {Frame(), this->curr_read_err};
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
@@ -254,9 +249,7 @@ private:
                 ch->synnax_key,
                 telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read, n_read)
             );
-        auto avg = g.average();
-        if (g.iterations() == 0) avg = this->cfg.stream_rate.period();
-        common::generate_index_data(f, this->cfg.indexes, start, start + g.average(), n_read);
+        common::generate_index_data(f, this->cfg.indexes, start, end, n_read);
         return std::make_pair(std::move(f), xerrors::NIL);
     }
 };

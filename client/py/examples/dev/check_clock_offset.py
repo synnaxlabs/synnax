@@ -17,6 +17,7 @@ This example requires the `stream_write.py` file to be running in a separate ter
 
 import synnax as sy
 import numpy as np
+import matplotlib.pyplot as plt
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
@@ -25,22 +26,47 @@ client = sy.Synnax()
 # were created by running the `stream_write.py`` script.
 channels = ["T7_time"]
 
-avg_clock_offset = sy.TimeSpan(0)
-avg_delta = 0
+# Number of samples to collect before plotting
+N = 1000
+offsets = []
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
 with client.open_streamer(channels) as streamer:
-    # Loop through the frames in the streamer. Each iteration will block until a new
-    # frame is available, then we'll print out the frame of data.
+    print("HERE")
     count = 0
-    while True:
+    while count < N:
         data = streamer.read()[channels[0]]
         offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(data[-1]))
-        avg_clock_offset += offset
+        offsets.append(float(offset.microseconds))
+        print(f"Offset: {offset.microseconds}")
         count += 1
         if count % 100 == 0:
-            print(f"Average clock offset: {avg_clock_offset / count}")
-        diff = sy.TimeSpan(data[-1] - data[-2])
-        if diff > sy.TimeSpan.MICROSECOND * 550 or diff < sy.TimeSpan.MICROSECOND * 450:
-            print(f"Diff: {diff}")
+            print(f"Collected {count}/{N} samples...")
+    print("Done collecting samples...")
+
+
+# Convert to microseconds and calculate statistics
+offsets = np.array(offsets)
+mean = np.mean(offsets)
+std = np.std(offsets)
+
+# Create the plot
+plt.figure(figsize=(10, 6))
+plt.hist(offsets, bins=50, density=True, alpha=0.7, color='b')
+
+# Plot the Gaussian fit
+x = np.linspace(min(offsets), max(offsets), 100)
+gaussian = (1/(std * np.sqrt(2*np.pi))) * np.exp(-(x-mean)**2 / (2*std**2))
+plt.plot(x, gaussian, 'r-', lw=2, label='Gaussian fit')
+
+plt.title('Distribution of Clock Offsets')
+plt.xlabel('Offset (microseconds)')
+plt.ylabel('Density')
+plt.legend()
+plt.grid(True)
+
+print(f"Mean offset: {mean:.2f} microseconds")
+print(f"Standard deviation: {std:.2f} microseconds")
+
+plt.show()

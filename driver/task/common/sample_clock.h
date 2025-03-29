@@ -31,7 +31,7 @@ struct SampleClock {
 
     /// @brief ends the acquisition loop, interpolating an ending timestamp based
     /// on the number of samples read.
-    virtual telem::TimeStamp end(const size_t &n_read) = 0;
+    virtual telem::TimeStamp end() = 0;
 };
 
 /// @brief a sample clock that regulates the acquisition rate at the application
@@ -51,15 +51,18 @@ public:
         return start;
     }
 
-    telem::TimeStamp end(const size_t &n_read) override {
+    telem::TimeStamp end() override {
         return telem::TimeStamp::now();
     }
 };
+
+using NowFunc = std::function<telem::TimeStamp()>;
 
 /// @brief a sample clock that relies on an external, steady hardware clock to
 /// regulate the acquisition rate. Timestamps are interpolated based on a fixed
 /// sample rate.
 class HardwareTimedSampleClock final : public SampleClock {
+    NowFunc now;
     /// @brief the sample rate of the task.
     const telem::Rate sample_rate;
     /// @brief the stream rate of the task.
@@ -67,78 +70,89 @@ class HardwareTimedSampleClock final : public SampleClock {
     /// @brief the number of samples per acquisition loop.
     const size_t samples_per_channel;
     size_t iterations = 0;
-    /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water = telem::TimeStamp(0);
+
 
     // PID control variables
     double integral = 0.0;
     double prev_error = 0.0;
-    
+
+    /// @brief track the system time marking the start of the previous acquisition loop.
+    telem::TimeStamp prev_system_end = telem::TimeStamp(0);
+    /// @brief timestamp of the last sample in the previous acquisition loop.
+    telem::TimeStamp curr_start_sample_time = telem::TimeStamp(0);
+
+    telem::TimeStamp prev_highest_timestamp_ever_written = telem::TimeStamp(0);
+
     // PID constants
-    static constexpr double Kp = 0.01;  // Proportional gain
-    static constexpr double Ki = 0.001; // Integral gain
-    static constexpr double Kd = 0.005; // Derivative gain
-    
+    static constexpr double Kp = 0.01; // Proportional gain
+    static constexpr double Ki = 0.1; // Integral gain
+    static constexpr double Kd = 0.0; // Derivative gain
+
     // Anti-windup limit for integral term
     static constexpr double MAX_INTEGRAL = 1000.0;
 
 public:
     explicit HardwareTimedSampleClock(
         const telem::Rate sample_rate,
-        const telem::Rate stream_rate
+        const telem::Rate stream_rate,
+        const NowFunc &now = telem::TimeStamp::now
     ): sample_rate(sample_rate),
        stream_rate(stream_rate),
-       samples_per_channel(sample_rate / stream_rate) {
+       samples_per_channel(sample_rate / stream_rate),
+       now(now) {
     }
 
     void reset() override {
-        this->high_water = telem::TimeStamp(0);
+        this->prev_system_end = telem::TimeStamp(0);
+        this->curr_start_sample_time = telem::TimeStamp(0);
         this->iterations = 0;
         this->integral = 0.0;
         this->prev_error = 0.0;
     }
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
-        if (this->high_water == 0)
-            this->high_water = telem::TimeStamp::now();
-        return this->high_water;
+        if (this->curr_start_sample_time == 0) {
+            const auto now = this->now();
+            this->curr_start_sample_time = now;
+            this->prev_system_end = now;
+        }
+        return this->curr_start_sample_time;
     }
 
-    telem::TimeStamp end(const size_t &_) override {
-        auto end = this->high_water + (this->samples_per_channel - 1) * this->sample_rate.period();
-        const auto system_end = telem::TimeStamp::now();
+    telem::TimeStamp end() override {
+        auto sample_end = this->curr_start_sample_time + this->stream_rate.period();
+        const auto system_end = this->now();
+
         this->iterations++;
 
-        // Calculate error (process variable)
-        const auto error = (system_end - end).nanoseconds();
+        const auto error = (sample_end - system_end).nanoseconds();
 
-        // PID control calculation
+        // Calculate dt (in nanoseconds)
+        const double dt = (system_end - this->prev_system_end).nanoseconds();
+
         // Proportional term
-        double p_term = Kp * error;
-        
+        const double p_term = Kp * error;
+
         // Integral term with anti-windup
-        this->integral += error;
+        this->integral += error * dt;
         if (this->integral > MAX_INTEGRAL) this->integral = MAX_INTEGRAL;
         if (this->integral < -MAX_INTEGRAL) this->integral = -MAX_INTEGRAL;
-        double i_term = Ki * this->integral;
-        
+        const double i_term = Ki * this->integral;
+
         // Derivative term
-        double d_term = Kd * (error - this->prev_error);
+        const double d_term = Kd * (error - this->prev_error) / dt;
         this->prev_error = error;
 
         // Calculate correction using PID output
         const auto pid_output = p_term + i_term + d_term;
-        const auto correction = telem::TimeStamp(pid_output);
-        if (end + correction > this->high_water)
-            end += correction;
-        else
-            LOG(WARNING) << "[sample_clock] correction would result in out of order timestamps"
-                         << "correction: " << telem::TimeSpan(correction.nanoseconds()) << "\n"
-                         << "high_water: " << this->high_water << "\n"
-                         << "end: " << end << "\n"
-                         << "system clock: " << system_end;
-        this->high_water = end + this->sample_rate.period();
-        return end;
+        const auto correction = telem::TimeSpan(pid_output);
+
+        sample_end = sample_end - correction;
+
+        this->prev_system_end = system_end;
+
+        this->curr_start_sample_time = sample_end;
+        return sample_end;
     }
 };
 

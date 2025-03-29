@@ -125,11 +125,11 @@ public:
         return parse_error(
             ljm,
             ljm->e_stream_read(
-            dev_handle,
-            data,
-            dev_scan_backlog,
-            ljm_scan_backlog
-        ));
+                dev_handle,
+                data,
+                dev_scan_backlog,
+                ljm_scan_backlog
+            ));
     }
 
     [[nodiscard]] xerrors::Error e_stream_stop() const override {
@@ -188,7 +188,8 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error clean_interval(const int interval_handle) const override {
+    [[nodiscard]] xerrors::Error
+    clean_interval(const int interval_handle) const override {
         return parse_error(
             this->ljm,
             this->ljm->clean_interval(interval_handle)
@@ -312,7 +313,7 @@ public:
 /// and release devices for use at will.
 class Manager {
     std::mutex mu;
-    std::map<std::string, std::weak_ptr<Device>> handles;
+    std::map<std::string, std::weak_ptr<Device> > handles;
     std::shared_ptr<ljm::API> ljm;
 
 public:

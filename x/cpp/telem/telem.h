@@ -207,8 +207,6 @@ public:
     }
 
 
-    ////////////////////////////////// OSTREAM /////////////////////////////////
-
     /// @brief returns a pretty-printed string representation of the timespan.
     [[nodiscard]] std::string to_string() const {
         const auto total_days = this->truncate(TimeSpan(_priv::DAY));
@@ -286,11 +284,11 @@ public:
         return TimeStamp(start + (end - start) / 2);
     }
 
-    ///////////////////////////////////// COMPARISON /////////////////////////////////////
-
     bool operator==(const TimeStamp &other) const { return value == other.value; }
+    bool operator==(const TimeSpan &other) const { return value == other.nanoseconds(); }
 
     bool operator!=(const TimeStamp &other) const { return value != other.value; }
+    bool operator!=(const TimeSpan &other) const { return value != other.nanoseconds(); }
 
     bool operator<(const TimeStamp &other) const { return value < other.value; }
 
@@ -303,8 +301,6 @@ public:
     bool operator==(const int &other) const { return value == other; }
 
     bool operator !=(const int &other) const { return value != other; }
-
-    //////////////////////////////////// ADDITION /////////////////////////////////////
 
     TimeStamp operator+(const TimeStamp &other) const {
         return TimeStamp(value + other.value);
@@ -327,8 +323,8 @@ public:
         return TimeSpan(lhs - rhs.value);
     }
 
-    TimeSpan operator-(const TimeSpan &other) const {
-        return TimeSpan(value - other.nanoseconds());
+    TimeStamp operator-(const TimeSpan &other) const {
+        return TimeStamp(value - other.nanoseconds());
     }
 
     TimeStamp operator*(const TimeStamp &other) const {
@@ -421,7 +417,6 @@ public:
     explicit Rate(const TimeSpan period) : value(
         static_cast<float>(1 / period.seconds())) {
     }
-
 
     bool operator==(const Rate &other) const { return value == other.value; }
 

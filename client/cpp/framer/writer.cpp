@@ -56,11 +56,9 @@ bool Writer::write(const Frame &fr) {
     this->assert_open();
     if (this->err_accumulated) return false;
     api::v1::FrameWriterRequest req;
-    this->g.start();
     req.set_command(WRITE);
     fr.to_proto(req.mutable_frame());
     if (const auto err = this->stream->send(req)) this->err_accumulated = true;
-    this->g.stop();
     return !this->err_accumulated;
 }
 

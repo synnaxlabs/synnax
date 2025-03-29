@@ -26,41 +26,55 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
 }
 
 /// @brief it should correctly rely on steady sample spacing to time samples.
-TEST(TestSampleClock, testHardwareTimedSampleClock) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
-    const auto now = telem::TimeStamp::now();
-    clock.reset();
+TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
+    const auto sample_rate = telem::HZ * 2;
+    const auto stream_rate = telem::HZ * 1;
+    auto now_v = 0 * telem::SECOND;
+    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock(
+        sample_rate,
+        stream_rate,
+        now_f
+    );
     breaker::Breaker b;
-    const auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(0));  // After reset, first wait returns 0
-    const auto end = clock.end();
-    ASSERT_GE(end, now);  // End should return current time
+
+    auto start = clock.wait(b);
+    ASSERT_EQ(start, now_v);
+    now_v = telem::SECOND * 1;
+    auto end = clock.end();
+    ASSERT_EQ(end, telem::SECOND * 1);
+
+    start = clock.wait(b);
+    ASSERT_EQ(start, telem::SECOND * 1);
+    now_v = telem::SECOND * 2;
+    end = clock.end();
+    ASSERT_EQ(end, telem::SECOND * 2);
 }
 
-/// @brief it should correctly reset the hardware timed sample clock
-TEST(TestSampleclock, testHardwareTimedSampleClockReset) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
-    clock.reset();
+TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
+    const auto sample_rate = telem::HZ * 2;
+    const auto stream_rate = telem::HZ * 1;
+    auto now_v = 0 * telem::SECOND;
+    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock(
+        sample_rate,
+        stream_rate,
+        now_f
+    );
     breaker::Breaker b;
-    const auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(0));
-    const auto end = clock.end();
-    const auto start_2 = clock.wait(b);
-    ASSERT_EQ(start_2, end);  // Next wait should return previous end time
-    clock.reset();
-    const auto start_3 = clock.wait(b);
-    ASSERT_EQ(start_3, telem::TimeStamp(0));  // After reset, should return 0 again
-}
 
-/// @brief it should return the current high water-mark
-TEST(TestSampleClock, testHardwareTimedSampleClockHighWater) {
-    auto clock = common::HardwareTimedSampleClock(telem::HZ * 1);
-    clock.reset();
-    breaker::Breaker b;
-    const auto start = clock.wait(b);
-    const auto end = clock.end();
-    ASSERT_GE(end, start);
-    
-    const auto next_start = clock.wait(b);
-    ASSERT_EQ(next_start, end);  // Next wait should return previous end time
+    auto start = clock.wait(b);
+    ASSERT_EQ(start, now_v);
+    now_v = telem::SECOND * 1;
+    auto end = clock.end();
+    ASSERT_EQ(end, telem::SECOND * 1);
+
+    start = clock.wait(b);
+    ASSERT_EQ(start, telem::SECOND * 1);
+    now_v = telem::SECOND * 2 + telem::MILLISECOND * 250;
+    end = clock.end();
+    ASSERT_EQ(
+        telem::TimeSpan(end.nanoseconds()),
+        telem::SECOND * 2 + telem::MILLISECOND * 2 + telem::MICROSECOND * 500
+    );
 }

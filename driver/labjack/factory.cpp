@@ -32,7 +32,6 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     if (cfg.has_thermocouples())
         source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
     else source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
-    // auto threaded_source = std::make_unique<common::ThreadedSource>(std::move(source));
     return {
         std::make_unique<common::ReadTask>(
             task,

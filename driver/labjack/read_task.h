@@ -592,7 +592,7 @@ public:
         }
         g.stop();
         g.start();
-        const auto end = this->sample_clock.end(n);
+        const auto end = this->sample_clock.end();
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)
@@ -601,7 +601,7 @@ public:
                 telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
             );
 
-        common::generate_index_data(f, this->cfg.index_keys, start, end, n, true);
+        common::generate_index_data(f, this->cfg.index_keys, start, end, n, false);
         auto t_err = this->cfg.transform.transform(f);
         return {std::move(f), t_err};
     }
