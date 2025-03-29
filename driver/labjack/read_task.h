@@ -512,19 +512,19 @@ class StreamSource final : public common::Source {
     /// @brief the API to the device we're reading from.
     const std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
-    common::SoftwareTimedSampleClock sample_clock;
+    common::HardwareTimedSampleClock sample_clock;
     /// @brief re-usable buffer of values we load data into before converting it to a
     /// frame.
     std::vector<double> buf;
 
-    loop::Gauge g = loop::Gauge("read", 500, 1);
+    loop::Gauge g = loop::Gauge("read", 500, 0.5);
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        dev(dev),
-       sample_clock(this->cfg.stream_rate * 2),
+       sample_clock(this->cfg.sample_rate),
        buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 
@@ -577,27 +577,19 @@ public:
         int num_skipped_scans;
         int scan_backlog;
         g.start();
-        const auto [n_read, err] = this->dev->e_stream_read(
+        if (const auto err = translate_error(this->dev->e_stream_read(
             this->buf.data(),
             &num_skipped_scans,
             &scan_backlog
-        );
-        if (auto t_err = translate_error(err)) {
+        ))) {
             // If the device is currently unreachable, try closing and reopening the
             // stream to recover.
-            if (t_err.matches(ljm::TEMPORARILY_UNREACHABLE))
+            if (err.matches(ljm::TEMPORARILY_UNREACHABLE))
                 this->restart();
-            return {Frame(), t_err};
+            return {Frame(), err};
         }
         g.stop();
-        if (start == 0) return {Frame(0), xerrors::NIL};
-        if (n_read > 0)
-            LOG(WARNING) << "[labjack] expected " << this->buf.size()
-                             << " samples, but read " << n_read;
-        if (num_skipped_scans || scan_backlog) {
-            LOG(WARNING) << "[labjack] skipped scans: " << num_skipped_scans
-                         << " scan backlog: " << scan_backlog;
-        }
+        const auto end = this->sample_clock.end(n);
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;
         for (const auto &ch: this->cfg.channels)
@@ -606,8 +598,7 @@ public:
                 telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
             );
 
-        const auto end = this->sample_clock.end();
-        common::generate_index_data(f, this->cfg.index_keys, start, end, n, false);
+        common::generate_index_data(f, this->cfg.index_keys, start, end, n, true);
         auto t_err = this->cfg.transform.transform(f);
         return {std::move(f), t_err};
     }

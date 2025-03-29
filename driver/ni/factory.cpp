@@ -84,7 +84,7 @@ static std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<common::ThreadedSource>(std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw)))
+            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
         ),
         xerrors::NIL
     };

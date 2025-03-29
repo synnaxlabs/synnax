@@ -59,8 +59,6 @@ public:
     /// @brief returns the number of nanoseconds in the timespan.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
-    ///////////////////////////////////// COMPARISON /////////////////////////////////////
-
     bool operator==(const TimeSpan &other) const { return value == other.value; }
 
     bool operator==(const std::int64_t &other) const { return value == other; }
@@ -76,8 +74,6 @@ public:
     bool operator<=(const TimeSpan &other) const { return value <= other.value; }
 
     bool operator>=(const TimeSpan &other) const { return value >= other.value; }
-
-    //////////////////////////////////// ADDITION /////////////////////////////////////
 
     TimeSpan operator+(const TimeSpan &other) const {
         return TimeSpan(value + other.value);
@@ -96,8 +92,6 @@ public:
         return TimeSpan(lhs + rhs.value);
     }
 
-    /////////////////////////////////// SUBTRACTION ///////////////////////////////////
-
     TimeSpan operator-(const TimeSpan &other) const {
         return TimeSpan(value - other.value);
     }
@@ -109,8 +103,6 @@ public:
     TimeSpan operator-(const long long &other) const {
         return TimeSpan(value - other);
     }
-
-    ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
     TimeSpan operator*(const TimeSpan &other) const {
         return TimeSpan(value * other.value);
@@ -144,8 +136,6 @@ public:
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
 
-    ////////////////////////////////// DIVISION /////////////////////////////////
-
     TimeSpan operator/(const TimeSpan &other) const {
         return TimeSpan(value / other.value);
     }
@@ -157,8 +147,6 @@ public:
     TimeSpan operator/(const long long &other) const {
         return TimeSpan(value / other);
     }
-
-    ////////////////////////////////// MODULO /////////////////////////////////
 
     TimeSpan operator%(const TimeSpan &other) const {
         return TimeSpan(value % other.value);
@@ -331,8 +319,6 @@ public:
         return TimeStamp(value + other.nanoseconds());
     }
 
-    /////////////////////////////////// SUBTRACTION ///////////////////////////////////
-
     TimeSpan operator-(const TimeStamp &other) const {
         return TimeSpan(value - other.value);
     }
@@ -344,8 +330,6 @@ public:
     TimeSpan operator-(const TimeSpan &other) const {
         return TimeSpan(value - other.nanoseconds());
     }
-
-    ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
     TimeStamp operator*(const TimeStamp &other) const {
         return TimeStamp(value * other.value);
@@ -415,9 +399,10 @@ public:
 
 class Rate {
     float value;
-
 public:
     [[nodiscard]] float hz() const { return this->value; }
+
+    Rate() = default;
 
     explicit Rate(const float i) : value(i) {
     }
@@ -432,9 +417,6 @@ public:
         static_cast<float>(1 / period.seconds())) {
     }
 
-    Rate() = default;
-
-    //////////////////////////////////// COMPARISON ///////////////////////////////////
 
     bool operator==(const Rate &other) const { return value == other.value; }
 
@@ -448,8 +430,6 @@ public:
 
     bool operator>=(const Rate &other) const { return value >= other.value; }
 
-    //////////////////////////////////// ADDITION ///////////////////////////////////
-
     Rate operator+(const Rate &other) const { return Rate(value + other.value); }
 
     friend Rate operator+(const float &lhs, const Rate &rhs) {
@@ -458,8 +438,6 @@ public:
 
     Rate operator+(const float &other) const { return Rate(value + other); }
 
-    /////////////////////////////////// SUBTRACTION ///////////////////////////////////
-
     Rate operator-(const Rate &other) const { return Rate(value - other.value); }
 
     friend Rate operator-(const float &lhs, const Rate &rhs) {
@@ -467,8 +445,6 @@ public:
     }
 
     Rate operator-(const float &other) const { return Rate(value - other); }
-
-    ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
     Rate operator*(const Rate &other) const { return Rate(value * other.value); }
 
@@ -482,8 +458,6 @@ public:
         return TimeSpan(
             static_cast<std::int64_t>(1 / value * static_cast<double>(_priv::SECOND)));
     }
-
-    ////////////////////////////////// DIVISION /////////////////////////////////
 
     size_t operator/(const Rate &other) const { return value / other.value; }
 
@@ -553,43 +527,6 @@ using SampleValue = std::variant<
     TimeStamp, // TIMESTAMP
     std::string // STRING
 >;
-
-using NumericSampleValue = std::variant<
-    double, // FLOAT64
-    float, // FLOAT32
-    int64_t, // INT64
-    int32_t, // INT32
-    int16_t, // INT16
-    int8_t, // INT8
-    uint64_t, // UINT64
-    uint32_t, // UINT32
-    uint16_t, // UINT16
-    uint8_t, // UINT8
-    TimeStamp // TIMESTAMP
->;
-
-[[nodiscard]] inline NumericSampleValue narrow_numeric(const SampleValue &value) {
-    if (std::holds_alternative<std::string>(value))
-        throw std::runtime_error("cannot narrow non-numeric sample value");
-
-    return std::visit([]<typename T>(T &&arg) -> NumericSampleValue {
-        if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
-            return arg;
-        else if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
-            throw std::runtime_error("cannot narrow string to numeric sample value");
-        else
-            return arg;
-    }, value);
-}
-
-inline SampleValue widen_numeric(const NumericSampleValue &value) {
-    return std::visit([]<typename T>(T &&arg) -> SampleValue {
-        if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
-            return arg;
-        else
-            return arg;
-    }, value);
-}
 
 template<typename T>
 [[nodiscard]] T cast(const SampleValue &value) {
@@ -686,7 +623,7 @@ public:
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
-        auto cached_density_iter = DENSITIES.find(value);
+        const auto cached_density_iter = DENSITIES.find(value);
         if (cached_density_iter != DENSITIES.end()) this->cached_density = cached_density_iter->second;
     }
 
@@ -731,7 +668,7 @@ public:
     /// @property how many bytes in memory the data type holds.
     [[nodiscard]] size_t density() const {
         if (this->cached_density) return this->cached_density;
-        return DENSITIES.at(value);
+        return DENSITIES[value];
     }
 
     [[nodiscard]] bool is_variable() const {
@@ -774,7 +711,7 @@ public:
 
     /// @brief Casts a void pointer to a sample value of the appropriate type.
     /// @param value The void pointer to cast
-    /// @param value_type
+    /// @param value_type - The data type of the value
     /// @returns A new sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     SampleValue cast(const void *value, const DataType &value_type) const {
@@ -807,6 +744,8 @@ public:
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value);
     }
+
+
 
     /////////////////////////////////// COMPARISON H///////////////////////////////////
 

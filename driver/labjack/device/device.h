@@ -26,7 +26,7 @@ class Device {
 public:
     virtual ~Device() = default;
 
-    virtual std::pair<size_t, xerrors::Error> e_stream_read(
+    virtual xerrors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
         int *ljm_scan_backlog
@@ -117,19 +117,19 @@ public:
             LOG(WARNING) << "[labjack] failed to close device: " << err;
     }
 
-    std::pair<size_t, xerrors::Error> e_stream_read(
+    xerrors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
         int *ljm_scan_backlog
     ) const override {
-        const auto code = ljm->e_stream_read(
+        return parse_error(
+            ljm,
+            ljm->e_stream_read(
             dev_handle,
             data,
             dev_scan_backlog,
             ljm_scan_backlog
-        );
-        if (code < 0) return {0, parse_error(this->ljm, code)};
-        return {static_cast<size_t>(code), xerrors::NIL};
+        ));
     }
 
     [[nodiscard]] xerrors::Error e_stream_stop() const override {

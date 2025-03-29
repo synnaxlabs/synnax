@@ -178,7 +178,7 @@ inline xerrors::Error parse_error(
     };
 };
 
-telem::DataType ua_to_data_type(const UA_DataType *value);
+telem::DataType ua_to_data_type(const UA_DataType *dt);
 
 UA_DataType *data_type_to_ua(const telem::DataType &data_type);
 

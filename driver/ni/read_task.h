@@ -245,7 +245,7 @@ private:
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         if (this->curr_read_err) return {Frame(), this->curr_read_err};
-        auto end = this->sample_clock->end();
+        auto end = this->sample_clock->end(dig.samps_per_chan_read);
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         g.start();

@@ -103,7 +103,7 @@ public:
             if (tare_it == tare_values.end()) continue;
             this->last_raw_value[ch_key] = telem::cast<double>(series.at(-1));
             auto tare = tare_it->second;
-            series.subtract_inplace(tare);
+            series.sub_inplace(tare);
         }
         return xerrors::NIL;
     }
@@ -161,7 +161,7 @@ public:
         
         // (v - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) + scaled_min
         // Rewritten using inplace operations:
-        series.subtract_inplace(prescaled_min);  // v - prescaled_min
+        series.sub_inplace(prescaled_min);  // v - prescaled_min
         series.divide_inplace(prescaled_max - prescaled_min);  // / (prescaled_max - prescaled_min)
         series.multiply_inplace(scaled_max - scaled_min);  // * (scaled_max - scaled_min)
         series.add_inplace(scaled_min);  // + scaled_min

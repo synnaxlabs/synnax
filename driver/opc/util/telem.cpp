@@ -74,7 +74,7 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
 ) {
     const size_t size = val->arrayLength;
     if (size != target_size) {
-        std::string verb = size < target_size ? "" : "large";
+        const std::string verb = size < target_size ? "" : "large";
         return {
             telem::Series(0),
             xerrors::Error(xerrors::VALIDATION,
@@ -97,15 +97,15 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
         return {std::move(s), xerrors::NIL};
     }
     return {telem::Series(0), xerrors::NIL};
-    // return {
-    //     // telem::Series::cast<uint(
-    //     //     target_type,
-    //     //     val->data,
-    //     //     size,
-    //     //     ua_to_data_type(val->type)
-    //     // ),
-    //     xerrors::NIL
-    // };
+    return {
+        telem::Series::cast(
+            target_type,
+            val->data,
+            size,
+            ua_to_data_type(val->type)
+        ),
+        xerrors::NIL
+    };
 }
 
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) {
@@ -114,7 +114,7 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     const auto dt = data_type_to_ua(s.data_type());
     const auto status = UA_Variant_setScalarCopy(
         &v,
-        telem::cast_to_void_ptr(s.at(-1)),
+        cast_to_void_ptr(s.at(-1)),
         dt
     );
     return {v, parse_error(status)};
@@ -122,7 +122,7 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     if (s.data_type() == telem::TIMESTAMP_T && UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
-        const UA_DateTime* dt = (const UA_DateTime*)v.data;
+        const auto dt = static_cast<const UA_DateTime *>(v.data);
         return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
     return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));

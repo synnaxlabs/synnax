@@ -346,28 +346,6 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [1 2 3 ])");
 }
 
-///// @brief test_transform_
-TEST(TestSeries, test_transform_inplace) {
-    std::vector<double> vals = {1.0, 2.0, 3.0, 4.0, 5.0};
-    telem::Series s{vals};
-    ASSERT_EQ(s.data_type(), telem::FLOAT64_T);
-
-    s.map_inplace<double>([](const double x) { return x * 2; });
-    const auto v = s.values<double>();
-    ASSERT_EQ(v.size(), vals.size());
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v[i], vals[i] * 2);
-
-    vals = std::vector<double>({2.0, 4.0, 6.0, 8.0, 10.0});
-
-    // now try a linear transformation
-    s.map_inplace<double>([](const double x) { return 3 * x + 1; });
-    const auto v2 = s.values<double>();
-    ASSERT_EQ(v2.size(), vals.size());
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v2[i], 3*vals[i] + 1);
-}
-
 class SeriesAtTest : public ::testing::Test {
 protected:
     template<typename T>
@@ -588,48 +566,31 @@ TEST(TestSeries, testCast) {
     TEST_ALL_CASTS_FROM_SOURCE(double, FLOAT64_DATA);
 }
 
-TEST(TestSeries, testAddition) {
-    loop::Gauge g;
-    for (size_t i = 0; i < 10000; i++) {
-        std::vector<uint32_t> vals(100000);
-        for (size_t i = 0; i < 100000; i++) vals[i] = i;
-        const auto first = telem::Series(vals);
-        g.start();
-        first.add_inplace(3);
-        g.stop();
+#define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA) \
+    do { \
+        auto const_void_ptr = static_cast<const void*>(SOURCE_DATA.data()); \
+        auto source_type = telem::DataType::infer<SOURCE_TYPE>(); \
+        ASSERT_EQ(telem::Series::cast(telem::UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint8_t>(), UINT8_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint16_t>(), UINT16_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint32_t>(), UINT32_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint64_t>(), UINT64_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int8_t>(), INT8_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int16_t>(), INT16_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int32_t>(), INT32_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int64_t>(), INT64_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<float>(), FLOAT32_DATA); \
+        ASSERT_EQ(telem::Series::cast(telem::FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<double>(), FLOAT64_DATA); \
+    } while(0)
 
-        std::vector<uint32_t> expected(100000);
-        for (size_t i = 0; i < 100000; i++) expected[i] = i + 3;
-        ASSERT_EQ(first.values<uint32_t>(), expected);
-    }
-    std::cout << g.average();
+TEST(TestSeries, testCastVoidPointer) {
+    TEST_CAST_FROM_VOID_POINTER(uint8_t, UINT8_DATA);
+    TEST_CAST_FROM_VOID_POINTER(uint16_t, UINT16_DATA);
+    TEST_CAST_FROM_VOID_POINTER(uint32_t, UINT32_DATA);
+    TEST_CAST_FROM_VOID_POINTER(uint64_t, UINT64_DATA);
+    TEST_CAST_FROM_VOID_POINTER(int8_t, INT8_DATA);
+    TEST_CAST_FROM_VOID_POINTER(int16_t, INT16_DATA);
+    TEST_CAST_FROM_VOID_POINTER(int32_t, INT32_DATA);
+    TEST_CAST_FROM_VOID_POINTER(int64_t, INT64_DATA);
+    TEST_CAST_FROM_VOID_POINTER(float, FLOAT32_DATA);
+    TEST_CAST_FROM_VOID_POINTER(double, FLOAT64_DATA);
 }
-
-// #define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA) \
-//     do { \
-//         auto const_void_ptr = static_cast<const void*>(SOURCE_DATA.data()); \
-//         auto source_type = telem::DataType::infer<SOURCE_TYPE>(); \
-//         ASSERT_EQ(telem::Series::cast(telem::UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint8_t>(), UINT8_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint16_t>(), UINT16_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint32_t>(), UINT32_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint64_t>(), UINT64_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int8_t>(), INT8_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int16_t>(), INT16_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int32_t>(), INT32_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int64_t>(), INT64_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<float>(), FLOAT32_DATA); \
-//         ASSERT_EQ(telem::Series::cast(telem::FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<double>(), FLOAT64_DATA); \
-//     } while(0)
-//
-// TEST(TestSeries, testCastVoidPointer) {
-//     TEST_CAST_FROM_VOID_POINTER(uint8_t, UINT8_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(uint16_t, UINT16_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(uint32_t, UINT32_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(uint64_t, UINT64_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(int8_t, INT8_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(int16_t, INT16_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(int32_t, INT32_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(int64_t, INT64_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(float, FLOAT32_DATA);
-//     TEST_CAST_FROM_VOID_POINTER(double, FLOAT64_DATA);
-// }

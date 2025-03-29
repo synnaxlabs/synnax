@@ -50,7 +50,7 @@ struct BaseReadTaskConfig {
         if (stream_rate_required && stream_rate <= telem::Rate(0))
             cfg.field_err(
                 "stream_rate", "must be greater than 0");
-        if (stream_rate_required && (sample_rate < stream_rate))
+        if (stream_rate_required && sample_rate < stream_rate)
             cfg.field_err("sample_rate",
                           "must be greater than or equal to stream rate");
     }
@@ -73,80 +73,6 @@ struct Source : pipeline::Source {
     virtual xerrors::Error stop() { return xerrors::NIL; }
 };
 
-
-
-struct Queue {
-    std::queue<std::pair<Frame, xerrors::Error>> queue;
-    std::mutex mutex;
-    std::condition_variable condition;
-    static constexpr size_t QUEUE_WARNING_THRESHOLD = 10;  // Adjust this value as needed
-
-    void push(Frame &frame, const xerrors::Error &err) {
-        std::lock_guard<std::mutex> lock(mutex);
-        queue.push({std::move(frame), err});
-        if (queue.size() > QUEUE_WARNING_THRESHOLD) {
-            LOG(WARNING) << "Queue size (" << queue.size() << ") has exceeded warning threshold ("
-                         << QUEUE_WARNING_THRESHOLD << ")";
-        }
-        condition.notify_one();
-    }
-
-    std::pair<Frame, xerrors::Error> pop() {
-        std::unique_lock<std::mutex> lock(mutex);
-        condition.wait(lock, [this] { return !queue.empty(); });
-        auto front = std::move(queue.front());
-        queue.pop();
-        return front;
-    }
-};
-
-struct ThreadedSource final : public Source {
-    std::thread thread;
-    breaker::Breaker breaker;
-    Queue queue;
-    std::unique_ptr<common::Source> wrapped;
-
-    ThreadedSource(
-        std::unique_ptr<common::Source> wrapped
-    ): wrapped(std::move(wrapped)) {
-    }
-
-    xerrors::Error start() override {
-        if (!breaker.start()) return xerrors::NIL;
-        if (const auto err = this->wrapped->start()) return err;
-        thread = std::thread([this] {
-            while (breaker.running()) {
-                auto [frame, err] = this->wrapped->read(breaker);
-                this->queue.push(frame, err);
-            }
-        });
-        return xerrors::NIL;
-    }
-
-     std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        auto [frame, err] = this->queue.pop();
-        return {std::move(frame), err};
-    }
-
-    xerrors::Error stop() override {
-        if (!breaker.stop()) return xerrors::NIL;
-        if (
-            this->thread.get_id() != std::this_thread::get_id() &&
-            this->thread.joinable()
-        )
-            this->thread.join();
-        return this->wrapped->stop();
-    }
-
-    [[nodiscard]] synnax::WriterConfig writer_config() const override {
-        return this->wrapped->writer_config();
-    }
-
-    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
-        return this->wrapped->channels();
-    }
-};
-
 /// @brief a read task that can pull from both analog and digital channels.
 class ReadTask final : public task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
@@ -161,7 +87,7 @@ class ReadTask final : public task::Task {
         /// @brief the parent read task.
         ReadTask &p;
 
-        loop::Gauge g = loop::Gauge("read", 500, 0);
+        loop::Gauge g = loop::Gauge("read", 0, 0);
 
     public:
         /// @brief the wrapped, hardware-specific source.
