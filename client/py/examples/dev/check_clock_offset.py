@@ -16,7 +16,7 @@ This example requires the `stream_write.py` file to be running in a separate ter
 """
 
 import synnax as sy
-
+import numpy as np
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
@@ -26,6 +26,7 @@ client = sy.Synnax()
 channels = ["T7_time"]
 
 avg_clock_offset = sy.TimeSpan(0)
+avg_delta = 0
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
@@ -34,8 +35,12 @@ with client.open_streamer(channels) as streamer:
     # frame is available, then we'll print out the frame of data.
     count = 0
     while True:
-        offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(streamer.read()[channels[0]][-1]))
+        data = streamer.read()[channels[0]]
+        offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(data[-1]))
         avg_clock_offset += offset
         count += 1
         if count % 100 == 0:
             print(f"Average clock offset: {avg_clock_offset / count}")
+        diff = sy.TimeSpan(data[-1] - data[-2])
+        if diff > sy.TimeSpan.MICROSECOND * 550 or diff < sy.TimeSpan.MICROSECOND * 450:
+            print(f"Diff: {diff}")

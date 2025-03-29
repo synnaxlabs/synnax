@@ -218,8 +218,8 @@ private:
     }
 
     xerrors::Error start() override {
-        auto err =  this->hw_reader->start();
         this->sample_clock->reset();
+        auto err =  this->hw_reader->start();
         return err;
     }
 

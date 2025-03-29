@@ -362,6 +362,11 @@ public:
     TimeStamp operator%=(const TimeStamp &other) {
         return TimeStamp(value %= other.value);
     }
+
+    friend std::ostream &operator<<(std::ostream &os, const TimeStamp &ts) {
+        os << ts.value;
+        return os;
+    }
 };
 
 class TimeRange {
