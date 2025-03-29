@@ -308,7 +308,7 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
 }
 
 /// @brief configuration for a LabJack read task.
-struct ReadTaskConfig: public common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
@@ -382,7 +382,7 @@ struct ReadTaskConfig: public common::BaseReadTaskConfig {
         this->transform.add(std::move(scale_transform));
     }
 
-    std::vector<synnax::Channel> sy_channels() const {
+    [[nodiscard]] std::vector<synnax::Channel> sy_channels() const {
         std::vector<synnax::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels) chs.push_back(ch->ch);
@@ -422,7 +422,7 @@ struct ReadTaskConfig: public common::BaseReadTaskConfig {
         return false;
     }
 
-    xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
+    [[nodiscard]] xerrors::Error apply(const std::shared_ptr<device::Device> &dev) const {
         for (const auto &ch: this->channels)
             if (const auto err = ch->apply(dev, this->dev_model))
                 return err;
@@ -449,14 +449,14 @@ public:
     }
 
     xerrors::Error start() override {
-        this->cfg.apply(this->dev);
+        if (const auto err = this->cfg.apply(this->dev)) return err;
         return this->dev->start_interval(
             this->interval_handle,
             static_cast<int>(this->cfg.sample_rate.period().microseconds())
         );
     }
 
-    std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -516,13 +516,17 @@ class StreamSource final : public common::Source {
     /// @brief re-usable buffer of values we load data into before converting it to a
     /// frame.
     std::vector<double> buf;
+
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        dev(dev),
-       sample_clock(this->cfg.sample_rate, this->cfg.stream_rate),
+       sample_clock(common::HardwareTimedSampleClockConfig{
+           .sample_rate = this->cfg.sample_rate,
+           .stream_rate = this->cfg.stream_rate
+       }),
        buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 
@@ -533,14 +537,14 @@ public:
 
     xerrors::Error start() override { return this->restart(); }
 
-    std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
     /// @brief restarts the source.
     xerrors::Error restart() {
         this->stop();
-        this->cfg.apply(this->dev);
+        if (const auto err = this->cfg.apply(this->dev)) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());

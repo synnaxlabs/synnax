@@ -10,6 +10,8 @@
 #pragma once
 
 /// module
+#include <utility>
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/breaker/breaker.h"
@@ -56,41 +58,47 @@ public:
     }
 };
 
+struct HardwareTimedSampleClockConfig {
+    /// @brief allows the sample clock to use a custom time function for testing.
+    telem::NowFunc now;
+    /// @brief the sample rate of the task.
+    telem::Rate sample_rate, stream_rate;
+    /// @brief the proportional, integral, and derivative gains of the PID controller.
+    double k_p, k_i, k_d;
+    /// @brief the maximum value of the integral term of the PID controller. This is used
+    /// to prevent windup.
+    double max_integral = 1000.0;
+    /// @brief max_back_correction_factor sets the maximum that the PID controller can
+    /// shift the end time of the acquisition cycle backwards. This is used to prevent
+    /// scenarios where the PID controller tries to correct for a large error by shifting
+    /// the time of the acquisition cycle to before the previous cycle, resulting in
+    /// out of order timestamps.
+    ///
+    /// Expressed as a fraction of the stream rate's period.
+    double max_back_correction_factor = 0.1;
+
+    telem::TimeSpan max_back_correction() const {
+        return this->stream_rate.period() * this->max_back_correction_factor;
+    }
+};
+
 /// @brief a sample clock that relies on an external, steady hardware clock to
 /// regulate the acquisition rate. Timestamps are interpolated based on a fixed
 /// sample rate.
 class HardwareTimedSampleClock final : public SampleClock {
-    telem::NowFunc now;
-    /// @brief the sample rate of the task.
-    const telem::Rate sample_rate, stream_rate;
+    HardwareTimedSampleClockConfig cfg;
     /// @brief track the system time marking the end of the previous acquisition loop.
     telem::TimeStamp prev_system_end = telem::TimeStamp(0);
     /// @brief timestamp of the first sample in the current acquisition loop.
     telem::TimeStamp curr_start_sample_time = telem::TimeStamp(0);
-    /// @brief the maximum value of the integral term of the PID controller. This is used
-    /// to prevent windup.
-    static constexpr double MAX_INTEGRAL = 1000.0;
-    /// @brief the proportional, integral, and derivative gains of the PID controller.
-    const double k_p, k_i, k_d;
     /// @brief the current integral term of the PID controller.
     double integral = 0.0;
     /// @brief the previous error term of the PID controller.
     double prev_error = 0.0;
 
 public:
-    explicit HardwareTimedSampleClock(
-        const telem::Rate sample_rate,
-        const telem::Rate stream_rate,
-        const telem::NowFunc &now = telem::TimeStamp::now,
-        const double k_p = 0.1,
-     const double k_i = 0.1,
-     const double k_d = 0.0
-    ): now(now),
-       sample_rate(sample_rate),
-       stream_rate(stream_rate),
-       k_p(k_p),
-       k_i(k_i),
-       k_d(k_d) {
+    explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
+        cfg(std::move(cfg)) {
     }
 
     void reset() override {
@@ -102,7 +110,7 @@ public:
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
         if (this->curr_start_sample_time == 0) {
-            const auto now = this->now();
+            const auto now = this->cfg.now();
             this->curr_start_sample_time = now;
             this->prev_system_end = now;
         }
@@ -110,19 +118,26 @@ public:
     }
 
     telem::TimeStamp end() override {
-        auto sample_end = this->curr_start_sample_time + this->stream_rate.period();
-        const auto system_end = this->now();
-        const auto error = (sample_end - system_end).nanoseconds();
-        const double dt = (system_end - this->prev_system_end).nanoseconds();
-        const double p_term = k_p * error;
+        auto sample_end = this->curr_start_sample_time + this->cfg.stream_rate.period();
+        const auto system_end = this->cfg.now();
+        const double error = static_cast<double>((sample_end - system_end).
+            nanoseconds());
+        const double dt = static_cast<double>((system_end - this->prev_system_end).
+            nanoseconds());
+        const double p_term = this->cfg.k_p * error;
         this->integral += error * dt;
-        if (this->integral > MAX_INTEGRAL) this->integral = MAX_INTEGRAL;
-        if (this->integral < -MAX_INTEGRAL) this->integral = -MAX_INTEGRAL;
-        const double i_term = k_i * this->integral;
-        const double d_term = k_d * (error - this->prev_error) / dt;
+        this->integral = std::clamp(
+            this->integral,
+            -this->cfg.max_integral,
+            this->cfg.max_integral
+        );
+        const double i_term = this->cfg.k_i * this->integral;
+        const double d_term = this->cfg.k_d * (error - this->prev_error) / dt;
         this->prev_error = error;
         const auto pid_output = p_term + i_term + d_term;
-        const auto correction = telem::TimeSpan(pid_output);
+        auto correction = telem::TimeSpan(static_cast<int64_t>(pid_output));
+        if (correction > this->cfg.max_back_correction())
+            correction = this->cfg.max_back_correction();
         sample_end = sample_end - correction;
         this->prev_system_end = system_end;
         this->curr_start_sample_time = sample_end;

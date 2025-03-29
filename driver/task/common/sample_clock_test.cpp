@@ -30,12 +30,15 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
     const auto sample_rate = telem::HZ * 2;
     const auto stream_rate = telem::HZ * 1;
     auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
-        sample_rate,
-        stream_rate,
-        now_f
-    );
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = 0,
+        .k_i = 0,
+        .k_d = 0
+    });
     breaker::Breaker b;
 
     auto start = clock.wait(b);
@@ -55,16 +58,16 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
     const auto sample_rate = telem::HZ * 2;
     const auto stream_rate = telem::HZ * 1;
     auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
-    const double k_p = 0.1;
-    auto clock = common::HardwareTimedSampleClock(
-        sample_rate,
-        stream_rate,
-        now_f,
-        k_p, // kp
-        0, // ki
-        0 // kd
-    );
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    constexpr double k_p = 0.1;
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = k_p,
+        .k_i = 0,
+        .k_d = 0
+    });
     breaker::Breaker b;
 
     auto start = clock.wait(b);
@@ -88,9 +91,16 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
 TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
     const auto sample_rate = telem::HZ * 2;
     const auto stream_rate = telem::HZ * 1;
-    auto now_v = telem::SECOND * 5; // Start at non-zero time
-    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(sample_rate, stream_rate, now_f);
+    auto now_v = telem::SECOND * 5;
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = 0,
+        .k_i = 0,
+        .k_d = 0
+    });
     breaker::Breaker b;
 
     // First cycle
@@ -114,26 +124,24 @@ TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
     const auto sample_rate = telem::HZ * 2;
     const auto stream_rate = telem::HZ * 1;
     auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
-
-    // Use explicit PID values for testing
-    auto clock = common::HardwareTimedSampleClock(
-        sample_rate,
-        stream_rate,
-        now_f,
-        0.5, // kp
-        0.1, // ki
-        0.1 // kd
-    );
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = 0.5,
+        .k_i = 0.1,
+        .k_d = 0.1
+    });
     breaker::Breaker b;
 
     // First sample - establish baseline
-    auto start = clock.wait(b);
+    const auto start = clock.wait(b);
     ASSERT_EQ(start, now_v);
 
     // Simulate system running slower than expected
     now_v = telem::SECOND * 1 + telem::MILLISECOND * 100; // 100ms delay
-    auto end = clock.end();
+    const auto end = clock.end();
 
     // The PID controller should attempt to correct for the delay
     // The exact value depends on the PID parameters, but it should be less than
@@ -145,12 +153,15 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
     const auto sample_rate = telem::HZ * 2;
     const auto stream_rate = telem::HZ * 1;
     auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v]() { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
-        sample_rate,
-        stream_rate,
-        now_f
-    );
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = 0,
+        .k_i = 0,
+        .k_d = 0
+    });
     breaker::Breaker b;
 
     // Test multiple consecutive cycles
@@ -165,4 +176,33 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
         auto next_start = clock.wait(b);
         ASSERT_EQ(next_start, end);
     }
+}
+
+TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
+    const auto sample_rate = telem::HZ * 2;
+    const auto stream_rate = telem::HZ * 1;
+    auto now_v = 0 * telem::SECOND;
+    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    
+    // Set a large P gain to ensure correction would exceed max if unconstrained
+    constexpr double k_p = 2.0;
+    constexpr double max_back_correction_factor = 0.1;  // 10% of period
+    auto clock = common::HardwareTimedSampleClock({
+        .now = now_f,
+        .sample_rate = sample_rate,
+        .stream_rate = stream_rate,
+        .k_p = k_p,
+        .k_i = 0,
+        .k_d = 0,
+        .max_back_correction_factor = max_back_correction_factor
+    });
+    breaker::Breaker b;
+
+    const auto start = clock.wait(b);
+    ASSERT_EQ(start, now_v);
+    /// now is way way earlier than end.
+    now_v = telem::MILLISECOND * 500;
+    const auto end = clock.end();
+    const auto expected_time = telem::TimeStamp(telem::MILLISECOND * 900);
+    ASSERT_EQ(end, expected_time);
 }

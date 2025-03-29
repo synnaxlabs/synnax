@@ -176,7 +176,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (this->software_timed)
             return std::make_unique<
                 common::SoftwareTimedSampleClock>(this->stream_rate);
-        return std::make_unique<common::HardwareTimedSampleClock>(this->sample_rate, this->stream_rate);
+        return std::make_unique<common::HardwareTimedSampleClock>(common::HardwareTimedSampleClockConfig{
+            .sample_rate = this->sample_rate,
+            .stream_rate =this->stream_rate
+        });
     }
 };
 
