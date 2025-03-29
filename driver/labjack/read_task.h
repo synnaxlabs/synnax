@@ -517,14 +517,14 @@ class StreamSource final : public common::Source {
     /// frame.
     std::vector<double> buf;
 
-    loop::Gauge g = loop::Gauge("read", 500, 0.5);
+    loop::Gauge g = loop::Gauge("read", 500, 0);
 public:
     StreamSource(
         const std::shared_ptr<device::Device> &dev,
         ReadTaskConfig cfg
     ): cfg(std::move(cfg)),
        dev(dev),
-       sample_clock(this->cfg.sample_rate),
+       sample_clock(this->cfg.sample_rate, this->cfg.stream_rate),
        buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 
@@ -576,7 +576,6 @@ public:
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
-        g.start();
         if (const auto err = translate_error(this->dev->e_stream_read(
             this->buf.data(),
             &num_skipped_scans,
@@ -588,7 +587,11 @@ public:
                 this->restart();
             return {Frame(), err};
         }
+        if (num_skipped_scans > 0) {
+            LOG(WARNING) << "skipped " << num_skipped_scans << " scans";
+        }
         g.stop();
+        g.start();
         const auto end = this->sample_clock.end(n);
         auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         int i = 0;

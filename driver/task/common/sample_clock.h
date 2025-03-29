@@ -62,28 +62,47 @@ public:
 class HardwareTimedSampleClock final : public SampleClock {
     /// @brief the sample rate of the task.
     const telem::Rate sample_rate;
+    /// @brief the stream rate of the task.
+    const telem::Rate stream_rate;
+    /// @brief the number of samples per acquisition loop.
+    const size_t samples_per_channel;
+    size_t iterations = 0;
     /// @brief the high water-mark for the next acquisition loop.
-    telem::TimeStamp high_water{};
+    telem::TimeStamp high_water = telem::TimeStamp(0);
 
 public:
-    explicit HardwareTimedSampleClock(const telem::Rate sample_rate):
-        sample_rate(sample_rate) {
+    explicit HardwareTimedSampleClock(
+        const telem::Rate sample_rate,
+        const telem::Rate stream_rate
+    ): sample_rate(sample_rate),
+       stream_rate(stream_rate),
+       samples_per_channel(sample_rate / stream_rate) {
     }
 
     void reset() override {
-        this->high_water = telem::TimeStamp::now();
+        this->high_water = telem::TimeStamp(0);
+        this->iterations = 0;
     }
 
     telem::TimeStamp wait(breaker::Breaker &_) override {
         if (this->high_water == 0)
-            throw std::runtime_error("hardware sample clock not reset before first `wait` called. Call `reset` before waiting on the sample clock.");
+            this->high_water = telem::TimeStamp::now();
         return this->high_water;
     }
 
-    telem::TimeStamp end(const size_t &n_read) override {
-        if (n_read == 0) return this->high_water;
-        const auto end = this->high_water + (n_read - 1) * this->sample_rate.period();
+    telem::TimeStamp end(const size_t &_) override {
+        auto end = this->high_water + (this->samples_per_channel - 1) * this->sample_rate.period();
+        const auto system_end = telem::TimeStamp::now();
+        this->iterations++;
+        if (system_end > end) {
+            const auto diff = system_end - this->high_water;
+            end += telem::TimeStamp(diff * 0.01);
+        } else if (system_end < end) {
+            const auto diff = this->high_water - system_end;
+            end -= telem::TimeStamp(diff * 0.01);
+        }
         this->high_water = end + this->sample_rate.period();
+
         return end;
     }
 };
