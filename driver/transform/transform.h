@@ -17,6 +17,7 @@
 #include <string>
 #include <variant>
 #include <thread>
+#include <unordered_set>
 
 /// external
 #include "glog/logging.h"
@@ -57,16 +58,16 @@ private:
 /// middleware chain first so that it can tare the data before any other middleware
 /// can process it.
 class Tare final : public Transform {
-    std::map<synnax::ChannelKey, double> tare_values;
-    std::map<synnax::ChannelKey, double> last_raw_value;
+    std::unordered_map<synnax::ChannelKey, double> tare_values;
     std::unordered_map<synnax::ChannelKey, synnax::Channel> tare_channels;
+    std::unordered_set<synnax::ChannelKey> channels_to_tare;
+    bool tare_all;
     std::mutex mutex;
 
 public:
-    explicit Tare(const std::vector<synnax::Channel> &channels): tare_channels(
-        synnax::map_channel_Keys(channels)) {
-        for (auto &[key, ch]: this->tare_channels)
-            tare_values[key] = 0;
+    explicit Tare(const std::vector<synnax::Channel> &channels): 
+        tare_channels(map_channel_Keys(channels)),
+        tare_all(false) {
     }
 
     xerrors::Error tare(json &arg) {
@@ -76,35 +77,37 @@ public:
 
         std::lock_guard lock(mutex);
         if (channels.empty()) {
-            for (auto &[ch_key, tare_value]: tare_values) {
-                auto it = this->last_raw_value.find(ch_key);
-                if (it != last_raw_value.end())
-                    tare_values[ch_key] = it->second;
-            }
+            tare_all = true;
+            channels_to_tare.clear();
             return xerrors::NIL;
         }
 
         for (auto &key: channels) {
-            auto it = this->last_raw_value.find(key);
-            if (it != last_raw_value.end()) {
-                tare_values[key] = it->second;
-            } else {
+            if (tare_channels.find(key) == tare_channels.end()) {
                 parser.field_err("keys", "Channel " + std::to_string(key) +
-                                         " is not a configured channel to tare.");
+                                       " is not a configured channel to tare.");
                 return parser.error();
             }
+            channels_to_tare.insert(key);
         }
+        tare_all = false;
         return xerrors::NIL;
     }
 
     xerrors::Error transform(synnax::Frame &frame) override {
         std::lock_guard lock(mutex);
+        if (tare_all || !channels_to_tare.empty()) {
+            for (const auto &[ch_key, series]: frame)
+                if (tare_all || channels_to_tare.contains(ch_key))
+                    tare_values[ch_key] = series.avg<double>();
+            tare_all = false;
+            channels_to_tare.clear();
+        }
+
         for (const auto &[ch_key, series]: frame) {
             auto tare_it = tare_values.find(ch_key);
             if (tare_it == tare_values.end()) continue;
-            this->last_raw_value[ch_key] = telem::cast<double>(series.at(-1));
-            auto tare = tare_it->second;
-            series.sub_inplace(tare);
+            series.sub_inplace(tare_it->second);
         }
         return xerrors::NIL;
     }
@@ -124,7 +127,7 @@ public:
         dt(dt) {
     }
 
-    xerrors::Error transform_inplace(telem::Series &series) const {
+    xerrors::Error transform_inplace(const telem::Series &series) const {
         if (this->dt != series.data_type())
             return xerrors::Error(xerrors::VALIDATION, "series data type " + series.data_type().name() +
                                                        " does not match scale data type " + this->dt.name());
@@ -155,7 +158,7 @@ public:
         dt(dt) {
     }
 
-    xerrors::Error transform_inplace(telem::Series &series) const {
+    xerrors::Error transform_inplace(const telem::Series &series) const {
         if (this->dt != series.data_type())
             return xerrors::Error(xerrors::VALIDATION, "series data type " + series.data_type().name() +
                                                        " does not match scale data type " + this->dt.name());
