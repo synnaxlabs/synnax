@@ -34,7 +34,6 @@
 #include "driver/task/task.h"
 #include "driver/task/common/sample_clock.h"
 
-
 using json = nlohmann::json;
 
 namespace rack {
