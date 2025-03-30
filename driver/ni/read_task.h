@@ -254,8 +254,11 @@ private:
         for (const auto &ch: this->cfg.channels)
             f.emplace(
                 ch->synnax_key,
-                telem::Series::cast(ch->ch.data_type, buffer.data() + i++ * n_read,
-                                    n_read)
+                telem::Series::cast(
+                    ch->ch.data_type,
+                    buffer.data() + i++ * n_read,
+                    n_read
+                )
             );
         common::generate_index_data(f, this->cfg.indexes, start, end, n_read);
         return std::make_pair(std::move(f), xerrors::NIL);
