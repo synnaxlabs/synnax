@@ -52,15 +52,6 @@ public:
     explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
-    explicit TimeSpan(const std::uint64_t i) : value(static_cast<std::int64_t>(i)) {
-    }
-
-    explicit TimeSpan(const int i) : value(static_cast<std::int64_t>(i)) {
-    }
-
-    explicit TimeSpan(const double d) : value(static_cast<std::int64_t>(d)) {
-    }
-
     /// @brief returns a new TimeSpan from the given chrono duration.
     explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) :
         value(duration.count()) {
