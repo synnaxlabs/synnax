@@ -675,6 +675,35 @@ public:
         return os;
     }
 
+    /// @brief Writes evenly spaced timestamps between start and end to the series.
+    /// @param start The starting timestamp
+    /// @param end The ending timestamp
+    /// @param count The number of points to write
+    /// @param inclusive Whether to include the end timestamp as the last value
+    /// @returns The number of timestamps written
+    size_t write_linspace(
+        const TimeStamp &start,
+        const TimeStamp &end,
+        const size_t count,
+        const bool inclusive = false
+    ) {
+        if (count == 0) return 0;
+        if (count == 1) return write(start);
+        
+        const auto write_count = std::min(count, this->cap() - this->size());
+        if (write_count == 0) return 0;
+
+        const auto adjusted_count = inclusive ? write_count - 1 : write_count;
+        const int64_t start_ns = start.nanoseconds();
+        const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
+        auto *data_ptr = reinterpret_cast<int64_t *>(this->data.get() + this->size() * this->data_type().density());
+    #pragma omp simd
+        for (size_t i = 0; i < write_count; i++) 
+            data_ptr[i] = start_ns + step_ns * i;
+        this->size_ += write_count;
+        return write_count;
+    }
+
     /// @brief Creates a timestamp series with evenly spaced values between start and
     /// end (inclusive).
     /// @param start The starting timestamp
@@ -689,16 +718,8 @@ public:
         const size_t count,
         const bool inclusive = false
     ) {
-        if (count == 1) return Series(start);
-        if (count == 0) return Series(TIMESTAMP_T, 0);
         Series s(TIMESTAMP_T, count);
-        const auto adjusted_count = inclusive ? count - 1 : count;
-        const int64_t start_ns = start.nanoseconds();
-        const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
-        auto *data_ptr = reinterpret_cast<int64_t *>(s.data.get());
-#pragma omp simd
-        for (size_t i = 0; i < count; i++) data_ptr[i] = start_ns + step_ns * i;
-        s.size_ = count;
+        s.write_linspace(start, end, count, inclusive);
         return s;
     }
 
@@ -790,5 +811,81 @@ public:
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
+
+    void clear() {
+        this->size_ = 0;
+    }
+
+    /// @brief writes data to the series while performing any necessary type casting
+    /// @param data the data to write
+    /// @param size the number of samples to write
+    /// @returns the number of samples written
+    template<typename T>
+    size_t write_casted(const T* data, const size_t size) {
+        static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
+        const auto count = std::min(size, this->cap() - this->size());
+        if (count == 0) return 0;
+
+        const auto inferred_type = DataType::infer<T>();
+        if (inferred_type == this->data_type()) {
+            memcpy(
+                this->data.get() + this->size() * this->data_type().density(),
+                data,
+                count * this->data_type().density()
+            );
+        } else {
+            auto* dest = this->data.get() + this->size() * this->data_type().density();
+            if (this->data_type() == FLOAT64_T)
+                cast_to_type<double>(dest, data, count);
+            else if (this->data_type() == FLOAT32_T)
+                cast_to_type<float>(dest, data, count);
+            else if (this->data_type() == INT64_T)
+                cast_to_type<int64_t>(dest, data, count);
+            else if (this->data_type() == INT32_T)
+                cast_to_type<int32_t>(dest, data, count);
+            else if (this->data_type() == INT16_T)
+                cast_to_type<int16_t>(dest, data, count);
+            else if (this->data_type() == INT8_T)
+                cast_to_type<int8_t>(dest, data, count);
+            else if (this->data_type() == UINT64_T)
+                cast_to_type<uint64_t>(dest, data, count);
+            else if (this->data_type() == UINT32_T)
+                cast_to_type<uint32_t>(dest, data, count);
+            else if (this->data_type() == UINT16_T)
+                cast_to_type<uint16_t>(dest, data, count);
+            else if (this->data_type() == UINT8_T)
+                cast_to_type<uint8_t>(dest, data, count);
+            else
+                throw std::runtime_error(
+                    "Unsupported data type for casting: " + this->data_type().name()
+                );
+        }
+        this->size_ += count;
+        return count;
+    }
+
+    /// @brief writes a vector to the series while performing any necessary type casting
+    /// @param data the vector to write
+    /// @returns the number of samples written
+    template<typename T>
+    size_t write_casted(const std::vector<T>& data) {
+        return write_casted(data.data(), data.size());
+    }
+
+    /// @brief writes the data from another series to this series
+    /// @param other the series to write from
+    /// @returns the number of samples written
+    /// @throws std::runtime_error if the data types don't match
+    size_t write(const Series& other) {
+        const size_t byte_count = std::min(other.byte_size(), this->byte_cap() - this->byte_size());
+        memcpy(
+            this->data.get() + this->byte_size(),
+            other.data.get(),
+            byte_count
+        );
+        const auto count = byte_count / this->data_type().density();
+        this->size_ += count;
+        return count;
+    }
 };
 }

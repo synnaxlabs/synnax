@@ -59,6 +59,25 @@ struct BaseReadTaskConfig {
     }
 };
 
+/// @brief Initializes a frame with the correct size and series for all channels
+template<typename ChannelContainer>
+void initialize_frame(
+    synnax::Frame &fr,
+    const ChannelContainer &channels,
+    const std::set<synnax::ChannelKey> &index_keys,
+    const size_t samples_per_chan
+) {
+    if (fr.size() == channels.size() + index_keys.size()) return;
+    fr.reserve(channels.size() + index_keys.size());
+    for (const auto &ch: channels) {
+        fr.emplace(
+            ch->synnax_key,
+            telem::Series(ch->ch.data_type, samples_per_chan)
+        );
+    }
+    for (const auto &idx: index_keys)
+        fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
+}
 
 /// @brief a source that can be used to read data from a hardware device.
 struct Source : pipeline::Source {
@@ -105,15 +124,14 @@ class ReadTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            auto [fr, err] = this->internal->read(breaker);
+        xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+            auto err = this->internal->read(breaker, fr);
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
                 this->p.state.send_warning(err.message());
-            if (err) return {std::move(fr), err};
-            err = this->p.tare.transform(fr);
-            return {std::move(fr), err};
+            if (err) return err;
+            return this->p.tare.transform(fr);
         }
     };
 

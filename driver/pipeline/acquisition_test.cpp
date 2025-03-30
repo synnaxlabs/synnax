@@ -30,12 +30,12 @@ public:
         const xerrors::Error &read_err = xerrors::NIL
     ) : start_ts(start_ts), read_err(read_err) {}
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        if (read_err != xerrors::NIL) return {synnax::Frame(), read_err};
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        if (read_err != xerrors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        auto fr = synnax::Frame(1);
+        fr.clear();
         fr.emplace(1, telem::Series(start_ts));
-        return {std::move(fr), xerrors::Error()};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {

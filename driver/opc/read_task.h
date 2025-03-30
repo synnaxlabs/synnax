@@ -54,7 +54,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
     /// @brief keys of the index channels for the input channels.
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
-    std::vector<InputChan> channels;
+    std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the number of samples to read on each iteration.
     const size_t samples_per_chan;
 
@@ -87,7 +87,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
        samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
             const auto ch = InputChan(cp);
-            if (ch.enabled) channels.push_back(ch);
+            if (ch.enabled) channels.push_back(std::make_unique<InputChan>(ch));
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -106,7 +106,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
         }
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
-        for (const auto &ch: this->channels) keys.push_back(ch.synnax_key);
+        for (const auto &ch: this->channels) keys.push_back(ch->synnax_key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
             parser.field_err(
@@ -118,7 +118,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
             auto ch = sy_channels[i];
             if (ch.index != 0) this->index_keys.insert(ch.index);
-            this->channels[i].ch = ch;
+            this->channels[i]->ch = ch;
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
             auto ch = sy_channels[i];
@@ -130,7 +130,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
     std::vector<synnax::Channel> sy_channels() const {
         std::vector<synnax::Channel> chs;
         chs.reserve(this->channels.size());
-        for (const auto &ch: this->channels) chs.push_back(ch.ch);
+        for (const auto &ch: this->channels) chs.push_back(ch->ch);
         return chs;
     }
 
@@ -138,7 +138,7 @@ struct ReadTaskConfig : public common::BaseReadTaskConfig {
         std::vector<synnax::ChannelKey> channel_keys;
         channel_keys.reserve(this->channels.size() + this->index_keys.size());
         for (const auto &ch: this->channels)
-            channel_keys.push_back(ch.synnax_key);
+            channel_keys.push_back(ch->synnax_key);
         for (const auto &idx: this->index_keys) channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
@@ -164,10 +164,10 @@ struct ReadRequest {
         UA_ReadRequest_init(&this->base);
         read_value_ids.reserve(cfg.channels.size());
         for (const auto &ch: cfg.channels) {
-            if (!ch.enabled) continue;
+            if (!ch->enabled) continue;
             UA_ReadValueId rvid;
             UA_ReadValueId_init(&rvid);
-            rvid.nodeId = ch.node;
+            rvid.nodeId = ch->node;
             rvid.attributeId = UA_ATTRIBUTEID_VALUE;
             read_value_ids.push_back(rvid);
         }
@@ -210,25 +210,28 @@ public:
         return this->cfg.sy_channels();
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         this->timer.wait(breaker);
-        UA_ReadResponse res = UA_Client_Service_read(
-            this->client.get(), this->request.base);
+        UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
         x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
-        auto fr = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.index_keys,
+            this->cfg.array_size
+        );
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
             auto &result = res.results[i];
             if (const auto err = util::parse_error(result.status))
-                return {std::move(fr), err};
+                return err;
             const auto &ch = cfg.channels[i];
             auto [s, err] = util::ua_array_to_series(
-                ch.ch.data_type,
+                ch->ch.data_type,
                 &result.value,
                 this->cfg.array_size,
-                ch.ch.name
+                ch->ch.name
             );
-            if (err) return {std::move(fr), err};
-            fr.emplace(ch.synnax_key, std::move(s));
+            if (err) return err;
         }
         auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
@@ -238,9 +241,10 @@ public:
             start,
             end,
             this->cfg.array_size,
+            this->cfg.channels.size(),
             true
         );
-        return {std::move(fr), xerrors::NIL};
+        return xerrors::NIL;
     }
 };
 
@@ -252,19 +256,14 @@ public:
     ): BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate) {
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        auto fr = synnax::Frame(cfg.channels.size() + cfg.index_keys.size());
-        for (const auto &ch: cfg.channels)
-            fr.emplace(
-                ch.synnax_key,
-                telem::Series(ch.ch.data_type, this->cfg.samples_per_chan)
-            );
-        for (const auto &idx: cfg.index_keys)
-            fr.emplace(
-                idx,
-                telem::Series(telem::TIMESTAMP_T, this->cfg.samples_per_chan)
-            );
-
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.index_keys,
+            this->cfg.samples_per_chan
+        );
+        for (auto [k, s]: fr) s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = telem::TimeStamp::now();
             UA_ReadResponse res = UA_Client_Service_read(
@@ -273,11 +272,11 @@ public:
             );
             x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
             if (const auto err = util::parse_error(res.responseHeader.serviceResult))
-                return {std::move(fr), err};
+                return err;
             for (std::size_t j = 0; j < res.resultsSize; ++j) {
                 UA_DataValue &result = res.results[j];
                 if (const auto err = util::parse_error(result.status))
-                    return {std::move(fr), err};
+                    return err;
                 util::write_to_series(fr.series->at(j), result.value);
             }
             const auto end = telem::TimeStamp::now();
@@ -286,7 +285,7 @@ public:
                 fr.series->at(j).write(ts);
             this->timer.wait(breaker);
         }
-        return std::make_pair(std::move(fr), xerrors::NIL);
+        return xerrors::NIL;
     }
 
     std::vector<synnax::Channel> channels() const override {

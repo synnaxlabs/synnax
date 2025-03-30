@@ -63,7 +63,7 @@ public:
     xerrors::Error close() override { return config.close_err; }
 
     void close_send() override {
-    };
+    }
 };
 
 // Factory for creating mock Streamers with configurable behavior.
@@ -145,9 +145,9 @@ public:
         return_false_ok_on(return_false_ok_on) {
     }
 
-    bool write(synnax::Frame &fr) override {
+    bool write(const synnax::Frame &fr) override {
         if (this->writes->size() == this->return_false_ok_on) return false;
-        this->writes->push_back(std::move(fr));
+        this->writes->push_back(fr.deep_copy());
         return true;
     }
 
@@ -291,23 +291,24 @@ public:
     ) : reads(std::move(reads)), read_errors(std::move(read_errors)) {
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if (current_read >= reads->size()) {
-            // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return {synnax::Frame(0), xerrors::NIL};
+            return xerrors::NIL;
         }
 
-        auto fr = std::move(reads->at(current_read));
+        fr.clear();
+        const auto &curr_read = reads->at(current_read);
+        for (auto [k, s]: curr_read)
+            fr.emplace(k, std::move(s));
         auto err = xerrors::NIL;
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
-
         current_read++;
-        return {std::move(fr), err};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {

@@ -93,19 +93,17 @@ public:
         }
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         this->state_timer.wait(breaker);
         std::lock_guard lock{this->chan_state_lock};
-        auto fr = synnax::Frame(
-            this->chan_state,
-            this->chan_state.size() + this->state_indexes.size()
-        );
-        if (!this->state_indexes.empty()) {
-            const auto idx_ser = telem::Series(telem::TimeStamp::now());
-            for (const auto idx: this->state_indexes)
-                fr.emplace(idx, idx_ser.deep_copy());
-        }
-        return {std::move(fr), xerrors::NIL};
+        fr.clear();
+        fr.reserve(this->chan_state.size());
+        for (const auto &[key, value]: this->chan_state)
+            fr.emplace(key, telem::Series(value));
+        const auto now = telem::TimeStamp::now();
+        for (const auto idx: this->state_indexes)
+            fr.emplace(idx, telem::Series(now));
+        return xerrors::NIL;
     }
 };
 
@@ -132,8 +130,8 @@ class WriteTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-            return this->wrapped->read(breaker);
+        xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+            return this->wrapped->read(breaker, fr);
         }
 
         xerrors::Error write(const synnax::Frame &frame) override {

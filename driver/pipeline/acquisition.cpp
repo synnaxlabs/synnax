@@ -28,7 +28,7 @@ SynnaxWriter::SynnaxWriter(synnax::Writer internal)
     : internal(std::move(internal)) {
 }
 
-bool SynnaxWriter::write(synnax::Frame &fr) { return this->internal.write(fr); }
+bool SynnaxWriter::write(const synnax::Frame &fr) { return this->internal.write(fr); }
 
 xerrors::Error SynnaxWriter::close() { return this->internal.close(); }
 
@@ -87,9 +87,10 @@ void Acquisition::run() {
     xerrors::Error writer_err;
     xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
+    synnax::Frame frame(0);
     while (this->breaker.running()) {
-        auto [frame, source_err_i] = this->source->read(this->breaker);
-        if (source_err_i) {
+
+        if (auto source_err_i = this->source->read(this->breaker, frame)) {
             source_err = source_err_i;
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();

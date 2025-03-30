@@ -26,11 +26,11 @@ client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
-# channels = ["T7_time"]
-channels = ["abc_ai_time"]
+channels = ["T7_time"]
+# channels = ["abc_ai_time"]
 
 # Number of samples to collect before plotting
-N = 10000
+N = 1000
 offsets = []
 diffs = []
 

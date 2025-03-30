@@ -57,12 +57,13 @@ public:
         loop(loop::Timer(EMISSION_RATE)) {
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        if (fr.size() == 0) fr.emplace(key, telem::Series(0, telem::UINT64_T));
         this->loop.wait(breaker);
         const Heartbeat hb = create(this->rack_key, this->version);
         this->version++;
-        auto fr = synnax::Frame(key, telem::Series(hb, telem::UINT64_T));
-        return {std::move(fr), xerrors::NIL};
+        fr.series->at(0).write(hb);
+        return xerrors::NIL;
     }
 };
 

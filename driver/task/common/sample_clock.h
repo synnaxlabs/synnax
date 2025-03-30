@@ -47,9 +47,9 @@ struct TimingConfig {
         this->correct_skew = p.optional("correct_skew", this->correct_skew);
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const TimingConfig& cfg) {
-        os << "  " << xlog::SHALE() << "clock skew correction" << xlog::RESET() << ": " 
-           << (cfg.correct_skew ? "enabled" : "disabled");
+    friend std::ostream &operator<<(std::ostream &os, const TimingConfig &cfg) {
+        os << "  " << xlog::SHALE() << "clock skew correction" << xlog::RESET() << ": "
+                << (cfg.correct_skew ? "enabled" : "disabled");
         return os;
     }
 };
@@ -83,7 +83,7 @@ struct HardwareTimedSampleClockConfig {
     /// @brief the sample rate of the task.
     telem::Rate sample_rate, stream_rate;
     /// @brief the proportional, integral, and derivative gains of the PID controller.
-    double k_p, k_i, k_d;
+    double k_p = 0.1, k_i, k_d;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup.
     double max_integral = 1000.0;
@@ -187,15 +187,22 @@ inline void generate_index_data(
     const telem::TimeStamp &start,
     const telem::TimeStamp &end,
     const size_t n_read,
+    const size_t offset,
     const bool inclusive = false
 ) {
     if (index_keys.empty()) return;
-    auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
     // Hot path: Common to have one index, and it means we can avoid a deep copy.
-    if (index_keys.size() == 1)
-        f.emplace(*index_keys.begin(), std::move(index_data));
-    else
-        for (const auto &idx: index_keys)
-            f.emplace(idx, std::move(index_data.deep_copy()));
+    if (index_keys.size() == 1) {
+        auto &s = f.series->at(offset);
+        s.clear();
+        s.write_linspace(start, end, n_read, inclusive);
+        return;
+    }
+    const auto index_data = telem::Series::linspace(start, end, n_read, inclusive);
+    for (size_t i = offset; i < index_keys.size() + offset; i++) {
+        auto &s = f.series->at(i);
+        s.clear();
+        s.write(index_data);
+    }
 }
 }

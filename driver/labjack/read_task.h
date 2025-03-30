@@ -350,15 +350,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
        device_key(parser.optional<std::string>("device", "cross-device")),
        conn_method(parser.optional<std::string>("conn_method", "")),
        samples_per_chan(sample_rate / stream_rate),
-       software_timed(parser.optional<std::string>("timing_source", "").empty()),
-       timing_cfg(timing_cfg),
        channels(parser.map<std::unique_ptr<InputChan> >(
            "channels",
            [&](xjson::Parser &ch_cfg)-> std::pair<std::unique_ptr<InputChan>, bool> {
                auto ch = parse_input_chan(ch_cfg);
                if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
-           })) {
+           })),
+       timing_cfg(timing_cfg),
+       software_timed(parser.optional<std::string>("timing_source", "").empty()) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
@@ -386,7 +386,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             this->channels[i++]->ch = ch;
         }
 
-        const auto channel_map = synnax::map_channel_Keys(sy_channels);
+        const auto channel_map = map_channel_Keys(sy_channels);
         auto scale_transform = std::make_unique<transform::Scale>(parser, channel_map);
         this->transform.add(std::move(scale_transform));
     }
@@ -414,12 +414,13 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief parses the configuration from the provided Synnax task.
     /// @param client - used to retrieve remote information about the task.
     /// @param task - the raw synnax task config.
+    /// @param timing_cfg - the timing configuration for the task.
     /// @returns the configuration an error. If the error is not NIL, the configuration
     /// is invalid and should not be used.
     static std::pair<ReadTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task,
-        common::TimingConfig timing_cfg
+        const common::TimingConfig timing_cfg
     ) {
         auto parser = xjson::Parser(task.config);
         return {ReadTaskConfig(client, parser, timing_cfg), parser.error()};
@@ -439,7 +440,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return err;
         return xerrors::NIL;
     }
-
 };
 
 /// @brief a source implementation that reads from labjack devices via a unary
@@ -476,17 +476,20 @@ public:
         return this->dev->clean_interval(this->interval_handle);
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        common::initialize_frame(fr, this->cfg.channels, this->cfg.index_keys, 1);
         int err_addr;
         std::vector<const char *> locations;
         std::vector<double> values;
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->port.c_str());
+
         int skipped_intervals;
         if (const auto err = this->dev->wait_for_next_interval(
             this->interval_handle, &skipped_intervals
         ))
-            return {synnax::Frame(), err};
+            return err;
+
         values.resize(locations.size());
         if (const auto err = this->dev->e_read_names(
             locations.size(),
@@ -494,20 +497,20 @@ public:
             values.data(),
             &err_addr
         ))
-            return {synnax::Frame(), err};
+            return err;
 
-        auto f = synnax::Frame(locations.size() + this->cfg.index_keys.size());
         int i = 0;
-        for (const auto &chan: this->cfg.channels)
-            f.emplace(
-                chan->synnax_key,
-                telem::Series::cast(chan->ch.data_type, &values[i++], 1)
-            );
+        for (const auto &chan: this->cfg.channels) {
+            auto &s = fr.series->at(chan->synnax_key);
+            s.clear();
+            s.write_casted(&values[i++], 1);
+        }
+
         const auto start = telem::TimeStamp::now();
         const auto end = start;
-        common::generate_index_data(f, this->cfg.index_keys, start, end, 1);
-        auto err = this->cfg.transform.transform(f);
-        return std::make_pair(std::move(f), err);
+        common::generate_index_data(fr, this->cfg.index_keys, start, end, 1,
+                                    this->cfg.channels.size());
+        return this->cfg.transform.transform(fr);
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
@@ -528,6 +531,8 @@ class StreamSource final : public common::Source {
     /// @brief re-usable buffer of values we load data into before converting it to a
     /// frame.
     std::vector<double> buf;
+
+    loop::Gauge g = loop::Gauge("labjack", 1000, 0);
 
 public:
     StreamSource(
@@ -587,36 +592,42 @@ public:
         return this->dev->e_stream_stop();
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         const auto n = this->cfg.samples_per_chan;
+        common::initialize_frame(fr, this->cfg.channels, this->cfg.index_keys, n);
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
         int scan_backlog;
+        g.stop();
         if (const auto err = translate_error(this->dev->e_stream_read(
             this->buf.data(),
             &num_skipped_scans,
             &scan_backlog
         ))) {
-            // If the device is currently unreachable, try closing and reopening the
-            // stream to recover.
             if (err.matches(ljm::TEMPORARILY_UNREACHABLE))
                 this->restart();
-            return {synnax::Frame(), err};
+            return err;
         }
+        g.start();
         if (num_skipped_scans > 0) {
             LOG(WARNING) << "skipped " << num_skipped_scans << " scans";
         }
         const auto end = this->sample_clock.end();
-        auto f = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
-        int i = 0;
-        for (const auto &ch: this->cfg.channels)
-            f.emplace(
-                ch->synnax_key,
-                telem::Series::cast(ch->ch.data_type, buf.data() + i++ * n, n)
-            );
-        common::generate_index_data(f, this->cfg.index_keys, start, end, n);
-        auto t_err = this->cfg.transform.transform(f);
-        return {std::move(f), t_err};
+        for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            auto &s = fr.series->at(i);
+            s.clear();
+            s.write_casted(buf.data() + i++ * n, n);
+        }
+        common::generate_index_data(
+            fr,
+            this->cfg.index_keys,
+            start,
+            end,
+            n,
+            this->cfg.channels.size()
+        );
+        const auto err = this->cfg.transform.transform(fr);
+        return err;
     }
 };
 }
