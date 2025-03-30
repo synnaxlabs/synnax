@@ -17,9 +17,8 @@
 #include "client/cpp/ranger/ranger.h"
 
 namespace synnax {
-class Transport {
-public:
-    Transport(
+struct Transport {
+    static Transport configure(
         uint16_t port,
         const std::string &ip,
         const std::string &ca_cert_file,

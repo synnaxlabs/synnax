@@ -70,7 +70,7 @@ public:
     explicit Pool(const std::string &ca_path) {
         grpc::SslCredentialsOptions opts;
         opts.pem_root_certs = priv::read_file(ca_path);
-        credentials = grpc::SslCredentials(opts);
+        credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates the GRPC pool to use TLS encryption and authentication
@@ -82,10 +82,16 @@ public:
         const std::string &key_path
     ) {
         grpc::SslCredentialsOptions opts;
-        opts.pem_root_certs = priv::read_file(ca_path);
-        opts.pem_cert_chain = priv::read_file(cert_path);
-        opts.pem_private_key = priv::read_file(key_path);
-        credentials = grpc::SslCredentials(opts);
+        bool secure = false;
+        if (!ca_path.empty()) {
+            opts.pem_root_certs = priv::read_file(ca_path);
+            secure = true;
+        }
+        if (!cert_path.empty() && !key_path.empty()) {
+            opts.pem_cert_chain = priv::read_file(cert_path);
+            opts.pem_private_key = priv::read_file(key_path);
+        }
+        if (secure) credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates a GRPC pool with the provided credentials.
@@ -107,7 +113,7 @@ public:
             else return channel;
         }
         const grpc::ChannelArguments args;
-        auto channel = grpc::CreateCustomChannel(target, this->credentials, args);
+        auto channel = CreateCustomChannel(target, this->credentials, args);
         this->channels[target] = channel;
         return channel;
     }

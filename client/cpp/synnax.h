@@ -143,7 +143,7 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
-        auto t = Transport(
+        auto t = Transport::configure(
             cfg.port,
             cfg.host,
             cfg.ca_cert_file,
