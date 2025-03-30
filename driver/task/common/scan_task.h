@@ -51,7 +51,7 @@ struct ClusterAPI {
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
 
-    SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(client) {
+    explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(client) {
     }
 
     std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
