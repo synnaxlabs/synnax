@@ -70,7 +70,9 @@ class Parser {
         std::string stripped = name;
         if (name[0] == '-')
             stripped = name.substr(name[0] == '-' && name[1] == '-' ? 2 : 1);
-        return {"-" + stripped, "--" + stripped};
+        
+        std::string kebab = caseconv::snake_to_kebab(stripped);
+        return {"-" + kebab, "--" + kebab};
     }
 
     // Helper to check if an argument matches any of its normalized forms

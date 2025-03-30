@@ -337,3 +337,16 @@ TEST_F(XArgsTest, TestDuplicateArguments) {
     ASSERT_TRUE(verbose);  // Last --verbose flag wins
     cleanup(argc, argv);
 }
+
+TEST_F(XArgsTest, TestRegressionDash) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--correct-skew=true",
+    });
+    parser = xargs::Parser(argc, argv);
+
+    const auto correct_skew = parser.required<bool>("correct_skew");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_TRUE(correct_skew);
+    cleanup(argc, argv);
+}
