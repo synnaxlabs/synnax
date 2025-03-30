@@ -232,3 +232,34 @@ TEST_F(XArgsTest, TestSingleLetterFlags) {
     EXPECT_TRUE(parser.errors.empty());
     cleanup(argc, argv);
 }
+
+TEST_F(XArgsTest, TestNullPointerHandling) {
+    // Test with nullptr argv
+    parser = xargs::Parser(0, nullptr);
+    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Verify behavior when trying to access values
+    auto required_str = parser.required<std::string>("test");
+    EXPECT_TRUE(required_str.empty());
+    EXPECT_FALSE(parser.errors.empty());
+    EXPECT_EQ(parser.errors[0].message(), "[test] Required argument not found");
+
+    // Clear errors for next test
+    parser.errors.clear();
+
+    // Test optional values
+    auto optional_str = parser.optional<std::string>("test", "default");
+    EXPECT_EQ(optional_str, "default");
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Test flags
+    EXPECT_FALSE(parser.flag("test"));
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Test with zero argc but non-null argv
+    char* dummy_argv[] = {nullptr};
+    parser = xargs::Parser(0, dummy_argv);
+    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.errors.empty());
+}
