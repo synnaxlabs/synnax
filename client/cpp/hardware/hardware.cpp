@@ -14,8 +14,7 @@
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/xerrors/errors.h"
 
-using namespace synnax;
-
+namespace synnax {
 Rack::Rack(const RackKey key, std::string name)
     : key(key),
       name(std::move(name)) {
@@ -333,4 +332,5 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_make(make);
     device->set_model(model);
     device->set_properties(properties);
+}
 }

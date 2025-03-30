@@ -23,8 +23,7 @@
 
 using json = nlohmann::json;
 
-using namespace pipeline;
-
+namespace pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal)
     : internal(std::move(internal)) {
 }
@@ -38,7 +37,7 @@ SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
 }
 
 std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
-SynnaxWriterFactory::open_writer(const WriterConfig &config) {
+SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
     return {
@@ -49,7 +48,7 @@ SynnaxWriterFactory::open_writer(const WriterConfig &config) {
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
-    WriterConfig writer_config,
+    synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ) : Acquisition(
@@ -62,7 +61,7 @@ Acquisition::Acquisition(
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
-    WriterConfig writer_config,
+    synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ) : Base(breaker_config), factory(std::move(factory)),
@@ -139,4 +138,5 @@ void Acquisition::run() {
     if (source_err) this->source->stopped_with_err(source_err);
     else if (writer_err) this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
+}
 }

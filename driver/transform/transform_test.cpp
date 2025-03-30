@@ -15,14 +15,13 @@
 
 #include "x/cpp/xtest/xtest.h"
 
-using namespace transform;
-
+namespace transform {
 class MockTransform final : public Transform {
 public:
     explicit MockTransform(bool should_fail = false) : should_fail_(should_fail) {
     }
 
-    xerrors::Error transform(Frame &frame) override {
+    xerrors::Error transform(synnax::Frame &frame) override {
         was_called_ = true;
         if (should_fail_)
             return xerrors::Error(xerrors::INTERNAL, "Mock transform failed");
@@ -45,7 +44,7 @@ TEST(TransformTests, ChainTransform) {
     chain.add(mock1);
     chain.add(mock2);
 
-    Frame frame;
+    synnax::Frame frame;
     ASSERT_NIL(chain.transform(frame));
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
@@ -64,7 +63,7 @@ TEST(TransformTests, ChainTransformFailure) {
     chain.add(mock2);
     chain.add(mock3);
 
-    Frame frame;
+    synnax::Frame frame;
     ASSERT_OCCURRED_AS(chain.transform(frame), xerrors::INTERNAL);
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
@@ -74,7 +73,7 @@ TEST(TransformTests, ChainTransformFailure) {
 /// @brief it should do nothing in an empty chain.
 TEST(TransformTests, EmptyChain) {
     Chain chain;
-    Frame frame;
+    synnax::Frame frame;
     ASSERT_NIL(chain.transform(frame));
 }
 
@@ -105,7 +104,7 @@ protected:
     }
 
     std::vector<synnax::Channel> channels;
-    Frame frame;
+    synnax::Frame frame;
 };
 
 /// @brief it should tare the value of a channel.
@@ -120,7 +119,7 @@ TEST_F(TareTests, BasicTare) {
     json tare_args = json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    Frame new_frame(2);
+    synnax::Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
     new_series1.write(30.0);
     new_series1.write(40.0);
@@ -148,7 +147,7 @@ TEST_F(TareTests, TareSpecificChannels) {
     json tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
-    Frame new_frame(2);
+    synnax::Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 1);
     new_series1.write(30.0);
     new_frame.emplace(1, std::move(new_series1));
@@ -179,16 +178,16 @@ TEST(ScaleTests, LinearScale) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 2.0},
-                            {"offset", 5.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 2.0},
+                                {"offset", 5.0}
+                            }
                         }
                     }
-                }
             }
         }
     };
@@ -203,7 +202,7 @@ TEST(ScaleTests, LinearScale) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(1);
+    synnax::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 2);
     series.write(10.0);
     series.write(20.0);
@@ -220,18 +219,18 @@ TEST(ScaleTests, MapScale) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "map"},
-                            {"pre_scaled_min", 0.0},
-                            {"pre_scaled_max", 100.0},
-                            {"scaled_min", 0.0},
-                            {"scaled_max", 1.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "map"},
+                                {"pre_scaled_min", 0.0},
+                                {"pre_scaled_max", 100.0},
+                                {"scaled_min", 0.0},
+                                {"scaled_max", 1.0}
+                            }
                         }
                     }
-                }
             }
         }
     };
@@ -245,7 +244,7 @@ TEST(ScaleTests, MapScale) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(1);
+    synnax::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 3);
     series.write(0.0);
     series.write(50.0);
@@ -264,28 +263,28 @@ TEST(ScaleTests, MultipleChannels) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 2.0},
-                            {"offset", 0.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 2.0},
+                                {"offset", 0.0}
+                            }
+                        }
+                    },
+                    {
+                        {"channel", 2},
+                        {
+                            "scale", {
+                                {"type", "map"},
+                                {"pre_scaled_min", 0.0},
+                                {"pre_scaled_max", 10.0},
+                                {"scaled_min", 0.0},
+                                {"scaled_max", 100.0}
+                            }
                         }
                     }
-                },
-                {
-                    {"channel", 2},
-                    {
-                        "scale", {
-                            {"type", "map"},
-                            {"pre_scaled_min", 0.0},
-                            {"pre_scaled_max", 10.0},
-                            {"scaled_min", 0.0},
-                            {"scaled_max", 100.0}
-                        }
-                    }
-                }
             }
         }
     };
@@ -304,7 +303,7 @@ TEST(ScaleTests, MultipleChannels) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(2);
+    synnax::Frame frame(2);
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(5.0);
     frame.emplace(1, std::move(series1));
@@ -321,16 +320,16 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 2.0},
-                            {"offset", 0.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 2.0},
+                                {"offset", 0.0}
+                            }
                         }
                     }
-                }
             }
         }
     };
@@ -344,7 +343,7 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(2);
+    synnax::Frame frame(2);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(5.0);
@@ -365,28 +364,28 @@ TEST(ScaleTests, DisabledChannel) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
-                    {"enabled", true},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 2.0},
-                            {"offset", 5.0}
+                        {"channel", 1},
+                        {"enabled", true},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 2.0},
+                                {"offset", 5.0}
+                            }
+                        }
+                    },
+                    {
+                        {"channel", 2},
+                        {"enabled", false},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 3.0},
+                                {"offset", 10.0}
+                            }
                         }
                     }
-                },
-                {
-                    {"channel", 2},
-                    {"enabled", false},
-                    {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 3.0},
-                            {"offset", 10.0}
-                        }
-                    }
-                }
             }
         }
     };
@@ -401,7 +400,7 @@ TEST(ScaleTests, DisabledChannel) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(2);
+    synnax::Frame frame(2);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(10.0);
@@ -422,16 +421,16 @@ TEST(ScaleTests, TransformInplaceUsage) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 3.0},
-                            {"offset", 2.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 3.0},
+                                {"offset", 2.0}
+                            }
                         }
                     }
-                }
             }
         }
     };
@@ -445,7 +444,7 @@ TEST(ScaleTests, TransformInplaceUsage) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    Frame frame(3);
+    synnax::Frame frame(3);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 2);
     series1.write(1.0);
@@ -495,7 +494,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
     Tare tare(channels);
 
-    Frame frame(3);
+    synnax::Frame frame(3);
 
     auto series1 = telem::Series(telem::INT32_T, 2);
     series1.write(100);
@@ -517,7 +516,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
     json tare_args = json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    Frame new_frame(3);
+    synnax::Frame new_frame(3);
 
     auto new_series1 = telem::Series(telem::INT32_T, 2);
     new_series1.write(300);
@@ -560,16 +559,16 @@ TEST(ChainTests, ComplexTransformChain) {
     json config = {
         {
             "channels", {
-                {
-                    {"channel", 1},
                     {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 2.0},
-                            {"offset", 10.0}
+                        {"channel", 1},
+                        {
+                            "scale", {
+                                {"type", "linear"},
+                                {"slope", 2.0},
+                                {"offset", 10.0}
+                            }
                         }
                     }
-                }
             }
         }
     };
@@ -584,7 +583,7 @@ TEST(ChainTests, ComplexTransformChain) {
     chain.add(tare);
     chain.add(scale);
 
-    Frame frame(1);
+    synnax::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 1);
     series.write(50.0);
     frame.emplace(1, std::move(series));
@@ -595,7 +594,7 @@ TEST(ChainTests, ComplexTransformChain) {
     ASSERT_NIL(tare->tare(tare_args));
 
     // Create second frame
-    Frame frame2(1);
+    synnax::Frame frame2(1);
     auto series2 = telem::Series(telem::FLOAT64_T, 1);
     series2.write(70.0);
     frame2.emplace(1, std::move(series2));
@@ -606,4 +605,5 @@ TEST(ChainTests, ComplexTransformChain) {
 
     // Check the result: (70 - 50) * 2 + 10 = 50
     ASSERT_EQ(frame2.at<double>(1, 0), 50.0);
+}
 }

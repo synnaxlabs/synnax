@@ -30,10 +30,10 @@ public:
         const xerrors::Error &read_err = xerrors::NIL
     ) : start_ts(start_ts), read_err(read_err) {}
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        if (read_err != xerrors::NIL) return {Frame(), read_err};
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        if (read_err != xerrors::NIL) return {synnax::Frame(), read_err};
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        auto fr = Frame(1);
+        auto fr = synnax::Frame(1);
         fr.emplace(1, telem::Series(start_ts));
         return {std::move(fr), xerrors::Error()};
     }
@@ -53,7 +53,7 @@ TEST(AcquisitionPipeline, testStartResolution) {
     synnax::WriterConfig writer_config{.channels = {1}};
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config()
     );
@@ -74,7 +74,7 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config{
             .name = "pipeline",
@@ -100,7 +100,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config{
             .base_interval = telem::MICROSECOND * 10,
@@ -127,7 +127,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config{
             .base_interval = telem::MICROSECOND * 10,
@@ -154,7 +154,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config{
             .base_interval = telem::MICROSECOND * 10,
@@ -175,7 +175,7 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config()
     );
@@ -192,7 +192,7 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config()
     );
@@ -211,7 +211,7 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now(), critical_error);
     auto pipeline = pipeline::Acquisition(
         mock_factory,
-        WriterConfig(),
+        synnax::WriterConfig(),
         source,
         breaker::Config()
     );

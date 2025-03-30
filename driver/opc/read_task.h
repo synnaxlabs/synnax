@@ -31,16 +31,16 @@ struct InputChan {
     /// @brief the OPC UA node id.
     const UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node from.
-    const ChannelKey synnax_key;
+    const synnax::ChannelKey synnax_key;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
-    Channel ch;
+    synnax::Channel ch;
 
     explicit InputChan(
         xjson::Parser &parser
     ) : enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
-        synnax_key(parser.required<ChannelKey>("channel")) {
+        synnax_key(parser.required<synnax::ChannelKey>("channel")) {
     }
 };
 
@@ -210,12 +210,12 @@ public:
         return this->cfg.sy_channels();
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         this->timer.wait(breaker);
         UA_ReadResponse res = UA_Client_Service_read(
             this->client.get(), this->request.base);
         x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
-        auto fr = Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
+        auto fr = synnax::Frame(this->cfg.channels.size() + this->cfg.index_keys.size());
         for (std::size_t i = 0; i < res.resultsSize; ++i) {
             auto &result = res.results[i];
             if (const auto err = util::parse_error(result.status))
@@ -252,8 +252,8 @@ public:
     ): BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate) {
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        auto fr = Frame(cfg.channels.size() + cfg.index_keys.size());
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        auto fr = synnax::Frame(cfg.channels.size() + cfg.index_keys.size());
         for (const auto &ch: cfg.channels)
             fr.emplace(
                 ch.synnax_key,

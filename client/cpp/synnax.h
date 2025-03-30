@@ -27,9 +27,6 @@
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xpath/xpath.h"
 
-using namespace synnax;
-
-
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
 namespace priv {

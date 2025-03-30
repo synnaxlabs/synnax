@@ -105,7 +105,7 @@ class ReadTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             auto [fr, err] = this->internal->read(breaker);
             if (!err)
                 this->p.state.clear_warning();

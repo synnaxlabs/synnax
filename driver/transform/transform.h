@@ -31,7 +31,7 @@ class Transform {
 public:
     virtual ~Transform() = default;
 
-    virtual xerrors::Error transform(Frame &frame) = 0;
+    virtual xerrors::Error transform(synnax::Frame &frame) = 0;
 };
 
 class Chain final : public Transform {
@@ -40,7 +40,7 @@ public:
         this->transforms.push_back(transforms);
     }
 
-    xerrors::Error transform(Frame &frame) override {
+    xerrors::Error transform(synnax::Frame &frame) override {
         if (transforms.empty()) return xerrors::NIL;
         for (const auto &t: this->transforms)
             if (const auto err = t->transform(frame))
@@ -96,7 +96,7 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error transform(Frame &frame) override {
+    xerrors::Error transform(synnax::Frame &frame) override {
         std::lock_guard lock(mutex);
         for (const auto &[ch_key, series]: frame) {
             auto tare_it = tare_values.find(ch_key);
@@ -197,7 +197,7 @@ public:
         });
     }
 
-    xerrors::Error transform(Frame &frame) override {
+    xerrors::Error transform(synnax::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
         for (const auto [key, series]: frame) {
             auto it = scales.find(key);

@@ -13,8 +13,7 @@
 /// external
 #include "freighter/cpp/freighter.h"
 
-using namespace freighter;
-
+namespace freighter {
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string join_paths(const std::string &a, const std::string &b) {
     if (a.empty() && b.empty()) return "";
@@ -47,4 +46,5 @@ URL URL::child(const std::string &child_path) const {
 
 std::string URL::to_string() const {
     return ip + ":" + std::to_string(port) + path;
+}
 }

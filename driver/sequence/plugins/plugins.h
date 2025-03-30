@@ -156,12 +156,12 @@ class ChannelWrite final : public Plugin {
     /// writer.
     std::shared_ptr<FrameSink> sink;
     /// @brief a map of channel names to info on the channel.
-    std::unordered_map<ChannelKey, synnax::Channel> channels;
+    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
     /// @brief a map that allows the user to resolve a channel by its name.
-    std::unordered_map<std::string, ChannelKey> names_to_keys;
+    std::unordered_map<std::string, synnax::ChannelKey> names_to_keys;
 
 public:
-    ChannelWrite(std::shared_ptr<FrameSink> sink, const std::vector<Channel> &channels);
+    ChannelWrite(std::shared_ptr<FrameSink> sink, const std::vector<synnax::Channel> &channels);
 
     std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
 

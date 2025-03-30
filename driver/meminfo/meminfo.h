@@ -26,10 +26,10 @@ public:
                                                             timer(telem::HZ * 1) {
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         timer.wait(breaker);
         auto s = telem::Series(getUsage(), telem::UINT32_T);
-        return {Frame(key, std::move(s)), xerrors::NIL};
+        return {synnax::Frame(key, std::move(s)), xerrors::NIL};
     }
 };
 
@@ -58,7 +58,7 @@ public:
         const synnax::Task &task
     ) {
         auto ch_name =
-                "sy_rack" + std::to_string(rack_key_node(task_key_rack(task.key))) +
+                "sy_rack" + std::to_string(synnax::rack_key_node(synnax::task_key_rack(task.key))) +
                 "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
         if (err.matches(xerrors::NOT_FOUND)) {

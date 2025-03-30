@@ -93,7 +93,7 @@ public:
         }
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         this->state_timer.wait(breaker);
         std::lock_guard lock{this->chan_state_lock};
         auto fr = synnax::Frame(
@@ -132,7 +132,7 @@ class WriteTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+        std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
             return this->wrapped->read(breaker);
         }
 

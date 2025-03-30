@@ -14,6 +14,7 @@
 
 std::mt19937 gen_rand = random_generator("Hardware Tests");
 
+namespace synnax {
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
     const auto client = new_test_client();
@@ -278,4 +279,5 @@ TEST(DeviceTests, testCreateDevices) {
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
     }
+}
 }

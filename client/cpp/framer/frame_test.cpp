@@ -141,7 +141,7 @@ TEST(FrameTests, testIteration) {
     
     // Test range-based for loop
     count = 0;
-    std::set<ChannelKey> seen_keys;
+    std::set<synnax::ChannelKey> seen_keys;
     for (auto [key, series] : frame) {
         count++;
         seen_keys.insert(key);
@@ -200,7 +200,7 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
         [](const auto& p) { return p.first > 65537; });
     ASSERT_EQ(count, 2);
     
-    std::vector<ChannelKey> keys;
+    std::vector<synnax::ChannelKey> keys;
     std::for_each(frame.begin(), frame.end(), 
         [&keys](const auto& p) { keys.push_back(p.first); });
     

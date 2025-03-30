@@ -238,7 +238,7 @@ private:
         return this->cfg.writer();
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         auto start = this->sample_clock->wait(breaker);
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
@@ -248,7 +248,7 @@ private:
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         const auto end = this->sample_clock->end();
-        if (this->curr_read_err) return {Frame(), this->curr_read_err};
+        if (this->curr_read_err) return {synnax::Frame(), this->curr_read_err};
         synnax::Frame f(this->cfg.channels.size() + this->cfg.indexes.size());
         size_t i = 0;
         for (const auto &ch: this->cfg.channels)

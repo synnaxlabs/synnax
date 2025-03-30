@@ -11,12 +11,7 @@
 
 #include "gtest/gtest.h"
 
-using namespace telem;
-
-////////////////////////////////////////////////////////////
-// TimeStamp Tests
-////////////////////////////////////////////////////////////
-
+namespace telem {
 /// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testConstructor) {
     const auto ts = TimeStamp(5);
@@ -496,4 +491,5 @@ TEST(DataTypeTests, testStreamOperator) {
     std::stringstream ss;
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
+}
 }

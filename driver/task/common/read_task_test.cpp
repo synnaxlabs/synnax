@@ -51,7 +51,7 @@ public:
         return stop_errs[stop_count++];
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         return pipeline::mock::Source::read(breaker);
     }
 };

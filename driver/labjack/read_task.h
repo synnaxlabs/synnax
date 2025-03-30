@@ -476,7 +476,7 @@ public:
         return this->dev->clean_interval(this->interval_handle);
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         int err_addr;
         std::vector<const char *> locations;
         std::vector<double> values;
@@ -486,7 +486,7 @@ public:
         if (const auto err = this->dev->wait_for_next_interval(
             this->interval_handle, &skipped_intervals
         ))
-            return {Frame(), err};
+            return {synnax::Frame(), err};
         values.resize(locations.size());
         if (const auto err = this->dev->e_read_names(
             locations.size(),
@@ -494,7 +494,7 @@ public:
             values.data(),
             &err_addr
         ))
-            return {Frame(), err};
+            return {synnax::Frame(), err};
 
         auto f = synnax::Frame(locations.size() + this->cfg.index_keys.size());
         int i = 0;
@@ -587,7 +587,7 @@ public:
         return this->dev->e_stream_stop();
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         const auto n = this->cfg.samples_per_chan;
         const auto start = this->sample_clock.wait(breaker);
         int num_skipped_scans;
@@ -601,7 +601,7 @@ public:
             // stream to recover.
             if (err.matches(ljm::TEMPORARILY_UNREACHABLE))
                 this->restart();
-            return {Frame(), err};
+            return {synnax::Frame(), err};
         }
         if (num_skipped_scans > 0) {
             LOG(WARNING) << "skipped " << num_skipped_scans << " scans";

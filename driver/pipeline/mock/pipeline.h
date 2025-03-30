@@ -37,7 +37,7 @@ class Streamer final : public pipeline::Streamer {
 public:
     // Configuration controlling this Streamer's behavior
     StreamerConfig config;
-    
+
     // Tracks the current position in the reads sequence
     size_t current_read = 0;
 
@@ -177,13 +177,14 @@ public:
     std::vector<int> return_false_ok_on;
 
     // Stores the most recent writer configuration passed to open_writer
-    WriterConfig config;
+    synnax::WriterConfig config;
 
     // Counts how many times open_writer has been called, useful for testing retry behavior
     size_t writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<synnax::Frame> > writes = std::make_shared<std::vector<synnax::Frame> >(),
+        std::shared_ptr<std::vector<synnax::Frame> > writes = std::make_shared<
+            std::vector<synnax::Frame> >(),
         std::vector<xerrors::Error> open_errors = {},
         std::vector<xerrors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
@@ -196,7 +197,8 @@ public:
     }
 
     std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
-        const WriterConfig &config) override {
+        const synnax::WriterConfig &config
+    ) override {
         this->writer_opens++;
         this->config = config;
         auto err = this->open_errors.empty()
@@ -266,12 +268,12 @@ class Source : public pipeline::Source {
 public:
     // A sequence of frames that the Source will return on each read() call.
     // When all frames are consumed, the Source will block briefly and return empty frames.
-    std::shared_ptr<std::vector<synnax::Frame>> reads;
+    std::shared_ptr<std::vector<synnax::Frame> > reads;
 
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
     // If nullptr or index exceeds size, returns NIL error.
-    std::shared_ptr<std::vector<xerrors::Error>> read_errors;
+    std::shared_ptr<std::vector<xerrors::Error> > read_errors;
 
     // Stores the error passed to stopped_with_err
     xerrors::Error stop_err;
@@ -283,38 +285,39 @@ public:
     size_t read_count = 0;
 
     explicit Source(
-        std::shared_ptr<std::vector<synnax::Frame>> reads = std::make_shared<std::vector<synnax::Frame>>(),
-        std::shared_ptr<std::vector<xerrors::Error>> read_errors = nullptr
+        std::shared_ptr<std::vector<synnax::Frame> > reads = std::make_shared<
+            std::vector<synnax::Frame> >(),
+        std::shared_ptr<std::vector<xerrors::Error> > read_errors = nullptr
     ) : reads(std::move(reads)), read_errors(std::move(read_errors)) {
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker& breaker) override {
+    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        
+
         if (current_read >= reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             return {synnax::Frame(0), xerrors::NIL};
         }
-        
+
         auto fr = std::move(reads->at(current_read));
         auto err = xerrors::NIL;
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
-        
+
         current_read++;
         return {std::move(fr), err};
     }
 
-    void stopped_with_err(const xerrors::Error& err) override {
+    void stopped_with_err(const xerrors::Error &err) override {
         this->stop_err = err;
     }
 };
 
 // Helper function to create a simple Source with predefined frames
 inline std::shared_ptr<pipeline::mock::Source> simple_source(
-    const std::shared_ptr<std::vector<synnax::Frame>>& reads
+    const std::shared_ptr<std::vector<synnax::Frame> > &reads
 ) {
     return std::make_shared<pipeline::mock::Source>(reads);
 }

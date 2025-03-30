@@ -30,7 +30,7 @@ public:
     /// exit. It's recommended that the caller return a sub-error of
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as this
     /// improved traceability.
-    virtual std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) = 0;
+    virtual std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that caused
     /// it to shut down or occurred during commanded shutdown. Note that this method
@@ -77,7 +77,7 @@ public:
     /// retry the operation until the configured number of maximum retries is exceeded. Any
     /// other error will be considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, xerrors::Error> open_writer(
-        const WriterConfig &config
+        const synnax::WriterConfig &config
     ) = 0;
 
     virtual ~WriterFactory() = default;
@@ -108,7 +108,7 @@ public:
 
     /// @brief implements pipeline::WriterFactory to open a Synnax writer.
     std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error> open_writer(
-        const WriterConfig &config
+        const synnax::WriterConfig &config
     ) override;
 };
 
@@ -124,7 +124,7 @@ class Acquisition final : public Base {
     /// new frames to synnax.
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
-    WriterConfig writer_config;
+    synnax::WriterConfig writer_config;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -145,7 +145,7 @@ public:
     /// hardware errors.
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
-        WriterConfig writer_config,
+        synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );
@@ -162,7 +162,7 @@ public:
     /// acquisition thread lifecycle and retry requests on connection loss or temporary
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
-        WriterConfig writer_config,
+        synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );

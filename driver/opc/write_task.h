@@ -74,8 +74,8 @@ struct WriteTaskConfig {
             parser.field_err("device", properties.error().message());
     }
 
-    [[nodiscard]] std::vector<ChannelKey> cmd_keys() const {
-        std::vector<ChannelKey> keys;
+    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
+        std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: channels) keys.push_back(key);
         return keys;

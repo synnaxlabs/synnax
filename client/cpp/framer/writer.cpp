@@ -51,7 +51,7 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
-bool Writer::write(const Frame &fr) {
+bool Writer::write(const synnax::Frame &fr) {
     this->assert_open();
     if (this->err_accumulated) return false;
     api::v1::FrameWriterRequest req;
