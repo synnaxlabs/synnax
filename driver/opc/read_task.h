@@ -210,20 +210,20 @@ public:
         return this->cfg.sy_channels();
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        common::ReadResult res;
         this->timer.wait(breaker);
-        UA_ReadResponse res = UA_Client_Service_read(this->client.get(), this->request.base);
-        x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
+        UA_ReadResponse ua_res = UA_Client_Service_read(this->client.get(), this->request.base);
+        x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
         common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
             this->cfg.array_size
         );
-        for (std::size_t i = 0; i < res.resultsSize; ++i) {
-            auto &result = res.results[i];
-            if (const auto err = util::parse_error(result.status))
-                return err;
+        for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
+            auto &result = ua_res.results[i];
+            if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto [s, err] = util::ua_array_to_series(
                 ch->ch.data_type,
@@ -231,7 +231,8 @@ public:
                 this->cfg.array_size,
                 ch->ch.name
             );
-            if (err) return err;
+            res.error = err;
+            if (res.error) return res;
         }
         auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
@@ -244,7 +245,7 @@ public:
             this->cfg.channels.size(),
             true
         );
-        return xerrors::NIL;
+        return res;
     }
 };
 
@@ -256,7 +257,8 @@ public:
     ): BaseReadTaskSource(client, std::move(cfg), cfg.sample_rate) {
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        common::ReadResult res;
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -266,17 +268,16 @@ public:
         for (auto [k, s]: fr) s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = telem::TimeStamp::now();
-            UA_ReadResponse res = UA_Client_Service_read(
+            UA_ReadResponse ua_res = UA_Client_Service_read(
                 this->client.get(),
                 this->request.base
             );
-            x::defer clear_res([&res] { UA_ReadResponse_clear(&res); });
-            if (const auto err = util::parse_error(res.responseHeader.serviceResult))
-                return err;
-            for (std::size_t j = 0; j < res.resultsSize; ++j) {
-                UA_DataValue &result = res.results[j];
-                if (const auto err = util::parse_error(result.status))
-                    return err;
+            x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
+            if (res.error = util::parse_error(ua_res.responseHeader.serviceResult); res.error)
+                return res;
+            for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
+                UA_DataValue &result = ua_res.results[j];
+                if (res.error =  util::parse_error(result.status); res.error) return res;
                 util::write_to_series(fr.series->at(j), result.value);
             }
             const auto end = telem::TimeStamp::now();
@@ -285,7 +286,7 @@ public:
                 fr.series->at(j).write(ts);
             this->timer.wait(breaker);
         }
-        return xerrors::NIL;
+        return res;
     }
 
     std::vector<synnax::Channel> channels() const override {

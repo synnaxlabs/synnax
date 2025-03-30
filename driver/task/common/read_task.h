@@ -79,8 +79,13 @@ void initialize_frame(
         fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
 }
 
+struct ReadResult {
+    xerrors::Error error;
+    std::string warning;
+};
+
 /// @brief a source that can be used to read data from a hardware device.
-struct Source : pipeline::Source {
+struct Source {
     /// @brief the configuration used to open a writer for the source.
     [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
 
@@ -93,6 +98,10 @@ struct Source : pipeline::Source {
 
     /// @brief an optional function called to stop the source.
     virtual xerrors::Error stop() { return xerrors::NIL; }
+
+    virtual ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) = 0;
+
+    virtual ~Source() = default;
 };
 
 /// @brief a read task that can pull from both analog and digital channels.
@@ -125,12 +134,26 @@ class ReadTask final : public task::Task {
         }
 
         xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-            auto err = this->internal->read(breaker, fr);
-            if (!err)
-                this->p.state.clear_warning();
-            else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning(err.message());
-            if (err) return err;
+            auto [err, warning] = this->internal->read(breaker, fr);
+            // Three cases.
+            // 1. We have an error, but it's temporary, so we trigger the breaker
+            // by returning the error and  send a warning to start retrying at scaled
+            // intervals.
+            // 2. We have a critical error, in which case we return it directly.
+            // 3. We have a warning, in which case we communicate it and return nil.
+            if (err) {
+                if (err.matches(driver::TEMPORARY_HARDWARE_ERROR)) {
+                    LOG(WARNING) << this->p.name() << ": " << err.message();
+                    this->p.state.send_warning(err.message());
+                } else
+                    LOG(ERROR) << this->p.name() << ": " << err.message();
+                return err;
+            }
+            if (!warning.empty()) {
+                LOG(WARNING) << this->p.name() << ": " << warning;
+                this->p.state.send_warning(warning);
+            }
+            else this->p.state.clear_warning();
             return this->p.tare.transform(fr);
         }
     };
@@ -213,4 +236,9 @@ public:
     /// @brief implements task::Task.
     std::string name() override { return this->state.task.name; }
 };
+
+inline std::string skew_warning(const size_t skew) {
+    return "Synnax driver can't keep up with hardware data acquisition, and is trailing "
+              + std::to_string(skew) + " samples behind. Lower the stream rate for the task.";
+}
 }
