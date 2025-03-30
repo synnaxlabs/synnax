@@ -219,6 +219,7 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
+    loop::Gauge g = loop::Gauge("ni", 500, 0);
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -246,16 +247,17 @@ private:
             this->cfg.samples_per_chan
         );
         auto start = this->sample_clock->wait(breaker);
+        g.stop();
         const auto [dig, err] = this->hw_reader->read(
             this->cfg.samples_per_chan,
             buffer
         );
+        g.start();
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(err);
         const auto end = this->sample_clock->end();
         if (this->curr_read_err) return this->curr_read_err;
-        size_t i = 0;
-        for (const auto &ch: this->cfg.channels) {
+        for (size_t i = 0; i < this->cfg.channels.size(); i++) {
             auto &s = fr.series->at(i);
             s.clear();
             s.write_casted(buffer.data(), buffer.size());
