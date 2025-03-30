@@ -83,6 +83,11 @@ struct HardwareTimedSampleClockConfig {
     /// @brief the sample rate of the task.
     telem::Rate sample_rate, stream_rate;
     /// @brief the proportional, integral, and derivative gains of the PID controller.
+    /// See: https://en.wikipedia.org/wiki/PID_controller
+    ///
+    /// k_p: proportional gain (unitless)
+    /// k_i: integral gain (1/nanoseconds)
+    /// k_d: derivative gain (nanoseconds)
     double k_p = 0.1, k_i, k_d;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup.
@@ -93,10 +98,11 @@ struct HardwareTimedSampleClockConfig {
     /// the time of the acquisition cycle to before the previous cycle, resulting in
     /// out of order timestamps.
     ///
-    /// Expressed as a fraction of the stream rate's period.
+    /// Expressed as a fraction of the stream period i.e.
+    /// (stream_rate.period() * max_back_correction_factor);
     double max_back_correction_factor = 0.1;
 
-    telem::TimeSpan max_back_correction() const {
+    [[nodiscard]] telem::TimeSpan max_back_correction() const {
         return this->stream_rate.period() * this->max_back_correction_factor;
     }
 
@@ -114,6 +120,15 @@ struct HardwareTimedSampleClockConfig {
         cfg.k_d = 0;
         cfg.k_i = 0;
         return cfg;
+    }
+
+    void validate() const {
+        if (this->k_p < 0)
+            throw std::invalid_argument("k_p must be non-negative");
+        if (this->k_i < 0)
+            throw std::invalid_argument("k_i must be non-negative");
+        if (this->k_d < 0)
+            throw std::invalid_argument("k_d must be non-negative");
     }
 };
 
@@ -134,6 +149,7 @@ class HardwareTimedSampleClock final : public SampleClock {
 public:
     explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
         cfg(std::move(cfg)) {
+        this->cfg.validate();
     }
 
     void reset() override {

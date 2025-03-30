@@ -20,7 +20,6 @@
 #include "x/cpp/caseconv/caseconv.h"
 
 namespace xargs {
-
 /// @brief Parser provides a simple command-line argument parsing utility that supports
 /// required arguments, optional arguments with default values, and flags.
 ///
@@ -29,10 +28,14 @@ namespace xargs {
 /// 2. Optional arguments: Can have default values if not provided
 /// 3. Flags: Boolean values that are true if present, false if not
 ///
-/// Arguments can be specified in several formats:
+/// Arguments can be specified in three formats:
 /// - Long form: --argument-name=value or --argument-name value
 /// - Short form: -a=value or -a value
 /// - Snake case is automatically converted to kebab case: my_arg -> --my-arg
+///
+/// You're required to specify both the short and long form for an argument. So you
+/// need to do p.flag("--arm", "-a") in order to match "-a" as well as "--arm". "--arm"
+/// won't auto-match "-a".
 ///
 /// Example usage:
 /// @code
@@ -55,34 +58,30 @@ namespace xargs {
 /// }
 /// @endcode
 class Parser {
-    // Helper struct to store normalized argument forms
-    struct NormalizedArg {
-        std::string full; // Complete normalized form
-        std::string single; // Single dash form
-        std::string double_; // Double dash form
+    // Helper struct to convert argument names to their standard forms that would
+    // be used in the command line i.e. --arg or -arg
+    struct ArgVariants {
+        std::string single; // Single dash form i.e. -arg
+        std::string double_; // Double dash form i.e. --arg
     };
 
-    static NormalizedArg normalize_arg_name(const std::string &name) {
-        if (name.empty()) return {"", "", ""};
+    static ArgVariants normalize_arg_name(const std::string &name) {
+        if (name.empty()) return {"", ""};
         std::string stripped = name;
-        if (name[0] == '-') stripped = name.substr(
-                                name[0] == '-' && name[1] == '-' ? 2 : 1);
-        return {
-            name[0] == '-' ? name : "--" + caseconv::snake_to_kebab(name),
-            "-" + stripped,
-            "--" + stripped
-        };
+        if (name[0] == '-')
+            stripped = name.substr(name[0] == '-' && name[1] == '-' ? 2 : 1);
+        return {"-" + stripped, "--" + stripped};
     }
 
     // Helper to check if an argument matches any of its normalized forms
     static bool matches_arg(
         const std::string &arg,
-        const NormalizedArg &norm,
+        const ArgVariants &norm,
         const bool check_equals = true
     ) {
-        if (arg == norm.full || arg == norm.single || arg == norm.double_) return true;
+        if (arg == norm.single || arg == norm.double_) return true;
         if (check_equals) {
-            return arg.compare(0, norm.full.length() + 1, norm.full + "=") == 0 ||
+            return arg.compare(0, norm.double_.length() + 1, norm.double_ + "=") == 0 ||
                    arg.compare(0, norm.single.length() + 1, norm.single + "=") == 0;
         }
         return false;
@@ -94,18 +93,23 @@ class Parser {
     /// @return A pair containing the argument value and a boolean indicating if found
     template<typename... Args>
     std::pair<std::string, bool> find_arg(const Args &... names) {
+        std::pair<std::string, bool> last_found = {"", false};
         for (size_t i = 0; i < argv_.size(); i++) {
             const std::string &arg = argv_[i];
             for (const auto &name: {names...}) {
                 auto norm = normalize_arg_name(name);
-                std::string prefix = norm.full + "=";
-                if (arg.compare(0, prefix.length(), prefix) == 0)
-                    return {arg.substr(arg.find('=') + 1), true};
-                if (matches_arg(arg, norm, false) && i + 1 < argv_.size())
-                    return {argv_[i + 1], true};
+                std::string prefix = norm.double_ + "=";
+                if (arg.compare(0, prefix.length(), prefix) == 0) {
+                    last_found = {arg.substr(arg.find('=') + 1), true};
+                    continue;
+                }
+                if (matches_arg(arg, norm, false) && i + 1 < argv_.size()) {
+                    last_found = {argv_[i + 1], true};
+                    continue;
+                }
             }
         }
-        return {"", false};
+        return last_found;
     }
 
     /// @brief Adds an error to the parser's error list
@@ -175,8 +179,8 @@ class Parser {
     }
 
 public:
-    std::vector<std::string> argv_;  ///< The command line arguments
-    std::vector<xerrors::Error> errors;  ///< Any errors encountered during parsing
+    std::vector<std::string> argv_; ///< The command line arguments
+    std::vector<xerrors::Error> errors; ///< Any errors encountered during parsing
 
     Parser() = default;
 

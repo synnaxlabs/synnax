@@ -64,4 +64,5 @@ TEST(CaseConvTest, SnakeToKebabEdgeCases) {
     EXPECT_EQ(caseconv::snake_to_kebab("a"), "a");
     EXPECT_EQ(caseconv::snake_to_kebab("hello__world"), "hello--world");
     EXPECT_EQ(caseconv::snake_to_kebab("hello_world_123"), "hello-world-123");
+    EXPECT_EQ(caseconv::snake_to_kebab("hello-world_123"), "hello-world-123");
 }

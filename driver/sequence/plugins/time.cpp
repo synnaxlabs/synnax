@@ -11,7 +11,7 @@
 
 xerrors::Error plugins::Time::before_all(lua_State *L) {
     this->start_time = telem::TimeStamp(this->now());
-    this->elapsed = telem::TimeSpan(0);
+    this->elapsed = telem::TimeSpan::ZERO();
     this->iteration = 0;
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(L, [](lua_State *cL) -> int {

@@ -7,14 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""
-This example demonstrates how to stream live data from a channel in Synnax.
-Live-streaming is useful for real-time data processing and analysis, and is an integral
-part of Synnax's control sequence and data streaming capabilities.
-
-This example requires the `stream_write.py` file to be running in a separate terminal.
-"""
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -37,7 +29,6 @@ diffs = []
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
 with client.open_streamer(channels) as streamer:
-    print("HERE")
     count = 0
     while count < N:
         data = streamer.read()[channels[0]]

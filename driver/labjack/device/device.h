@@ -125,7 +125,7 @@ public:
         return parse_error(
             this->ljm,
             this->ljm->e_stream_read(
-                dev_handle,
+                this->dev_handle,
                 data,
                 dev_scan_backlog,
                 ljm_scan_backlog

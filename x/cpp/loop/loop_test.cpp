@@ -25,7 +25,7 @@ TEST(LoopTest, testWaitPrecise) {
         auto end = std::chrono::high_resolution_clock::now();
         elapsed.emplace_back(end - start);
     }
-    auto total_delta = telem::TimeSpan(0);
+    auto total_delta = telem::TimeSpan::ZERO();
     for (const auto &e: elapsed) {
         const auto delta = e.delta(rate.period());
         total_delta += delta;
@@ -47,7 +47,7 @@ TEST(LoopTest, testWaitLowRate) {
         auto end = std::chrono::high_resolution_clock::now();
         elapsed.emplace_back(end - start);
     }
-    auto total_delta = telem::TimeSpan(0);
+    auto total_delta = telem::TimeSpan::ZERO();
     for (const auto &e: elapsed) {
         const auto delta = e.delta(rate.period());
         total_delta += delta;
