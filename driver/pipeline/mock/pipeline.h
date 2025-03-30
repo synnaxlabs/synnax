@@ -308,7 +308,7 @@ public:
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
         current_read++;
-        return xerrors::NIL;
+        return err;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {

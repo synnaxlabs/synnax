@@ -26,10 +26,12 @@ public:
                                                             timer(telem::HZ * 1) {
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &data) override {
         timer.wait(breaker);
-        auto s = telem::Series(getUsage(), telem::UINT32_T);
-        return {synnax::Frame(key, std::move(s)), xerrors::NIL};
+        if (data.empty()) data.emplace(this->key, telem::Series(telem::UINT32_T, 1));
+        auto &s = data.series->at(0);
+        s.set(0, getUsage());
+        return xerrors::NIL;
     }
 };
 

@@ -18,11 +18,12 @@
 
 #include "x/cpp/xtest/xtest.h"
 
-class MockSource final : public pipeline::mock::Source, public common::Source {
+class MockSource final : public common::Source {
     size_t start_count = 0;
     const std::vector<xerrors::Error> start_errs;
     size_t stop_count = 0;
     const std::vector<xerrors::Error> stop_errs;
+    pipeline::mock::Source wrapped;
 
     synnax::WriterConfig writer_config() const override {
         return synnax::WriterConfig();
@@ -37,8 +38,8 @@ public:
         const std::shared_ptr<std::vector<xerrors::Error>> &read_errors = nullptr,
         const std::vector<xerrors::Error> &start_err = {},
         const std::vector<xerrors::Error> &stop_err = {}
-    ): pipeline::mock::Source(reads, read_errors), start_errs(start_err),
-       stop_errs(stop_err) {
+    ): start_errs(start_err), stop_errs(stop_err),
+       wrapped(reads, read_errors) {
     }
 
     xerrors::Error start() override {
@@ -51,8 +52,10 @@ public:
         return stop_errs[stop_count++];
     }
 
-    std::pair<synnax::Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        return pipeline::mock::Source::read(breaker);
+    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) override {
+        common::ReadResult res;
+        res.error = this->wrapped.read(breaker, data);
+        return res;
     }
 };
 

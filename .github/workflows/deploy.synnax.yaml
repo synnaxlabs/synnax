@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2247-fix-analog-read-sampling
   pull_request:
     branches:
       - main

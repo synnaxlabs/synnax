@@ -62,7 +62,7 @@ public:
         this->loop.wait(breaker);
         const Heartbeat hb = create(this->rack_key, this->version);
         this->version++;
-        fr.series->at(0).write(hb);
+        fr.series->at(0).set(0, hb);
         return xerrors::NIL;
     }
 };
