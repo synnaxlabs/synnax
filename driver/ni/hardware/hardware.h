@@ -122,7 +122,7 @@ struct AnalogReader final : Base, Reader<double> {
     size_t total_samples_requested = 0;
     /// @brief the total number of samples actually acquired from the hardware
     /// by DAQmx.
-    std::uint64_t total_samples_acquired = 0;
+     uInt64 total_samples_acquired = 0;
 
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,

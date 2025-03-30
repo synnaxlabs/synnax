@@ -43,6 +43,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<channel::Input> > channels;
+    /// @brief the amount of sample skew needed to trigger a warning that the Synnax cannot keep
+    /// up with the amount of clock skew.
+    size_t skew_warn_on_count;
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -52,7 +55,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         samples_per_chan(other.samples_per_chan),
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
-        channels(std::move(other.channels)) {
+        channels(std::move(other.channels)),
+        skew_warn_on_count(std::move(other.skew_warn_on_count)) {
     }
 
     /// @brief delete copy constructor and copy assignment to prevent accidental copies.
@@ -77,7 +81,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                auto ch = channel::parse_input(ch_cfg);
                if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
-           })) {
+           })),
+        skew_warn_on_count(cfg.optional<std::size_t>("skew_warn_on_count", this->samples_per_chan * 10)) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
@@ -170,7 +175,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true
+            .enable_auto_commit = true,
+            .enable_proto_frame_caching = true
         };
     }
 
@@ -248,7 +254,7 @@ private:
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
         // A non-zero skew means that our application cannot keep up with the hardware
         // acquisition rate.
-        if (hw_res.skew != 0)
+        if (std::abs(hw_res.skew) > this->cfg.skew_warn_on_count)
             res.warning = common::skew_warning(hw_res.skew);
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);

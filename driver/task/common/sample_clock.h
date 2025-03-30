@@ -232,7 +232,7 @@ void transfer_buf(
     for (size_t i = 0; i < n_channels; ++i) {
         auto &s = fr.series->at(i);
         s.clear();
-        s.write_casted(buf.data() + i++ * n_samples_per_channel, n_samples_per_channel);
+        s.write_casted(buf.data() + i * n_samples_per_channel, n_samples_per_channel);
     }
 }
 }
