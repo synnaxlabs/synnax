@@ -52,8 +52,9 @@ private:
     std::vector<std::shared_ptr<Transform> > transforms;
 };
 
-/// @brief middleware to tare data written to channels based on the last frame processed at the time of taring
-/// This middleware should added to the pipeline middleware chain first so that it can tare the data before any other middleware
+/// @brief middleware to tare data written to channels based on the last frame
+/// processed at the time of taring. This middleware should be added to the pipeline
+/// middleware chain first so that it can tare the data before any other middleware
 /// can process it.
 class Tare final : public Transform {
     std::map<synnax::ChannelKey, double> tare_values;
@@ -117,7 +118,7 @@ class UnaryLinearScale {
 public:
     explicit UnaryLinearScale(
         xjson::Parser &parser,
-        telem::DataType dt
+        const telem::DataType &dt
     ) : slope(parser.required<double>("slope")),
         offset(parser.required<double>("offset")),
         dt(dt) {
@@ -129,8 +130,8 @@ public:
                                                        " does not match scale data type " + this->dt.name());
         
         // val * slope + offset
-        series.multiply_inplace(slope);  // val * slope
-        series.add_inplace(offset);      // + offset
+        series.multiply_inplace(slope);
+        series.add_inplace(offset);
         
         return xerrors::NIL;
     }
@@ -160,11 +161,10 @@ public:
                                                        " does not match scale data type " + this->dt.name());
         
         // (v - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) + scaled_min
-        // Rewritten using inplace operations:
-        series.sub_inplace(prescaled_min);  // v - prescaled_min
-        series.divide_inplace(prescaled_max - prescaled_min);  // / (prescaled_max - prescaled_min)
+        series.sub_inplace(prescaled_min);
+        series.divide_inplace(prescaled_max - prescaled_min);
         series.multiply_inplace(scaled_max - scaled_min);  // * (scaled_max - scaled_min)
-        series.add_inplace(scaled_min);  // + scaled_min
+        series.add_inplace(scaled_min);
         
         return xerrors::NIL;
     }

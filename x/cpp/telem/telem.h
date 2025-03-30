@@ -52,6 +52,9 @@ public:
     explicit TimeSpan(const std::int64_t i) : value(i) {
     }
 
+    explicit TimeSpan(const double d) : value(static_cast<std::int64_t>(d)) {
+    }
+
     /// @brief returns a new TimeSpan from the given chrono duration.
     explicit TimeSpan(const std::chrono::duration<std::int64_t, std::nano> &duration) :
         value(duration.count()) {
@@ -69,8 +72,10 @@ public:
     bool operator!=(const TimeSpan &other) const { return value != other.value; }
 
     bool operator<(const TimeSpan &other) const { return value < other.value; }
+    bool operator<(const int64_t &other) const { return value < other; }
 
     bool operator>(const TimeSpan &other) const { return value > other.value; }
+    bool operator>(const int64_t &other) const { return value > other; }
 
     bool operator<=(const TimeSpan &other) const { return value <= other.value; }
 
@@ -251,8 +256,11 @@ public:
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
-};
 
+    static TimeSpan ZERO() {
+        return TimeSpan(static_cast<std::int64_t>(0));
+    }
+};
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
 class TimeStamp {
@@ -483,7 +491,7 @@ inline const Rate KHZ = 1000 * HZ;
 /// @brief a single megahertz
 inline const Rate MHZ = 1000 * KHZ;
 /// @brief a single nanosecond.
-inline const auto NANOSECOND = TimeSpan(1);
+inline const auto NANOSECOND = TimeSpan(static_cast<int64_t>(1));
 /// @brief a single microsecond.
 inline const TimeSpan MICROSECOND = NANOSECOND * 1000;
 /// @brief a single millisecond.
@@ -619,14 +627,14 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
-    size_t cached_density = 0;
+    size_t density_ = 0;
 public:
     DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
         const auto cached_density_iter = DENSITIES.find(value);
-        if (cached_density_iter != DENSITIES.end()) this->cached_density = cached_density_iter->second;
+        if (cached_density_iter != DENSITIES.end()) this->density_ = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -669,8 +677,7 @@ public:
 
     /// @property how many bytes in memory the data type holds.
     [[nodiscard]] size_t density() const {
-        if (this->cached_density) return this->cached_density;
-        return DENSITIES[value];
+        return this->density_;
     }
 
     [[nodiscard]] bool is_variable() const {
@@ -910,4 +917,3 @@ struct std::hash<telem::DataType> {
         return hash<string>()(dt.value);
     }
 };
-

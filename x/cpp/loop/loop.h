@@ -38,7 +38,7 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
     // to compute a more accurate sleep time for the machine running the code
     static telem::TimeSpan estimate = RESOLUTION * 10; // overestimate initially
     static telem::TimeSpan mean = RESOLUTION * 10;
-    static auto M2 = telem::TimeSpan(0);
+    static auto M2 = telem::TimeSpan::ZERO();
     static int64_t count = 1;
     while (dur > estimate) {
         auto start = hs_clock::now();
@@ -73,7 +73,7 @@ public:
     telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
         if (!last_set) {
             last_set = true;
-            return telem::TimeSpan(0);
+            return telem::TimeSpan::ZERO();
         }
         const auto elapsed = now - last;
         return telem::TimeSpan(elapsed);
@@ -123,9 +123,9 @@ private:
 
 class Gauge {
     size_t count = 0;
-    telem::TimeSpan total_duration{0};
+    telem::TimeSpan total_duration = telem::TimeSpan::ZERO();
     telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
-    telem::TimeSpan max_duration{0};
+    telem::TimeSpan max_duration = telem::TimeSpan::ZERO();
     std::chrono::time_point<std::chrono::high_resolution_clock> curr_start;
     
     // New parameters for logging
@@ -172,7 +172,7 @@ public:
     }
 
     [[nodiscard]] telem::TimeSpan average() const {
-        if (count == 0) return telem::TimeSpan(0);
+        if (count == 0) return telem::TimeSpan::ZERO();
         return total_duration / count;
     }
 
@@ -182,9 +182,9 @@ public:
 
     void reset() {
         count = 0;
-        total_duration = telem::TimeSpan(0);
+        total_duration = telem::TimeSpan::ZERO();
         min_duration = telem::TimeSpan(std::numeric_limits<int64_t>::max());
-        max_duration = telem::TimeSpan(0);
+        max_duration = telem::TimeSpan::ZERO();
     }
 };
 }
