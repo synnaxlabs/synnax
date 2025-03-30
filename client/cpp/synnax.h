@@ -93,7 +93,7 @@ struct Config {
 
     /// @brief returns true if the configuration uses TLS encryption to secure
     /// communications with the cluster.
-    bool is_secure() const {
+    [[nodiscard]] bool is_secure() const {
         return !this->ca_cert_file.empty();
     }
 

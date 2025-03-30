@@ -19,7 +19,6 @@
 /// internal.
 #include "freighter/cpp/freighter.h"
 
-
 namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
@@ -202,7 +201,6 @@ template<typename RQ, typename RS, typename RPC>
 class Stream final :
         public freighter::Stream<RQ, RS>,
         freighter::Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS> > > {
-
     freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
         RS> > > mw;
 
@@ -219,6 +217,7 @@ class Stream final :
     xerrors::Error close_err = xerrors::NIL;
     /// @brief set to true when writes_done is called.
     bool writes_done_called = false;
+
 public:
     Stream(
         std::shared_ptr<grpc::Channel> ch,
@@ -287,6 +286,7 @@ class StreamClient final : public freighter::StreamClient<RQ, RS>,
         std::nullptr_t,
         std::unique_ptr<freighter::Stream<RQ, RS> >
     > mw;
+
 public:
     StreamClient(
         const std::shared_ptr<Pool> &pool,
