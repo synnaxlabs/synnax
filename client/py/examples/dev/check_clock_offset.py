@@ -29,7 +29,6 @@ diffs = []
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
 with client.open_streamer(channels) as streamer:
-    print("HERE")
     count = 0
     while count < N:
         data = streamer.read()[channels[0]]

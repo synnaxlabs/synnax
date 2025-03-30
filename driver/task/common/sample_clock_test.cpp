@@ -217,33 +217,32 @@ struct PIDTestParams {
     double k_i;
     double k_d;
     // Timing error patterns
-    telem::TimeSpan constant_offset; // Constant timing offset
-    telem::TimeSpan jitter; // Random timing variation
+    telem::TimeSpan constant_offset;
+    // Custom jitter function that takes cycle count and returns time offset
+    std::function<telem::TimeSpan(int)> jitter_func;
+    int n_cycles;
 };
 
 class HardwareTimedSampleClockPIDTest : public testing::TestWithParam<PIDTestParams> {
 protected:
     telem::TimeSpan current_time = 0 * telem::SECOND;
     std::default_random_engine rng;
+    int current_cycle = 0;
 
     [[nodiscard]] telem::TimeStamp now_func() const {
         return telem::TimeStamp(current_time);
     }
 
-    // Simulates system time with error patterns
     void advance_system_time(const telem::TimeSpan expected_advance) {
         const auto &params = GetParam();
+        auto actual_advance = expected_advance + params.constant_offset;
 
-        auto actual_advance = expected_advance +
-                              telem::TimeSpan(
-                                  params.constant_offset * telem::MILLISECOND);
-
-        if (params.jitter > 0) {
-            std::normal_distribution<double> jitter(0, static_cast<double>(params.jitter.nanoseconds()));
-            actual_advance += telem::TimeSpan(jitter(rng));
+        if (params.jitter_func) {
+            actual_advance += params.jitter_func(current_cycle);
         }
 
         current_time += actual_advance;
+        current_cycle++;
     }
 };
 
@@ -261,52 +260,57 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
 
     breaker::Breaker b;
     std::vector<telem::TimeSpan> timing_errors;
-    constexpr int n_cycles = 50; // Test over 50 cycles to observe convergence
+    const int n_cycles = params.n_cycles;
 
     // Run the clock for multiple cycles
     for (int i = 0; i < n_cycles; i++) {
         const auto start = clock.wait(b);
         const auto expected_period = params.stream_rate.period();
 
+        auto system_start = this->now_func();
         // Simulate system time advancing with error
         advance_system_time(expected_period);
 
+        const auto system_end = this->now_func();
         const auto end = clock.end();
+
 
         // Calculate timing error (difference between expected and actual period)
         if (i > 0) {
-            const auto actual_period = end - start;
-            timing_errors.push_back(actual_period - expected_period);
+            const auto sample_period = end - start;
+            const auto actual_period = system_end - system_start;
+            timing_errors.push_back( sample_period - actual_period);
         }
     }
 
-    std::vector<int64_t> timing_errors_ns(timing_errors.size());
+    std::vector<long long> timing_errors_ns(timing_errors.size());
     for (size_t i = 0; i < timing_errors.size(); ++i)
         timing_errors_ns[i] = timing_errors[i].nanoseconds();
 
     // Analyze results
     // 1. Check if errors converge (later errors should be smaller)
+    auto early_vs_late_count  = n_cycles * 0.2;
     const auto early_avg_error = std::accumulate(
                                      timing_errors_ns.begin(),
-                                     timing_errors_ns.begin() + 10,
-                                     0.0) / 10.0;
+                                     timing_errors_ns.begin() + early_vs_late_count,
+                                     0) / early_vs_late_count;
 
     const auto late_avg_error = std::accumulate(
-                                    timing_errors_ns.end() - 10,
+                                    timing_errors_ns.end() - early_vs_late_count,
                                     timing_errors_ns.end(),
-                                    0.0) / 10.0;
+                                    0) / early_vs_late_count;
 
     // System should improve over time
-    EXPECT_LT(late_avg_error, early_avg_error);
+    EXPECT_LE(telem::TimeSpan(late_avg_error).abs(), telem::TimeSpan(early_avg_error).abs());
 
     // 2. Check maximum error in steady state (last 20 samples)
     const auto max_steady_error = telem::TimeSpan(*std::max_element(
-            timing_errors_ns.end() - 20,
+            timing_errors_ns.end() - n_cycles * 0.2,
             timing_errors_ns.end())
     );
 
     // Maximum steady-state error should be reasonable (e.g., < 5% of period)
-    EXPECT_LT(max_steady_error, params.stream_rate.period() * 0.05);
+    EXPECT_LT(max_steady_error.abs(), params.stream_rate.period() * 0.05);
 }
 
 // Define test parameters
@@ -314,25 +318,76 @@ INSTANTIATE_TEST_SUITE_P(
     PIDTests,
     HardwareTimedSampleClockPIDTest,
     testing::Values(
-        // Test case 1: Fast stream rate, conservative PID
+        // Test case 1: Fast stream rate, constant jitter
         PIDTestParams{
-        .sample_rate = telem::HZ * 1000,
-        .stream_rate = telem::HZ * 100,
-        .k_p = 0.1,
-        .k_i = 0.01,
-        .k_d = 0.001,
-        .constant_offset = telem::MILLISECOND * 1,
-        .jitter = telem::MICROSECOND * 500
+            .sample_rate = telem::HZ * 1000,
+            .stream_rate = telem::HZ * 100,
+            .k_p = 0.1,
+            .k_i = 0.01,
+            .k_d = 0.001,
+            .constant_offset = telem::MILLISECOND * 1,
+            .jitter_func = [](int cycle) {
+                return telem::TimeSpan(0);  // No jitter
+            },
+            .n_cycles = 1000
         },
-        // Test case 2: Slow stream rate, aggressive PID
+        // Test case 2: Slow stream rate with sinusoidal jitter
         PIDTestParams{
-        .sample_rate = telem::HZ * 100,
-        .stream_rate = telem::HZ * 10,
-        .k_p = 0.5,
-        .k_i = 0.1,
-        .k_d = 0.05,
-        .constant_offset = telem::MILLISECOND * 5,
-        .jitter = telem::MILLISECOND * 2
+            .sample_rate = telem::HZ * 100,
+            .stream_rate = telem::HZ * 10,
+            .k_p = 0.2,
+            .k_i = 0.05,
+            .k_d = 0.01,
+            .constant_offset = telem::MILLISECOND * 2,
+            .jitter_func = [](int cycle) {
+                // Sinusoidal jitter with 1ms amplitude and 100-cycle period
+                return telem::TimeSpan(
+                    static_cast<int64_t>(
+                        std::sin(2 * M_PI * cycle / 100.0) * 
+                        telem::MILLISECOND.nanoseconds()
+                    )
+                );
+            },
+            .n_cycles = 1000
+        },
+        // Test case 3: Aggressive PID parameters
+        PIDTestParams{
+            .sample_rate = telem::HZ * 500,
+            .stream_rate = telem::HZ * 50,
+            .k_p = 0.5,
+            .k_i = 0.1,
+            .k_d = 0.05,
+            .constant_offset = telem::MILLISECOND * 1,
+            .jitter_func = [](int cycle) {
+                return telem::TimeSpan(0);  // No jitter
+            },
+            .n_cycles = 1000
+        },
+        // Test case 4: Very slow rate with minimal correction
+        PIDTestParams{
+            .sample_rate = telem::HZ * 50,
+            .stream_rate = telem::HZ * 1,
+            .k_p = 0.05,
+            .k_i = 0.005,
+            .k_d = 0.001,
+            .constant_offset = telem::MILLISECOND * 5,
+            .jitter_func = [](int cycle) {
+                return telem::TimeSpan(0);  // No jitter
+            },
+            .n_cycles = 100
+        },
+        // Test case 5: High frequency with tight timing
+        PIDTestParams{
+            .sample_rate = telem::HZ * 2000,
+            .stream_rate = telem::HZ * 200,
+            .k_p = 0.1,
+            .k_i = 0.005,
+            .k_d = 0.000,
+            .constant_offset = telem::MICROSECOND * 500,
+            .jitter_func = [](int cycle) {
+                return telem::TimeSpan(0);  // No jitter
+            },
+            .n_cycles = 20000
         }
     )
 );
