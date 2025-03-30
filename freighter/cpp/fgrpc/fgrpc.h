@@ -90,6 +90,7 @@ public:
         if (!cert_path.empty() && !key_path.empty()) {
             opts.pem_cert_chain = priv::read_file(cert_path);
             opts.pem_private_key = priv::read_file(key_path);
+            secure = true;
         }
         if (secure) credentials = SslCredentials(opts);
     }
