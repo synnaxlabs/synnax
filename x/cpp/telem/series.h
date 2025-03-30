@@ -205,16 +205,17 @@ public:
     }
 
     /// @brief constructs a series from the given array of numeric data and a length.
- /// @param d the array of numeric data to be used.
- /// @param size the number of samples to be used.
- /// @param dt the data type of the series.
+    /// @param d the array of numeric data to be used.
+    /// @param size the number of samples to be used.
+    /// @param dt the data type of the series.
     template<typename NumericType>
     Series(const NumericType *d, const size_t size, const DataType &dt = UNKNOWN_T):
         data_type_(telem::DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
         data(std::make_unique<std::byte[]>(
-            this->size() * this->data_type().density())) {
+            this->size() * this->data_type().density()
+        )) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
@@ -689,16 +690,17 @@ public:
     ) {
         if (count == 0) return 0;
         if (count == 1) return write(start);
-        
+
         const auto write_count = std::min(count, this->cap() - this->size());
         if (write_count == 0) return 0;
 
         const auto adjusted_count = inclusive ? write_count - 1 : write_count;
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
-        auto *data_ptr = reinterpret_cast<int64_t *>(this->data.get() + this->size() * this->data_type().density());
-    #pragma omp simd
-        for (size_t i = 0; i < write_count; i++) 
+        auto *data_ptr = reinterpret_cast<int64_t *>(
+            this->data.get() + this->size() * this->data_type().density());
+#pragma omp simd
+        for (size_t i = 0; i < write_count; i++)
             data_ptr[i] = start_ns + step_ns * i;
         this->size_ += write_count;
         return write_count;
@@ -821,7 +823,7 @@ public:
     /// @param size the number of samples to write
     /// @returns the number of samples written
     template<typename T>
-    size_t write_casted(const T* data, const size_t size) {
+    size_t write_casted(const T *data, const size_t size) {
         static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
         const auto count = std::min(size, this->cap() - this->size());
         if (count == 0) return 0;
@@ -834,7 +836,7 @@ public:
                 count * this->data_type().density()
             );
         } else {
-            auto* dest = this->data.get() + this->size() * this->data_type().density();
+            auto *dest = this->data.get() + this->size() * this->data_type().density();
             if (this->data_type() == FLOAT64_T)
                 cast_to_type<double>(dest, data, count);
             else if (this->data_type() == FLOAT32_T)
@@ -868,7 +870,7 @@ public:
     /// @param data the vector to write
     /// @returns the number of samples written
     template<typename T>
-    size_t write_casted(const std::vector<T>& data) {
+    size_t write_casted(const std::vector<T> &data) {
         return write_casted(data.data(), data.size());
     }
 
@@ -876,8 +878,9 @@ public:
     /// @param other the series to write from
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
-    size_t write(const Series& other) {
-        const size_t byte_count = std::min(other.byte_size(), this->byte_cap() - this->byte_size());
+    size_t write(const Series &other) {
+        const size_t byte_count = std::min(other.byte_size(),
+                                           this->byte_cap() - this->byte_size());
         memcpy(
             this->data.get() + this->byte_size(),
             other.data.get(),
@@ -886,6 +889,61 @@ public:
         const auto count = byte_count / this->data_type().density();
         this->size_ += count;
         return count;
+    }
+
+    /// @brief Calculates the average of all values in the series
+    /// @returns The average value as the specified numeric type
+    /// @throws std::runtime_error if the series is empty or if the data type is not numeric
+    template<typename T>
+    [[nodiscard]] T avg() const {
+        static_assert(std::is_arithmetic_v<T>, "Template argument must be a numeric type");
+        
+        if (this->empty()) 
+            throw std::runtime_error("Cannot calculate average of empty series");
+            
+        if (this->data_type().is_variable())
+            throw std::runtime_error("Cannot calculate average of non-numeric series");
+
+        T sum = 0;
+        const auto size = this->size();
+        
+        if (this->data_type() == FLOAT64_T) {
+            auto* data_ptr = reinterpret_cast<const double*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == FLOAT32_T) {
+            auto* data_ptr = reinterpret_cast<const float*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == INT64_T) {
+            auto* data_ptr = reinterpret_cast<const int64_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == INT32_T) {
+            auto* data_ptr = reinterpret_cast<const int32_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == INT16_T) {
+            auto* data_ptr = reinterpret_cast<const int16_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == INT8_T) {
+            auto* data_ptr = reinterpret_cast<const int8_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == UINT64_T) {
+            auto* data_ptr = reinterpret_cast<const uint64_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == UINT32_T) {
+            auto* data_ptr = reinterpret_cast<const uint32_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == UINT16_T) {
+            auto* data_ptr = reinterpret_cast<const uint16_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == UINT8_T) {
+            auto* data_ptr = reinterpret_cast<const uint8_t*>(this->data.get());
+            for (size_t i = 0; i < size; i++) sum += static_cast<T>(data_ptr[i]);
+        } else if (this->data_type() == TIMESTAMP_T) {
+            throw std::runtime_error("Cannot calculate average of timestamp series");
+        } else {
+            throw std::runtime_error("Unsupported data type for average: " + this->data_type().name());
+        }
+
+        return sum / static_cast<T>(size);
     }
 };
 }
