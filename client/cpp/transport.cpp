@@ -24,7 +24,7 @@
 
 using namespace api;
 
-Transport::Transport(
+synnax::Transport::Transport(
     const uint16_t port,
     const std::string &ip,
     const std::string &ca_cert_file,
@@ -166,7 +166,7 @@ Transport::Transport(
     > >(pool, base_target);
 }
 
-void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
+void synnax::Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);

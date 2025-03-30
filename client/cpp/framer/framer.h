@@ -25,33 +25,30 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
-using namespace synnax;
-
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<
+using StreamerStream = freighter::Stream<
     api::v1::FrameStreamerRequest,
     api::v1::FrameStreamerResponse
-> StreamerStream;
+>;
 
 /// @brief type alias for frame writer network transport.
-typedef freighter::StreamClient<
+using StreamerClient = freighter::StreamClient<
     api::v1::FrameStreamerRequest,
     api::v1::FrameStreamerResponse
-> StreamerClient;
+>;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<
+using WriterStream = freighter::Stream<
     api::v1::FrameWriterRequest,
     api::v1::FrameWriterResponse
-> WriterStream;
+>;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<
+using WriterClient = freighter::StreamClient<
     api::v1::FrameWriterRequest,
     api::v1::FrameWriterResponse
-> WriterClient;
-
+>;
 
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 class Frame {

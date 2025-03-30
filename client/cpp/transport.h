@@ -9,12 +9,14 @@
 
 #pragma once
 
+/// internal
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
 
+namespace synnax {
 class Transport {
 public:
     Transport(
@@ -47,3 +49,4 @@ public:
     std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
     std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
 };
+}

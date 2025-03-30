@@ -33,10 +33,10 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<
+using AuthLoginClient =  freighter::UnaryClient<
     api::v1::LoginRequest,
     api::v1::LoginResponse
-> AuthLoginClient;
+>;
 
 const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
