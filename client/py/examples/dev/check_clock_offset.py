@@ -19,12 +19,13 @@ client = sy.Synnax()
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
 # channels = ["T7_time"]
-channels = ["mod2_ai_time"]
+channels = ["abc_ai_time"]
 
 # Number of samples to collect before plotting
-N = 1000
+N = 10
 offsets = []
 diffs = []
+times = []
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
@@ -36,15 +37,53 @@ with client.open_streamer(channels) as streamer:
         offsets.append(float(offset.microseconds))
         diff = sy.TimeSpan(data[-1] - data[-2])
         diffs.append(float(diff.microseconds))
+        times.extend(data)
         count += 1
         if count % 100 == 0:
             print(f"Collected {count}/{N} samples...")
     print("Done collecting samples...")
 
+# Create a plot of times vs indices
+plt.figure(figsize=(10, 6))
+indices = np.arange(len(times))
+plt.plot(indices, times, 'b-', marker='o')
+plt.title('Time Values vs Index')
+plt.xlabel('Index')
+plt.ylabel('Time')
+plt.grid(True)
+plt.savefig('times_vs_index.png')
 
 # Convert to microseconds and calculate statistics for both offsets and diffs
 offsets = np.array(offsets)
 diffs = np.array(diffs)
+
+# Calculate and plot the differences between consecutive times
+time_differences = np.diff(times) # Convert to milliseconds
+plt.figure(figsize=(10, 6))
+indices = np.arange(len(time_differences))
+plt.plot(indices, time_differences, 'r-', marker='o', markersize=3)
+
+# Find min and max values
+min_diff = np.min(time_differences)
+max_diff = np.max(time_differences)
+
+# Add min/max annotations
+plt.annotate(f'Min: {min_diff:.2f}ms', 
+            xy=(np.argmin(time_differences), min_diff),
+            xytext=(10, 10), textcoords='offset points')
+plt.annotate(f'Max: {max_diff:.2f}ms', 
+            xy=(np.argmax(time_differences), max_diff),
+            xytext=(10, -10), textcoords='offset points')
+
+plt.title('Time Differences vs Index')
+plt.xlabel('Index')
+plt.ylabel('Time Difference (milliseconds)')
+plt.grid(True)
+
+# Disable scientific notation on y-axis
+plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+
+plt.savefig('time_consecutive_differences.png')
 
 offset_mean = np.mean(offsets)
 offset_std = np.std(offsets)

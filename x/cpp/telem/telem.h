@@ -14,11 +14,11 @@
 #include <cstdint>
 #include <functional>
 #include <string>
-#include <iostream>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
 #include <variant>
+#include <cmath>
 
 namespace telem {
 // private namespace for internal constants
@@ -60,22 +60,89 @@ public:
     /// @brief returns the number of nanoseconds in the timespan.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
-    bool operator==(const TimeSpan &other) const { return value == other.value; }
+    ////////////////////////////////// INT64 OPERATORS /////////////////////////////////
 
     bool operator==(const std::int64_t &other) const { return value == other; }
 
     bool operator!=(const std::int64_t &other) const { return value != other; }
 
-    bool operator!=(const TimeSpan &other) const { return value != other.value; }
-
-    bool operator<(const TimeSpan &other) const { return value < other.value; }
     bool operator<(const int64_t &other) const { return value < other; }
 
-    bool operator>(const TimeSpan &other) const { return value > other.value; }
     bool operator>(const int64_t &other) const { return value > other; }
 
-    bool operator<=(const TimeSpan &other) const { return value <= other.value; }
+    TimeSpan operator+(const std::int64_t &other) const {
+        return TimeSpan(value + other);
+    }
 
+    friend TimeSpan operator-(const std::int64_t &lhs, const TimeSpan &rhs) {
+        return TimeSpan(lhs - rhs.value);
+    }
+
+    friend TimeSpan operator+(const std::int64_t &lhs, const TimeSpan &rhs) {
+        return TimeSpan(lhs + rhs.value);
+    }
+
+    TimeSpan operator-(const std::int64_t &other) const {
+        return TimeSpan(value - other);
+    }
+
+    friend TimeSpan operator*(const std::int64_t &lhs, const TimeSpan &rhs) {
+        return TimeSpan(rhs.value * lhs);
+    }
+
+    TimeSpan operator*(const std::int64_t &other) const {
+        return TimeSpan(other * value);
+    }
+
+    friend TimeSpan operator%(const std::int64_t &lhs, const TimeSpan &rhs) {
+        return TimeSpan(lhs % rhs.value);
+    }
+
+    TimeSpan operator%(const std::int64_t &other) const {
+        return TimeSpan(value % other);
+    }
+
+    TimeSpan operator+=(const int64_t &other) {
+        this->value += other;
+        return *this;
+    }
+
+    TimeSpan operator-=(const int64_t &other) {
+        this->value -= other;
+        return *this;
+    }
+
+    TimeSpan operator*=(const int64_t &other) {
+        this->value *= other;
+        return *this;
+    }
+
+    TimeSpan operator/=(const int64_t &other) {
+        this->value /= other;
+        return *this;
+    }
+
+    TimeSpan operator%=(const int64_t &other) {
+        this->value %= other;
+        return *this;
+    }
+
+
+    friend TimeSpan operator/(const std::int64_t &lhs, const TimeSpan &rhs) {
+        return TimeSpan(lhs / rhs.value);
+    }
+
+    TimeSpan operator/(const std::int64_t &other) const {
+        return TimeSpan(value / other);
+    }
+
+    ///////////////////////////////// TIME SPAN OPERATORS //////////////////////////////
+
+    bool operator==(const TimeSpan &other) const { return value == other.value; }
+    bool operator!=(const TimeSpan &other) const { return value != other.value; }
+    bool operator<(const TimeSpan &other) const { return value < other.value; }
+    bool operator>(const TimeSpan &other) const { return value > other.value; }
+    bool operator<=(const TimeSpan &other) const { return value <= other.value; }
     bool operator>=(const TimeSpan &other) const { return value >= other.value; }
 
     TimeSpan operator+(const TimeSpan &other) const {
@@ -87,29 +154,23 @@ public:
         return *this;
     }
 
-    TimeSpan operator+(const std::int64_t &other) const {
-        return TimeSpan(value + other);
-    }
-
-    friend TimeSpan operator+(const long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs + rhs.value);
-    }
-
     TimeSpan operator-(const TimeSpan &other) const {
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs - rhs.value);
-    }
-
-    TimeSpan operator-(const long long &other) const {
-        return TimeSpan(value - other);
+    TimeSpan operator/(const TimeSpan &other) const {
+        return TimeSpan(value / other.value);
     }
 
     TimeSpan operator*(const TimeSpan &other) const {
         return TimeSpan(value * other.value);
     }
+
+    TimeSpan operator%(const TimeSpan &other) const {
+        return TimeSpan(value % other.value);
+    }
+
+    ///////////////////////////// MISC TYPED OPERATORS //////////////////////////////
 
     TimeSpan operator*(const size_t &other) const {
         return TimeSpan(value * static_cast<std::int64_t>(other));
@@ -117,14 +178,6 @@ public:
 
     TimeSpan operator*(const float &other) const {
         return TimeSpan(static_cast<std::int64_t>(static_cast<double>(value) * other));
-    }
-
-    friend TimeSpan operator*(const long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(rhs.value * lhs);
-    }
-
-    TimeSpan operator*(const long long &other) const {
-        return TimeSpan(other * value);
     }
 
     TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
@@ -138,30 +191,6 @@ public:
     }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
-
-    TimeSpan operator/(const TimeSpan &other) const {
-        return TimeSpan(value / other.value);
-    }
-
-    friend TimeSpan operator/(const long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs / rhs.value);
-    }
-
-    TimeSpan operator/(const long long &other) const {
-        return TimeSpan(value / other);
-    }
-
-    TimeSpan operator%(const TimeSpan &other) const {
-        return TimeSpan(value % other.value);
-    }
-
-    friend TimeSpan operator%(const long long &lhs, const TimeSpan &rhs) {
-        return TimeSpan(lhs % rhs.value);
-    }
-
-    TimeSpan operator%(const long long &other) const {
-        return TimeSpan(value % other);
-    }
 
     [[nodiscard]] TimeSpan truncate(const TimeSpan &other) const {
         if (other == 0) return *this;
@@ -209,7 +238,6 @@ public:
         return static_cast<double>(value) / _priv::MICROSECOND;
     }
 
-
     /// @brief returns a pretty-printed string representation of the timespan.
     [[nodiscard]] std::string to_string() const {
         const auto total_days = this->truncate(TimeSpan(_priv::DAY));
@@ -254,9 +282,8 @@ public:
         return std::chrono::nanoseconds(value);
     }
 
-    static TimeSpan ZERO() {
-        return TimeSpan(static_cast<std::int64_t>(0));
-    }
+    /// @brief a zero nanosecond timespan.
+    static TimeSpan ZERO() { return TimeSpan(0); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -291,11 +318,19 @@ public:
         return TimeStamp(start + (end - start) / 2);
     }
 
+    //////////////////////////////// TIMESTAMP OPERATORS ////////////////////////////////
+
     bool operator==(const TimeStamp &other) const { return value == other.value; }
-    bool operator==(const TimeSpan &other) const { return value == other.nanoseconds(); }
+
+    bool operator==(const TimeSpan &other) const {
+        return value == other.nanoseconds();
+    }
 
     bool operator!=(const TimeStamp &other) const { return value != other.value; }
-    bool operator!=(const TimeSpan &other) const { return value != other.nanoseconds(); }
+
+    bool operator!=(const TimeSpan &other) const {
+        return value != other.nanoseconds();
+    }
 
     bool operator<(const TimeStamp &other) const { return value < other.value; }
 
@@ -305,29 +340,12 @@ public:
 
     bool operator>=(const TimeStamp &other) const { return value >= other.value; }
 
-    bool operator==(const int &other) const { return value == other; }
-
-    bool operator !=(const int &other) const { return value != other; }
-
-    TimeStamp operator+(const TimeStamp &other) const {
-        return TimeStamp(value + other.value);
-    }
-
-    friend TimeStamp
-    operator+(const long long &lhs, const TimeStamp &rhs) {
-        return TimeStamp(lhs + rhs.value);
-    }
-
     TimeStamp operator+(const TimeSpan &other) const {
         return TimeStamp(value + other.nanoseconds());
     }
 
     TimeSpan operator-(const TimeStamp &other) const {
         return TimeSpan(value - other.value);
-    }
-
-    friend TimeSpan operator-(const long long &lhs, const TimeStamp &rhs) {
-        return TimeSpan(lhs - rhs.value);
     }
 
     TimeStamp operator-(const TimeSpan &other) const {
@@ -364,6 +382,26 @@ public:
 
     TimeStamp operator%=(const TimeStamp &other) {
         return TimeStamp(value %= other.value);
+    }
+
+    TimeStamp operator+(const TimeStamp &other) const {
+        return TimeStamp(value + other.value);
+    }
+
+    /////////////////////////////////// INT OPERATORS //////////////////////////////////
+
+    bool operator==(const int &other) const { return value == other; }
+
+    bool operator !=(const int &other) const { return value != other; }
+
+    /////////////////////////////////// INT64 OPERATORS ////////////////////////////////
+
+    friend TimeStamp  operator+(const std::int64_t &lhs, const TimeStamp &rhs) {
+        return TimeStamp(lhs + rhs.value);
+    }
+
+    friend TimeSpan operator-(const std::int64_t &lhs, const TimeStamp &rhs) {
+        return TimeSpan(lhs - rhs.value);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TimeStamp &ts) {
@@ -407,6 +445,7 @@ public:
 
 class Rate {
     float value;
+
 public:
     [[nodiscard]] float hz() const { return this->value; }
 
@@ -425,6 +464,8 @@ public:
         static_cast<float>(1 / period.seconds())) {
     }
 
+    ///////////////////////////////// RATE OPERATORS ////////////////////////////////
+
     bool operator==(const Rate &other) const { return value == other.value; }
 
     bool operator!=(const Rate &other) const { return value != other.value; }
@@ -439,13 +480,22 @@ public:
 
     Rate operator+(const Rate &other) const { return Rate(value + other.value); }
 
+    Rate operator-(const Rate &other) const { return Rate(value - other.value); }
+
+    Rate operator*(const Rate &other) const { return Rate(value * other.value); }
+
+    size_t operator/(const Rate &other) const { return value / other.value; }
+
+
+
+
+    ////// //////////////////////// FLOAT OPERATORS ///////////////////////////////////
+
     friend Rate operator+(const float &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
-
     Rate operator+(const float &other) const { return Rate(value + other); }
 
-    Rate operator-(const Rate &other) const { return Rate(value - other.value); }
 
     friend Rate operator-(const float &lhs, const Rate &rhs) {
         return Rate(lhs - rhs.value);
@@ -453,31 +503,26 @@ public:
 
     Rate operator-(const float &other) const { return Rate(value - other); }
 
-    Rate operator*(const Rate &other) const { return Rate(value * other.value); }
-
     friend Rate operator*(const float &lhs, const Rate &rhs) {
         return Rate(lhs * rhs.value);
     }
 
     Rate operator*(const float &other) const { return Rate(value * other); }
 
-    [[nodiscard]] TimeSpan period() const {
-        return TimeSpan(
-            static_cast<std::int64_t>(1 / value * static_cast<double>(_priv::SECOND)));
-    }
-
-    size_t operator/(const Rate &other) const { return value / other.value; }
-
     Rate operator/(const float &other) const { return Rate(value / other); }
+
+    ////////////////////////////////// MISC OPERATORS /////////////////////////////////
 
     Rate operator/(const int &other) const {
         return Rate(value / static_cast<float>(other));
     }
 
-    Rate operator/(const double &other) const { return Rate(value / other); }
-
     Rate operator/(const size_t &other) const {
         return Rate(value / static_cast<float>(other));
+    }
+
+    [[nodiscard]] TimeSpan period() const {
+        return TimeSpan(std::llround(static_cast<double>(_priv::SECOND) / value));
     }
 };
 
@@ -488,7 +533,7 @@ inline const Rate KHZ = 1000 * HZ;
 /// @brief a single megahertz
 inline const Rate MHZ = 1000 * KHZ;
 /// @brief a single nanosecond.
-inline const auto NANOSECOND = TimeSpan(static_cast<int64_t>(1));
+inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.
 inline const TimeSpan MICROSECOND = NANOSECOND * 1000;
 /// @brief a single millisecond.
@@ -625,13 +670,15 @@ class DataType {
     /// @brief Holds the id of the data type
     std::string value;
     size_t density_ = 0;
+
 public:
     DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
         const auto cached_density_iter = DENSITIES.find(value);
-        if (cached_density_iter != DENSITIES.end()) this->density_ = cached_density_iter->second;
+        if (cached_density_iter != DENSITIES.end())
+            this->density_ = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -721,36 +768,48 @@ public:
     /// @returns A new sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     SampleValue cast(const void *value, const DataType &value_type) const {
-        if (value_type == _priv::FLOAT64_T) return this->cast(
-            *static_cast<const double *>(value));
-        if (value_type == _priv::FLOAT32_T) return this->cast(
-            *static_cast<const float *>(value));
-        if (value_type == _priv::INT64_T) return this->cast(
-            *static_cast<const int64_t *>(value));
-        if (value_type == _priv::INT32_T) return this->cast(
-            *static_cast<const int32_t *>(value));
-        if (value_type == _priv::INT16_T) return this->cast(
-            *static_cast<const int16_t *>(value));
-        if (value_type == _priv::INT8_T) return this->cast(
-            *static_cast<const int8_t *>(value));
-        if (value_type == _priv::UINT8_T) return this->cast(
-            *static_cast<const uint8_t *>(value));
-        if (value_type == _priv::UINT16_T) return this->cast(
-            *static_cast<const uint16_t *>(value));
-        if (value_type == _priv::UINT32_T) return this->cast(
-            *static_cast<const uint32_t *>(value));
-        if (value_type == _priv::UINT64_T) return this->cast(
-            *static_cast<const uint64_t *>(value));
-        if (value_type == _priv::TIMESTAMP_T) return this->cast(
-            *static_cast<const TimeStamp *>(value));
-        if (value_type == _priv::STRING_T) return this->cast(
-            *static_cast<const std::string *>(value));
-        if (value_type == _priv::JSON_T) return this->cast(
-            *static_cast<const std::string *>(value));
+        if (value_type == _priv::FLOAT64_T)
+            return this->cast(
+                *static_cast<const double *>(value));
+        if (value_type == _priv::FLOAT32_T)
+            return this->cast(
+                *static_cast<const float *>(value));
+        if (value_type == _priv::INT64_T)
+            return this->cast(
+                *static_cast<const int64_t *>(value));
+        if (value_type == _priv::INT32_T)
+            return this->cast(
+                *static_cast<const int32_t *>(value));
+        if (value_type == _priv::INT16_T)
+            return this->cast(
+                *static_cast<const int16_t *>(value));
+        if (value_type == _priv::INT8_T)
+            return this->cast(
+                *static_cast<const int8_t *>(value));
+        if (value_type == _priv::UINT8_T)
+            return this->cast(
+                *static_cast<const uint8_t *>(value));
+        if (value_type == _priv::UINT16_T)
+            return this->cast(
+                *static_cast<const uint16_t *>(value));
+        if (value_type == _priv::UINT32_T)
+            return this->cast(
+                *static_cast<const uint32_t *>(value));
+        if (value_type == _priv::UINT64_T)
+            return this->cast(
+                *static_cast<const uint64_t *>(value));
+        if (value_type == _priv::TIMESTAMP_T)
+            return this->cast(
+                *static_cast<const TimeStamp *>(value));
+        if (value_type == _priv::STRING_T)
+            return this->cast(
+                *static_cast<const std::string *>(value));
+        if (value_type == _priv::JSON_T)
+            return this->cast(
+                *static_cast<const std::string *>(value));
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value);
     }
-
 
 
     /////////////////////////////////// COMPARISON H///////////////////////////////////
