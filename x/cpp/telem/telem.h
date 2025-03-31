@@ -190,8 +190,6 @@ public:
         return TimeSpan(static_cast<std::int64_t>(static_cast<double>(value) * other));
     }
 
-    TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
-
     [[nodiscard]] TimeSpan truncate(const TimeSpan &other) const {
         if (other == 0) return *this;
         return TimeSpan(value / other.value * other.value);
