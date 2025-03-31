@@ -56,7 +56,7 @@ def connect_from_options(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
     :return: The connected Synnax py, or None if the connection failed.
     """
     try:
-        client = Synnax(**opts.dict())
+        client = Synnax(**opts.model_dump())
     except Unreachable:
         return ctx.console.error(
             f"Cannot reach Synnax server at {opts.host}:{opts.port}"

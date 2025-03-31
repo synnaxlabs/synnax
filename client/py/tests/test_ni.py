@@ -364,7 +364,7 @@ class TestNITask:
             ],
             "data_saving": True,
         }
-        AnalogReadTaskConfig.parse_obj(data)
+        AnalogReadTaskConfig.model_validate(data)
 
     def test_parse_analog_read_task_default_device_none_provided(self):
         with pytest.raises(ValidationError):

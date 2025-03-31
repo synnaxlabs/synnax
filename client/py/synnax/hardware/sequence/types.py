@@ -7,13 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from pydantic import BaseModel
+import json
 from typing import Any
 
-import json
+from pydantic import BaseModel
+
 from synnax.channel import ChannelKey
-from synnax.telem import CrudeRate, Rate
 from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
+from synnax.telem import CrudeRate, Rate
 
 TYPE = "sequence"
 
