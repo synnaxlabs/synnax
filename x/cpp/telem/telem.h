@@ -19,6 +19,7 @@
 #include <vector>
 #include <variant>
 #include <cmath>
+#include <iostream>
 
 namespace telem {
 // private namespace for internal constants
