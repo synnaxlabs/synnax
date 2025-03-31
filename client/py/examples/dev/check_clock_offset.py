@@ -46,44 +46,50 @@ with client.open_streamer(channels) as streamer:
 # Create a plot of times vs indices
 plt.figure(figsize=(10, 6))
 indices = np.arange(len(times))
-plt.plot(indices, times, 'b-', marker='o')
-plt.title('Time Values vs Index')
-plt.xlabel('Index')
-plt.ylabel('Time')
+plt.plot(indices, times, "b-", marker="o")
+plt.title("Time Values vs Index")
+plt.xlabel("Index")
+plt.ylabel("Time")
 plt.grid(True)
-plt.savefig('times_vs_index.png')
+plt.savefig("times_vs_index.png")
 
 # Convert to microseconds and calculate statistics for both offsets and diffs
 offsets = np.array(offsets)
 diffs = np.array(diffs)
 
 # Calculate and plot the differences between consecutive times
-time_differences = np.diff(times) # Convert to milliseconds
+time_differences = np.diff(times)  # Convert to milliseconds
 plt.figure(figsize=(10, 6))
 indices = np.arange(len(time_differences))
-plt.plot(indices, time_differences, 'r-', marker='o', markersize=3)
+plt.plot(indices, time_differences, "r-", marker="o", markersize=3)
 
 # Find min and max values
 min_diff = np.min(time_differences)
 max_diff = np.max(time_differences)
 
 # Add min/max annotations
-plt.annotate(f'Min: {min_diff:.2f}ms', 
-            xy=(np.argmin(time_differences), min_diff),
-            xytext=(10, 10), textcoords='offset points')
-plt.annotate(f'Max: {max_diff:.2f}ms', 
-            xy=(np.argmax(time_differences), max_diff),
-            xytext=(10, -10), textcoords='offset points')
+plt.annotate(
+    f"Min: {min_diff:.2f}ms",
+    xy=(np.argmin(time_differences), min_diff),
+    xytext=(10, 10),
+    textcoords="offset points",
+)
+plt.annotate(
+    f"Max: {max_diff:.2f}ms",
+    xy=(np.argmax(time_differences), max_diff),
+    xytext=(10, -10),
+    textcoords="offset points",
+)
 
-plt.title('Time Differences vs Index')
-plt.xlabel('Index')
-plt.ylabel('Time Difference (milliseconds)')
+plt.title("Time Differences vs Index")
+plt.xlabel("Index")
+plt.ylabel("Time Difference (milliseconds)")
 plt.grid(True)
 
 # Disable scientific notation on y-axis
-plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
 
-plt.savefig('time_consecutive_differences.png')
+plt.savefig("time_consecutive_differences.png")
 
 offset_mean = np.mean(offsets)
 offset_std = np.std(offsets)
