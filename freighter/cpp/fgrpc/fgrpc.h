@@ -177,7 +177,7 @@ public:
             grpc_ctx.AddMetadata(k, v);
 
         // Execute request.
-        auto channel = this->pool->get_channel(req_ctx.target);
+        auto channel = this->pool->get_channel(this->base_target.to_string());
         auto stub = RPC::NewStub(channel);
         auto res = RS();
 
@@ -326,7 +326,7 @@ public:
         freighter::Context req_ctx,
         std::nullptr_t &_
     ) override {
-        auto channel = this->pool->get_channel(req_ctx.target);
+        auto channel = this->pool->get_channel(this->base_target.to_string());
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
             req_ctx.target,

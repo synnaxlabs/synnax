@@ -14,13 +14,11 @@
 plugins::SynnaxFrameSink::SynnaxFrameSink(
     const std::shared_ptr<synnax::Synnax> &client,
     synnax::WriterConfig cfg
-)
-    : client(client), cfg(std::move(cfg)) {
+): client(client), cfg(std::move(cfg)) {
 }
 
 xerrors::Error plugins::SynnaxFrameSink::open() {
-    if (this->writer != nullptr)
-        throw std::runtime_error("sink already open");
+    if (this->writer != nullptr) return xerrors::NIL;
     auto [w, err] = this->client->telem.open_writer(this->cfg);
     if (err) return err;
     this->writer = std::make_unique<synnax::Writer>(std::move(w));
@@ -44,8 +42,7 @@ xerrors::Error plugins::SynnaxFrameSink::set_authority(
 }
 
 xerrors::Error plugins::SynnaxFrameSink::close() {
-    if (this->writer == nullptr)
-        throw std::runtime_error("sink already closed");
+    if (this->writer == nullptr) return xerrors::NIL;
     const auto err = this->writer->close();
     this->writer = nullptr;
     return err;

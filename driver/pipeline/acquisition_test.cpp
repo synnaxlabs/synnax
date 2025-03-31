@@ -221,3 +221,17 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     ASSERT_EQ(writes->size(), 0);
     pipeline.stop();
 }
+
+/// @brief it should not stop the pipeline if it was never started.
+TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
+    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+    ASSERT_FALSE(pipeline.stop());
+}
