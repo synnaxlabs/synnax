@@ -5,6 +5,8 @@ heading: "Standalone Driver"
 description: "Deploy the standalone driver on a separate machine from the cluster."
 prevURL: "/reference/device-drivers/get-started"
 prev: "Get Started"
+nextURL: "/reference/device-drivers/timing"
+next: "Timing"
 ---
 
 import { Tabs } from "@/components/driver/Tabs";
@@ -187,6 +189,10 @@ file with the following format:
     // Synnax cluster. This is only required when the cluster is
     // configured to use TLS and client certificates for authentication.
     "client_key_file": "/path/to/client.key"
+  },
+  "timing": {
+    // Enable automatic skew correction for the driver.
+    "correct_skew": true
   }
 }
 ```
@@ -218,6 +224,8 @@ export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
 # to the Synnax cluster. This is only required when the cluster
 # is configured to use TLS and client certificates for authentication.
 export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
+# Enable automatic clock skew correction for the driver.
+export SYNNAX_DRIVER_CORRECT_SKEW=true
 ```
 
 ## CLI Reference
@@ -251,6 +259,59 @@ synnax-driver start --standalone
       option: "--standalone/-s",
       default: "false",
       description: "Run the driver directly within the terminal process.",
+    },
+    {
+      option: "--config/-c",
+      default: "config.json",
+      description: "The path to the configuration file to use for the driver.",
+    },
+    {
+      option: "--debug",
+      default: "false",
+      description: "Enable debug logging.",
+    },
+    {
+      option: "--host",
+      default: "localhost",
+      description: "The host of the Synnax cluster.",
+    },
+    {
+      option: "--port",
+      default: "9090",
+      description: "The port of the Synnax cluster.",
+    },
+    {
+      option: "--username",
+      default: "synnax",
+      description: "The username to use when logging in to the Synnax cluster.",
+    },
+    {
+      option: "--password",
+      default: "seldon",
+      description: "The password to use when logging in to the Synnax cluster.",
+    },
+    {
+      option: "--ca-cert-file",
+      default: "",
+      description:
+        "The path to the CA certificate file to use when connecting to the Synnax cluster.",
+    },
+    {
+      option: "--client-cert-file",
+      default: "",
+      description:
+        "The path to the client certificate file to use when connecting to the Synnax cluster.",
+    },
+    {
+      option: "--client-key-file",
+      default: "",
+      description:
+        "The path to the client key file to use when connecting to the Synnax cluster.",
+    },
+    {
+      option: "--correct-skew",
+      default: "true",
+      description: "Enable automatic clock skew correction for the driver.",
     },
   ]}
 />

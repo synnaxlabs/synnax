@@ -26,6 +26,11 @@ export const deviceDriversNav: PageNavNode = {
       href: "/reference/device-drivers/standalone",
       name: "Standalone Driver",
     },
+    {
+      key: "/reference/device-drivers/timing",
+      href: "/reference/device-drivers/timing",
+      name: "Timing",
+    },
     labjackNav,
     niNav,
     opcuaNav,

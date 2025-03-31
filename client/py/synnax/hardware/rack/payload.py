@@ -13,3 +13,5 @@ from freighter import Payload
 class Rack(Payload):
     key: int = 0
     name: str = ""
+    task_counter: int = 0
+    embedded: bool = False

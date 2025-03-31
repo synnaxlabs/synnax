@@ -8,10 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 
-import synnax as sy
+import pytest
 
-client = sy.Synnax()
+from synnax.hardware import sequence
 
-with client.open_streamer(["sy_rack_heartbeat"]) as s:
-    for frame in s:
-        print(frame)
+
+@pytest.mark.sequence
+class TestSequence:
+    def test_parse_sequence_config(self):
+        sequence.Config.model_validate(
+            {
+                "rate": 10,
+                "read": [],
+                "write": [],
+                "script": "",
+                "globals": {},
+            }
+        )
