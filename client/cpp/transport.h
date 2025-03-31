@@ -15,7 +15,6 @@
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
-#include "freighter/cpp/fgrpc/fgrpc.h"
 
 namespace synnax {
 struct Transport {
