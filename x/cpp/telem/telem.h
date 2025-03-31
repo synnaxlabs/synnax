@@ -321,15 +321,7 @@ public:
 
     bool operator==(const TimeStamp &other) const { return value == other.value; }
 
-    bool operator==(const TimeSpan &other) const {
-        return value == other.nanoseconds();
-    }
-
     bool operator!=(const TimeStamp &other) const { return value != other.value; }
-
-    bool operator!=(const TimeSpan &other) const {
-        return value != other.nanoseconds();
-    }
 
     bool operator<(const TimeStamp &other) const { return value < other.value; }
 

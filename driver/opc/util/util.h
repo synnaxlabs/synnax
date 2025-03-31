@@ -186,8 +186,8 @@ size_t write_to_series(telem::Series &s, const UA_Variant &v);
 
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s);
 
-std::pair<telem::Series, xerrors::Error> ua_array_to_series(
-    const telem::DataType &target_type,
+std::pair<size_t, xerrors::Error> ua_array_write_to_series(
+    telem::Series& series,
     const UA_Variant *val,
     size_t target_size,
     const std::string &name = ""

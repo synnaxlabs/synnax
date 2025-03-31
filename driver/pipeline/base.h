@@ -22,13 +22,13 @@ class Base {
 
     /// @brief an internal run
     void run_internal() {
-        // try {
-        this->run();
-        // } catch (const std::exception &e) {
-        //     LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
-        // } catch (...) {
-        //     LOG(ERROR) << "[control] Unhandled unknown exception";
-        // }
+        try {
+            this->run();
+        } catch (const std::exception &e) {
+            LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
+        } catch (...) {
+            LOG(ERROR) << "[control] Unhandled unknown exception";
+        }
     }
 
 protected:
@@ -68,7 +68,8 @@ public:
         if (
             this->thread.get_id() != std::this_thread::get_id() &&
             this->thread.joinable()
-        ) this->thread.join();
+        )
+            this->thread.join();
         return stopped;
     }
 

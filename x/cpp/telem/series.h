@@ -724,6 +724,36 @@ public:
         return s;
     }
 
+    /// @brief writes data to the series while performing any necessary type casting
+    /// @param data the data to write
+    /// @param size the number of samples to write
+    /// @param source_type the data type of the source data
+    /// @returns the number of samples written
+    size_t write_casted(const void* data, const size_t size, const DataType& source_type) {
+        if (source_type == FLOAT64_T)
+            return write_casted(static_cast<const double*>(data), size);
+        else if (source_type == FLOAT32_T)
+            return write_casted(static_cast<const float*>(data), size);
+        else if (source_type == INT64_T)
+            return write_casted(static_cast<const int64_t*>(data), size);
+        else if (source_type == INT32_T)
+            return write_casted(static_cast<const int32_t*>(data), size);
+        else if (source_type == INT16_T)
+            return write_casted(static_cast<const int16_t*>(data), size);
+        else if (source_type == INT8_T)
+            return write_casted(static_cast<const int8_t*>(data), size);
+        else if (source_type == UINT64_T)
+            return write_casted(static_cast<const uint64_t*>(data), size);
+        else if (source_type == UINT32_T)
+            return write_casted(static_cast<const uint32_t*>(data), size);
+        else if (source_type == UINT16_T)
+            return write_casted(static_cast<const uint16_t*>(data), size);
+        else if (source_type == UINT8_T)
+            return write_casted(static_cast<const uint8_t*>(data), size);
+        else
+            throw std::runtime_error("Unsupported data type for casting: " + source_type.name());
+    }
+
     /// @brief constructor that conditionally casts that provided data array to the
     /// given data type.
     /// @param data_type - the data type of the series.
@@ -735,55 +765,18 @@ public:
     static Series cast(const DataType &data_type, T *data, const size_t size) {
         static_assert(std::is_arithmetic_v<T>, "T must be a numeric type");
         auto s = Series(data_type, size);
-        auto inferred_type = DataType::infer<T>();
-        if (inferred_type == data_type) {
-            s.write(data, size);
-            return s;
-        }
-        if (data_type == FLOAT64_T)
-            cast_to_type<double>(s.data.get(), data, size);
-        else if (data_type == FLOAT32_T)
-            cast_to_type<float>(s.data.get(), data, size);
-        else if (data_type == INT64_T)
-            cast_to_type<int64_t>(s.data.get(), data, size);
-        else if (data_type == INT32_T)
-            cast_to_type<int32_t>(s.data.get(), data, size);
-        else if (data_type == INT16_T)
-            cast_to_type<int16_t>(s.data.get(), data, size);
-        else if (data_type == INT8_T)
-            cast_to_type<int8_t>(s.data.get(), data, size);
-        else if (data_type == UINT64_T)
-            cast_to_type<uint64_t>(s.data.get(), data, size);
-        else if (data_type == UINT32_T)
-            cast_to_type<uint32_t>(s.data.get(), data, size);
-        else if (data_type == UINT16_T)
-            cast_to_type<uint16_t>(s.data.get(), data, size);
-        else if (data_type == UINT8_T)
-            cast_to_type<uint8_t>(s.data.get(), data, size);
-        else
-            throw std::runtime_error(
-                "Unsupported data type for casting: " + data_type.name());
-        s.size_ = size;
+        s.write_casted(data, size);
         return s;
     }
 
     static Series cast(
-        const DataType &target_type,
-        const void *data,
+        const DataType& target_type,
+        const void* data,
         const size_t size,
-        const DataType &source_type
+        const DataType& source_type
     ) {
         auto s = Series(target_type, size);
-        if (source_type == target_type)
-            s.write(static_cast<const std::uint8_t *>(data), size);
-        else {
-            const size_t element_size = source_type.density();
-            const auto byte_data = static_cast<const std::byte *>(data);
-            for (size_t i = 0; i < size; i++) {
-                const void *element_ptr = byte_data + i * element_size;
-                s.write(target_type.cast(element_ptr, source_type));
-            }
-        }
+        s.write_casted(data, size, source_type);
         return s;
     }
 

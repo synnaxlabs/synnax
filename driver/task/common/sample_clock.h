@@ -98,8 +98,10 @@ struct HardwareTimedSampleClockConfig {
     ///
     double k_p = 0.1, k_i, k_d;
     /// @brief the maximum value of the integral term of the PID controller. This is used
-    /// to prevent windup.
-    double max_integral = 1000.0;
+    /// to prevent windup. The value scales with the stream period to ensure the integral
+    /// term remains effective at different sampling rates.
+    /// Default is 1x the stream period in nanoseconds.
+    double max_integral = 0.1;
     /// @brief max_back_correction_factor sets the maximum that the PID controller can
     /// shift the end time of the acquisition cycle backwards. This is used to prevent
     /// scenarios where the PID controller tries to correct for a large error by shifting
@@ -108,10 +110,14 @@ struct HardwareTimedSampleClockConfig {
     ///
     /// Expressed as a fraction of the stream period i.e.
     /// (stream_rate.period() * max_back_correction_factor);
-    double max_back_correction_factor = 0.1;
+    double max_back_correction_factor = 0.001;
 
     [[nodiscard]] telem::TimeSpan max_back_correction() const {
         return this->stream_rate.period() * this->max_back_correction_factor;
+    }
+
+    [[nodiscard]] double effective_max_integral() const {
+        return max_integral * static_cast<double>(stream_rate.period().nanoseconds());
     }
 
     static HardwareTimedSampleClockConfig create_simple(
@@ -121,7 +127,7 @@ struct HardwareTimedSampleClockConfig {
     ) {
         common::HardwareTimedSampleClockConfig cfg{
             .sample_rate = sample_rate,
-            .stream_rate = stream_rate
+            .stream_rate = stream_rate,
         };
         if (enable_skew_correction) return cfg;
         cfg.k_p = 0;
@@ -187,8 +193,8 @@ public:
         this->integral += error * dt;
         this->integral = std::clamp(
             this->integral,
-            -this->cfg.max_integral,
-            this->cfg.max_integral
+            -this->cfg.effective_max_integral(),
+            this->cfg.effective_max_integral()
         );
         const double i_term = this->cfg.k_i * this->integral;
         const double d_term = this->cfg.k_d * (error - this->prev_error) / dt;

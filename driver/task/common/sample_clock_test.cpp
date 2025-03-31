@@ -45,16 +45,16 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
     breaker::Breaker b;
 
     auto start = clock.wait(b);
-    ASSERT_EQ(start, now_v);
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
     now_v = telem::SECOND * 1;
     auto end = clock.end();
-    ASSERT_EQ(end, telem::SECOND * 1);
+    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 1));
 
     start = clock.wait(b);
-    ASSERT_EQ(start, telem::SECOND * 1);
+    ASSERT_EQ(start, telem::TimeStamp(telem::SECOND * 1));
     now_v = telem::SECOND * 2;
     end = clock.end();
-    ASSERT_EQ(end, telem::SECOND * 2);
+    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 2));
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
@@ -74,13 +74,13 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
     breaker::Breaker b;
 
     auto start = clock.wait(b);
-    ASSERT_EQ(start, now_v);
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
     now_v = telem::SECOND * 1;
     auto end = clock.end();
-    ASSERT_EQ(end, telem::SECOND * 1);
+    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 1));
 
     start = clock.wait(b);
-    ASSERT_EQ(start, telem::SECOND * 1);
+    ASSERT_EQ(start, telem::TimeStamp(telem::SECOND * 1));
 
     const auto skew = telem::MILLISECOND * 250;
     now_v = telem::SECOND * 2 + skew;
@@ -108,17 +108,17 @@ TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
 
     // First cycle
     auto start = clock.wait(b);
-    ASSERT_EQ(start, now_v);
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
     now_v += telem::SECOND * 1;
     auto end = clock.end();
 
     clock.reset();
 
     start = clock.wait(b);
-    ASSERT_EQ(start, now_v); // Should use new current time after reset
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
     now_v += telem::SECOND * 1;
     end = clock.end();
-    ASSERT_EQ(end, now_v);
+    ASSERT_EQ(end, telem::TimeStamp(now_v));
 }
 
 TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
@@ -138,7 +138,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
 
     // First sample - establish baseline
     const auto start = clock.wait(b);
-    ASSERT_EQ(start, now_v);
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
 
     // Simulate system running slower than expected
     now_v = telem::SECOND * 1 + telem::MILLISECOND * 100; // 100ms delay
@@ -168,10 +168,10 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
     // Test multiple consecutive cycles
     for (int i = 0; i < 3; i++) {
         auto start = clock.wait(b);
-        ASSERT_EQ(start, now_v);
+        ASSERT_EQ(start, telem::TimeStamp(now_v));
         now_v += telem::SECOND * 1; // Advance time by exactly one period
         auto end = clock.end();
-        ASSERT_EQ(end, now_v);
+        ASSERT_EQ(end, telem::TimeStamp(now_v));
 
         // Verify that the next start time matches the previous end time
         auto next_start = clock.wait(b);
@@ -200,7 +200,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
     breaker::Breaker b;
 
     const auto start = clock.wait(b);
-    ASSERT_EQ(start, now_v);
+    ASSERT_EQ(start, telem::TimeStamp(now_v));
     /// now is way way earlier than end.
     now_v = telem::MILLISECOND * 500;
     const auto end = clock.end();

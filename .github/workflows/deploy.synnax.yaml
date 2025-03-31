@@ -50,8 +50,8 @@ jobs:
               - driver/**
               - freighter/go/**
               - synnax/**
-              - x/go/**
               - x/cpp/**
+              - x/go/**
               - client/cpp/**
               - WORKSPACE
 

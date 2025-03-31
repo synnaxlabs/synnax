@@ -225,8 +225,10 @@ public:
             auto &result = ua_res.results[i];
             if (res.error = util::parse_error(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
-            auto [s, err] = util::ua_array_to_series(
-                ch->ch.data_type,
+            auto &s = fr.series->at(i);
+            s.clear();
+            auto [written, err] = util::ua_array_write_to_series(
+                s,
                 &result.value,
                 this->cfg.array_size,
                 ch->ch.name

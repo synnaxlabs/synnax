@@ -66,8 +66,8 @@ inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
     return (dateTime - UNIX_EPOCH_START_IN_100_NANO_INTERVALS) * 100;
 }
 
-std::pair<telem::Series, xerrors::Error> ua_array_to_series(
-    const telem::DataType &target_type,
+std::pair<size_t, xerrors::Error> ua_array_write_to_series(
+    telem::Series& series,
     const UA_Variant *val,
     const size_t target_size,
     const std::string &name
@@ -76,7 +76,7 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
     if (size != target_size) {
         const std::string verb = size < target_size ? "" : "large";
         return {
-            telem::Series(0),
+            0,
             xerrors::Error(xerrors::VALIDATION,
                            "OPC UA array for " + name + " is too " + verb + " (size: " + std::to_string(size) + ") for configured array size of " +
                            std::to_string(target_size))
@@ -85,24 +85,20 @@ std::pair<telem::Series, xerrors::Error> ua_array_to_series(
 
     if (UA_Variant_isScalar(val))
         return {
-            telem::Series(0),
+            0,
             xerrors::Error(xerrors::VALIDATION, "cannot not convert scalar to series")
         };
+
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
         const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
-        auto s = telem::Series(target_type, size);
-        size_t acc = 0;
+        size_t written = 0;
         for (size_t j = 0; j < size; ++j)
-            acc += s.write(ua_datetime_to_unix_nano(data[j]));
-        return {std::move(s), xerrors::NIL};
+            written += series.write(ua_datetime_to_unix_nano(data[j]));
+        return {written, xerrors::NIL};
     }
+
     return {
-        telem::Series::cast(
-            target_type,
-            val->data,
-            size,
-            ua_to_data_type(val->type)
-        ),
+        series.write_casted(val->data, size, ua_to_data_type(val->type)),
         xerrors::NIL
     };
 }
