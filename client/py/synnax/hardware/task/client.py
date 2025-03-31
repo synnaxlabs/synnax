@@ -137,7 +137,6 @@ class Task:
         """
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
-            print(f"key for {self.name}: {key}")
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
                 if frame is None:
@@ -150,7 +149,6 @@ class Task:
                 try:
                     state = TaskState.model_validate(frame[_TASK_STATE_CHANNEL][0])
                     if state.key == key:
-                        print(f"returning state for {self.name}")
                         return state
                 except ValidationError as e:
                     raise UnexpectedError(

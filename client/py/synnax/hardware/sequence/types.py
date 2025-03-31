@@ -59,7 +59,7 @@ class Sequence(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = Config.model_validate_json(json.loads(internal.config))
+            self.config = Config.model_validate_json(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = Config(
