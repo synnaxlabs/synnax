@@ -54,6 +54,8 @@ struct URL {
     /// @brief Converts the URL to a string.
     /// @returns the URL as a string.
     [[nodiscard]] std::string to_string() const;
+
+    std::string host_address() const;
 };
 
 enum TransportVariant {
@@ -71,7 +73,7 @@ public:
     std::string protocol;
     /// @brief The target passed to UnaryClient::send or StreamClient::stream along with any base target configured
     /// in the underlying transport.
-    std::string target;
+    URL target;
     /// @brief The transport variant that the context is associated with. Can either be
     /// a streaming (STREAM) or unary (UNARY) transport.
     TransportVariant variant;
@@ -79,7 +81,7 @@ public:
     /// @brief Constructs the context with an empty set of parameters.
     Context(
         std::string protocol,
-        std::string target,
+        URL target,
         const TransportVariant variant
     ) : id(0),
         protocol(std::move(protocol)),

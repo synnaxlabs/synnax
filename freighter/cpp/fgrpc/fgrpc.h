@@ -64,6 +64,12 @@ class Pool {
 public:
     Pool() = default;
 
+    /// @brief returns the number of channels in the pool.
+    size_t size() {
+        std::lock_guard lock(this->mu);
+        return this->channels.size();
+    }
+
     /// @brief Instantiates the GRPC pool to use TLS encryption where the CA certificate
     /// is located at the provided path.
     explicit Pool(const std::string &ca_path) {
@@ -103,18 +109,19 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> get_channel(const std::string &target) {
+    std::shared_ptr<grpc::Channel> get_channel(const freighter::URL &target) {
         std::lock_guard lock(this->mu);
-        const auto it = this->channels.find(target);
+        const auto host_addr = target.host_address();
+        const auto it = this->channels.find(host_addr);
         if (it != this->channels.end()) {
             auto channel = it->second;
             if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE)
-                this->channels.erase(target);
+                this->channels.erase(host_addr);
             else return channel;
         }
         const grpc::ChannelArguments args;
-        auto channel = CreateCustomChannel(target, this->credentials, args);
-        this->channels[target] = channel;
+        auto channel = CreateCustomChannel(host_addr, this->credentials, args);
+        this->channels[host_addr] = channel;
         return channel;
     }
 };
@@ -160,7 +167,7 @@ public:
     ) override {
         freighter::Context ctx(
             priv::PROTOCOL,
-            this->base_target.child(target).to_string(),
+            this->base_target.child(target),
             freighter::UNARY
         );
         return mw.exec(ctx, this, request);
@@ -177,7 +184,7 @@ public:
             grpc_ctx.AddMetadata(k, v);
 
         // Execute request.
-        auto channel = this->pool->get_channel(this->base_target.to_string());
+        auto channel = this->pool->get_channel(req_ctx.target);
         auto stub = RPC::NewStub(channel);
         auto res = RS();
 
@@ -244,7 +251,11 @@ public:
     std::pair<RS, xerrors::Error> receive() override {
         RS res;
         if (this->stream->Read(&res)) return {res, xerrors::NIL};
-        const auto ctx = freighter::Context(priv::PROTOCOL, "", freighter::STREAM);
+        const auto ctx = freighter::Context(
+            priv::PROTOCOL,
+            freighter::URL(),
+            freighter::STREAM
+        );
         auto v = nullptr;
         const auto err = this->mw.exec(ctx, this, v).second;
         return {res, err};
@@ -313,7 +324,7 @@ public:
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
             priv::PROTOCOL,
-            this->base_target.child(target).to_string(),
+            this->base_target.child(target),
             freighter::STREAM
         );
         auto v = nullptr;
@@ -326,7 +337,7 @@ public:
         freighter::Context req_ctx,
         std::nullptr_t &_
     ) override {
-        auto channel = this->pool->get_channel(this->base_target.to_string());
+        auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
             req_ctx.target,
