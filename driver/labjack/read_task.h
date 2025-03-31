@@ -359,10 +359,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
            })),
-       device_scan_backlog_warn_on_count(
-           parser.optional<size_t>("device_scan_backlog_warn_on_count", 350)),
-       ljm_scan_backlog_warn_on_count(
-           parser.optional<size_t>("ljm_scan_backlog_warn_on_count", 100)) {
+       device_scan_backlog_warn_on_count(parser.optional<size_t>(
+           "device_scan_backlog_warn_on_count",
+           this->sample_rate.hz() * 2 // Default to 2 seconds of scans.
+       )),
+       ljm_scan_backlog_warn_on_count(parser.optional<size_t>(
+           "ljm_scan_backlog_warn_on_count",
+           this->sample_rate.hz() // Default to 1 second of scans.
+       )) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;

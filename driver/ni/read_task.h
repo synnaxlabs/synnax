@@ -82,7 +82,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                if (ch == nullptr) return {nullptr, false};
                return {std::move(ch), ch->enabled};
            })),
-        skew_warn_on_count(cfg.optional<std::size_t>("skew_warn_on_count", this->samples_per_chan * 10)) {
+       skew_warn_on_count(cfg.optional<std::size_t>(
+           "skew_warn_on_count",
+           this->sample_rate.hz() // Default to 1 second behind
+       )) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
@@ -255,10 +258,13 @@ private:
         // acquisition rate.
         if (std::abs(hw_res.skew) > this->cfg.skew_warn_on_count)
             res.warning = common::skew_warning(hw_res.skew);
+
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);
         res.error = this->curr_read_err;
         if (res.error) return res;
+        if (prev_read_err) this->sample_clock->reset();
+
         const auto end = this->sample_clock->end();
         common::transfer_buf(this->buf, fr, n_channels, n_samples);
         common::generate_index_data(

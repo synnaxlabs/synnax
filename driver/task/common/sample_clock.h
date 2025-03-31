@@ -96,7 +96,7 @@ struct HardwareTimedSampleClockConfig {
     /// - Ki = integral gain (1/nanoseconds)
     /// - Kd = derivative gain (nanoseconds)
     ///
-    double k_p = 0.1, k_i, k_d;
+    double k_p = 0.01, k_i = 0, k_d;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup. The value scales with the stream period to ensure the integral
     /// term remains effective at different sampling rates.
@@ -110,7 +110,7 @@ struct HardwareTimedSampleClockConfig {
     ///
     /// Expressed as a fraction of the stream period i.e.
     /// (stream_rate.period() * max_back_correction_factor);
-    double max_back_correction_factor = 0.001;
+    double max_back_correction_factor = 0.5;
 
     [[nodiscard]] telem::TimeSpan max_back_correction() const {
         return this->stream_rate.period() * this->max_back_correction_factor;

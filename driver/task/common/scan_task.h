@@ -190,6 +190,7 @@ public:
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
             }
         }
+        if (to_create.empty()) return xerrors::NIL;
         return this->client->create_devices(to_create);
     }
 
