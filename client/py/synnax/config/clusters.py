@@ -34,6 +34,6 @@ class ClustersConfig:
         return ClusterConfig(options=SynnaxOptions(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default"):
-        p = c.dict()
+        p = c.model_dump()
         keyring.set_password("synnax", key, p["options"].pop("password"))
         self.internal.set(f"clusters.{key}", p)
