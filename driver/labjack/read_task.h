@@ -560,16 +560,16 @@ public:
         return this->cfg.writer();
     }
 
-    xerrors::Error start() override { return this->restart(); }
+    xerrors::Error start() override { return this->restart(false); }
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
     /// @brief restarts the source.
-    xerrors::Error restart() {
+    xerrors::Error restart(bool force) {
         this->stop();
-        if (const auto err = this->cfg.apply(this->dev)) return err;
+        if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
@@ -615,7 +615,7 @@ public:
             )); res.error
         ) {
             if (res.error.matches(ljm::TEMPORARILY_UNREACHABLE))
-                this->restart();
+                this->restart(true);
             return res;
         }
         if (device_scan_backlog > this->cfg.device_scan_backlog_warn_on_count)
