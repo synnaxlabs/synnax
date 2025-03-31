@@ -42,6 +42,9 @@ TEST(CaseConvTest, SnakeToScreamEdgeCases) {
     EXPECT_EQ(caseconv::snake_to_scream("a"), "A");
     EXPECT_EQ(caseconv::snake_to_scream("hello__world"), "HELLO__WORLD");
     EXPECT_EQ(caseconv::snake_to_scream("hello_world_123"), "HELLO_WORLD_123");
+    EXPECT_EQ(caseconv::snake_to_scream("hello-world"), "HELLO-WORLD");
+    EXPECT_EQ(caseconv::snake_to_scream("mixed_case-with-hyphens"), "MIXED_CASE-WITH-HYPHENS");
+    EXPECT_EQ(caseconv::snake_to_scream("multiple--hyphens__underscores"), "MULTIPLE--HYPHENS__UNDERSCORES");
 }
 
 TEST(CaseConvTest, SnakeToKebabBasic) {
