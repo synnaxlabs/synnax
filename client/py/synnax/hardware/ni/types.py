@@ -901,7 +901,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = DigitalWriteConfig.parse_obj(json.loads(internal.config))
+            self.config = DigitalWriteConfig.model_validate(json.loads(internal.config))
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = DigitalWriteConfig(
@@ -948,7 +948,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = DigitalReadConfig.parse_obj(json.loads(internal.config))
+            self.config = DigitalReadConfig.model_validate(json.loads(internal.config))
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = DigitalReadConfig(
@@ -996,7 +996,9 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = AnalogReadTaskConfig.parse_obj(json.loads(internal.config))
+            self.config = AnalogReadTaskConfig.model_validate(
+                json.loads(internal.config)
+            )
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(

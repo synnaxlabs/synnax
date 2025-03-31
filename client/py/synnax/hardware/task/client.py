@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import Any, Protocol, overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -137,6 +137,7 @@ class Task:
         """
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
+            print(f"key for {self.name}: {key}")
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
                 if frame is None:
@@ -147,8 +148,9 @@ class Task:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    state = TaskState.parse_obj(frame[_TASK_STATE_CHANNEL][0])
+                    state = TaskState.model_validate(frame[_TASK_STATE_CHANNEL][0])
                     if state.key == key:
+                        print(f"returning state for {self.name}")
                         return state
                 except ValidationError as e:
                     raise UnexpectedError(
@@ -204,7 +206,7 @@ class StarterStopperMixin:
 
 class JSONConfigMixin(MetaTask):
     _internal: Task
-    config: any
+    config: Any
 
     @property
     def name(self) -> str:
@@ -373,10 +375,4 @@ class Client:
         return sug[0] if is_single else sug
 
     def sugar(self, tasks: list[Payload]):
-        return [
-            Task(
-                **t.dict(),
-                _frame_client=self._frame_client,
-            )
-            for t in tasks
-        ]
+        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

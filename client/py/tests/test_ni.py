@@ -421,7 +421,7 @@ class TestNITask:
             "stream_rate": 25,
             "data_saving": True,
         }
-        DigitalReadConfig.parse_obj(data)
+        DigitalReadConfig.model_validate(data)
 
     def test_parse_digital_write_task(self):
         data = {
@@ -440,4 +440,4 @@ class TestNITask:
             ],
             "data_saving": True,
         }
-        DigitalWriteConfig.parse_obj(data)
+        DigitalWriteConfig.model_validate(data)

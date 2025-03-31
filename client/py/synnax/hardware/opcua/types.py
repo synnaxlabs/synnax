@@ -101,7 +101,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.parse_obj(json.loads(internal.config))
+            self.config = ReadTaskConfig.model_validate(json.loads(internal.config))
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(

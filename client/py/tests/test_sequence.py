@@ -7,11 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
+
+import pytest
+
+from synnax.hardware import sequence
 
 
-class Rack(Payload):
-    key: int = 0
-    name: str = ""
-    task_counter: int = 0
-    embedded: bool = False
+@pytest.mark.sequence
+class TestSequence:
+    def test_parse_sequence_config(self):
+        sequence.Config.model_validate(
+            {
+                "rate": 10,
+                "read": [],
+                "write": [],
+                "script": "",
+                "globals": {},
+            }
+        )
