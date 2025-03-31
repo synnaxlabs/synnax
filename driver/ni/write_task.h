@@ -143,7 +143,7 @@ struct WriteTaskConfig {
     static std::pair<WriteTaskConfig, xerrors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task,
-        /// @brief we include this ignored parameter to make the parse method have the
+        /// We include this ignored parameter to make the parse method have the
         /// same signature as the read task, so we can save code duplication in
         /// the factory.
         common::TimingConfig
