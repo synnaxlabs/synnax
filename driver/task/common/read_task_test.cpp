@@ -456,14 +456,14 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 
 /// @brief Tests for BaseReadTaskConfig parsing
 TEST(BaseReadTaskConfigTest, testValidConfig) {
-    json j{
+    const json j{
         {"data_saving", true},
         {"sample_rate", 100.0},
         {"stream_rate", 50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_TRUE(cfg.data_saving);
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
@@ -471,100 +471,154 @@ TEST(BaseReadTaskConfigTest, testValidConfig) {
 }
 
 TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
-    json j{
+    const json j{
         {"sample_rate", 100.0},
         {"stream_rate", 50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_FALSE(cfg.data_saving); // Default should be false
+    EXPECT_FALSE(cfg.data_saving);
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
 }
 
 TEST(BaseReadTaskConfigTest, testEqualRates) {
-    json j{
+    const json j{
         {"sample_rate", 100.0},
         {"stream_rate", 100.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(100.0));
 }
 
 TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
-    json j{
+    const json j{
         {"stream_rate", 50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
-    json j{
+    const json j{
         {"sample_rate", 100.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
-    json j{
+    const json j{
         {"sample_rate", -100.0},
         {"stream_rate", 50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
-    json j{
+    const json j{
         {"sample_rate", 100.0},
         {"stream_rate", -50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
-    json j{
+    const json j{
         {"sample_rate", 25.0},
         {"stream_rate", 50.0}
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
-    json j{
+    const json j{
         {"sample_rate", 100.0},
         {"data_saving", true}
         // No stream_rate provided
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
+    const auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_TRUE(cfg.data_saving);
+}
+
+TEST(TestCommonReadTask, testTransferBufSingleChannel) {
+    const std::vector buf = {1.0, 2.0, 3.0};
+    synnax::Frame fr;
+    fr.reserve(1);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    
+    common::transfer_buf(buf, fr, 1, 3);
+    
+    EXPECT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(1), 2.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(2), 3.0);
+}
+
+TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
+    const std::vector buf = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};  // 2 channels, 3 samples each
+    synnax::Frame fr;
+    fr.reserve(2);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(2, telem::Series(telem::FLOAT64_T, 3));
+    
+    common::transfer_buf(buf, fr, 2, 3);
+    
+    EXPECT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(1), 2.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(2), 3.0);
+    
+    EXPECT_EQ(fr.series->at(1).size(), 3);
+    EXPECT_EQ(fr.series->at(1).at<double>(0), 4.0);
+    EXPECT_EQ(fr.series->at(1).at<double>(1), 5.0);
+    EXPECT_EQ(fr.series->at(1).at<double>(2), 6.0);
+}
+
+TEST(TestCommonReadTask, testTransferBufIntegerType) {
+    const std::vector buf = {1, 2, 3, 4};  // 2 channels, 2 samples each
+    synnax::Frame fr;
+    fr.reserve(2);
+    fr.emplace(1, telem::Series(telem::INT32_T, 2));
+    fr.emplace(2, telem::Series(telem::INT32_T, 2));
+    
+    common::transfer_buf(buf, fr, 2, 2);
+    
+    // Check first channel
+    EXPECT_EQ(fr.series->at(0).size(), 2);
+    EXPECT_EQ(fr.series->at(0).at<int32_t>(0), 1);
+    EXPECT_EQ(fr.series->at(0).at<int32_t>(1), 2);
+    
+    // Check second channel
+    EXPECT_EQ(fr.series->at(1).size(), 2);
+    EXPECT_EQ(fr.series->at(1).at<int32_t>(0), 3);
+    EXPECT_EQ(fr.series->at(1).at<int32_t>(1), 4);
 }

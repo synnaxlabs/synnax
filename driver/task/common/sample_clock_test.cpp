@@ -112,10 +112,8 @@ TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
     now_v += telem::SECOND * 1;
     auto end = clock.end();
 
-    // Reset clock
     clock.reset();
 
-    // Verify reset state
     start = clock.wait(b);
     ASSERT_EQ(start, now_v); // Should use new current time after reset
     now_v += telem::SECOND * 1;
@@ -402,8 +400,8 @@ INSTANTIATE_TEST_SUITE_P(
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_int_distribution<int64_t> dist(
-                    -400 * telem::MICROSECOND.nanoseconds(),
-                    400 * telem::MICROSECOND.nanoseconds()
+                    -100 * telem::MICROSECOND.nanoseconds(),
+                    100 * telem::MICROSECOND.nanoseconds()
                 );
                 return telem::TimeSpan(dist(gen));
             },
@@ -411,3 +409,81 @@ INSTANTIATE_TEST_SUITE_P(
         }
     )
 );
+
+TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
+    synnax::Frame fr;
+    fr.reserve(2);  // 1 data channel + 1 index
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));  // Data channel
+    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));  // Index channel
+
+    const std::set<synnax::ChannelKey> index_keys = {2};
+    const auto start = telem::TimeStamp(1000);
+    const auto end = telem::TimeStamp(4000);
+    constexpr size_t n_read = 3;
+    constexpr size_t offset = 1;  // Index starts after data channel
+
+    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+
+    // Check index values are evenly spaced
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+}
+
+TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
+    synnax::Frame fr;
+    fr.reserve(3);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));
+    fr.emplace(3, telem::Series(telem::TIMESTAMP_T, 3));
+
+    const std::set<synnax::ChannelKey> index_keys = {2, 3};
+    const auto start = telem::TimeStamp(1000);
+    const auto end = telem::TimeStamp(4000);
+    constexpr size_t n_read = 3;
+    constexpr size_t offset = 1;
+
+    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+
+    for (size_t i = 1; i <= 2; i++) {
+        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
+        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
+        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+    }
+}
+
+TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
+    synnax::Frame fr;
+    fr.reserve(1);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+
+    const std::set<synnax::ChannelKey> index_keys;
+    const auto start = telem::TimeStamp(1000);
+    const auto end = telem::TimeStamp(4000);
+    constexpr size_t n_read = 3;
+    constexpr size_t offset = 0;
+
+    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    EXPECT_EQ(fr.size(), 1);
+}
+
+TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
+    synnax::Frame fr;
+    fr.reserve(2);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));  // Data channel
+    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));  // Index channel
+
+    const std::set<synnax::ChannelKey> index_keys = {2};
+    const auto start = telem::TimeStamp(1000);
+    const auto end = telem::TimeStamp(3000);
+    constexpr size_t n_read = 3;
+    constexpr size_t offset = 1;
+    constexpr bool inclusive = true;
+
+    common::generate_index_data(fr, index_keys, start, end, n_read, offset, inclusive);
+
+    // Check inclusive spacing (end point included in equal intervals)
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
+    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+}

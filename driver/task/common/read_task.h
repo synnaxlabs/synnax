@@ -241,4 +241,18 @@ inline std::string skew_warning(const size_t skew) {
     return "Synnax driver can't keep up with hardware data acquisition, and is trailing "
               + std::to_string(skew) + " samples behind. Lower the stream rate for the task.";
 }
+
+template<typename T>
+void transfer_buf(
+    const std::vector<T> &buf,
+    const synnax::Frame &fr,
+    const size_t n_channels,
+    const size_t n_samples_per_channel
+) {
+    for (size_t i = 0; i < n_channels; ++i) {
+        auto &s = fr.series->at(i);
+        s.clear();
+        s.write_casted(buf.data() + i * n_samples_per_channel, n_samples_per_channel);
+    }
+}
 }

@@ -229,18 +229,4 @@ inline void generate_index_data(
         s.write(index_data);
     }
 }
-
-template<typename T>
-void transfer_buf(
-    const std::vector<T> &buf,
-    const synnax::Frame &fr,
-    const size_t n_channels,
-    const size_t n_samples_per_channel
-) {
-    for (size_t i = 0; i < n_channels; ++i) {
-        auto &s = fr.series->at(i);
-        s.clear();
-        s.write_casted(buf.data() + i * n_samples_per_channel, n_samples_per_channel);
-    }
-}
 }
