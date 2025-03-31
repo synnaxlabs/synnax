@@ -9,6 +9,7 @@
 
 import click
 
+from .check_timing import check_timing
 from .ingest import ingest
 from .login import login
 from .ts_convert import tsconvert
@@ -21,3 +22,4 @@ def synnax() -> None: ...
 synnax.add_command(ingest)
 synnax.add_command(login)
 synnax.add_command(tsconvert)
+synnax.add_command(check_timing)

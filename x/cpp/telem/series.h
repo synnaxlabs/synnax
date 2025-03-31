@@ -28,7 +28,6 @@ constexpr char NEWLINE_CHAR = '\n';
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
 
 namespace telem {
-// Move the helper function outside, before the Series class
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);

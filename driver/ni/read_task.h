@@ -224,7 +224,6 @@ private:
     /// @brief the error accumulated from the latest read. Primarily used to determine
     /// whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
-    loop::Gauge g = loop::Gauge("ni", 500, 0);
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
         return this->cfg.sy_channels();

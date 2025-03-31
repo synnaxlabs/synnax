@@ -388,6 +388,26 @@ INSTANTIATE_TEST_SUITE_P(
                 return telem::TimeSpan(0);  // No jitter
             },
             .n_cycles = 20000
+        },
+        // Test case 6: Steady then sudden jitter
+        PIDTestParams{
+            .sample_rate = telem::HZ * 1000,
+            .stream_rate = telem::HZ * 100,
+            .k_p = 0.3,
+            .k_i = 0.02,
+            .k_d = 0.05,
+            .constant_offset = telem::MICROSECOND * 100,
+            .jitter_func = [](int cycle) {
+                if (cycle < 10000) return telem::TimeSpan(0);
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_int_distribution<int64_t> dist(
+                    -400 * telem::MICROSECOND.nanoseconds(),
+                    400 * telem::MICROSECOND.nanoseconds()
+                );
+                return telem::TimeSpan(dist(gen));
+            },
+            .n_cycles = 15000
         }
     )
 );

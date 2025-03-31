@@ -98,13 +98,15 @@ public:
         const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
         if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
             return {nullptr, err};
-        // Very important that we instantiate the Hardware API here, as we pass ownership over the lifecycle of the task
-        // handle to it. If we encounter any errors when applying the configuration or cycling the task, we need to make
+        // Very important that we instantiate the Hardware API here, as we pass
+        // ownership over the lifecycle of the task handle to it. If we encounter any
+        // errors when applying the configuration or cycling the task, we need to make
         // sure it gets cleared.
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
         if (const auto err = cfg.apply(this->dmx, handle)) return {nullptr, err};
         // NI will look for invalid configuration parameters internally, so we quickly
-        // cycle the task in order to catch and communicate any errors as soon as possible.
+        // cycle the task in order to catch and communicate any errors as soon as
+        // possible.
         if (const auto err = hw->start()) return {nullptr, err};
         if (const auto err = hw->stop()) return {nullptr, err};
         return {

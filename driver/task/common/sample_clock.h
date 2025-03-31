@@ -85,9 +85,17 @@ struct HardwareTimedSampleClockConfig {
     /// @brief the proportional, integral, and derivative gains of the PID controller.
     /// See: https://en.wikipedia.org/wiki/PID_controller
     ///
-    /// k_p: proportional gain (unitless)
-    /// k_i: integral gain (1/nanoseconds)
-    /// k_d: derivative gain (nanoseconds)
+    /// The PID controller implements the following equation:
+    /// u(t) = Kp * e(t) + Ki * ∫e(t)dt + Kd * de/dt
+    /// 
+    /// where:
+    /// - e(t) = expected_end_time - system_end_time
+    ///   (error between expected end time based on period and the actual system time)
+    /// - u(t) = correction time to subtract from the expected end time
+    /// - Kp = proportional gain (unitless)
+    /// - Ki = integral gain (1/nanoseconds)
+    /// - Kd = derivative gain (nanoseconds)
+    ///
     double k_p = 0.1, k_i, k_d;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup.
