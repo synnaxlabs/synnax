@@ -283,6 +283,7 @@ func translateDeviceForward(d *api.Device) *gapi.Device {
 		Make:       d.Make,
 		Model:      d.Model,
 		Properties: d.Properties,
+		Configured: d.Configured,
 	}
 }
 
@@ -296,6 +297,7 @@ func translateDeviceBackward(d *gapi.Device) *api.Device {
 		Make:       d.Make,
 		Model:      d.Model,
 		Properties: d.Properties,
+		Configured: d.Configured,
 	}
 }
 

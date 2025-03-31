@@ -335,6 +335,8 @@ struct Device {
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
 
+    bool configured;
+
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.
     /// @param name A human-readable name for the device.
@@ -353,15 +355,7 @@ struct Device {
         std::string make,
         std::string model,
         std::string properties
-    ) : key(std::move(key)),
-        name(std::move(name)),
-        rack(rack),
-        location(std::move(std::move(location))),
-        identifier(std::move(identifier)),
-        make(std::move(make)),
-        model(std::move(model)),
-        properties(std::move(properties)) {
-    }
+    );
 
     /// @brief Default constructor for an empty device.
     Device() = default;
@@ -371,8 +365,6 @@ struct Device {
     explicit Device(const api::v1::Device &device);
 
 private:
-    /// @brief Converts the device to its protobuf representation.
-    /// @param device The protobuf object to populate.
     void to_proto(api::v1::Device *device) const;
 
     friend class HardwareClient;

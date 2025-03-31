@@ -51,7 +51,7 @@ struct ClusterAPI {
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
 
-    SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(client) {
+    explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(client) {
     }
 
     std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
@@ -185,6 +185,7 @@ public:
                 scanned_dev.properties = remote_dev.properties;
                 scanned_dev.name = remote_dev.name;
                 scanned_dev.identifier = remote_dev.identifier;
+                scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
             }
