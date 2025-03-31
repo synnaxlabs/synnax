@@ -279,3 +279,49 @@ TEST(DeviceTests, testCreateDevices) {
         ASSERT_EQ(retrieved.rack, r.key);
     }
 }
+
+/// @brief it should correctly handle the configured field.
+TEST(DeviceTests, testDeviceConfigured) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+
+    auto d1 = Device(
+        "device1_key",
+        "test_device_1",
+        r.key,
+        "location_1",
+        "identifier_1",
+        "make_1",
+        "model_1",
+        "properties_1"
+    );
+    d1.configured = false;
+    ASSERT_NIL(client.hardware.create_device(d1));
+    
+    auto d2 = Device(
+        "device2_key",
+        "test_device_2",
+        r.key,
+        "location_2",
+        "identifier_2",
+        "make_2",
+        "model_2",
+        "properties_2"
+    );
+    d2.configured = true;
+    ASSERT_NIL(client.hardware.create_device(d2));
+
+    const auto retrieved1 = ASSERT_NIL_P(client.hardware.retrieve_device(d1.key));
+    ASSERT_FALSE(retrieved1.configured);
+
+    const auto retrieved2 = ASSERT_NIL_P(client.hardware.retrieve_device(d2.key));
+    ASSERT_TRUE(retrieved2.configured);
+
+    std::vector keys = {d1.key, d2.key};
+    const auto devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys));
+    auto device_map = map_device_keys(devices);
+
+    ASSERT_FALSE(device_map[d1.key].configured);
+    ASSERT_TRUE(device_map[d2.key].configured);
+}

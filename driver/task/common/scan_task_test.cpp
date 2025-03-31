@@ -186,18 +186,21 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     dev1.rack = 1;
     dev1.properties = "test_properties";
     dev1.identifier = "rocky";
+    dev1.configured = true;
 
     synnax::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
     dev1_moved.properties = "";
     dev1_moved.identifier = "rocky_balboa";
+    dev1_moved.configured = false;
 
     synnax::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
     dev1_moved_2.properties = "test_properties";
     dev1_moved_2.identifier = "rocky_balboa_charizard";
+    dev1_moved_2.configured = false;
 
     // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
@@ -239,6 +242,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->at(0).rack, 2);
     EXPECT_EQ(created_devices->at(0).properties, "test_properties");
     EXPECT_EQ(created_devices->at(0).identifier, "rocky");
+    EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
@@ -246,4 +250,5 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->at(0).rack, 2);
     EXPECT_EQ(created_devices->at(0).properties, "test_properties");
     EXPECT_EQ(created_devices->at(0).identifier, "rocky");
+    EXPECT_TRUE(created_devices->at(0).configured);
 }

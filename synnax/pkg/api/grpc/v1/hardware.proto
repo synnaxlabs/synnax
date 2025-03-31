@@ -109,6 +109,7 @@ message Device {
     string make = 6;
     string model = 7;
     string properties = 8;
+    bool configured = 9;
 }
 
 message HardwareCreateDeviceRequest {
