@@ -313,15 +313,34 @@ xerrors::Error HardwareClient::create_devices(const std::vector<Device> &devs) c
     return err;
 }
 
-Device::Device(const api::v1::Device &device) : key(device.key()),
-                                                name(device.name()),
-                                                rack(device.rack()),
-                                                location(device.location()),
-                                                identifier(device.identifier()),
-                                                make(device.make()),
-                                                model(device.model()),
-                                                properties(device.properties()) {
-}
+Device::Device(const api::v1::Device &device) : 
+    key(device.key()),
+    name(device.name()),
+    rack(device.rack()),
+    location(device.location()),
+    identifier(device.identifier()),
+    make(device.make()),
+    model(device.model()),
+    properties(device.properties()),
+    configured(device.configured()) {}
+
+Device::Device(
+    std::string key,
+    std::string name,
+    RackKey rack,
+    std::string location,
+    std::string identifier,
+    std::string make,
+    std::string model,
+    std::string properties
+) : key(std::move(key)),
+    name(std::move(name)),
+    rack(rack),
+    location(std::move(location)),
+    identifier(std::move(identifier)),
+    make(std::move(make)),
+    model(std::move(model)),
+    properties(std::move(properties)) {}
 
 void Device::to_proto(api::v1::Device *device) const {
     device->set_key(key);
@@ -332,5 +351,6 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_make(make);
     device->set_model(model);
     device->set_properties(properties);
+    device->set_configured(configured);
 }
 }
