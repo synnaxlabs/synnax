@@ -51,6 +51,8 @@ jobs:
               - freighter/go/**
               - synnax/**
               - x/go/**
+              - x/cpp/**
+              - client/cpp/**
               - WORKSPACE
 
   create-release:

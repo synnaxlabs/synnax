@@ -70,8 +70,8 @@ class Parser {
         std::string stripped = name;
         if (name[0] == '-')
             stripped = name.substr(name[0] == '-' && name[1] == '-' ? 2 : 1);
-        
-        std::string kebab = caseconv::snake_to_kebab(stripped);
+
+        const std::string kebab = caseconv::snake_to_kebab(stripped);
         return {"-" + kebab, "--" + kebab};
     }
 
