@@ -87,7 +87,7 @@ struct HardwareTimedSampleClockConfig {
     ///
     /// The PID controller implements the following equation:
     /// u(t) = Kp * e(t) + Ki * ∫e(t)dt + Kd * de/dt
-    /// 
+    ///
     /// where:
     /// - e(t) = expected_end_time - system_end_time
     ///   (error between expected end time based on period and the actual system time)
@@ -96,7 +96,7 @@ struct HardwareTimedSampleClockConfig {
     /// - Ki = integral gain (1/nanoseconds)
     /// - Kd = derivative gain (nanoseconds)
     ///
-    double k_p = 0.01, k_i = 0, k_d;
+    double k_p = 0.01, k_i = 0, k_d = 0;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup. The value scales with the stream period to ensure the integral
     /// term remains effective at different sampling rates.

@@ -33,6 +33,8 @@ sequence::Task::Task(
 
 void sequence::Task::run() {
     if (const auto err = this->seq->begin(); err) {
+        if (const auto end_err = this->seq->end())
+            LOG(ERROR) << "[sequence] failed to end after failed start:" << end_err;
         this->state.variant = "error";
         this->state.details["running"] = false;
         this->state.details["message"] = err.message();
