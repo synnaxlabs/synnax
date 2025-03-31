@@ -40,7 +40,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    auto ctx = freighter::Context("test", "1", freighter::UNARY);
+    auto ctx = freighter::Context("test", freighter::URL("1"), freighter::UNARY);
     auto req = 1;
     auto [res, err] = collector.exec(ctx, &f, req);
     ASSERT_EQ(res, 2);

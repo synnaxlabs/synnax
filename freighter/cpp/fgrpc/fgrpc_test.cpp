@@ -307,3 +307,31 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     stopServers();
     s.join();
 }
+TEST(testGRPC, testPoolChannelReuse) {
+    std::string target("localhost:8080");
+    std::thread s(server, target);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
+    
+    // Send to first endpoint
+    auto mes1 = test::Message();
+    mes1.set_payload("First endpoint");
+    auto [res1, err1] = client.send(target + "/endpoint1", mes1);
+    ASSERT_FALSE(err1);
+
+    // Send to second endpoint with same host:port
+    auto mes2 = test::Message();
+    mes2.set_payload("Second endpoint");
+    auto [res2, err2] = client.send(target + "/endpoint2", mes2);
+    ASSERT_FALSE(err2);
+
+    // Get the channel count from the pool's internal map
+    size_t channel_count = pool->size();
+    EXPECT_EQ(channel_count, 1) << "Pool should maintain only one channel for the same host:port";
+
+    stopServers();
+    s.join();
+}
+
