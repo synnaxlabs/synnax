@@ -30,7 +30,7 @@ const auto EMISSION_RATE = telem::HZ * 1;
 using Heartbeat =  std::uint64_t;
 
 /// @brief creates a new heartbeat value from its components.
-inline Heartbeat create(const RackKey rack_key, const std::uint32_t version) {
+inline Heartbeat create(const synnax::RackKey rack_key, const std::uint32_t version) {
     return static_cast<Heartbeat>(rack_key) << 32 | version;
 }
 
@@ -44,25 +44,26 @@ class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
     const synnax::ChannelKey key;
     /// @brief the key of the rack the heartbeat is for.
-    const RackKey rack_key;
+    const synnax::RackKey rack_key;
     /// @brief the current heartbeat version incremented on every loop iteration.
     std::uint32_t version;
     /// @brief the loop used to control the emission rate of the heartbeat.
     loop::Timer loop;
 
 public:
-    Source(const synnax::ChannelKey key, const RackKey rack_key) : key(key),
+    Source(const synnax::ChannelKey key, const synnax::RackKey rack_key) : key(key),
         rack_key(rack_key),
         version(0),
         loop(loop::Timer(EMISSION_RATE)) {
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
+    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        if (fr.size() == 0) fr.emplace(key, telem::Series(0, telem::UINT64_T));
         this->loop.wait(breaker);
         const Heartbeat hb = create(this->rack_key, this->version);
         this->version++;
-        auto fr = Frame(key, telem::Series(hb, telem::UINT64_T));
-        return {std::move(fr), xerrors::NIL};
+        fr.series->at(0).set(0, hb);
+        return xerrors::NIL;
     }
 };
 

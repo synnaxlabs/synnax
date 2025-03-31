@@ -8,6 +8,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/ni/daqmx",
+        "//driver/task/common",
         "@com_github_google_glog//:glog",
     ],
 )

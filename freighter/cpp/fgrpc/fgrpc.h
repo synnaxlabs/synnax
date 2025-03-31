@@ -19,7 +19,6 @@
 /// internal.
 #include "freighter/cpp/freighter.h"
 
-
 namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
@@ -70,7 +69,7 @@ public:
     explicit Pool(const std::string &ca_path) {
         grpc::SslCredentialsOptions opts;
         opts.pem_root_certs = priv::read_file(ca_path);
-        credentials = grpc::SslCredentials(opts);
+        credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates the GRPC pool to use TLS encryption and authentication
@@ -82,10 +81,17 @@ public:
         const std::string &key_path
     ) {
         grpc::SslCredentialsOptions opts;
-        opts.pem_root_certs = priv::read_file(ca_path);
-        opts.pem_cert_chain = priv::read_file(cert_path);
-        opts.pem_private_key = priv::read_file(key_path);
-        credentials = grpc::SslCredentials(opts);
+        bool secure = false;
+        if (!ca_path.empty()) {
+            opts.pem_root_certs = priv::read_file(ca_path);
+            secure = true;
+        }
+        if (!cert_path.empty() && !key_path.empty()) {
+            opts.pem_cert_chain = priv::read_file(cert_path);
+            opts.pem_private_key = priv::read_file(key_path);
+            secure = true;
+        }
+        if (secure) credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates a GRPC pool with the provided credentials.
@@ -107,7 +113,7 @@ public:
             else return channel;
         }
         const grpc::ChannelArguments args;
-        auto channel = grpc::CreateCustomChannel(target, this->credentials, args);
+        auto channel = CreateCustomChannel(target, this->credentials, args);
         this->channels[target] = channel;
         return channel;
     }
@@ -195,7 +201,6 @@ template<typename RQ, typename RS, typename RPC>
 class Stream final :
         public freighter::Stream<RQ, RS>,
         freighter::Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS> > > {
-
     freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
         RS> > > mw;
 
@@ -212,6 +217,7 @@ class Stream final :
     xerrors::Error close_err = xerrors::NIL;
     /// @brief set to true when writes_done is called.
     bool writes_done_called = false;
+
 public:
     Stream(
         std::shared_ptr<grpc::Channel> ch,
@@ -280,6 +286,7 @@ class StreamClient final : public freighter::StreamClient<RQ, RS>,
         std::nullptr_t,
         std::unique_ptr<freighter::Stream<RQ, RS> >
     > mw;
+
 public:
     StreamClient(
         const std::shared_ptr<Pool> &pool,

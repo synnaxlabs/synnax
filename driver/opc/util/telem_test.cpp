@@ -82,13 +82,17 @@ TEST(OPCUtilTest, testUAFloatArrayToSeries) {
     UA_Float floats[3] = {1.0f, 2.0f, 3.0f};
     UA_Variant_setArray(&array_v, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    auto series = ASSERT_NIL_P(util::ua_array_to_series(telem::FLOAT32_T, &array_v, 3));
+    telem::Series series(telem::FLOAT32_T, 3);  // Pre-allocate series with correct type and size
+    auto [written, err] = util::ua_array_write_to_series(series, &array_v, 3);
+    ASSERT_NIL(err);
     EXPECT_EQ(series.size(), 3);
     EXPECT_EQ(series.at<float>(0), 1.0f);
     EXPECT_EQ(series.at<float>(1), 2.0f);
     EXPECT_EQ(series.at<float>(2), 3.0f);
 
-    auto s2 = ASSERT_NIL_P(util::ua_array_to_series(telem::FLOAT64_T, &array_v, 3));
+    telem::Series s2(telem::FLOAT64_T, 3);  // Pre-allocate second series
+    auto [written2, err2] = util::ua_array_write_to_series(s2, &array_v, 3);
+    ASSERT_NIL(err2);
     EXPECT_EQ(s2.size(), 3);
     EXPECT_EQ(s2.at<double>(0), 1.0);
     EXPECT_EQ(s2.at<double>(1), 2.0);

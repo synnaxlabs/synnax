@@ -16,8 +16,7 @@
 #include "driver/pipeline/control.h"
 #include "driver/errors/errors.h"
 
-using namespace pipeline;
-
+namespace pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
     synnax::StreamerConfig streamer_config,
@@ -109,4 +108,5 @@ SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
         std::make_unique<SynnaxStreamer>(std::move(ss)),
         xerrors::NIL
     };
+}
 }

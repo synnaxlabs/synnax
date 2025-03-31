@@ -23,13 +23,12 @@
 
 using json = nlohmann::json;
 
-using namespace pipeline;
-
+namespace pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal)
     : internal(std::move(internal)) {
 }
 
-bool SynnaxWriter::write(synnax::Frame &fr) { return this->internal.write(fr); }
+bool SynnaxWriter::write(const synnax::Frame &fr) { return this->internal.write(fr); }
 
 xerrors::Error SynnaxWriter::close() { return this->internal.close(); }
 
@@ -38,7 +37,7 @@ SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
 }
 
 std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
-SynnaxWriterFactory::open_writer(const WriterConfig &config) {
+SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
     return {
@@ -49,7 +48,7 @@ SynnaxWriterFactory::open_writer(const WriterConfig &config) {
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
-    WriterConfig writer_config,
+    synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ) : Acquisition(
@@ -62,7 +61,7 @@ Acquisition::Acquisition(
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
-    WriterConfig writer_config,
+    synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ) : Base(breaker_config), factory(std::move(factory)),
@@ -88,9 +87,10 @@ void Acquisition::run() {
     xerrors::Error writer_err;
     xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
+    synnax::Frame frame(0);
     while (this->breaker.running()) {
-        auto [frame, source_err_i] = this->source->read(this->breaker);
-        if (source_err_i) {
+
+        if (auto source_err_i = this->source->read(this->breaker, frame)) {
             source_err = source_err_i;
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();
@@ -139,4 +139,5 @@ void Acquisition::run() {
     if (source_err) this->source->stopped_with_err(source_err);
     else if (writer_err) this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
+}
 }

@@ -14,6 +14,7 @@
 
 /// internal
 #include "driver/ni/daqmx/sugared.h"
+#include "driver/task/common/read_task.h"
 
 namespace hardware {
 struct Hardware {
@@ -26,9 +27,8 @@ struct Hardware {
     [[nodiscard]] virtual xerrors::Error stop() = 0;
 };
 
-struct ReadDigest {
-    size_t samps_per_chan_read;
-    size_t samps_per_chan_acquired;
+struct ReadResult: common::ReadResult {
+    int64 skew = 0;
 };
 
 /// @brief a thing shim on top of NI DAQMX that allows us to use different read
@@ -41,7 +41,7 @@ struct Reader : virtual Hardware {
     /// @param data the buffer to read data into.
     /// @return a pair containing the number of samples read and an error if one
     /// occurred.
-    [[nodiscard]] virtual std::pair<ReadDigest, xerrors::Error> read(
+    [[nodiscard]] virtual ReadResult read(
         size_t samples_per_channel,
         std::vector<T> &data
     ) = 0;
@@ -109,7 +109,7 @@ struct DigitalReader final : Base, Reader<uint8_t> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    std::pair<ReadDigest, xerrors::Error> read(
+    ReadResult read(
         size_t samples_per_channel,
         std::vector<unsigned char> &data
     ) override;
@@ -117,19 +117,25 @@ struct DigitalReader final : Base, Reader<uint8_t> {
 
 /// @brief a hardware interface for analog tasks.
 struct AnalogReader final : Base, Reader<double> {
-    size_t total_samples_acquired_high_water = 0;
-    size_t requested_total_samples = 0;
+    /// @brief the total number of samples requested by calls to read() from
+    /// the user.
+    size_t total_samples_requested = 0;
+    /// @brief the total number of samples actually acquired from the hardware
+    /// by DAQmx.
+     uInt64 total_samples_acquired = 0;
 
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    std::pair<ReadDigest, xerrors::Error> read(
+    ReadResult read(
         size_t samples_per_channel,
         std::vector<double> &data
     ) override;
 
     xerrors::Error start() override;
+
+    int64 update_skew(const size_t &n_requested);
 };
 }
 
@@ -165,9 +171,7 @@ public:
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
     /// @brief Number of times read() was called
     size_t read_call_count;
-    /// @brief Total number of samples acquired.
-    size_t total_samples_acquired;
-    
+
     /// @brief Constructs a new mock reader
     /// @param start_errors Sequence of errors to return from start()
     /// @param stop_errors Sequence of errors to return from stop()
@@ -178,7 +182,7 @@ public:
         std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {{{0.5}, xerrors::NIL}}
     );
 
-    std::pair<ReadDigest, xerrors::Error> read(
+    ReadResult read(
         size_t samples_per_channel,
         std::vector<T>& data
     ) override;

@@ -195,7 +195,7 @@ class SugaredConsole:
         for i, row in enumerate(rows):
             if isinstance(row, dict):
                 is_default = row[_key] == default
-                _rows.append(row)
+                _rows.append({"choice": str(i), **row})
                 if no_cols:
                     for k in row.keys():
                         if k not in _columns:

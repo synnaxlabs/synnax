@@ -18,8 +18,7 @@
 #include "client/cpp/framer/framer.h"
 #include "x/cpp/telem/series.h"
 
-using namespace synnax;
-
+namespace synnax {
 Frame::Frame(const size_t size) :
     channels(std::make_unique<std::vector<ChannelKey> >()),
     series(std::make_unique<std::vector<telem::Series> >()) {
@@ -86,8 +85,10 @@ void Frame::clear() const {
 }
 
 void Frame::reserve(const size_t &size) {
-    if (this->channels == nullptr) this->channels = std::make_unique<std::vector<ChannelKey>>();
-    if (this->series == nullptr) this->series = std::make_unique<std::vector<telem::Series>>();
+    if (this->channels == nullptr) this->channels = std::make_unique<std::vector<
+                                       ChannelKey> >();
+    if (this->series == nullptr) this->series = std::make_unique<std::vector<
+                                     telem::Series> >();
     this->channels->reserve(size);
     this->series->reserve(size);
 }
@@ -95,8 +96,8 @@ void Frame::reserve(const size_t &size) {
 Frame Frame::deep_copy() const { return Frame(*this); }
 
 Frame::Frame(const Frame &other) :
-    channels(std::make_unique<std::vector<ChannelKey>>(*other.channels)),
-    series(std::make_unique<std::vector<telem::Series>>()) {
+    channels(std::make_unique<std::vector<ChannelKey> >(*other.channels)),
+    series(std::make_unique<std::vector<telem::Series> >()) {
     series->reserve(other.series->size());
     for (const auto &ser: *other.series) series->emplace_back(ser.deep_copy());
 }
@@ -108,10 +109,11 @@ Frame::Frame(Frame &&other) noexcept :
     other.series = nullptr;
 }
 
-std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
+std::ostream &operator<<(std::ostream &os, const Frame &f) {
     os << "Frame{" << std::endl;
     for (size_t i = 0; i < f.channels->size(); i++)
         os << " " << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
     os << "}";
     return os;
+}
 }

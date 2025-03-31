@@ -27,9 +27,6 @@
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xpath/xpath.h"
 
-using namespace synnax;
-
-
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
 namespace priv {
@@ -69,7 +66,8 @@ struct Config {
     /// @brief sets the maximum number of login retries before giving up.
     std::uint32_t max_retries = 5;
 
-    void override(xjson::Parser &parser) {
+    template<typename ParserT>
+    void override(ParserT& parser) {
         this->host = parser.optional("host", this->host);
         this->port = parser.optional("port", this->port);
         this->username = parser.optional("username", this->username);
@@ -95,7 +93,7 @@ struct Config {
 
     /// @brief returns true if the configuration uses TLS encryption to secure
     /// communications with the cluster.
-    bool is_secure() const {
+    [[nodiscard]] bool is_secure() const {
         return !this->ca_cert_file.empty();
     }
 
@@ -145,7 +143,7 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
-        auto t = Transport(
+        auto t = Transport::configure(
             cfg.port,
             cfg.host,
             cfg.ca_cert_file,

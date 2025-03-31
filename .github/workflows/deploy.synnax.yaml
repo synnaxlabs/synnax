@@ -46,9 +46,11 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
+              - client/cpp/**
               - driver/**
               - freighter/go/**
               - synnax/**
+              - x/cpp/**
               - x/go/**
               - WORKSPACE
 
@@ -117,14 +119,14 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
-            bazel build --enable_platform_specific_config --define=platform=nilinuxrt //driver
+            bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt //driver
           else
-            bazel build --enable_platform_specific_config //driver
+            bazel build --enable_platform_specific_config -c opt //driver
           fi
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt //driver
 
       - name: Upload Release Asset for Driver Symbols
         if: matrix.os == 'windows-latest' && github.event_name == 'push'

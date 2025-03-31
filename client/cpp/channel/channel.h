@@ -12,32 +12,28 @@
 /// std
 #include <string>
 
-/// external
-#include "grpcpp/grpcpp.h"
-
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
-/// internal
+/// module
 #include "x/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
 
 namespace synnax {
 /// @brief an alias for the type of channel's key.
-typedef std::uint32_t ChannelKey;
+using ChannelKey = std::uint32_t;
 
 /// @brief freighter retrieve transport.
-typedef freighter::UnaryClient<
+using ChannelRetrieveClient = freighter::UnaryClient<
     api::v1::ChannelRetrieveRequest,
     api::v1::ChannelRetrieveResponse
-> ChannelRetrieveClient;
+>;
 
 /// @brief freighter create transport.
-typedef freighter::UnaryClient<
+using ChannelCreateClient = freighter::UnaryClient<
     api::v1::ChannelCreateRequest,
     api::v1::ChannelCreateResponse
-> ChannelCreateClient;
-
+>;
 
 class ChannelClient;
 

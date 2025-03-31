@@ -25,64 +25,64 @@
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.
-typedef freighter::UnaryClient<
+using HardwareCreateRackClient = freighter::UnaryClient<
     api::v1::HardwareCreateRackRequest,
     api::v1::HardwareCreateRackResponse
-> HardwareCreateRackClient;
+>;
 
 /// @brief Type alias for the transport used to retrieve a rack.
-typedef freighter::UnaryClient<
+using HardwareRetrieveRackClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveRackRequest,
     api::v1::HardwareRetrieveRackResponse
-> HardwareRetrieveRackClient;
+>;
 
 /// @brief Type alias for the transport used to delete a rack.
-typedef freighter::UnaryClient<
+using HardwareDeleteRackClient = freighter::UnaryClient<
     api::v1::HardwareDeleteRackRequest,
     google::protobuf::Empty
-> HardwareDeleteRackClient;
+>;
 
 /// @brief Type alias for the transport used to create a task.
-typedef freighter::UnaryClient<
+using HardwareCreateTaskClient = freighter::UnaryClient<
     api::v1::HardwareCreateTaskRequest,
     api::v1::HardwareCreateTaskResponse
-> HardwareCreateTaskClient;
+>;
 
 /// @brief Type alias for the transport used to retrieve a task.
-typedef freighter::UnaryClient<
+using HardwareRetrieveTaskClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveTaskRequest,
     api::v1::HardwareRetrieveTaskResponse
-> HardwareRetrieveTaskClient;
+>;
 
 /// @brief Type alias for the transport used to delete a task.
-typedef freighter::UnaryClient<
+using HardwareDeleteTaskClient = freighter::UnaryClient<
     api::v1::HardwareDeleteTaskRequest,
     google::protobuf::Empty
-> HardwareDeleteTaskClient;
+>;
 
 /// @brief Type alias for the transport used to create a device.
-typedef freighter::UnaryClient<
+using HardwareCreateDeviceClient = freighter::UnaryClient<
     api::v1::HardwareCreateDeviceRequest,
     api::v1::HardwareCreateDeviceResponse
-> HardwareCreateDeviceClient;
+>;
 
 /// @brief Type alias for the transport used to retrieve a device.
-typedef freighter::UnaryClient<
+using HardwareRetrieveDeviceClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveDeviceRequest,
     api::v1::HardwareRetrieveDeviceResponse
-> HardwareRetrieveDeviceClient;
+>;
 
 /// @brief Type alias for the transport used to delete a device.
-typedef freighter::UnaryClient<
+using HardwareDeleteDeviceClient = freighter::UnaryClient<
     api::v1::HardwareDeleteDeviceRequest,
     google::protobuf::Empty
-> HardwareDeleteDeviceClient;
+>;
 
 /// @brief An alias for the type of rack's key.
-typedef std::uint32_t RackKey;
+using RackKey = std::uint32_t;
 
 /// @brief An alias for the type of task's key.
-typedef std::uint64_t TaskKey;
+using TaskKey = std::uint64_t;
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.

@@ -23,7 +23,7 @@ xerrors::Error plugins::SynnaxFrameSink::open() {
         throw std::runtime_error("sink already open");
     auto [w, err] = this->client->telem.open_writer(this->cfg);
     if (err) return err;
-    this->writer = std::make_unique<Writer>(std::move(w));
+    this->writer = std::make_unique<synnax::Writer>(std::move(w));
     return xerrors::NIL;
 }
 
@@ -53,8 +53,8 @@ xerrors::Error plugins::SynnaxFrameSink::close() {
 
 plugins::ChannelWrite::ChannelWrite(
     std::shared_ptr<plugins::FrameSink> sink,
-    const std::vector<Channel> &channels
-): frame(Frame(channels.size()))
+    const std::vector<synnax::Channel> &channels
+): frame(synnax::Frame(channels.size()))
    , sink(std::move(sink))
    , channels(channels.size())
    , names_to_keys(channels.size()) {

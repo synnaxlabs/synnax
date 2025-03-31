@@ -379,4 +379,82 @@ T eventually_nil_p(
 /// @return The value component of the pair once the error becomes nil
 #define ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(expr, timeout, interval) \
     xtest::eventually_nil_p<typename std::remove_reference<decltype((expr).first)>::type>([&]() { return (expr); }, (timeout), (interval))
+
+/// @brief Asserts that a boolean condition will eventually become false
+/// @param condition A function that returns the boolean condition to check
+/// @param timeout Maximum time to wait for the condition (default: 1 second)
+/// @param interval Time to wait between checks (default: 1 millisecond)
+inline void eventually_false(
+    const std::function<bool()>& condition,
+    const std::chrono::milliseconds timeout = std::chrono::seconds(1),
+    const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
+) {
+    bool last_value;
+    eventually(
+        [&]() {
+            last_value = condition();
+            return !last_value;
+        },
+        [&]() {
+            std::stringstream ss;
+            ss << "EVENTUALLY_FALSE timed out after " 
+               << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+               << "ms. Expected FALSE, but got TRUE";
+            return ss.str();
+        },
+        timeout,
+        interval
+    );
+}
+
+/// @brief Asserts that a boolean condition will eventually become true
+/// @param condition A function that returns the boolean condition to check
+/// @param timeout Maximum time to wait for the condition (default: 1 second)
+/// @param interval Time to wait between checks (default: 1 millisecond)
+inline void eventually_true(
+    const std::function<bool()>& condition,
+    const std::chrono::milliseconds timeout = std::chrono::seconds(1),
+    const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
+) {
+    bool last_value;
+    eventually(
+        [&]() {
+            last_value = condition();
+            return last_value;
+        },
+        [&]() {
+            std::stringstream ss;
+            ss << "EVENTUALLY_TRUE timed out after " 
+               << std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count()
+               << "ms. Expected TRUE, but got FALSE";
+            return ss.str();
+        },
+        timeout,
+        interval
+    );
+}
+
+/// @brief macro for asserting that a condition will eventually become false
+/// @param expr The expression to evaluate
+#define ASSERT_EVENTUALLY_FALSE(expr) \
+    xtest::eventually_false([&]() { return (expr); })
+
+/// @brief macro for asserting that a condition will eventually become false with custom timeout and interval
+/// @param expr The expression to evaluate
+/// @param timeout Maximum time to wait for the condition
+/// @param interval Time to wait between checks
+#define ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(expr, timeout, interval) \
+    xtest::eventually_false([&]() { return (expr); }, (timeout), (interval))
+
+/// @brief macro for asserting that a condition will eventually become true
+/// @param expr The expression to evaluate
+#define ASSERT_EVENTUALLY_TRUE(expr) \
+    xtest::eventually_true([&]() { return (expr); })
+
+/// @brief macro for asserting that a condition will eventually become true with custom timeout and interval
+/// @param expr The expression to evaluate
+/// @param timeout Maximum time to wait for the condition
+/// @param interval Time to wait between checks
+#define ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(expr, timeout, interval) \
+    xtest::eventually_true([&]() { return (expr); }, (timeout), (interval))
 }

@@ -15,6 +15,8 @@
 
 /// module
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/xenv/xenv.h"
 
 class RackConfigTest: public ::testing::Test {
 protected:
@@ -44,7 +46,7 @@ TEST_F(RackConfigTest, testDefault) {
 TEST_F(RackConfigTest, loadRackFromPersistedState) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
-    auto rack_key = cfg.rack.key;
+    const auto rack_key = cfg.rack.key;
     auto [cfg2, err2] = rack::Config::load(args, brk);
     ASSERT_FALSE(err2) << err2;
     ASSERT_NE(cfg2.rack.key, 0);
@@ -106,6 +108,120 @@ TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     ASSERT_FALSE(err) << err;
     ASSERT_NE(cfg.rack.key, rack.key);
     ASSERT_NE(cfg.remote_info.cluster_key, "abc");
+}
+
+TEST_F(RackConfigTest, testDefaultTimingConfig) {
+    auto [cfg, err] = rack::Config::load(args, brk);
+    ASSERT_FALSE(err) << err;
+    // Assert default timing values
+    ASSERT_TRUE(cfg.timing.correct_skew); // Assuming the default is true
+}
+
+TEST_F(RackConfigTest, loadTimingConfigFromFile) {
+    // Create a temporary config file with timing settings
+    const std::string config_path = "/tmp/rack-config-test/config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({
+        "timing": {
+            "correct_skew": false
+        }
+    })";
+    config_file.close();
+    
+    // Set up args with config file
+    xargs::Parser config_args(std::vector<std::string>{
+        "program", 
+        "--state-file", "/tmp/rack-config-test/state.json",
+        "--config", config_path
+    });
+    
+    // Load config and verify timing settings
+    auto [cfg, err] = rack::Config::load(config_args, brk);
+    ASSERT_FALSE(err) << err;
+    ASSERT_FALSE(cfg.timing.correct_skew); // Verify the loaded value
+    
+    // Clean up
+    std::remove(config_path.c_str());
+}
+
+TEST_F(RackConfigTest, loadFromCommandLineArgs) {
+    xargs::Parser args_with_config(std::vector<std::string>{
+        "program",
+        "--state-file", "/tmp/rack-config-test/state.json",
+        "--host", "arghost",
+        "--port", "8080",
+        "--username", "arguser",
+        "--password", "argpass"
+    });
+
+    auto [cfg, err] = rack::Config::load(args_with_config, brk);
+    ASSERT_EQ(cfg.connection.host, "arghost");
+    ASSERT_EQ(cfg.connection.port, 8080);
+    ASSERT_EQ(cfg.connection.username, "arguser");
+    ASSERT_EQ(cfg.connection.password, "argpass");
+}
+
+TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
+    // Set environment variables
+    xenv::set("SYNNAX_DRIVER_HOST", "envhost");
+    xenv::set("SYNNAX_DRIVER_PORT", "7070");
+    xenv::set("SYNNAX_DRIVER_USERNAME", "envuser");
+    xenv::set("SYNNAX_DRIVER_PASSWORD", "envpass");
+
+    auto [cfg, err] = rack::Config::load(args, brk);
+    ASSERT_EQ(cfg.connection.host, "envhost");
+    ASSERT_EQ(cfg.connection.port, 7070);
+    ASSERT_EQ(cfg.connection.username, "envuser");
+    ASSERT_EQ(cfg.connection.password, "envpass");
+
+    // Clean up environment variables
+    xenv::unset("SYNNAX_DRIVER_HOST");
+    xenv::unset("SYNNAX_DRIVER_PORT");
+    xenv::unset("SYNNAX_DRIVER_USERNAME");
+    xenv::unset("SYNNAX_DRIVER_PASSWORD");
+}
+
+TEST_F(RackConfigTest, configurationPrecedence) {
+    // Create config file
+    const std::string config_path = "/tmp/rack-config-test/config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({
+        "connection": {
+            "host": "filehost",
+            "port": 6060,
+            "username": "fileuser",
+            "password": "filepass"
+        }
+    })";
+    config_file.close();
+
+    // Set environment variables (should override file)
+    xenv::set("SYNNAX_DRIVER_PORT", "7070");
+    xenv::set("SYNNAX_DRIVER_USERNAME", "envuser");
+    xenv::set("SYNNAX_DRIVER_PASSWORD", "envpass");
+    x::defer unset_env([&] {
+        xenv::unset("SYNNAX_DRIVER_PORT");
+        xenv::unset("SYNNAX_DRIVER_USERNAME");
+        xenv::unset("SYNNAX_DRIVER_PASSWORD");
+        std::remove(config_path.c_str());
+    });
+
+    // Set command line args (should override environment)
+    xargs::Parser args_with_config(std::vector<std::string>{
+        "program",
+        "--state-file", "/tmp/rack-config-test/state.json",
+        "--config", config_path,
+        "--username", "arguser",
+        "--password", "argpass"
+    });
+
+    auto [cfg, err] = rack::Config::load(args_with_config, brk);
+
+    // Command line args should take precedence
+    ASSERT_EQ(cfg.connection.host, "filehost");
+    ASSERT_EQ(cfg.connection.port, 7070);
+    ASSERT_EQ(cfg.connection.username, "arguser");
+    ASSERT_EQ(cfg.connection.password, "argpass");
 }
 
 // We need to explicitly define a main function here instead of using gtest_main

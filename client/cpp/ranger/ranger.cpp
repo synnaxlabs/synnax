@@ -19,8 +19,7 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
-using namespace synnax;
-
+namespace synnax {
 Range::Range(std::string name, telem::TimeRange time_range)
     : name(std::move(name)),
       time_range(time_range) {
@@ -172,4 +171,5 @@ xerrors::Error RangeKV::del(const std::string &key) const {
     req.add_keys(key);
     auto [res, err] = kv_delete_client->send(KV_DELETE_ENDPOINT, req);
     return err;
+}
 }

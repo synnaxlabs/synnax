@@ -188,3 +188,165 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
     ASSERT_TRUE(debug);
     cleanup(argc, argv);
 }
+
+TEST_F(XArgsTest, TestPrefixHandling) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--long-flag",
+        "-v",
+        "--unprefixed=value",
+        "-f", "file.txt"
+    });
+    parser = xargs::Parser(argc, argv);
+
+    // Test different prefix scenarios
+    ASSERT_TRUE(parser.flag("--long-flag")); // Original --
+    ASSERT_TRUE(parser.flag("long-flag")); // Auto-add --
+    ASSERT_TRUE(parser.flag("-v")); // Preserve single -
+    ASSERT_TRUE(parser.flag("v")); // Auto-add --
+    ASSERT_EQ(parser.required<std::string>("-f"), "file.txt"); // Preserve single -
+    ASSERT_EQ(parser.required<std::string>("unprefixed"), "value"); // Auto-add --
+
+    EXPECT_TRUE(parser.errors.empty());
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestSingleLetterFlags) {
+    auto [argc, argv] = make_args({
+        "program",
+        "-v",
+        "--f",
+        "-x=true"
+    });
+    parser = xargs::Parser(argc, argv);
+
+    // Test single letter flags with different prefixes
+    ASSERT_TRUE(parser.flag("v")); // Should match -v
+    ASSERT_TRUE(parser.flag("-v")); // Should match -v
+    ASSERT_TRUE(parser.flag("--v")); // Should match -v
+    ASSERT_TRUE(parser.flag("f")); // Should match --f
+    ASSERT_TRUE(parser.flag("-f")); // Should match --f
+    ASSERT_TRUE(parser.flag("--f")); // Should match --f
+    ASSERT_TRUE(parser.flag("x")); // Should match -x=true
+
+    EXPECT_TRUE(parser.errors.empty());
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestNullPointerHandling) {
+    // Test with nullptr argv
+    parser = xargs::Parser(0, nullptr);
+    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Verify behavior when trying to access values
+    const auto required_str = parser.required<std::string>("test");
+    EXPECT_TRUE(required_str.empty());
+    EXPECT_FALSE(parser.errors.empty());
+    EXPECT_EQ(parser.errors[0].message(), "[test] Required argument not found");
+
+    // Clear errors for next test
+    parser.errors.clear();
+
+    // Test optional values
+    const auto optional_str = parser.optional<std::string>("test", "default");
+    EXPECT_EQ(optional_str, "default");
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Test flags
+    EXPECT_FALSE(parser.flag("test"));
+    EXPECT_TRUE(parser.errors.empty());
+
+    // Test with zero argc but non-null argv
+    char *dummy_argv[] = {nullptr};
+    parser = xargs::Parser(0, dummy_argv);
+    EXPECT_TRUE(parser.argv_.empty());
+    EXPECT_TRUE(parser.errors.empty());
+}
+
+TEST_F(XArgsTest, TestWeirdArgumentNames) {
+    auto [argc, argv] = make_args({
+        "program",
+        "---triple-dash",
+        "----quad-dash=value",
+        "--weird@#$%chars",
+        "--spaces in value",
+        "--unicode-☺=smiley",
+        "--empty=",
+        "---=direct",
+        "--chain=one--chain=two",
+        "--duplicate=first",
+        "--duplicate=second",
+        "=standalone-equals",
+        "--=empty-name",
+        "--no-value=",
+        "--==double-equals",
+        "--missing-equals-dash--next-arg",
+        "--space = value",
+        "--=-",
+        "----",
+        "- -",
+        "--"
+    });
+    parser = xargs::Parser(argc, argv);
+
+    ASSERT_FALSE(parser.flag("triple-dash"));
+    ASSERT_TRUE(parser.flag("---triple-dash"));
+    ASSERT_EQ(parser.required<std::string>("quad-dash"), "");
+    ASSERT_EQ(parser.required<std::string>("----quad-dash"), "value");
+    ASSERT_TRUE(parser.flag("weird@#$%chars"));
+    ASSERT_EQ(parser.required<std::string>("spaces"), "");
+    ASSERT_EQ(parser.required<std::string>("unicode-☺"), "smiley");
+    ASSERT_EQ(parser.required<std::string>("empty"), "");
+    ASSERT_EQ(parser.required<std::string>("---"), "direct");
+    ASSERT_EQ(parser.required<std::string>("chain"), "one--chain=two");
+    ASSERT_FALSE(parser.flag("=standalone-equals"));
+    ASSERT_EQ(parser.required<std::string>(""), "standalone-equals");
+    ASSERT_EQ(parser.required<std::string>("=double-equals"), "");
+    ASSERT_TRUE(parser.flag("missing-equals-dash--next-arg"));
+    ASSERT_EQ(parser.required<std::string>("space"), "");
+    ASSERT_EQ(parser.required<std::string>("-"), "-");
+    ASSERT_TRUE(parser.flag("----"));
+    ASSERT_TRUE(parser.flag("- -"));
+    ASSERT_TRUE(parser.flag("--"));
+
+    EXPECT_FALSE(parser.errors.empty());
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestDuplicateArguments) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--name", "first",
+        "--name=second",
+        "--count", "10",
+        "--count", "20",
+        "--verbose",
+        "--verbose=false",
+        "--verbose"
+    });
+    parser = xargs::Parser(argc, argv);
+    
+    const auto name = parser.required<std::string>("name");
+    const auto count = parser.required<int>("count");
+    const auto verbose = parser.flag("verbose");
+
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(name, "second");
+    ASSERT_EQ(count, 20);
+    ASSERT_TRUE(verbose);  // Last --verbose flag wins
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestRegressionDash) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--correct-skew=true",
+    });
+    parser = xargs::Parser(argc, argv);
+
+    const auto correct_skew = parser.required<bool>("correct_skew");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_TRUE(correct_skew);
+    cleanup(argc, argv);
+}

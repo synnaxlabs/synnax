@@ -14,6 +14,9 @@
 #include <cmath>
 #include <thread>
 
+/// external
+#include "glog/logging.h"
+
 /// internal
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/breaker/breaker.h"
@@ -35,7 +38,7 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
     // to compute a more accurate sleep time for the machine running the code
     static telem::TimeSpan estimate = RESOLUTION * 10; // overestimate initially
     static telem::TimeSpan mean = RESOLUTION * 10;
-    static auto M2 = telem::TimeSpan(0);
+    static auto M2 = telem::TimeSpan::ZERO();
     static int64_t count = 1;
     while (dur > estimate) {
         auto start = hs_clock::now();
@@ -70,7 +73,7 @@ public:
     telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
         if (!last_set) {
             last_set = true;
-            return telem::TimeSpan(0);
+            return telem::TimeSpan::ZERO();
         }
         const auto elapsed = now - last;
         return telem::TimeSpan(elapsed);
@@ -116,44 +119,5 @@ private:
     telem::TimeSpan interval{};
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
-};
-
-class Gauge {
-    size_t count = 0;
-    telem::TimeSpan total_duration{0};
-    telem::TimeSpan min_duration{std::numeric_limits<int64_t>::max()};
-    telem::TimeSpan max_duration{0};
-    std::chrono::time_point<std::chrono::high_resolution_clock> curr_start;
-
-public:
-    void start() {
-        curr_start = std::chrono::high_resolution_clock::now();
-    }
-
-    void stop() {
-        if (curr_start == std::chrono::time_point<std::chrono::high_resolution_clock>{}) return;
-        const auto now = std::chrono::high_resolution_clock::now();
-        const auto duration = telem::TimeSpan(std::chrono::duration_cast<nanos>(now - curr_start));
-        total_duration += duration;
-        min_duration = std::min(min_duration, duration);
-        max_duration = std::max(max_duration, duration);
-        count++;
-    }
-
-    [[nodiscard]] telem::TimeSpan average() const {
-        if (count == 0) return telem::TimeSpan(0);
-        return total_duration / count;
-    }
-
-    [[nodiscard]] telem::TimeSpan min() const { return min_duration; }
-    [[nodiscard]] telem::TimeSpan max() const { return max_duration; }
-    [[nodiscard]] size_t iterations() const { return count; }
-
-    void reset() {
-        count = 0;
-        total_duration = telem::TimeSpan(0);
-        min_duration = telem::TimeSpan(std::numeric_limits<int64_t>::max());
-        max_duration = telem::TimeSpan(0);
-    }
 };
 }
