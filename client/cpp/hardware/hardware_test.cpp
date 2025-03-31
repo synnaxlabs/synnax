@@ -119,7 +119,6 @@ TEST(DeviceTests, testCreateDevice) {
         "test_device",
         r.key,
         "test_location",
-        "test_identifier",
         "test_make",
         "test_model",
         "test_properties"
@@ -138,7 +137,6 @@ TEST(DeviceTests, testRetrieveDevice) {
         "test_device",
         r.key,
         "test_location",
-        "test_identifier",
         "test_make",
         "test_model",
         "test_properties"
@@ -161,7 +159,6 @@ TEST(DeviceTests, testRetrieveDevices) {
         "test_device_1",
         r.key,
         "location_1",
-        "identifier_1",
         "make_1",
         "model_1",
         "properties_1"
@@ -174,7 +171,6 @@ TEST(DeviceTests, testRetrieveDevices) {
         "test_device_2",
         r.key,
         "location_2",
-        "identifier_2",
         "make_2",
         "model_2",
         "properties_2"
@@ -216,7 +212,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_1",
             r.key,
             "location_1",
-            "identifier_1",
             "make_1",
             "model_1",
             "properties_1"
@@ -226,7 +221,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_2",
             r.key,
             "location_2",
-            "identifier_2",
             "make_2",
             "model_2",
             "properties_2"
@@ -236,7 +230,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_3",
             r.key,
             "location_3",
-            "identifier_3",
             "make_3",
             "model_3",
             "properties_3"
@@ -254,7 +247,6 @@ TEST(DeviceTests, testCreateDevices) {
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
         ASSERT_EQ(retrieved.location, device.location);
-        ASSERT_EQ(retrieved.identifier, device.identifier);
         ASSERT_EQ(retrieved.make, device.make);
         ASSERT_EQ(retrieved.model, device.model);
         ASSERT_EQ(retrieved.properties, device.properties);
@@ -292,7 +284,6 @@ TEST(DeviceTests, testDeviceConfigured) {
         "test_device_1",
         r.key,
         "location_1",
-        "identifier_1",
         "make_1",
         "model_1",
         "properties_1"
@@ -305,7 +296,6 @@ TEST(DeviceTests, testDeviceConfigured) {
         "test_device_2",
         r.key,
         "location_2",
-        "identifier_2",
         "make_2",
         "model_2",
         "properties_2"

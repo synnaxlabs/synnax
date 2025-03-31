@@ -158,6 +158,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
       `All devices must be on the same driver: ${first.name} and ${mismatched.map((d) => d.name).join(", ")} are on different racks`,
     );
   }
+  console.log(allDevices);
   for (const dev of allDevices) {
     Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);

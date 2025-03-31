@@ -68,7 +68,6 @@ struct Device : synnax::Device {
             this->name,
             this->rack,
             this->location,
-            this->identifier,
             this->make,
             this->model,
             nlohmann::to_string(json{

@@ -105,7 +105,6 @@ message Device {
     string name = 2;
     uint32 rack = 3;
     string location = 4;
-    string identifier = 5;
     string make = 6;
     string model = 7;
     string properties = 8;

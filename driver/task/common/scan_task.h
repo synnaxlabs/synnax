@@ -184,7 +184,6 @@ public:
                 this->update_threshold_exceeded(scanned_dev.key)) {
                 scanned_dev.properties = remote_dev.properties;
                 scanned_dev.name = remote_dev.name;
-                scanned_dev.identifier = remote_dev.identifier;
                 scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();

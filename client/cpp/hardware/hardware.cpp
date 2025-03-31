@@ -318,7 +318,6 @@ Device::Device(const api::v1::Device &device) :
     name(device.name()),
     rack(device.rack()),
     location(device.location()),
-    identifier(device.identifier()),
     make(device.make()),
     model(device.model()),
     properties(device.properties()),
@@ -329,7 +328,6 @@ Device::Device(
     std::string name,
     RackKey rack,
     std::string location,
-    std::string identifier,
     std::string make,
     std::string model,
     std::string properties
@@ -337,7 +335,6 @@ Device::Device(
     name(std::move(name)),
     rack(rack),
     location(std::move(location)),
-    identifier(std::move(identifier)),
     make(std::move(make)),
     model(std::move(model)),
     properties(std::move(properties)) {}
@@ -347,7 +344,6 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_name(name);
     device->set_rack(rack);
     device->set_location(location);
-    device->set_identifier(identifier);
     device->set_make(make);
     device->set_model(model);
     device->set_properties(properties);

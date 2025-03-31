@@ -323,9 +323,6 @@ struct Device {
     /// @brief The physical location of the device.
     std::string location;
     
-    /// @brief An identifier for the device, such as a serial number.
-    std::string identifier;
-    
     /// @brief The manufacturer of the device.
     std::string make;
     
@@ -342,7 +339,6 @@ struct Device {
     /// @param name A human-readable name for the device.
     /// @param rack The rack that this device is connected to.
     /// @param location The physical location of the device.
-    /// @param identifier An identifier for the device.
     /// @param make The manufacturer of the device.
     /// @param model The model of the device.
     /// @param properties Additional properties of the device.
@@ -351,7 +347,6 @@ struct Device {
         std::string name,
         RackKey rack,
         std::string location,
-        std::string identifier,
         std::string make,
         std::string model,
         std::string properties

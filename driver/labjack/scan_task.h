@@ -14,14 +14,15 @@
 
 /// external
 #include "nlohmann/json.hpp"
+#include "ljm/LJM_Utilities.h"
 
 /// module
 #include "client/cpp/synnax.h"
 
 /// internal
+#include "driver/labjack/labjack.h"
 #include "device/device.h"
 #include "driver/task/common/scan_task.h"
-#include "ljm/LJM_Utilities.h"
 
 namespace labjack {
 /// @brief an extension of the default synnax device that includes LabJack properties
@@ -45,7 +46,6 @@ struct Device : synnax::Device {
             this->name,
             this->rack,
             this->location,
-            this->identifier,
             this->make,
             this->model,
             nlohmann::to_string(json{
@@ -122,8 +122,7 @@ class Scanner final : public common::Scanner {
                 name,
                 synnax::task_key_rack(this->task.key),
                 conn_type_str,
-                serial_str,
-                "LabJack",
+                MAKE,
                 device_type_str,
                 "" // Properties will be set in Device constructor
             );
