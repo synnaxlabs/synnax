@@ -281,13 +281,13 @@ std::pair<Device, xerrors::Error> HardwareClient::retrieve_device(
     auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0) {
-        if (ignore_not_found) {
-            return {Device(), xerrors::Error()};
-        }
+        if (ignore_not_found) return {Device(), xerrors::Error()};
         return {
             Device(),
-            xerrors::Error(xerrors::NOT_FOUND,
-                          "Device matching" + key + " not found")
+            xerrors::Error(
+                xerrors::NOT_FOUND,
+                "Device matching" + key + " not found"
+            )
         };
     }
     return {Device(res.devices(0)), err};
@@ -323,21 +323,22 @@ xerrors::Error HardwareClient::create_devices(const std::vector<Device> &devs) c
     return err;
 }
 
-xerrors::Error HardwareClient::delete_device(const std::string& key) const {
+xerrors::Error HardwareClient::delete_device(const std::string &key) const {
     auto req = api::v1::HardwareDeleteDeviceRequest();
     req.add_keys(key);
     auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
     return err;
 }
 
-xerrors::Error HardwareClient::delete_devices(const std::vector<std::string>& keys) const {
+xerrors::Error HardwareClient::delete_devices(
+    const std::vector<std::string> &keys) const {
     auto req = api::v1::HardwareDeleteDeviceRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
     return err;
 }
 
-Device::Device(const api::v1::Device &device) : 
+Device::Device(const api::v1::Device &device) :
     key(device.key()),
     name(device.name()),
     rack(device.rack()),
@@ -345,7 +346,8 @@ Device::Device(const api::v1::Device &device) :
     make(device.make()),
     model(device.model()),
     properties(device.properties()),
-    configured(device.configured()) {}
+    configured(device.configured()) {
+}
 
 Device::Device(
     std::string key,
@@ -361,7 +363,8 @@ Device::Device(
     location(std::move(location)),
     make(std::move(make)),
     model(std::move(model)),
-    properties(std::move(properties)) {}
+    properties(std::move(properties)) {
+}
 
 void Device::to_proto(api::v1::Device *device) const {
     device->set_key(key);
