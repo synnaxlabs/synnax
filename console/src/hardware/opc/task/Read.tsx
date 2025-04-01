@@ -86,8 +86,10 @@ const Properties = (): ReactElement => {
           label="Array Sampling"
           path="config.arrayMode"
           onChange={(value, { set }) => {
-            if (value) set("config.arraySize", 1);
-            else set("config.streamRate", 25);
+            // always set the array size to 1 for either the default in array mode or an
+            // array size of 1 in stream mode.
+            set("config.arraySize", 1);
+            if (!value) set("config.streamRate", 25);
           }}
         />
         {arrayMode ? (

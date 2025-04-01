@@ -22,7 +22,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -99,9 +98,8 @@ export type RootAction =
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_VISIBLE = isDev();
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
-  visible: DEFAULT_WINDOW_VISIBLE,
+  visible: IS_DEV,
   minSize: { width: 625, height: 375 },
 };
 
