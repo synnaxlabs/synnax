@@ -76,6 +76,16 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 	service := &Service{Config: cfg}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
 	service.shutdown = signal.NewHardShutdown(sCtx, cancel)
+
+	startLogMonitor := func() {
+		sCtx.Go(
+			service.logTheDog,
+			signal.WithRetryOnPanic(),
+			signal.WithBaseRetryInterval(2*time.Second),
+			signal.WithRetryScale(1.1),
+		)
+	}
+
 	if toOpen == "" {
 		_, err := service.retrieve(ctx)
 		if err != nil {
@@ -83,24 +93,16 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 			return service, nil
 		}
 		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
-		sCtx.Go(
-			service.logTheDog,
-			signal.WithRetryOnPanic(),
-			signal.WithBaseRetryInterval(2*time.Second),
-			signal.WithRetryScale(1.1),
-		)
+		startLogMonitor()
 		return service, nil
 	}
+
 	err = service.create(ctx, toOpen)
 	if err != nil {
 		return service, err
 	}
-	sCtx.Go(
-		service.logTheDog,
-		signal.WithRetryOnPanic(),
-		signal.WithBaseRetryInterval(2*time.Second),
-		signal.WithRetryScale(1.1),
-	)
+
+	startLogMonitor()
 	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
 		strconv.Itoa(int(getNumChan(toOpen))) + decode("IGNoYW5uZWxz"))
 	return service, err
@@ -134,12 +136,15 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	return nil
 }
 
+const retrieveKey = "bGljZW5zZUtleQ=="
+
 func (s *Service) retrieve(ctx context.Context) (string, error) {
-	key, closer, err := s.DB.Get(ctx, []byte("bGljZW5zZUtleQ=="))
+	key, closer, err := s.DB.Get(ctx, []byte(retrieveKey))
 	if err != nil {
 		return "", err
 	}
-	return string(key), closer.Close()
+	s.key = string(key)
+	return s.key, closer.Close()
 }
 
 func (s *Service) create(ctx context.Context, toCreate string) error {
@@ -147,7 +152,7 @@ func (s *Service) create(ctx context.Context, toCreate string) error {
 	if err != nil {
 		return err
 	}
-	if err := s.DB.Set(ctx, []byte("bGljZW5zZUtleQ=="), []byte(toCreate)); err != nil {
+	if err := s.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
 		return err
 	}
 	s.key = toCreate
@@ -155,11 +160,10 @@ func (s *Service) create(ctx context.Context, toCreate string) error {
 }
 
 func (s *Service) logTheDog(ctx context.Context) error {
-	key := s.key
-	if key == "" {
+	if s.key == "" {
 		return nil
 	}
-	staleTime, err := whenStale(key)
+	staleTime, err := whenStale(s.key)
 	if err != nil {
 		return err
 	}
