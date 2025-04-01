@@ -1,0 +1,62 @@
+---
+title: "Version 0.40 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+import LabJack from "@/pages/releases/LabJack.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Note } from "@synnaxlabs/pluto";
+export const components = mdxOverrides;
+
+<Release
+    version="0.40.0"
+    date="April 1, 2025"
+    title="Driver and Embedded Control Sequence Improvements"
+>
+
+Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves
+performance of the device driver, and fixes a few bugs related to the embedded control
+sequences.
+
+### Driver Clock Skew Improvements
+
+Our refactor of the driver in Synnax v0.39 made several major improvements, and,
+unfortunately, introduced a few performance issues related to task timing. In this
+release, we've introduced a new [clock skew detection
+algorithm](/reference/device-drivers/timing) that automatically corrects for timing
+offsets in hardware timed tasks.
+
+### Warnings on Slow Data Acquisition Tasks
+
+In previous versions of Synnax, tasks that were set at too high of a stream rate would
+silently fall behind drop data samples. This release introduces a new warning mechanisms
+that updates the Console task configuration dialog and logs a warning to the driver logs
+when Synnax cannot keep up with the requested stream rate.
+
+### Improved Device Disconnection Retry
+
+We've improved the device disconnection retry mechanisms for NI, LabJack, and OPC UA to
+better handle unexpected cable disconnections and loss of power.
+
+### Cleaner Transfer of Devices Across Drivers
+
+We've implemented a smoother mechanisms for moving data acquisition modules across
+drivers, ensuring that existing tasks on a device are correctly transferred and started
+on new drivers.
+
+### Other Improvements
+
+- It's now possible to change the identifier of a device after configuring it.
+- Added the location of a device to the device drop-down list selectors.
+
+### Bug Fixes
+
+- Fixed the location of the cursor in the embedded control sequence editor on Windows.
+- Fixed an issue where dragging and dropping windows outside of the Console would be
+  slow to open.
+- Added the [`set_authority`](/reference/control/embedded/reference#control-authority)
+  method to the embedded control sequence editor code completion.
+
+</Release>
