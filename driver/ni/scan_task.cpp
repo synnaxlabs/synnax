@@ -17,8 +17,8 @@
 ni::Scanner::Scanner(
     const std::shared_ptr<::syscfg::SugaredAPI> &syscfg,
     ScanTaskConfig cfg,
-    const synnax::Task &task
-): cfg(std::move(cfg)), task(task), syscfg(syscfg) {
+    synnax::Task task
+): cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {
 }
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
