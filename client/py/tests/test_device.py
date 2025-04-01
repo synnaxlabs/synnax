@@ -95,8 +95,7 @@ class TestDevice:
     def test_retrieve_ignore_not_found(self, client: sy.Synnax):
         # Test multiple device retrieval
         devices = client.hardware.devices.retrieve(
-            keys=["nonexistent_key1", "nonexistent_key2"],
-            ignore_not_found=True
+            keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=True
         )
         assert len(devices) == 0
 
@@ -104,6 +103,5 @@ class TestDevice:
         # Test multiple device retrieval
         with pytest.raises(sy.NotFoundError):
             client.hardware.devices.retrieve(
-                keys=["nonexistent_key1", "nonexistent_key2"],
-                ignore_not_found=False
+                keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
             )

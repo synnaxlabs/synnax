@@ -106,7 +106,7 @@ def create_timing_report(
     indices = np.arange(len(times) - 1)
     # Convert timestamps to nanoseconds and then calculate differences
     derivatives = np.diff(times)
-    
+
     # Check for negative derivatives
     negative_indices = np.where(derivatives < 0)[0]
     if len(negative_indices) > 0:
@@ -116,7 +116,7 @@ def create_timing_report(
         print("Original timestamps at these locations:")
         for idx in negative_indices:
             print(f"Index {idx}: {times[idx]} -> {times[idx+1]}")
-    
+
     ax1.plot(indices, derivatives, "cyan", marker="o", markersize=2)
     ax1.set_title("Time Value Derivatives vs Index")
     ax1.set_xlabel("Index")
