@@ -1,0 +1,64 @@
+---
+title: "Version 0.40 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+import LabJack from "@/pages/releases/LabJack.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Note } from "@synnaxlabs/pluto";
+export const components = mdxOverrides;
+
+<Release
+    version="0.40.0"
+    date="April 1, 2025"
+    title="Maintenance Release"
+>
+Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves 
+performance, and fixes a number of bugs.
+
+### Driver Clock Skew Improvements
+
+Our refactor of the driver in Synnax 0.39.0 made several major improvements, and,
+unfortunately, introduced a few performance issues related to task timing.
+
+In this release, we've introduced a new clock skew detection algorithm that
+automatically corrects for timing offsets in hardware timed tasks. For more information,
+see our new [timing](/reference/device-drivers/timing) documentation.
+
+### Warnings on Slow Data Acquisition Tasks
+
+In previous versions of Synnax, tasks that were set at too high of a stream rate would
+silently fall behind, and, samples would eventually be dropped. This release introduces
+a new warning mechanisms that updates the Console task configuration dialog when Synnax
+cannot keep up with the requested stream rate.
+
+### Improved Device Disconnection Retry
+
+We've improved the device disconnection retry mechanisms for NI, LabJack, and OPC UA to
+better handle unexpected cable disconnections and loss of power.
+
+### Cleaner Transfer of Devices Across Drivers
+
+We've implemented a smoother mechanisms for moving data acquisition modules across
+drivers, ensuring that existing tasks on a device are correctly transferred and started
+on new drivers.
+
+### Other Improvements
+
+- It's now possible to change the identifier of a device after configuring it.
+- Added the location of a device to it's drop down selector, making it easier to
+  differentiate devices of the same name running on separate drivers.
+
+### Bug Fixes
+
+- On Windows, the cursor in the embedded control sequence editor would be slightly
+  offset, landing in the middle of the character on long lines. This has been fixed.
+- Fixed an issue where dragging and dropping windows outside of the Console would be
+  slow to open.
+- The `set_authority` method in the embedded control sequence editor was not correctly
+  detected by intellisense as an available function. It should now correctly appear
+  as a built-in function.
+
+</Release>
