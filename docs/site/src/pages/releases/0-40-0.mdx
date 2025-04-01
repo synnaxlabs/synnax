@@ -13,26 +13,27 @@ export const components = mdxOverrides;
 <Release
     version="0.40.0"
     date="April 1, 2025"
-    title="Maintenance Release"
+    title="Driver and Embedded Control Sequence Improvements"
 >
-Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves 
-performance, and fixes a number of bugs.
+
+Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves
+performance of the device driver, and fixes a few bugs related to the embedded control
+sequences.
 
 ### Driver Clock Skew Improvements
 
-Our refactor of the driver in Synnax 0.39.0 made several major improvements, and,
-unfortunately, introduced a few performance issues related to task timing.
-
-In this release, we've introduced a new clock skew detection algorithm that
-automatically corrects for timing offsets in hardware timed tasks. For more information,
-see our new [timing](/reference/device-drivers/timing) documentation.
+Our refactor of the driver in Synnax v0.39 made several major improvements, and,
+unfortunately, introduced a few performance issues related to task timing. In this
+release, we've introduced a new [clock skew detection
+algorithm](/reference/device-drivers/timing) that automatically corrects for timing
+offsets in hardware timed tasks.
 
 ### Warnings on Slow Data Acquisition Tasks
 
 In previous versions of Synnax, tasks that were set at too high of a stream rate would
-silently fall behind, and, samples would eventually be dropped. This release introduces
-a new warning mechanisms that updates the Console task configuration dialog when Synnax
-cannot keep up with the requested stream rate.
+silently fall behind drop data samples. This release introduces a new warning mechanisms
+that updates the Console task configuration dialog and logs a warning to the driver logs
+when Synnax cannot keep up with the requested stream rate.
 
 ### Improved Device Disconnection Retry
 
@@ -48,17 +49,14 @@ on new drivers.
 ### Other Improvements
 
 - It's now possible to change the identifier of a device after configuring it.
-- Added the location of a device to it's drop down selector, making it easier to
-  differentiate devices of the same name running on separate drivers.
+- Added the location of a device to the device drop-down list selectors.
 
 ### Bug Fixes
 
-- On Windows, the cursor in the embedded control sequence editor would be slightly
-  offset, landing in the middle of the character on long lines. This has been fixed.
+- Fixed the location of the cursor in the embedded control sequence editor on Windows.
 - Fixed an issue where dragging and dropping windows outside of the Console would be
   slow to open.
-- The `set_authority` method in the embedded control sequence editor was not correctly
-  detected by intellisense as an available function. It should now correctly appear
-  as a built-in function.
+- Added the [`set_authority`](/reference/control/embedded/reference#control-authority)
+  method to the embedded control sequence editor code completion.
 
 </Release>
