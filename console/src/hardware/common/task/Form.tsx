@@ -140,10 +140,10 @@ export const useForm = <
   useEffect(() => {
     if (name != null) methods.set("name", name);
   }, [name]);
-  const [taskKey, setTaskKey] = useReactState<task.Key>(initialTask.key);
-  const configured = taskKey.length > 0;
+  const [task_, setTask_] = useReactState(initialTask);
+  const configured = task_.key.length > 0;
   const { state, triggerError, triggerLoading } = useState(
-    taskKey,
+    task_.key,
     initialTask.state ?? undefined,
   );
   const handleError = (e: Error, action: string) => {
@@ -161,7 +161,7 @@ export const useForm = <
       const { config, name } = methods.value();
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(client, config, name);
-      if (taskKey != "" && rackKey != task.getRackKey(taskKey)) {
+      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:
@@ -170,7 +170,7 @@ export const useForm = <
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;
-        await client.hardware.tasks.delete(BigInt(taskKey));
+        await client.hardware.tasks.delete(BigInt(task_.key));
       }
 
       methods.setCurrentStateAsInitialValues();
@@ -178,8 +178,11 @@ export const useForm = <
       // current work around for Pluto form issues (Issue: SY-1465)
       if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
       dispatch(Layout.rename({ key: layoutKey, name }));
-      const t = await create({ key: taskKey, name, type, config: newConfig }, rackKey);
-      setTaskKey(t.key);
+      const t = await create(
+        { key: task_.key, name, type, config: newConfig },
+        rackKey,
+      );
+      setTask_(t);
     },
     onError: (e: Error) => handleError(e, "configure"),
   });
@@ -189,7 +192,7 @@ export const useForm = <
       triggerLoading();
       const sugaredTask = client?.hardware.tasks.sugar({
         ...initialTask,
-        key: taskKey,
+        key: task_.key,
       });
       await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
     },
@@ -200,7 +203,7 @@ export const useForm = <
   const formProps = {
     methods,
     configured,
-    task: initialTask,
+    task: task_,
     isSnapshot,
     isRunning,
   } as FormProps<Config, Details, Type>;
