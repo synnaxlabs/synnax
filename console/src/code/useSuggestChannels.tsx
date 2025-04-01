@@ -52,8 +52,11 @@ const suggestChannelNames = (
         const isInSetCall = /set\s*\($/.test(beforeWord.trim());
 
         const channels = await searcher.search(word.word);
+        const filteredChannels = IS_DEV
+          ? channels
+          : channels.filter(({ internal }) => !internal);
         return {
-          suggestions: channels.map((channel) => ({
+          suggestions: filteredChannels.map((channel) => ({
             label: channel.name,
             kind: mon.languages.CompletionItemKind.Variable,
             insertText: isInSetCall
