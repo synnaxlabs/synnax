@@ -365,6 +365,8 @@ private:
     friend class HardwareClient;
 };
 
+
+
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
 /// @returns A map from device keys to devices.

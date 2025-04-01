@@ -1,0 +1,27 @@
+module(
+    name = "synnax",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "protobuf", version = "30.2")
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "platforms", version = "0.0.8")
+bazel_dep(name = "gflags", version = "2.2.2")
+bazel_dep(name = "glog", version = "0.6.0")
+bazel_dep(name = "googletest", version = "1.14.0")
+bazel_dep(name = "toolchains_protoc", version = "0.3.7")
+bazel_dep(name = "rules_proto_grpc", version = "5.0.1")
+bazel_dep(name = "rules_proto_grpc_cpp", version = "5.0.1")
+bazel_dep(name = "nlohmann_json", version = "3.11.2")
+bazel_dep(name = "bazel_skylib", version = "1.5.0")
+bazel_dep(name = "grpc", version = "1.71.0")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "lua",
+    urls = ["https://www.lua.org/ftp/lua-5.4.6.tar.gz"],
+    sha256 = "7d5ea1b9cb6aa0b59ca3dde1c6adcb57ef83a1ba8e5432c0ecd06bf439b3ad88",
+    strip_prefix = "lua-5.4.6",
+    build_file = "@//vendor/lua:BUILD.bazel",
+) 

@@ -1,3 +1,6 @@
+# Disable Bzlmod (Bazel Modules)
+common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools
+
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
@@ -7,8 +10,6 @@ build --enable_platform_specific_config
 build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
-build:macos --copt=-w
-build:macos --host_copt=-w
 
 # Linux
 build:linux --cxxopt=-std=c++17
