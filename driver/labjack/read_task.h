@@ -540,9 +540,20 @@ class StreamSource final : public common::Source {
     const std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
-    /// @brief re-usable buffer of values we load data into before converting it to a
-    /// frame.
-    std::vector<double> buf;
+    /// @brief buffer containing interleaved data directly from device
+    std::vector<double> interleaved_buf;
+    /// @brief buffer containing channel-grouped data after deinterleaving
+    std::vector<double> channel_grouped_buf;
+
+    /// @brief Deinterleaves data from interleaved_buf into channel_grouped_buf
+    void deinterleave() {
+        const size_t n_channels = this->cfg.channels.size();
+        const size_t n_samples = this->cfg.samples_per_chan;
+        for (size_t ch = 0; ch < n_channels; ch++)
+            for (size_t sample = 0; sample < n_samples; sample++)
+                this->channel_grouped_buf[ch * n_samples + sample] =
+                    this->interleaved_buf[ch + sample * n_channels];
+    }
 
 public:
     StreamSource(
@@ -556,7 +567,8 @@ public:
                this->cfg.stream_rate,
                this->cfg.timing.correct_skew
            )),
-       buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
+       interleaved_buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
+       channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {
     }
 
     /// @brief returns the configuration for opening the synnax writer.
@@ -613,7 +625,7 @@ public:
         int ljm_scan_backlog;
         if (
             res.error = translate_error(this->dev->e_stream_read(
-                this->buf.data(),
+                this->interleaved_buf.data(),
                 &device_scan_backlog,
                 &ljm_scan_backlog
             )); res.error
@@ -627,8 +639,10 @@ public:
         if (ljm_scan_backlog > this->cfg.ljm_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(ljm_scan_backlog);
 
+        this->deinterleave();
+
         const auto end = this->sample_clock.end();
-        common::transfer_buf(this->buf, fr, n_channels, n_samples);
+        common::transfer_buf(this->channel_grouped_buf, fr, n_channels, n_samples);
         common::generate_index_data(
             fr,
             this->cfg.indexes,
