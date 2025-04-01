@@ -546,13 +546,15 @@ class StreamSource final : public common::Source {
     std::vector<double> channel_grouped_buf;
 
     /// @brief Deinterleaves data from interleaved_buf into channel_grouped_buf
-    void deinterleave() {
+    std::vector<double> &deinterleave() {
         const size_t n_channels = this->cfg.channels.size();
+        if (n_channels <= 1) return this->interleaved_buf;
         const size_t n_samples = this->cfg.samples_per_chan;
         for (size_t ch = 0; ch < n_channels; ch++)
             for (size_t sample = 0; sample < n_samples; sample++)
                 this->channel_grouped_buf[ch * n_samples + sample] =
                     this->interleaved_buf[ch + sample * n_channels];
+        return this->channel_grouped_buf;
     }
 
 public:
@@ -638,11 +640,8 @@ public:
             res.warning = common::skew_warning(device_scan_backlog);
         if (ljm_scan_backlog > this->cfg.ljm_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(ljm_scan_backlog);
-
-        this->deinterleave();
-
         const auto end = this->sample_clock.end();
-        common::transfer_buf(this->channel_grouped_buf, fr, n_channels, n_samples);
+        common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
         common::generate_index_data(
             fr,
             this->cfg.indexes,
