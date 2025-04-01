@@ -87,7 +87,7 @@ struct HardwareTimedSampleClockConfig {
     ///
     /// The PID controller implements the following equation:
     /// u(t) = Kp * e(t) + Ki * ∫e(t)dt + Kd * de/dt
-    /// 
+    ///
     /// where:
     /// - e(t) = expected_end_time - system_end_time
     ///   (error between expected end time based on period and the actual system time)
@@ -96,7 +96,7 @@ struct HardwareTimedSampleClockConfig {
     /// - Ki = integral gain (1/nanoseconds)
     /// - Kd = derivative gain (nanoseconds)
     ///
-    double k_p = 0.1, k_i, k_d;
+    double k_p = 0.01, k_i = 0, k_d = 0;
     /// @brief the maximum value of the integral term of the PID controller. This is used
     /// to prevent windup. The value scales with the stream period to ensure the integral
     /// term remains effective at different sampling rates.
@@ -110,7 +110,7 @@ struct HardwareTimedSampleClockConfig {
     ///
     /// Expressed as a fraction of the stream period i.e.
     /// (stream_rate.period() * max_back_correction_factor);
-    double max_back_correction_factor = 0.001;
+    double max_back_correction_factor = 0.5;
 
     [[nodiscard]] telem::TimeSpan max_back_correction() const {
         return this->stream_rate.period() * this->max_back_correction_factor;
@@ -159,10 +159,12 @@ class HardwareTimedSampleClock final : public SampleClock {
     double integral = 0.0;
     /// @brief the previous error term of the PID controller.
     double prev_error = 0.0;
-
+    /// @brief the number of samples per channel acquired during each acquisition loop.
+    size_t samples_per_chan = 0;
 public:
     explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
-        cfg(std::move(cfg)) {
+        cfg(std::move(cfg)),
+        samples_per_chan(cfg.sample_rate / cfg.stream_rate) {
         this->cfg.validate();
     }
 
@@ -183,7 +185,13 @@ public:
     }
 
     telem::TimeStamp end() override {
-        auto sample_end = this->curr_start_sample_time + this->cfg.stream_rate.period();
+        // We use a fixed increment based on the number of samples per chan and the sample
+        // rate INSTEAD of the stream rate, as sometimes the stream rate does not
+        // reflect the actual real stream rate. This is true in scenarios where
+        // the sample rate is not an even multiple of the stream rate i.e. 2.5 KHz sample
+        // rate and 200 Hz stream rate, where we'd get 12.5 samples per channel.
+        const auto fixed_increment = this->cfg.sample_rate.period() * this->samples_per_chan;
+        auto sample_end = this->curr_start_sample_time + fixed_increment;
         const auto system_end = this->cfg.now();
         const double error = static_cast<double>((sample_end - system_end).
             nanoseconds());

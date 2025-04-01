@@ -77,7 +77,7 @@ def collect_samples(
         while now < end:
             now = sy.TimeStamp.now()
             data = streamer.read()[time_channel]
-            offset = sy.TimeStamp.since(data[-1])
+            offset = sy.TimeSpan(sy.TimeStamp.now() - sy.TimeStamp(data[-1]))
             offsets.append(offset)
             diff = sy.TimeSpan(data[-1] - data[-2])
             diffs.append(diff)
@@ -104,7 +104,19 @@ def create_timing_report(
     # Time Values Derivative vs Index plot
     ax1 = plt.subplot(2, 2, 1)
     indices = np.arange(len(times) - 1)
-    derivatives = np.diff([float(t) for t in times])
+    # Convert timestamps to nanoseconds and then calculate differences
+    derivatives = np.diff(times)
+
+    # Check for negative derivatives
+    negative_indices = np.where(derivatives < 0)[0]
+    if len(negative_indices) > 0:
+        print("\nWARNING: Negative derivatives detected!")
+        print("Negative derivatives found at indices:", negative_indices)
+        print("Derivative values at these indices:", derivatives[negative_indices])
+        print("Original timestamps at these locations:")
+        for idx in negative_indices:
+            print(f"Index {idx}: {times[idx]} -> {times[idx+1]}")
+
     ax1.plot(indices, derivatives, "cyan", marker="o", markersize=2)
     ax1.set_title("Time Value Derivatives vs Index")
     ax1.set_xlabel("Index")

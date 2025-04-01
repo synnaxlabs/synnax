@@ -323,9 +323,6 @@ struct Device {
     /// @brief The physical location of the device.
     std::string location;
     
-    /// @brief An identifier for the device, such as a serial number.
-    std::string identifier;
-    
     /// @brief The manufacturer of the device.
     std::string make;
     
@@ -335,14 +332,13 @@ struct Device {
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
 
-    bool configured;
+    bool configured = false;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.
     /// @param name A human-readable name for the device.
     /// @param rack The rack that this device is connected to.
     /// @param location The physical location of the device.
-    /// @param identifier An identifier for the device.
     /// @param make The manufacturer of the device.
     /// @param model The model of the device.
     /// @param properties Additional properties of the device.
@@ -351,7 +347,6 @@ struct Device {
         std::string name,
         RackKey rack,
         std::string location,
-        std::string identifier,
         std::string make,
         std::string model,
         std::string properties
@@ -443,15 +438,22 @@ public:
 
     /// @brief Retrieves a device by its key.
     /// @param key The key of the device to retrieve.
+    /// @param ignore_not_found If true, returns an empty device without error when not found.
     /// @returns A pair containing the retrieved device and an error if one occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error> retrieve_device(const std::string &key) const;
+    std::pair<Device, xerrors::Error> retrieve_device(
+        const std::string &key,
+        bool ignore_not_found = false
+    ) const;
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
+    /// @param ignore_not_found If true, skips non-existent devices without error.
     /// @returns A pair containing the retrieved devices and an error if one occurred.
-    [[nodiscard]] std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
-        const std::vector<std::string> &keys
+    [[nodiscard]]
+    std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
+        const std::vector<std::string> &keys,
+        bool ignore_not_found = false
     ) const;
 
     /// @brief Creates a device in the cluster.
@@ -471,6 +473,18 @@ public:
     /// @returns An error if the deletion failed.
     [[nodiscard]]
     xerrors::Error delete_rack(std::uint32_t key) const;
+
+    /// @brief Deletes a device by its key.
+    /// @param key The key of the device to delete.
+    /// @returns An error if the deletion failed.
+    [[nodiscard]]
+    xerrors::Error delete_device(const std::string& key) const;
+
+    /// @brief Deletes multiple devices by their keys.
+    /// @param keys The keys of the devices to delete.
+    /// @returns An error if the deletion failed.
+    [[nodiscard]]
+    xerrors::Error delete_devices(const std::vector<std::string>& keys) const;
 
 private:
     /// @brief Rack creation transport.

@@ -56,7 +56,8 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
         std::vector<std::string> &keys) override {
-        return this->client->hardware.retrieve_devices(keys);
+        // Ignore devices that are not found, as we can still work with partial results.
+        return this->client->hardware.retrieve_devices(keys, true);
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
@@ -163,7 +164,7 @@ public:
     xerrors::Error scan() {
         auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
         this->scanner_ctx.count++;
-        if (err) return err;
+        if (err || scanned_devs.empty()) return err;
 
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs) devices.push_back(device.key);
@@ -174,6 +175,9 @@ public:
 
         std::vector<synnax::Device> to_create;
         for (auto &scanned_dev: scanned_devs) {
+            // Unless the device already exists on the remote, it should not
+            // be configured. No exceptions.
+            scanned_dev.configured = false;
             auto iter = remote_devs.find(scanned_dev.key);
             if (iter == remote_devs.end()) {
                 to_create.push_back(scanned_dev);
@@ -184,12 +188,12 @@ public:
                 this->update_threshold_exceeded(scanned_dev.key)) {
                 scanned_dev.properties = remote_dev.properties;
                 scanned_dev.name = remote_dev.name;
-                scanned_dev.identifier = remote_dev.identifier;
                 scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
             }
         }
+        if (to_create.empty()) return xerrors::NIL;
         return this->client->create_devices(to_create);
     }
 

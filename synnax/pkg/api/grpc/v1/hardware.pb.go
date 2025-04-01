@@ -636,7 +636,6 @@ type Device struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Rack          uint32                 `protobuf:"varint,3,opt,name=rack,proto3" json:"rack,omitempty"`
 	Location      string                 `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
-	Identifier    string                 `protobuf:"bytes,5,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	Make          string                 `protobuf:"bytes,6,opt,name=make,proto3" json:"make,omitempty"`
 	Model         string                 `protobuf:"bytes,7,opt,name=model,proto3" json:"model,omitempty"`
 	Properties    string                 `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
@@ -699,13 +698,6 @@ func (x *Device) GetRack() uint32 {
 func (x *Device) GetLocation() string {
 	if x != nil {
 		return x.Location
-	}
-	return ""
-}
-
-func (x *Device) GetIdentifier() string {
-	if x != nil {
-		return x.Identifier
 	}
 	return ""
 }
@@ -827,10 +819,11 @@ func (x *HardwareCreateDeviceResponse) GetDevices() []*Device {
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Keys           []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	IgnoreNotFound bool                   `protobuf:"varint,2,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *HardwareRetrieveDeviceRequest) Reset() {
@@ -868,6 +861,13 @@ func (x *HardwareRetrieveDeviceRequest) GetKeys() []string {
 		return x.Keys
 	}
 	return nil
+}
+
+func (x *HardwareRetrieveDeviceRequest) GetIgnoreNotFound() bool {
+	if x != nil {
+		return x.IgnoreNotFound
+	}
+	return false
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -996,15 +996,12 @@ const file_synnax_pkg_api_grpc_v1_hardware_proto_rawDesc = "" +
 	"\x1cHardwareRetrieveTaskResponse\x12\"\n" +
 	"\x05tasks\x18\x01 \x03(\v2\f.api.v1.TaskR\x05tasks\"/\n" +
 	"\x19HardwareDeleteTaskRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\x04R\x04keys\"\xe8\x01\n" +
+	"\x04keys\x18\x01 \x03(\x04R\x04keys\"\xc8\x01\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04rack\x18\x03 \x01(\rR\x04rack\x12\x1a\n" +
-	"\blocation\x18\x04 \x01(\tR\blocation\x12\x1e\n" +
-	"\n" +
-	"identifier\x18\x05 \x01(\tR\n" +
-	"identifier\x12\x12\n" +
+	"\blocation\x18\x04 \x01(\tR\blocation\x12\x12\n" +
 	"\x04make\x18\x06 \x01(\tR\x04make\x12\x14\n" +
 	"\x05model\x18\a \x01(\tR\x05model\x12\x1e\n" +
 	"\n" +
@@ -1016,9 +1013,10 @@ const file_synnax_pkg_api_grpc_v1_hardware_proto_rawDesc = "" +
 	"\x1bHardwareCreateDeviceRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"H\n" +
 	"\x1cHardwareCreateDeviceResponse\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"3\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"]\n" +
 	"\x1dHardwareRetrieveDeviceRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"J\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\x12(\n" +
+	"\x10ignore_not_found\x18\x02 \x01(\bR\x0eignoreNotFound\"J\n" +
 	"\x1eHardwareRetrieveDeviceResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"1\n" +
 	"\x1bHardwareDeleteDeviceRequest\x12\x12\n" +

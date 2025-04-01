@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -43,6 +43,7 @@ import {
   useState,
 } from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
+import { useConfirm } from "@/modals/Confirm";
 
 export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
@@ -150,6 +151,8 @@ export const useForm = <
     handleError_(e, `Failed to ${action} ${values.name}`);
   };
 
+  const confirm = useConfirm();
+
   const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
@@ -158,6 +161,18 @@ export const useForm = <
       const { config, name } = methods.value();
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(client, config, name);
+      if (taskKey != "" && rackKey != task.getRackKey(taskKey)) {
+        const confirmed = await confirm({
+          message: "Device has been moved to different driver.",
+          description:
+            "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
+          confirm: { label: "Confirm", variant: "error" },
+          cancel: { label: "Cancel" },
+        });
+        if (!confirmed) return;
+        await client.hardware.tasks.delete(BigInt(taskKey));
+      }
+
       methods.setCurrentStateAsInitialValues();
       methods.set("config", newConfig);
       // current work around for Pluto form issues (Issue: SY-1465)

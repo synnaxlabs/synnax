@@ -128,9 +128,15 @@ xerrors::Error AnalogReader::start() {
 }
 
 int64 AnalogReader::update_skew(const size_t &n_requested) {
-    this->total_samples_requested += n_requested;
-    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &this->total_samples_acquired))
+    uInt64 next_total_samples_acquired;
+    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(this->task_handle, &next_total_samples_acquired))
         LOG(WARNING) << "[ni] failed to get total samples acquired: " << err;
+    if (next_total_samples_acquired < this->total_samples_acquired) {
+        LOG(WARNING) << "[ni] hardware reader detected recovery from failure.";
+        this->total_samples_requested = 0;
+    }
+    this->total_samples_acquired = next_total_samples_acquired;
+    this->total_samples_requested += n_requested;
     return static_cast<int64>(this->total_samples_acquired) -
            static_cast<int64>(this->total_samples_requested);
 }

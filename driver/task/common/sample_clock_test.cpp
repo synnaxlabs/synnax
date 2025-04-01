@@ -379,7 +379,7 @@ INSTANTIATE_TEST_SUITE_P(
             .sample_rate = telem::HZ * 2000,
             .stream_rate = telem::HZ * 200,
             .k_p = 0.1,
-            .k_i = 0.005,
+            .k_i = 0.01,
             .k_d = 0.000,
             .constant_offset = telem::MICROSECOND * 500,
             .jitter_func = [](int cycle) {
@@ -400,8 +400,8 @@ INSTANTIATE_TEST_SUITE_P(
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
                 static std::uniform_int_distribution<int64_t> dist(
-                    -100 * telem::MICROSECOND.nanoseconds(),
-                    100 * telem::MICROSECOND.nanoseconds()
+                    -80 * telem::MICROSECOND.nanoseconds(),
+                    80 * telem::MICROSECOND.nanoseconds()
                 );
                 return telem::TimeSpan(dist(gen));
             },

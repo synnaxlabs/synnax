@@ -119,7 +119,6 @@ TEST(DeviceTests, testCreateDevice) {
         "test_device",
         r.key,
         "test_location",
-        "test_identifier",
         "test_make",
         "test_model",
         "test_properties"
@@ -138,7 +137,6 @@ TEST(DeviceTests, testRetrieveDevice) {
         "test_device",
         r.key,
         "test_location",
-        "test_identifier",
         "test_make",
         "test_model",
         "test_properties"
@@ -161,7 +159,6 @@ TEST(DeviceTests, testRetrieveDevices) {
         "test_device_1",
         r.key,
         "location_1",
-        "identifier_1",
         "make_1",
         "model_1",
         "properties_1"
@@ -174,7 +171,6 @@ TEST(DeviceTests, testRetrieveDevices) {
         "test_device_2",
         r.key,
         "location_2",
-        "identifier_2",
         "make_2",
         "model_2",
         "properties_2"
@@ -216,7 +212,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_1",
             r.key,
             "location_1",
-            "identifier_1",
             "make_1",
             "model_1",
             "properties_1"
@@ -226,7 +221,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_2",
             r.key,
             "location_2",
-            "identifier_2",
             "make_2",
             "model_2",
             "properties_2"
@@ -236,7 +230,6 @@ TEST(DeviceTests, testCreateDevices) {
             "test_device_3",
             r.key,
             "location_3",
-            "identifier_3",
             "make_3",
             "model_3",
             "properties_3"
@@ -254,7 +247,6 @@ TEST(DeviceTests, testCreateDevices) {
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
         ASSERT_EQ(retrieved.location, device.location);
-        ASSERT_EQ(retrieved.identifier, device.identifier);
         ASSERT_EQ(retrieved.make, device.make);
         ASSERT_EQ(retrieved.model, device.model);
         ASSERT_EQ(retrieved.properties, device.properties);
@@ -292,7 +284,6 @@ TEST(DeviceTests, testDeviceConfigured) {
         "test_device_1",
         r.key,
         "location_1",
-        "identifier_1",
         "make_1",
         "model_1",
         "properties_1"
@@ -305,7 +296,6 @@ TEST(DeviceTests, testDeviceConfigured) {
         "test_device_2",
         r.key,
         "location_2",
-        "identifier_2",
         "make_2",
         "model_2",
         "properties_2"
@@ -325,5 +315,152 @@ TEST(DeviceTests, testDeviceConfigured) {
 
     ASSERT_FALSE(device_map[d1.key].configured);
     ASSERT_TRUE(device_map[d2.key].configured);
+}
+
+/// @brief it should correctly handle retrieving devices after deletion.
+TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+
+    // Create two devices
+    auto d1 = Device(
+        "device1_key",
+        "test_device_1",
+        r.key,
+        "location_1",
+        "make_1",
+        "model_1",
+        "properties_1"
+    );
+    ASSERT_NIL(client.hardware.create_device(d1));
+
+    auto d2 = Device(
+        "device2_key",
+        "test_device_2",
+        r.key,
+        "location_2",
+        "make_2",
+        "model_2",
+        "properties_2"
+    );
+    ASSERT_NIL(client.hardware.create_device(d2));
+
+    // Delete the first device
+    ASSERT_NIL(client.hardware.delete_device(d1.key));
+
+    // Try to retrieve both devices
+    std::vector<std::string> keys;
+    keys.push_back(d1.key);
+    keys.push_back(d2.key);
+    auto devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys, true));
+
+    // Assert that we got at least one device back (the non-deleted one)
+    ASSERT_GE(devices.size(), 1);
+
+    // Verify that the remaining device is the second one
+    bool found = false;
+    for (const Device& device : devices) {
+        if (device.key == d2.key) {
+            ASSERT_EQ(device.name, "test_device_2");
+            found = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found);
+}
+
+/// @brief it should correctly delete a device.
+TEST(DeviceTests, testDeleteDevice) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+    
+    auto d = Device(
+        "device_key",
+        "test_device",
+        r.key,
+        "test_location",
+        "test_make",
+        "test_model",
+        "test_properties"
+    );
+    ASSERT_NIL(client.hardware.create_device(d));
+    
+    ASSERT_NIL(client.hardware.delete_device(d.key));
+    
+    auto [_, err] = client.hardware.retrieve_device(d.key);
+    ASSERT_TRUE(err);
+    ASSERT_MATCHES(err, xerrors::NOT_FOUND);
+}
+
+/// @brief it should correctly delete multiple devices.
+TEST(DeviceTests, testDeleteDevices) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+
+    auto d1 = Device(
+        "device1_key",
+        "test_device_1",
+        r.key,
+        "location_1",
+        "make_1",
+        "model_1",
+        "properties_1"
+    );
+    ASSERT_NIL(client.hardware.create_device(d1));
+
+    auto d2 = Device(
+        "device2_key",
+        "test_device_2",
+        r.key,
+        "location_2",
+        "make_2",
+        "model_2",
+        "properties_2"
+    );
+    ASSERT_NIL(client.hardware.create_device(d2));
+
+    const std::vector keys = {d1.key, d2.key};
+    ASSERT_NIL(client.hardware.delete_devices(keys));
+
+    ASSERT_OCCURRED_AS_P(client.hardware.retrieve_devices(keys), xerrors::NOT_FOUND);
+}
+
+/// @brief it should correctly handle ignore_not_found flag.
+TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+
+    // Test retrieving non-existent device with ignore_not_found=true
+    const auto [device1, err1] = client.hardware.retrieve_device(
+        "nonexistent_key", 
+        true  // ignore_not_found
+    );
+    ASSERT_FALSE(err1);
+    ASSERT_TRUE(device1.key.empty());
+
+    // Test retrieving multiple devices with some not found
+    auto d1 = Device(
+        "device1_key",
+        "test_device_1",
+        r.key,
+        "location_1",
+        "make_1",
+        "model_1",
+        "properties_1"
+    );
+    ASSERT_NIL(client.hardware.create_device(d1));
+
+    std::vector<std::string> keys = {d1.key, "nonexistent_key"};
+    const auto [devices, err2] = client.hardware.retrieve_devices(
+        keys,
+        true  // ignore_not_found
+    );
+    ASSERT_FALSE(err2);
+    ASSERT_EQ(devices.size(), 1);
+    ASSERT_EQ(devices[0].key, d1.key);
 }
 }

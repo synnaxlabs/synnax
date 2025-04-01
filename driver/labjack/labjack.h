@@ -14,6 +14,8 @@
 #include "driver/task/common/sample_clock.h"
 
 namespace labjack {
+/// @brief make of LabJack devices.
+const std::string MAKE = "LabJack";
 /// @brief labjack integration name.
 const std::string INTEGRATION_NAME = "labjack";
 /// @brief T4 model name.

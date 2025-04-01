@@ -28,12 +28,22 @@ const std::string ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
 const std::string DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
 const std::vector UNREACHABLE_ERRORS = {
     daqmx::DEVICE_DISCONNECTED,
-    daqmx::RESOURCE_NOT_AVAILABLE
+    daqmx::RESOURCE_NOT_AVAILABLE,
+    daqmx::DEVICE_DISCONNECTED_2,
+    daqmx::ADC_CONVERSION_ERROR
+};
+const std::vector REQUIRES_RESTART_ERRORS = {
+    daqmx::RESOURCE_RESERVED,
+    daqmx::ROUTING_ERROR
 };
 
 inline xerrors::Error translate_error(const xerrors::Error &err) {
+    if (!err) return err;
+    LOG(WARNING) << "[ni] task encountered error: " << err;
     if (err.matches(UNREACHABLE_ERRORS))
         return daqmx::TEMPORARILY_UNREACHABLE;
+    if (err.matches(REQUIRES_RESTART_ERRORS))
+        return daqmx::REQUIRES_RESTART;
     if (err.matches(daqmx::APPLICATION_TOO_SLOW))
         return {
             xerrors::Error(
@@ -126,4 +136,4 @@ public:
         const synnax::Task &task
     );
 };
-} 
+}
