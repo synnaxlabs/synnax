@@ -11,7 +11,6 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { type Device } from "@/hardware/device/payload";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -92,6 +91,22 @@ describe("Device", async () => {
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
+    });
+    it("should handle ignoreNotFound option", async () => {
+      // Test multiple device retrieval
+      const results = await client.hardware.devices.retrieve(
+        ["nonexistent_key1", "nonexistent_key2"],
+        { ignoreNotFound: true },
+      );
+      expect(results).toEqual([]);
+    });
+
+    it("should throw an error when device not found and ignoreNotFound is false", async () => {
+      await expect(
+        client.hardware.devices.retrieve(["nonexistent_key"], {
+          ignoreNotFound: false,
+        }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

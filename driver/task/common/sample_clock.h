@@ -159,10 +159,12 @@ class HardwareTimedSampleClock final : public SampleClock {
     double integral = 0.0;
     /// @brief the previous error term of the PID controller.
     double prev_error = 0.0;
-
+    /// @brief the number of samples per channel acquired during each acquisition loop.
+    size_t samples_per_chan = 0;
 public:
     explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
-        cfg(std::move(cfg)) {
+        cfg(std::move(cfg)),
+        samples_per_chan(cfg.sample_rate / cfg.stream_rate) {
         this->cfg.validate();
     }
 
@@ -183,7 +185,8 @@ public:
     }
 
     telem::TimeStamp end() override {
-        auto sample_end = this->curr_start_sample_time + this->cfg.stream_rate.period();
+        const auto fixed_increment = this->cfg.sample_rate.period() * this->samples_per_chan;
+        auto sample_end = this->curr_start_sample_time + fixed_increment;
         const auto system_end = this->cfg.now();
         const double error = static_cast<double>((sample_end - system_end).
             nanoseconds());

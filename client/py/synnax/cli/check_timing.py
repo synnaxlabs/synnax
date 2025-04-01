@@ -160,7 +160,6 @@ def create_timing_report(
     diffs_array = np.array([float(d.microseconds) for d in diffs])
     diff_mean = np.mean(diffs_array)
     diff_std = np.std(diffs_array)
-    print(diff_std)
 
     # Find diff outliers
     diff_outliers = diffs_array[np.abs(diffs_array - diff_mean) > 5 * diff_std]

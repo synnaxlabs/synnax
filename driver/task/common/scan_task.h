@@ -164,7 +164,7 @@ public:
     xerrors::Error scan() {
         auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
         this->scanner_ctx.count++;
-        if (err) return err;
+        if (err || scanned_devs.empty()) return err;
 
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs) devices.push_back(device.key);

@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { id, primitiveIsZero, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -155,10 +155,9 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
     const first = allDevices[0];
     const mismatched = allDevices.filter((d) => d.rack !== first.rack);
     throw new Error(
-      `All devices must be on the same driver: ${first.name} and ${mismatched.map((d) => d.name).join(", ")} are on different racks`,
+      `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
     );
   }
-  console.log(allDevices);
   for (const dev of allDevices) {
     Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
