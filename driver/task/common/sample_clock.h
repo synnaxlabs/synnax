@@ -185,6 +185,11 @@ public:
     }
 
     telem::TimeStamp end() override {
+        // We use a fixed increment based on the number of samples per chan and the sample
+        // rate INSTEAD of the stream rate, as sometimes the stream rate does not
+        // reflect the actual real stream rate. This is true in scenarios where
+        // the sample rate is not an even multiple of the stream rate i.e. 2.5 KHz sample
+        // rate and 200 Hz stream rate, where we'd get 12.5 samples per channel.
         const auto fixed_increment = this->cfg.sample_rate.period() * this->samples_per_chan;
         auto sample_end = this->curr_start_sample_time + fixed_increment;
         const auto system_end = this->cfg.now();
