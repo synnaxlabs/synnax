@@ -65,6 +65,7 @@ func (c Config) Override(other Config) Config {
 type Service struct {
 	Config
 	shutdown io.Closer
+	key      string
 }
 
 func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, error) {
@@ -110,14 +111,18 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
-	key, err := s.retrieve(ctx)
-	if err != nil {
+	key := s.key
+	if key == "" {
 		if inUse > freeCount {
 			return errFree
 		}
 		return nil
 	}
-	if whenStale(key).Before(time.Now()) {
+	staleTime, err := whenStale(key)
+	if err != nil {
+		return err
+	}
+	if staleTime.Before(time.Now()) {
 		if inUse > freeCount {
 			return errStale
 		}
@@ -129,14 +134,6 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	return nil
 }
 
-func (s *Service) create(ctx context.Context, toCreate string) error {
-	err := validateInput(toCreate)
-	if err != nil {
-		return err
-	}
-	return s.DB.Set(ctx, []byte("bGljZW5zZUtleQ=="), []byte(toCreate))
-}
-
 func (s *Service) retrieve(ctx context.Context) (string, error) {
 	key, closer, err := s.DB.Get(ctx, []byte("bGljZW5zZUtleQ=="))
 	if err != nil {
@@ -145,12 +142,27 @@ func (s *Service) retrieve(ctx context.Context) (string, error) {
 	return string(key), closer.Close()
 }
 
-func (s *Service) logTheDog(ctx context.Context) error {
-	key, err := s.retrieve(ctx)
+func (s *Service) create(ctx context.Context, toCreate string) error {
+	err := validateInput(toCreate)
 	if err != nil {
 		return err
 	}
-	staleTime := whenStale(key)
+	if err := s.DB.Set(ctx, []byte("bGljZW5zZUtleQ=="), []byte(toCreate)); err != nil {
+		return err
+	}
+	s.key = toCreate
+	return nil
+}
+
+func (s *Service) logTheDog(ctx context.Context) error {
+	key := s.key
+	if key == "" {
+		return nil
+	}
+	staleTime, err := whenStale(key)
+	if err != nil {
+		return err
+	}
 	ticker := time.NewTicker(s.CheckInterval)
 	defer ticker.Stop()
 	for {
