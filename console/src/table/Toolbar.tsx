@@ -105,6 +105,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           <CellForm
             tableKey={layoutKey}
             cell={firstCell}
+            // trigger re-render if you select a different cell
+            key={firstCell.key}
             onVariantChange={(variant) => handleVariantChange(variant, firstCell.key)}
           />
         )}
