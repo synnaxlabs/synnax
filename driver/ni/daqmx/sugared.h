@@ -24,9 +24,17 @@ const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = CRITICAL_ERROR.sub("200561");
 const xerrors::Error APPLICATION_TOO_SLOW = CRITICAL_ERROR.sub("200729");
 const xerrors::Error DEVICE_DISCONNECTED = CRITICAL_ERROR.sub("88710");
 const xerrors::Error RESOURCE_NOT_AVAILABLE = CRITICAL_ERROR.sub("88708");
+const xerrors::Error DEVICE_DISCONNECTED_2 = CRITICAL_ERROR.sub("88709");
+const xerrors::Error ADC_CONVERSION_ERROR = CRITICAL_ERROR.sub("200019");
+const xerrors::Error RESOURCE_RESERVED = CRITICAL_ERROR.sub("201105");
+const xerrors::Error ROUTING_ERROR = CRITICAL_ERROR.sub("89130");
 const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
     TEMPORARY_ERROR,
     "The device is temporarily unreachable. Will keep trying"
+);
+const auto REQUIRES_RESTART = xerrors::Error(
+    TEMPORARILY_UNREACHABLE,
+    "Restarting task to recover"
 );
 
 class SugaredAPI {

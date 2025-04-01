@@ -175,6 +175,9 @@ public:
 
         std::vector<synnax::Device> to_create;
         for (auto &scanned_dev: scanned_devs) {
+            // Unless the device already exists on the remote, it should not
+            // be configured. No exceptions.
+            scanned_dev.configured = false;
             auto iter = remote_devs.find(scanned_dev.key);
             if (iter == remote_devs.end()) {
                 to_create.push_back(scanned_dev);

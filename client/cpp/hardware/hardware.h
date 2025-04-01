@@ -332,7 +332,7 @@ struct Device {
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
 
-    bool configured;
+    bool configured = false;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.

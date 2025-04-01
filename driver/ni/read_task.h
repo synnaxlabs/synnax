@@ -242,6 +242,13 @@ private:
         return this->hw_reader->stop();
     }
 
+    xerrors::Error restart() {
+        if (const auto err = this->hw_reader->stop()) return err;
+        if (const auto err = this->hw_reader->start()) return err;
+        this->sample_clock->reset();
+        return xerrors::NIL;
+    }
+
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
@@ -262,8 +269,18 @@ private:
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);
         res.error = this->curr_read_err;
+
+        if (this->curr_read_err.matches(daqmx::REQUIRES_RESTART)) {
+            res.error = translate_error(this->restart());
+            this->curr_read_err = res.error;
+            return res;
+        }
+
         if (res.error) return res;
-        if (prev_read_err) this->sample_clock->reset();
+        if (prev_read_err) {
+            this->sample_clock->reset();
+            return res;
+        }
 
         const auto end = this->sample_clock->end();
         common::transfer_buf(this->buf, fr, n_channels, n_samples);

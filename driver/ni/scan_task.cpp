@@ -30,6 +30,7 @@ std::pair<ni::Device, xerrors::Error> ni::Scanner::parse_device(
     Device dev;
     dev.make = MAKE;
     dev.rack = synnax::task_key_rack(this->task.key);
+    dev.configured = false;
 
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(

@@ -133,7 +133,7 @@ public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         ScanTaskConfig cfg,
-        const synnax::Task &task
+        synnax::Task task
     );
 
     xerrors::Error start() override;
