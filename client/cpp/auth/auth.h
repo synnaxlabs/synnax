@@ -33,10 +33,10 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<
+using AuthLoginClient =  freighter::UnaryClient<
     api::v1::LoginRequest,
     api::v1::LoginResponse
-> AuthLoginClient;
+>;
 
 const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
@@ -117,7 +117,7 @@ public:
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
             auto [host, _] = xos::get_hostname();
             auto direction = "ahead";
-            if (skew_calc.skew() > telem::TimeSpan(0)) direction = "behind";
+            if (skew_calc.skew() > telem::TimeSpan::ZERO()) direction = "behind";
             LOG(WARNING) <<"measured excessive clock skew between this host and the Synnax cluster.";
             LOG(WARNING) << "this host (" << host << ") is " << direction << "by approximately " << skew_calc.skew().abs();
             LOG(WARNING) << "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";

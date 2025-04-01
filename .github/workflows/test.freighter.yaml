@@ -114,7 +114,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: scripts/gofmt-check.sh freighter/go
+        run: bash scripts/gofmt-check.sh freighter/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -152,7 +152,7 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
-        run: scripts/gofmt-check.sh freighter/integration
+        run: bash scripts/gofmt-check.sh freighter/integration
 
   py:
     name: Python

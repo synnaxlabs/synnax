@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { id, primitiveIsZero, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -148,14 +148,19 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  // TODO: check that multiple devices are not being configured at once.
   let rackKey: rack.Key | undefined;
-  for (const devKey of devices) {
-    const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
-    if (!dev.configured) throw new Error(`${dev.name} is not configured`);
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>(devices);
+  const racks = new Set(allDevices.map((d) => d.rack));
+  if (racks.size > 1) {
+    const first = allDevices[0];
+    const mismatched = allDevices.filter((d) => d.rack !== first.rack);
+    throw new Error(
+      `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
+    );
+  }
+  for (const dev of allDevices) {
+    Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
-    if (rackKey != null && dev.rack !== rackKey)
-      throw new Error("All devices must be on the same rack");
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);

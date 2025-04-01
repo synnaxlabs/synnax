@@ -25,9 +25,6 @@ type Device struct {
 	Location string `json:"location" msgpack:"location"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Identifier is a short ID that is useful for identifying items related to this
-	// device.
-	Identifier string `json:"identifier" msgpack:"identifier"`
 	// Make is the manufacturer of the device.
 	Make string `json:"make" msgpack:"make"`
 	// Model is the model of the device.

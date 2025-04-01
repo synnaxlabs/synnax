@@ -132,7 +132,6 @@ TEST(TestScanTask, testSingleScan) {
 }
 
 TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
-    // Create test devices
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
@@ -141,7 +140,6 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -150,7 +148,6 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         std::vector<xerrors::Error>{}
     );
 
-    // Setup remote devices - device1 already exists on the remote
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(dev1);  // Device 1 already exists remotely
     
@@ -175,27 +172,32 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         std::move(cluster_api)
     );
 
-    // Execute a scan
     ASSERT_NIL(scan_task.scan());
 
-    // Verify only device2 was created (device1 already existed)
     EXPECT_EQ(created_devices->size(), 1);
-    if (created_devices->size() >= 1)
+    if (!created_devices->empty())
         EXPECT_EQ((*created_devices)[0].key, "device2");
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    // Create test devices
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
+    dev1.properties = "test_properties";
+    dev1.configured = true;
 
     synnax::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
+    dev1_moved.name = "cat";
+    dev1_moved.properties = "";
+    dev1_moved.configured = false;
 
     synnax::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
+    dev1_moved_2.name = "dog";
+    dev1_moved_2.properties = "test_properties";
+    dev1_moved_2.configured = false;
 
     // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
@@ -232,13 +234,16 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     );
 
     ASSERT_NIL(scan_task.scan());
-    
     EXPECT_EQ(created_devices->size(), 1);
-    EXPECT_EQ((*created_devices)[0].key, "device1");
-    EXPECT_EQ((*created_devices)[0].rack, 2);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).rack, 2);
+    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
-    EXPECT_EQ((*created_devices)[0].key, "device1");
-    EXPECT_EQ((*created_devices)[0].rack, 2);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).rack, 2);
+    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
 }

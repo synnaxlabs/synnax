@@ -27,7 +27,7 @@ public:
     /// @brief timestamp when the most recent measurement started
     telem::TimeStamp local_start_t = telem::TimeStamp(0);
     /// @brief running sum of all measured clock skews
-    telem::TimeSpan accumulated_skew = telem::TimeSpan(0);
+    telem::TimeSpan accumulated_skew = telem::TimeSpan::ZERO();
     /// @brief number of measurements taken
     std::uint64_t n = 0;
 
@@ -59,7 +59,7 @@ public:
     /// @brief returns the average clock skew across all measurements
     /// @return TimeSpan representing the average clock skew
     telem::TimeSpan skew() const {
-        if (this->n == 0) return telem::TimeSpan(0);
+        if (this->n == 0) return telem::TimeSpan::ZERO();
         return this->accumulated_skew / this->n;
     }
 

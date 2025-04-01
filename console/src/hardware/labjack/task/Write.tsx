@@ -217,7 +217,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
 
 const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
-  if (!dev.configured) throw new Error(`${dev.name} is not configured`);
+  Common.Device.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
   if (!shouldCreateStateIndex)

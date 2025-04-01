@@ -19,7 +19,6 @@
 /// internal.
 #include "freighter/cpp/freighter.h"
 
-
 namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
@@ -65,12 +64,18 @@ class Pool {
 public:
     Pool() = default;
 
+    /// @brief returns the number of channels in the pool.
+    size_t size() {
+        std::lock_guard lock(this->mu);
+        return this->channels.size();
+    }
+
     /// @brief Instantiates the GRPC pool to use TLS encryption where the CA certificate
     /// is located at the provided path.
     explicit Pool(const std::string &ca_path) {
         grpc::SslCredentialsOptions opts;
         opts.pem_root_certs = priv::read_file(ca_path);
-        credentials = grpc::SslCredentials(opts);
+        credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates the GRPC pool to use TLS encryption and authentication
@@ -82,10 +87,17 @@ public:
         const std::string &key_path
     ) {
         grpc::SslCredentialsOptions opts;
-        opts.pem_root_certs = priv::read_file(ca_path);
-        opts.pem_cert_chain = priv::read_file(cert_path);
-        opts.pem_private_key = priv::read_file(key_path);
-        credentials = grpc::SslCredentials(opts);
+        bool secure = false;
+        if (!ca_path.empty()) {
+            opts.pem_root_certs = priv::read_file(ca_path);
+            secure = true;
+        }
+        if (!cert_path.empty() && !key_path.empty()) {
+            opts.pem_cert_chain = priv::read_file(cert_path);
+            opts.pem_private_key = priv::read_file(key_path);
+            secure = true;
+        }
+        if (secure) credentials = SslCredentials(opts);
     }
 
     /// @brief instantiates a GRPC pool with the provided credentials.
@@ -97,18 +109,19 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> get_channel(const std::string &target) {
+    std::shared_ptr<grpc::Channel> get_channel(const freighter::URL &target) {
         std::lock_guard lock(this->mu);
-        const auto it = this->channels.find(target);
+        const auto host_addr = target.host_address();
+        const auto it = this->channels.find(host_addr);
         if (it != this->channels.end()) {
             auto channel = it->second;
             if (channel->GetState(true) == GRPC_CHANNEL_TRANSIENT_FAILURE)
-                this->channels.erase(target);
+                this->channels.erase(host_addr);
             else return channel;
         }
         const grpc::ChannelArguments args;
-        auto channel = grpc::CreateCustomChannel(target, this->credentials, args);
-        this->channels[target] = channel;
+        auto channel = CreateCustomChannel(host_addr, this->credentials, args);
+        this->channels[host_addr] = channel;
         return channel;
     }
 };
@@ -154,7 +167,7 @@ public:
     ) override {
         freighter::Context ctx(
             priv::PROTOCOL,
-            this->base_target.child(target).to_string(),
+            this->base_target.child(target),
             freighter::UNARY
         );
         return mw.exec(ctx, this, request);
@@ -195,7 +208,6 @@ template<typename RQ, typename RS, typename RPC>
 class Stream final :
         public freighter::Stream<RQ, RS>,
         freighter::Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS> > > {
-
     freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
         RS> > > mw;
 
@@ -212,6 +224,7 @@ class Stream final :
     xerrors::Error close_err = xerrors::NIL;
     /// @brief set to true when writes_done is called.
     bool writes_done_called = false;
+
 public:
     Stream(
         std::shared_ptr<grpc::Channel> ch,
@@ -238,7 +251,11 @@ public:
     std::pair<RS, xerrors::Error> receive() override {
         RS res;
         if (this->stream->Read(&res)) return {res, xerrors::NIL};
-        const auto ctx = freighter::Context(priv::PROTOCOL, "", freighter::STREAM);
+        const auto ctx = freighter::Context(
+            priv::PROTOCOL,
+            freighter::URL(),
+            freighter::STREAM
+        );
         auto v = nullptr;
         const auto err = this->mw.exec(ctx, this, v).second;
         return {res, err};
@@ -280,6 +297,7 @@ class StreamClient final : public freighter::StreamClient<RQ, RS>,
         std::nullptr_t,
         std::unique_ptr<freighter::Stream<RQ, RS> >
     > mw;
+
 public:
     StreamClient(
         const std::shared_ptr<Pool> &pool,
@@ -306,7 +324,7 @@ public:
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
             priv::PROTOCOL,
-            this->base_target.child(target).to_string(),
+            this->base_target.child(target),
             freighter::STREAM
         );
         auto v = nullptr;

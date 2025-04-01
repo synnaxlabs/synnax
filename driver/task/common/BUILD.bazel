@@ -10,6 +10,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
+        "//driver/pipeline",
         "//driver/task",
         "//driver/transform",
         "//x/cpp/loop",

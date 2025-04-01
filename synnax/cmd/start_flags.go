@@ -33,7 +33,7 @@ func configureStartFlags() {
 	startCmd.Flags().StringP(
 		listenFlag,
 		"l",
-		"127.0.0.1:9090",
+		"localhost:9090",
 		`The address to listen for client connections.`,
 	)
 
