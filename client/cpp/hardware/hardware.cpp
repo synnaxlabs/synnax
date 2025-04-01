@@ -269,28 +269,38 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
 
 const std::string RETRIEVE_DEVICE_ENDPOINT = "/hardware/device/retrieve";
 const std::string CREATE_DEVICE_ENDPOINT = "/hardware/device/create";
+const std::string DELETE_DEVICE_ENDPOINT = "/hardware/device/delete";
 
 std::pair<Device, xerrors::Error> HardwareClient::retrieve_device(
-    const std::string &key) const {
+    const std::string &key,
+    bool ignore_not_found
+) const {
     auto req = api::v1::HardwareRetrieveDeviceRequest();
     req.add_keys(key);
+    req.set_ignore_not_found(ignore_not_found);
     auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
     if (err) return {Device(), err};
-    if (res.devices_size() == 0)
+    if (res.devices_size() == 0) {
+        if (ignore_not_found) {
+            return {Device(), xerrors::Error()};
+        }
         return {
             Device(),
             xerrors::Error(xerrors::NOT_FOUND,
-                           "Device matching" + key + " not found")
+                          "Device matching" + key + " not found")
         };
+    }
     return {Device(res.devices(0)), err};
 }
 
 std::pair<std::vector<Device>, xerrors::Error> HardwareClient::retrieve_devices(
-    const std::vector<std::string> &keys) const {
+    const std::vector<std::string> &keys,
+    bool ignore_not_found
+) const {
     auto req = api::v1::HardwareRetrieveDeviceRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
+    req.set_ignore_not_found(ignore_not_found);
     auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
-    if (err) return {std::vector<Device>(), err};
     std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
     return {devices, err};
 }
@@ -310,6 +320,20 @@ xerrors::Error HardwareClient::create_devices(const std::vector<Device> &devs) c
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
     for (auto &device: devs) device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
+    return err;
+}
+
+xerrors::Error HardwareClient::delete_device(const std::string& key) const {
+    auto req = api::v1::HardwareDeleteDeviceRequest();
+    req.add_keys(key);
+    auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
+    return err;
+}
+
+xerrors::Error HardwareClient::delete_devices(const std::vector<std::string>& keys) const {
+    auto req = api::v1::HardwareDeleteDeviceRequest();
+    req.mutable_keys()->Add(keys.begin(), keys.end());
+    auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
     return err;
 }
 

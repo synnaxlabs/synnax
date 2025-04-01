@@ -121,6 +121,7 @@ message HardwareCreateDeviceResponse {
 
 message HardwareRetrieveDeviceRequest {
     repeated string keys = 1;
+    bool ignore_not_found = 2;
 }
 
 message HardwareRetrieveDeviceResponse {

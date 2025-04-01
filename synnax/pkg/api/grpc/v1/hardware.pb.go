@@ -819,10 +819,11 @@ func (x *HardwareCreateDeviceResponse) GetDevices() []*Device {
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Keys           []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	IgnoreNotFound bool                   `protobuf:"varint,2,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *HardwareRetrieveDeviceRequest) Reset() {
@@ -860,6 +861,13 @@ func (x *HardwareRetrieveDeviceRequest) GetKeys() []string {
 		return x.Keys
 	}
 	return nil
+}
+
+func (x *HardwareRetrieveDeviceRequest) GetIgnoreNotFound() bool {
+	if x != nil {
+		return x.IgnoreNotFound
+	}
+	return false
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -1005,9 +1013,10 @@ const file_synnax_pkg_api_grpc_v1_hardware_proto_rawDesc = "" +
 	"\x1bHardwareCreateDeviceRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"H\n" +
 	"\x1cHardwareCreateDeviceResponse\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"3\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"]\n" +
 	"\x1dHardwareRetrieveDeviceRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"J\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\x12(\n" +
+	"\x10ignore_not_found\x18\x02 \x01(\bR\x0eignoreNotFound\"J\n" +
 	"\x1eHardwareRetrieveDeviceResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"1\n" +
 	"\x1bHardwareDeleteDeviceRequest\x12\x12\n" +

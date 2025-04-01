@@ -438,15 +438,22 @@ public:
 
     /// @brief Retrieves a device by its key.
     /// @param key The key of the device to retrieve.
+    /// @param ignore_not_found If true, returns an empty device without error when not found.
     /// @returns A pair containing the retrieved device and an error if one occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error> retrieve_device(const std::string &key) const;
+    std::pair<Device, xerrors::Error> retrieve_device(
+        const std::string &key,
+        bool ignore_not_found = false
+    ) const;
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
+    /// @param ignore_not_found If true, skips non-existent devices without error.
     /// @returns A pair containing the retrieved devices and an error if one occurred.
-    [[nodiscard]] std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
-        const std::vector<std::string> &keys
+    [[nodiscard]]
+    std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
+        const std::vector<std::string> &keys,
+        bool ignore_not_found = false
     ) const;
 
     /// @brief Creates a device in the cluster.
@@ -466,6 +473,18 @@ public:
     /// @returns An error if the deletion failed.
     [[nodiscard]]
     xerrors::Error delete_rack(std::uint32_t key) const;
+
+    /// @brief Deletes a device by its key.
+    /// @param key The key of the device to delete.
+    /// @returns An error if the deletion failed.
+    [[nodiscard]]
+    xerrors::Error delete_device(const std::string& key) const;
+
+    /// @brief Deletes multiple devices by their keys.
+    /// @param keys The keys of the devices to delete.
+    /// @returns An error if the deletion failed.
+    [[nodiscard]]
+    xerrors::Error delete_devices(const std::vector<std::string>& keys) const;
 
 private:
     /// @brief Rack creation transport.

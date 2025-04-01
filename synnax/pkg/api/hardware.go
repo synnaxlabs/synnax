@@ -13,6 +13,7 @@ import (
 	"context"
 	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
 
@@ -382,14 +383,15 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys      []string `json:"keys" msgpack:"keys"`
-	Names     []string `json:"names" msgpack:"names"`
-	Makes     []string `json:"makes" msgpack:"makes"`
-	Models    []string `json:"models" msgpack:"models"`
-	Locations []string `json:"locations" msgpack:"locations"`
-	Search    string   `json:"search" msgpack:"search"`
-	Limit     int      `json:"limit" msgpack:"limit"`
-	Offset    int      `json:"offset" msgpack:"offset"`
+	Keys           []string `json:"keys" msgpack:"keys"`
+	Names          []string `json:"names" msgpack:"names"`
+	Makes          []string `json:"makes" msgpack:"makes"`
+	Models         []string `json:"models" msgpack:"models"`
+	Locations      []string `json:"locations" msgpack:"locations"`
+	Search         string   `json:"search" msgpack:"search"`
+	Limit          int      `json:"limit" msgpack:"limit"`
+	Offset         int      `json:"offset" msgpack:"offset"`
+	IgnoreNotFound bool     `json:"ignore_not_found" msgpack:"ignore_not_found"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -432,18 +434,18 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if hasModels {
 		q = q.WhereModels(req.Models...)
 	}
-	err := q.Entries(&res.Devices).Exec(ctx, nil)
-	if err != nil {
-		return HardwareRetrieveDeviceResponse{}, err
-	}
-	if err = svc.access.Enforce(ctx, access.Request{
+	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
+	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
 	}
-	return res, nil
+	if retErr != nil && req.IgnoreNotFound {
+		retErr = errors.Skip(retErr, query.NotFound)
+	}
+	return res, retErr
 }
 
 type HardwareDeleteDeviceRequest struct {

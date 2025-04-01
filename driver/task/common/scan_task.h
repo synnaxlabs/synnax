@@ -56,7 +56,8 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
         std::vector<std::string> &keys) override {
-        return this->client->hardware.retrieve_devices(keys);
+        // Ignore devices that are not found, as we can still work with partial results.
+        return this->client->hardware.retrieve_devices(keys, true);
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
