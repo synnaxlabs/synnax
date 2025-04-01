@@ -87,8 +87,7 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 	}
 
 	if toOpen == "" {
-		_, err := service.retrieve(ctx)
-		if err != nil {
+		if err := service.loadCache(ctx); err != nil {
 			service.Ins.L.Info(useFree)
 			return service, nil
 		}
@@ -138,13 +137,13 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 
 const retrieveKey = "bGljZW5zZUtleQ=="
 
-func (s *Service) retrieve(ctx context.Context) (string, error) {
+func (s *Service) loadCache(ctx context.Context) error {
 	key, closer, err := s.DB.Get(ctx, []byte(retrieveKey))
 	if err != nil {
-		return "", err
+		return err
 	}
 	s.key = string(key)
-	return s.key, closer.Close()
+	return closer.Close()
 }
 
 func (s *Service) create(ctx context.Context, toCreate string) error {
