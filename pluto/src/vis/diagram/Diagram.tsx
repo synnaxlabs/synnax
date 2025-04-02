@@ -488,7 +488,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack y borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
+  <Align.Pack borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
@@ -506,6 +506,7 @@ export const ToggleEditControl = ({
       uncheckedVariant="outlined"
       checkedVariant="filled"
       tooltipLocation={location.RIGHT_CENTER}
+      size="small"
       tooltip={
         editable ? (
           <Text.Text level="small">Disable edit mode</Text.Text>
@@ -542,6 +543,7 @@ export const FitViewControl = ({
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
       variant="outlined"
+      size="small"
       {...rest}
     >
       <Icon.Expand />
