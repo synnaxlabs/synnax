@@ -61,7 +61,7 @@ struct Device : synnax::Device {
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
     synnax::Device to_synnax() {
-        return synnax::Device(
+        auto dev = synnax::Device(
             this->key,
             this->name,
             this->rack,
@@ -75,6 +75,8 @@ struct Device : synnax::Device {
                 }
             )
         );
+        dev.state = this->state;
+        return dev;
     }
 };
 

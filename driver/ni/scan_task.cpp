@@ -57,6 +57,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {Device(), err};
     dev.model = property_value_buf;
+    dev.model = property_value_buf;
     if (dev.model.size() > 3) dev.model = dev.model.substr(3);
     dev.name = MAKE + " " + dev.model;
 
@@ -84,6 +85,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.state = synnax::DeviceState{
         .key = dev.key,
         .variant = "success",
+        .rack = dev.rack,
         .details = json{
             {"message", "Device present"},
             {"last_updated", telem::TimeStamp::now().nanoseconds()},

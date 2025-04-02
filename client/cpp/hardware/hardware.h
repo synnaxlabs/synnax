@@ -306,13 +306,15 @@ private:
 struct DeviceState {
     std::string key;
     std::string variant;
+    RackKey rack;
     json details;
 
-    json to_json() const {
+    [[nodiscard]] json to_json() const {
         json j;
         j["key"] = this->key;
         j["variant"] = this->variant;
         j["details"] = this->details;
+        j["rack"] = this->rack;
         return j;
     }
 };
