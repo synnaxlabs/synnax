@@ -48,28 +48,6 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-l4);
+    background: var(--pluto-gray-l6);
     border-radius: var(--pluto-border-radius);
-}
-
-.console-main-fixed--y {
-    height: calc(100vh - 6rem - 4.5rem);
-}
-.console-main-fixed--x {
-    width: calc(100vw - 8rem - 8rem);
-}
-
-.console-main--driving {
-    flex-grow: 0;
-    flex-shrink: 0;
-}
-
-.console-main--driven {
-    flex-grow: 1;
-    flex-shrink: 1;
-    overflow: hidden;
-}
-
-.console-main-content-drawers {
-    overflow: hidden;
 }

@@ -58,11 +58,11 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
       client,
-      selection: { resources, parent },
+      selection: { resources, parentID },
       state,
       services,
     }) => {
-      if (parent == null) return;
+      if (parentID == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
@@ -78,7 +78,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
         tree: state.nodes,
-        destination: parent.key,
+        destination: parentID.toString(),
         additions: Ontology.toTreeNodes(services, otg),
       });
       state.setNodes([...nextTree]);

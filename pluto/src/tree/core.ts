@@ -108,12 +108,16 @@ export const flatten = ({
 
 export interface MoveNodeProps {
   tree: Node[];
-  destination: string;
+  destination: string | null;
   keys: string | string[];
 }
 
 export const moveNode = ({ tree, destination, keys }: MoveNodeProps): Node[] => {
   keys = toArray(keys);
+  if (destination == null) {
+    const nodes = findNodes({ tree, keys });
+    return [...nodes, ...tree.filter((node) => !keys.includes(node.key))];
+  }
   keys.forEach((key) => {
     const node = findNode({ tree, key });
     if (node == null) return;
@@ -145,18 +149,24 @@ export const removeNode = ({ tree, keys }: RemoveNodeProps): Node[] => {
 
 export interface SetNodeProps {
   tree: Node[];
-  destination: string;
+  destination: string | null;
   additions: Node | Node[];
 }
 
 export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] => {
   additions = toArray(additions);
+  const uniqueAdditions = unique.by(additions, (node) => node.key, false);
+  const addedKeys = uniqueAdditions.map((node) => node.key);
+  if (destination == null)
+    return [
+      ...uniqueAdditions,
+      ...tree.filter((node) => !addedKeys.includes(node.key)),
+    ];
+
   const node = findNode({ tree, key: destination });
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
   node.children ??= [];
 
-  const uniqueAdditions = unique.by(additions, (node) => node.key, false);
-  const addedKeys = uniqueAdditions.map((node) => node.key);
   node.children = [
     ...uniqueAdditions,
     ...node.children.filter((child) => !addedKeys.includes(child.key)),

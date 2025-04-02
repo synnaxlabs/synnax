@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/Main.css";
-
 import {
   channel,
   linePlot,
@@ -72,6 +70,7 @@ const SideEffect = (): null => {
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   Layout.useTriggers();
+  Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
   return null;
@@ -90,23 +89,20 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
-    <Align.Space className="console-main-fixed--y" direction="x" empty>
+    <Align.Space
+      x
+      size="tiny"
+      grow
+      style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
+    >
       <Nav.Left />
-      <Align.Space
-        className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-        empty
-      >
-        <Align.Space className="console-main--driven" direction="x" empty>
-          <Nav.Drawer location="left" />
-          <main className="console-main--driven" style={{ position: "relative" }}>
-            <Mosaic />
-          </main>
-          <Nav.Drawer location="right" />
+      <Align.Space size="tiny" grow>
+        <Align.Space x size="tiny" grow style={{ height: 0 }}>
+          <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+          <Mosaic />
         </Align.Space>
-        <Nav.Drawer location="bottom" />
+        <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
       </Align.Space>
-      <Nav.Right />
     </Align.Space>
-    <Nav.Bottom />
   </>
 );

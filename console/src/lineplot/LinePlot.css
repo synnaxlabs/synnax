@@ -9,6 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-resize-multiple {
-    position: relative;
+.pluto-modal__bg {
+    .console-line-plot__nav-controls {
+        position: absolute;
+        top: 0rem;
+        right: 2rem;
+        z-index: 20;
+        opacity: 0;
+        transition: opacity 0.1s ease-in-out;
+    }
+    &:hover {
+        .console-line-plot__nav-controls {
+            opacity: 1;
+        }
+    }
 }

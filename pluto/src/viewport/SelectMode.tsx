@@ -32,9 +32,9 @@ interface TooltipProps {
 }
 
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Align.Space direction="x" align="center">
+  <Align.Space x align="center">
     <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Align.Space empty direction="x" align="center">
+    <Align.Space empty x align="center">
       <Triggers.Text trigger={triggers[0]} level="small" />
     </Align.Space>
   </Align.Space>
@@ -73,10 +73,10 @@ export const SelectMode = ({
         <Button.Icon
           {...rest}
           key={entry.key}
-          variant={rest.selected ? "filled" : "text"}
-          size="medium"
+          variant={rest.selected ? "filled" : "outlined"}
+          size="small"
           tooltip={entry.tooltip}
-          tooltipLocation={{ x: "right", y: "top" }}
+          tooltipLocation={{ x: "left", y: "bottom" }}
         >
           {entry.icon}
         </Button.Icon>

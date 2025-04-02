@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, type IconProps } from "@synnaxlabs/media";
+import { box, type location, scale, xy } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
   useCallback,
+  useState,
 } from "react";
 
 import { Align } from "@/align";
@@ -26,10 +28,12 @@ import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export interface SelectorProps
-  extends Omit<Align.SpaceProps, "children" | "contextMenu"> {
+  extends Omit<Align.SpaceProps, "children" | "contextMenu" | "onDrop"> {
   size?: ComponentSize;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
+  addTooltip?: string;
 }
 
 const CLS = "tabs-selector";
@@ -40,6 +44,7 @@ export const Selector = ({
   size = "medium",
   direction = "x",
   contextMenu,
+  addTooltip,
   ...rest
 }: SelectorProps): ReactElement | null => {
   const {
@@ -55,53 +60,69 @@ export const Selector = ({
     onCreate,
   } = useContext();
   const menuProps = Menu.useContextMenu();
-  const content = (
-    <Align.Space
-      className={CSS(CSS.B(CLS), CSS.size(size), className)}
-      align="center"
-      justify="spaceBetween"
-      onDrop={onDrop}
-      empty
-      direction={direction}
-      {...rest}
-    >
-      <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
-        {tabs.map((tab) => (
-          <SelectorButton
-            key={tab.tabKey}
-            selected={selected}
-            altColor={altColor}
-            onSelect={onSelect}
-            onClose={onClose}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            onRename={onRename}
-            closable={tab.closable ?? closable}
-            size={size}
-            {...tab}
-          />
-        ))}
-      </Align.Space>
-      {onCreate != null && (
-        <Align.Space className={CSS.BE(CLS, "actions")}>
-          <Button.Icon size={size} sharp onClick={onCreate}>
-            <Icon.Add />
-          </Button.Icon>
-        </Align.Space>
+  const [draggingOver, setDraggingOver] = useState<boolean>(false);
+  return (
+    <>
+      {contextMenu != null && (
+        <Menu.ContextMenu
+          style={{ height: "fit-content" }}
+          {...menuProps}
+          menu={contextMenu}
+        />
       )}
-    </Align.Space>
-  );
-  if (contextMenu != null)
-    return (
-      <Menu.ContextMenu
-        style={{ height: "fit-content" }}
-        {...menuProps}
-        menu={contextMenu}
+      <Align.Space
+        className={CSS(
+          CSS.B(CLS),
+          CSS.size(size),
+          className,
+          menuProps.className,
+          draggingOver && CSS.M("drag-over"),
+        )}
+        align="center"
+        justify="spaceBetween"
+        empty
+        direction={direction}
+        onContextMenu={menuProps.open}
+        onDrop={onDrop}
+        {...rest}
       >
-        {content}
-      </Menu.ContextMenu>
-    );
-  return content;
+        <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
+          {tabs.map((tab) => (
+            <SelectorButton
+              key={tab.tabKey}
+              selected={selected}
+              altColor={altColor}
+              onSelect={onSelect}
+              onClose={onClose}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onRename={onRename}
+              closable={tab.closable ?? closable}
+              size={size}
+              {...tab}
+            />
+          ))}
+          {onDrop != null && (
+            <Align.Space
+              onDragOver={() => setDraggingOver(true)}
+              onDragLeave={() => setDraggingOver(false)}
+              onDragEnd={() => setDraggingOver(false)}
+              onDrop={() => setDraggingOver(false)}
+              grow
+            />
+          )}
+        </Align.Space>
+
+        {onCreate != null && (
+          <Align.Space className={CSS.BE(CLS, "actions")}>
+            <Button.Icon size={size} sharp onClick={onCreate} tooltip={addTooltip}>
+              <Icon.Add />
+            </Button.Icon>
+          </Align.Space>
+        )}
+      </Align.Space>
+    </>
+  );
 };
 
 interface CloseIconProps extends IconProps {
@@ -109,15 +130,25 @@ interface CloseIconProps extends IconProps {
 }
 
 const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement => {
-  const closeIcon = <Icon.Close className={CSS.BEM(CLS, "icon", "close")} {...props} />;
+  const closeIcon = <Icon.Close {...props} />;
   if (unsavedChanges)
     return (
       <>
-        <Icon.Circle className={CSS.BEM(CLS, "icon", "unsaved")} />
+        <Icon.Circle />
         {closeIcon}
       </>
     );
   return closeIcon;
+};
+
+const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location.X => {
+  const b = box.construct(
+    (e.target as HTMLElement).closest(".pluto-tabs-selector__btn"),
+  );
+  const cursor = xy.construct(e);
+  const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
+  if (s < 0.5) return "left";
+  return "right";
 };
 
 const SelectorButton = ({
@@ -135,6 +166,7 @@ const SelectorButton = ({
   size,
   editable = true,
   unsavedChanges = false,
+  onDrop,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -155,10 +187,24 @@ const SelectorButton = ({
   );
 
   const handleClick = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
+  const [dragOverPosition, setDragOverPosition] = useState<location.X | null>(null);
+
+  const handleDragOver: DragEventHandler<HTMLDivElement> = useCallback(
+    (e) => {
+      setDragOverPosition(calculateDragOverPosition(e));
+    },
+    [setDragOverPosition, onDrop],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      onDrop?.(e);
+      setDragOverPosition(null);
+    },
+    [onDrop, setDragOverPosition],
+  );
 
   const isSelected = selected === tabKey;
-  const hasIcon = icon != null;
-
   const level = Text.ComponentSizeLevels[size];
 
   return (
@@ -168,28 +214,34 @@ const SelectorButton = ({
       className={CSS(
         CSS.BE(CLS, "btn"),
         Menu.CONTEXT_TARGET,
-        onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
         CSS.altColor(altColor),
-        closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
-        hasIcon && CSS.BEM(CLS, "btn", "has-icon"),
-        CSS.editable(onRename != null && editable),
+        closable && onClose != null && CSS.M("closable"),
+        CSS.editable(editable && onRename != null),
+        dragOverPosition != null && CSS.M("drag-over"),
+        dragOverPosition != null && CSS.loc(dragOverPosition),
       )}
       draggable
-      direction="x"
+      x
       justify="center"
       align="center"
       onClick={handleClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragLeave={() => setDragOverPosition(null)}
       onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(e) => {
+        setDragOverPosition(null);
+        handleDragEnd(e);
+      }}
       bordered={false}
       rounded={false}
     >
       {PIcon.resolve(icon as PIcon.Element, {
         className: CSS.BE(CLS, "icon"),
         style: {
-          color: CSS.shadeVar(7),
+          color: CSS.shadeVar(9),
           height: CSS.levelSizeVar(level),
           width: CSS.levelSizeVar(level),
         },
@@ -205,7 +257,7 @@ const SelectorButton = ({
         <Button.Icon
           aria-label="pluto-tabs__close"
           onClick={handleClose}
-          className={CSS.BEM(CLS, "btn", "close")}
+          className={CSS.E("close")}
         >
           <CloseIcon unsavedChanges={unsavedChanges} />
         </Button.Icon>
@@ -219,6 +271,7 @@ export interface SelectorButtonProps extends Spec {
   altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
@@ -232,8 +285,6 @@ interface NameProps extends Text.CoreProps<Text.Level> {
   editable?: boolean;
 }
 
-const NAME_CLS = CSS.BE(CLS, "name");
-
 const Name = ({
   onRename,
   name,
@@ -243,19 +294,17 @@ const Name = ({
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text className={NAME_CLS} noWrap {...rest}>
+      <Text.Text noWrap {...rest}>
         {name}
       </Text.Text>
     );
   return (
-    <div className={NAME_CLS}>
-      <Text.Editable<Text.Level>
-        id={CSS.B(`tab-${tabKey}`)}
-        onChange={(newText: string) => onRename(tabKey, newText)}
-        value={name}
-        noWrap
-        {...rest}
-      />
-    </div>
+    <Text.Editable<Text.Level>
+      id={CSS.B(`tab-${tabKey}`)}
+      onChange={(newText: string) => onRename(tabKey, newText)}
+      value={name}
+      noWrap
+      {...rest}
+    />
   );
 };

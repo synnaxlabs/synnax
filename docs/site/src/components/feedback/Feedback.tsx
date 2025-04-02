@@ -100,7 +100,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         direction="y"
         style={{
           borderRadius: "1rem",
-          borderColor: "var(--pluto-gray-l4)",
+          borderColor: "var(--pluto-gray-l6)",
           width: "800px",
           maxWidth: "100%",
         }}
@@ -113,7 +113,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             <Breadcrumb.Breadcrumb
               level="p"
               weight={450}
-              shade={7}
+              shade={11}
               icon={<Icon.Feedback />}
             >
               Feedback
@@ -121,7 +121,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
             <Button.Icon variant="text" size="small">
-              <Icon.Close style={{ color: "var(--color-pluto-gray-l8)" }} />
+              <Icon.Close style={{ color: "var(--color-pluto-gray-l10)" }} />
             </Button.Icon>
           </Nav.Bar.End>
         </Nav.Bar>
@@ -167,7 +167,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" shade={6}>
+            <Text.Text level="small" shade={10}>
               If you'd like a response, please include your name and email.
             </Text.Text>
           </Align.Space>

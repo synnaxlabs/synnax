@@ -72,26 +72,19 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       setLoading("submit");
       const state = await testConnection(data);
       setLoading(null);
-      if (state.status !== "connected") return setConnState(state);
-      dispatch(set({ ...data, key: state.clusterKey }));
-      dispatch(setActive(state.clusterKey));
-      onClose();
-    }, "Failed to connect to cluster");
-
-  const handleTestConnection = (): void =>
-    handleError(async () => {
-      if (!methods.validate()) return;
-      setConnState(null);
-      setLoading("test");
-      const state = await testConnection(methods.value());
       setConnState(state);
-      setLoading(null);
-    }, "Failed to test connection");
+      if (state.status !== "connected") return;
+      setTimeout(() => {
+        dispatch(set({ ...data, key: state.clusterKey }));
+        dispatch(setActive(state.clusterKey));
+        onClose();
+      }, 500);
+    }, "Failed to connect to cluster");
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
       <Form.Form {...methods}>
-        <Align.Space className="console-form" grow size={0.5} justify="center">
+        <Align.Space className="console-form" grow size="tiny" justify="center">
           <Form.TextField
             path="name"
             inputProps={{
@@ -101,7 +94,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
               placeholder: "My Synnax Cluster",
             }}
           />
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Form.Field>
@@ -112,7 +105,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
           <Form.Field<string> path="username">
             {(p) => <Input.Text placeholder="synnax" {...p} />}
           </Form.Field>
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
               {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
@@ -129,25 +122,17 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
                 : connState.message}
             </Status.Text>
           ) : (
-            <Triggers.SaveHelpText action="Test Connection" noBar />
+            <Triggers.SaveHelpText action="Connect" noBar />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            loading={loading === "test"}
-            disabled={loading !== null}
-            variant="text"
-            onClick={handleTestConnection}
-            triggers={Triggers.SAVE}
-          >
-            Test Connection
-          </Button.Button>
-          <Button.Button
             onClick={handleSubmit}
             loading={loading === "submit"}
             disabled={loading !== null}
+            triggers={Triggers.SAVE}
           >
-            Done
+            Connect
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>

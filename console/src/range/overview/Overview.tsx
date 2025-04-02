@@ -21,7 +21,7 @@ import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Align.Space
-    direction="y"
+    y
     style={{
       padding: "5rem",
       maxWidth: 1050,
@@ -33,11 +33,11 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
   >
     <Details rangeKey={layoutKey} />
     <Labels rangeKey={layoutKey} />
-    <Divider.Divider direction="x" />
+    <Divider.Divider x />
     <MetaData rangeKey={layoutKey} />
-    <Divider.Divider direction="x" />
+    <Divider.Divider x />
     <ChildRanges rangeKey={layoutKey} />
-    <Divider.Divider direction="x" />
+    <Divider.Divider x />
     <Snapshots rangeKey={layoutKey} />
   </Align.Space>
 );

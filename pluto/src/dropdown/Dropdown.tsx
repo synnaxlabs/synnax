@@ -33,6 +33,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
+import { Modal } from "@/modal";
 import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
@@ -93,6 +94,7 @@ export const Dialog = ({
   close,
   maxHeight,
   zIndex = 5,
+  bordered = true,
   ...rest
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
@@ -115,15 +117,16 @@ export const Dialog = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
+    const rounded = adjustedDialog;
     const nextState: State = {
       dialogLoc: location,
-      width: box.width(adjustedDialog),
-      left: box.left(adjustedDialog),
+      width: box.width(rounded),
+      left: box.left(rounded),
     };
-    if (location.y === "bottom") nextState.top = box.top(adjustedDialog);
+    if (location.y === "bottom") nextState.top = box.top(rounded);
     else {
       const windowBox = box.construct(window.document.documentElement);
-      nextState.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
+      nextState.bottom = box.height(windowBox) - box.bottom(rounded);
     }
     setState(nextState);
   }, [propsLocation, variant]);
@@ -157,11 +160,13 @@ export const Dialog = ({
   const exclude = useCallback(
     (e: { target: EventTarget | null }) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
+      return false;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
         const isDialog = el?.getAttribute("role") === "dialog";
         if (!isDialog) return false;
         const zi = el.style.zIndex;
+        console.log(zi, zIndex, el, e.target);
         return Number(zi) > zIndex;
       });
       return parent != null;
@@ -184,6 +189,7 @@ export const Dialog = ({
       )}
       role="dialog"
       empty
+      bordered={bordered}
       style={dialogStyle}
     >
       {(keepMounted || visible) && children[1]}
@@ -192,16 +198,16 @@ export const Dialog = ({
   if (variant === "floating") child = createPortal(child, getRootElement());
   else if (variant === "modal")
     child = createPortal(
-      <Align.Space
-        className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
+      <Modal.Background
         role="dialog"
         empty
         align="center"
         // @ts-expect-error - css variable
         style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex }}
+        visible={visible}
       >
         {child}
-      </Align.Space>,
+      </Modal.Background>,
       getRootElement(),
     );
 
@@ -211,7 +217,6 @@ export const Dialog = ({
       <C
         {...rest}
         ref={combinedParentRef}
-        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),
@@ -220,7 +225,7 @@ export const Dialog = ({
           CSS.loc(dialogLoc.x),
           CSS.loc(dialogLoc.y),
         )}
-        direction="y"
+        y
         reverse={dialogLoc.y === "top"}
         style={{
           ...rest.style,
@@ -246,7 +251,7 @@ const FLOATING_PROPS: Partial<position.DialogProps> = {
   disable: ["center"],
   prefer: [{ y: "bottom" }],
 };
-const FLOATING_TRANSLATE_AMOUNT: number = 6;
+const FLOATING_TRANSLATE_AMOUNT: number = 3;
 
 const calcFloatingDialog = ({
   target: target_,
@@ -277,7 +282,7 @@ const CONNECTED_PROPS: Partial<position.DialogProps> = {
   initial: { x: "center" },
   prefer: [{ y: "bottom" }],
 };
-const CONNECTED_TRANSLATE_AMOUNT: number = 1;
+const CONNECTED_TRANSLATE_AMOUNT: number = 0.5;
 
 const calcConnectedDialog = ({
   target,

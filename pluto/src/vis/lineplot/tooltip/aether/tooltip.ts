@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, TimeStamp, xy } from "@synnaxlabs/x";
+import { bounds, box, location, notation, scale, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -49,7 +49,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (this.state.backgroundColor.isZero)
       this.state.backgroundColor = theme.colors.gray.l1;
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
-    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l5;
+    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 
@@ -105,23 +105,54 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       });
     });
 
-    const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
-    text.unshift(`Time: ${avgXValue.fString("preciseDate", "local")}`);
-
     const relativePosition = reverseScale.pos(this.state.position);
 
-    draw.textContainer({
-      text,
-      backgroundColor: this.state.backgroundColor,
-      borderColor: this.state.borderColor,
-      position: this.state.position,
-      direction: "y",
-      level: "small",
-      spacing: 0.5,
+    const root = { ...location.TOP_LEFT };
+    if (relativePosition.x > 0.6) root.x = "right";
+    if (relativePosition.y > 0.6) root.y = "bottom";
+
+    const maxLabelLength = values.reduce(
+      (p, c) => Math.max(p, c.label?.length ?? 0),
+      0,
+    );
+
+    draw.list({
+      root,
       offset: { x: 12, y: 12 },
-      root: {
-        x: relativePosition.x > 0.8 ? "right" : "left",
-        y: relativePosition.y > 0.8 ? "top" : "bottom",
+      length: values.length + 1,
+      padding: { x: 6, y: 6 },
+      itemHeight: 14,
+      spacing: 3,
+      width: maxLabelLength * 7 + 48,
+      position: this.state.position,
+      draw: (i, b) => {
+        let label = "";
+        let value = "";
+        let color = this.state.textColor;
+        if (i === 0) {
+          label = "Time";
+          value = avgXValue.fString("preciseDate", "local");
+        } else {
+          const v = values[i - 1];
+          label = v.label ?? "";
+          value = notation.roundSmart(v.value.y, v.bounds).toString();
+          color = v.color;
+        }
+        draw.text({
+          position: box.topLeft(b),
+          text: label,
+          level: "small",
+          weight: 500,
+          color,
+        });
+        draw.text({
+          position: box.topRight(b),
+          text: value,
+          level: "small",
+          justify: "right",
+          code: true,
+          shade: 8,
+        });
       },
     });
   }

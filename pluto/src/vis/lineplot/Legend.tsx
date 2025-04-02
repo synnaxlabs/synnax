@@ -43,7 +43,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
     <Align.Space
       className={CSS.BE("legend", "container")}
       align="center"
-      direction="x"
+      x
       size="large"
       style={{
         ...gridStyle,

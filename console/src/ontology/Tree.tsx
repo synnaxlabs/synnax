@@ -93,8 +93,9 @@ const loadInitialTree = async (
   services: Services,
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
+  root: ontology.ID,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.ROOT_ID, {
+  const fetched = await client.ontology.retrieveChildren(root, {
     includeSchema: true,
   });
   setNodes(toTreeNodes(services, fetched));
@@ -206,7 +207,11 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
   return Core.defaultSort(a, b);
 };
 
-export const Tree = (): ReactElement => {
+export interface TreeProps {
+  root?: ontology.ID;
+}
+
+export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
   const store = useStore<RootState, RootAction>();
@@ -236,7 +241,7 @@ export const Tree = (): ReactElement => {
   // Processes incoming changes to the ontology from the cluster.
   useAsyncEffect(async () => {
     if (client == null) return;
-    await loadInitialTree(client, services, setNodes, setResources);
+    await loadInitialTree(client, services, setNodes, setResources, root);
 
     const ct = await client.ontology.openChangeTracker();
 
@@ -266,7 +271,7 @@ export const Tree = (): ReactElement => {
     return () => {
       void ct.close();
     };
-  }, [client]);
+  }, [client, root]);
 
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
@@ -454,6 +459,7 @@ export const Tree = (): ReactElement => {
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
+
   const handleRename = useCallback(
     (key: string, name: string) => rename.mutate({ key, name }),
     [rename],
@@ -506,6 +512,8 @@ export const Tree = (): ReactElement => {
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
 
+      const parentID = parent == null ? root : new ontology.ID(parent.key);
+
       const firstID = new ontology.ID(keys[0]);
 
       const props: TreeContextMenuProps = {
@@ -516,7 +524,7 @@ export const Tree = (): ReactElement => {
         removeLayout,
         handleError,
         addStatus,
-        selection: { parent, nodes: selectedNodes, resources: selectedResources },
+        selection: { parentID, nodes: selectedNodes, resources: selectedResources },
         state: {
           nodes: nodeSnapshot,
           resources,
@@ -557,11 +565,8 @@ export const Tree = (): ReactElement => {
   );
 
   return (
-    <Menu.ContextMenu
-      style={{ height: "calc(100% - 32px)" }}
-      menu={handleContextMenu}
-      {...menuProps}
-    >
+    <>
+      <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree
         onRename={handleRename}
         onDrop={handleDrop}
@@ -569,11 +574,13 @@ export const Tree = (): ReactElement => {
         showRules
         loading={loading}
         virtual={false}
+        onContextMenu={menuProps.open}
+        className={menuProps.className}
         {...treeProps}
       >
         {item}
       </Core.Tree>
-    </Menu.ContextMenu>
+    </>
   );
 };
 

@@ -35,7 +35,7 @@ input::-webkit-calendar-picker-indicator {
 
 .pluto-datetime-modal {
     border-radius: 1rem;
-    border: var(--pluto-border-l4);
+    border: var(--pluto-border-l5);
     width: calc(98vw - 6rem);
     max-width: 800px;
 

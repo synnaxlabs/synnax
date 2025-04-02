@@ -12,6 +12,7 @@ import { direction, location, type spatial } from "@synnaxlabs/x/spatial";
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
+import { type Shade } from "@/text/external";
 import { type ComponentSize } from "@/util/component";
 
 export interface CSSType extends BEM {
@@ -37,7 +38,7 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: (value: number) => string;
+  shade: ((value: Shade) => string) & ((value?: Shade) => string | false);
   shadeVar: (value?: number) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
@@ -68,7 +69,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
-  CSS.shade = (value) => CSS.M(`shade-${value}`);
+  CSS.shade = ((value) => value != null && CSS.M(`shade-${value}`)) as CSSType["shade"];
   CSS.shadeVar = (value) => {
     if (value == null) return undefined;
     return `var(--${prefix}-gray-l${value})`;

@@ -127,7 +127,7 @@ export const Editor = ({
   const editorContainerRef = use({ value, onChange, language });
   return (
     <Align.Space
-      direction="y"
+      y
       grow
       {...rest}
       className={CSS(className, CSS.B("editor"))}

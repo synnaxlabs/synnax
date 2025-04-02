@@ -9,20 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-cluster-dropdown:not(:only-child) > button {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0;
+    max-width: 175px;
+
+    > :nth-child(2) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
 .console-cluster-list {
     width: 400px;
-}
-
-.console-cluster-list-title {
-    padding-left: 1rem;
-}
-
-.console-cluster-list-add {
-    z-index: 6;
-}
-
-.console-cluster-list-item {
-    &.local.pluto--selected {
-        box-shadow: inset 2px 0 0 var(--pluto-secondary-z);
-    }
 }
