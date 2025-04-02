@@ -14,13 +14,13 @@
 
 
 /// module
+#include "client/cpp/hardware/hardware.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
-#include "client/cpp/hardware/hardware.h"
 
 /// internal
-#include "driver/task/common/state.h"
 #include "driver/pipeline/base.h"
+#include "driver/task/common/state.h"
 #include "driver/task/task.h"
 
 namespace common {
@@ -35,15 +35,15 @@ struct Scanner {
 
     virtual xerrors::Error stop() { return xerrors::NIL; }
 
-    virtual std::pair<std::vector<synnax::Device>, xerrors::Error> scan(
-        const ScannerContext &ctx) = 0;
+    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
+    scan(const ScannerContext &ctx) = 0;
 };
 
 struct ClusterAPI {
     virtual ~ClusterAPI() = default;
 
-    virtual std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
-        std::vector<std::string> &keys) = 0;
+    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
+    retrieve_devices(std::vector<std::string> &keys) = 0;
 
     virtual xerrors::Error create_devices(std::vector<synnax::Device> &devs) = 0;
 };
@@ -51,13 +51,13 @@ struct ClusterAPI {
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
 
-    explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client) : client(
-        client) {
-    }
+    explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client):
+        client(client) {}
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
-        std::vector<std::string> &keys) override {
-        // Ignore devices that are not found, as we can still work with partial results.
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    retrieve_devices(std::vector<std::string> &keys) override {
+        // Ignore devices that are not found, as we can still work with partial
+        // results.
         return this->client->hardware.retrieve_devices(keys, true);
     }
 
@@ -94,12 +94,13 @@ public:
         const breaker::Config &breaker_config,
         const telem::Rate scan_rate,
         std::unique_ptr<ClusterAPI> client
-    ): pipeline::Base(breaker_config),
-       task_name(task.name),
-       timer(scan_rate),
-       scanner(std::move(scanner)),
-       ctx(ctx),
-       client(std::move(client)) {
+    ):
+        pipeline::Base(breaker_config),
+        task_name(task.name),
+        timer(scan_rate),
+        scanner(std::move(scanner)),
+        ctx(ctx),
+        client(std::move(client)) {
         this->state.task = task.key;
         this->ctx->set_state(this->state);
     }
@@ -110,15 +111,15 @@ public:
         const synnax::Task &task,
         const breaker::Config &breaker_config,
         const telem::Rate scan_rate
-    ): ScanTask(
-        std::move(scanner),
-        ctx,
-        task,
-        breaker_config,
-        scan_rate,
-        std::make_unique<SynnaxClusterAPI>(ctx->client)
-    ) {
-    }
+    ):
+        ScanTask(
+            std::move(scanner),
+            ctx,
+            task,
+            breaker_config,
+            scan_rate,
+            std::make_unique<SynnaxClusterAPI>(ctx->client)
+        ) {}
 
 
     void run() override {
@@ -153,7 +154,8 @@ public:
     void exec(task::Command &cmd) override {
         this->state.key = cmd.key;
         if (cmd.type == common::STOP_CMD_TYPE) return this->stop(false);
-        if (cmd.type == common::START_CMD_TYPE) this->start();
+        if (cmd.type == common::START_CMD_TYPE)
+            this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
             this->state.variant = "error";
@@ -168,7 +170,8 @@ public:
         if (err || scanned_devs.empty()) return err;
 
         std::vector<std::string> devices;
-        for (const auto &device: scanned_devs) devices.push_back(device.key);
+        for (const auto &device: scanned_devs)
+            devices.push_back(device.key);
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(devices);
         if (ret_err && !ret_err.matches(xerrors::NOT_FOUND)) return ret_err;
 
@@ -200,8 +203,6 @@ public:
 
     std::string name() override { return this->task_name; }
 
-    void stop(bool will_reconfigure) override {
-        pipeline::Base::stop();
-    }
+    void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
 };
-}
+} // namespace common

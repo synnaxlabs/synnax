@@ -9,8 +9,10 @@
 
 #include "rack.h"
 
-bool rack::Rack::should_exit(const xerrors::Error &err,
-                             const std::function<void()> &on_shutdown) {
+bool rack::Rack::should_exit(
+    const xerrors::Error &err,
+    const std::function<void()> &on_shutdown
+) {
     this->run_err = err;
     if (!err) return false;
     const auto breaker_ok = err.matches(freighter::UNREACHABLE) && breaker.wait(err);

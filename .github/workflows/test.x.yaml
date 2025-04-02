@@ -71,7 +71,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/gofmt-check.sh x/go
+        run: bash scripts/check-gofmt.sh x/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -137,6 +137,14 @@ jobs:
 
       - name: Update Submodules
         run: git submodule update --init --recursive
+
+      - name: Install clang-format
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check Formatting
+        if: matrix.os == 'ubuntu-latest' 
+        run: bash scripts/check-clang-format.sh x/cpp
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

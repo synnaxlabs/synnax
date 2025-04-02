@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 /// std
-#include <utility>
 #include <memory>
 #include <thread>
+#include <utility>
 
 /// external
 #include "glog/logging.h"
@@ -28,30 +28,32 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 xerrors::Error task::Manager::open_streamer() {
-    auto [channels, task_set_err] = this->ctx->client->channels.retrieve({
-        TASK_SET_CHANNEL,
-        TASK_DELETE_CHANNEL,
-        TASK_CMD_CHANNEL
-    });
+    auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
+        {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
+    );
     if (task_set_err) return task_set_err;
     if (channels.size() != 3)
         return xerrors::Error(
-            "expected 3 channels, got " + std::to_string(channels.size()));
+            "expected 3 channels, got " + std::to_string(channels.size())
+        );
     for (const auto &channel: channels)
-        if (channel.name == TASK_SET_CHANNEL) this->channels.task_set = channel;
+        if (channel.name == TASK_SET_CHANNEL)
+            this->channels.task_set = channel;
         else if (channel.name == TASK_DELETE_CHANNEL)
             this->channels.task_delete = channel;
-        else if (channel.name == TASK_CMD_CHANNEL) this->channels.task_cmd = channel;
+        else if (channel.name == TASK_CMD_CHANNEL)
+            this->channels.task_cmd = channel;
 
     if (this->exit_early) return xerrors::NIL;
     std::lock_guard lock{this->mu};
-    auto [s, open_err] = this->ctx->client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {
-            this->channels.task_set.key,
-            this->channels.task_delete.key,
-            this->channels.task_cmd.key
+    auto [s, open_err] = this->ctx->client->telem.open_streamer(
+        synnax::StreamerConfig{
+            .channels =
+                {this->channels.task_set.key,
+                 this->channels.task_delete.key,
+                 this->channels.task_cmd.key}
         }
-    });
+    );
     if (open_err) return open_err;
     this->streamer = std::make_unique<synnax::Streamer>(std::move(s));
     return xerrors::NIL;
@@ -64,10 +66,9 @@ xerrors::Error task::Manager::configure_initial_tasks() {
         if (task.snapshot) continue;
         auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
         if (handled && driver_task != nullptr)
-                this->tasks[task.key] = std::move(driver_task);
+            this->tasks[task.key] = std::move(driver_task);
     }
-    auto initial_tasks =
-            this->factory->configure_initial_tasks(this->ctx, this->rack);
+    auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
     return xerrors::NIL;
@@ -83,8 +84,8 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
-        VLOG(1) << "[driver] received task for foreign rack: " << task_key <<
- ", skipping";
+        VLOG(1) << "[driver] received task for foreign rack: " << task_key
+                << ", skipping";
         return true;
     }
     return false;
@@ -108,9 +109,12 @@ xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = frame.channels->at(i);
             const auto &series = frame.series->at(i);
-            if (key == this->channels.task_set.key) process_task_set(series);
-            else if (key == this->channels.task_delete.key) process_task_delete(series);
-            else if (key == this->channels.task_cmd.key) process_task_cmd(series);
+            if (key == this->channels.task_set.key)
+                process_task_set(series);
+            else if (key == this->channels.task_delete.key)
+                process_task_delete(series);
+            else if (key == this->channels.task_cmd.key)
+                process_task_cmd(series);
         }
     } while (true);
     this->stop_all_tasks();
@@ -133,16 +137,16 @@ void task::Manager::process_task_set(const telem::Series &series) {
 
         auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
         if (sy_task.snapshot) {
-            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " (" <<
- task_key << ")";
+            VLOG(1) << "[driver] ignoring snapshot task " << sy_task.name << " ("
+                    << task_key << ")";
             continue;
         }
         if (err) {
             LOG(WARNING) << "[driver] failed to retrieve task: " << err;
             continue;
         }
-        LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key <<
-                ")";
+        LOG(INFO) << "[driver] configuring task " << sy_task.name << " (" << task_key
+                  << ")";
         auto [driver_task, handled] = this->factory->configure_task(this->ctx, sy_task);
         if (handled && driver_task != nullptr)
             this->tasks[task_key] = std::move(driver_task);
@@ -157,27 +161,28 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
         auto parser = xjson::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(WARNING) << "[driver] failed to parse command: " << parser.error_json().
-                    dump();
+            LOG(WARNING) << "[driver] failed to parse command: "
+                         << parser.error_json().dump();
             continue;
         }
 
         if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
-            LOG(WARNING) << "[driver] could not find task to execute command: " << cmd.
-                    task;
+            LOG(WARNING) << "[driver] could not find task to execute command: "
+                         << cmd.task;
             continue;
         }
         const std::unique_ptr<Task> &tsk = it->second;
-        LOG(INFO) << "[driver] processing " << cmd.type << " command for task " << tsk->
-                name() << " (" << cmd.task << ")";
+        LOG(INFO) << "[driver] processing " << cmd.type << " command for task "
+                  << tsk->name() << " (" << cmd.task << ")";
         tsk->exec(cmd);
     }
 }
 
 void task::Manager::stop_all_tasks() {
-    for (auto &[task_key, task]: this->tasks) task->stop(false);
+    for (auto &[task_key, task]: this->tasks)
+        task->stop(false);
     this->tasks.clear();
 }
 

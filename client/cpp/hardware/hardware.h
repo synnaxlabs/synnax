@@ -27,56 +27,44 @@ namespace synnax {
 /// @brief Type alias for the transport used to create a rack.
 using HardwareCreateRackClient = freighter::UnaryClient<
     api::v1::HardwareCreateRackRequest,
-    api::v1::HardwareCreateRackResponse
->;
+    api::v1::HardwareCreateRackResponse>;
 
 /// @brief Type alias for the transport used to retrieve a rack.
 using HardwareRetrieveRackClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveRackRequest,
-    api::v1::HardwareRetrieveRackResponse
->;
+    api::v1::HardwareRetrieveRackResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
-using HardwareDeleteRackClient = freighter::UnaryClient<
-    api::v1::HardwareDeleteRackRequest,
-    google::protobuf::Empty
->;
+using HardwareDeleteRackClient = freighter::
+    UnaryClient<api::v1::HardwareDeleteRackRequest, google::protobuf::Empty>;
 
 /// @brief Type alias for the transport used to create a task.
 using HardwareCreateTaskClient = freighter::UnaryClient<
     api::v1::HardwareCreateTaskRequest,
-    api::v1::HardwareCreateTaskResponse
->;
+    api::v1::HardwareCreateTaskResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
 using HardwareRetrieveTaskClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveTaskRequest,
-    api::v1::HardwareRetrieveTaskResponse
->;
+    api::v1::HardwareRetrieveTaskResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
-using HardwareDeleteTaskClient = freighter::UnaryClient<
-    api::v1::HardwareDeleteTaskRequest,
-    google::protobuf::Empty
->;
+using HardwareDeleteTaskClient = freighter::
+    UnaryClient<api::v1::HardwareDeleteTaskRequest, google::protobuf::Empty>;
 
 /// @brief Type alias for the transport used to create a device.
 using HardwareCreateDeviceClient = freighter::UnaryClient<
     api::v1::HardwareCreateDeviceRequest,
-    api::v1::HardwareCreateDeviceResponse
->;
+    api::v1::HardwareCreateDeviceResponse>;
 
 /// @brief Type alias for the transport used to retrieve a device.
 using HardwareRetrieveDeviceClient = freighter::UnaryClient<
     api::v1::HardwareRetrieveDeviceRequest,
-    api::v1::HardwareRetrieveDeviceResponse
->;
+    api::v1::HardwareRetrieveDeviceResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
-using HardwareDeleteDeviceClient = freighter::UnaryClient<
-    api::v1::HardwareDeleteDeviceRequest,
-    google::protobuf::Empty
->;
+using HardwareDeleteDeviceClient = freighter::
+    UnaryClient<api::v1::HardwareDeleteDeviceRequest, google::protobuf::Empty>;
 
 /// @brief An alias for the type of rack's key.
 using RackKey = std::uint32_t;
@@ -95,16 +83,21 @@ inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey task_key_rack(const TaskKey key) { return key >> 32; }
+inline RackKey task_key_rack(const TaskKey key) {
+    return key >> 32;
+}
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t task_key_local(const TaskKey key) { return key & 0xFFFFFFFF; }
+inline std::uint32_t task_key_local(const TaskKey key) {
+    return key & 0xFFFFFFFF;
+}
 
 
-/// @brief A Task is a data structure used to configure and execute operations on a hardware device.
-/// Tasks are associated with a specific rack and can be created, retrieved, and deleted.
+/// @brief A Task is a data structure used to configure and execute operations on a
+/// hardware device. Tasks are associated with a specific rack and can be created,
+/// retrieved, and deleted.
 class Task {
 public:
     /// @brief The unique identifier for the task.
@@ -194,11 +187,11 @@ public:
         std::shared_ptr<HardwareCreateTaskClient> task_create_client,
         std::shared_ptr<HardwareRetrieveTaskClient> task_retrieve_client,
         std::shared_ptr<HardwareDeleteTaskClient> task_delete_client
-    ) : rack(rack),
+    ):
+        rack(rack),
         task_create_client(std::move(task_create_client)),
         task_retrieve_client(std::move(task_retrieve_client)),
-        task_delete_client(std::move(task_delete_client)) {
-    }
+        task_delete_client(std::move(task_delete_client)) {}
 
     /// @brief Creates a task on the rack.
     /// @param task The task to create. Will be updated with the assigned key.
@@ -228,17 +221,15 @@ public:
     /// @param names The names of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve(
-        const std::vector<std::string> &names
-    ) const;
+    std::pair<std::vector<Task>, xerrors::Error>
+    retrieve(const std::vector<std::string> &names) const;
 
     /// @brief Retrieves multiple tasks by their types.
     /// @param types The types of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
-        const std::vector<std::string> &types
-    ) const;
+    std::pair<std::vector<Task>, xerrors::Error>
+    retrieve_by_type(const std::vector<std::string> &types) const;
 
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
@@ -265,7 +256,9 @@ private:
 /// @brief Extracts the node ID from a rack key.
 /// @param key The rack key.
 /// @returns The node ID portion of the rack key.
-inline std::uint16_t rack_key_node(const RackKey key) { return key >> 12; }
+inline std::uint16_t rack_key_node(const RackKey key) {
+    return key >> 12;
+}
 
 /// @brief A Rack represents a physical or logical grouping of hardware devices.
 /// Racks contain tasks that can be used to interact with hardware.
@@ -273,10 +266,10 @@ class Rack {
 public:
     /// @brief The unique identifier for the rack.
     RackKey key{};
-    
+
     /// @brief A human-readable name for the rack.
     std::string name;
-    
+
     /// @brief Client for managing tasks on this rack.
     TaskClient tasks = TaskClient(0, nullptr, nullptr, nullptr);
 
@@ -313,22 +306,22 @@ private:
 struct Device {
     /// @brief The unique identifier for the device.
     std::string key;
-    
+
     /// @brief A human-readable name for the device.
     std::string name;
-    
+
     /// @brief The rack that this device is connected to.
     RackKey rack = 0;
-    
+
     /// @brief The physical location of the device.
     std::string location;
-    
+
     /// @brief The manufacturer of the device.
     std::string make;
-    
+
     /// @brief The model of the device.
     std::string model;
-    
+
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
 
@@ -368,17 +361,18 @@ private:
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
 /// @returns A map from device keys to devices.
-inline std::unordered_map<std::string, Device> map_device_keys(
-    const std::vector<Device> &devices
-) {
+inline std::unordered_map<std::string, Device>
+map_device_keys(const std::vector<Device> &devices) {
     std::unordered_map<std::string, Device> map;
     map.reserve(devices.size());
-    for (const auto &device : devices) map[device.key] = device;
+    for (const auto &device: devices)
+        map[device.key] = device;
     return map;
 }
 
 /// @brief Client for managing hardware components in a Synnax cluster.
-/// Provides methods for creating, retrieving, and deleting racks, tasks, and devices.
+/// Provides methods for creating, retrieving, and deleting racks, tasks, and
+/// devices.
 class HardwareClient {
 public:
     /// @brief Constructs a new hardware client with the given transport clients.
@@ -401,7 +395,8 @@ public:
         std::unique_ptr<HardwareCreateDeviceClient> device_create_client,
         std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve_client,
         std::unique_ptr<HardwareDeleteDeviceClient> device_delete_client
-    ) : rack_create_client(std::move(rack_create_client)),
+    ):
+        rack_create_client(std::move(rack_create_client)),
         rack_retrieve_client(std::move(rack_retrieve_client)),
         rack_delete_client(std::move(rack_delete_client)),
         task_create_client(std::move(task_create_client)),
@@ -409,11 +404,11 @@ public:
         task_delete_client(std::move(task_delete_client)),
         device_create_client(std::move(device_create_client)),
         device_retrieve_client(std::move(device_retrieve_client)),
-        device_delete_client(std::move(device_delete_client)) {
-    }
+        device_delete_client(std::move(device_delete_client)) {}
 
     /// @brief Creates a rack in the cluster.
-    /// @param rack The rack to create. Will be updated with the assigned key and task client.
+    /// @param rack The rack to create. Will be updated with the assigned key and
+    /// task client.
     /// @returns An error if the creation failed.
     [[nodiscard]]
     xerrors::Error create_rack(Rack &rack) const;
@@ -438,18 +433,19 @@ public:
 
     /// @brief Retrieves a device by its key.
     /// @param key The key of the device to retrieve.
-    /// @param ignore_not_found If true, returns an empty device without error when not found.
-    /// @returns A pair containing the retrieved device and an error if one occurred.
+    /// @param ignore_not_found If true, returns an empty device without error when
+    /// not found.
+    /// @returns A pair containing the retrieved device and an error if one
+    /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error> retrieve_device(
-        const std::string &key,
-        bool ignore_not_found = false
-    ) const;
+    std::pair<Device, xerrors::Error>
+    retrieve_device(const std::string &key, bool ignore_not_found = false) const;
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
     /// @param ignore_not_found If true, skips non-existent devices without error.
-    /// @returns A pair containing the retrieved devices and an error if one occurred.
+    /// @returns A pair containing the retrieved devices and an error if one
+    /// occurred.
     [[nodiscard]]
     std::pair<std::vector<Device>, xerrors::Error> retrieve_devices(
         const std::vector<std::string> &keys,
@@ -478,13 +474,13 @@ public:
     /// @param key The key of the device to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error delete_device(const std::string& key) const;
+    xerrors::Error delete_device(const std::string &key) const;
 
     /// @brief Deletes multiple devices by their keys.
     /// @param keys The keys of the devices to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error delete_devices(const std::vector<std::string>& keys) const;
+    xerrors::Error delete_devices(const std::vector<std::string> &keys) const;
 
 private:
     /// @brief Rack creation transport.
@@ -506,4 +502,4 @@ private:
     /// @brief Device deletion transport.
     std::shared_ptr<HardwareDeleteDeviceClient> device_delete_client;
 };
-}
+} // namespace synnax

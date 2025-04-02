@@ -4,7 +4,7 @@
 // licenses/BSL.txt.
 //
 // As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
+// License, Version 2.0,
 // included in the file licenses/APL.txt.
 
 
@@ -13,8 +13,8 @@
 #include <vector>
 
 /// module
-#include "x/cpp/xerrors/errors.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/xerrors/errors.h"
 
 /// internal
 #include "client/cpp/channel/channel.h"
@@ -25,41 +25,33 @@ const std::string CREATE_ENDPOINT = "/api/v1/channel/create";
 const std::string RETRIEVE_ENDPOINT = "/api/v1/channel/retrieve";
 
 namespace synnax {
-Channel::Channel(const api::v1::Channel &ch)
-    : name(ch.name()),
-      data_type(telem::DataType(ch.data_type())),
-      key(ch.key()),
-      index(ch.index()),
-      rate(telem::Rate(ch.rate())),
-      is_index(ch.is_index()),
-      leaseholder(ch.leaseholder()),
-      is_virtual(ch.is_virtual()),
-      internal(ch.internal()) {
-}
+Channel::Channel(const api::v1::Channel &ch):
+    name(ch.name()),
+    data_type(telem::DataType(ch.data_type())),
+    key(ch.key()),
+    index(ch.index()),
+    rate(telem::Rate(ch.rate())),
+    is_index(ch.is_index()),
+    leaseholder(ch.leaseholder()),
+    is_virtual(ch.is_virtual()),
+    internal(ch.internal()) {}
 
-Channel::Channel(std::string name, telem::DataType data_type, const telem::Rate rate)
-    : name(std::move(name)),
-      data_type(std::move(data_type)),
-      rate(rate) {
-}
+Channel::Channel(std::string name, telem::DataType data_type, const telem::Rate rate):
+    name(std::move(name)), data_type(std::move(data_type)), rate(rate) {}
 
 Channel::Channel(
     std::string name,
     telem::DataType data_type,
     const ChannelKey index,
     const bool is_index
-) : name(std::move(name)),
+):
+    name(std::move(name)),
     data_type(std::move(data_type)),
     index(index),
-    is_index(is_index) {
-}
+    is_index(is_index) {}
 
-Channel::Channel(
-    std::string name,
-    telem::DataType data_type,
-    const bool is_virtual
-) : name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {
-}
+Channel::Channel(std::string name, telem::DataType data_type, const bool is_virtual):
+    name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {}
 
 void Channel::to_proto(api::v1::Channel *ch) const {
     ch->set_name(name);
@@ -140,30 +132,35 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key)
     if (res.channels_size() == 0)
         return {
             Channel(),
-            xerrors::Error(xerrors::NOT_FOUND,
-                           "no channels found matching key " + std::to_string(key))
+            xerrors::Error(
+                xerrors::NOT_FOUND,
+                "no channels found matching key " + std::to_string(key)
+            )
         };
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::retrieve(
-    const std::string &name) const {
+std::pair<Channel, xerrors::Error>
+ChannelClient::retrieve(const std::string &name) const {
     auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, payload);
-    if (err)
-        return {Channel(), err};
+    if (err) return {Channel(), err};
     if (res.channels_size() == 0)
         return {
             Channel(),
-            xerrors::Error(xerrors::NOT_FOUND,
-                           "no channels found matching name " + name)
+            xerrors::Error(
+                xerrors::NOT_FOUND,
+                "no channels found matching name " + name
+            )
         };
     if (res.channels_size() > 1)
         return {
             Channel(),
-            xerrors::Error(xerrors::QUERY,
-                           "multiple channels found matching name " + name)
+            xerrors::Error(
+                xerrors::QUERY,
+                "multiple channels found matching name " + name
+            )
         };
     return {Channel(res.channels(0)), err};
 }
@@ -185,4 +182,4 @@ ChannelClient::retrieve(const std::vector<std::string> &names) const {
     std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {channels, err};
 }
-}
+} // namespace synnax

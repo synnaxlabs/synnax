@@ -10,9 +10,9 @@
 #pragma once
 
 /// std
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 /// module
 #include "x/cpp/breaker/breaker.h"
@@ -21,8 +21,8 @@
 /// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
-#include "driver/task/common/read_task.h"
 #include "driver/ni/ni.h"
+#include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
 
 namespace ni {
@@ -42,9 +42,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the indexes of the channels in the task.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the configurations for each channel in the task.
-    std::vector<std::unique_ptr<channel::Input> > channels;
-    /// @brief the amount of sample skew needed to trigger a warning that the Synnax cannot keep
-    /// up with the amount of clock skew.
+    std::vector<std::unique_ptr<channel::Input>> channels;
+    /// @brief the amount of sample skew needed to trigger a warning that the Synnax
+    /// cannot keep up with the amount of clock skew.
     size_t skew_warn_on_count;
 
     /// @brief Move constructor to allow transfer of ownership
@@ -56,10 +56,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        skew_warn_on_count(std::move(other.skew_warn_on_count)) {
-    }
+        skew_warn_on_count(std::move(other.skew_warn_on_count)) {}
 
-    /// @brief delete copy constructor and copy assignment to prevent accidental copies.
+    /// @brief delete copy constructor and copy assignment to prevent accidental
+    /// copies.
     ReadTaskConfig(const ReadTaskConfig &) = delete;
 
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -69,38 +69,45 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         xjson::Parser &cfg,
         const std::string &task_type,
         common::TimingConfig timing_cfg = common::TimingConfig()
-    ): BaseReadTaskConfig(cfg, timing_cfg),
-       device_key(cfg.optional<std::string>("device", "cross-device")),
-       timing_source(cfg.optional<std::string>("timing_source", "")),
-       samples_per_chan(sample_rate / stream_rate),
-       software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
-       channels(cfg.map<std::unique_ptr<channel::Input> >(
-           "channels",
-           [](xjson::Parser &ch_cfg) -> std::pair<std::unique_ptr<channel::Input>,
-       bool> {
-               auto ch = channel::parse_input(ch_cfg);
-               if (ch == nullptr) return {nullptr, false};
-               return {std::move(ch), ch->enabled};
-           })),
-       skew_warn_on_count(cfg.optional<std::size_t>(
-           "skew_warn_on_count",
-           this->sample_rate.hz() // Default to 1 second behind
-       )) {
+    ):
+        BaseReadTaskConfig(cfg, timing_cfg),
+        device_key(cfg.optional<std::string>("device", "cross-device")),
+        timing_source(cfg.optional<std::string>("timing_source", "")),
+        samples_per_chan(sample_rate / stream_rate),
+        software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
+        channels(cfg.map<std::unique_ptr<channel::Input>>(
+            "channels",
+            [](xjson::Parser &ch_cfg
+            ) -> std::pair<std::unique_ptr<channel::Input>, bool> {
+                auto ch = channel::parse_input(ch_cfg);
+                if (ch == nullptr) return {nullptr, false};
+                return {std::move(ch), ch->enabled};
+            }
+        )),
+        skew_warn_on_count(cfg.optional<std::size_t>(
+            "skew_warn_on_count",
+            this->sample_rate.hz() // Default to 1 second behind
+        )) {
         if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
         if (this->sample_rate < this->stream_rate) {
-            cfg.field_err("sample_rate",
-                          "sample rate must be greater than or equal to stream rate");
+            cfg.field_err(
+                "sample_rate",
+                "sample rate must be greater than or equal to stream rate"
+            );
             return;
         }
         std::vector<synnax::ChannelKey> channel_keys;
-        for (const auto &ch: this->channels) channel_keys.push_back(ch->synnax_key);
+        for (const auto &ch: this->channels)
+            channel_keys.push_back(ch->synnax_key);
         auto [channel_vec, err] = client->channels.retrieve(channel_keys);
         if (err) {
-            cfg.field_err("channels",
-                          "failed to retrieve channels for task: " + err.message());
+            cfg.field_err(
+                "channels",
+                "failed to retrieve channels for task: " + err.message()
+            );
             return;
         }
         auto remote_channels = map_channel_Keys(channel_vec);
@@ -108,19 +115,23 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (this->device_key != "cross-device") {
             auto [device, err] = client->hardware.retrieve_device(this->device_key);
             if (err) {
-                cfg.field_err("device",
-                              "failed to retrieve device for task: " + err.message());
+                cfg.field_err(
+                    "device",
+                    "failed to retrieve device for task: " + err.message()
+                );
                 return;
             }
             devices[device.key] = device;
         } else {
             std::vector<std::string> dev_keys;
-            for (const auto &ch: this->channels) dev_keys.push_back(ch->dev_key);
+            for (const auto &ch: this->channels)
+                dev_keys.push_back(ch->dev_key);
             auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
             if (dev_err) {
-                cfg.field_err("device",
-                              "failed to retrieve devices for task: " + dev_err.
-                              message());
+                cfg.field_err(
+                    "device",
+                    "failed to retrieve devices for task: " + dev_err.message()
+                );
                 return;
             }
             devices = map_device_keys(devices_vec);
@@ -128,8 +139,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
             auto dev = this->device_key == "cross-device"
-                           ? devices.at(ch->dev_key)
-                           : devices.at(this->device_key);
+                         ? devices.at(ch->dev_key)
+                         : devices.at(this->device_key);
             ch->bind_remote_info(remote_ch, dev.location);
             if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
         }
@@ -147,7 +158,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     [[nodiscard]] std::vector<synnax::Channel> sy_channels() const {
         std::vector<synnax::Channel> chs;
         chs.reserve(this->channels.size());
-        for (const auto &ch: this->channels) chs.push_back(ch->ch);
+        for (const auto &ch: this->channels)
+            chs.push_back(ch->ch);
         return chs;
     }
 
@@ -173,8 +185,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     [[nodiscard]] synnax::WriterConfig writer() const {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size() + this->indexes.size());
-        for (const auto &ch: this->channels) keys.push_back(ch->ch.key);
-        for (const auto &idx: this->indexes) keys.push_back(idx);
+        for (const auto &ch: this->channels)
+            keys.push_back(ch->ch.key);
+        for (const auto &idx: this->indexes)
+            keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
@@ -185,14 +199,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
         if (this->software_timed)
-            return std::make_unique<
-                common::SoftwareTimedSampleClock>(this->stream_rate);
+            return std::make_unique<common::SoftwareTimedSampleClock>(this->stream_rate
+            );
         return std::make_unique<common::HardwareTimedSampleClock>(
             common::HardwareTimedSampleClockConfig::create_simple(
                 sample_rate,
                 stream_rate,
                 this->timing.correct_skew
-            ));
+            )
+        );
     }
 };
 
@@ -204,13 +219,12 @@ public:
     /// @brief constructs a source bound to the provided parent read task.
     explicit ReadTaskSource(
         ReadTaskConfig cfg,
-        std::unique_ptr<hardware::Reader<T> > hw_reader
+        std::unique_ptr<hardware::Reader<T>> hw_reader
     ):
         cfg(std::move(cfg)),
         buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
         hw_reader(std::move(hw_reader)),
-        sample_clock(this->cfg.sample_clock()) {
-    }
+        sample_clock(this->cfg.sample_clock()) {}
 
 private:
     /// @brief the raw synnax task configuration.
@@ -220,12 +234,12 @@ private:
     /// pre-allocated and reused.
     std::vector<T> buf;
     /// @brief interface used to read data from the hardware.
-    std::unique_ptr<hardware::Reader<T> > hw_reader;
+    std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
     std::unique_ptr<common::SampleClock> sample_clock;
-    /// @brief the error accumulated from the latest read. Primarily used to determine
-    /// whether we've just recovered from an error state.
+    /// @brief the error accumulated from the latest read. Primarily used to
+    /// determine whether we've just recovered from an error state.
     xerrors::Error curr_read_err = xerrors::NIL;
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
@@ -238,9 +252,7 @@ private:
         return err;
     }
 
-    xerrors::Error stop() override {
-        return this->hw_reader->stop();
-    }
+    xerrors::Error stop() override { return this->hw_reader->stop(); }
 
     xerrors::Error restart() {
         if (const auto err = this->hw_reader->stop()) return err;
@@ -261,8 +273,8 @@ private:
 
         auto start = this->sample_clock->wait(breaker);
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
-        // A non-zero skew means that our application cannot keep up with the hardware
-        // acquisition rate.
+        // A non-zero skew means that our application cannot keep up with the
+        // hardware acquisition rate.
         if (std::abs(hw_res.skew) > this->cfg.skew_warn_on_count)
             res.warning = common::skew_warning(hw_res.skew);
 
@@ -295,4 +307,4 @@ private:
         return res;
     }
 };
-}
+} // namespace ni

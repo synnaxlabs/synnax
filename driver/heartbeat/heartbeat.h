@@ -27,7 +27,7 @@ const auto EMISSION_RATE = telem::HZ * 1;
 
 /// @brief uint64 heartbeat value that communicates the aliveness of a rack. The
 /// first 32 bits are the rack key and the last 32 bits are the version.
-using Heartbeat =  std::uint64_t;
+using Heartbeat = std::uint64_t;
 
 /// @brief creates a new heartbeat value from its components.
 inline Heartbeat create(const synnax::RackKey rack_key, const std::uint32_t version) {
@@ -35,10 +35,14 @@ inline Heartbeat create(const synnax::RackKey rack_key, const std::uint32_t vers
 }
 
 /// @brief retrieves the rack key from the heartbeat value.
-inline Heartbeat rack_key(const std::uint64_t hb) { return hb >> 32; }
+inline Heartbeat rack_key(const std::uint64_t hb) {
+    return hb >> 32;
+}
 
 /// @brief retrieves the version from the heartbeat value.
-inline Heartbeat version(const std::uint64_t hb) { return hb & 0xFFFFFFFF; }
+inline Heartbeat version(const std::uint64_t hb) {
+    return hb & 0xFFFFFFFF;
+}
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
@@ -51,11 +55,8 @@ class Source final : public pipeline::Source {
     loop::Timer loop;
 
 public:
-    Source(const synnax::ChannelKey key, const synnax::RackKey rack_key) : key(key),
-        rack_key(rack_key),
-        version(0),
-        loop(loop::Timer(EMISSION_RATE)) {
-    }
+    Source(const synnax::ChannelKey key, const synnax::RackKey rack_key):
+        key(key), rack_key(rack_key), version(0), loop(loop::Timer(EMISSION_RATE)) {}
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         if (fr.size() == 0) fr.emplace(key, telem::Series(0, telem::UINT64_T));
@@ -71,18 +72,22 @@ public:
 /// to indicate that the driver is still alive.
 class Task final : public task::Task {
     pipeline::Acquisition pipe;
+
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ) : pipe(pipeline::Acquisition(
-        ctx->client,
-        writer_config,
-        std::move(source),
-        breaker_config
-    )) {
+    ):
+        pipe(
+            pipeline::Acquisition(
+                ctx->client,
+                writer_config,
+                std::move(source),
+                breaker_config
+            )
+        ) {
         pipe.start();
     }
 
@@ -93,19 +98,14 @@ public:
     void stop(bool will_reconfigure) override { pipe.stop(); }
 
     /// @brief configures the heartbeat task.
-    static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    ) {
+    static std::unique_ptr<task::Task>
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
         auto [ch, err] = ctx->client->channels.retrieve(RACK_HEARTBEAT_CHANNEL);
         if (err) {
             LOG(WARNING) << "[heartbeat] failed to retrieve heartbeat channel: " << err;
             return nullptr;
         }
-        auto source = std::make_shared<Source>(
-            ch.key,
-            synnax::task_key_rack(task.key)
-        );
+        auto source = std::make_shared<Source>(ch.key, synnax::task_key_rack(task.key));
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
             .start = telem::TimeStamp::now(),
@@ -126,29 +126,21 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
-        if (task.type == TASK_TYPE)
-            return {Task::configure(ctx, task), true};
+        if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
         return {nullptr, false};
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
         auto [existing, err] = rack.tasks.retrieve_by_type(TASK_TYPE);
         if (err.matches(xerrors::NOT_FOUND)) {
-            auto sy_task = synnax::Task(
-                rack.key,
-                TASK_NAME,
-                TASK_TYPE,
-                "",
-                true
-            );
+            auto sy_task = synnax::Task(rack.key, TASK_NAME, TASK_TYPE, "", true);
             err = rack.tasks.create(sy_task);
-            if (err)
-                LOG(ERROR) << "failed to create heartbeat task: " << err;
+            if (err) LOG(ERROR) << "failed to create heartbeat task: " << err;
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
@@ -156,4 +148,4 @@ class Factory final : public task::Factory {
         return tasks;
     }
 };
-}
+} // namespace heartbeat

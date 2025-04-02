@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 /// std
-#include <mutex>
-#include <string>
-#include <poll.h>
-#include <unistd.h>
 #include <csignal>
+#include <mutex>
+#include <poll.h>
+#include <string>
+#include <unistd.h>
 
 /// internal
 #include "x/cpp/xshutdown/xshutdown.h"
@@ -35,10 +35,10 @@ void listen_stdin() {
     pollfd fds[1];
     fds[0].fd = STDIN_FILENO;
     fds[0].events = POLLIN;
-    
+
     char buffer[256];
     std::string input;
-    
+
     while (true) {
         const int ret = poll(fds, 1, 100);
         if (ret < 0) {
@@ -49,10 +49,10 @@ void listen_stdin() {
         if (ret > 0 && fds[0].revents & POLLIN) {
             const ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
             if (n <= 0) break;
-            
+
             buffer[n] = '\0';
             input += buffer;
-            
+
             size_t pos;
             while ((pos = input.find('\n')) != std::string::npos) {
                 std::string line = input.substr(0, pos);
@@ -65,4 +65,4 @@ void listen_stdin() {
         }
     }
 }
-} 
+} // namespace xshutdown::priv

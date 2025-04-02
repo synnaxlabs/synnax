@@ -30,8 +30,8 @@ int cmd::sub::login(xargs::Parser &args) {
     }
     LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
     if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err <<
-                xlog::RESET();
+        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err
+                   << xlog::RESET();
         return 1;
     }
     LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();

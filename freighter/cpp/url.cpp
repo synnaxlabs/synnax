@@ -23,13 +23,8 @@ std::string join_paths(const std::string &a, const std::string &b) {
     return result + (result.back() == '/' ? "" : "/");
 }
 
-URL::URL(
-    std::string ip,
-    const std::uint16_t port,
-    const std::string &path
-) : ip(std::move(ip)), port(port),
-    path(join_paths("", path)) {
-}
+URL::URL(std::string ip, const std::uint16_t port, const std::string &path):
+    ip(std::move(ip)), port(port), path(join_paths("", path)) {}
 
 URL::URL(const std::string &address) {
     if (address.empty()) {
@@ -46,11 +41,12 @@ URL::URL(const std::string &address) {
         path = "";
         return;
     }
-    
+
     ip = address.substr(0, colon);
     const auto path_start = address.find('/', colon + 1);
     port = std::atoi(address.substr(colon + 1, path_start - colon - 1).c_str());
-    path = path_start != std::string::npos ? join_paths("", address.substr(path_start)) : "";
+    path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
+                                           : "";
 }
 
 URL URL::child(const std::string &child_path) const {
@@ -66,4 +62,4 @@ std::string URL::to_string() const {
 std::string URL::host_address() const {
     return ip + ":" + std::to_string(port);
 }
-}
+} // namespace freighter

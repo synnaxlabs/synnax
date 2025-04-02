@@ -31,7 +31,7 @@ std::string get_persisted_state_path(xargs::Parser &parser) {
     auto p_path = parser.optional<std::string>("--state-file", "");
     if (!p_path.empty()) return p_path;
 #ifdef _WIN32
-    if (const char* appdata = std::getenv("LOCALAPPDATA"))
+    if (const char *appdata = std::getenv("LOCALAPPDATA"))
         return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
     return "C:\\ProgramData\\synnax-driver\\persisted-state.json";
 #elif defined(__APPLE__)
@@ -45,11 +45,13 @@ std::string get_persisted_state_path(xargs::Parser &parser) {
 }
 
 std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv(xargs::Parser &parser) {
-    return kv::JSONFile::open(kv::JSONFileConfig{
-        .path = get_persisted_state_path(parser),
-        .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
-        .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
-    });
+    return kv::JSONFile::open(
+        kv::JSONFileConfig{
+            .path = get_persisted_state_path(parser),
+            .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
+            .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
+        }
+    );
 }
 
 xerrors::Error rack::Config::load_persisted_state(xargs::Parser &args) {
@@ -73,18 +75,14 @@ xerrors::Error rack::Config::load_persisted_state(xargs::Parser &args) {
     return xerrors::NIL;
 }
 
-xerrors::Error rack::Config::save_conn_params(
-    xargs::Parser &args,
-    const synnax::Config &conn_params
-) {
+xerrors::Error
+rack::Config::save_conn_params(xargs::Parser &args, const synnax::Config &conn_params) {
     auto [kv, err] = open_kv(args);
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
-xerrors::Error rack::Config::save_remote_info(
-    xargs::Parser &args,
-    const RemoteInfo &remote_info
-) {
+xerrors::Error
+rack::Config::save_remote_info(xargs::Parser &args, const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv(args);
     return kv->set("remote_info", remote_info.to_json().dump());
 }

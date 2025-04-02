@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
 #include <include/gtest/gtest.h>
+#include <thread>
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
@@ -23,22 +23,25 @@ void test_downsample(
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(StreamerTests, testStreamBasic) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(client.channels.create(
-        "data",
-        telem::INT32_T,
-        1 * telem::HZ));
+    auto data = ASSERT_NIL_P(
+        client.channels.create("data", telem::INT32_T, 1 * telem::HZ)
+    );
     auto now = telem::TimeStamp::now();
 
     std::vector channels = {data.key};
-    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-    });
-    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        {telem::AUTH_ABSOLUTE},
-        telem::ControlSubject{"test_writer"}
-    }));
+    auto [streamer, sErr] = client.telem.open_streamer(
+        synnax::StreamerConfig{
+            channels,
+        }
+    );
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            channels,
+            now,
+            {telem::AUTH_ABSOLUTE},
+            telem::ControlSubject{"test_writer"}
+        }
+    ));
 
     auto frame = synnax::Frame(1);
     frame.emplace(data.key, telem::Series(1));
@@ -56,25 +59,28 @@ TEST(StreamerTests, testStreamBasic) {
 ///@brief test streamer set channels after construction.
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(client.channels.create(
-        "data",
-        telem::FLOAT32_T,
-        1 * telem::HZ));
+    auto data = ASSERT_NIL_P(
+        client.channels.create("data", telem::FLOAT32_T, 1 * telem::HZ)
+    );
     auto now = telem::TimeStamp::now();
 
 
-    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(synnax::StreamerConfig{
-        {},
-    }));
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
+        synnax::StreamerConfig{
+            {},
+        }
+    ));
 
     auto setErr = streamer.set_channels({data.key});
 
-    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
-        {data.key},
-        now,
-        {telem::AUTH_ABSOLUTE},
-        telem::ControlSubject{"test_writer"}
-    }));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            {data.key},
+            now,
+            {telem::AUTH_ABSOLUTE},
+            telem::ControlSubject{"test_writer"}
+        }
+    ));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_FALSE(setErr) << setErr.message();
@@ -82,9 +88,9 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto frame = synnax::Frame(1);
     frame.emplace(
         data.key,
-        telem::Series(std::vector<float>{
-            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0
-        })
+        telem::Series(
+            std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}
+        )
     );
     ASSERT_TRUE(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -140,32 +146,29 @@ void test_downsample(
     int32_t downsample_factor
 ) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(client.channels.create(
-        "data",
-        telem::INT32_T,
-        1 * telem::HZ));
+    auto data = ASSERT_NIL_P(
+        client.channels.create("data", telem::INT32_T, 1 * telem::HZ)
+    );
     auto now = telem::TimeStamp::now();
     std::vector channels = {data.key};
-    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        std::vector{telem::AUTH_ABSOLUTE},
-        telem::ControlSubject{"test_writer"}
-    }));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            channels,
+            now,
+            std::vector{telem::AUTH_ABSOLUTE},
+            telem::ControlSubject{"test_writer"}
+        }
+    ));
 
-    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-        downsample_factor
-    });
+    auto [streamer, sErr] = client.telem.open_streamer(
+        synnax::StreamerConfig{channels, downsample_factor}
+    );
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.emplace(
-        data.key,
-        telem::Series(raw_data)
-    );
+    frame.emplace(data.key, telem::Series(raw_data));
     ASSERT_TRUE(writer.write(frame));
     auto [res_frame, recErr] = streamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
@@ -190,23 +193,26 @@ void test_downsample_string(
 
     auto now = telem::TimeStamp::now();
     std::vector channels = {virtual_channel.key};
-    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
-        channels,
-        now,
-        std::vector{telem::AUTH_ABSOLUTE},
-        telem::ControlSubject{"test_writer"}
-    }));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            channels,
+            now,
+            std::vector{telem::AUTH_ABSOLUTE},
+            telem::ControlSubject{"test_writer"}
+        }
+    ));
 
-    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(synnax::StreamerConfig{
-        channels,
-        downsample_factor
-    }));
+    auto streamer = ASSERT_NIL_P(
+        client.telem.open_streamer(synnax::StreamerConfig{channels, downsample_factor})
+    );
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(virtual_channel.key,
-                               telem::Series(raw_data, telem::STRING_T));
+    auto frame = synnax::Frame(
+        virtual_channel.key,
+        telem::Series(raw_data, telem::STRING_T)
+    );
     ASSERT_TRUE(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
@@ -222,9 +228,8 @@ void test_downsample_string(
 }
 
 TEST(StreamerTests, TestStreamDownsampleString) {
-    const std::vector<std::string> data = {
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j"
-    };
+    const std::vector<std::string> data =
+        {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
     const std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
 }

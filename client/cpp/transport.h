@@ -48,4 +48,4 @@ struct Transport {
     std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
     std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
 };
-}
+} // namespace synnax

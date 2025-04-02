@@ -13,8 +13,8 @@
 #include "open62541/client.h"
 
 /// module
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/opc/opc.h"
@@ -28,10 +28,11 @@ struct OutputChan {
     const bool enabled;
     /// @brief the OPC UA node id.
     const UA_NodeId node;
-    /// @brief the corresponding channel key to write the variable for the node from.
+    /// @brief the corresponding channel key to write the variable for the node
+    /// from.
     const synnax::ChannelKey cmd_channel;
 
-    explicit OutputChan(xjson::Parser &parser) :
+    explicit OutputChan(xjson::Parser &parser):
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
         cmd_channel([&parser]() {
@@ -39,8 +40,7 @@ struct OutputChan {
             if (ch == 0) ch = parser.optional("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
-        }()) {
-    }
+        }()) {}
 };
 
 struct WriteTaskConfig {
@@ -54,7 +54,8 @@ struct WriteTaskConfig {
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
-    ): device(parser.required<std::string>("device")) {
+    ):
+        device(parser.required<std::string>("device")) {
         parser.iter("channels", [&](xjson::Parser &channel_builder) {
             auto ch = std::make_unique<OutputChan>(channel_builder);
             if (ch->enabled) channels[ch->cmd_channel] = std::move(ch);
@@ -77,14 +78,13 @@ struct WriteTaskConfig {
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
-        for (const auto &[key, _]: channels) keys.push_back(key);
+        for (const auto &[key, _]: channels)
+            keys.push_back(key);
         return keys;
     }
 
-    static std::pair<WriteTaskConfig, xerrors::Error> parse(
-        const std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task
-    ) {
+    static std::pair<WriteTaskConfig, xerrors::Error>
+    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
     }
@@ -93,22 +93,17 @@ struct WriteTaskConfig {
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
     const std::shared_ptr<UA_Client> client;
+
 public:
-    WriteTaskSink(
-        const std::shared_ptr<UA_Client> &client,
-        WriteTaskConfig cfg
-    ): Sink(cfg.cmd_keys()),
-       cfg(std::move(cfg)),
-       client(client) {
-    }
+    WriteTaskSink(const std::shared_ptr<UA_Client> &client, WriteTaskConfig cfg):
+        Sink(cfg.cmd_keys()), cfg(std::move(cfg)), client(client) {}
 
     xerrors::Error write(const synnax::Frame &frame) override {
         UA_WriteRequest req;
         UA_WriteRequest_init(&req);
-        req.nodesToWrite = static_cast<UA_WriteValue *>(UA_Array_new(
-            frame.size(),
-            &UA_TYPES[UA_TYPES_WRITEVALUE]
-        ));
+        req.nodesToWrite = static_cast<UA_WriteValue *>(
+            UA_Array_new(frame.size(), &UA_TYPES[UA_TYPES_WRITEVALUE])
+        );
         req.nodesToWriteSize = 0;
         x::defer clear_req([&req] {
             UA_Array_delete(
@@ -137,4 +132,4 @@ public:
         return err;
     }
 };
-}
+} // namespace opc

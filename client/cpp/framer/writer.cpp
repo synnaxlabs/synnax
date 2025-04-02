@@ -37,10 +37,8 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
     return {Writer(std::move(w), cfg), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg) :
-    cfg(cfg),
-    stream(std::move(s)) {
-}
+Writer::Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg):
+    cfg(cfg), stream(std::move(s)) {}
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     this->subject.to_proto(f->mutable_control_subject());
@@ -96,10 +94,7 @@ bool Writer::set_authority(const telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
-bool Writer::set_authority(
-    const ChannelKey &key,
-    const telem::Authority &authority
-) {
+bool Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
@@ -108,7 +103,10 @@ bool Writer::set_authority(
     const std::vector<telem::Authority> &authorities
 ) {
     this->assert_open();
-    const WriterConfig config{.channels = keys, .authorities = authorities,};
+    const WriterConfig config{
+        .channels = keys,
+        .authorities = authorities,
+    };
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
@@ -140,7 +138,6 @@ xerrors::Error Writer::close() const {
 
 
 void Writer::assert_open() const {
-    if (closed)
-        throw std::runtime_error("cannot call method on closed writer");
+    if (closed) throw std::runtime_error("cannot call method on closed writer");
 }
-}
+} // namespace synnax

@@ -10,18 +10,18 @@
 #pragma once
 
 /// std
-#include <condition_variable>
 #include <atomic>
+#include <cassert>
+#include <condition_variable>
 #include <iomanip>
 #include <memory>
-#include <cassert>
 
 /// external
 #include "glog/logging.h"
 
 /// module
-#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
 
 namespace breaker {
 /// @brief tells the breaker to retry infinitely.
@@ -35,10 +35,12 @@ struct Config {
     /// This interval will be scaled on each successive retry based on the value of
     /// scale.
     telem::TimeSpan base_interval = 1 * telem::SECOND;
-    /// @brief sets the maximum number of retries before the wait() method returns false.
+    /// @brief sets the maximum number of retries before the wait() method returns
+    /// false.
     int max_retries = 50;
-    /// @brief sets the rate at which the base_interval will scale on each successive
-    /// call to wait(). We do not recommend setting this factor lower than 1.
+    /// @brief sets the rate at which the base_interval will scale on each
+    /// successive call to wait(). We do not recommend setting this factor lower
+    /// than 1.
     float scale = 1.1;
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
@@ -67,81 +69,81 @@ class Breaker {
     size_t retries;
     /// @brief a flag to indicate if the breaker is currently running.
     std::atomic<bool> is_running;
-    /// @brief a condition variable used to notify the breaker to shut down immediately.
+    /// @brief a condition variable used to notify the breaker to shut down
+    /// immediately.
     std::condition_variable shutdown_cv;
     /// @brief used to protect the condition variable.
     std::mutex mu;
 
 public:
-    explicit Breaker(const Config &config)
-        : config(config),
-          interval(config.base_interval),
-          retries(0),
-          is_running(false) {
-    }
+    explicit Breaker(const Config &config):
+        config(config), interval(config.base_interval), retries(0), is_running(false) {}
 
-    Breaker(): Breaker(Config{
-        "default",
-        telem::TimeSpan(1 * telem::SECOND),
-        10,
-        1.1,
-        telem::TimeSpan(1 * telem::MINUTE)
-    }) {
-    }
+    Breaker():
+        Breaker(
+            Config{
+                "default",
+                telem::TimeSpan(1 * telem::SECOND),
+                10,
+                1.1,
+                telem::TimeSpan(1 * telem::MINUTE)
+            }
+        ) {}
 
     ~Breaker() {
         if (!this->running()) return;
         // Very important that we do not use GLOG here, as it can cause problems
         // in destructors.
-        std::cerr << "breaker " << this->config.name << " was not stopped before destruction" << std::endl;
+        std::cerr << "breaker " << this->config.name
+                  << " was not stopped before destruction" << std::endl;
         assert(false && "breaker was not stopped before destruction");
     }
 
     /// @brief marks the breaker as stopped.
-    bool mark_stopped() {
-        return this->is_running.exchange(false);
-    }
+    bool mark_stopped() { return this->is_running.exchange(false); }
 
-    /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
-    /// immediately returns false. Otherwise, sleeps the current thread for the current
-    /// retry interval and returns true. Also Logs information about the breaker trigger.
+    /// @brief triggers the breaker. If the maximum number of retries has been
+    /// exceeded, immediately returns false. Otherwise, sleeps the current thread
+    /// for the current retry interval and returns true. Also Logs information about
+    /// the breaker trigger.
     bool wait() { return wait(""); }
 
     /// @brief triggers the breaker and logs the provided error as its message.
     /// @see wait() for more information.
     bool wait(const xerrors::Error &err) { return this->wait(err.message()); }
 
-    /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
-    /// immediately returns false. Otherwise, sleeps the current thread for the current
-    /// retry interval and returns true.
-    /// @param message a message to inject additional information into the logs about what
-    /// error occurred to trigger the breaker.
+    /// @brief triggers the breaker. If the maximum number of retries has been
+    /// exceeded, immediately returns false. Otherwise, sleeps the current thread
+    /// for the current retry interval and returns true.
+    /// @param message a message to inject additional information into the logs
+    /// about what error occurred to trigger the breaker.
     bool wait(const std::string &message) {
         if (!this->running()) {
             LOG(ERROR) << "[" << this->config.name << "] breaker not started. Exiting.";
             return false;
         }
         this->retries++;
-        if (this->config.max_retries != -1 && this->retries > this->config.
-            max_retries) {
-            LOG(ERROR) << "[" << this->config.name <<
-                    "] exceeded the maximum retry count of "
-                    << this->config.max_retries << ". Exiting." << "Error: " << message
-                    << ".";
+        if (this->config.max_retries != -1 &&
+            this->retries > this->config.max_retries) {
+            LOG(ERROR) << "[" << this->config.name
+                       << "] exceeded the maximum retry count of "
+                       << this->config.max_retries << ". Exiting."
+                       << "Error: " << message << ".";
             reset();
             return false;
         }
 
         const std::string retry_count_msg = this->config.max_retries == -1
-                                                ? std::to_string(this->retries) + "/∞"
-                                                : std::to_string(this->retries) + "/" +
-                                                  std::to_string(
-                                                      this->config.max_retries);
+                                              ? std::to_string(this->retries) + "/∞"
+                                              : std::to_string(this->retries) + "/" +
+                                                    std::to_string(
+                                                        this->config.max_retries
+                                                    );
 
-        LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg <<
-                " times. " << "Retrying in " << std::fixed << std::setprecision(1) <<
-                this->interval.seconds() << " seconds. "
-                << "Error: " << message << ".";
+        LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg
+                   << " times. " << "Retrying in " << std::fixed << std::setprecision(1)
+                   << this->interval.seconds() << " seconds. "
+                   << "Error: " << message << ".";
         std::unique_lock lock(this->mu);
         shutdown_cv.wait_for(lock, this->interval.chrono());
         if (!this->running()) {
@@ -156,14 +158,15 @@ public:
     }
 
 
-    /// @brief waits for the given time duration. If the breaker stopped before the specified time,
-    /// the method will return immediately to ensure graceful exit of objects using the breaker.
+    /// @brief waits for the given time duration. If the breaker stopped before the
+    /// specified time, the method will return immediately to ensure graceful exit
+    /// of objects using the breaker.
     /// @param time the time to wait (supports multiple time units).
     void wait_for(const telem::TimeSpan &time) { this->wait_for(time.chrono()); }
 
     /// @brief waits for the given time duration. If the breaker stopped before the
-    /// specified time, the method will return immediately to ensure graceful exit of
-    /// objects using the breaker.
+    /// specified time, the method will return immediately to ensure graceful exit
+    /// of objects using the breaker.
     /// @note that this implementation is not performance efficient as it relies on
     /// a condition variable to wake up the thread. It is recommended for longer
     /// sleeps where the breaker may need to be interrupted for shut down.
@@ -176,15 +179,14 @@ public:
 
     /// @brief starts the breaker, using it as a signaling mechanism for a thread to
     /// operate. A breaker that is started must be stopped before it is destroyed.
-    /// @throws std::runtime_error inside the destructor if hte breaker is not stopped.
+    /// @throws std::runtime_error inside the destructor if hte breaker is not
+    /// stopped.
     /// @returns true if the breaker was not already started, and false if it was.
-    bool start() {
-        return !this->is_running.exchange(true);
-    }
+    bool start() { return !this->is_running.exchange(true); }
 
     /// @brief shuts down the breaker, preventing any further retries.
-    /// @returns true if the breaker was running and is now stopped, and false if it was
-    /// already stopped.
+    /// @returns true if the breaker was running and is now stopped, and false if it
+    /// was already stopped.
     bool stop() {
         if (!this->mark_stopped()) return false;
         std::lock_guard lock(this->mu);
@@ -193,18 +195,21 @@ public:
     }
 
     /// @brief returns the current retry cont of the breaker, which is the number of
-    /// times wait() has been called. Note that accessing this field is not thread-safe,
-    /// and should only be treated as a rough estimate of the number of retries.
+    /// times wait() has been called. Note that accessing this field is not
+    /// thread-safe, and should only be treated as a rough estimate of the number of
+    /// retries.
     [[nodiscard]]
-    size_t retry_count() const { return this->retries; }
+    size_t retry_count() const {
+        return this->retries;
+    }
 
-    /// @brief returns true if the breaker is currently running (i.e. start() has been
-    /// called, but stop() has not been called yet.
+    /// @brief returns true if the breaker is currently running (i.e. start() has
+    /// been called, but stop() has not been called yet.
     [[nodiscard]] bool running() const { return this->is_running; }
 
-    /// @brief resets the retry count and the retry interval on the breaker, allowing
-    /// it to be re-used. It's typically to call this method after the breaker has been
-    /// triggered, but the request has succeeded.
+    /// @brief resets the retry count and the retry interval on the breaker,
+    /// allowing it to be re-used. It's typically to call this method after the
+    /// breaker has been triggered, but the request has succeeded.
     void reset() {
         this->retries = 0;
         this->interval = this->config.base_interval;
@@ -212,6 +217,8 @@ public:
 };
 
 inline Config default_config(const std::string &name) {
-    return Config{.name = name,};
+    return Config{
+        .name = name,
+    };
 }
-}
+} // namespace breaker

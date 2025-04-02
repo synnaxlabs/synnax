@@ -27,30 +27,23 @@
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-using StreamerStream = freighter::Stream<
-    api::v1::FrameStreamerRequest,
-    api::v1::FrameStreamerResponse
->;
+using StreamerStream = freighter::
+    Stream<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
 
 /// @brief type alias for frame writer network transport.
-using StreamerClient = freighter::StreamClient<
-    api::v1::FrameStreamerRequest,
-    api::v1::FrameStreamerResponse
->;
+using StreamerClient = freighter::
+    StreamClient<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
 
 /// @brief type alias for writer network transports stream.
-using WriterStream = freighter::Stream<
-    api::v1::FrameWriterRequest,
-    api::v1::FrameWriterResponse
->;
+using WriterStream = freighter::
+    Stream<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
 
 /// @brief type alias for writer network transport.
-using WriterClient = freighter::StreamClient<
-    api::v1::FrameWriterRequest,
-    api::v1::FrameWriterResponse
->;
+using WriterClient = freighter::
+    StreamClient<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
 
-/// @brief A frame is a collection of series mapped to their corresponding channel keys.
+/// @brief A frame is a collection of series mapped to their corresponding channel
+/// keys.
 class Frame {
     /// @brief private copy constructor that deep copies the frame.
     Frame(const Frame &other);
@@ -79,8 +72,10 @@ public:
     /// @param ser the series to add to the frame.
     Frame(const ChannelKey &chan, telem::Series &&ser);
 
-    explicit Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data,
-                   size_t cap = 0);
+    explicit Frame(
+        std::unordered_map<ChannelKey, telem::SampleValue> &data,
+        size_t cap = 0
+    );
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
@@ -91,7 +86,8 @@ public:
     /// @param ser the series to add for the channel key.
     void add(const ChannelKey &chan, telem::Series &ser) const;
 
-    /// @brief adds the given series to the frame for the given channel key. Unlike add,
+    /// @brief adds the given series to the frame for the given channel key. Unlike
+    /// add,
     ///  this method moves the series into the frame, rather than copying it.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
@@ -124,25 +120,26 @@ public:
         return std::find(channels->begin(), channels->end(), key) != channels->end();
     }
 
-    /// @brief returns the number of channel-series pairs that the frame can hold before
-    /// resizing.
+    /// @brief returns the number of channel-series pairs that the frame can hold
+    /// before resizing.
     [[nodiscard]] size_t capacity() const {
         return channels != nullptr ? channels->capacity() : 0;
     }
 
-    /// @brief clears the frame of all channels and series, making it empty for reuse.
+    /// @brief clears the frame of all channels and series, making it empty for
+    /// reuse.
     void clear() const;
 
     /// @brief reserves the given number of series in the frame.
     void reserve(const size_t &size);
 
-    /// @brief deep copies the frame, all of its series, and their data. This function
-    /// must be used explicitly (instead of through a copy constructor) to avoid
-    /// unintentional deep copies.
+    /// @brief deep copies the frame, all of its series, and their data. This
+    /// function must be used explicitly (instead of through a copy constructor) to
+    /// avoid unintentional deep copies.
     [[nodiscard]] Frame deep_copy() const;
 
-    /// @brief implements iterator support for the frame, allowing the caller to traverse
-    /// the channel keys and series in the frame.
+    /// @brief implements iterator support for the frame, allowing the caller to
+    /// traverse the channel keys and series in the frame.
     struct Iterator {
         using iterator_category = std::forward_iterator_tag;
         using value_type = std::pair<ChannelKey, telem::Series &>;
@@ -154,25 +151,19 @@ public:
             std::vector<ChannelKey> &channels_ref,
             std::vector<telem::Series> &series_ref,
             const size_t pos
-        ): channels(channels_ref), series(series_ref), pos(pos) {
-        }
+        ):
+            channels(channels_ref), series(series_ref), pos(pos) {}
 
-        value_type operator*() const {
-            return {channels.at(pos), series.at(pos)};
-        }
+        value_type operator*() const { return {channels.at(pos), series.at(pos)}; }
 
         Iterator &operator++() {
             pos++;
             return *this;
         }
 
-        bool operator!=(const Iterator &other) const {
-            return pos != other.pos;
-        }
+        bool operator!=(const Iterator &other) const { return pos != other.pos; }
 
-        bool operator==(const Iterator &other) const {
-            return pos == other.pos;
-        }
+        bool operator==(const Iterator &other) const { return pos == other.pos; }
 
     private:
         std::vector<ChannelKey> &channels;
@@ -180,9 +171,7 @@ public:
         size_t pos;
     };
 
-    [[nodiscard]] Iterator begin() const {
-        return {*channels, *series, 0};
-    }
+    [[nodiscard]] Iterator begin() const { return {*channels, *series, 0}; }
 
     [[nodiscard]] Iterator end() const {
         return {*channels, *series, channels->size()};
@@ -209,8 +198,8 @@ private:
 /// FrameClient.
 /// @see FrameClient
 ///
-/// @note read() and setChannels() can be called concurrently with one another, but they
-/// cannot be called concurrently with close() or with themselves.
+/// @note read() and setChannels() can be called concurrently with one another, but
+/// they cannot be called concurrently with close() or with themselves.
 class Streamer {
 public:
     Streamer() = default;
@@ -219,10 +208,11 @@ public:
     /// frame is not guaranteed to contain series for all channels specified when
     /// opening the streamer, but it is guaranteed to contain data for at least one
     /// channel and not contain data for any channels not specified.
-    /// @returns the next frame of telemetry received from the Synnax cluster and an error.
-    /// If error.ok() is false, then the streamer has failed and must be closed.
-    /// @note read is not safe to call concurrently with itself or with close(), but it
-    /// is safe to call concurrently with setChannels().
+    /// @returns the next frame of telemetry received from the Synnax cluster and an
+    /// error. If error.ok() is false, then the streamer has failed and must be
+    /// closed.
+    /// @note read is not safe to call concurrently with itself or with close(), but
+    /// it is safe to call concurrently with setChannels().
     [[nodiscard]] std::pair<Frame, xerrors::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
@@ -230,25 +220,24 @@ public:
     /// @returns an error. If error.ok() is false, then the streamer has failed and
     /// must be closed.
     /// @param channels - the channels to stream.
-    /// @note setChannels is not safe to call concurrently with itself or with close(),
-    /// but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error
-    set_channels(std::vector<ChannelKey> channels) const;
+    /// @note setChannels is not safe to call concurrently with itself or with
+    /// close(), but it is safe to call concurrently with read().
+    [[nodiscard]] xerrors::Error set_channels(std::vector<ChannelKey> channels) const;
 
-    /// @brief closes the streamer and releases any resources associated with it. If any
-    /// errors occurred during the stream, they will be returned. A streamer MUST be
-    /// closed after use, or the caller risks leaking resources. Calling any method
-    /// on a closed streamer will throw a runtime_error.
-    /// @returns an error. error.ok() will be false if the streamer accumulated an error
-    /// during operation.
-    /// @note close() is not safe to call concurrently with itself or any other streamer
-    /// methods.
+    /// @brief closes the streamer and releases any resources associated with it. If
+    /// any errors occurred during the stream, they will be returned. A streamer
+    /// MUST be closed after use, or the caller risks leaking resources. Calling any
+    /// method on a closed streamer will throw a runtime_error.
+    /// @returns an error. error.ok() will be false if the streamer accumulated an
+    /// error during operation.
+    /// @note close() is not safe to call concurrently with itself or any other
+    /// streamer methods.
     [[nodiscard]] xerrors::Error close() const;
 
-    /// @brief closes the sending end of the streamer. Subsequence calls to receive()
-    /// will exhaust the stream and eventually return an EOF.
-    /// @note close_send() is safe to call concurrently with read(), but not with any
-    /// other DB methods.
+    /// @brief closes the sending end of the streamer. Subsequence calls to
+    /// receive() will exhaust the stream and eventually return an EOF.
+    /// @note close_send() is safe to call concurrently with read(), but not with
+    /// any other DB methods.
     void close_send() const;
 
 private:
@@ -302,30 +291,31 @@ struct WriterConfig {
     /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
     std::vector<telem::Authority> authorities;
 
-    /// @brief sets identifying information for the writer. The subject's key and name
-    /// will be used to identify the writer in control transfer scenarios.
+    /// @brief sets identifying information for the writer. The subject's key and
+    /// name will be used to identify the writer in control transfer scenarios.
     telem::ControlSubject subject;
 
-    /// @brief sets whether the writer is configured to persist data, stream it, or both.
-    /// Options are:
+    /// @brief sets whether the writer is configured to persist data, stream it, or
+    /// both. Options are:
     ///     - WriterPersistStream: persist data and stream it.
     ///     - WriterPersistOnly: persist data only.
     ///     - WriterStreamOnly: stream data only.
     WriterMode mode;
 
-    /// @brief sets whether auto commit is enabled for the writer. If true, samples will
-    /// be made immediately available for reads. If false, samples will be made available
-    /// for reads only after a call to Writer::commit().
+    /// @brief sets whether auto commit is enabled for the writer. If true, samples
+    /// will be made immediately available for reads. If false, samples will be made
+    /// available for reads only after a call to Writer::commit().
     bool enable_auto_commit = false;
 
-    /// @brief sets whether the writer returns error if the writer attempts to write to a channel
-    /// that it does not have authority to write to. If false, the writer will silently ignore
+    /// @brief sets whether the writer returns error if the writer attempts to write
+    /// to a channel that it does not have authority to write to. If false, the
+    /// writer will silently ignore
     bool err_on_unauthorized = false;
 
-    /// @brief sets the interval at which commits will be flushed to disk and durable
-    /// when auto commit is enabled. Setting this value to zero will make all writes
-    /// durable immediately. Lower values will decrease write throughput. Defaults to
-    /// 1s when auto commit is enabled.
+    /// @brief sets the interval at which commits will be flushed to disk and
+    /// durable when auto commit is enabled. Setting this value to zero will make
+    /// all writes durable immediately. Lower values will decrease write throughput.
+    /// Defaults to 1s when auto commit is enabled.
     telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
 
     /// @brief whether to enable protobuf frame caching for the writer. This allows
@@ -333,9 +323,10 @@ struct WriterConfig {
     /// releasing significant heap pressure.
     ///
     /// @details IMPORTANT: This option should only be used for writers that write
-    /// a frame with the EXACT same dimensions on every write i.e. same number of channels
-    /// and series in the same order. Each series must have the same data type and the
-    /// same number of samples. BEHAVIOR IS UNDEFINED IF YOU DO NOT FOLLOW THIS RULE.
+    /// a frame with the EXACT same dimensions on every write i.e. same number of
+    /// channels and series in the same order. Each series must have the same data
+    /// type and the same number of samples. BEHAVIOR IS UNDEFINED IF YOU DO NOT
+    /// FOLLOW THIS RULE.
     bool enable_proto_frame_caching = false;
 
 private:
@@ -347,12 +338,12 @@ private:
     friend class Writer;
 };
 
-/// @brief used to write a new domain of telemetry frames to a set of channels in time
-/// order. Writer cannot be constructed directly, and should instead be opened using
-/// the FrameClient.
+/// @brief used to write a new domain of telemetry frames to a set of channels in
+/// time order. Writer cannot be constructed directly, and should instead be opened
+/// using the FrameClient.
 ///
-/// @note The writer uses a streaming protocol heavily optimized for performance. This comes
-/// at the cost of higher complexity.
+/// @note The writer uses a streaming protocol heavily optimized for performance.
+/// This comes at the cost of higher complexity.
 ///
 /// @note The writer is not safe for concurrent use.
 class Writer {
@@ -360,20 +351,23 @@ public:
     Writer() = default;
 
     /// @brief writes the given frame of telemetry to the Synnax cluster.
-    /// @param fr the frame to write. This frame must adhere to a set of constraints:
+    /// @param fr the frame to write. This frame must adhere to a set of
+    /// constraints:
     ///
     /// 1. The frame must have at most 1 series per channel.
     /// 2. The frame may not have series for any channel not specified in the
     /// WriterConfig when opening the writer.
-    /// 3. All series' that are written to the same index must have the same number of
-    /// samples.
-    /// 4. When writing to an index, the series' for the index must have monotonically
-    /// increasing int64 unix epoch timestamps.
+    /// 3. All series' that are written to the same index must have the same number
+    /// of samples.
+    /// 4. When writing to an index, the series' for the index must have
+    /// monotonically increasing int64 unix epoch timestamps.
     ///
-    /// For more information, see https://docs.synnaxlabs.com/reference/concepts/writes.
+    /// For more information, see
+    /// https://docs.synnaxlabs.com/reference/concepts/writes.
     ///
-    /// @returns false if an error occurred in the write pipeline. After an error occurs,
-    /// the caller must acknowledge the error by calling error() or close() on the writer.
+    /// @returns false if an error occurred in the write pipeline. After an error
+    /// occurs, the caller must acknowledge the error by calling error() or close()
+    /// on the writer.
     bool write(const Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
@@ -382,17 +376,17 @@ public:
     /// @param auth the authority level to set all channels to.
     [[nodiscard]] bool set_authority(const telem::Authority &auth);
 
-    /// @brief changes the authority of the given channel to the given authority level.
-    /// This does not affect the authority levels of any other channels in the writer.
+    /// @brief changes the authority of the given channel to the given authority
+    /// level. This does not affect the authority levels of any other channels in
+    /// the writer.
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
-    [[nodiscard]] bool set_authority(
-        const ChannelKey &key,
-        const telem::Authority &authority
-    );
+    [[nodiscard]] bool
+    set_authority(const ChannelKey &key, const telem::Authority &authority);
 
-    /// @brief changes the authority of the given channels to the given authority levels.
+    /// @brief changes the authority of the given channels to the given authority
+    /// levels.
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
@@ -401,8 +395,8 @@ public:
         const std::vector<telem::Authority> &authorities
     );
 
-    /// @brief commits all pending writes to the Synnax cluster. Commit can be called
-    /// multiple times, committing any new writes made since the last commit.
+    /// @brief commits all pending writes to the Synnax cluster. Commit can be
+    /// called multiple times, committing any new writes made since the last commit.
     ///
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
@@ -412,9 +406,9 @@ public:
     /// occurred, err.ok() will be true.
     [[nodiscard]] xerrors::Error error();
 
-    /// @brief closes the writer and releases any resources associated with it. A writer
-    /// MUST be closed after use, or the caller risks leaking resources. Calling any
-    /// method on a closed writer will throw a runtime_error.
+    /// @brief closes the writer and releases any resources associated with it. A
+    /// writer MUST be closed after use, or the caller risks leaking resources.
+    /// Calling any method on a closed writer will throw a runtime_error.
     [[nodiscard]] xerrors::Error close() const;
 
 private:
@@ -432,7 +426,7 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<api::v1::FrameWriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    api::v1::Frame* cached_frame = nullptr;
+    api::v1::Frame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
@@ -442,7 +436,7 @@ private:
     explicit Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg);
 
     /// @brief initializes the cached request with the frame structure
-    void init_request(const Frame& fr);
+    void init_request(const Frame &fr);
 
     /// @brief throws a runtime error if the writer is closed.
     void assert_open() const;
@@ -455,36 +449,36 @@ public:
     FrameClient(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client
-    ) :
+    ):
         streamer_client(std::move(streamer_client)),
-        writer_client(std::move(writer_client)) {
-    }
+        writer_client(std::move(writer_client)) {}
 
 
-    /// @brief opens a new frame writer using the given configuration. For information
-    /// on configuration parameters, see WriterConfig.
+    /// @brief opens a new frame writer using the given configuration. For
+    /// information on configuration parameters, see WriterConfig.
     /// @returns a pair containing the opened writer and an error when ok() is false
-    /// if the writer could not be opened. In the case where ok() is false, the writer
-    /// will be in an invalid state and does not need to be closed. If ok() is true,
-    /// The writer must be closed after use to avoid leaking resources.
+    /// if the writer could not be opened. In the case where ok() is false, the
+    /// writer will be in an invalid state and does not need to be closed. If ok()
+    /// is true, The writer must be closed after use to avoid leaking resources.
     [[nodiscard]] std::pair<Writer, xerrors::Error>
     open_writer(const WriterConfig &cfg) const;
 
-    /// @brief opens a new frame streamer using the given configuration. For information
-    /// on configuration parameters, see StreamerConfig.
-    /// @returns a pair containing the opened streamer and an error when ok() is false
-    /// if the streamer could not be opened. In the case where ok() is false, the
-    /// streamer will be in an invalid state and does not need to be closed. If ok()
-    /// is true, the streamer must be closed after use to avoid leaking resources.
+    /// @brief opens a new frame streamer using the given configuration. For
+    /// information on configuration parameters, see StreamerConfig.
+    /// @returns a pair containing the opened streamer and an error when ok() is
+    /// false if the streamer could not be opened. In the case where ok() is false,
+    /// the streamer will be in an invalid state and does not need to be closed. If
+    /// ok() is true, the streamer must be closed after use to avoid leaking
+    /// resources.
     [[nodiscard]] std::pair<Streamer, xerrors::Error>
     open_streamer(const StreamerConfig &config) const;
 
 private:
-    /// @brief freighter transport implementation for opening streamers to the Synnax
-    /// cluster.
+    /// @brief freighter transport implementation for opening streamers to the
+    /// Synnax cluster.
     std::unique_ptr<StreamerClient> streamer_client;
     /// @brief freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
 };
-}
+} // namespace synnax

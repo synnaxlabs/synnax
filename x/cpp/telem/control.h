@@ -26,4 +26,4 @@ struct ControlSubject {
         s->set_key(key);
     }
 };
-}
+} // namespace telem

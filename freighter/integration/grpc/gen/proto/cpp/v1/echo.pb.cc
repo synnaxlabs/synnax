@@ -13,14 +13,14 @@
 #include "v1/echo.pb.h"
 
 #include <algorithm>
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/extension_set.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/extension_set.h"
 #include "google/protobuf/generated_message_reflection.h"
+#include "google/protobuf/generated_message_tctable_impl.h"
+#include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/reflection_ops.h"
 #include "google/protobuf/wire_format.h"
-#include "google/protobuf/generated_message_tctable_impl.h"
+#include "google/protobuf/wire_format_lite.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -29,45 +29,45 @@ PROTOBUF_PRAGMA_INIT_SEG
 namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
-namespace integration {
-namespace v1 {
-        template <typename>
-PROTOBUF_CONSTEXPR Message::Message(::_pbi::ConstantInitialized)
-    : _impl_{
-      /*decltype(_impl_.message_)*/ {
-          &::_pbi::fixed_address_empty_string,
-          ::_pbi::ConstantInitialized{},
-      },
-      /*decltype(_impl_.id_)*/ 0u,
-      /*decltype(_impl_._cached_size_)*/ {},
+namespace integration { namespace v1 {
+template<typename>
+PROTOBUF_CONSTEXPR Message::Message(::_pbi::ConstantInitialized):
+    _impl_{
+        /*decltype(_impl_.message_)*/ {
+            &::_pbi::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized{},
+        },
+        /*decltype(_impl_.id_)*/ 0u,
+        /*decltype(_impl_._cached_size_)*/ {},
     } {}
 struct MessageDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR MessageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~MessageDefaultTypeInternal() {}
-  union {
-    Message _instance;
-  };
+    PROTOBUF_CONSTEXPR MessageDefaultTypeInternal():
+        _instance(::_pbi::ConstantInitialized{}) {}
+    ~MessageDefaultTypeInternal() {}
+    union {
+        Message _instance;
+    };
 };
 
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 MessageDefaultTypeInternal _Message_default_instance_;
-}  // namespace v1
-}  // namespace integration
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+    MessageDefaultTypeInternal _Message_default_instance_;
+}} // namespace integration::v1
 static ::_pb::Metadata file_level_metadata_v1_2fecho_2eproto[1];
-static constexpr const ::_pb::EnumDescriptor**
-    file_level_enum_descriptors_v1_2fecho_2eproto = nullptr;
-static constexpr const ::_pb::ServiceDescriptor**
-    file_level_service_descriptors_v1_2fecho_2eproto = nullptr;
+static constexpr const ::_pb::EnumDescriptor *
+    *file_level_enum_descriptors_v1_2fecho_2eproto = nullptr;
+static constexpr const ::_pb::ServiceDescriptor *
+    *file_level_service_descriptors_v1_2fecho_2eproto = nullptr;
 const ::uint32_t TableStruct_v1_2fecho_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(
-    protodesc_cold) = {
-    ~0u,  // no _has_bits_
+    protodesc_cold
+) = {
+    ~0u, // no _has_bits_
     PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _internal_metadata_),
-    ~0u,  // no _extensions_
-    ~0u,  // no _oneof_case_
-    ~0u,  // no _weak_field_map_
-    ~0u,  // no _inlined_string_donated_
-    ~0u,  // no _split_
-    ~0u,  // no sizeof(Split)
+    ~0u, // no _extensions_
+    ~0u, // no _oneof_case_
+    ~0u, // no _weak_field_map_
+    ~0u, // no _inlined_string_donated_
+    ~0u, // no _split_
+    ~0u, // no sizeof(Split)
     PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.id_),
     PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.message_),
 };
@@ -77,20 +77,21 @@ static const ::_pbi::MigrationSchema
         {0, -1, -1, sizeof(::integration::v1::Message)},
 };
 
-static const ::_pb::Message* const file_default_instances[] = {
+static const ::_pb::Message *const file_default_instances[] = {
     &::integration::v1::_Message_default_instance_._instance,
 };
-const char descriptor_table_protodef_v1_2fecho_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-    "\n\rv1/echo.proto\022\016integration.v1\"3\n\007Messa"
-    "ge\022\016\n\002id\030\001 \001(\rR\002id\022\030\n\007message\030\002 \001(\tR\007mes"
-    "sage2G\n\013EchoService\0228\n\004Exec\022\027.integratio"
-    "n.v1.Message\032\027.integration.v1.MessageB\273\001"
-    "\n\022com.integration.v1B\tEchoProtoP\001ZAgithu"
-    "b.com/synnaxlabs/freighter/integration/g"
-    "rpc/v1;integrationv1\242\002\003IXX\252\002\016Integration"
-    ".V1\312\002\016Integration\\V1\342\002\032Integration\\V1\\GP"
-    "BMetadata\352\002\017Integration::V1b\006proto3"
-};
+const char descriptor_table_protodef_v1_2fecho_2eproto[] PROTOBUF_SECTION_VARIABLE(
+    protodesc_cold
+) = {"\n\rv1/echo.proto\022\016integration.v1\"3\n\007Messa"
+     "ge\022\016\n\002id\030\001 \001(\rR\002id\022\030\n\007message\030\002 "
+     "\001(\tR\007mes"
+     "sage2G\n\013EchoService\0228\n\004Exec\022\027.integratio"
+     "n.v1.Message\032\027.integration.v1.MessageB\273\001"
+     "\n\022com.integration.v1B\tEchoProtoP\001ZAgithu"
+     "b.com/synnaxlabs/freighter/integration/g"
+     "rpc/v1;integrationv1\242\002\003IXX\252\002\016Integration"
+     ".V1\312\002\016Integration\\V1\342\002\032Integration\\V1\\GP"
+     "BMetadata\352\002\017Integration::V1b\006proto3"};
 static ::absl::once_flag descriptor_table_v1_2fecho_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_v1_2fecho_2eproto = {
     false,
@@ -121,238 +122,267 @@ const ::_pbi::DescriptorTable descriptor_table_v1_2fecho_2eproto = {
 //   vtables -> GetMetadata
 // By adding a weak function here we break the connection from the
 // individual vtables back into the descriptor table.
-PROTOBUF_ATTRIBUTE_WEAK const ::_pbi::DescriptorTable* descriptor_table_v1_2fecho_2eproto_getter() {
-  return &descriptor_table_v1_2fecho_2eproto;
+PROTOBUF_ATTRIBUTE_WEAK const ::_pbi::DescriptorTable *
+descriptor_table_v1_2fecho_2eproto_getter() {
+    return &descriptor_table_v1_2fecho_2eproto;
 }
 // Force running AddDescriptors() at dynamic initialization time.
 PROTOBUF_ATTRIBUTE_INIT_PRIORITY2
-static ::_pbi::AddDescriptorsRunner dynamic_init_dummy_v1_2fecho_2eproto(&descriptor_table_v1_2fecho_2eproto);
-namespace integration {
-namespace v1 {
+static ::_pbi::AddDescriptorsRunner
+    dynamic_init_dummy_v1_2fecho_2eproto(&descriptor_table_v1_2fecho_2eproto);
+namespace integration { namespace v1 {
 // ===================================================================
 
 class Message::_Internal {
- public:
+public:
 };
 
-Message::Message(::google::protobuf::Arena* arena)
-    : ::google::protobuf::Message(arena) {
-  SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:integration.v1.Message)
+Message::Message(::google::protobuf::Arena *arena): ::google::protobuf::Message(arena) {
+    SharedCtor(arena);
+    // @@protoc_insertion_point(arena_constructor:integration.v1.Message)
 }
-Message::Message(const Message& from) : ::google::protobuf::Message() {
-  Message* const _this = this;
-  (void)_this;
-  new (&_impl_) Impl_{
-      decltype(_impl_.message_){},
-      decltype(_impl_.id_){},
-      /*decltype(_impl_._cached_size_)*/ {},
-  };
-  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
-      from._internal_metadata_);
-  _impl_.message_.InitDefault();
-  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
-        _impl_.message_.Set("", GetArenaForAllocation());
-  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
-  if (!from._internal_message().empty()) {
-    _this->_impl_.message_.Set(from._internal_message(), _this->GetArenaForAllocation());
-  }
-  _this->_impl_.id_ = from._impl_.id_;
+Message::Message(const Message &from): ::google::protobuf::Message() {
+    Message *const _this = this;
+    (void) _this;
+    new (&_impl_) Impl_{
+        decltype(_impl_.message_){},
+        decltype(_impl_.id_){},
+        /*decltype(_impl_._cached_size_)*/ {},
+    };
+    _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+        from._internal_metadata_
+    );
+    _impl_.message_.InitDefault();
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.message_.Set("", GetArenaForAllocation());
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    if (!from._internal_message().empty()) {
+        _this->_impl_.message_.Set(
+            from._internal_message(),
+            _this->GetArenaForAllocation()
+        );
+    }
+    _this->_impl_.id_ = from._impl_.id_;
 
-  // @@protoc_insertion_point(copy_constructor:integration.v1.Message)
+    // @@protoc_insertion_point(copy_constructor:integration.v1.Message)
 }
-inline void Message::SharedCtor(::_pb::Arena* arena) {
-  (void)arena;
-  new (&_impl_) Impl_{
-      decltype(_impl_.message_){},
-      decltype(_impl_.id_){0u},
-      /*decltype(_impl_._cached_size_)*/ {},
-  };
-  _impl_.message_.InitDefault();
-  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
-        _impl_.message_.Set("", GetArenaForAllocation());
-  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+inline void Message::SharedCtor(::_pb::Arena *arena) {
+    (void) arena;
+    new (&_impl_) Impl_{
+        decltype(_impl_.message_){},
+        decltype(_impl_.id_){0u},
+        /*decltype(_impl_._cached_size_)*/ {},
+    };
+    _impl_.message_.InitDefault();
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    _impl_.message_.Set("", GetArenaForAllocation());
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 Message::~Message() {
-  // @@protoc_insertion_point(destructor:integration.v1.Message)
-  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
-  SharedDtor();
+    // @@protoc_insertion_point(destructor:integration.v1.Message)
+    _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+    SharedDtor();
 }
 inline void Message::SharedDtor() {
-  ABSL_DCHECK(GetArenaForAllocation() == nullptr);
-  _impl_.message_.Destroy();
+    ABSL_DCHECK(GetArenaForAllocation() == nullptr);
+    _impl_.message_.Destroy();
 }
 void Message::SetCachedSize(int size) const {
-  _impl_._cached_size_.Set(size);
+    _impl_._cached_size_.Set(size);
 }
 
 PROTOBUF_NOINLINE void Message::Clear() {
-// @@protoc_insertion_point(message_clear_start:integration.v1.Message)
-  ::uint32_t cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+    // @@protoc_insertion_point(message_clear_start:integration.v1.Message)
+    ::uint32_t cached_has_bits = 0;
+    // Prevent compiler warnings about cached_has_bits being unused
+    (void) cached_has_bits;
 
-  _impl_.message_.ClearToEmpty();
-  _impl_.id_ = 0u;
-  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+    _impl_.message_.ClearToEmpty();
+    _impl_.id_ = 0u;
+    _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
-const char* Message::_InternalParse(
-    const char* ptr, ::_pbi::ParseContext* ctx) {
-  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
-  return ptr;
+const char *Message::_InternalParse(const char *ptr, ::_pbi::ParseContext *ctx) {
+    ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+    return ptr;
 }
 
 
-PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 38, 2> Message::_table_ = {
-  {
-    0,  // no _has_bits_
-    0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
-    offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
-    offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
-    &_Message_default_instance_._instance,
-    ::_pbi::TcParser::GenericFallback,  // fallback
-  }, {{
-    // string message = 2 [json_name = "message"];
-    {::_pbi::TcParser::FastUS1,
-     {18, 63, 0, PROTOBUF_FIELD_OFFSET(Message, _impl_.message_)}},
-    // uint32 id = 1 [json_name = "id"];
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Message, _impl_.id_), 63>(),
-     {8, 63, 0, PROTOBUF_FIELD_OFFSET(Message, _impl_.id_)}},
-  }}, {{
-    65535, 65535
-  }}, {{
-    // uint32 id = 1 [json_name = "id"];
-    {PROTOBUF_FIELD_OFFSET(Message, _impl_.id_), 0, 0,
-    (0 | ::_fl::kFcSingular | ::_fl::kUInt32)},
-    // string message = 2 [json_name = "message"];
-    {PROTOBUF_FIELD_OFFSET(Message, _impl_.message_), 0, 0,
-    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
-  }},
-  // no aux_entries
-  {{
-    "\26\0\7\0\0\0\0\0"
-    "integration.v1.Message"
-    "message"
-  }},
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ::_pbi::TcParseTable<1, 2, 0, 38, 2>
+    Message::_table_ = {
+        {
+            0, // no _has_bits_
+            0, // no _extensions_
+            2,
+            8, // max_field_number, fast_idx_mask
+            offsetof(decltype(_table_), field_lookup_table),
+            4294967292, // skipmap
+            offsetof(decltype(_table_), field_entries),
+            2, // num_field_entries
+            0, // num_aux_entries
+            offsetof(decltype(_table_), field_names), // no aux_entries
+            &_Message_default_instance_._instance,
+            ::_pbi::TcParser::GenericFallback, // fallback
+        },
+        {{
+            // string message = 2 [json_name = "message"];
+            {::_pbi::TcParser::FastUS1,
+             {18, 63, 0, PROTOBUF_FIELD_OFFSET(Message, _impl_.message_)}},
+            // uint32 id = 1 [json_name = "id"];
+            {::_pbi::TcParser::
+                 SingularVarintNoZag1<::uint32_t, offsetof(Message, _impl_.id_), 63>(),
+             {8, 63, 0, PROTOBUF_FIELD_OFFSET(Message, _impl_.id_)}},
+        }},
+        {{65535, 65535}},
+        {{
+            // uint32 id = 1 [json_name = "id"];
+            {PROTOBUF_FIELD_OFFSET(Message, _impl_.id_),
+             0,
+             0,
+             (0 | ::_fl::kFcSingular | ::_fl::kUInt32)},
+            // string message = 2 [json_name = "message"];
+            {PROTOBUF_FIELD_OFFSET(Message, _impl_.message_),
+             0,
+             0,
+             (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+        }},
+        // no aux_entries
+        {{"\26\0\7\0\0\0\0\0"
+          "integration.v1.Message"
+          "message"}},
 };
 
-::uint8_t* Message::_InternalSerialize(
-    ::uint8_t* target,
-    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:integration.v1.Message)
-  ::uint32_t cached_has_bits = 0;
-  (void)cached_has_bits;
+::uint8_t *Message::_InternalSerialize(
+    ::uint8_t *target,
+    ::google::protobuf::io::EpsCopyOutputStream *stream
+) const {
+    // @@protoc_insertion_point(serialize_to_array_start:integration.v1.Message)
+    ::uint32_t cached_has_bits = 0;
+    (void) cached_has_bits;
 
-  // uint32 id = 1 [json_name = "id"];
-  if (this->_internal_id() != 0) {
-    target = stream->EnsureSpace(target);
-    target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
-        1, this->_internal_id(), target);
-  }
+    // uint32 id = 1 [json_name = "id"];
+    if (this->_internal_id() != 0) {
+        target = stream->EnsureSpace(target);
+        target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
+            1,
+            this->_internal_id(),
+            target
+        );
+    }
 
-  // string message = 2 [json_name = "message"];
-  if (!this->_internal_message().empty()) {
-    const std::string& _s = this->_internal_message();
-    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "integration.v1.Message.message");
-    target = stream->WriteStringMaybeAliased(2, _s, target);
-  }
+    // string message = 2 [json_name = "message"];
+    if (!this->_internal_message().empty()) {
+        const std::string &_s = this->_internal_message();
+        ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            _s.data(),
+            static_cast<int>(_s.length()),
+            ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+            "integration.v1.Message.message"
+        );
+        target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target =
-        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
-            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:integration.v1.Message)
-  return target;
+    if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+        target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(
+                ::google::protobuf::UnknownFieldSet::default_instance
+            ),
+            target,
+            stream
+        );
+    }
+    // @@protoc_insertion_point(serialize_to_array_end:integration.v1.Message)
+    return target;
 }
 
 ::size_t Message::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:integration.v1.Message)
-  ::size_t total_size = 0;
+    // @@protoc_insertion_point(message_byte_size_start:integration.v1.Message)
+    ::size_t total_size = 0;
 
-  ::uint32_t cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+    ::uint32_t cached_has_bits = 0;
+    // Prevent compiler warnings about cached_has_bits being unused
+    (void) cached_has_bits;
 
-  // string message = 2 [json_name = "message"];
-  if (!this->_internal_message().empty()) {
-    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                    this->_internal_message());
-  }
+    // string message = 2 [json_name = "message"];
+    if (!this->_internal_message().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                              this->_internal_message()
+                          );
+    }
 
-  // uint32 id = 1 [json_name = "id"];
-  if (this->_internal_id() != 0) {
-    total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
-        this->_internal_id());
-  }
+    // uint32 id = 1 [json_name = "id"];
+    if (this->_internal_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(this->_internal_id());
+    }
 
-  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+    return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
 const ::google::protobuf::Message::ClassData Message::_class_data_ = {
     ::google::protobuf::Message::CopyWithSourceCheck,
     Message::MergeImpl
 };
-const ::google::protobuf::Message::ClassData*Message::GetClassData() const { return &_class_data_; }
-
-
-void Message::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg) {
-  auto* const _this = static_cast<Message*>(&to_msg);
-  auto& from = static_cast<const Message&>(from_msg);
-  // @@protoc_insertion_point(class_specific_merge_from_start:integration.v1.Message)
-  ABSL_DCHECK_NE(&from, _this);
-  ::uint32_t cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  if (!from._internal_message().empty()) {
-    _this->_internal_set_message(from._internal_message());
-  }
-  if (from._internal_id() != 0) {
-    _this->_internal_set_id(from._internal_id());
-  }
-  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+const ::google::protobuf::Message::ClassData *Message::GetClassData() const {
+    return &_class_data_;
 }
 
-void Message::CopyFrom(const Message& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:integration.v1.Message)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+
+void Message::MergeImpl(
+    ::google::protobuf::Message &to_msg,
+    const ::google::protobuf::Message &from_msg
+) {
+    auto *const _this = static_cast<Message *>(&to_msg);
+    auto &from = static_cast<const Message &>(from_msg);
+    // @@protoc_insertion_point(class_specific_merge_from_start:integration.v1.Message)
+    ABSL_DCHECK_NE(&from, _this);
+    ::uint32_t cached_has_bits = 0;
+    (void) cached_has_bits;
+
+    if (!from._internal_message().empty()) {
+        _this->_internal_set_message(from._internal_message());
+    }
+    if (from._internal_id() != 0) { _this->_internal_set_id(from._internal_id()); }
+    _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+        from._internal_metadata_
+    );
+}
+
+void Message::CopyFrom(const Message &from) {
+    // @@protoc_insertion_point(class_specific_copy_from_start:integration.v1.Message)
+    if (&from == this) return;
+    Clear();
+    MergeFrom(from);
 }
 
 PROTOBUF_NOINLINE bool Message::IsInitialized() const {
-  return true;
+    return true;
 }
 
-void Message::InternalSwap(Message* other) {
-  using std::swap;
-  auto* lhs_arena = GetArenaForAllocation();
-  auto* rhs_arena = other->GetArenaForAllocation();
-  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.message_, lhs_arena,
-                                       &other->_impl_.message_, rhs_arena);
-        swap(_impl_.id_, other->_impl_.id_);
+void Message::InternalSwap(Message *other) {
+    using std::swap;
+    auto *lhs_arena = GetArenaForAllocation();
+    auto *rhs_arena = other->GetArenaForAllocation();
+    _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+    ::_pbi::ArenaStringPtr::InternalSwap(
+        &_impl_.message_,
+        lhs_arena,
+        &other->_impl_.message_,
+        rhs_arena
+    );
+    swap(_impl_.id_, other->_impl_.id_);
 }
 
 ::google::protobuf::Metadata Message::GetMetadata() const {
-  return ::_pbi::AssignDescriptors(
-      &descriptor_table_v1_2fecho_2eproto_getter, &descriptor_table_v1_2fecho_2eproto_once,
-      file_level_metadata_v1_2fecho_2eproto[0]);
+    return ::_pbi::AssignDescriptors(
+        &descriptor_table_v1_2fecho_2eproto_getter,
+        &descriptor_table_v1_2fecho_2eproto_once,
+        file_level_metadata_v1_2fecho_2eproto[0]
+    );
 }
 // @@protoc_insertion_point(namespace_scope)
-}  // namespace v1
-}  // namespace integration
-namespace google {
-namespace protobuf {
-}  // namespace protobuf
-}  // namespace google
+}} // namespace integration::v1
+namespace google { namespace protobuf {
+}} // namespace google::protobuf
 // @@protoc_insertion_point(global_scope)
 #include "google/protobuf/port_undef.inc"

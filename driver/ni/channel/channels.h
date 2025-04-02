@@ -15,13 +15,13 @@
 #include <string>
 
 /// module
-#include "x/cpp/xjson/xjson.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/channel/scale.h"
 #include "driver/ni/channel/units.h"
+#include "driver/ni/daqmx/sugared.h"
 
 namespace channel {
 static int32_t parse_terminal_config(xjson::Parser &p) {
@@ -90,17 +90,15 @@ struct ExcitationConfig {
     const int32_t source;
     const double val;
     const double min_val_for_excitation; // optional
-    const double max_val_for_excitation; //optional
-    const bool32 use_excit_for_scaling; //optional
+    const double max_val_for_excitation; // optional
+    const bool32 use_excit_for_scaling; // optional
 
-    explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix)
-        : source(
-              get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
-          val(cfg.required<double>(prefix + "_excit_val")),
-          min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
-          max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
-          use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {
-    }
+    explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix):
+        source(get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
+        val(cfg.required<double>(prefix + "_excit_val")),
+        min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
+        max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
+        use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {}
 };
 
 const std::string CURR_EXCIT_PREFIX = "current";
@@ -115,10 +113,10 @@ struct BridgeConfig {
     explicit BridgeConfig(xjson::Parser &cfg):
         ni_bridge_config(parse_bridge_config(cfg)),
         voltage_excit_source(
-            get_excitation_src(cfg.required<std::string>("voltage_excit_source"))),
+            get_excitation_src(cfg.required<std::string>("voltage_excit_source"))
+        ),
         voltage_excit_val(cfg.required<double>("voltage_excit_val")),
-        nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {
-    }
+        nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {}
 };
 
 struct PolynomialConfig {
@@ -129,19 +127,23 @@ struct PolynomialConfig {
     int32_t electrical_units;
     int32_t physical_units;
 
-    explicit PolynomialConfig(xjson::Parser &cfg)
-        : num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
-          num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
+    explicit PolynomialConfig(xjson::Parser &cfg):
+        num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
+        num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
         const auto eu = cfg.required<std::string>("electrical_units");
         const auto pu = cfg.required<std::string>("physical_units");
 
         const auto ni_eu = channel::UNITS_MAP.find(eu);
-        if (ni_eu == channel::UNITS_MAP.end()) electrical_units = DAQmx_Val_Volts;
-        else electrical_units = ni_eu->second;
+        if (ni_eu == channel::UNITS_MAP.end())
+            electrical_units = DAQmx_Val_Volts;
+        else
+            electrical_units = ni_eu->second;
 
         const auto ni_pu = channel::UNITS_MAP.find(pu);
-        if (ni_pu == channel::UNITS_MAP.end()) physical_units = DAQmx_Val_Volts;
-        else physical_units = channel::UNITS_MAP.at(pu);
+        if (ni_pu == channel::UNITS_MAP.end())
+            physical_units = DAQmx_Val_Volts;
+        else
+            physical_units = channel::UNITS_MAP.at(pu);
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
         const auto f = cfg.required_vec<double>("forward_coeffs");
@@ -172,8 +174,8 @@ struct TableConfig {
         electrical_units = channel::UNITS_MAP.at(eu);
         physical_units = channel::UNITS_MAP.at(pu);
 
-        // TODO: figure out why using vector and .data() throws exception when passed to
-        // NI function
+        // TODO: figure out why using vector and .data() throws exception when
+        // passed to NI function
         const auto ev = cfg.required_vec<double>("electrical_vals");
         num_electrical_vals = ev.size();
         electrical_vals = new double[num_electrical_vals];
@@ -203,13 +205,13 @@ struct TwoPointLinConfig {
 
     TwoPointLinConfig() = default;
 
-    explicit TwoPointLinConfig(xjson::Parser &cfg)
-        : first_electrical_val(cfg.required<double>("first_electrical_val")),
-          second_electrical_val(cfg.required<double>("second_electrical_val")),
-          electrical_units(UNITS_MAP.at(cfg.required<std::string>("electrical_units"))),
-          first_physical_val(cfg.required<double>("first_physical_val")),
-          second_physical_val(cfg.required<double>("second_physical_val")),
-          physical_units(UNITS_MAP.at(cfg.required<std::string>("physical_units"))) {
+    explicit TwoPointLinConfig(xjson::Parser &cfg):
+        first_electrical_val(cfg.required<double>("first_electrical_val")),
+        second_electrical_val(cfg.required<double>("second_electrical_val")),
+        electrical_units(UNITS_MAP.at(cfg.required<std::string>("electrical_units"))),
+        first_physical_val(cfg.required<double>("first_physical_val")),
+        second_physical_val(cfg.required<double>("second_physical_val")),
+        physical_units(UNITS_MAP.at(cfg.required<std::string>("physical_units"))) {
         const auto eu = cfg.required<std::string>("electrical_units");
     }
 };
@@ -232,14 +234,16 @@ inline std::string format_cjc_port(const std::string &path, const std::int32_t p
 struct Base {
     /// @brief whether data acquisition/control is enabled.
     const bool enabled;
-    /// @brief the device key that the channel is associated with. This key is optional,
-    /// and can be ultimately overridden by the caller in bind_remote_info implementations.
+    /// @brief the device key that the channel is associated with. This key is
+    /// optional, and can be ultimately overridden by the caller in bind_remote_info
+    /// implementations.
     const std::string dev_key;
     /// @brief the path within the JSON configuration structure that the channel is
     /// defined within. This is used for error propagation.
     const std::string cfg_path;
-    /// @brief the actual location of the device e.g. "cDAQ1Mod1". This is not constant,
-    /// it gets bound by the caller after fetching all the devices for the task.
+    /// @brief the actual location of the device e.g. "cDAQ1Mod1". This is not
+    /// constant, it gets bound by the caller after fetching all the devices for the
+    /// task.
     std::string dev_loc;
 
     virtual ~Base() = default;
@@ -247,8 +251,7 @@ struct Base {
     explicit Base(xjson::Parser &cfg):
         enabled(cfg.optional<bool>("enabled", true)),
         dev_key(cfg.optional<std::string>("device", "")),
-        cfg_path(format_cfg_path(cfg.path_prefix)) {
-    }
+        cfg_path(format_cfg_path(cfg.path_prefix)) {}
 
     /// @brief applies the channel configuration to the DAQmx task.
     virtual xerrors::Error apply(
@@ -261,15 +264,13 @@ struct Base {
 struct Input : virtual Base {
     /// @brief the key of the synnax channel that we'll write acquired data to.
     const synnax::ChannelKey synnax_key;
-    /// @brief the properties of the synnax channel that we'll write acquired data to.
-    /// This field is bound by the caller after fetching all the synnax channels for the
-    /// task.
+    /// @brief the properties of the synnax channel that we'll write acquired data
+    /// to. This field is bound by the caller after fetching all the synnax channels
+    /// for the task.
     synnax::Channel ch;
 
     explicit Input(xjson::Parser &cfg):
-        Base(cfg),
-        synnax_key(cfg.required<synnax::ChannelKey>("channel")) {
-    }
+        Base(cfg), synnax_key(cfg.required<synnax::ChannelKey>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &ch, const std::string &dev_loc) {
@@ -282,19 +283,18 @@ struct Input : virtual Base {
 struct Output : virtual Base {
     /// @brief the key of the command channel that we'll receive commands from.
     const synnax::ChannelKey cmd_ch_key;
-    /// @brief the key of the state channel that we'll write the state of the command
-    /// channel to.
+    /// @brief the key of the state channel that we'll write the state of the
+    /// command channel to.
     const synnax::ChannelKey state_ch_key;
-    /// @brief the properties of the command channel that we'll receive commands from.
-    /// This field is bound by the caller after fetching all the synnax channels for the
-    /// task.
+    /// @brief the properties of the command channel that we'll receive commands
+    /// from. This field is bound by the caller after fetching all the synnax
+    /// channels for the task.
     synnax::Channel state_ch;
 
     explicit Output(xjson::Parser &cfg):
         Base(cfg),
         cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
-        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {
-    }
+        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
@@ -309,9 +309,7 @@ struct Digital : virtual Base {
     const int line;
 
     explicit Digital(xjson::Parser &cfg):
-        port(cfg.required<int>("port")),
-        line(cfg.required<int>("line")) {
-    }
+        port(cfg.required<int>("port")), line(cfg.required<int>("line")) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/port" + std::to_string(this->port) + "/line" +
@@ -321,11 +319,7 @@ struct Digital : virtual Base {
 
 /// @brief configuration for a digital input channel.
 struct DI final : Digital, Input {
-    explicit DI(xjson::Parser &cfg):
-        Base(cfg),
-        Digital(cfg),
-        Input(cfg) {
-    }
+    explicit DI(xjson::Parser &cfg): Base(cfg), Digital(cfg), Input(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -342,8 +336,7 @@ struct DI final : Digital, Input {
 
 /// @brief configuration for a digital output channel.
 struct DO final : Digital, Output {
-    explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {
-    }
+    explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {}
 
 
     xerrors::Error apply(
@@ -371,8 +364,7 @@ struct Analog : virtual Base {
         port(cfg.required<int>("port")),
         min_val(cfg.optional<float>("min_val", 0)),
         max_val(cfg.optional<float>("max_val", 0)),
-        units(parse_units(cfg, "units")) {
-    }
+        units(parse_units(cfg, "units")) {}
 };
 
 /// @brief base class for analog channels that can have a custom scale applied.
@@ -380,8 +372,7 @@ struct AnalogCustomScale : virtual Analog {
     const std::unique_ptr<Scale> scale;
 
     explicit AnalogCustomScale(xjson::Parser &cfg):
-        Analog(cfg),
-        scale(parse_scale(cfg, "custom_scale")) {
+        Analog(cfg), scale(parse_scale(cfg, "custom_scale")) {
         if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
     }
 
@@ -391,11 +382,8 @@ struct AnalogCustomScale : virtual Analog {
     ) const override {
         auto [scale_key, err] = this->scale->apply(dmx);
         if (err) return err;
-        return this->apply(
-            dmx,
-            task_handle,
-            scale_key.empty() ? nullptr : scale_key.c_str()
-        );
+        return this
+            ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
     }
 
     virtual xerrors::Error apply(
@@ -407,8 +395,7 @@ struct AnalogCustomScale : virtual Analog {
 
 /// @brief base class for analog input channels.
 struct AI : virtual Analog, Input {
-    explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {
-    }
+    explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/ai" + std::to_string(this->port);
@@ -417,8 +404,7 @@ struct AI : virtual Analog, Input {
 
 /// @brief base class for analog output channels.
 struct AO : virtual Analog, Output {
-    explicit AO(xjson::Parser &cfg): Analog(cfg), Output(cfg) {
-    }
+    explicit AO(xjson::Parser &cfg): Analog(cfg), Output(cfg) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/ao" + std::to_string(this->port);
@@ -427,29 +413,22 @@ struct AO : virtual Analog, Output {
 
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AICustomScale : AI, AnalogCustomScale {
-    explicit AICustomScale(xjson::Parser &cfg):
-        AI(cfg),
-        AnalogCustomScale(cfg) {
-    }
+    explicit AICustomScale(xjson::Parser &cfg): AI(cfg), AnalogCustomScale(cfg) {}
 };
 
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
-    explicit AOCustomScale(xjson::Parser &cfg):
-        AO(cfg),
-        AnalogCustomScale(cfg) {
-    }
+    explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
     const int32_t terminal_config = 0;
 
-    explicit AIVoltage(xjson::Parser &cfg) :
+    explicit AIVoltage(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -470,8 +449,7 @@ struct AIVoltage : AICustomScale {
 };
 
 struct AIVoltageRMS final : AIVoltage {
-    explicit AIVoltageRMS(xjson::Parser &cfg): Analog(cfg), Base(cfg), AIVoltage(cfg) {
-    }
+    explicit AIVoltageRMS(xjson::Parser &cfg): Analog(cfg), Base(cfg), AIVoltage(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -495,13 +473,12 @@ struct AIVoltageWithExcit final : AIVoltage {
     const int32_t bridge_config;
     const ExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcit(xjson::Parser &cfg) :
+    explicit AIVoltageWithExcit(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AIVoltage(cfg),
         bridge_config(parse_bridge_config(cfg)),
-        excitation_config(cfg, VOLT_EXCIT_PREFIX) {
-    }
+        excitation_config(cfg, VOLT_EXCIT_PREFIX) {}
 
     ~AIVoltageWithExcit() override = default;
 
@@ -543,10 +520,10 @@ struct AICurrent : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         shunt_resistor_loc(
-            get_shunt_resistor_loc(cfg.required<std::string>("shunt_resistor_loc"))),
+            get_shunt_resistor_loc(cfg.required<std::string>("shunt_resistor_loc"))
+        ),
         ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -569,11 +546,7 @@ struct AICurrent : AICustomScale {
 };
 
 struct AICurrentRMS final : AICurrent {
-    explicit AICurrentRMS(xjson::Parser &cfg) :
-        Analog(cfg),
-        Base(cfg),
-        AICurrent(cfg) {
-    }
+    explicit AICurrentRMS(xjson::Parser &cfg): Analog(cfg), Base(cfg), AICurrent(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -612,17 +585,14 @@ struct AIRTD final : AI {
         return DAQmx_Val_Pt3750;
     }
 
-    explicit AIRTD(xjson::Parser &cfg) :
+    explicit AIRTD(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AI(cfg),
-        rtd_type(get_rtd_type(
-            cfg.required<std::string>("rtd_type"))),
-        resistance_config(
-            parse_resistance_config(cfg)),
+        rtd_type(get_rtd_type(cfg.required<std::string>("rtd_type"))),
+        resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        r0(cfg.required<double>("r0")) {
-    }
+        r0(cfg.required<double>("r0")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -673,17 +643,19 @@ struct AIThermocouple final : AI {
         return DAQmx_Val_BuiltIn;
     }
 
-    explicit AIThermocouple(xjson::Parser &cfg)
-        : Analog(cfg),
-          Base(cfg),
-          AI(cfg),
-          thermocouple_type(parse_type(cfg)),
-          cjc_source(parse_cjc_source(cfg)),
-          cjc_val(cfg.optional<double>("cjc_val", 0)),
-          cjc_port(
-              format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))) {
-        this->cjc_port = format_cjc_port(this->cfg_path,
-                                         cfg.optional<int32_t>("cjc_port", 0));
+    explicit AIThermocouple(xjson::Parser &cfg):
+        Analog(cfg),
+        Base(cfg),
+        AI(cfg),
+        thermocouple_type(parse_type(cfg)),
+        cjc_source(parse_cjc_source(cfg)),
+        cjc_val(cfg.optional<double>("cjc_val", 0)),
+        cjc_port(format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))
+        ) {
+        this->cjc_port = format_cjc_port(
+            this->cfg_path,
+            cfg.optional<int32_t>("cjc_port", 0)
+        );
     }
 
     xerrors::Error apply(
@@ -706,11 +678,7 @@ struct AIThermocouple final : AI {
 };
 
 struct AITempBuiltIn final : AI {
-    explicit AITempBuiltIn(xjson::Parser &cfg):
-        Analog(cfg),
-        Base(cfg),
-        AI(cfg) {
-    }
+    explicit AITempBuiltIn(xjson::Parser &cfg): Analog(cfg), Base(cfg), AI(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -741,8 +709,7 @@ struct AIThermistorIEX final : AI {
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         a(cfg.required<double>("a")),
         b(cfg.required<double>("b")),
-        c(cfg.required<double>("c")) {
-    }
+        c(cfg.required<double>("c")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -782,8 +749,7 @@ struct AIThermistorVex final : AI {
         a(cfg.required<double>("a")),
         b(cfg.required<double>("b")),
         c(cfg.required<double>("c")),
-        r1(cfg.required<double>("r1")) {
-    }
+        r1(cfg.required<double>("r1")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -822,8 +788,7 @@ struct AIAccel : AICustomScale {
             UNITS_MAP.at(cfg.optional<std::string>("sensitivity_units", "mVoltsPerG"))
         ),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -848,11 +813,8 @@ struct AIAccel : AICustomScale {
 };
 
 struct AIAccel4WireDCVoltage final : AIAccel {
-    explicit AIAccel4WireDCVoltage(xjson::Parser &cfg) :
-        Analog(cfg),
-        Base(cfg),
-        AIAccel(cfg) {
-    }
+    explicit AIAccel4WireDCVoltage(xjson::Parser &cfg):
+        Analog(cfg), Base(cfg), AIAccel(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -882,14 +844,13 @@ struct AIAccelCharge final : AICustomScale {
     const int32_t sensitivity_units;
     const int32 terminal_config;
 
-    explicit AIAccelCharge(xjson::Parser &cfg) :
+    explicit AIAccelCharge(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         sensitivity(cfg.required<double>("sensitivity")),
         sensitivity_units(UNITS_MAP.at(cfg.required<std::string>("sensitivity_units"))),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -915,13 +876,12 @@ struct AIResistance final : AICustomScale {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
 
-    explicit AIResistance(xjson::Parser &cfg) :
+    explicit AIResistance(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         resistance_config(parse_resistance_config(cfg)),
-        excitation_config(cfg, CURR_EXCIT_PREFIX) {
-    }
+        excitation_config(cfg, CURR_EXCIT_PREFIX) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -946,12 +906,8 @@ struct AIResistance final : AICustomScale {
 struct AIBridge final : AICustomScale {
     const BridgeConfig bridge_config;
 
-    explicit AIBridge(xjson::Parser &cfg) :
-        Analog(cfg),
-        Base(cfg),
-        AICustomScale(cfg),
-        bridge_config(cfg) {
-    }
+    explicit AIBridge(xjson::Parser &cfg):
+        Analog(cfg), Base(cfg), AICustomScale(cfg), bridge_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -983,7 +939,7 @@ struct AIStrainGauge final : AICustomScale {
     const double poisson_ratio;
     const double lead_wire_resistance;
 
-    explicit AIStrainGauge(xjson::Parser &cfg) :
+    explicit AIStrainGauge(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
@@ -993,8 +949,7 @@ struct AIStrainGauge final : AICustomScale {
         initial_bridge_voltage(cfg.required<double>("initial_bridge_voltage")),
         nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
         poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
-    }
+        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1036,18 +991,17 @@ struct AIRosetteStrainGauge final : AI {
         Analog(cfg),
         Base(cfg),
         AI(cfg),
-        rosette_type(get_rosette_type(
-            cfg.required<std::string>("rosette_type"))),
+        rosette_type(get_rosette_type(cfg.required<std::string>("rosette_type"))),
         gage_orientation(cfg.required<double>("gage_orientation")),
         rosette_meas_type(
-            get_rosette_meas_type(cfg.required<std::string>("rosette_meas_type"))),
+            get_rosette_meas_type(cfg.required<std::string>("rosette_meas_type"))
+        ),
         strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
         gage_factor(cfg.required<double>("gage_factor")),
         nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
         poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {
-    }
+        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1080,15 +1034,14 @@ struct AIMicrophone final : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32 terminal_config = 0;
 
-    explicit AIMicrophone(xjson::Parser &cfg) :
+    explicit AIMicrophone(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         mic_sensitivity(cfg.required<double>("mic_sensitivity")),
         max_snd_press_level(cfg.required<double>("max_snd_press_level")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1114,13 +1067,12 @@ struct AIFrequencyVoltage final : AICustomScale {
     const double threshold_level;
     const double hysteresis;
 
-    explicit AIFrequencyVoltage(xjson::Parser &cfg) :
+    explicit AIFrequencyVoltage(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         threshold_level(cfg.required<double>("threshold_level")),
-        hysteresis(cfg.required<double>("hysteresis")) {
-    }
+        hysteresis(cfg.required<double>("hysteresis")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1146,13 +1098,12 @@ struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AIPressureBridgeTwoPointLin(xjson::Parser &cfg) :
+    explicit AIPressureBridgeTwoPointLin(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        two_point_lin_config(cfg) {
-    }
+        two_point_lin_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1185,13 +1136,12 @@ struct AIPressureBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AIPressureBridgeTable(xjson::Parser &cfg) :
+    explicit AIPressureBridgeTable(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        table_config(cfg) {
-    }
+        table_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1229,8 +1179,7 @@ struct AIPressureBridgePolynomial final : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        polynomial_config(cfg) {
-    }
+        polynomial_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1268,8 +1217,7 @@ struct AIForceBridgePolynomial final : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        polynomial_config(cfg) {
-    }
+        polynomial_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1307,8 +1255,7 @@ struct AIForceBridgeTable final : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        table_config(cfg) {
-    }
+        table_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1346,8 +1293,7 @@ struct AIForceBridgeTwoPointLin final : AICustomScale {
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        two_point_lin_config(cfg) {
-    }
+        two_point_lin_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1390,8 +1336,7 @@ struct AIVelocityIEPE final : AICustomScale {
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
         sensitivity(cfg.required<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1419,13 +1364,12 @@ struct AITorqueBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AITorqueBridgeTwoPointLin(xjson::Parser &cfg) :
+    explicit AITorqueBridgeTwoPointLin(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        two_point_lin_config(cfg) {
-    }
+        two_point_lin_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1458,13 +1402,12 @@ struct AITorqueBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-    explicit AITorqueBridgePolynomial(xjson::Parser &cfg) :
+    explicit AITorqueBridgePolynomial(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        polynomial_config(cfg) {
-    }
+        polynomial_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1497,13 +1440,12 @@ struct AITorqueBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AITorqueBridgeTable(xjson::Parser &cfg) :
+    explicit AITorqueBridgeTable(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         bridge_config(cfg),
-        table_config(cfg) {
-    }
+        table_config(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1538,15 +1480,14 @@ struct AIForceIEPE final : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32 terminal_config;
 
-    explicit AIForceIEPE(xjson::Parser &cfg) :
+    explicit AIForceIEPE(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
         sensitivity(cfg.required<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1573,12 +1514,11 @@ struct AIForceIEPE final : AICustomScale {
 struct AICharge final : AICustomScale {
     const int32 terminal_config;
 
-    explicit AICharge(xjson::Parser &cfg) :
+    explicit AICharge(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AICustomScale(cfg),
-        terminal_config(parse_terminal_config(cfg)) {
-    }
+        terminal_config(parse_terminal_config(cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1600,10 +1540,7 @@ struct AICharge final : AICustomScale {
 
 struct AOVoltage final : AOCustomScale {
     explicit AOVoltage(xjson::Parser &cfg):
-        Analog(cfg),
-        Base(cfg),
-        AOCustomScale(cfg) {
-    }
+        Analog(cfg), Base(cfg), AOCustomScale(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1623,11 +1560,8 @@ struct AOVoltage final : AOCustomScale {
 };
 
 struct AOCurrent final : AOCustomScale {
-    explicit AOCurrent(xjson::Parser &cfg) :
-        Analog(cfg),
-        Base(cfg),
-        AOCustomScale(cfg) {
-    }
+    explicit AOCurrent(xjson::Parser &cfg):
+        Analog(cfg), Base(cfg), AOCustomScale(cfg) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1662,15 +1596,14 @@ struct AOFunctionGenerator final : AO {
     }
 
 
-    explicit AOFunctionGenerator(xjson::Parser &cfg) :
+    explicit AOFunctionGenerator(xjson::Parser &cfg):
         Analog(cfg),
         Base(cfg),
         AO(cfg),
         frequency(cfg.required<double>("frequency")),
         amplitude(cfg.required<double>("amplitude")),
         offset(cfg.required<double>("offset")),
-        wave_type(get_type(cfg.required<std::string>("wave_type"), cfg)) {
-    }
+        wave_type(get_type(cfg.required<std::string>("wave_type"), cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1691,8 +1624,8 @@ struct AOFunctionGenerator final : AO {
 template<typename T>
 using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
-#define INPUT_CHAN_FACTORY(type, class) \
-    {type, [](xjson::Parser& cfg) { return std::make_unique<class>(cfg); }}
+#define INPUT_CHAN_FACTORY(type, class)                                                \
+    {type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),
@@ -1747,4 +1680,4 @@ inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
 #undef INPUT_CHAN_FACTORY
 #undef FACTORY
 #undef FACTORY_WITH_CJC_SOURCES
-}
+} // namespace channel
