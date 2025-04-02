@@ -41,9 +41,12 @@ fi
 # Check if any files need formatting
 needs_formatting=false
 for file in $files; do
+  # Prepend path to the file to get the correct absolute path
+  full_path="$path/$file"
+  
   # Format the file and capture the output
-  formatted_content=$(clang-format "$file")
-  original_content=$(cat "$file")
+  formatted_content=$(clang-format "$full_path")
+  original_content=$(cat "$full_path")
   
   # Compare the original with the formatted content
   if [ "$formatted_content" != "$original_content" ]; then
