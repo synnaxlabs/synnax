@@ -34,24 +34,18 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
-  FaBolt,
+  FaCarSide,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
   FaMicrophone,
   FaStream,
-  FaTachometerAlt,
+  FaWind,
   FaWindows,
 } from "react-icons/fa";
-import { FiCompass, FiTable } from "react-icons/fi";
-import {
-  GiCircuitry,
-  GiElectric,
-  GiGearStick,
-  GiHamburgerMenu,
-  GiSpring,
-  GiWeight,
-} from "react-icons/gi";
+import { FaBridge, FaGaugeHigh, FaGear } from "react-icons/fa6";
+import { FiTable } from "react-icons/fi";
+import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
@@ -122,7 +116,6 @@ import {
   MdShield,
   MdSquareFoot,
   MdTextFields,
-  MdTungsten,
   MdTypeSpecimen,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -135,17 +128,19 @@ import {
   PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiThermometerSimpleFill,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiRadarLine, RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
   SiPnpm,
   SiPython,
+  SiSpringCreators,
   SiTypescript,
   SiYarn,
 } from "react-icons/si";
@@ -157,13 +152,13 @@ import {
   TbArrowUp,
   TbDecimal,
   TbLivePhoto,
+  TbMathFunction,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
-import { WiThermometer } from "react-icons/wi";
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 export interface IconFC extends FC<IconProps> {}
@@ -188,6 +183,57 @@ const LabJack: IconFC = (props) => (
   </svg>
 );
 
+const Ammeter: IconFC = (props) => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM7.80895 39H14.5589L17.4459 30.392H30.5701L33.4624 39H40.2124L27.9055 4.09091H20.0987L7.80895 39ZM28.8634 25.3125L24.1385 11.25H23.8658L19.1495 25.3125H28.8634Z"
+      fillRule="evenodd"
+      stroke="none"
+    />
+  </svg>
+);
+
+const Ohmmeter: IconFC = (props) => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM10.5536 33.5824V38H21.69V32.4318C20.5915 31.9773 19.5972 31.2812 18.707 30.3438C17.8263 29.3968 17.1256 28.2699 16.6048 26.9631C16.0839 25.6562 15.8235 24.2311 15.8235 22.6875C15.8235 21.3428 16.0224 20.1023 16.4201 18.9659C16.8273 17.8201 17.3955 16.821 18.1246 15.9688C18.8538 15.1165 19.7156 14.4536 20.7099 13.9801C21.7137 13.4972 22.8121 13.2557 24.0053 13.2557C25.6057 13.2557 27.0214 13.6723 28.2525 14.5057C29.4835 15.3295 30.4447 16.4517 31.136 17.8722C31.8368 19.2926 32.1871 20.8977 32.1871 22.6875C32.1871 24.2311 31.9267 25.6562 31.4059 26.9631C30.8851 28.2699 30.1796 29.3968 29.2894 30.3438C28.4087 31.2812 27.4192 31.9773 26.3207 32.4318V38H37.457V33.5824H31.8178V33.3551C33.5508 32.2377 34.9239 30.7604 35.9371 28.9233C36.9504 27.0862 37.457 24.8987 37.457 22.3608C37.457 20.3343 37.1256 18.4782 36.4627 16.7926C35.8093 15.0975 34.8813 13.6345 33.6786 12.4034C32.476 11.1629 31.0555 10.2064 29.4173 9.53409C27.779 8.85227 25.975 8.51136 24.0053 8.51136C22.0356 8.51136 20.2317 8.85227 18.5934 9.53409C16.9551 10.2064 15.5347 11.1629 14.332 12.4034C13.1294 13.6345 12.1966 15.0975 11.5337 16.7926C10.8803 18.4782 10.5536 20.3343 10.5536 22.3608C10.5536 24.8987 11.0603 27.0862 12.0735 28.9233C13.0868 30.7604 14.4599 32.2377 16.1928 33.3551V33.5824H10.5536Z"
+      fillRule="evenodd"
+      stroke="none"
+    />
+  </svg>
+);
+
+const Voltmeter: IconFC = (props) => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM23.8457 35.1875L15.5176 10H9.1582L20.4238 42H27.5801L38.8613 10H32.4863L24.1738 35.1875H23.8457Z"
+      fillRule="evenodd"
+      stroke="none"
+    />
+  </svg>
+);
+
 const NI: IconFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -205,7 +251,7 @@ const NI: IconFC = (props) => (
     </g>
     <defs>
       <clipPath id="clip0_327_656">
-        <rect width="77.8615" height="51" fill="white"></rect>
+        <rect width="77.8615" height="51" fill="white" />
       </clipPath>
     </defs>
   </svg>
@@ -614,18 +660,18 @@ export const Icon: IconType = {
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
   Units: {
-    Acceleration: wrapIcon(FiCompass, "acceleration"),
-    Current: wrapIcon(GiElectric, "current"),
-    Force: wrapIcon(GiWeight, "force"),
-    Pressure: wrapIcon(FaTachometerAlt, "pressure"),
-    Resistance: wrapIcon(GiCircuitry, "resistance"),
-    Strain: wrapIcon(GiSpring, "strain"),
-    Temperature: wrapIcon(WiThermometer, "temperature"),
-    Torque: wrapIcon(GiGearStick, "torque"),
-    Velocity: wrapIcon(RiRadarLine, "velocity"),
-    Voltage: wrapIcon(FaBolt, "voltage"),
+    Acceleration: wrapIcon(FaCarSide, "units-acceleration"),
+    Current: wrapIcon(Ammeter, "units-current"),
+    Force: wrapIcon(RiWeightFill, "units-force"),
+    Pressure: wrapIcon(FaGaugeHigh, "units-pressure"),
+    Resistance: wrapIcon(Ohmmeter, "units-resistance"),
+    Strain: wrapIcon(SiSpringCreators, "units-strain"),
+    Temperature: wrapIcon(PiThermometerSimpleFill, "units-temperature"),
+    Torque: wrapIcon(FaGear, "units-torque"),
+    Velocity: wrapIcon(FaWind, "units-velocity"),
+    Voltage: wrapIcon(Voltmeter, "units-voltage"),
   },
-  Bridge: wrapIcon(MdTungsten, "bridge"),
+  Bridge: wrapIcon(FaBridge, "bridge"),
   Sound: wrapIcon(FaMicrophone, "sound"),
-  Function: wrapIcon(PiWaveSineBold, "function"),
+  Function: wrapIcon(TbMathFunction, "function"),
 };
