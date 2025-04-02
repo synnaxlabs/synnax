@@ -389,6 +389,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     >
       <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
         <Channel.LinePlot
+          aetherKey={layoutKey}
           hold={hold}
           title={name}
           axes={axes}
