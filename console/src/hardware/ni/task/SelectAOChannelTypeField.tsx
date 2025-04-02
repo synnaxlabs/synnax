@@ -7,33 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, type List } from "@synnaxlabs/pluto";
-import { deep, type KeyedNamed } from "@synnaxlabs/x";
+import { Form, Text } from "@synnaxlabs/pluto";
+import { deep, type Keyed } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import {
   AO_CHANNEL_SCHEMAS,
+  AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type AOChannelType,
   ZERO_AO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
-  { key: "name", name: "Name" },
-];
+export interface Entry extends Keyed<AOChannelType> {
+  name: ReactElement;
+}
 
-const COLUMN_DATA = (
-  Object.entries(AO_CHANNEL_TYPE_NAMES) as [AOChannelType, string][]
-).map(([key, name]) => ({ key, name }));
+interface ChannelTypeProps {
+  type: AOChannelType;
+}
 
-export type SelectAOChannelTypeFieldProps = Form.SelectSingleFieldProps<
+const ChannelType = ({ type }: ChannelTypeProps) => (
+  <Text.WithIcon startIcon={AO_CHANNEL_TYPE_ICONS[type]} level="p">
+    {AO_CHANNEL_TYPE_NAMES[type]}
+  </Text.WithIcon>
+);
+
+export type SelectAOChannelTypeFieldProps = Form.DropdownButtonFieldProps<
   AOChannelType,
-  KeyedNamed<AOChannelType>
+  Entry
 >;
 
-export const SelectAOChannelTypeField = Form.buildSelectSingleField<
+export const SelectAOChannelTypeField = Form.buildDropdownButtonSelectField<
   AOChannelType,
-  KeyedNamed<AOChannelType>
+  Entry
 >({
   fieldKey: "type",
   fieldProps: {
@@ -54,7 +62,16 @@ export const SelectAOChannelTypeField = Form.buildSelectSingleField<
   inputProps: {
     allowNone: false,
     entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: COLUMN_DATA,
+    columns: [
+      {
+        key: "name",
+        name: "Name",
+        render: ({ entry: { key } }) => <ChannelType type={key} />,
+      },
+    ],
+    data: Object.keys(AO_CHANNEL_TYPE_NAMES).map((key) => ({
+      key: key as AOChannelType,
+      name: <ChannelType type={key as AOChannelType} />,
+    })),
   },
 });
