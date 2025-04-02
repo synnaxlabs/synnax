@@ -142,6 +142,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.RackStateAliveThreshold = override.Numeric(c.RackStateAliveThreshold, other.RackStateAliveThreshold)
+	c.Device = override.Nil(c.Device, other.Device)
 	return c
 }
 
@@ -155,6 +156,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "host", c.HostProvider)
 	validate.NotNil(v, "channels", c.Channels)
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "device", c.Device)
 	return v.Error()
 }
 
