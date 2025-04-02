@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -37,12 +38,13 @@ export const createBase = <R, A extends BaseArgs<R>>(
   Component: FC<BaseProps<R, A>>,
 ): [() => Prompt<R, A>, Layout.Renderer] => {
   const configureLayout = (
+    key: string,
     args: A,
     layoutOverrides?: LayoutOverrides,
   ): Layout.BaseState<A> & Pick<Layout.State<A>, "key"> => ({
     name,
     type,
-    key: type,
+    key,
     location: "modal",
     window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
     ...layoutOverrides,
@@ -56,10 +58,10 @@ export const createBase = <R, A extends BaseArgs<R>>(
       layoutOverrides?: Omit<Partial<Layout.State>, "key" | "type">,
     ) => {
       let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
+      const key = id.create();
       return await new Promise((resolve) => {
-        const layout = configureLayout(args, layoutOverrides);
+        const layout = configureLayout(key, args, layoutOverrides);
         placeLayout(layout);
-        const { key } = layout;
         unsubscribe = store.subscribe(() => {
           const state = store.getState();
           const l = select(state, key);

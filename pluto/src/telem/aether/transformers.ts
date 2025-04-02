@@ -177,7 +177,8 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    return `${this.props.prefix}${notation.stringifyNumber(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
+    const { precision, prefix, suffix, notation: pNotation } = this.props;
+    return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
   }
 }
 
