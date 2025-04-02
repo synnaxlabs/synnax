@@ -9,13 +9,14 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
+import { type Optional } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 
-export interface ChannelNameProps extends Omit<Text.TextProps, "level"> {
+export interface ChannelNameProps
+  extends Optional<Text.WithIconProps<"div", Text.Level>, "level"> {
   channel: channel.Key;
   defaultName?: string;
-  level?: Text.TextProps["level"];
 }
 
 export const ChannelName = ({
@@ -25,13 +26,13 @@ export const ChannelName = ({
 }: ChannelNameProps) => {
   const name = Channel.useName(channel, defaultName);
   return (
-    <Text.Text
+    <Text.WithIcon
       className={CSS.BE("task", "channel-name")}
       color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
       level="small"
       {...rest}
     >
       {name}
-    </Text.Text>
+    </Text.WithIcon>
   );
 };

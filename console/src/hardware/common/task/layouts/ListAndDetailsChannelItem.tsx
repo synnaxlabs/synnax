@@ -7,38 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, List, Text } from "@synnaxlabs/pluto";
+import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type JSX } from "react";
 
 import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { EnableDisableButton } from "@/hardware/common/task/EnableDisableButton";
 import { TareButton } from "@/hardware/common/task/TareButton";
 
+export interface ListAndDetailsIconProps {
+  icon: JSX.Element;
+  name: string;
+}
+
 export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K>>
   extends List.ItemProps<K, E> {
   port: string | number;
   portMaxChars: number;
+  icon?: ListAndDetailsIconProps;
   canTare: boolean;
   channel: number;
   onTare?: (channel: number) => void;
   isSnapshot: boolean;
   path: string;
   hasTareButton: boolean;
-  name?: string;
 }
 
-const NAME_PROPS: Text.TextProps = {
+const NAME_PROPS = {
   level: "p",
   shade: 7,
   weight: 450,
-  style: {
-    maxWidth: 150,
-    flexGrow: 1,
-    textOverflow: "ellipsis",
-    overflow: "hidden",
-  },
+  style: { maxWidth: 150, flexGrow: 1, textOverflow: "ellipsis", overflow: "hidden" },
   noWrap: true,
-};
+} as const;
 
 export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   port,
@@ -49,7 +50,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   path,
   hasTareButton,
   channel,
-  name,
+  icon,
   ...rest
 }: ListAndDetailsChannelItemProps<K, E>) => (
   <List.ItemFrame
@@ -67,11 +68,20 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
       >
         {port}
       </Text.Text>
-      {name != null ? (
-        <Text.Text {...NAME_PROPS}>{name}</Text.Text>
-      ) : (
-        <ChannelName {...NAME_PROPS} channel={channel} />
-      )}
+      <ChannelName
+        {...NAME_PROPS}
+        channel={channel}
+        startIcon={
+          icon != null ? (
+            <Tooltip.Dialog>
+              {icon.name}
+              {icon.icon}
+            </Tooltip.Dialog>
+          ) : (
+            false
+          )
+        }
+      />
     </Align.Space>
     <Align.Pack direction="x" align="center" size="small">
       {hasTareButton && (

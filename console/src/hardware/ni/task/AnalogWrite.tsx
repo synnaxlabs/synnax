@@ -24,6 +24,7 @@ import {
   analogWriteConfigZ,
   type AnalogWriteStateDetails,
   type AnalogWriteType,
+  AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type AOChannelType,
@@ -71,7 +72,10 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       canTare={false}
       isSnapshot={isSnapshot}
       path={path}
-      name={AO_CHANNEL_TYPE_NAMES[type]}
+      icon={{
+        name: AO_CHANNEL_TYPE_NAMES[type],
+        icon: AO_CHANNEL_TYPE_ICONS[type],
+      }}
     />
   );
 };
