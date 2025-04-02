@@ -11,8 +11,11 @@
 
 #include "driver/labjack/device/device.h"
 #include "driver/task/task.h"
+#include "driver/task/common/sample_clock.h"
 
 namespace labjack {
+/// @brief make of LabJack devices.
+const std::string MAKE = "LabJack";
 /// @brief labjack integration name.
 const std::string INTEGRATION_NAME = "labjack";
 /// @brief T4 model name.
@@ -44,6 +47,7 @@ inline xerrors::Error translate_error(const xerrors::Error &err) {
 /// @brief factory for creating and operating labjack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
+    common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -54,12 +58,13 @@ class Factory final : public task::Factory {
     ) const;
 
 public:
-    explicit Factory(const std::shared_ptr<device::Manager> &dev_manager):
-        dev_manager(dev_manager) {
-    }
+    explicit Factory(
+        const std::shared_ptr<device::Manager> &dev_manager,
+        common::TimingConfig timing_cfg
+    ): dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new Labjack factory, loading the LJM library.
-    static std::unique_ptr<Factory> create();
+    static std::unique_ptr<Factory> create(common::TimingConfig timing_cfg = common::TimingConfig());
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

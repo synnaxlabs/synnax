@@ -33,4 +33,4 @@ class TestOPCUATask:
                 },
             ],
         }
-        ReadTaskConfig.parse_obj(data)
+        ReadTaskConfig.model_validate(data)

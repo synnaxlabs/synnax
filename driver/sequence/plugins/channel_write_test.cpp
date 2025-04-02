@@ -324,3 +324,54 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
     ASSERT_NE(luaL_dostring(L, "set_authority('channel1', 'not_a_number')"), 0);
     EXPECT_EQ(sink->authority_calls.size(), 0);
 }
+
+TEST(ChannelWriteLifecycle, StopBeforeStart) {
+    auto sink = std::make_shared<plugins::mock::FrameSink>();
+    synnax::Channel ch;
+    ch.name = "test_channel";
+    ch.key = 1;
+    ch.data_type = telem::FLOAT64_T;
+    
+    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    const auto L = luaL_newstate();
+    luaL_openlibs(L);
+    
+    // Stopping before starting should be safe
+    plugin.after_all(L);
+    lua_close(L);
+}
+
+TEST(ChannelWriteLifecycle, DoubleStart) {
+    const auto sink = std::make_shared<plugins::mock::FrameSink>();
+    synnax::Channel ch;
+    ch.name = "test_channel";
+    ch.key = 1;
+    ch.data_type = telem::FLOAT64_T;
+    
+    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    const auto L = luaL_newstate();
+    luaL_openlibs(L);
+    
+    // Starting twice should be safe
+    plugin.before_all(L);
+    plugin.before_all(L);
+    plugin.after_all(L);
+    lua_close(L);
+}
+
+TEST(ChannelWriteLifecycle, DoubleStop) {
+    const auto sink = std::make_shared<plugins::mock::FrameSink>();
+    synnax::Channel ch;
+    ch.name = "test_channel";
+    ch.key = 1;
+    ch.data_type = telem::FLOAT64_T;
+    
+    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    const auto L = luaL_newstate();
+    luaL_openlibs(L);
+    
+    plugin.before_all(L);
+    plugin.after_all(L);
+    plugin.after_all(L);
+    lua_close(L);
+}

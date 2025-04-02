@@ -28,6 +28,9 @@ xerrors::Error rack::Config::load_config_file(xargs::Parser &args) {
     auto remote_info = p.optional_child("remote_info");
     this->remote_info.override(remote_info);
 
+    auto timing_config = p.optional_child("timing");
+    this->timing.override(timing_config);
+
     this->integrations = p.optional("integrations", this->integrations);
     return p.error();
 }

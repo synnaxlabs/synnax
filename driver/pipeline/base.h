@@ -68,7 +68,8 @@ public:
         if (
             this->thread.get_id() != std::this_thread::get_id() &&
             this->thread.joinable()
-        ) this->thread.join();
+        )
+            this->thread.join();
         return stopped;
     }
 

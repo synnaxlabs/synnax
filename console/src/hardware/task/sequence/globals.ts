@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type Variable } from "@/code/phantom";
 
 export const GLOBALS: Variable[] = [
@@ -33,7 +42,18 @@ export const GLOBALS: Variable[] = [
     key: "iteration",
     name: "iteration",
     value: "0",
-    docs: `The iteration number of the sequence. This is incremented each time the sequence is run, 
+    docs: `The iteration number of the sequence. This is incremented each time the sequence is run,
     and starts at 1.`,
+  },
+  {
+    key: "set_authority",
+    name: "set_authority",
+    value: `
+    --- Set the control authority of a channel
+    --- @param channel string The name of the channel to set the authority of
+    --- @param authority number The authority to set the channel to
+    --- @return void
+    function(channel, authority)
+    end`,
   },
 ];

@@ -229,6 +229,7 @@ class ChannelClient:
         index: ChannelKey = 0,
         is_index: bool = False,
         leaseholder: int = 0,
+        virtual: bool | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 

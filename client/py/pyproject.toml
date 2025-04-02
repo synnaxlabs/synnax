@@ -45,10 +45,8 @@ profile = "black"
 
 
 [tool.mypy]
-mypy_path = "stubs"
 plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
-ignore_missing_imports = true
 
 
 [tool.pydantic-mypy]
@@ -75,6 +73,7 @@ markers = [
     "opcua: mark test as an opcua test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
+    "sequence: mark test as a sequence test",
     "series: mark test as a series test",
     "task: mark test as a task test",
     "tdms: mark test as a tdms test",

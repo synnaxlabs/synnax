@@ -26,6 +26,7 @@ export const deviceZ = z.object({
   configured: z.boolean().optional(),
   properties: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
 });
+
 export interface Device<
   Properties extends UnknownRecord = UnknownRecord,
   Make extends string = string,

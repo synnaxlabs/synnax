@@ -45,7 +45,7 @@ xerrors::Error task::Manager::open_streamer() {
 
     if (this->exit_early) return xerrors::NIL;
     std::lock_guard lock{this->mu};
-    auto [s, open_err] = this->ctx->client->telem.open_streamer(StreamerConfig{
+    auto [s, open_err] = this->ctx->client->telem.open_streamer(synnax::StreamerConfig{
         .channels = {
             this->channels.task_set.key,
             this->channels.task_delete.key,
@@ -53,7 +53,7 @@ xerrors::Error task::Manager::open_streamer() {
         }
     });
     if (open_err) return open_err;
-    this->streamer = std::make_unique<Streamer>(std::move(s));
+    this->streamer = std::make_unique<synnax::Streamer>(std::move(s));
     return xerrors::NIL;
 }
 
@@ -81,7 +81,7 @@ void task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool task::Manager::skip_foreign_rack(const TaskKey &task_key) const {
+bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     if (synnax::task_key_rack(task_key) != this->rack.key) {
         VLOG(1) << "[driver] received task for foreign rack: " << task_key <<
  ", skipping";

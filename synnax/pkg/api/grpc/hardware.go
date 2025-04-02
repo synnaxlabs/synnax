@@ -278,11 +278,11 @@ func translateDeviceForward(d *api.Device) *gapi.Device {
 		Key:        d.Key,
 		Name:       d.Name,
 		Location:   d.Location,
-		Identifier: d.Identifier,
 		Rack:       uint32(d.Rack),
 		Make:       d.Make,
 		Model:      d.Model,
 		Properties: d.Properties,
+		Configured: d.Configured,
 	}
 }
 
@@ -292,10 +292,10 @@ func translateDeviceBackward(d *gapi.Device) *api.Device {
 		Name:       d.Name,
 		Rack:       rack.Key(d.Rack),
 		Location:   d.Location,
-		Identifier: d.Identifier,
 		Make:       d.Make,
 		Model:      d.Model,
 		Properties: d.Properties,
+		Configured: d.Configured,
 	}
 }
 
@@ -332,11 +332,17 @@ func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.Hard
 }
 
 func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveDeviceRequest) (*gapi.HardwareRetrieveDeviceRequest, error) {
-	return &gapi.HardwareRetrieveDeviceRequest{Keys: req.Keys}, nil
+	return &gapi.HardwareRetrieveDeviceRequest{
+		Keys:           req.Keys,
+		IgnoreNotFound: req.IgnoreNotFound,
+	}, nil
 }
 
 func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveDeviceRequest) (api.HardwareRetrieveDeviceRequest, error) {
-	return api.HardwareRetrieveDeviceRequest{Keys: req.Keys}, nil
+	return api.HardwareRetrieveDeviceRequest{
+		Keys:           req.Keys,
+		IgnoreNotFound: req.IgnoreNotFound,
+	}, nil
 }
 
 func (deviceRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveDeviceResponse) (*gapi.HardwareRetrieveDeviceResponse, error) {

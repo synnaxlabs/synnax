@@ -62,7 +62,6 @@ protected:
             "my_device",
             rack.key,
             "dev1",
-            "dev1",
             "ni",
             "PXI-6255",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))

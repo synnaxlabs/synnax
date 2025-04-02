@@ -87,7 +87,6 @@ protected:
             "my_device",
             rack.key,
             "dev1",
-            "dev1",
             "ni",
             "PXI-6255",
             ""
@@ -216,7 +215,6 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         "abc123",
         "test_device",
         rack.key,
-        "dev1",
         "dev1",
         "ni",
         "PXI-6255",

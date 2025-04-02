@@ -32,7 +32,7 @@ public:
 
     MockUnaryClient(
         RS response,
-        const xerrors::Error& response_error
+        const xerrors::Error &response_error
     ) : responses({response}), response_errors({response_error}) {
     }
 
@@ -45,8 +45,11 @@ public:
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = freighter::Context("mock", target,
-                                            freighter::TransportVariant::STREAM);
+        const auto ctx = freighter::Context(
+            "mock",
+            freighter::URL(target),
+            freighter::TransportVariant::STREAM
+        );
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }

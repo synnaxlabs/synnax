@@ -30,7 +30,7 @@ namespace task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
-    TaskKey task = 0;
+    synnax::TaskKey task = 0;
     /// @brief the type of the command to execute.
     std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
@@ -43,14 +43,14 @@ struct Command {
 
     /// @brief constructs the command from the provided configuration parser.
     explicit Command(xjson::Parser parser) :
-        task(parser.required<TaskKey>("task")),
+        task(parser.required<synnax::TaskKey>("task")),
         type(parser.required<std::string>("type")),
         key(parser.optional<std::string>("key", "")),
         args(parser.optional<json>("args", json{})) {
     }
 
     /// @brief Construct a new Task Command object
-    Command(const TaskKey task, std::string type, json args)
+    Command(const synnax::TaskKey task, std::string type, json args)
         : task(task), type(std::move(type)), args(std::move(args)) {
     }
 
@@ -68,7 +68,7 @@ struct Command {
 /// internally by a task and externally by the driver to track its state.
 struct State {
     /// @brief the key of the task.
-    TaskKey task = 0;
+    synnax::TaskKey task = 0;
     /// @brief an optional key to assign to the state update. This is particularly
     /// useful for identifying responses to commands.
     std::string key;
@@ -80,7 +80,7 @@ struct State {
     /// @brief parses a state from the provided configuration parser.
     static State parse(xjson::Parser parser) {
         return State{
-            .task = parser.required<TaskKey>("task"),
+            .task = parser.required<synnax::TaskKey>("task"),
             .key = parser.optional<std::string>("key", ""),
             .variant = parser.required<std::string>("variant"),
             .details = parser.optional<json>("details", json{})
@@ -128,13 +128,13 @@ const std::string TASK_STATE_CHANNEL = "sy_task_state";
 class Context {
 public:
     /// @brief the client used to communicate with the Synnax server.
-    std::shared_ptr<Synnax> client;
+    std::shared_ptr<synnax::Synnax> client;
 
     Context() = default;
 
     virtual ~Context() = default;
 
-    explicit Context(std::shared_ptr<Synnax> client) : client(std::move(client)) {
+    explicit Context(std::shared_ptr<synnax::Synnax> client) : client(std::move(client)) {
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
@@ -148,7 +148,7 @@ class MockContext final : public Context {
 public:
     std::vector<State> states{};
 
-    explicit MockContext(const std::shared_ptr<Synnax> &client) : Context(client) {
+    explicit MockContext(const std::shared_ptr<synnax::Synnax> &client) : Context(client) {
     }
 
     void set_state(const State &state) override {
@@ -160,11 +160,11 @@ public:
 
 class SynnaxContext final : public Context {
     std::mutex mu;
-    std::unique_ptr<Writer> writer;
-    Channel chan;
+    std::unique_ptr<synnax::Writer> writer;
+    synnax::Channel chan;
 
 public:
-    explicit SynnaxContext(const std::shared_ptr<Synnax> &client) : Context(client) {
+    explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client) : Context(client) {
     }
 
     void set_state(const State &state) override {
@@ -179,7 +179,7 @@ public:
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.open_writer(WriterConfig{
+            auto [su, su_err] = client->telem.open_writer(synnax::WriterConfig{
                 .channels = {ch.key}
             });
             if (err) {
@@ -190,9 +190,9 @@ public:
                         message();
                 return;
             }
-            writer = std::make_unique<Writer>(std::move(su));
+            writer = std::make_unique<synnax::Writer>(std::move(su));
         }
-        if (writer->write(Frame(chan.key, telem::Series(state.to_json())))) return;
+        if (writer->write(synnax::Frame(chan.key, telem::Series(state.to_json())))) return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;
@@ -262,7 +262,7 @@ class Manager {
 public:
     Manager(
         synnax::Rack rack,
-        const std::shared_ptr<Synnax> &client,
+        const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory
     ): rack(std::move(rack)), ctx(std::make_shared<SynnaxContext>(client)),
        factory(std::move(factory)), channels({}) {
@@ -299,18 +299,18 @@ private:
     std::mutex mu;
     /// @brief receives streamed values from the Synnax server to change tasks in the
     /// manager.
-    std::unique_ptr<Streamer> streamer;
+    std::unique_ptr<synnax::Streamer> streamer;
     std::atomic<bool> exit_early = false;
 
     /// @brief information on channels we need to work with tasks.
     struct {
-        Channel task_set;
-        Channel task_delete;
-        Channel task_cmd;
+        synnax::Channel task_set;
+        synnax::Channel task_delete;
+        synnax::Channel task_cmd;
     } channels;
 
 
-    [[nodiscard]] bool skip_foreign_rack(const TaskKey &task_key) const;
+    [[nodiscard]] bool skip_foreign_rack(const synnax::TaskKey &task_key) const;
 
     /// @brief opens the streamer for the task manager, which is used to listen for
     /// incoming task set, delete, and command requests.

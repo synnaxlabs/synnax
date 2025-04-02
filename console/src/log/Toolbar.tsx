@@ -15,7 +15,6 @@ import { type ReactElement } from "react";
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
-import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
@@ -51,7 +50,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            searchOptions={{ internal: isDev() ? undefined : false }}
+            searchOptions={{ internal: IS_DEV && undefined }}
           />
         </Input.Item>
       </Align.Space>

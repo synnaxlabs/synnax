@@ -24,20 +24,12 @@ cc_library(
 )
 
 cc_test(
-    name = "acquisition_test",
-    srcs = ["acquisition_test.cpp"],
-    deps = [
-        "//driver/pipeline",
-        "//driver/pipeline/mock",
-        "//x/cpp/xtest",
-        "@com_github_google_glog//:glog",
-        "@com_google_googletest//:gtest_main",
+    name = "pipeline_test",
+    srcs = [
+        "acquisition_test.cpp",
+        "control_test.cpp",
+        "base_test.cpp",
     ],
-)
-
-cc_test(
-    name = "control_test",
-    srcs = ["control_test.cpp"],
     deps = [
         "//driver/pipeline",
         "//driver/pipeline/mock",

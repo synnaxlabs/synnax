@@ -49,12 +49,13 @@ const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
+  ignoreNotFound: z.boolean().optional(),
 });
 
 interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "limit" | "offset" | "makes"> {}
+  extends Pick<RetrieveRequest, "limit" | "offset" | "makes" | "ignoreNotFound"> {}
 
 interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
 
@@ -92,7 +93,9 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   >(
     keys: string | string[],
     options?: RetrieveOptions,
-  ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
+  ): Promise<
+    Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>> | null
+  > {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
       this.client,

@@ -25,33 +25,30 @@
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
-using namespace synnax;
-
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<
+using StreamerStream = freighter::Stream<
     api::v1::FrameStreamerRequest,
     api::v1::FrameStreamerResponse
-> StreamerStream;
+>;
 
 /// @brief type alias for frame writer network transport.
-typedef freighter::StreamClient<
+using StreamerClient = freighter::StreamClient<
     api::v1::FrameStreamerRequest,
     api::v1::FrameStreamerResponse
-> StreamerClient;
+>;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<
+using WriterStream = freighter::Stream<
     api::v1::FrameWriterRequest,
     api::v1::FrameWriterResponse
-> WriterStream;
+>;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<
+using WriterClient = freighter::StreamClient<
     api::v1::FrameWriterRequest,
     api::v1::FrameWriterResponse
-> WriterClient;
-
+>;
 
 /// @brief A frame is a collection of series mapped to their corresponding channel keys.
 class Frame {
@@ -154,7 +151,7 @@ public:
         using reference = value_type &;
 
         Iterator(
-            std::vector<ChannelKey> &channels_ref, 
+            std::vector<ChannelKey> &channels_ref,
             std::vector<telem::Series> &series_ref,
             const size_t pos
         ): channels(channels_ref), series(series_ref), pos(pos) {
@@ -172,7 +169,7 @@ public:
         bool operator!=(const Iterator &other) const {
             return pos != other.pos;
         }
-        
+
         bool operator==(const Iterator &other) const {
             return pos == other.pos;
         }
@@ -331,6 +328,16 @@ struct WriterConfig {
     /// 1s when auto commit is enabled.
     telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
 
+    /// @brief whether to enable protobuf frame caching for the writer. This allows
+    /// the writer to avoid repeatedly allocation and deallocating protobuf frames,
+    /// releasing significant heap pressure.
+    ///
+    /// @details IMPORTANT: This option should only be used for writers that write
+    /// a frame with the EXACT same dimensions on every write i.e. same number of channels
+    /// and series in the same order. Each series must have the same data type and the
+    /// same number of samples. BEHAVIOR IS UNDEFINED IF YOU DO NOT FOLLOW THIS RULE.
+    bool enable_proto_frame_caching = false;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameWriterConfig *f) const;
@@ -375,7 +382,7 @@ public:
     /// @param auth the authority level to set all channels to.
     [[nodiscard]] bool set_authority(const telem::Authority &auth);
 
-    /// @brief changes the authority of the given channel to the given authority level. 
+    /// @brief changes the authority of the given channel to the given authority level.
     /// This does not affect the authority levels of any other channels in the writer.
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
@@ -413,17 +420,29 @@ public:
 private:
     /// @brief whether an error has occurred in the write pipeline.
     bool err_accumulated = false;
-    /// @brief if close() has been called on the writer.e
+    /// @brief if close() has been called on the writer.
     bool closed = false;
+
+    /// @brief the configuration used to open the writer.
+    WriterConfig cfg;
+
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
+
+    /// @brief cached request for reuse during writes
+    std::unique_ptr<api::v1::FrameWriterRequest> cached_write_req;
+    /// @brief cached frame within the request for reuse
+    api::v1::Frame* cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
     api::v1::FrameWriterResponse ack(api::v1::FrameWriterRequest &req);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(std::unique_ptr<WriterStream> s);
+    explicit Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg);
+
+    /// @brief initializes the cached request with the frame structure
+    void init_request(const Frame& fr);
 
     /// @brief throws a runtime error if the writer is closed.
     void assert_open() const;
@@ -449,7 +468,7 @@ public:
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
     [[nodiscard]] std::pair<Writer, xerrors::Error>
-    open_writer(const WriterConfig &config) const;
+    open_writer(const WriterConfig &cfg) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
     /// on configuration parameters, see StreamerConfig.

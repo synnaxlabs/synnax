@@ -190,7 +190,6 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         "my_device",
         rack.key,
         "dev1",
-        "dev1",
         "labjack",
         "T7",
         ""
@@ -250,7 +249,6 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "my_device",
         rack.key,
-        "dev1",
         "dev1",
         "labjack",
         "T7",

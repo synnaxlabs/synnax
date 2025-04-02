@@ -69,8 +69,8 @@ class MultiPlugin final : public Plugin {
     std::vector<std::shared_ptr<Plugin> > plugins;
 
 public:
-    explicit
-    MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops): plugins(std::move(ops)) {
+    explicit MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops):
+        plugins(std::move(ops)) {
     }
 
     /// @brief implements Plugin::before_all.
@@ -82,9 +82,10 @@ public:
 
     /// @brief implements Plugin::after_all.
     xerrors::Error after_all(lua_State *L) override {
+        auto err = xerrors::NIL;
         for (const auto &op: plugins)
-            if (auto err = op->after_all(L)) return err;
-        return xerrors::NIL;
+            if (const auto t_err = op->after_all(L)) err = t_err;
+        return err;
     }
 
     /// @brief implements Plugin::before_next.
@@ -144,6 +145,7 @@ public:
     ) override;
 
     [[nodiscard]] xerrors::Error close() override;
+
     [[nodiscard]] xerrors::Error open() override;
 };
 
@@ -155,12 +157,13 @@ class ChannelWrite final : public Plugin {
     /// writer.
     std::shared_ptr<FrameSink> sink;
     /// @brief a map of channel names to info on the channel.
-    std::unordered_map<ChannelKey, synnax::Channel> channels;
+    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
     /// @brief a map that allows the user to resolve a channel by its name.
-    std::unordered_map<std::string, ChannelKey> names_to_keys;
+    std::unordered_map<std::string, synnax::ChannelKey> names_to_keys;
 
 public:
-    ChannelWrite(std::shared_ptr<FrameSink> sink, const std::vector<Channel> &channels);
+    ChannelWrite(std::shared_ptr<FrameSink> sink,
+                 const std::vector<synnax::Channel> &channels);
 
     std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
 
@@ -234,7 +237,7 @@ public:
 /// @brief a plugin that adds timing utilities to the sequence.
 class Time final : public Plugin {
     /// @brief a function that returns the current time.
-    const std::function<std::uint64_t()> now;
+    const telem::NowFunc now;
     /// @brief the start time for the sequence.
     telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
@@ -244,12 +247,11 @@ class Time final : public Plugin {
     int64_t iteration;
 
 public:
-    explicit Time(
-        std::function<std::int64_t()> now = [] {
-            return std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()
-            ).count();
-        }): now(std::move(now)), start_time(0), elapsed(0), iteration(0) {
+    explicit Time(telem::NowFunc now = telem::TimeStamp::now):
+        now(std::move(now)),
+        start_time(0),
+        elapsed(0),
+        iteration(0) {
     }
 
     xerrors::Error before_all(lua_State *L) override;

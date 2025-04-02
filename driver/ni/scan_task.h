@@ -68,7 +68,6 @@ struct Device : synnax::Device {
             this->name,
             this->rack,
             this->location,
-            this->identifier,
             this->make,
             this->model,
             nlohmann::to_string(json{
@@ -134,7 +133,7 @@ public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         ScanTaskConfig cfg,
-        const synnax::Task &task
+        synnax::Task task
     );
 
     xerrors::Error start() override;

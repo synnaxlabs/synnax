@@ -26,18 +26,20 @@ enum WriterCommand : uint32_t {
 
 namespace synnax {
 std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &config) const {
+FrameClient::open_writer(const WriterConfig &cfg) const {
     auto [w, err] = this->writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
-    config.to_proto(req.mutable_config());
+    cfg.to_proto(req.mutable_config());
     if (!w->send(req).ok()) w->close_send();
     auto [_, res_exc] = w->receive();
-    return {Writer(std::move(w)), res_exc};
+    return {Writer(std::move(w), cfg), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s) : stream(std::move(s)) {
+Writer::Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg) :
+    cfg(cfg),
+    stream(std::move(s)) {
 }
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
@@ -51,14 +53,26 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
-bool Writer::write(const Frame &fr) {
+bool Writer::write(const synnax::Frame &fr) {
     this->assert_open();
     if (this->err_accumulated) return false;
-    api::v1::FrameWriterRequest req;
-    req.set_command(WRITE);
-    fr.to_proto(req.mutable_frame());
-    if (const auto err = this->stream->send(req)) this->err_accumulated = true;
+    this->init_request(fr);
+    if (const auto err = this->stream->send(*cached_write_req))
+        this->err_accumulated = true;
     return !this->err_accumulated;
+}
+
+void Writer::init_request(const Frame &fr) {
+    if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
+        for (size_t i = 0; i < fr.series->size(); i++)
+            fr.series->at(i).to_proto(cached_frame->mutable_series(i));
+        return;
+    }
+    this->cached_write_req = nullptr;
+    this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
+    this->cached_write_req->set_command(WRITE);
+    this->cached_frame = cached_write_req->mutable_frame();
+    fr.to_proto(cached_frame);
 }
 
 std::pair<telem::TimeStamp, bool> Writer::commit() {

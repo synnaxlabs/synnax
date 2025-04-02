@@ -41,19 +41,17 @@ Reader<T>::Reader(
     read_call_count(0) {}
 
 template<typename T>
-std::pair<ReadDigest, xerrors::Error> Reader<T>::read(
+ReadResult Reader<T>::read(
     size_t samples_per_channel,
     std::vector<T>& data
 ) {
-    auto response = read_responses[std::min(read_call_count, read_responses.size() - 1)];
+    auto [res_data, err] = read_responses[std::min(read_call_count, read_responses.size() - 1)];
     read_call_count++;
-    if (!response.first.empty())
-        std::copy(response.first.begin(), response.first.end(), data.begin());
-    total_samples_acquired += response.first.size();
-    ReadDigest dig;
-    dig.samps_per_chan_read = samples_per_channel;
-    dig.samps_per_chan_acquired = samples_per_channel;
-    return {dig, response.second};
+    if (!res_data.empty())
+        std::copy(res_data.begin(), res_data.end(), data.begin());
+    ReadResult res;
+    res.error = err;
+    return res;
 }
 
 template<typename T>

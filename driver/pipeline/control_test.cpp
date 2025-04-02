@@ -62,7 +62,7 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto sink = std::make_shared<pipeline::mock::Sink>();
     auto control = pipeline::Control(
         streamer_factory,
-        StreamerConfig{},
+        synnax::StreamerConfig{},
         sink,
         breaker::Config{}
     );

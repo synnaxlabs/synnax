@@ -174,7 +174,7 @@ TEST(TestChannel, testRetrieveMany) {
 TEST(TestChannel, testRetrieveManyNotFound) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve(std::vector<ChannelKey>{1, 2, 3}),
+        client.channels.retrieve(std::vector<synnax::ChannelKey>{1, 2, 3}),
         xerrors::NOT_FOUND
     );
 }

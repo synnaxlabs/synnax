@@ -32,7 +32,7 @@
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/opc/opc.h"
 #include "driver/task/task.h"
-
+#include "driver/task/common/sample_clock.h"
 
 using json = nlohmann::json;
 
@@ -41,7 +41,8 @@ struct RemoteInfo {
     synnax::RackKey rack_key = 0;
     std::string cluster_key = "";
 
-    void override(xjson::Parser &p) {
+    template<typename Parser>
+    void override(Parser &p) {
         this->rack_key = p.optional("rack_key", this->rack_key);
         this->cluster_key = p.optional("cluster_key", this->cluster_key);
     }
@@ -82,6 +83,8 @@ struct Config {
     /// connecting to a cluster. This is cached on the local file system to compare
     /// and contrast.
     RemoteInfo remote_info;
+    /// @brief timing options for tasks in the driver.
+    common::TimingConfig timing;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
@@ -101,6 +104,7 @@ struct Config {
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "[driver] configuration:\n"
                 << cfg.connection
+                << cfg.timing  << "\n"
                 << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() <<
                 ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -127,6 +131,7 @@ struct Config {
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
         if (const auto err = cfg.load_config_file(parser)) return {cfg, err};
         if (const auto err = cfg.load_env()) return {cfg, err};
+        if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0)
             LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
@@ -162,6 +167,8 @@ struct Config {
     [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args);
 
     [[nodiscard]] xerrors::Error load_env();
+
+    [[nodiscard]] xerrors::Error load_args(xargs::Parser &args);
 
     [[nodiscard]] xerrors::Error load_remote(breaker::Breaker &breaker);
 };
