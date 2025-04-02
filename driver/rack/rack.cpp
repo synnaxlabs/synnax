@@ -36,6 +36,7 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
         err = this->task_manager->run();
         if (err && this->should_exit(err, on_shutdown)) return;
     }
+    if (this->task_manager != nullptr) this->task_manager->stop();
     this->run_err = xerrors::NIL;
 }
 
