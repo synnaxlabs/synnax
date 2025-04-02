@@ -17,8 +17,7 @@ cc_library(
         "//driver/pipeline",
         "//x/cpp/xerrors",
         "//x/cpp/xlua",
-        "@glog//:glog",
-        "@lua",
+        "@glog",
         "@nlohmann_json//:json",
     ],
 )

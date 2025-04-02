@@ -30,7 +30,7 @@ BreakConstructorInitializers: AfterColon
 BreakConstructorInitializersBeforeComma: false
 ColumnLimit: 88
 CompactNamespaces: true
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ContinuationIndentWidth: 8
 IncludeCategories: 
   - Regex: '^<.*'

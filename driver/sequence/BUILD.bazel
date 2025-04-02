@@ -17,8 +17,7 @@ cc_library(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/loop",
-        "@glog//:glog",
-        "@lua",
+        "@glog",
         "@nlohmann_json//:json",
     ],
 )
