@@ -11,11 +11,12 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
@@ -393,6 +394,7 @@ type HardwareRetrieveDeviceRequest struct {
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IncludeState   bool       `json:"include_state" msgpack:"include_state"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -440,6 +442,13 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		q = q.WhereRacks(req.Racks...)
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
+	if req.IncludeState {
+		for i := range res.Devices {
+			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Rack, res.Devices[i].Key); ok {
+				res.Devices[i].State = s
+			}
+		}
+	}
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,

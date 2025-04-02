@@ -111,10 +111,9 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
 
-    const maxLabelLength = values.reduce(
-      (p, c) => Math.max(p, c.label?.length ?? 0),
-      0,
-    );
+    let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
+    const timeValueLength = avgXValue.fString("preciseDate", "local").length;
+    if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
 
     draw.list({
       root,
@@ -151,7 +150,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           level: "small",
           justify: "right",
           code: true,
-          shade: 8,
+          shade: 10,
         });
       },
     });

@@ -697,7 +697,10 @@ export class Series<T extends TelemValue = TelemValue> {
 
   as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
     if (jsType === "string") {
-      if (!this.dataType.equals(DataType.STRING))
+      if (
+        !this.dataType.equals(DataType.STRING) ||
+        !this.dataType.equals(DataType.JSON)
+      )
         throw new Error(
           `cannot convert series of type ${this.dataType.toString()} to string`,
         );

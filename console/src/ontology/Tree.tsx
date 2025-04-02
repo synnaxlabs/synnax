@@ -11,7 +11,7 @@ import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
-  type state,
+  state,
   Status,
   Synnax,
   Tree as Core,
@@ -94,12 +94,49 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   root: ontology.ID,
+  initialExpanded: string[] = [],
 ): Promise<void> => {
+  // First load the root level children
   const fetched = await client.ontology.retrieveChildren(root, {
     includeSchema: true,
   });
-  setNodes(toTreeNodes(services, fetched));
-  setResources((p) => updateResources(p, fetched));
+
+  // Keep track of all resources we fetch
+  let allResources = [...fetched];
+
+  // Convert root level resources to tree nodes
+  let treeNodes = toTreeNodes(services, fetched);
+
+  // For each expanded node, load its children and update the tree structure
+  await Promise.all(
+    initialExpanded.map(async (expandedId) => {
+      try {
+        const id = new ontology.ID(expandedId);
+        const children = await client.ontology.retrieveChildren(id, {
+          includeSchema: false,
+        });
+
+        // Add children resources to our collection
+        allResources = updateResources(allResources, children);
+
+        // Find the parent node in the tree and add its children
+        const parentNode = Core.findNode({ tree: treeNodes, key: expandedId });
+        if (parentNode != null)
+          treeNodes = Core.updateNodeChildren({
+            tree: treeNodes,
+            parent: expandedId,
+            updater: () => toTreeNodes(services, children),
+            throwOnMissing: false,
+          });
+      } catch (error) {
+        console.warn(`Failed to load children for ${expandedId}`, error);
+      }
+    }),
+  );
+
+  // Update state
+  setNodes(treeNodes);
+  setResources((p) => updateResources(p, allResources));
 };
 
 const mu = new Mutex();
@@ -211,7 +248,7 @@ export interface TreeProps {
   root?: ontology.ID;
 }
 
-export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
+export const Tree = ({ root }: TreeProps): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
   const store = useStore<RootState, RootAction>();
@@ -224,6 +261,10 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const menuProps = Menu.useContextMenu();
+  const [initialExpanded, setInitialExpanded] = state.usePersisted<string[]>(
+    [],
+    `tree-expanded-${root?.toString()}`,
+  );
 
   const baseProps: BaseProps = useMemo<BaseProps>(
     () => ({
@@ -240,8 +281,15 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
 
   // Processes incoming changes to the ontology from the cluster.
   useAsyncEffect(async () => {
-    if (client == null) return;
-    await loadInitialTree(client, services, setNodes, setResources, root);
+    if (client == null || root == null) return;
+    await loadInitialTree(
+      client,
+      services,
+      setNodes,
+      setResources,
+      root,
+      initialExpanded,
+    );
 
     const ct = await client.ontology.openChangeTracker();
 
@@ -274,8 +322,9 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
   }, [client, root]);
 
   const handleExpand = useCallback(
-    ({ action, clicked }: Core.HandleExpandProps): void => {
+    ({ action, clicked, current }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
+      setInitialExpanded(current);
       handleError(async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
         const id = new ontology.ID(clicked);
@@ -326,6 +375,7 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
     onExpand: handleExpand,
     nodes,
     selected,
+    initialExpanded,
     onSelectedChange: setSelected,
     sort: sortFunc,
   });

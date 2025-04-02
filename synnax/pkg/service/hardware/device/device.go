@@ -36,6 +36,7 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties
 	Properties string `json:"properties" msgpack:"properties"`
+	State      State  `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[string] = Device{}

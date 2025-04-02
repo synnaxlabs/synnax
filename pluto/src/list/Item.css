@@ -29,7 +29,7 @@
     }
 
     &.pluto--selected {
-        --pluto-bg: var(--pluto-gray-l2);
+        --pluto-bg: var(--pluto-gray-l2) !important;
         background: var(--pluto-bg);
         box-shadow: inset 2px 0 0 var(--pluto-primary-z);
         &.pluto--right-aligned {

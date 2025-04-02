@@ -108,5 +108,109 @@ describe("Device", async () => {
         }),
       ).rejects.toThrow(NotFoundError);
     });
+
+    describe("state", () => {
+      it("should not include state by default", async () => {
+        const d = await client.hardware.devices.create({
+          key: "SN_STATE_TEST1",
+          rack: testRack.key,
+          location: "Dev1",
+          name: "state_test1",
+          make: "ni",
+          model: "dog",
+          properties: { cat: "dog" },
+        });
+
+        const retrieved = await client.hardware.devices.retrieve(d.key);
+        expect(retrieved.state).toBeUndefined();
+      });
+
+      it("should include state when includeState is true", async () => {
+        const d = await client.hardware.devices.create({
+          key: "SN_STATE_TEST2",
+          rack: testRack.key,
+          location: "Dev1",
+          name: "state_test2",
+          make: "ni",
+          model: "dog",
+          properties: { cat: "dog" },
+        });
+
+        const retrieved = await client.hardware.devices.retrieve(d.key, {
+          includeState: true,
+        });
+        expect(retrieved.state).toBeDefined();
+        if (retrieved.state) {
+          expect(retrieved.state.variant).toBeDefined();
+          expect(retrieved.state.key).toBeDefined();
+          expect(retrieved.state.details).toBeDefined();
+        }
+      });
+
+      it("should include state for multiple devices", async () => {
+        const d1 = await client.hardware.devices.create({
+          key: "SN_STATE_TEST3",
+          rack: testRack.key,
+          location: "Dev1",
+          name: "state_test3",
+          make: "ni",
+          model: "dog",
+          properties: { cat: "dog" },
+        });
+
+        const d2 = await client.hardware.devices.create({
+          key: "SN_STATE_TEST4",
+          rack: testRack.key,
+          location: "Dev2",
+          name: "state_test4",
+          make: "ni",
+          model: "dog",
+          properties: { cat: "dog" },
+        });
+
+        const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key], {
+          includeState: true,
+        });
+        expect(retrieved).toHaveLength(2);
+        retrieved.forEach((device) => {
+          expect(device.state).toBeDefined();
+          if (device.state) {
+            expect(device.state.variant).toBeDefined();
+            expect(device.state.key).toBeDefined();
+            expect(device.state.details).toBeDefined();
+          }
+        });
+      });
+
+      it("should handle state with type-safe details", async () => {
+        interface DeviceStateDetails {
+          status: string;
+          temperature: number;
+        }
+
+        const d = await client.hardware.devices.create({
+          key: "SN_STATE_TEST5",
+          rack: testRack.key,
+          location: "Dev1",
+          name: "state_test5",
+          make: "ni",
+          model: "dog",
+          properties: { cat: "dog" },
+        });
+
+        const retrieved = await client.hardware.devices.retrieve<
+          typeof d.properties,
+          typeof d.make,
+          typeof d.model,
+          DeviceStateDetails
+        >(d.key, { includeState: true });
+
+        if (retrieved.state) {
+          // TypeScript should recognize these properties
+          expect(typeof retrieved.state.details.status).toBe("string");
+          expect(typeof retrieved.state.details.temperature).toBe("number");
+        }
+      });
+    });
   });
 });
