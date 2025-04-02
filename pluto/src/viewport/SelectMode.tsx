@@ -76,7 +76,7 @@ export const SelectMode = ({
           variant={rest.selected ? "filled" : "outlined"}
           size="small"
           tooltip={entry.tooltip}
-          tooltipLocation={{ x: "right", y: "top" }}
+          tooltipLocation={{ x: "left", y: "bottom" }}
         >
           {entry.icon}
         </Button.Icon>

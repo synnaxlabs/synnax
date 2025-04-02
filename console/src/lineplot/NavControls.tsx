@@ -17,6 +17,7 @@ import {
   Triggers,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { type location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -29,6 +30,11 @@ import {
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
+
+const TOOLTIP_LOCATION: location.XY = {
+  x: "left",
+  y: "bottom",
+};
 
 export const NavControls = (): ReactElement => {
   const control = useSelectControlState();
@@ -69,7 +75,7 @@ export const NavControls = (): ReactElement => {
       <Button.Icon
         onClick={handleZoomReset}
         variant="outlined"
-        tooltipLocation={{ x: "right", y: "top" }}
+        tooltipLocation={TOOLTIP_LOCATION}
         tooltip={
           <Align.Space x align="center">
             <Text.Text level="small">Reset Zoom</Text.Text>
@@ -128,7 +134,7 @@ export const NavControls = (): ReactElement => {
             key={entry.key}
             variant={rest.selected ? "filled" : "outlined"}
             tooltip={entry.tooltip}
-            tooltipLocation={{ x: "left", y: "top" }}
+            tooltipLocation={TOOLTIP_LOCATION}
           >
             {entry.icon}
           </Button.Icon>
@@ -139,7 +145,7 @@ export const NavControls = (): ReactElement => {
         value={control.hold}
         onChange={handleHoldChange}
         uncheckedVariant="outlined"
-        tooltipLocation={{ x: "right", y: "top" }}
+        tooltipLocation={TOOLTIP_LOCATION}
         size="small"
         tooltip={
           <Align.Space x align="center" size="small">

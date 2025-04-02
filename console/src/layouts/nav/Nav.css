@@ -35,8 +35,10 @@
         }
     }
 
-    &.pluto--top .synnax-logo {
-        height: 3rem;
+    &.pluto--top {
+        .synnax-logo {
+            height: 3rem;
+        }
     }
 
     &.pluto--left {
@@ -116,6 +118,34 @@
         &.pluto--left {
             opacity: 0;
             transform: translateX(-2rem);
+        }
+    }
+}
+
+.console-nav__bar.pluto--top {
+    --left-edge-bar-width: 450px;
+    --right-edge-bar-width: 450px;
+    & > .pluto--start {
+        width: var(--left-edge-bar-width);
+    }
+    & > .pluto--end {
+        width: var(--right-edge-bar-width);
+    }
+}
+
+@media (max-width: 1400px) {
+    .console-nav__bar.pluto--top {
+        --left-edge-bar-width: 275px;
+        --right-edge-bar-width: 350px;
+    }
+}
+
+@media (max-width: 850px) {
+    .console-nav__bar.pluto--top {
+        --left-edge-bar-width: fit-content;
+        --right-edge-bar-width: fit-content;
+        & > .pluto--center {
+            justify-content: start !important;
         }
     }
 }

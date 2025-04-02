@@ -29,6 +29,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
+import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
@@ -240,25 +241,28 @@ export const Dropdown = (): ReactElement => {
   const cluster = useSelect();
   const disconnected = cluster == null;
   return (
-    <Core.Dialog
-      close={close}
-      visible={visible}
-      variant="floating"
-      bordered={false}
-      className={CSS.B("cluster-dropdown")}
-      borderShade={5}
-      rounded={0.5}
-    >
-      <Button.Button
-        onClick={toggle}
-        startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
-        justify="center"
-        shade={2}
-        variant={disconnected ? "filled" : "outlined"}
+    <Align.Pack>
+      <Core.Dialog
+        close={close}
+        visible={visible}
+        variant="floating"
+        bordered={false}
+        className={CSS.B("cluster-dropdown")}
+        borderShade={5}
+        rounded={0.5}
       >
-        {cluster?.name ?? "Connect Cluster"}
-      </Button.Button>
-      <List />
-    </Core.Dialog>
+        <Button.Button
+          onClick={toggle}
+          startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
+          justify="center"
+          shade={2}
+          variant={disconnected ? "filled" : "outlined"}
+        >
+          {cluster?.name ?? "Connect Cluster"}
+        </Button.Button>
+        <List />
+      </Core.Dialog>
+      {!disconnected && <ConnectionBadge />}
+    </Align.Pack>
   );
 };

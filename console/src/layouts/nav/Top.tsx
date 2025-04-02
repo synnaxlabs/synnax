@@ -10,7 +10,7 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Align, Nav, OS } from "@synnaxlabs/pluto";
+import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ChannelServices } from "@/channel/services";
@@ -70,7 +70,7 @@ const TopPalette = (): ReactElement => (
  * presentational.
  */
 export const Top = (): ReactElement => {
-  const os = OS.use();
+  const os = OS.use({ force: "Windows" });
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region>
@@ -78,15 +78,12 @@ export const Top = (): ReactElement => {
         {os === "Windows" && <Logo variant="icon" />}
         <Workspace.Selector />
       </Nav.Bar.Start>
-      <Nav.Bar.Content grow justify="center" data-tauri-drag-region>
+      <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
         <TopPalette />
-      </Nav.Bar.Content>
+      </Nav.Bar.Center>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region size="small">
         <Version.Badge />
-        <Align.Pack>
-          <Cluster.Dropdown />
-          <Cluster.ConnectionBadge />
-        </Align.Pack>
+        <Cluster.Dropdown />
         <Docs.OpenButton />
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>

@@ -10,20 +10,16 @@
  */
 
 .console-palette {
-    width: 60% !important;
-    max-width: 800px;
+    width: 100% !important;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 850px) {
     .console-palette {
         width: 100% !important;
         max-width: 50px;
         .pluto-text {
             display: none;
         }
-    }
-    .console-nav__bar.pluto--top .pluto-navbar__content.pluto-- {
-        justify-content: start !important;
     }
 }
 

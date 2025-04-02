@@ -395,6 +395,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         menu={() => <ContextMenuContent layoutKey={layoutKey} />}
       />
       <Channel.LinePlot
+        aetherKey={layoutKey}
         hold={hold}
         onContextMenu={props.open}
         title={name}
