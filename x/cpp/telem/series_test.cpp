@@ -853,3 +853,74 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     std::vector<double> expected_double = {1.0, 2.0, 3.0, 4.0, 5.0};
     ASSERT_EQ(double_result, expected_double);
 }
+
+TEST(TestSeries, testJSONVectorConstruction) {
+    // Test with simple JSON objects
+    std::vector<json> simple_values = {
+        json{{"key1", "value1"}},
+        json{{"key2", "value2"}}
+    };
+    telem::Series s1(simple_values);
+    ASSERT_EQ(s1.data_type(), telem::JSON_T);
+    ASSERT_EQ(s1.size(), 2);
+    auto strings1 = s1.strings();
+    ASSERT_EQ(strings1[0], R"({"key1":"value1"})");
+    ASSERT_EQ(strings1[1], R"({"key2":"value2"})");
+
+    // Test with mixed JSON types
+    std::vector<json> complex_values = {
+        json{{"string", "hello"}},
+        json{{"number", 42}},
+        json::array({1, 2, 3}),
+        json{{"nested", {{"a", 1}, {"b", 2}}}}
+    };
+    telem::Series s2(complex_values);
+    ASSERT_EQ(s2.data_type(), telem::JSON_T);
+    ASSERT_EQ(s2.size(), 4);
+    auto strings2 = s2.strings();
+    ASSERT_EQ(strings2[0], R"({"string":"hello"})");
+    ASSERT_EQ(strings2[1], R"({"number":42})");
+    ASSERT_EQ(strings2[2], R"([1,2,3])");
+    ASSERT_EQ(strings2[3], R"({"nested":{"a":1,"b":2}})");
+
+    // Test with empty vector
+    std::vector<json> empty_values;
+    telem::Series s3(empty_values);
+    ASSERT_EQ(s3.data_type(), telem::JSON_T);
+    ASSERT_EQ(s3.size(), 0);
+    ASSERT_EQ(s3.byte_size(), 0);
+}
+
+// Define a simple struct with to_json() method for testing
+struct TestStruct {
+    std::string name;
+    int value;
+
+    json to_json() const {
+        return json{{"name", name}, {"value", value}};
+    }
+};
+
+TEST(TestSeries, testToJSONMethodConstructor) {
+    // Test with custom struct that has to_json() method
+    std::vector<TestStruct> structs = {
+        TestStruct{"test1", 1},
+        TestStruct{"test2", 2},
+        TestStruct{"test3", 3}
+    };
+    
+    telem::Series s1(structs);
+    ASSERT_EQ(s1.data_type(), telem::JSON_T);
+    ASSERT_EQ(s1.size(), 3);
+    auto strings = s1.strings();
+    ASSERT_EQ(strings[0], R"({"name":"test1","value":1})");
+    ASSERT_EQ(strings[1], R"({"name":"test2","value":2})");
+    ASSERT_EQ(strings[2], R"({"name":"test3","value":3})");
+
+    // Test with empty vector
+    std::vector<TestStruct> empty_structs;
+    telem::Series s2(empty_structs);
+    ASSERT_EQ(s2.data_type(), telem::JSON_T);
+    ASSERT_EQ(s2.size(), 0);
+    ASSERT_EQ(s2.byte_size(), 0);
+}

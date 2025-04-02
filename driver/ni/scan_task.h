@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <chrono>
+#include <optional>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -39,6 +41,25 @@ struct ResetDeviceCommandArgs {
         device_keys(parser.required_vec<std::string>("device_keys")) {}
 };
 
+struct DeviceState: device::State {
+    // Basic operational status
+    bool is_operational;
+    // Critical error information
+    int32_t error_code;
+    // Basic connectivity
+    bool is_connected;
+    // Temperature might be critical for some devices
+    std::optional<double> temperature_celsius;
+
+    device::State to_synnax() {
+        return device::State{
+            .key = this->key,
+            .rack = this->rack,
+            .variant = this->variant,
+            .details = this->details
+        };
+    }
+};
 
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
@@ -132,6 +153,9 @@ class Scanner final : public common::Scanner {
     std::pair<ni::Device, xerrors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
+    std::pair<DeviceState, xerrors::Error>
+    get_device_state(NISysCfgResourceHandle resource, const ni::Device& device) const;
+
 public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
@@ -141,7 +165,7 @@ public:
 
     xerrors::Error start() override;
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    std::pair<common::ScanResult, xerrors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     xerrors::Error stop() override;

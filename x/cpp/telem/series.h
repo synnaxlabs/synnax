@@ -363,6 +363,26 @@ public:
         );
     }
 
+    /// @brief constructs the series from a vector of JSON values.
+    /// @param values the vector of JSON values to be used.
+    explicit Series(const std::vector<json> &values):
+        data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
+        // Calculate total byte size needed (including newline terminators)
+        this->cached_byte_size = 0;
+        for (const auto &value: values)
+            this->cached_byte_size += value.dump().size() + 1;
+
+        this->data = std::make_unique<std::byte[]>(this->byte_size());
+        size_t offset = 0;
+        for (const auto &value: values) {
+            const auto str = value.dump();
+            memcpy(this->data.get() + offset, str.data(), str.size());
+            offset += str.size();
+            this->data[offset] = NEWLINE_TERMINATOR;
+            offset++;
+        }
+    }
+
     /// @brief sets a number at an index.
     /// @param index the index to set the number at. If negative, the index is
     /// treated as an offset from the end of the series.

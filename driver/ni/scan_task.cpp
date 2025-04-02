@@ -86,11 +86,71 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     return {dev, err};
 }
 
-std::pair<std::vector<synnax::Device>, xerrors::Error>
+std::pair<DeviceState, xerrors::Error>
+ni::Scanner::get_device_state(NISysCfgResourceHandle resource, const ni::Device& device) const {
+    DeviceState state;
+    state.key = device.key;
+    state.rack = device.rack;
+    
+    // Get presence status
+    NISysCfgIsPresentType is_present;
+    if (const auto err = this->syscfg->GetResourceProperty(
+        resource,
+        NISysCfgResourcePropertyIsPresent,
+        &is_present
+    )) {
+        return {DeviceState{}, err};
+    }
+    state.is_connected = (is_present == NISysCfgIsPresentTypePresent);
+    
+    // Get firmware status for operational check
+    NISysCfgFirmwareStatus firmware_status;
+    if (const auto err = this->syscfg->GetResourceProperty(
+        resource,
+        NISysCfgResourcePropertyFirmwareStatus,
+        &firmware_status
+    )) {
+        state.error_code = err.code();
+        state.is_operational = false;
+    } else {
+        state.is_operational = (firmware_status == NISysCfgFirmwareStatusInstalled);
+        state.error_code = 0;
+    }
+
+    // Try to get temperature if available
+    double temp;
+    if (const auto err = this->syscfg->GetResourceProperty(
+        resource,
+        NISysCfgResourcePropertyCurrentTemp,
+        &temp
+    ); !err) {
+        state.temperature_celsius = temp;
+    }
+
+    // Set variant and details based on state
+    if (state.is_operational && state.is_connected) {
+        state.variant = "operational";
+        state.details = {{"temperature_celsius", state.temperature_celsius}};
+    } else if (!state.is_connected) {
+        state.variant = "disconnected";
+        state.details = {{"error_code", state.error_code}};
+    } else {
+        state.variant = "error";
+        state.details = {
+            {"error_code", state.error_code},
+            {"temperature_celsius", state.temperature_celsius}
+        };
+    }
+
+    return {state, xerrors::NIL};
+}
+
+std::pair<common::ScanResult, xerrors::Error>
 ni::Scanner::scan(const common::ScannerContext &ctx) {
+    common::ScanResult result;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
-    std::vector<synnax::Device> devices;
+    
     auto err = this->syscfg->FindHardware(
         this->session,
         NISysCfgFilterModeAll,
@@ -98,23 +158,34 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         nullptr,
         &resources
     );
-    if (err) return {devices, err};
+    if (err) return {result, err};
+
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
-                this->session,
-                resources,
-                &curr_resource
-            ))
-            break;
+            this->session,
+            resources,
+            &curr_resource
+        )) break;
+
         auto [dev, parse_err] = this->parse_device(curr_resource);
-        err = parse_err;
-        if (err) continue;
-        devices.push_back(dev.to_synnax());
+        if (parse_err) {
+            if (parse_err == SKIP_DEVICE_ERR) continue;
+            this->syscfg->CloseHandle(curr_resource);
+            continue;
+        }
+
+        auto [state, state_err] = this->get_device_state(curr_resource, dev);
+        if (!state_err) {
+            result.devices.push_back(dev.to_synnax());
+            result.states.push_back(state.to_synnax());
+        }
+
         this->syscfg->CloseHandle(curr_resource);
     }
+
     auto close_err = this->syscfg->CloseHandle(resources);
-    if (err.skip(SKIP_DEVICE_ERR)) return {devices, err};
-    return {devices, close_err};
+    if (err.skip(SKIP_DEVICE_ERR)) return {result, err};
+    return {result, close_err};
 }
 
 xerrors::Error ni::Scanner::stop() {

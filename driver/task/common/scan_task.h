@@ -28,6 +28,11 @@ struct ScannerContext {
     std::size_t count = 0;
 };
 
+struct ScanResult {
+    std::vector<synnax::Device> devices;
+    std::vector<device::State> states;
+}
+
 struct Scanner {
     virtual ~Scanner() = default;
 
@@ -35,7 +40,7 @@ struct Scanner {
 
     virtual xerrors::Error stop() { return xerrors::NIL; }
 
-    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
+    virtual std::pair<ScanResult, xerrors::Error>
     scan(const ScannerContext &ctx) = 0;
 };
 
@@ -75,6 +80,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, telem::TimeStamp> last_updated;
+
+    synnax::Channel state_channel;
+    synnax::Writer state_writer;
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = telem::TimeStamp(0);
@@ -154,8 +162,7 @@ public:
     void exec(task::Command &cmd) override {
         this->state.key = cmd.key;
         if (cmd.type == common::STOP_CMD_TYPE) return this->stop(false);
-        if (cmd.type == common::START_CMD_TYPE)
-            this->start();
+        if (cmd.type == common::START_CMD_TYPE) this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
             this->state.variant = "error";
@@ -164,10 +171,8 @@ public:
         }
     }
 
-    xerrors::Error scan() {
-        auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-        this->scanner_ctx.count++;
-        if (err || scanned_devs.empty()) return err;
+    xerrors::Errors update_scaned(std::vector<synnax::Device> scanned_devs) {
+        if (scanned_devs.empty()) return err;
 
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs)
@@ -195,10 +200,22 @@ public:
                 scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
                 this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
-            }
+                }
         }
         if (to_create.empty()) return xerrors::NIL;
         return this->client->create_devices(to_create);
+    }
+
+    xerrors::Erorr update_states(std::vector<device::State> states) {
+        return this->state_writer.write(synnax::Frame(telem::Series(state_channel.key, states)));
+    }
+
+    xerrors::Error scan() {
+        auto [scan_result, err] = this->scanner->scan(scanner_ctx);
+        if (err) return err;
+        this->scanner_ctx.count++;
+        auto scan_err = this->update_scaned(scan_result.devices);
+        auto state_err = this->update_states(scan_result.states);
     }
 
     std::string name() override { return this->task_name; }
