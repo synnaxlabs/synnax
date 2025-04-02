@@ -81,76 +81,26 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
+    dev.state = synnax::DeviceState{
+        .key = dev.key,
+        .variant = "success",
+        .details = json{
+            {"message", "Device present"},
+            {"last_updated", telem::TimeStamp::now().nanoseconds()},
+        }
+    };
+
     auto err = xerrors::NIL;
     if (this->cfg.should_ignore(dev.model)) err = SKIP_DEVICE_ERR;
     return {dev, err};
 }
 
-std::pair<DeviceState, xerrors::Error>
-ni::Scanner::get_device_state(NISysCfgResourceHandle resource, const ni::Device& device) const {
-    DeviceState state;
-    state.key = device.key;
-    state.rack = device.rack;
-    
-    // Get presence status
-    NISysCfgIsPresentType is_present;
-    if (const auto err = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyIsPresent,
-        &is_present
-    )) {
-        return {DeviceState{}, err};
-    }
-    state.is_connected = (is_present == NISysCfgIsPresentTypePresent);
-    
-    // Get firmware status for operational check
-    NISysCfgFirmwareStatus firmware_status;
-    if (const auto err = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyFirmwareStatus,
-        &firmware_status
-    )) {
-        state.error_code = err.code();
-        state.is_operational = false;
-    } else {
-        state.is_operational = (firmware_status == NISysCfgFirmwareStatusInstalled);
-        state.error_code = 0;
-    }
-
-    // Try to get temperature if available
-    double temp;
-    if (const auto err = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyCurrentTemp,
-        &temp
-    ); !err) {
-        state.temperature_celsius = temp;
-    }
-
-    // Set variant and details based on state
-    if (state.is_operational && state.is_connected) {
-        state.variant = "operational";
-        state.details = {{"temperature_celsius", state.temperature_celsius}};
-    } else if (!state.is_connected) {
-        state.variant = "disconnected";
-        state.details = {{"error_code", state.error_code}};
-    } else {
-        state.variant = "error";
-        state.details = {
-            {"error_code", state.error_code},
-            {"temperature_celsius", state.temperature_celsius}
-        };
-    }
-
-    return {state, xerrors::NIL};
-}
-
-std::pair<common::ScanResult, xerrors::Error>
+std::pair<std::vector<synnax::Device>, xerrors::Error>
 ni::Scanner::scan(const common::ScannerContext &ctx) {
-    common::ScanResult result;
+    std::vector<synnax::Device> devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
-    
+
     auto err = this->syscfg->FindHardware(
         this->session,
         NISysCfgFilterModeAll,
@@ -158,14 +108,15 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         nullptr,
         &resources
     );
-    if (err) return {result, err};
+    if (err) return {devices, err};
 
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
-            this->session,
-            resources,
-            &curr_resource
-        )) break;
+                this->session,
+                resources,
+                &curr_resource
+            ))
+            break;
 
         auto [dev, parse_err] = this->parse_device(curr_resource);
         if (parse_err) {
@@ -173,19 +124,13 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
             this->syscfg->CloseHandle(curr_resource);
             continue;
         }
-
-        auto [state, state_err] = this->get_device_state(curr_resource, dev);
-        if (!state_err) {
-            result.devices.push_back(dev.to_synnax());
-            result.states.push_back(state.to_synnax());
-        }
-
+        devices.push_back(dev.to_synnax());
         this->syscfg->CloseHandle(curr_resource);
     }
 
     auto close_err = this->syscfg->CloseHandle(resources);
-    if (err.skip(SKIP_DEVICE_ERR)) return {result, err};
-    return {result, close_err};
+    if (err.skip(SKIP_DEVICE_ERR)) return {devices, err};
+    return {devices, close_err};
 }
 
 xerrors::Error ni::Scanner::stop() {
@@ -195,14 +140,19 @@ xerrors::Error ni::Scanner::stop() {
 
 xerrors::Error ni::Scanner::start() {
     if (const auto err = this->syscfg->InitializeSession(
-            nullptr, // target (ip, mac or dns name)
-            nullptr, // username (NULL for local system)
-            nullptr, // password (NULL for local system)
-            NISysCfgLocaleDefault, // language
+            nullptr,
+            // target (ip, mac or dns name)
+            nullptr,
+            // username (NULL for local system)
+            nullptr,
+            // password (NULL for local system)
+            NISysCfgLocaleDefault,
+            // language
             NISysCfgBoolTrue,
             // force properties to be queried everytime rather than cached
             (this->cfg.rate.period() - telem::SECOND).milliseconds(),
-            nullptr, // expert handle
+            nullptr,
+            // expert handle
             &this->session // session handle
         ))
         return err;

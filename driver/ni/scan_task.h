@@ -10,12 +10,11 @@
 #pragma once
 
 /// std
+#include <optional>
 #include <regex>
 #include <string>
 #include <thread>
 #include <vector>
-#include <chrono>
-#include <optional>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -29,7 +28,6 @@
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/common/scan_task.h"
-#include "driver/task/task.h"
 
 namespace ni {
 const std::string RESET_DEVICE_CMD = "reset_device";
@@ -39,26 +37,6 @@ struct ResetDeviceCommandArgs {
 
     explicit ResetDeviceCommandArgs(xjson::Parser &parser):
         device_keys(parser.required_vec<std::string>("device_keys")) {}
-};
-
-struct DeviceState: device::State {
-    // Basic operational status
-    bool is_operational;
-    // Critical error information
-    int32_t error_code;
-    // Basic connectivity
-    bool is_connected;
-    // Temperature might be critical for some devices
-    std::optional<double> temperature_celsius;
-
-    device::State to_synnax() {
-        return device::State{
-            .key = this->key,
-            .rack = this->rack,
-            .variant = this->variant,
-            .details = this->details
-        };
-    }
 };
 
 /// @brief an extension of the default synnax device that also includes NI related
@@ -126,7 +104,7 @@ struct ScanTaskConfig {
     }
 
     /// @brief returns if the device with the given model should be ignored.
-    bool should_ignore(const std::string &model) const {
+    [[nodiscard]] bool should_ignore(const std::string &model) const {
         for (const auto &pattern: this->ignored_models)
             if (std::regex_match(model, pattern)) return true;
         return false;
@@ -152,10 +130,6 @@ class Scanner final : public common::Scanner {
     /// @returns an empty device and an error if the device could not be parsed.
     std::pair<ni::Device, xerrors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
-
-    std::pair<DeviceState, xerrors::Error>
-    get_device_state(NISysCfgResourceHandle resource, const ni::Device& device) const;
-
 public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
@@ -165,7 +139,7 @@ public:
 
     xerrors::Error start() override;
 
-    std::pair<common::ScanResult, xerrors::Error>
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     xerrors::Error stop() override;

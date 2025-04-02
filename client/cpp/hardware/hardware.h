@@ -22,6 +22,7 @@
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.
@@ -302,30 +303,40 @@ private:
     friend class HardwareClient;
 };
 
+struct DeviceState {
+    std::string key;
+    std::string variant;
+    json details;
+
+    json to_json() const {
+        json j;
+        j["key"] = this->key;
+        j["variant"] = this->variant;
+        j["details"] = this->details;
+        return j;
+    }
+};
+
 /// @brief A Device represents a physical hardware device connected to a rack.
 struct Device {
     /// @brief The unique identifier for the device.
     std::string key;
-
     /// @brief A human-readable name for the device.
     std::string name;
-
     /// @brief The rack that this device is connected to.
     RackKey rack = 0;
-
     /// @brief The physical location of the device.
     std::string location;
-
     /// @brief The manufacturer of the device.
     std::string make;
-
     /// @brief The model of the device.
     std::string model;
-
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
-
+    /// @brief whether the device has been configured.
     bool configured = false;
+    /// @brief The state of the device.
+    DeviceState state;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.
@@ -358,6 +369,7 @@ private:
     friend class HardwareClient;
 };
 
+
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
 /// @returns A map from device keys to devices.
@@ -369,6 +381,32 @@ map_device_keys(const std::vector<Device> &devices) {
         map[device.key] = device;
     return map;
 }
+
+struct HardwareDeviceRetrieveRequest {
+    std::vector<std::string> keys;
+    std::vector<std::string> names;
+    std::vector<std::string> makes;
+    std::vector<std::string> models;
+    std::vector<std::string> locations;
+    std::vector<RackKey> racks;
+    std::string search;
+    std::uint32_t limit;
+    std::uint32_t offset;
+    bool ignore_not_found = false;
+
+    void to_proto(api::v1::HardwareRetrieveDeviceRequest &request) const {
+        request.set_ignore_not_found(ignore_not_found);
+        request.set_limit(limit);
+        request.set_offset(offset);
+        request.mutable_keys()->Add(keys.begin(), keys.end());
+        request.mutable_names()->Add(names.begin(), names.end());
+        request.mutable_makes()->Add(makes.begin(), makes.end());
+        request.mutable_models()->Add(models.begin(), models.end());
+        request.mutable_locations()->Add(locations.begin(), locations.end());
+        request.mutable_racks()->Add(racks.begin(), racks.end());
+        request.set_search(search);
+    }
+};
 
 /// @brief Client for managing hardware components in a Synnax cluster.
 /// Provides methods for creating, retrieving, and deleting racks, tasks, and
@@ -451,6 +489,9 @@ public:
         const std::vector<std::string> &keys,
         bool ignore_not_found = false
     ) const;
+
+    std::pair<std::vector<Device>, xerrors::Error>
+    retrieve_devices(HardwareDeviceRetrieveRequest &req) const;
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.

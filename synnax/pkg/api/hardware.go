@@ -383,15 +383,16 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys           []string `json:"keys" msgpack:"keys"`
-	Names          []string `json:"names" msgpack:"names"`
-	Makes          []string `json:"makes" msgpack:"makes"`
-	Models         []string `json:"models" msgpack:"models"`
-	Locations      []string `json:"locations" msgpack:"locations"`
-	Search         string   `json:"search" msgpack:"search"`
-	Limit          int      `json:"limit" msgpack:"limit"`
-	Offset         int      `json:"offset" msgpack:"offset"`
-	IgnoreNotFound bool     `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	Keys           []string   `json:"keys" msgpack:"keys"`
+	Names          []string   `json:"names" msgpack:"names"`
+	Makes          []string   `json:"makes" msgpack:"makes"`
+	Models         []string   `json:"models" msgpack:"models"`
+	Locations      []string   `json:"locations" msgpack:"locations"`
+	Racks          []rack.Key `json:"racks" msgpack:"racks"`
+	Search         string     `json:"search" msgpack:"search"`
+	Limit          int        `json:"limit" msgpack:"limit"`
+	Offset         int        `json:"offset" msgpack:"offset"`
+	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -408,6 +409,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		hasOffset    = req.Offset > 0
 		hasLocations = len(req.Locations) > 0
 		hasModels    = len(req.Models) > 0
+		hasRacks     = len(req.Racks) > 0
 	)
 	q := svc.internal.Device.NewRetrieve()
 	if hasKeys {
@@ -433,6 +435,9 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	}
 	if hasModels {
 		q = q.WhereModels(req.Models...)
+	}
+	if hasRacks {
+		q = q.WhereRacks(req.Racks...)
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 	if err := svc.access.Enforce(ctx, access.Request{

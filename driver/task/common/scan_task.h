@@ -28,11 +28,6 @@ struct ScannerContext {
     std::size_t count = 0;
 };
 
-struct ScanResult {
-    std::vector<synnax::Device> devices;
-    std::vector<device::State> states;
-}
-
 struct Scanner {
     virtual ~Scanner() = default;
 
@@ -40,7 +35,7 @@ struct Scanner {
 
     virtual xerrors::Error stop() { return xerrors::NIL; }
 
-    virtual std::pair<ScanResult, xerrors::Error>
+    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
     scan(const ScannerContext &ctx) = 0;
 };
 
@@ -71,6 +66,11 @@ struct SynnaxClusterAPI final : ClusterAPI {
     }
 };
 
+struct DeviceInfo {
+    synnax::Device dev;
+    telem::TimeStamp last_available;
+};
+
 class ScanTask final : public task::Task, public pipeline::Base {
     const std::string task_name;
     loop::Timer timer;
@@ -79,16 +79,16 @@ class ScanTask final : public task::Task, public pipeline::Base {
     task::State state;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
-    std::unordered_map<std::string, telem::TimeStamp> last_updated;
+    std::unordered_map<std::string, DeviceInfo> dev_state;
 
     synnax::Channel state_channel;
-    synnax::Writer state_writer;
+    std::unique_ptr<synnax::Writer> state_writer;
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = telem::TimeStamp(0);
-        if (const auto existing_last_updated = this->last_updated.find(dev_key);
-            existing_last_updated != this->last_updated.end()) {
-            last_updated = existing_last_updated->second;
+        if (const auto dev_state = this->dev_state.find(dev_key);
+            dev_state != this->dev_state.end()) {
+            last_updated = dev_state->second.last_available;
         }
         const auto delta = telem::TimeStamp::now() - last_updated;
         return delta > telem::SECOND * 30;
@@ -162,7 +162,8 @@ public:
     void exec(task::Command &cmd) override {
         this->state.key = cmd.key;
         if (cmd.type == common::STOP_CMD_TYPE) return this->stop(false);
-        if (cmd.type == common::START_CMD_TYPE) this->start();
+        if (cmd.type == common::START_CMD_TYPE)
+            this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
             this->state.variant = "error";
@@ -171,8 +172,10 @@ public:
         }
     }
 
-    xerrors::Errors update_scaned(std::vector<synnax::Device> scanned_devs) {
-        if (scanned_devs.empty()) return err;
+    xerrors::Error scan() {
+        auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
+        if (err) return err;
+        this->scanner_ctx.count++;
 
         std::vector<std::string> devices;
         for (const auto &device: scanned_devs)
@@ -183,7 +186,10 @@ public:
         auto remote_devs = synnax::map_device_keys(remote_devs_vec);
 
         std::vector<synnax::Device> to_create;
+        std::set<std::string> present;
+        auto last_available = telem::TimeStamp::now();
         for (auto &scanned_dev: scanned_devs) {
+            present.insert(scanned_dev.key);
             // Unless the device already exists on the remote, it should not
             // be configured. No exceptions.
             scanned_dev.configured = false;
@@ -192,30 +198,58 @@ public:
                 to_create.push_back(scanned_dev);
                 continue;
             }
-            auto remote_dev = iter->second;
+            const auto remote_dev = iter->second;
             if (scanned_dev.rack != remote_dev.rack &&
                 this->update_threshold_exceeded(scanned_dev.key)) {
                 scanned_dev.properties = remote_dev.properties;
                 scanned_dev.name = remote_dev.name;
                 scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
-                this->last_updated[scanned_dev.key] = telem::TimeStamp::now();
-                }
+            }
+            scanned_dev.state.details["last_available"] = last_available.nanoseconds();
+            this->dev_state[scanned_dev.key] = DeviceInfo{
+                .dev = scanned_dev,
+                .last_available = last_available
+            };
         }
+
+        for (auto &[key, dev]: this->dev_state) {
+            if (present.find(key) != present.end()) continue;
+            this->dev_state[key].dev.state = synnax::DeviceState{
+                .key = dev.dev.key,
+                .variant = "warning",
+                .details = {
+                    {"message", "Device disconnected"},
+                    {"last_updated", dev.last_available.nanoseconds()}
+                }
+            };
+        }
+        if (const auto state_err = this->propagate_state())
+            LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
+
         if (to_create.empty()) return xerrors::NIL;
         return this->client->create_devices(to_create);
     }
 
-    xerrors::Erorr update_states(std::vector<device::State> states) {
-        return this->state_writer.write(synnax::Frame(telem::Series(state_channel.key, states)));
-    }
-
-    xerrors::Error scan() {
-        auto [scan_result, err] = this->scanner->scan(scanner_ctx);
-        if (err) return err;
-        this->scanner_ctx.count++;
-        auto scan_err = this->update_scaned(scan_result.devices);
-        auto state_err = this->update_states(scan_result.states);
+    xerrors::Error propagate_state() {
+        if (this->state_writer == nullptr) {
+            auto [w, err] = this->ctx->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .start = telem::TimeStamp::now(),
+                    .channels = {this->state_channel.key},
+                }
+            );
+            if (err) return err;
+            this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
+        }
+        std::vector<json> states;
+        states.reserve(this->dev_state.size());
+        for (auto &[key, dev]: this->dev_state)
+            states.push_back(dev.dev.state.to_json());
+        this->state_writer->write(
+            synnax::Frame(this->state_channel.key, telem::Series(states))
+        );
+        return xerrors::NIL;
     }
 
     std::string name() override { return this->task_name; }

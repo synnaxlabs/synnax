@@ -896,9 +896,7 @@ struct TestStruct {
     std::string name;
     int value;
 
-    json to_json() const {
-        return json{{"name", name}, {"value", value}};
-    }
+    json to_json() const { return json{{"name", name}, {"value", value}}; }
 };
 
 TEST(TestSeries, testToJSONMethodConstructor) {
@@ -908,7 +906,7 @@ TEST(TestSeries, testToJSONMethodConstructor) {
         TestStruct{"test2", 2},
         TestStruct{"test3", 3}
     };
-    
+
     telem::Series s1(structs);
     ASSERT_EQ(s1.data_type(), telem::JSON_T);
     ASSERT_EQ(s1.size(), 3);

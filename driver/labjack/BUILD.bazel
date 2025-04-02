@@ -30,7 +30,6 @@ cc_library(
         "//driver/labjack/device",
         "//driver/labjack/ljm",
         "//driver/pipeline",
-        "//driver/queue",
         "//driver/task",
         "//driver/task/common",
         "//driver/transform",

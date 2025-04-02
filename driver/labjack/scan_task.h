@@ -25,31 +25,6 @@
 #include "driver/task/common/scan_task.h"
 
 namespace labjack {
-/// @brief an extension of the default synnax device that includes LabJack
-/// properties
-struct Device : synnax::Device {
-    /// @brief the connection type (USB, TCP, etc)
-    std::string connection_type;
-
-    Device() = default;
-
-    explicit Device(const synnax::Device &device, std::string connection_type):
-        synnax::Device(device), connection_type(std::move(connection_type)) {}
-
-    /// @brief returns the synnax device representation with json properties
-    [[nodiscard]] synnax::Device to_synnax() const {
-        return synnax::Device(
-            this->key,
-            this->name,
-            this->rack,
-            this->location,
-            this->make,
-            this->model,
-            nlohmann::to_string(json{{"connection_type", this->connection_type}})
-        );
-    }
-};
-
 /// @brief the default rate for scanning devices
 const auto DEFAULT_SCAN_RATE = telem::Rate(0.5);
 
@@ -119,9 +94,15 @@ class Scanner final : public common::Scanner {
                 device_type_str,
                 "" // Properties will be set in Device constructor
             );
+            sy_dev.state = synnax::DeviceState{
+                .key = sy_dev.key,
+                .variant = "success",
+                .details = json{
+                    {"message", "Device present"},
+                }
+            };
 
-            auto dev = Device(sy_dev, conn_type_str);
-            devices.push_back(dev.to_synnax());
+            devices.push_back(sy_dev);
         }
         return xerrors::NIL;
     }

@@ -307,6 +307,16 @@ std::pair<std::vector<Device>, xerrors::Error> HardwareClient::retrieve_devices(
     return {devices, err};
 }
 
+std::pair<std::vector<Device>, xerrors::Error>
+HardwareClient::retrieve_devices(HardwareDeviceRetrieveRequest &req) const {
+    auto api_req = api::v1::HardwareRetrieveDeviceRequest();
+    req.to_proto(api_req);
+    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, api_req);
+    if (err) return {std::vector<Device>(), err};
+    std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
+    return {devices, err};
+}
+
 xerrors::Error HardwareClient::create_device(Device &device) const {
     auto req = api::v1::HardwareCreateDeviceRequest();
     device.to_proto(req.add_devices());

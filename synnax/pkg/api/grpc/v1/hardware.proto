@@ -121,7 +121,15 @@ message HardwareCreateDeviceResponse {
 
 message HardwareRetrieveDeviceRequest {
     repeated string keys = 1;
-    bool ignore_not_found = 2;
+    repeated string names = 2;
+    repeated string makes = 3;
+    repeated string models = 4;
+    repeated string locations = 5;
+    repeated uint32 racks = 6;
+    string search = 7;
+    uint32 limit = 8;
+    uint32 offset = 9;
+    bool ignore_not_found = 10;
 }
 
 message HardwareRetrieveDeviceResponse {

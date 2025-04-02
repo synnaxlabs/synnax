@@ -14,6 +14,7 @@ cc_library(
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
+        "//x/cpp/xjson",
         "//x/go/telem:telem_grpc",
         "@grpc//:grpc++",
     ],
