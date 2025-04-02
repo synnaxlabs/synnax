@@ -34,14 +34,24 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
+  FaBolt,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
+  FaMicrophone,
   FaStream,
+  FaTachometerAlt,
   FaWindows,
 } from "react-icons/fa";
-import { FiTable } from "react-icons/fi";
-import { GiHamburgerMenu } from "react-icons/gi";
+import { FiCompass, FiTable } from "react-icons/fi";
+import {
+  GiCircuitry,
+  GiElectric,
+  GiGearStick,
+  GiHamburgerMenu,
+  GiSpring,
+  GiWeight,
+} from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
@@ -112,6 +122,7 @@ import {
   MdShield,
   MdSquareFoot,
   MdTextFields,
+  MdTungsten,
   MdTypeSpecimen,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -129,7 +140,7 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import { RiRadarLine, RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -152,6 +163,7 @@ import {
   TbVariable,
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import { WiThermometer } from "react-icons/wi";
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 export interface IconFC extends FC<IconProps> {}
@@ -415,6 +427,21 @@ export interface IconType {
   String: IconFC;
   Control: IconFC;
   Rack: IconFC;
+  Units: {
+    Acceleration: IconFC;
+    Current: IconFC;
+    Force: IconFC;
+    Pressure: IconFC;
+    Resistance: IconFC;
+    Strain: IconFC;
+    Temperature: IconFC;
+    Torque: IconFC;
+    Velocity: IconFC;
+    Voltage: IconFC;
+  };
+  Bridge: IconFC;
+  Sound: IconFC;
+  Function: IconFC;
 }
 
 export const Icon: IconType = {
@@ -586,4 +613,19 @@ export const Icon: IconType = {
   String: wrapIcon(VscSymbolString, "string"),
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
+  Units: {
+    Acceleration: wrapIcon(FiCompass, "acceleration"),
+    Current: wrapIcon(GiElectric, "current"),
+    Force: wrapIcon(GiWeight, "force"),
+    Pressure: wrapIcon(FaTachometerAlt, "pressure"),
+    Resistance: wrapIcon(GiCircuitry, "resistance"),
+    Strain: wrapIcon(GiSpring, "strain"),
+    Temperature: wrapIcon(WiThermometer, "temperature"),
+    Torque: wrapIcon(GiGearStick, "torque"),
+    Velocity: wrapIcon(RiRadarLine, "velocity"),
+    Voltage: wrapIcon(FaBolt, "voltage"),
+  },
+  Bridge: wrapIcon(MdTungsten, "bridge"),
+  Sound: wrapIcon(FaMicrophone, "sound"),
+  Function: wrapIcon(PiWaveSineBold, "function"),
 };
