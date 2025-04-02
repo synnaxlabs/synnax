@@ -72,13 +72,11 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
         {...NAME_PROPS}
         channel={channel}
         startIcon={
-          icon != null ? (
+          icon && (
             <Tooltip.Dialog>
               {icon.name}
               {icon.icon}
             </Tooltip.Dialog>
-          ) : (
-            false
           )
         }
       />

@@ -74,11 +74,6 @@ const ChannelListItem = ({
   } = rest;
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
-  const icon = {
-    name: AI_CHANNEL_TYPE_NAMES[type],
-    icon: AI_CHANNEL_TYPE_ICONS[type],
-  };
-  console.log(icon);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
