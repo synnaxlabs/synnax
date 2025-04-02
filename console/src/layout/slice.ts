@@ -440,8 +440,10 @@ export const { actions, reducer } = createSlice({
         drawer.menuItems.includes(key),
       );
       if (drawer == null) return;
+
       if (drawer.activeItem != null && drawer.hover === false) {
-        drawer.activeItem = null;
+        if (key === drawer.activeItem) drawer.activeItem = null;
+        else drawer.activeItem = key;
         return;
       }
 

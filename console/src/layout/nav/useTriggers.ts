@@ -28,7 +28,12 @@ export const useTriggers = ({ items }: UseTriggersProps) => {
     triggers: flattenedConfig,
     loose: false,
     callback: (e) => {
-      if (e.stage !== "start" || windowKey == null) return;
+      if (
+        e.stage !== "start" ||
+        windowKey == null ||
+        (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
+      )
+        return;
       const mode = Triggers.determineMode(modeConfig, e.triggers, { loose: false });
       if (mode.length === 0) return;
       if (mode.includes("double")) {

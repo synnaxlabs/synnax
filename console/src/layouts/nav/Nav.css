@@ -122,12 +122,32 @@
     }
 }
 
+.console--os-windows {
+    --top-left-edge-bar-width-large: 475px;
+    --top-right-edge-bar-width-large: 500px;
+    --top-left-edge-bar-width-medium: 315px;
+    --top-right-edge-bar-width-medium: 485px;
+    --top-left-edge-bar-width-small: fit-content;
+    --top-right-edge-bar-width-small: fit-content;
+}
+
+.console--os-macos {
+    --top-left-edge-bar-width-large: 450px;
+    --top-right-edge-bar-width-large: 450px;
+    --top-left-edge-bar-width-medium: 275px;
+    --top-right-edge-bar-width-medium: 350px;
+    --top-left-edge-bar-width-small: fit-content;
+    --top-right-edge-bar-width-small: fit-content;
+}
+
 .console-nav__bar.pluto--top {
-    --left-edge-bar-width: 450px;
-    --right-edge-bar-width: 450px;
+    --left-edge-bar-width: var(--top-left-edge-bar-width-large);
+    --right-edge-bar-width: var(--top-right-edge-bar-width-large);
+
     & > .pluto--start {
         width: var(--left-edge-bar-width);
     }
+
     & > .pluto--end {
         width: var(--right-edge-bar-width);
     }
@@ -135,15 +155,15 @@
 
 @media (max-width: 1400px) {
     .console-nav__bar.pluto--top {
-        --left-edge-bar-width: 275px;
-        --right-edge-bar-width: 350px;
+        --left-edge-bar-width: var(--top-left-edge-bar-width-medium);
+        --right-edge-bar-width: var(--top-right-edge-bar-width-medium);
     }
 }
 
 @media (max-width: 850px) {
     .console-nav__bar.pluto--top {
-        --left-edge-bar-width: fit-content;
-        --right-edge-bar-width: fit-content;
+        --left-edge-bar-width: var(--top-left-edge-bar-width-small);
+        --right-edge-bar-width: var(--top-right-edge-bar-width-small);
         & > .pluto--center {
             justify-content: start !important;
         }

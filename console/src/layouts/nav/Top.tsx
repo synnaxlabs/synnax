@@ -70,7 +70,7 @@ const TopPalette = (): ReactElement => (
  * presentational.
  */
 export const Top = (): ReactElement => {
-  const os = OS.use({ force: "Windows" });
+  const os = OS.use();
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region>

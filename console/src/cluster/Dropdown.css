@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-cluster-dropdown > button {
+.console-cluster-dropdown:not(:only-child) > button {
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0;
     max-width: 175px;

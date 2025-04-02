@@ -145,10 +145,10 @@
 
     &.pluto--text,
     &.pluto--outlined {
-        /* &:focus {
+        &:focus {
             outline: none;
             box-shadow: inset 0 0 0 1px var(--pluto-primary-z);
-        } */
+        }
     }
 
     &.pluto--outlined * {
