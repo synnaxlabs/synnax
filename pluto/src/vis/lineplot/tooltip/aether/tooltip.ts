@@ -150,7 +150,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           level: "small",
           justify: "right",
           code: true,
-          shade: 8,
+          shade: 9,
         });
       },
     });
