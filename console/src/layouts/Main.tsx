@@ -27,6 +27,7 @@ import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Nav } from "@/layouts/nav";
 import { LinePlotServices } from "@/lineplot/services";
@@ -69,7 +70,7 @@ const SideEffect = (): null => {
   Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
-  Layout.useTriggers();
+  Layouts.useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
