@@ -23,5 +23,4 @@ export * from "@/layout/useOpenInNewWindow";
 export * from "@/layout/usePlacer";
 export * from "@/layout/useRemover";
 export * from "@/layout/useThemeProvider";
-export * from "@/layout/useTriggers";
 export * from "@/layout/Window";

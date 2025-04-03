@@ -40,6 +40,7 @@ export const stateZ = z.object({
   color: color.Color.z,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
+  visible: z.boolean().optional().default(true),
 });
 
 const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
@@ -107,18 +108,9 @@ export class GLProgram extends render.GLProgram {
     TranslationBufferCacheEntry
   >();
 
-  // Add cached attribute locations
-  private readonly attrLocations: Record<string, number> = {};
-
   constructor(ctx: render.Context, vertShader: string, fragShader: string) {
     super(ctx, vertShader, fragShader);
     this.translationBufferCache = new Map();
-    // Cache commonly used attribute locations
-    this.attrLocations = {
-      x: this.renderCtx.gl.getAttribLocation(this.prog, "a_x"),
-      y: this.renderCtx.gl.getAttribLocation(this.prog, "a_y"),
-      translate: this.renderCtx.gl.getAttribLocation(this.prog, "a_translate"),
-    };
   }
 
   bindState({ strokeWidth, color }: ParsedState): number {
@@ -335,7 +327,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       bounds: { lower: 0, upper: 0 },
     };
 
-    if (index === -1 || series === -1) return result;
+    if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData[series];
     result.value.x = safelyGetDataValue(series, index, xData);
@@ -358,7 +350,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async render(props: LineProps): Promise<void> {
-    if (this.deleted) return;
+    if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, ctx } = this.internal;
 

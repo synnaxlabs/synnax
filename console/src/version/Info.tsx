@@ -23,7 +23,7 @@ export const INFO_LAYOUT_TYPE = "versionInfo";
 export const INFO_LAYOUT: Layout.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
-  name: "Version Info",
+  name: "About.Version",
   icon: "Info",
   location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
@@ -141,7 +141,7 @@ export const Info: Layout.Renderer = () => {
         level="small"
         shade={10}
         weight={350}
-        style={{ position: "absolute", bottom: "2rem" }}
+        style={{ position: "absolute", bottom: "3rem" }}
       >
         © 2022-2025 Synnax Labs, Inc. All rights reserved
       </Text.Text>

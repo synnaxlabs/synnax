@@ -42,7 +42,7 @@
     }
 
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l0);
+        background: var(--pluto-gray-l1);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;

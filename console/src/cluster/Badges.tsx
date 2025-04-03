@@ -11,7 +11,6 @@ import "@/cluster/Badges.css";
 
 import { type connection } from "@synnaxlabs/client";
 import { Align, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -21,11 +20,18 @@ export interface ConnectionStateBadgeProps {
   state: connection.State;
 }
 
-export const statusVariants: Record<connection.Status, Status.Variant> = {
+export const STATUS_VARIANTS: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "loading",
-  disconnected: "warning",
+  disconnected: "info",
+};
+
+const STATUS_MESSAGES: Record<connection.Status, string> = {
+  connected: "Connected",
+  failed: "Error",
+  connecting: "Connecting",
+  disconnected: "Disconnected",
 };
 
 /**
@@ -40,28 +46,23 @@ export const ConnectionStatusBadge = ({
   <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
     <Align.Space y size="tiny">
       <Status.Text
-        variant={statusVariants[status]}
-        weight={450}
+        variant={STATUS_VARIANTS[status]}
+        weight={650}
         hideIcon
         style={{ paddingLeft: 0 }}
       >
-        {caseconv.capitalize(status)}
+        {STATUS_MESSAGES[status]}
       </Status.Text>
-      {message && (
-        <Text.Text level="p" color="var(--pluto-gray-l9)" weight={450}>
+      {message != null && (
+        <Text.Text level="p" shade={9} weight={450}>
           {message}
         </Text.Text>
       )}
     </Align.Space>
     <Status.Text
-      variant={statusVariants[status]}
+      variant={STATUS_VARIANTS[status]}
       justify="center"
-      className={CSS.B("connection-status-badge")}
-      style={{
-        backgroundColor:
-          status === "failed" ? "var(--pluto-error-z-20)" : "var(--pluto-gray-l0)",
-        border: "var(--pluto-border-l5)",
-      }}
+      className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
     />
   </Tooltip.Dialog>
 );

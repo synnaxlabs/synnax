@@ -53,6 +53,8 @@ export const Icon = Tooltip.wrap(
     onClick,
     shade = 0,
     color: propColor,
+    tabIndex,
+    onMouseDown,
     ...rest
   }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
@@ -72,6 +74,11 @@ export const Icon = Tooltip.wrap(
           CSS.shade(shade),
         )}
         onClick={isDisabled ? undefined : onClick}
+        onMouseDown={(e) => {
+          if (tabIndex == -1) e.preventDefault();
+          onMouseDown?.(e);
+        }}
+        tabIndex={tabIndex}
         {...rest}
       >
         {typeof children === "string"

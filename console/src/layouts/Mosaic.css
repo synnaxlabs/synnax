@@ -16,6 +16,14 @@
     }
 }
 
-.console-mosaic__controls-button {
-    border-top-right-radius: 1rem;
+.console--os-macos {
+    .console-mosaic__controls-button {
+        border-top-right-radius: 1rem;
+    }
+}
+
+.console--os-windows {
+    .console-mosaic__controls-button {
+        border-top-left-radius: 1rem;
+    }
 }

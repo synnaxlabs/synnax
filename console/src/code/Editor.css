@@ -23,21 +23,27 @@ using the default for now.  */
 .mtk1 {
     color: var(--pluto-gray-l11) !important;
 }
+
 .mtk5 {
     color: var(--editor-token-keyword) !important;
 }
+
 .mtk6 {
     color: var(--pluto-primary-p1) !important;
 }
+
 .mtk11 {
     color: var(--pluto-secondary-m1) !important;
 }
+
 .monaco-editor-background {
     background: var(--pluto-gray-l1) !important;
 }
+
 .monaco-editor .margin {
     background: var(--pluto-gray-l1) !important;
 }
+
 .monaco-editor .line-numbers {
     color: var(--pluto-gray-l9) !important;
 }

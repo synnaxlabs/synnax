@@ -88,8 +88,8 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack y borderShade={5} style={{ width: 500, height: 200 }}>
-        <Cluster.NoneConnectedBoundary>
+      <Align.Pack y style={{ width: 500, height: 200 }}>
+        <Cluster.NoneConnectedBoundary bordered borderShade={5}>
           <List.List>
             <List.Selector
               value={active?.key ?? null}

@@ -102,7 +102,7 @@ export const NavControls = (): ReactElement => {
             <Text.Text level="small">Show Tooltip on Hover</Text.Text>
           </Align.Space>
         }
-        tooltipLocation="top"
+        tooltipLocation={TOOLTIP_LOCATION}
       >
         <Icon.Tooltip />
       </Button.ToggleIcon>

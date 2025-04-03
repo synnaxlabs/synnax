@@ -41,7 +41,8 @@
     }
 
     &.pluto--x {
-        box-shadow: inset 0 -0.5px 0 var(--pluto-border-color);
+        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
+            var(--pluto-border-color);
         z-index: 3;
         & .pluto-tabs-selector__btn {
             margin-bottom: -1px;
@@ -66,7 +67,10 @@
     .pluto-tabs-selector__btn {
         cursor: pointer;
         border: none;
-        transition: box-shadow 0.25s;
+        transition:
+            box-shadow 0.15s,
+            background 0.15s ease-in-out,
+            border-color 0.15s ease-in-out;
 
         &.pluto--drag-over {
             &::after {
@@ -116,9 +120,15 @@
         &:not(.pluto--selected) {
             &:hover {
                 background: var(--pluto-gray-l2);
+                .pluto-btn.pluto__close {
+                    background: none;
+                }
             }
-            &:active {
+            &:active:not(:has(.pluto-btn.pluto__close:active)) {
                 background: var(--pluto-gray-l3);
+                .pluto-btn.pluto__close {
+                    background: none;
+                }
             }
         }
 
@@ -137,6 +147,16 @@
             min-width: 80px;
         }
 
+        &:not(.pluto--selected) .pluto-btn.pluto__close {
+            background: none;
+            &:hover {
+                background: var(--pluto-gray-l4);
+            }
+            &:active {
+                background: var(--pluto-gray-l5);
+            }
+        }
+
         & .pluto-btn.pluto__close {
             opacity: 0;
             right: 0;
@@ -151,6 +171,7 @@
                 height: 40%;
             }
             &:has(.synnax-icon-circle) {
+                opacity: 1;
                 .synnax-icon-close {
                     display: none;
                 }
@@ -163,6 +184,10 @@
                     }
                 }
             }
+        }
+
+        &.pluto--selected .pluto-btn.pluto__close {
+            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
         }
 
         &:is(:hover, .pluto--selected) .pluto-btn.pluto__close {

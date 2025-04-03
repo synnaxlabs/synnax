@@ -29,7 +29,7 @@ export interface TimeRangeChipProps
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
-  shade = 7,
+  shade = 9,
   showSpan = false,
   labeled = false,
   ...rest

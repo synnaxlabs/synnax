@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type scale, TimeStamp } from "@synnaxlabs/x";
+import { type scale, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3-scale";
 import { z } from "zod";
+
+import { preciseTimeScale } from "@/vis/axis/preciseTimeScale";
 
 export interface Tick {
   position: number;
@@ -56,11 +58,22 @@ class TimeTickFactory implements TickFactory {
   }
 
   create({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
-    const range = [0, size];
-    const domain = [
-      new TimeStamp(scale.pos(0)).date(),
-      new TimeStamp(scale.pos(1)).date(),
-    ];
+    const range: [number, number] = [0, size];
+    const start = new TimeStamp(scale.pos(0));
+    const end = new TimeStamp(scale.pos(1));
+    const span = new TimeSpan(end.sub(start));
+    if (span.milliseconds < 5) {
+      const domain: [TimeStamp, TimeStamp] = [start, end];
+      const d3Scale = preciseTimeScale().domain(domain).range(range);
+      const count = calcTickCount(size, this.props.tickSpacing) / 2;
+      const ticks = d3Scale.ticks(count);
+      return ticks.map((tick) => ({
+        label: d3Scale.formatTick(tick),
+        position: d3Scale.scale(tick),
+      }));
+    }
+
+    const domain = [start.date(), end.date()];
     const d3Scale = scaleTime().domain(domain).range(range);
     const ticks = d3Scale.ticks(calcTickCount(size, this.props.tickSpacing));
     return ticks.map((tick) => ({
@@ -71,7 +84,6 @@ class TimeTickFactory implements TickFactory {
 
   tickLabel(date: Date): string {
     const value = new TimeStamp(date).date();
-    // remove trailing 0s
 
     let formatted: string = `:${value.getSeconds()}`;
     const ms = value.getMilliseconds();

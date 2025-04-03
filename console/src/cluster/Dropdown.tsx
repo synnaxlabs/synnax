@@ -155,7 +155,7 @@ export const List = (): ReactElement => {
           onChange={handleConnect}
         >
           <CoreList.Core<string, Cluster>
-            style={{ height: 200, width: "100%" }}
+            style={{ height: 190, width: "100%" }}
             onContextMenu={menuProps.open}
             className={menuProps.className}
             bordered
@@ -210,13 +210,16 @@ export interface NoneConnectedProps extends PropsWithChildren {}
 
 export const NoneConnectedBoundary = ({
   children,
+  ...rest
 }: NoneConnectedProps): ReactElement => {
   const client = Synnax.use();
   if (client != null) return <>{children}</>;
-  return <NoneConnected />;
+  return <NoneConnected {...rest} />;
 };
 
-export const NoneConnected = (): ReactElement => {
+export interface NoneConnectedProps extends Align.SpaceProps<"div"> {}
+
+export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
@@ -225,7 +228,11 @@ export const NoneConnected = (): ReactElement => {
   };
 
   return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
+    <Align.Space
+      empty
+      style={{ height: "100%", position: "relative", ...style }}
+      {...rest}
+    >
       <Align.Center y style={{ height: "100%" }} size="small">
         <Text.Text level="p">No cluster connected.</Text.Text>
         <Text.Link level="p" onClick={handleCluster}>
@@ -262,7 +269,7 @@ export const Dropdown = (): ReactElement => {
         </Button.Button>
         <List />
       </Core.Dialog>
-      {!disconnected && <ConnectionBadge />}
+      <ConnectionBadge />
     </Align.Pack>
   );
 };

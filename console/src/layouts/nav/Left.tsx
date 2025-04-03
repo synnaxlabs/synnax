@@ -17,7 +17,7 @@ import { Layout } from "@/layout";
 import { Menu } from "@/layouts/nav/Menu";
 
 export const Left = (): ReactElement => {
-  const os = OS.use();
+  const os = OS.use({});
   return (
     <Layout.Nav.Bar location="left" size="8rem">
       {os !== "Windows" && (
