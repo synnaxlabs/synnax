@@ -75,14 +75,12 @@ TEST(BreakerTests, testDestructorShuttingDown) {
 
 /// @brief it should correctly handle infinite retries
 TEST(BreakerTests, testInfiniteRetries) {
-    auto b = breaker::Breaker(
-        breaker::Config{
-            "my-breaker",
-            10 * telem::MICROSECOND,
-            breaker::RETRY_INFINITELY, // Set to infinite retries
-            1.1
-        }
-    );
+    auto b = breaker::Breaker(breaker::Config{
+        "my-breaker",
+        10 * telem::MICROSECOND,
+        breaker::RETRY_INFINITELY, // Set to infinite retries
+        1.1
+    });
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
     int retry_count = 0;

@@ -140,8 +140,8 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key)
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<Channel, xerrors::Error>
-ChannelClient::retrieve(const std::string &name) const {
+std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const std::string &name
+) const {
     auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, payload);

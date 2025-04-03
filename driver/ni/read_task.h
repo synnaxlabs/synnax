@@ -165,10 +165,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     [[nodiscard]]
 
-    xerrors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const TaskHandle handle
-    ) const {
+    xerrors::Error
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, const TaskHandle handle)
+        const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;

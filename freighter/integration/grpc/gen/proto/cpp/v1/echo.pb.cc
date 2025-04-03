@@ -57,24 +57,24 @@ static constexpr const ::_pb::EnumDescriptor *
     *file_level_enum_descriptors_v1_2fecho_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor *
     *file_level_service_descriptors_v1_2fecho_2eproto = nullptr;
-const ::uint32_t TableStruct_v1_2fecho_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(
-    protodesc_cold
-) = {
-    ~0u, // no _has_bits_
-    PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _internal_metadata_),
-    ~0u, // no _extensions_
-    ~0u, // no _oneof_case_
-    ~0u, // no _weak_field_map_
-    ~0u, // no _inlined_string_donated_
-    ~0u, // no _split_
-    ~0u, // no sizeof(Split)
-    PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.id_),
-    PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.message_),
+const ::uint32_t
+    TableStruct_v1_2fecho_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold
+    ) = {
+        ~0u, // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _internal_metadata_),
+        ~0u, // no _extensions_
+        ~0u, // no _oneof_case_
+        ~0u, // no _weak_field_map_
+        ~0u, // no _inlined_string_donated_
+        ~0u, // no _split_
+        ~0u, // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.id_),
+        PROTOBUF_FIELD_OFFSET(::integration::v1::Message, _impl_.message_),
 };
 
-static const ::_pbi::MigrationSchema
-    schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-        {0, -1, -1, sizeof(::integration::v1::Message)},
+static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold
+) = {
+    {0, -1, -1, sizeof(::integration::v1::Message)},
 };
 
 static const ::_pb::Message *const file_default_instances[] = {

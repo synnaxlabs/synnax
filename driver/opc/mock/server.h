@@ -18,11 +18,16 @@
 #include <thread>
 
 /// external
-#include <glog/logging.h>
-
-#include "client/cpp/channel/channel.h"
+#include "glog/logging.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
+
+/// module
+#include "client/cpp/channel/channel.h"
+
+/// internal
+#include "driver/opc/util/util.h"
+
 
 namespace mock {
 struct ServerChannel {

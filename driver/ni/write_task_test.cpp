@@ -143,8 +143,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
         reads
     );
     auto written_data = std::make_shared<std::vector<std::vector<double>>>();
-    auto wt = create_task(
-        std::make_unique<hardware::mock::Writer<double>>(written_data)
+    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
     wt->start("start_cmd");
