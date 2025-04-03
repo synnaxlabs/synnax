@@ -65,21 +65,30 @@ export const Selector = (): ReactElement => {
     [active, client, dispatch, close, handleError],
   );
 
+  const color = active ? undefined : "var(--pluto-warning-m1)";
+
   return (
     <Dropdown.Dialog
       close={close}
       visible={visible}
       keepMounted={false}
       variant="floating"
+      color={active ? undefined : "var(--pluto-warning-m1)"}
       className={CSS(CSS.BE("workspace", "selector"))}
       bordered={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
         endIcon={
-          <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+          <Caret.Animated
+            enabledLoc="bottom"
+            disabledLoc="left"
+            enabled={visible}
+            color={color}
+          />
         }
         variant="text"
+        color={color}
         onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
@@ -135,7 +144,7 @@ export const Selector = (): ReactElement => {
                   </Input.Text>
                 )}
               </List.Search>
-              <List.Core bordered borderShade={5}>
+              <List.Core bordered borderShade={5} color="red">
                 {componentRenderProp(SelectorListItem)}
               </List.Core>
             </List.Selector>
