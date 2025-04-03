@@ -80,15 +80,13 @@ public:
         config(config), interval(config.base_interval), retries(0), is_running(false) {}
 
     Breaker():
-        Breaker(
-            Config{
-                "default",
-                telem::TimeSpan(1 * telem::SECOND),
-                10,
-                1.1,
-                telem::TimeSpan(1 * telem::MINUTE)
-            }
-        ) {}
+        Breaker(Config{
+            "default",
+            telem::TimeSpan(1 * telem::SECOND),
+            10,
+            1.1,
+            telem::TimeSpan(1 * telem::MINUTE)
+        }) {}
 
     ~Breaker() {
         if (!this->running()) return;
@@ -142,8 +140,8 @@ public:
 
         LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg
                    << " times. " << "Retrying in " << std::fixed << std::setprecision(1)
-                   << this->interval.seconds() << " seconds. "
-                   << "Error: " << message << ".";
+                   << this->interval.seconds() << " seconds. " << "Error: " << message
+                   << ".";
         std::unique_lock lock(this->mu);
         shutdown_cv.wait_for(lock, this->interval.chrono());
         if (!this->running()) {

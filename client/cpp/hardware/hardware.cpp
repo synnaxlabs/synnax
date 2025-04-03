@@ -53,8 +53,8 @@ std::pair<Rack, xerrors::Error> HardwareClient::retrieve_rack(const RackKey key)
     return {rack, err};
 }
 
-std::pair<Rack, xerrors::Error>
-HardwareClient::retrieve_rack(const std::string &name) const {
+std::pair<Rack, xerrors::Error> HardwareClient::retrieve_rack(const std::string &name
+) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
@@ -99,8 +99,8 @@ xerrors::Error HardwareClient::create_rack(Rack &rack) const {
     return err;
 }
 
-std::pair<Rack, xerrors::Error>
-HardwareClient::create_rack(const std::string &name) const {
+std::pair<Rack, xerrors::Error> HardwareClient::create_rack(const std::string &name
+) const {
     auto rack = Rack(name);
     auto err = create_rack(rack);
     return {rack, err};
@@ -221,8 +221,8 @@ TaskClient::retrieve(const std::vector<std::string> &names) const {
 }
 
 
-std::pair<Task, xerrors::Error>
-TaskClient::retrieve_by_type(const std::string &type) const {
+std::pair<Task, xerrors::Error> TaskClient::retrieve_by_type(const std::string &type
+) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
     req.set_rack(rack);
     req.add_types(type);
@@ -343,8 +343,8 @@ xerrors::Error HardwareClient::delete_device(const std::string &key) const {
     return err;
 }
 
-xerrors::Error
-HardwareClient::delete_devices(const std::vector<std::string> &keys) const {
+xerrors::Error HardwareClient::delete_devices(const std::vector<std::string> &keys
+) const {
     auto req = api::v1::HardwareDeleteDeviceRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);

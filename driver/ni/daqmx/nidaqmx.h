@@ -14493,15 +14493,15 @@ int32 __CFUNC
 DAQmxGetExportedHshkEventInterlockedAssertOnStart(TaskHandle taskHandle, bool32 *data);
 int32 __CFUNC
 DAQmxSetExportedHshkEventInterlockedAssertOnStart(TaskHandle taskHandle, bool32 data);
-int32 __CFUNC
-DAQmxResetExportedHshkEventInterlockedAssertOnStart(TaskHandle taskHandle);
+int32 __CFUNC DAQmxResetExportedHshkEventInterlockedAssertOnStart(TaskHandle taskHandle
+);
 //*** Set/Get functions for DAQmx_Exported_HshkEvent_Interlocked_DeassertDelay ***
 int32 __CFUNC
 DAQmxGetExportedHshkEventInterlockedDeassertDelay(TaskHandle taskHandle, float64 *data);
 int32 __CFUNC
 DAQmxSetExportedHshkEventInterlockedDeassertDelay(TaskHandle taskHandle, float64 data);
-int32 __CFUNC
-DAQmxResetExportedHshkEventInterlockedDeassertDelay(TaskHandle taskHandle);
+int32 __CFUNC DAQmxResetExportedHshkEventInterlockedDeassertDelay(TaskHandle taskHandle
+);
 //*** Set/Get functions for DAQmx_Exported_HshkEvent_Pulse_Polarity ***
 // Uses value set Polarity2
 int32 __CFUNC

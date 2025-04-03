@@ -323,9 +323,8 @@ TEST_F(XLuaTest, SetGlobalsFromJsonObjectComplex) {
     const json globals = {
         {"array", {1, "two", 3.0}},
         {"object",
-         {{"nested", "value"},
-          {"numbers", {1, 2, 3}},
-          {"deep", {{"key", "deep_value"}}}}}
+         {{"nested", "value"}, {"numbers", {1, 2, 3}}, {"deep", {{"key", "deep_value"}}}
+         }}
     };
     EXPECT_TRUE(xlua::set_globals_from_json_object(L, globals).ok());
 

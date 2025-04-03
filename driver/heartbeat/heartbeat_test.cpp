@@ -36,11 +36,9 @@ TEST(HeartbeatTests, testNominal) {
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
-    auto [streamer, strm_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{
-            .channels = {ch.key},
-        }
-    );
+    auto [streamer, strm_err] = client->telem.open_streamer(synnax::StreamerConfig{
+        .channels = {ch.key},
+    });
     ASSERT_FALSE(strm_err) << strm_err.message();
     auto [frm, msg_err] = streamer.read();
     ASSERT_FALSE(msg_err) << msg_err.message();

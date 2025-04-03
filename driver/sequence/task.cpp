@@ -157,10 +157,11 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject = telem::ControlSubject{
-                .name = task.name,
-                .key = std::to_string(task.key),
-            }
+            .subject =
+                telem::ControlSubject{
+                    .name = task.name,
+                    .key = std::to_string(task.key),
+                }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
         auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(

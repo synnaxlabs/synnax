@@ -68,12 +68,10 @@ struct Device : synnax::Device {
             this->location,
             this->make,
             this->model,
-            nlohmann::to_string(
-                json{
-                    {"is_simulated", this->is_simulated},
-                    {"resource_name", this->resource_name}
-                }
-            )
+            nlohmann::to_string(json{
+                {"is_simulated", this->is_simulated},
+                {"resource_name", this->resource_name}
+            })
         );
         dev.state = this->state;
         return dev;

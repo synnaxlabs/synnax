@@ -39,8 +39,8 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, xerrors::Error>
-RangeClient::retrieve_by_key(const std::string &key) const {
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_key(const std::string &key
+) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -55,8 +55,8 @@ RangeClient::retrieve_by_key(const std::string &key) const {
     return {rng, err};
 }
 
-std::pair<Range, xerrors::Error>
-RangeClient::retrieve_by_name(const std::string &name) const {
+std::pair<Range, xerrors::Error> RangeClient::retrieve_by_name(const std::string &name
+) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);

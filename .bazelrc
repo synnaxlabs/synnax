@@ -1,7 +1,7 @@
 # Disable Bzlmod (Bazel Modules)
 # We need the last flag to avoid issues with rules_proto_grpc
 # See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
-common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools
+common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools  --define=protobuf_allow_msvc=true
 
 # Enable platform-specific configs
 build --enable_platform_specific_config

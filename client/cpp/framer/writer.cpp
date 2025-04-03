@@ -25,8 +25,8 @@ enum WriterCommand : uint32_t {
 };
 
 namespace synnax {
-std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
+std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &cfg
+) const {
     auto [w, err] = this->writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
