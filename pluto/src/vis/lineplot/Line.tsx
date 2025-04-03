@@ -20,13 +20,22 @@ export const Line = ({
   aetherKey,
   color,
   label = "",
+  visible = true,
   ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
-    setLine({ key: cKey, color, label });
+    setLine({ key: cKey, color, label, visible });
     return () => removeLine(cKey);
-  }, [label, color]);
-  return <Core.Line aetherKey={cKey} color={color} label={label} {...rest} />;
+  }, [label, color, visible]);
+  return (
+    <Core.Line
+      aetherKey={cKey}
+      color={color}
+      label={label}
+      visible={visible}
+      {...rest}
+    />
+  );
 };

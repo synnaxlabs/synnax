@@ -105,6 +105,8 @@ import {
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineVisibility,
+  MdOutlineVisibilityOff,
   MdOutlineWebAsset,
   MdPause,
   MdPerson,
@@ -488,6 +490,8 @@ export interface IconType {
   Bridge: IconFC;
   Sound: IconFC;
   Function: IconFC;
+  Visible: IconFC;
+  Hidden: IconFC;
 }
 
 export const Icon: IconType = {
@@ -674,4 +678,6 @@ export const Icon: IconType = {
   Bridge: wrapIcon(FaBridge, "bridge"),
   Sound: wrapIcon(FaMicrophone, "sound"),
   Function: wrapIcon(TbMathFunction, "function"),
+  Visible: wrapIcon(MdOutlineVisibility, "visible"),
+  Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
 };
