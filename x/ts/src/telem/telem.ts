@@ -360,6 +360,14 @@ export class TimeStamp implements Stringer {
     return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
 
+  get microseconds(): number {
+    return Number(this.valueOf()) / Number(TimeStamp.MICROSECOND.valueOf());
+  }
+
+  get nanoseconds(): number {
+    return Number(this.valueOf());
+  }
+
   /** @returns the integer year that the timestamp corresponds to. */
   get year(): number {
     return this.date().getFullYear();

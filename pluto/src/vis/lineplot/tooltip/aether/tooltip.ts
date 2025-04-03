@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, TimeStamp, xy } from "@synnaxlabs/x";
+import { bounds, box, scale, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -106,7 +106,10 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
-    text.unshift(`Time: ${avgXValue.fString("preciseDate", "local")}`);
+    const ms = new TimeSpan(avgXValue).remainder(TimeSpan.SECOND).milliseconds;
+    text.unshift(
+      `Time: ${avgXValue.fString("dateTime", "local")} ${ms.toString().slice(0, 7)} ms`,
+    );
 
     const relativePosition = reverseScale.pos(this.state.position);
 
