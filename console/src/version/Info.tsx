@@ -23,7 +23,7 @@ export const INFO_LAYOUT_TYPE = "versionInfo";
 export const INFO_LAYOUT: Layout.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
-  name: "Version Info",
+  name: "About.Version",
   icon: "Info",
   location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
