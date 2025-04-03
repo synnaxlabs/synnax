@@ -356,7 +356,7 @@ const NavTop = (): ReactElement | null => {
           {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
         </Text.Text>
       </PNav.Bar.AbsoluteCenter>
-      <PNav.Bar.End data-tauri-drag-region align="center">
+      <PNav.Bar.End data-tauri-drag-region align="center" justify="end">
         {isWindowsOS ? <Controls visibleIfOS="Windows" forceOS={os} /> : button}
       </PNav.Bar.End>
     </Layout.Nav.Bar>

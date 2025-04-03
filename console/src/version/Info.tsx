@@ -141,7 +141,7 @@ export const Info: Layout.Renderer = () => {
         level="small"
         shade={10}
         weight={350}
-        style={{ position: "absolute", bottom: "2rem" }}
+        style={{ position: "absolute", bottom: "3rem" }}
       >
         © 2022-2025 Synnax Labs, Inc. All rights reserved
       </Text.Text>

@@ -24,7 +24,7 @@ export const STATUS_VARIANTS: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "loading",
-  disconnected: "warning",
+  disconnected: "info",
 };
 
 const STATUS_MESSAGES: Record<connection.Status, string> = {
@@ -54,7 +54,7 @@ export const ConnectionStatusBadge = ({
         {STATUS_MESSAGES[status]}
       </Status.Text>
       {message != null && (
-        <Text.Text level="p" color="var(--pluto-gray-l9)" weight={450}>
+        <Text.Text level="p" shade={9} weight={450}>
           {message}
         </Text.Text>
       )}
@@ -62,12 +62,7 @@ export const ConnectionStatusBadge = ({
     <Status.Text
       variant={STATUS_VARIANTS[status]}
       justify="center"
-      className={CSS.B("connection-status-badge")}
-      style={{
-        backgroundColor:
-          status === "failed" ? "var(--pluto-error-z-20)" : "var(--pluto-gray-l0)",
-        border: "var(--pluto-border-l5)",
-      }}
+      className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
     />
   </Tooltip.Dialog>
 );

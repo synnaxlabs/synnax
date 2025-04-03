@@ -110,6 +110,7 @@ export const Button = Tooltip.wrap(
     onMouseDown,
     shade = 0,
     textShade,
+    tabIndex,
     ...rest
   }: ButtonProps): ReactElement => {
     if (variant == "outlined" && shade == null) shade = 0;
@@ -129,6 +130,7 @@ export const Button = Tooltip.wrap(
     const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
+      if (tabIndex == -1) e.preventDefault();
       onMouseDown?.(e);
       if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
       document.addEventListener(
@@ -192,6 +194,7 @@ export const Button = Tooltip.wrap(
           hasCustomColor && CSS.BM("btn", "custom-color"),
           className,
         )}
+        tabIndex={tabIndex}
         type={type}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}

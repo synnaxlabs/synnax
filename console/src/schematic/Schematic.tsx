@@ -30,7 +30,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, xy } from "@synnaxlabs/x";
+import { box, deep, id, location, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -395,7 +395,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               <Button.ToggleIcon
                 value={schematic.control === "acquired"}
                 onChange={acquireControl}
-                tooltipLocation={{ x: "right", y: "center" }}
+                tooltipLocation={location.BOTTOM_LEFT}
                 variant="outlined"
                 size="small"
                 tooltip={

@@ -79,6 +79,24 @@
 .console--os-windows .console-nav__bar.pluto--x,
 .console-mosaic__bar.console-nav__bar.pluto--x {
     padding-right: 1rem;
+    padding-left: 2.5rem;
+    & .synnax-logo {
+        margin-right: 0.75rem;
+    }
+}
+
+.console--os-windows .console-mosaic__bar.pluto--x {
+    padding-left: 1rem;
+}
+
+.console-mosaic__bar.console-nav__bar.pluto--x {
+    .pluto--start {
+        justify-content: flex-end !important;
+        flex-direction: row-reverse !important;
+    }
+    & .synnax-logo {
+        display: none;
+    }
 }
 
 .console-nav__drawer {
@@ -125,8 +143,8 @@
 .console--os-windows {
     --top-left-edge-bar-width-large: 475px;
     --top-right-edge-bar-width-large: 500px;
-    --top-left-edge-bar-width-medium: 315px;
-    --top-right-edge-bar-width-medium: 485px;
+    --top-left-edge-bar-width-medium: 290px;
+    --top-right-edge-bar-width-medium: 450px;
     --top-left-edge-bar-width-small: fit-content;
     --top-right-edge-bar-width-small: fit-content;
 }
@@ -160,7 +178,7 @@
     }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 700px) {
     .console-nav__bar.pluto--top {
         --left-edge-bar-width: var(--top-left-edge-bar-width-small);
         --right-edge-bar-width: var(--top-right-edge-bar-width-small);

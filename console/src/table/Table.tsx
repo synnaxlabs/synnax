@@ -308,7 +308,7 @@ const TableControls = ({ tableKey }: TableControls) => {
 
   return (
     <Align.Pack className={CSS.BE("table", "edit")}>
-      <Button.ToggleIcon value={editable} onChange={handleEdit}>
+      <Button.ToggleIcon value={editable} onChange={handleEdit} size="small">
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.ToggleIcon>
     </Align.Pack>

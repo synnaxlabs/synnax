@@ -128,7 +128,7 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 const LIGHT_SCALE = [
   "#FEFEFE", // l0 - background
-  "#FBFBFB", // l1 - large surfaces
+  "#f9f9f9", // l1 - large surfaces
   "#F2F2F2", // l2 - small surfaces
   "#ECECEC", // l3 - small surfaces hover
   "#E4E4E4", // l4 - border 1
@@ -242,7 +242,7 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 const DARK_SCALE = [
   "#020202", // l0
   "#080808", // l1
-  "#171717", // l2
+  "#151515", // l2
   "#242424", // l3
   "#2F2F2F", // l4
   "#3B3B3B", // l5

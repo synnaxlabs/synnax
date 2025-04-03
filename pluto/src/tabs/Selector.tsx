@@ -180,6 +180,7 @@ const SelectorButton = ({
 
   const handleClose: MouseEventHandler<HTMLButtonElement> = useCallback(
     (e) => {
+      e.preventDefault();
       e.stopPropagation();
       onClose?.(tabKey);
     },

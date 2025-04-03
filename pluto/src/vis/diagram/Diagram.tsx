@@ -505,7 +505,7 @@ export const ToggleEditControl = ({
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.RIGHT_CENTER}
+      tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       tooltip={
         editable ? (
@@ -541,7 +541,7 @@ export const FitViewControl = ({
       onChange={(v: boolean) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
-      tooltipLocation={location.RIGHT_CENTER}
+      tooltipLocation={location.BOTTOM_LEFT}
       variant="outlined"
       size="small"
       {...rest}
