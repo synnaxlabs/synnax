@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
+import { type JSX } from "react";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -920,13 +922,34 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: "Pressure Bridge Two-Point Linear",
   [AI_RESISTANCE_CHAN_TYPE]: "Resistance",
   [AI_RTD_CHAN_TYPE]: "RTD",
-  [AI_STRAIN_GAGE_CHAN_TYPE]: "Strain Gage",
+  [AI_STRAIN_GAGE_CHAN_TYPE]: "Strain Gauge",
   [AI_TEMP_BUILT_IN_CHAN_TYPE]: "Temperature Built-In Sensor",
   [AI_THRMCPL_CHAN_TYPE]: "Thermocouple",
   [AI_TORQUE_BRIDGE_TABLE_CHAN_TYPE]: "Torque Bridge Table",
   [AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: "Torque Bridge Two-Point Linear",
   [AI_VELOCITY_IEPE_CHAN_TYPE]: "Velocity IEPE",
   [AI_VOLTAGE_CHAN_TYPE]: "Voltage",
+};
+
+export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, JSX.Element> = {
+  [AI_ACCEL_CHAN_TYPE]: <Icon.Units.Acceleration />,
+  [AI_BRIDGE_CHAN_TYPE]: <Icon.Bridge />,
+  [AI_CURRENT_CHAN_TYPE]: <Icon.Units.Current />,
+  [AI_FORCE_BRIDGE_TABLE_CHAN_TYPE]: <Icon.Units.Force />,
+  [AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: <Icon.Units.Force />,
+  [AI_FORCE_IEPE_CHAN_TYPE]: <Icon.Units.Force />,
+  [AI_MICROPHONE_CHAN_TYPE]: <Icon.Sound />,
+  [AI_PRESSURE_BRIDGE_TABLE_CHAN_TYPE]: <Icon.Units.Pressure />,
+  [AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: <Icon.Units.Pressure />,
+  [AI_RESISTANCE_CHAN_TYPE]: <Icon.Units.Resistance />,
+  [AI_RTD_CHAN_TYPE]: <Icon.Units.Temperature />,
+  [AI_TEMP_BUILT_IN_CHAN_TYPE]: <Icon.Units.Temperature />,
+  [AI_THRMCPL_CHAN_TYPE]: <Icon.Units.Temperature />,
+  [AI_STRAIN_GAGE_CHAN_TYPE]: <Icon.Units.Strain />,
+  [AI_TORQUE_BRIDGE_TABLE_CHAN_TYPE]: <Icon.Units.Torque />,
+  [AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN_TYPE]: <Icon.Units.Torque />,
+  [AI_VELOCITY_IEPE_CHAN_TYPE]: <Icon.Units.Velocity />,
+  [AI_VOLTAGE_CHAN_TYPE]: <Icon.Units.Voltage />,
 };
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
@@ -1016,6 +1039,12 @@ export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_CURRENT_CHAN_TYPE]: "Current",
   [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
+};
+
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, JSX.Element> = {
+  [AO_CURRENT_CHAN_TYPE]: <Icon.Units.Current />,
+  [AO_FUNC_GEN_CHAN_TYPE]: <Icon.Function />,
+  [AO_VOLTAGE_CHAN_TYPE]: <Icon.Units.Voltage />,
 };
 
 export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {

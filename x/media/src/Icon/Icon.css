@@ -53,3 +53,8 @@
     --pluto-base-scale: 1.25;
     transform: scale(var(--pluto-base-scale));
 }
+
+.synnax-icon-units-force {
+    --pluto-base-scale: 1.1;
+    transform: scale(var(--pluto-base-scale));
+}
