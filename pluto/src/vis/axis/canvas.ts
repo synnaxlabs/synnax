@@ -117,7 +117,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,
-        p.y + 5 + d.height,
+        p.y + 10 + d.height,
       );
     });
     // Add some extra padding to the bottom of the axis.

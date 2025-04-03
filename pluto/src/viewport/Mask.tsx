@@ -30,6 +30,7 @@ const MODE_CURSORS: Record<Mode, CSSProperties["cursor"]> = {
   pan: "grab",
   zoomReset: "crosshair",
   click: "pointer",
+  cancel: "default",
 };
 
 export const Mask = ({
