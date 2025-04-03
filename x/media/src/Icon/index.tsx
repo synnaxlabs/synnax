@@ -101,6 +101,8 @@ import {
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineVisibility,
+  MdOutlineVisibilityOff,
   MdOutlineWebAsset,
   MdPause,
   MdPerson,
@@ -415,6 +417,8 @@ export interface IconType {
   String: IconFC;
   Control: IconFC;
   Rack: IconFC;
+  Visible: IconFC;
+  Hidden: IconFC;
 }
 
 export const Icon: IconType = {
@@ -586,4 +590,6 @@ export const Icon: IconType = {
   String: wrapIcon(VscSymbolString, "string"),
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
+  Visible: wrapIcon(MdOutlineVisibility, "visible"),
+  Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
 };
