@@ -26,7 +26,7 @@ import {
   box,
   clamp,
   dimensions,
-  type location,
+  location,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
@@ -186,7 +186,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         itemKey="toggleEdit"
         startIcon={editable ? <Icon.EditOff /> : <Icon.Edit />}
       >
-        {editable ? "Disable Edit Mode" : "Enable Edit Mode"}
+        {`${editable ? "Disable" : "Enable"} editing`}
       </PMenu.Item>
       <PMenu.Divider />
       <Menu.HardReloadItem />
@@ -308,7 +308,13 @@ const TableControls = ({ tableKey }: TableControls) => {
 
   return (
     <Align.Pack className={CSS.BE("table", "edit")}>
-      <Button.ToggleIcon value={editable} onChange={handleEdit} size="small">
+      <Button.ToggleIcon
+        value={editable}
+        onChange={handleEdit}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+      >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.ToggleIcon>
     </Align.Pack>

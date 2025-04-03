@@ -61,8 +61,8 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
           level="p"
         >
           {controlState === "acquired"
-            ? "release control and enable edit mode."
-            : "enable edit mode."}
+            ? "release control and enable editing."
+            : "enable editing."}
         </Text.Link>
       )}
     </Align.Center>
