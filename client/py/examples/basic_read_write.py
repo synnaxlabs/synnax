@@ -36,14 +36,14 @@ data_channel = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-SAMPLE_COUNT = int(6e6)
+SAMPLE_COUNT = int(1000)
 
 # We'll start our write at the current time. This timestamp should be the same as or
 # just before the first timestamp we write.
 start = sy.TimeStamp.now()
 
 # We'll end our write 100 seconds later
-end = start + 100 * sy.TimeSpan.SECOND
+end = start + 1 * sy.TimeSpan.MILLISECOND
 
 # Generate linearly spaced int64 timestamps
 stamps = np.linspace(start, end, SAMPLE_COUNT)
