@@ -37,7 +37,6 @@ interface InternalState {
 export interface TooltipProps {
   findByXDecimal: (position: number) => Promise<FindResult[]>;
   region: box.Box;
-  decimalToDataScale: scale.XY;
 }
 
 export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
