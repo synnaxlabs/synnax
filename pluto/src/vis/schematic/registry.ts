@@ -85,8 +85,16 @@ import {
   type EjectorCompressorProps,
   ElectricRegulator,
   type ElectricRegulatorProps,
+  ElectricRegulatorMotorized,
+  type ElectricRegulatorMotorizedProps,
   Filter,
   type FilterProps,
+  FlowStraightener,
+  type FlowStraightenerProps,
+  HeaterElement,
+  type HeaterElementProps,
+  CheckValveWithArrow,
+  type CheckValveWithArrowProps,
   FlameArrestor,
   FlameArrestorDetonation,
   type FlameArrestorDetonationProps,
@@ -121,6 +129,8 @@ import {
   type FlowmeterVariableAreaProps,
   FlowmeterVenturi,
   type FlowmeterVenturiProps,
+  FlowmeterOrifice,
+  type FlowmeterOrificeProps,
   FourWayValve,
   type FourWayValveProps,
   GateValve,
@@ -167,6 +177,8 @@ import {
   type PumpProps,
   Regulator,
   type RegulatorProps,
+  RegulatorManual,
+  RegulatorManualProps,
   ReliefValve,
   type ReliefValveProps,
   RollerVaneCompressor,
@@ -201,6 +213,8 @@ import {
   type ThreeWayValveProps,
   Thruster,
   type ThrusterProps,
+  Nozzle,
+  type NozzleProps,
   TJunction,
   type TJunctionProps,
   TurboCompressor,
@@ -251,7 +265,11 @@ const VARIANTS = [
   "cylinder",
   "crossBeamAgitator",
   "electricRegulator",
+  "electricRegulatorMotorized",
   "filter",
+  "flowStraightener",
+  "heaterElement",
+  "checkValveWithArrow",
   "flatBladeAgitator",
   "flowmeterGeneral",
   "flowmeterElectromagnetic",
@@ -264,6 +282,7 @@ const VARIANTS = [
   "flowmeterTurbine",
   "flowmeterPulse",
   "flowmeterFloatSensor",
+  "flowmeterOrifice",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -279,6 +298,7 @@ const VARIANTS = [
   "pistonPump",
   "pump",
   "regulator",
+  "regulatorManual",
   "reliefValve",
   "rotaryMixer",
   "screwPump",
@@ -313,6 +333,7 @@ const VARIANTS = [
   "flameArrestorFireRes",
   "flameArrestorFireResDetonation",
   "thruster",
+  "nozzle",
   "strainer",
   "strainerCone",
 ] as const;
@@ -533,14 +554,14 @@ const butterflyValveOne: Spec<ButterflyValveOneProps> = {
 const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
   name: "Butterfly Valve (Manual)",
   key: "butterflyValveTwo",
-  Form: CommonDummyToggleForm,
+  Form: CommonToggleForm,
   Symbol: ButterflyValveTwo,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Butterfly Valve (Manual)"),
-    ...ZERO_DUMMY_TOGGLE_PROPS,
+    ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: removeProps(Primitives.ButterflyValveTwo, ["clickable"]),
+  Preview: Primitives.ButterflyValveTwo,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -695,6 +716,20 @@ const regulator: Spec<RegulatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const regulatorManual: Spec<RegulatorManualProps> = {
+  name: "Manual Regulator",
+  key: "regulatorManual",
+  Form: CommonStyleForm,
+  Symbol: RegulatorManual,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Manual Regulator"),
+    ...ZERO_PROPS,
+  }),
+  Preview: removeProps(Primitives.RegulatorManual, ["clickable"]),
+  zIndex: Z_INDEX_UPPER,
+};
+
 const electricRegulator: Spec<ElectricRegulatorProps> = {
   name: "Electric Regulator",
   key: "electricRegulator",
@@ -706,6 +741,20 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.ElectricRegulator,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
+  name: "Electric Regulator Motorized",
+  key: "electricRegulatorMotorized",
+  Form: CommonStyleForm,
+  Symbol: ElectricRegulatorMotorized,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Electric Regulator Motorized"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ElectricRegulatorMotorized,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -818,6 +867,34 @@ const filter: Spec<FilterProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.Filter,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowStraightener: Spec<FlowStraightenerProps> = {
+  name: "Flow Straightener",
+  key: "flowStraightener",
+  Form: CommonStyleForm,
+  Symbol: FlowStraightener,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flow Straightener"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowStraightener,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heaterElement: Spec<HeaterElementProps> = {
+  name: "Heater Element",
+  key: "heaterElement",
+  Form: CommonStyleForm,
+  Symbol: HeaterElement,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Heater Element"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeaterElement,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1172,6 +1249,20 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
+  name: "Check Valve Variant",
+  key: "checkValveWithArrow",
+  Form: CommonStyleForm,
+  Symbol: CheckValveWithArrow,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Check Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.CheckValveWithArrow,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const vent: Spec<VentProps> = {
   name: "Vent",
   key: "vent",
@@ -1365,6 +1456,20 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.FlowmeterFloatSensor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
+  name: "Flowmeter Orifice",
+  key: "flowmeterOrifice",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterOrifice,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Orifice Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterOrifice,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1592,6 +1697,20 @@ const thruster: Spec<ThrusterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const nozzle: Spec<NozzleProps> = {
+  name: "Nozzle",
+  key: "nozzle",
+  Form: CommonStyleForm,
+  Symbol: Nozzle,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Nozzle"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.Nozzle,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const strainer: Spec<StrainerProps> = {
   name: "Strainer",
   key: "strainer",
@@ -1649,7 +1768,9 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   angledReliefValve,
   checkValve,
   regulator,
+  regulatorManual,
   electricRegulator,
+  electricRegulatorMotorized,
   springLoadedReliefValve,
   angledSpringLoadedReliefValve,
   pump,
@@ -1673,6 +1794,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   isoCap,
   filter,
   isoFilter,
+  flowStraightener,
+  heaterElement,
   orifice,
   orificePlate,
   agitator,
@@ -1682,6 +1805,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   isoCheckValve,
+  checkValveWithArrow,
   vent,
   cylinder,
   flowmeterGeneral,
@@ -1695,6 +1819,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterTurbine,
   flowmeterPulse,
   flowmeterFloatSensor,
+  flowmeterOrifice,
   heatExchangerGeneral,
   heatExchangerM,
   heatExchangerStraightTube,
@@ -1704,6 +1829,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flameArrestorFireRes,
   flameArrestorFireResDetonation,
   thruster,
+  nozzle,
   strainer,
   strainerCone,
 };
