@@ -32,11 +32,11 @@ public:
         const std::vector<xerrors::Error> &scan_errors_,
         const std::vector<xerrors::Error> &start_errors_,
         const std::vector<xerrors::Error> &stop_errors_
-    ): devices(devices_),
-       scan_errors(scan_errors_),
-       start_errors(start_errors_),
-       stop_errors(stop_errors_) {
-    }
+    ):
+        devices(devices_),
+        scan_errors(scan_errors_),
+        start_errors(start_errors_),
+        stop_errors(stop_errors_) {}
 
     xerrors::Error start() override {
         if (this->start_count >= start_errors.size()) return xerrors::NIL;
@@ -69,11 +69,11 @@ public:
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
         const std::shared_ptr<std::vector<synnax::Device>> &created_
-    ): remote(remote_), created(created_) {
-    }
+    ):
+        remote(remote_), created(created_) {}
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
-        std::vector<std::string> &keys) override {
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    retrieve_devices(std::vector<std::string> &keys) override {
         return {*remote, xerrors::NIL};
     }
 
@@ -102,7 +102,10 @@ TEST(TestScanTask, testSingleScan) {
 
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -149,10 +152,13 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     );
 
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    remote_devices->push_back(dev1);  // Device 1 already exists remotely
-    
+    remote_devices->push_back(dev1); // Device 1 already exists remotely
+
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -175,8 +181,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     ASSERT_NIL(scan_task.scan());
 
     EXPECT_EQ(created_devices->size(), 1);
-    if (!created_devices->empty())
-        EXPECT_EQ((*created_devices)[0].key, "device2");
+    if (!created_devices->empty()) EXPECT_EQ((*created_devices)[0].key, "device2");
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
@@ -211,9 +216,12 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     // Setup remote devices - device1 already exists on the remote with rack1
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(dev1);
-    
+
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 

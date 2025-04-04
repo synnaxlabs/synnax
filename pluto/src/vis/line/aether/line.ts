@@ -66,6 +66,7 @@ export interface FindResult {
   label?: string;
   // The units of the line.
   units?: string;
+  bounds: bounds.Bounds;
 }
 
 export const ZERO_FIND_RESULT: FindResult = {
@@ -73,6 +74,7 @@ export const ZERO_FIND_RESULT: FindResult = {
   position: xy.NAN,
   value: xy.NAN,
   color: color.ZERO,
+  bounds: bounds.ZERO,
 };
 
 export interface LineProps {
@@ -322,6 +324,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       label,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
+      bounds: { lower: 0, upper: 0 },
     };
 
     if (index === -1 || series === -1 || !this.state.visible) return result;
@@ -336,6 +339,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
     result.value.y = Number(ySeries.at(index - alignmentDiff));
+
+    result.bounds = { ...ySeries.bounds };
 
     result.position = {
       x: props.dataToDecimalScale.x.pos(result.value.x),

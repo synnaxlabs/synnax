@@ -12,18 +12,25 @@
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-static UA_StatusCode
-node_iter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void *handle) {
-    if(isInverse)
-        return UA_STATUSCODE_GOOD;
-    UA_NodeId *parent = (UA_NodeId *)handle;
-    printf("%u, %u --- %u ---> NodeId %u, %u\n",
-           parent->namespaceIndex, parent->identifier.numeric,
-           referenceTypeId.identifier.numeric, childId.namespaceIndex,
-           childId.identifier.numeric);
+static UA_StatusCode node_iter(
+    UA_NodeId childId,
+    UA_Boolean isInverse,
+    UA_NodeId referenceTypeId,
+    void *handle
+) {
+    if (isInverse) return UA_STATUSCODE_GOOD;
+    UA_NodeId *parent = (UA_NodeId *) handle;
+    printf(
+        "%u, %u --- %u ---> NodeId %u, %u\n",
+        parent->namespaceIndex,
+        parent->identifier.numeric,
+        referenceTypeId.identifier.numeric,
+        childId.namespaceIndex,
+        childId.identifier.numeric
+    );
     return UA_STATUSCODE_GOOD;
 }
 
@@ -32,23 +39,38 @@ int main(int argc, char *argv[]) {
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
 
     /* Listing endpoints */
-    UA_EndpointDescription* endpointArray = NULL;
+    UA_EndpointDescription *endpointArray = NULL;
     size_t endpointArraySize = 0;
-    UA_StatusCode retval = UA_Client_getEndpoints(client, "opc.tcp://localhost:4840",
-                                                  &endpointArraySize, &endpointArray);
-    if(retval != UA_STATUSCODE_GOOD) {
+    UA_StatusCode retval = UA_Client_getEndpoints(
+        client,
+        "opc.tcp://localhost:4840",
+        &endpointArraySize,
+        &endpointArray
+    );
+    if (retval != UA_STATUSCODE_GOOD) {
         printf("Could not get the endpoints\n");
-        UA_Array_delete(endpointArray, endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+        UA_Array_delete(
+            endpointArray,
+            endpointArraySize,
+            &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]
+        );
         UA_Client_delete(client);
         return EXIT_SUCCESS;
     }
-    printf("%i endpoints found\n", (int)endpointArraySize);
-    for(size_t i=0;i<endpointArraySize;i++) {
-        printf("URL of endpoint %i is %.*s\n", (int)i,
-               (int)endpointArray[i].endpointUrl.length,
-               endpointArray[i].endpointUrl.data);
+    printf("%i endpoints found\n", (int) endpointArraySize);
+    for (size_t i = 0; i < endpointArraySize; i++) {
+        printf(
+            "URL of endpoint %i is %.*s\n",
+            (int) i,
+            (int) endpointArray[i].endpointUrl.length,
+            endpointArray[i].endpointUrl.data
+        );
     }
-    UA_Array_delete(endpointArray,endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    UA_Array_delete(
+        endpointArray,
+        endpointArraySize,
+        &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]
+    );
     UA_Client_delete(client);
 
     /* Create a client and connect */
@@ -56,9 +78,10 @@ int main(int argc, char *argv[]) {
     client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
     /* Connect to a server */
-    /* anonymous connect would be: retval = UA_Client_connect(client, "opc.tcp://localhost:4840"); */
+    /* anonymous connect would be: retval = UA_Client_connect(client,
+     * "opc.tcp://localhost:4840"); */
     retval = UA_Client_connect(client, "opc.tcp://localhost:4840");
-    if(retval != UA_STATUSCODE_GOOD) {
+    if (retval != UA_STATUSCODE_GOOD) {
         printf("Could not connect\n");
         UA_Client_delete(client);
         return EXIT_SUCCESS;
@@ -68,10 +91,14 @@ int main(int argc, char *argv[]) {
     UA_Int32 value = 0;
     printf("\nReading the value of node (1, \"the.answer\"):\n");
     UA_Variant *val = UA_Variant_new();
-    retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "the.answer"), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-       val->type == &UA_TYPES[UA_TYPES_INT32]) {
-        value = *(UA_Int32*)val->data;
+    retval = UA_Client_readValueAttribute(
+        client,
+        UA_NODEID_STRING(1, "the.answer"),
+        val
+    );
+    if (retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
+        val->type == &UA_TYPES[UA_TYPES_INT32]) {
+        value = *(UA_Int32 *) val->data;
         printf("the value is: %i\n", value);
     }
     UA_Variant_delete(val);
@@ -88,23 +115,34 @@ int main(int argc, char *argv[]) {
     UA_Byte value3 = 0;
     printf("\nReading the value of node (1, \"the.answer3\"):\n");
     UA_Variant *val3 = UA_Variant_new();
-    retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "the.answer3"), val3);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val3) &&
-       val3->type == &UA_TYPES[UA_TYPES_BYTE]) {
-        value3 = *(UA_Byte*)val3->data;
+    retval = UA_Client_readValueAttribute(
+        client,
+        UA_NODEID_STRING(1, "the.answer3"),
+        val3
+    );
+    if (retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val3) &&
+        val3->type == &UA_TYPES[UA_TYPES_BYTE]) {
+        value3 = *(UA_Byte *) val3->data;
         printf("the value of the.answer3 is: %u\n", value3);
     }
     UA_Variant_delete(val3);
 
     /* Toggle and write node attribute for "the.answer3" */
-    value3 = value3 == 0 ? 1 : 0;  // Toggle between 0 and 1
+    value3 = value3 == 0 ? 1 : 0; // Toggle between 0 and 1
     UA_Variant *myVariant3 = UA_Variant_new();
     UA_Variant_setScalarCopy(myVariant3, &value3, &UA_TYPES[UA_TYPES_BYTE]);
-    retval = UA_Client_writeValueAttribute(client, UA_NODEID_STRING(1, "the.answer3"), myVariant3);
-    if(retval == UA_STATUSCODE_GOOD) {
+    retval = UA_Client_writeValueAttribute(
+        client,
+        UA_NODEID_STRING(1, "the.answer3"),
+        myVariant3
+    );
+    if (retval == UA_STATUSCODE_GOOD) {
         printf("Successfully wrote %u to the.answer3\n", value3);
     } else {
-        printf("Failed to write to the.answer3. Status code %s\n", UA_StatusCode_name(retval));
+        printf(
+            "Failed to write to the.answer3. Status code %s\n",
+            UA_StatusCode_name(retval)
+        );
     }
     UA_Variant_delete(myVariant3);
 

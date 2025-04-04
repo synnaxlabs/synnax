@@ -20,25 +20,19 @@ TEST(ControlPipeline, testHappyPath) {
     fr_1.emplace(1, telem::Series(1.0));
     auto fr_2 = synnax::Frame(1);
     fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame> >();
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{
-            xerrors::NIL,
-            xerrors::NIL,
-        });
+    const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{
+        xerrors::NIL,
+        xerrors::NIL,
+    });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
-            std::vector{
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL
-                }
-            })
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
+            pipeline::mock::StreamerConfig{reads, read_errors, xerrors::NIL}
+        })
     );
     const auto sink = std::make_shared<pipeline::mock::Sink>();
     auto control = pipeline::Control(
@@ -54,10 +48,8 @@ TEST(ControlPipeline, testHappyPath) {
 
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector{
-            xerrors::UNKNOWN
-        },
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >()
+        std::vector{xerrors::UNKNOWN},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
     );
     const auto sink = std::make_shared<pipeline::mock::Sink>();
     auto control = pipeline::Control(
@@ -77,40 +69,29 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     fr_1.emplace(1, telem::Series(1.0));
     auto fr_2 = synnax::Frame(1);
     fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame> >();
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error> >(
-        std::vector{
-            xerrors::NIL,
-            xerrors::NIL,
-        });
+    const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{
+        xerrors::NIL,
+        xerrors::NIL,
+    });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector{
-            freighter::UNREACHABLE,
-            freighter::UNREACHABLE,
-            xerrors::NIL
-        },
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig> >(
-            std::vector{
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL,
-                },
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL,
-                },
-                pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    xerrors::NIL
-                }
-            }
-        )
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
+            pipeline::mock::StreamerConfig{
+                reads,
+                read_errors,
+                xerrors::NIL,
+            },
+            pipeline::mock::StreamerConfig{
+                reads,
+                read_errors,
+                xerrors::NIL,
+            },
+            pipeline::mock::StreamerConfig{reads, read_errors, xerrors::NIL}
+        })
     );
     const auto sink = std::make_shared<pipeline::mock::Sink>();
     auto control = pipeline::Control(

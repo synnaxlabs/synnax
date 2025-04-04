@@ -87,7 +87,7 @@ export const MacOS = ({
 }: InternalControlsProps): ReactElement => (
   <Align.Space
     size={1.5}
-    direction="x"
+    x
     className={CSS(
       CSS.B("macos-controls"),
       !focused && CSS.BM("macos-controls", "blurred"),

@@ -10,7 +10,14 @@
 import "@/theming/theme.css";
 
 import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
-import interWoff from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
+import inter200 from "@fontsource/inter/files/inter-latin-200-normal.woff2";
+import inter300 from "@fontsource/inter/files/inter-latin-300-normal.woff2";
+import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
+import inter500 from "@fontsource/inter/files/inter-latin-500-normal.woff2";
+import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
+import inter700 from "@fontsource/inter/files/inter-latin-700-normal.woff2";
+import inter800 from "@fontsource/inter/files/inter-latin-800-normal.woff2";
+import inter900 from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
 import { caseconv, deep } from "@synnaxlabs/x";
 import {
   createContext,
@@ -138,7 +145,14 @@ export const Provider = ({
     initialState: {
       theme: ret.theme,
       fontURLs: [
-        { name: "Inter Variable", url: interWoff },
+        { name: "Inter Nine", url: inter900 },
+        { name: "Inter Eight", url: inter800 },
+        { name: "Inter Seven", url: inter700 },
+        { name: "Inter Six", url: inter600 },
+        { name: "Inter Five", url: inter500 },
+        { name: "Inter Four", url: inter400 },
+        { name: "Inter Three", url: inter300 },
+        { name: "Inter Two", url: inter200 },
         { name: "Geist Mono", url: geistMono },
       ],
     },

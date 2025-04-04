@@ -10,7 +10,7 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
   const authority = useSelectAuthority(layoutKey);
 
   return (
-    <Align.Space direction="x" size="small" style={{ padding: "1.5rem 2rem" }}>
+    <Align.Space x size="small" style={{ padding: "1.5rem 2rem" }}>
       <Input.Item label="Control Authority">
         <Input.Numeric
           value={authority}

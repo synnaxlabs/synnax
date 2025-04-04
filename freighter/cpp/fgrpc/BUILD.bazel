@@ -2,15 +2,11 @@ cc_library(
     name = "fgrpc",
     srcs = [],
     hdrs = ["fgrpc.h"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
-        "@com_github_google_glog//:glog",
-        "@com_github_grpc_grpc//:grpc++",
+        "@glog",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -18,13 +14,9 @@ cc_test(
     name = "fgrpc_test",
     size = "small",
     srcs = ["fgrpc_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//freighter/cpp/fgrpc/mock:server",
         "//freighter/cpp/fgrpc/mock:service_grpc",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

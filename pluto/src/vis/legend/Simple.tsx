@@ -45,7 +45,7 @@ export const legendSwatches = (
       <Align.Space
         key={key}
         style={{ cursor: "pointer" }}
-        direction="x"
+        x
         align="center"
         size="small"
         justify="spaceBetween"
@@ -103,6 +103,7 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
+      empty
     >
       {legendSwatches(data, onEntryChange, setPickerVisible, allowVisibleChange)}
     </Container>

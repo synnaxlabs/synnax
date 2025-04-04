@@ -24,7 +24,7 @@ interface ListItemProps {
 }
 
 const ListItem = ({ name, timeRange }: ListItemProps) => (
-  <Align.Space direction="x" justify="spaceBetween">
+  <Align.Space x justify="spaceBetween">
     <Text.WithIcon startIcon={<Icon.Range />} level="p">
       {name}
     </Text.WithIcon>
@@ -53,24 +53,24 @@ const TIME_RANGES = [
 
 export const ChildRanges = () => (
   <Align.Center
-    direction="x"
+    x
     style={{
       width: "100vw",
     }}
   >
     <Align.Space
-      direction="y"
+      y
       style={{
         background: "var(--pluto-gray-l1)",
         padding: "2rem",
-        border: "var(--pluto-border-l4)",
+        border: "var(--pluto-border-l5)",
         borderRadius: "1rem",
         width: 500,
       }}
     >
       <ListItem name="Test 1" />
       <Align.Space
-        direction="y"
+        y
         justify="spaceBetween"
         style={{
           marginLeft: "1rem",
@@ -82,7 +82,7 @@ export const ChildRanges = () => (
         {TIME_RANGES.map((item, i) => (
           <>
             <ListItem key={item.name} {...item} />
-            {i !== TIME_RANGES.length - 1 && <Divider.Divider direction="x" />}
+            {i !== TIME_RANGES.length - 1 && <Divider.Divider x />}
           </>
         ))}
       </Align.Space>

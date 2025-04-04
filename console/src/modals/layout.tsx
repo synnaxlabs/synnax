@@ -20,14 +20,8 @@ export const ModalContentLayout = ({
   children,
   footer,
 }: ModalContentLayoutProps): ReactElement => (
-  <Align.Space direction="y" grow justify="center">
-    <Align.Space
-      direction="y"
-      grow
-      align="start"
-      justify="center"
-      style={{ padding: "5rem" }}
-    >
+  <Align.Space y grow justify="center">
+    <Align.Space y grow align="start" justify="center" style={{ padding: "5rem" }}>
       {children}
     </Align.Space>
     <BottomNavBar>{footer}</BottomNavBar>

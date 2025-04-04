@@ -10,10 +10,6 @@ cc_library(
         "scan_task.h",
         "write_task.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     linkopts = select({
         "@platforms//os:windows": [
             "ws2_32.lib",
@@ -33,7 +29,7 @@ cc_library(
         "//x/cpp/defer",
         "//x/cpp/loop",
         "//x/cpp/xjson",
-        "@com_github_google_glog//:glog",
+        "@glog",
         "@nlohmann_json//:json",
     ],
 )
@@ -44,10 +40,6 @@ cc_test(
         "read_task_test.cpp",
         "write_task_test.cpp",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//client/cpp/testutil",
         "//driver/opc",
@@ -55,6 +47,6 @@ cc_test(
         "//driver/pipeline/mock",
         "//x/cpp/xjson",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

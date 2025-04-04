@@ -1,10 +1,6 @@
 cc_binary(
     name = "server",
     srcs = ["server.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     linkopts = select({
         "@platforms//os:windows": [
             "ws2_32.lib",
@@ -22,10 +18,6 @@ cc_binary(
 cc_binary(
     name = "server_encrypted",
     srcs = ["server_encrypted.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     linkopts = select({
         "@platforms//os:windows": [
             "ws2_32.lib",
@@ -43,10 +35,6 @@ cc_binary(
 cc_binary(
     name = "client_encrypted",
     srcs = ["client_encrypted.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",
@@ -56,10 +44,6 @@ cc_binary(
 cc_binary(
     name = "client",
     srcs = ["client.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",
@@ -69,10 +53,6 @@ cc_binary(
 cc_binary(
     name = "client_observer",
     srcs = ["client_observer.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",

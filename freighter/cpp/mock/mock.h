@@ -27,14 +27,11 @@ public:
     MockUnaryClient(
         std::vector<RS> responses,
         std::vector<xerrors::Error> response_errors
-    ) : responses(responses), response_errors(std::move(response_errors)) {
-    }
+    ):
+        responses(responses), response_errors(std::move(response_errors)) {}
 
-    MockUnaryClient(
-        RS response,
-        const xerrors::Error &response_error
-    ) : responses({response}), response_errors({response_error}) {
-    }
+    MockUnaryClient(RS response, const xerrors::Error &response_error):
+        responses({response}), response_errors({response_error}) {}
 
     void use(std::shared_ptr<freighter::Middleware> middleware) override {
         mw.use(middleware);

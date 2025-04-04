@@ -24,6 +24,7 @@ import {
 
 export interface UseEvent {
   target: HTMLElement;
+  prevTriggers: Trigger[];
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
@@ -70,8 +71,10 @@ export const use = ({
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
       const base = { target: e.target, cursor: e.cursor };
-      if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
-      if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
+      if (added.length > 0)
+        f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
+      if (removed.length > 0)
+        f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
     });
   }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement]);
 };

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <include/gtest/gtest.h>
 #include <random>
 #include <string>
-#include <include/gtest/gtest.h>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xtest/xtest.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
@@ -23,10 +23,7 @@ TEST(RangerTests, testCreate) {
     const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(10),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(10), telem::TimeStamp(100))
     ));
     ASSERT_EQ(range.name, "test");
     ASSERT_FALSE(range.key.empty());
@@ -39,10 +36,7 @@ TEST(RangerTests, testRetrieveByKey) {
     const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
     ASSERT_EQ(got.name, "test");
@@ -57,10 +51,7 @@ TEST(RangerTests, testRetrieveByName) {
     const auto rand_name = std::to_string(gen_rand());
     const auto range = ASSERT_NIL_P(client.ranges.create(
         rand_name,
-        telem::TimeRange(
-            telem::TimeStamp(10),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(10), telem::TimeStamp(100))
     ));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(rand_name));
     ASSERT_EQ(got.name, rand_name);
@@ -83,19 +74,14 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     const auto rand_name = std::to_string(gen_rand());
     const auto range = ASSERT_NIL_P(client.ranges.create(
         rand_name,
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
     const auto range2 = ASSERT_NIL_P(client.ranges.create(
         rand_name,
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(std::vector{rand_name}));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(std::vector{rand_name})
+    );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
     ASSERT_FALSE(got[0].key.empty());
@@ -116,7 +102,8 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     );
     const auto range = ASSERT_NIL_P(client.ranges.create("test", tr));
     const auto range2 = ASSERT_NIL_P(client.ranges.create("test2", tr));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key({range.key, range2.key}));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key({range.key, range2.key})
+    );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.empty());
@@ -133,10 +120,7 @@ TEST(RangerTests, testSet) {
     auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
 }
@@ -146,10 +130,7 @@ TEST(RangerTests, testGet) {
     auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
     const auto val = ASSERT_NIL_P(range.kv.get("test"));
@@ -161,10 +142,7 @@ TEST(RangerTests, testGetFromRetrieved) {
     auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(100)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
@@ -177,10 +155,7 @@ TEST(RangerTests, testKVDelete) {
     const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        telem::TimeRange(
-            telem::TimeStamp(30),
-            telem::TimeStamp(10 * telem::SECOND)
-        )
+        telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(10 * telem::SECOND))
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
     ASSERT_NIL(range.kv.del("test"));

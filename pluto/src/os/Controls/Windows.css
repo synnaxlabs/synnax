@@ -10,10 +10,10 @@
  */
 
 .pluto-windows-control--close {
+    border-top-right-radius: 1rem !important;
     &:hover {
         background: var(--pluto-error-z) !important;
         border-color: var(--pluto-error-z) !important;
-
 
         & svg {
             fill: var(--pluto-white);
@@ -33,12 +33,17 @@
 }
 
 .pluto-windows-control--maximize > svg {
+    top: 30% !important;
+    left: 30% !important;
     width: 40% !important;
     height: 40% !important;
 }
 
-.pluto-windows-control--close, .pluto-windows-control--minimize {
+.pluto-windows-control--close,
+.pluto-windows-control--minimize {
     & > svg {
+        top: 27.5% !important;
+        left: 27.5% !important;
         width: 45% !important;
         height: 45% !important;
     }

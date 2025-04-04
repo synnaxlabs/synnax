@@ -37,7 +37,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   };
 
   return (
-    <Align.Space direction="x" style={{ padding: "2rem" }}>
+    <Align.Space x style={{ padding: "2rem" }}>
       <Input.Item label="Title" grow>
         <Input.Text
           value={name}

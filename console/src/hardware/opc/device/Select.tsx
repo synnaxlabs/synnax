@@ -18,7 +18,7 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Center>
-      <Text.Text level="p" shade={6}>
+      <Text.Text level="p" shade={10}>
         No OPC UA servers connected.
       </Text.Text>
       <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>

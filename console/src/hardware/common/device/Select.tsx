@@ -60,7 +60,7 @@ export const Select = ({
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>
-                <Text.Text level="p" shade={6}>
+                <Text.Text level="p" shade={10}>
                   {emptyContent}
                 </Text.Text>
               </Align.Center>

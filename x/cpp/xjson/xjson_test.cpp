@@ -20,10 +20,7 @@ TEST(testConfig, testParserHappyPath) {
     };
     MyConfig v;
 
-    const json j = {
-        {"name", "test"},
-        {"dog", 1.0}
-    };
+    const json j = {{"name", "test"}, {"dog", 1.0}};
     xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
@@ -55,10 +52,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
         float dog{};
     };
     MyConfig v;
-    const json j = {
-        {"name", "test"},
-        {"dog", "cat"}
-    };
+    const json j = {{"name", "test"}, {"dog", "cat"}};
     xjson::Parser parser(j);
     v.name = parser.required<std::string>("name");
     v.dog = parser.optional<float>("dog", 12);
@@ -79,14 +73,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
         MyChildConfig child;
     };
 
-    json j = {
-        {
-            "child", {
-                {"name", "test"},
-                {"dog", 1.0}
-            }
-        }
-    };
+    json j = {{"child", {{"name", "test"}, {"dog", 1.0}}}};
     MyConfig v;
     xjson::Parser parser(j);
     auto child_parser = parser.child("child");
@@ -130,14 +117,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
         MyChildConfig child;
     };
 
-    json j = {
-        {
-            "child", {
-                {"name", "test"},
-                {"dog", "cat"}
-            }
-        }
-    };
+    json j = {{"child", {{"name", "test"}, {"dog", "cat"}}}};
     MyConfig v;
     xjson::Parser parser(j);
     auto child_parser = parser.child("child");
@@ -161,18 +141,8 @@ TEST(testConfig, testIterHappyPath) {
     };
 
     const json j = {
-        {
-            "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", 1.0}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", 2.0}
-                }
-            }
-        }
+        {"children",
+         {{{"name", "test1"}, {"dog", 1.0}}, {{"name", "test2"}, {"dog", 2.0}}}}
     };
 
     MyConfig v;
@@ -225,14 +195,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
         std::vector<MyChildConfig> children;
     };
 
-    const json j = {
-        {
-            "children", {
-                {"name", "test1"},
-                {"dog", 1.0}
-            }
-        }
-    };
+    const json j = {{"children", {{"name", "test1"}, {"dog", 1.0}}}};
     MyConfig v;
     const xjson::Parser parser(j);
     parser.iter("children", [&](xjson::Parser &child_parser) {
@@ -259,18 +222,8 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     };
 
     const json j = {
-        {
-            "children", {
-                {
-                    {"name", "test1"},
-                    {"dog", "1.0"}
-                },
-                {
-                    {"name", "test2"},
-                    {"dog", "red"}
-                }
-            }
-        }
+        {"children",
+         {{{"name", "test1"}, {"dog", "1.0"}}, {{"name", "test2"}, {"dog", "red"}}}}
     };
 
     MyConfig v;
@@ -292,9 +245,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
     struct MyConfig {
         float dog;
     };
-    const json j = {
-        {"dog", "1.232"}
-    };
+    const json j = {{"dog", "1.232"}};
     MyConfig v;
     xjson::Parser parser(j);
     v.dog = parser.required<float>("dog");
@@ -304,9 +255,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
 }
 
 TEST(testConfig, testArray) {
-    const json j = {
-        {"array", {1, 2, 3, 4, 5}}
-    };
+    const json j = {{"array", {1, 2, 3, 4, 5}}};
     xjson::Parser parser(j);
     const auto values = parser.required_vec<int>("array");
     EXPECT_TRUE(parser.ok());
@@ -330,9 +279,7 @@ TEST(testConfig, testArrayDoesNotExist) {
 }
 
 TEST(testConfig, testArrayIsNotArray) {
-    const json j = {
-        {"array", 1}
-    };
+    const json j = {{"array", 1}};
     xjson::Parser parser(j);
     auto values = parser.required_vec<int>("array");
     EXPECT_FALSE(parser.ok());
@@ -343,9 +290,7 @@ TEST(testConfig, testArrayIsNotArray) {
 }
 
 TEST(testConfig, testOptionalArray) {
-    const json j = {
-        {"array", {1, 2, 3, 4, 5}}
-    };
+    const json j = {{"array", {1, 2, 3, 4, 5}}};
     xjson::Parser parser(j);
     const auto values = parser.optional_vec<int>("array", {6, 7, 8});
     EXPECT_TRUE(parser.ok());
@@ -383,7 +328,7 @@ TEST(testConfig, testParseFromFileSuccess) {
     auto parser = xjson::Parser::from_file_path(test_file);
     v.name = parser.required<std::string>("name");
     v.value = parser.required<float>("value");
-    
+
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(v.name, "test");
     ASSERT_EQ(v.value, 42.5);
@@ -416,7 +361,9 @@ TEST(testConfig, testParseFromFileInvalidJSON) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "");
-    EXPECT_TRUE(err["message"].get<std::string>().find("parse error") != std::string::npos);
+    EXPECT_TRUE(
+        err["message"].get<std::string>().find("parse error") != std::string::npos
+    );
 
     // Clean up
     std::remove(test_file.c_str());

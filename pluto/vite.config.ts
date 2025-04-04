@@ -12,10 +12,25 @@
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
+import { copyFileSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/pluto/",
-  plugins: [lib({ name: "pluto" })],
+  plugins: [
+    lib({ name: "pluto" }),
+    {
+      name: "copy-theme-css",
+      closeBundle() {
+        // Ensure dist directory exists
+        mkdirSync("dist", { recursive: true });
+        // Copy the theme CSS file to dist
+        copyFileSync(
+          path.resolve("src/theming/static/theme.css"),
+          path.resolve("dist/theme.css"),
+        );
+      },
+    },
+  ],
   build: {
     lib: {
       entry: {

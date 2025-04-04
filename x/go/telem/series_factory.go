@@ -72,7 +72,7 @@ func NewStrings(data []string) (series Series) {
 // from individual string values.
 func NewStringsV(data ...string) (series Series) { return NewStrings(data) }
 
-func NewStaticJSONV(data ...interface{}) (series Series) {
+func NewStaticJSONV[T any](data ...T) (series Series) {
 	series.DataType = JSONT
 	strings := make([]string, len(data))
 	for i, v := range data {

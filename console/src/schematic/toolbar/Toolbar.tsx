@@ -47,7 +47,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Align.Center direction="x" size="small">
+    <Align.Center x size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
@@ -105,7 +105,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     {
       label: name,
       weight: 500,
-      shade: 8,
+      shade: 10,
       level: "h5",
       icon: <Icon.Schematic />,
     },
@@ -114,7 +114,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     breadCrumbSegments.push({
       label: selectedNames[0],
       weight: 400,
-      shade: 7,
+      shade: 8,
       level: "p",
     });
   if (state == null) return null;
@@ -128,11 +128,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <Core.Header>
-        <Align.Space direction="x" empty>
-          <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        </Align.Space>
-        <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
+        <Align.Space x align="center" empty>
+          <Align.Space x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}

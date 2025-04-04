@@ -30,7 +30,7 @@
         align-items: center;
         justify-content: center;
         padding-right: 1rem;
-        border-color: var(--pluto-gray-l7);
+        border-color: var(--pluto-gray-l9);
         -webkit-backdrop-filter: blur(3rem) saturate(180%);
         backdrop-filter: blur(3rem) saturate(180%);
         & .pluto-text {

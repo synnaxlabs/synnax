@@ -17,34 +17,28 @@ import { eraser } from "@/vis/eraser/aether";
 
 export interface UseProps {
   aetherKey?: string;
+  enabled?: boolean;
 }
 
 export interface UseReturn {
-  setEnabled: (enabled: boolean) => void;
   erase: (region: box.Box) => void;
 }
 
-export const use = ({ aetherKey }: UseProps): UseReturn => {
-  const [, { region }, setState] = Aether.use({
+export const use = ({ aetherKey, enabled = true }: UseProps): UseReturn => {
+  const { setState } = Aether.useLifecycle({
     aetherKey,
     type: eraser.Eraser.TYPE,
     schema: eraser.eraserStateZ,
-    initialState: { region: box.ZERO, enabled: true },
+    initialState: { region: box.ZERO, enabled },
   });
-  const regionRef = useSyncedRef(region);
+  const enabledRef = useSyncedRef(enabled);
   const erase = useCallback(
     (b: box.Box) => {
-      if (box.equals(b, regionRef.current)) return;
-      setState((p) => ({ ...p, region: b }));
+      setState({ enabled: enabledRef.current, region: b });
     },
-    [setState],
+    [setState, enabledRef],
   );
-  const setEnabled = useCallback(
-    (enabled: boolean) => setState((p) => ({ ...p, enabled })),
-    [setState],
-  );
-
-  return { setEnabled, erase };
+  return { erase };
 };
 
 export interface EraserProps extends PropsWithChildren, Aether.CProps {}

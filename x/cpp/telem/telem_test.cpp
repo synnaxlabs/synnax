@@ -258,7 +258,7 @@ TEST(TimeSpanTests, testDelta) {
 
 TEST(TimeSpanTests, testScalarOperations) {
     const auto ts = TimeSpan(10);
-    
+
     // Addition with scalar
     const auto ts2 = ts + 5;
     ASSERT_EQ(ts2.nanoseconds(), 15);
@@ -274,30 +274,31 @@ TEST(TimeSpanTests, testScalarOperations) {
 
 TEST(TimeSpanTests, testScalarAssignments) {
     auto ts = TimeSpan(10);
-    
+
     ts += 5;
     ASSERT_EQ(ts.nanoseconds(), 15);
-    
+
     ts -= 5;
     ASSERT_EQ(ts.nanoseconds(), 10);
-    
+
     ts *= 2;
     ASSERT_EQ(ts.nanoseconds(), 20);
-    
+
     ts /= 2;
     ASSERT_EQ(ts.nanoseconds(), 10);
-    
+
     ts %= 3;
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
 TEST(TimeSpanTests, testToString) {
-    const auto ts = TimeSpan(_priv::DAY + _priv::HOUR + _priv::MINUTE + 
-                            _priv::SECOND + _priv::MILLISECOND + 
-                            _priv::MICROSECOND + 1); // 1 day, 1 hour, 1 minute, 1 second, 1ms, 1us, 1ns
+    const auto ts = TimeSpan(
+        _priv::DAY + _priv::HOUR + _priv::MINUTE + _priv::SECOND + _priv::MILLISECOND +
+        _priv::MICROSECOND + 1
+    ); // 1 day, 1 hour, 1 minute, 1 second, 1ms, 1us, 1ns
     const auto str = ts.to_string();
     ASSERT_EQ(str, "1d 1h 1m 1s 1ms 1us 1ns");
-    
+
     // Test zero case
     const auto zero = TimeSpan(0);
     ASSERT_EQ(zero.to_string(), "0ns");
@@ -317,10 +318,10 @@ TEST(TimeSpanTests, testZeroStatic) {
 TEST(TimeSpanTests, testAbs) {
     const auto positive = TimeSpan(5);
     ASSERT_EQ(positive.abs().nanoseconds(), 5);
-    
+
     const auto negative = TimeSpan(-5);
     ASSERT_EQ(negative.abs().nanoseconds(), 5);
-    
+
     const auto zero = TimeSpan(0);
     ASSERT_EQ(zero.abs().nanoseconds(), 0);
 }
@@ -453,36 +454,34 @@ TEST(RateTests, testGreaterThanEqual) {
 
 TEST(RateTests, testPeriodVariousFrequencies) {
     // Test common frequencies
-    ASSERT_EQ(Rate(1).period(), SECOND);          // 1 Hz = 1s
-    ASSERT_EQ(Rate(2).period(), SECOND / 2);      // 2 Hz = 500ms
-    ASSERT_EQ(Rate(5).period(), SECOND / 5);      // 5 Hz = 200ms
-    ASSERT_EQ(Rate(10).period(), SECOND / 10);    // 10 Hz = 100ms
-    ASSERT_EQ(Rate(20).period(), SECOND / 20);    // 20 Hz = 50ms
-    ASSERT_EQ(Rate(50).period(), SECOND / 50);    // 50 Hz = 20ms
-    ASSERT_EQ(Rate(100).period(), SECOND / 100);  // 100 Hz = 10ms
+    ASSERT_EQ(Rate(1).period(), SECOND); // 1 Hz = 1s
+    ASSERT_EQ(Rate(2).period(), SECOND / 2); // 2 Hz = 500ms
+    ASSERT_EQ(Rate(5).period(), SECOND / 5); // 5 Hz = 200ms
+    ASSERT_EQ(Rate(10).period(), SECOND / 10); // 10 Hz = 100ms
+    ASSERT_EQ(Rate(20).period(), SECOND / 20); // 20 Hz = 50ms
+    ASSERT_EQ(Rate(50).period(), SECOND / 50); // 50 Hz = 20ms
+    ASSERT_EQ(Rate(100).period(), SECOND / 100); // 100 Hz = 10ms
     ASSERT_EQ(Rate(1000).period(), SECOND / 1000); // 1kHz = 1ms
-    
+
     // Verify actual time values
-    ASSERT_EQ(Rate(20).period().milliseconds(), 50);   // 20 Hz should be 50ms
-    ASSERT_EQ(Rate(50).period().milliseconds(), 20);   // 50 Hz should be 20ms
-    ASSERT_EQ(Rate(100).period().milliseconds(), 10);  // 100 Hz should be 10ms
-    ASSERT_EQ(Rate(1000).period().milliseconds(), 1);  // 1kHz should be 1ms
+    ASSERT_EQ(Rate(20).period().milliseconds(), 50); // 20 Hz should be 50ms
+    ASSERT_EQ(Rate(50).period().milliseconds(), 20); // 50 Hz should be 20ms
+    ASSERT_EQ(Rate(100).period().milliseconds(), 10); // 100 Hz should be 10ms
+    ASSERT_EQ(Rate(1000).period().milliseconds(), 1); // 1kHz should be 1ms
 }
 
 ////////////////////////////////////////////////////////////
 // DataType Tests
 ////////////////////////////////////////////////////////////
 
-class DataTypeTests : public ::testing::Test {
-};
+class DataTypeTests : public ::testing::Test {};
 
 struct TypeTestCase {
     telem::DataType expected;
     std::function<DataType()> inferFn;
 };
 
-class DataTypeInferTest : public testing::TestWithParam<TypeTestCase> {
-};
+class DataTypeInferTest : public testing::TestWithParam<TypeTestCase> {};
 
 TEST_P(DataTypeInferTest, testInferBuiltInTypes) {
     const auto &[expected, infer_fn] = GetParam();
@@ -579,4 +578,4 @@ TEST(DataTypeTests, testStreamOperator) {
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
 }
-}
+} // namespace telem

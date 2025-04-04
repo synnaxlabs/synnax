@@ -18,9 +18,9 @@ extern "C" {
 }
 
 /// internal.
-#include "driver/sequence/plugins/plugins.h"
-#include "driver/sequence/plugins/mock/plugins.h"
 #include "driver/pipeline/mock/pipeline.h"
+#include "driver/sequence/plugins/mock/plugins.h"
+#include "driver/sequence/plugins/plugins.h"
 
 class SetOperatorTest : public testing::Test {
 protected:
@@ -200,10 +200,8 @@ protected:
         op->after_next(L);
         ASSERT_EQ(sink->writes->size(), 1);
 
-        const telem::Series index_ser = std::move(
-            sink->writes->at(0).series->at(1));
-        const telem::Series value_ser = std::move(
-            sink->writes->at(0).series->at(0));
+        const telem::Series index_ser = std::move(sink->writes->at(0).series->at(1));
+        const telem::Series value_ser = std::move(sink->writes->at(0).series->at(0));
 
         EXPECT_GT(index_ser.at<int64_t>(0), 0);
         EXPECT_EQ(value_ser.at<T>(0), expected_value);
@@ -274,7 +272,8 @@ TEST_F(SetAuthorityTest, SingleAuthForAllChannels) {
     const auto &[keys, auths] = sink->authority_calls[0];
     ASSERT_EQ(keys.size(), 3);
     ASSERT_EQ(auths.size(), 3);
-    for (const auto &auth: auths) EXPECT_EQ(auth, 42);
+    for (const auto &auth: auths)
+        EXPECT_EQ(auth, 42);
 }
 
 TEST_F(SetAuthorityTest, SingleChannelAuth) {
@@ -293,12 +292,18 @@ TEST_F(SetAuthorityTest, MultipleChannelsSameAuth) {
     const auto &[keys, auths] = sink->authority_calls[0];
     ASSERT_EQ(keys.size(), 2);
     ASSERT_EQ(auths.size(), 2);
-    for (const auto &auth: auths) EXPECT_EQ(auth, 42);
+    for (const auto &auth: auths)
+        EXPECT_EQ(auth, 42);
 }
 
 TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
-    ASSERT_EQ(luaL_dostring(L,
-                  "set_authority({channel1 = 42, channel2 = 43, channel3 = 44})"), 0);
+    ASSERT_EQ(
+        luaL_dostring(
+            L,
+            "set_authority({channel1 = 42, channel2 = 43, channel3 = 44})"
+        ),
+        0
+    );
 
     ASSERT_EQ(sink->authority_calls.size(), 1);
     const auto &[keys, auths] = sink->authority_calls[0];
@@ -307,7 +312,8 @@ TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
 
     // Create a map of channel keys to their authorities for easier verification
     std::map<synnax::ChannelKey, telem::Authority> auth_map;
-    for (int i = 0; i < keys.size(); i++) auth_map[keys[i]] = auths[i];
+    for (int i = 0; i < keys.size(); i++)
+        auth_map[keys[i]] = auths[i];
     EXPECT_EQ(auth_map[1], 42); // channel1
     EXPECT_EQ(auth_map[2], 43); // channel2
     EXPECT_EQ(auth_map[3], 44); // channel3
@@ -331,11 +337,11 @@ TEST(ChannelWriteLifecycle, StopBeforeStart) {
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = telem::FLOAT64_T;
-    
+
     auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
-    
+
     // Stopping before starting should be safe
     plugin.after_all(L);
     lua_close(L);
@@ -347,11 +353,11 @@ TEST(ChannelWriteLifecycle, DoubleStart) {
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = telem::FLOAT64_T;
-    
+
     auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
-    
+
     // Starting twice should be safe
     plugin.before_all(L);
     plugin.before_all(L);
@@ -365,11 +371,11 @@ TEST(ChannelWriteLifecycle, DoubleStop) {
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = telem::FLOAT64_T;
-    
+
     auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
-    
+
     plugin.before_all(L);
     plugin.after_all(L);
     plugin.after_all(L);

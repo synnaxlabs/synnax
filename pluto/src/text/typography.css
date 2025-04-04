@@ -100,27 +100,27 @@ th,
 }
 
 .pluto--shade-4 {
-    color: var(--pluto-gray-l4);
-}
-
-.pluto--shade-5 {
-    color: var(--pluto-gray-l5);
-}
-
-.pluto--shade-6 {
     color: var(--pluto-gray-l6);
 }
 
-.pluto--shade-7 {
+.pluto--shade-5 {
     color: var(--pluto-gray-l7);
 }
 
-.pluto--shade-8 {
+.pluto--shade-6 {
     color: var(--pluto-gray-l8);
 }
 
-.pluto--shade-9 {
+.pluto--shade-7 {
     color: var(--pluto-gray-l9);
+}
+
+.pluto--shade-8 {
+    color: var(--pluto-gray-l10);
+}
+
+.pluto--shade-9 {
+    color: var(--pluto-gray-l11);
 }
 
 .pluto--shade-10 {

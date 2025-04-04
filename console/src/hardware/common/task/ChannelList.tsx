@@ -156,22 +156,25 @@ export const ChannelList = <C extends Channel>({
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        style={{ height: "calc(100% - 5.5rem)" }}
-      >
-        <List.List<string, C> data={channels} emptyContent={emptyContent}>
-          <List.Selector<string, C>
-            onChange={handleChange}
-            replaceOnSingle
-            value={selected}
+      />
+      <List.List<string, C> data={channels} emptyContent={emptyContent}>
+        <List.Selector<string, C>
+          onChange={handleChange}
+          replaceOnSingle
+          value={selected}
+        >
+          <List.Core<string, C>
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            className={menuProps.className}
+            onContextMenu={menuProps.open}
           >
-            <List.Core<string, C>>
-              {(props) =>
-                listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })
-              }
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </PMenu.ContextMenu>
+            {(props) =>
+              listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })
+            }
+          </List.Core>
+        </List.Selector>
+      </List.List>
     </Align.Space>
   );
 };

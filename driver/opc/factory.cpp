@@ -12,14 +12,12 @@
 
 /// internal
 #include "driver/opc/opc.h"
-#include "driver/opc/scan_task.h"
 #include "driver/opc/read_task.h"
+#include "driver/opc/scan_task.h"
 #include "driver/opc/write_task.h"
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
+std::pair<std::unique_ptr<task::Task>, xerrors::Error>
+configure_read(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
     if (err) return {nullptr, err};
     auto [client, c_err] = util::connect(cfg.conn, "[opc.read]");
@@ -40,10 +38,8 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     };
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
+std::pair<std::unique_ptr<task::Task>, xerrors::Error>
+configure_write(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
     if (err) return {nullptr, err};
     auto [client, c_err] = util::connect(cfg.conn, "[opc.write]");
@@ -68,10 +64,8 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         return {std::make_unique<ScanTask>(ctx, task), true};
-    if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task);
-    if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task);
+    if (task.type == READ_TASK_TYPE) res = configure_read(ctx, task);
+    if (task.type == WRITE_TASK_TYPE) res = configure_write(ctx, task);
     common::handle_config_err(ctx, task, res.second);
     return {std::move(res.first), true};
 }
@@ -95,7 +89,13 @@ opc::Factory::configure_initial_tasks(
     auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
     if (err.matches(xerrors::NOT_FOUND)) {
         LOG(INFO) << "[opc] creating scanner task";
-        auto sy_task = synnax::Task(rack.key, "OPC UA Scanner", SCAN_TASK_TYPE, "", true);
+        auto sy_task = synnax::Task(
+            rack.key,
+            "OPC UA Scanner",
+            SCAN_TASK_TYPE,
+            "",
+            true
+        );
         if (const auto c_err = rack.tasks.create(sy_task)) {
             LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
             return tasks;

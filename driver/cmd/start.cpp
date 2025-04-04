@@ -14,27 +14,29 @@
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
-    bool sig_stop_enabled = !args.flag("--disable-sig-stop");
+    const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
+    const bool sig_stop_enabled = !args.flag("--disable-sig-stop");
     if (args.error()) {
         LOG(ERROR) << "[driver] invalid arguments: " << args.error();
         return 1;
     }
-    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version() <<
-            xlog::RESET();
+    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version()
+              << xlog::RESET();
     rack::Rack r;
     volatile bool early_shutdown = false;
-    std::function on_shutdown = [&early_shutdown] {
+    const std::function on_shutdown = [&early_shutdown] {
         xshutdown::signal_shutdown();
         early_shutdown = true;
     };
     r.start(args, on_shutdown);
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
     if (!early_shutdown)
-        LOG(INFO) << xlog::BLUE() <<
-            "[driver] received shutdown signal. Gracefully stopping driver. This can take up to 5 seconds. Please be patient"
-            << xlog::RESET();
-    else LOG(WARNING) << "[driver] unexpected early shutdown";
+        LOG(INFO) << xlog::BLUE()
+                  << "[driver] received shutdown signal. Gracefully stopping driver. "
+                     "This can take up to 5 seconds. Please be patient"
+                  << xlog::RESET();
+    else
+        LOG(WARNING) << "[driver] unexpected early shutdown";
     if (const auto err = r.stop())
         LOG(ERROR) << "[driver] stopped with error: " << err;
     else

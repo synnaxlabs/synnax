@@ -17,7 +17,7 @@ import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-log",
-  name: "Create Log",
+  name: "Create a Log",
   icon: <Icon.Log />,
   onSelect: ({ placeLayout }) => placeLayout(Log.create()),
 };

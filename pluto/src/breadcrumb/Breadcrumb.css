@@ -10,6 +10,12 @@
  */
 
 .pluto-breadcrumb {
+    &.pluto-text-icon--p {
+        .synnax-icon:first-child {
+            transform: translateY(0.5px);
+        }
+    }
+
     &.pluto--hide-first {
         .synnax-icon:first-child {
             margin-right: 0.5rem;

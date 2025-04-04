@@ -9,8 +9,10 @@
 
 #include "rack.h"
 
-bool rack::Rack::should_exit(const xerrors::Error &err,
-                             const std::function<void()> &on_shutdown) {
+bool rack::Rack::should_exit(
+    const xerrors::Error &err,
+    const std::function<void()> &on_shutdown
+) {
     this->run_err = err;
     if (!err) return false;
     const auto breaker_ok = err.matches(freighter::UNREACHABLE) && breaker.wait(err);
@@ -34,6 +36,7 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
         err = this->task_manager->run();
         if (err && this->should_exit(err, on_shutdown)) return;
     }
+    if (this->task_manager != nullptr) this->task_manager->stop();
     this->run_err = xerrors::NIL;
 }
 

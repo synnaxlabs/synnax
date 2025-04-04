@@ -13,28 +13,38 @@ button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
-.pluto-input:is(:focus-within, :active, :hover) {
-    & .pluto-input__internal {
-        z-index: 3;
-    }
+.pluto-input__internal {
+    z-index: 3;
 }
 
 :root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
-    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    --pluto-border-l5: var(--pluto-border-width) solid var(--pluto-gray-l5);
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
+    --pluto-btn-transition:
+        background 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
 
 .pluto-theme-synnax-light {
-    --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
-        0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
+    --pluto-shadow-v1:
+        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.04),
+        0px 16px 24px -8px rgba(0, 0, 0, 0.06);
+
+    --pluto-shadow-v2:
+        lch(0 0 0 / 0.022) 0px 6px 18px, lch(0 0 0 / 0.044) 0px 3px 9px,
+        lch(0 0 0 / 0.044) 0px 1px 1px;
+
+    --pluto-shadow-v3:
+        lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
+        lch(0 0 0 / 0.044) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
-    --pluto-shadow-menu: lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
+    --pluto-shadow-v1:
+        lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
         lch(0 0 0 / 0.188) 0px 1px 1px;
 }
 

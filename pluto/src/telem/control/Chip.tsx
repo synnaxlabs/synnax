@@ -38,11 +38,11 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
       if (status.data?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
-          chipColor: "var(--pluto-gray-l10)",
+          chipColor: "var(--pluto-gray-l12)",
         };
       return {
         message: "No channel connected. This element cannot be controlled.",
-        chipColor: "var(--pluto-gray-l5)",
+        chipColor: "var(--pluto-gray-l7)",
         disabled: true,
       };
 
