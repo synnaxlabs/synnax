@@ -65,30 +65,21 @@ export const Selector = (): ReactElement => {
     [active, client, dispatch, close, handleError],
   );
 
-  const color = active ? undefined : "var(--pluto-warning-m1)";
-
   return (
     <Dropdown.Dialog
       close={close}
       visible={visible}
       keepMounted={false}
       variant="floating"
-      color={active ? undefined : "var(--pluto-warning-m1)"}
       className={CSS(CSS.BE("workspace", "selector"))}
       bordered={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
         endIcon={
-          <Caret.Animated
-            enabledLoc="bottom"
-            disabledLoc="left"
-            enabled={visible}
-            color={color}
-          />
+          <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
         }
         variant="text"
-        color={color}
         onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}

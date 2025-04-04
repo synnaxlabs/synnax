@@ -16,6 +16,7 @@ import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
+import { Triggers } from "@/triggers";
 
 interface ChildProps {
   color?: string;
@@ -26,6 +27,7 @@ interface ChildProps {
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   shade?: Text.Shade;
+  triggerIndicator?: Triggers.Trigger;
 }
 
 /**
@@ -55,6 +57,7 @@ export const Icon = Tooltip.wrap(
     color: propColor,
     tabIndex,
     onMouseDown,
+    triggerIndicator,
     ...rest
   }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
@@ -81,6 +84,11 @@ export const Icon = Tooltip.wrap(
         tabIndex={tabIndex}
         {...rest}
       >
+        {triggerIndicator && (
+          <div className={CSS.B("trigger-indicator")}>
+            <Triggers.Text trigger={triggerIndicator} level="small" />
+          </div>
+        )}
         {typeof children === "string"
           ? children
           : cloneElement(children, {
