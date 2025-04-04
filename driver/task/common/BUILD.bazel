@@ -1,6 +1,7 @@
 cc_library(
     name = "common",
     hdrs = [
+        "common.h",
         "read_task.h",
         "sample_clock.h",
         "scan_task.h",

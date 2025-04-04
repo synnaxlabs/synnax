@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/common/task/fields/AutoStart";
-export * from "@/hardware/common/task/fields/DataSaving";
-export * from "@/hardware/common/task/fields/SampleRate";
-export * from "@/hardware/common/task/fields/StateUpdateRate";
-export * from "@/hardware/common/task/fields/StreamRate";
+import { Form } from "@synnaxlabs/pluto";
+
+export const AutoStart = () => (
+  <Form.SwitchField
+    label="Auto Start"
+    path="config.autoStart"
+    defaultValue={false}
+    hideIfNull
+  />
+);

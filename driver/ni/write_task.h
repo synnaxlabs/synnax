@@ -24,19 +24,18 @@
 #include "driver/ni/hardware/hardware.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
+#include "driver/task/common/common.h"
 #include "ni.h"
 
 namespace ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
 /// Write Task.
-struct WriteTaskConfig {
+struct WriteTaskConfig: public common::TaskConfig {
     /// @brief the key of the device the task is writing to.
     const std::string device_key;
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
     const telem::Rate state_rate;
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
@@ -50,9 +49,9 @@ struct WriteTaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
+        common::TaskConfig(std::move(other)),
         device_key(other.device_key),
         state_rate(other.state_rate),
-        data_saving(other.data_saving),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
         buf_indexes(std::move(other.buf_indexes)) {}
@@ -73,10 +72,9 @@ struct WriteTaskConfig {
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
-    ):
+    ): common::TaskConfig(cfg),
         device_key(cfg.required<std::string>("device")),
-        state_rate(telem::Rate(cfg.required<float>("state_rate"))),
-        data_saving(cfg.optional<bool>("data_saving", false)) {
+        state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
             if (ch != nullptr && ch->enabled)

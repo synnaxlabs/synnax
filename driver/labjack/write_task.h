@@ -52,9 +52,7 @@ struct OutputChan {
 };
 
 /// @brief the configuration for opening a write task.
-struct WriteTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
+struct WriteTaskConfig: common::TaskConfig {
     /// @brief the device key to write to.
     const std::string device_key;
     /// @brief the rate at which to propagate state updates back to Synnax.
@@ -69,7 +67,7 @@ struct WriteTaskConfig {
     std::set<synnax::ChannelKey> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        common::TaskConfig(std::move(other)),
         device_key(other.device_key),
         state_rate(other.state_rate),
         conn_method(other.conn_method),
@@ -85,7 +83,7 @@ struct WriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
     ):
-        data_saving(parser.optional<bool>("data_saving", false)),
+        common::TaskConfig(parser),
         device_key(parser.required<std::string>("device")),
         state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
         conn_method(parser.optional<std::string>("connection_type", "")) {

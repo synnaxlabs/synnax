@@ -31,7 +31,7 @@ const std::string
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-    common::TimingConfig timing_cfg
+    const common::TimingConfig timing_cfg
 ):
     dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
 
@@ -69,7 +69,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
+    common::ConfigureResult res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
@@ -96,8 +96,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask>(ctx, task);
-    common::handle_config_err(ctx, task, res.second);
-    return {std::move(res.first), true};
+    return common::handle_config_err(ctx, task, res);
 }
 
 
@@ -137,13 +136,17 @@ ni::Factory::configure_initial_tasks(
     return tasks;
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::Factory::configure_scan(
+common::ConfigureResult ni::Factory::configure_scan(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
     auto parser = xjson::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
-    if (parser.error()) return {nullptr, parser.error()};
+    common::ConfigureResult res;
+    if (parser.error()) {
+        res.error = parser.error();
+        return res;
+    }
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
         ctx,
@@ -151,9 +154,6 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::Factory::configure_sc
         breaker::default_config(task.name),
         cfg.rate
     );
-    if (cfg.enabled) scan_task->start();
-    return {
-        std::move(scan_task),
-        xerrors::NIL,
-    };
+    res.auto_start = cfg.enabled;
+    return res;
 }
