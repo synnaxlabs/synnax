@@ -66,7 +66,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l10;
+    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l12;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     const handleError = status.useErrorHandler(ctx);
@@ -232,7 +232,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       draw2D.text({
         text,
         level: this.state.font,
-        shade: 9,
+        shade: 11,
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
         code: true,
       });

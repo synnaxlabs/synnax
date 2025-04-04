@@ -103,7 +103,7 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      size="tiny"
+      empty
     >
       {legendSwatches(data, onEntryChange, setPickerVisible, allowVisibleChange)}
     </Container>
