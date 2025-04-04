@@ -9,20 +9,6 @@ cc_library(
         "scan_task.h",
         "write_task.h",
     ],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-            "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
-            "/D_WINSOCK_DEPRECATED_NO_WARNINGS",
-            "/D_CRT_SECURE_NO_WARNINGS",
-        ],
-        "//conditions:default": [],
-    }),
-    linkopts = select({
-        "@platforms//os:windows": ["/DEFAULTLIB:ws2_32.lib"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",

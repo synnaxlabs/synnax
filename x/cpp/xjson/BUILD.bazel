@@ -3,10 +3,6 @@ cc_library(
     hdrs = [
         "xjson.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/xerrors",

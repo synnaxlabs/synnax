@@ -7,10 +7,6 @@ cc_library(
         "synnax.h",
         "transport.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/auth",
@@ -25,7 +21,7 @@ cc_library(
         "//x/cpp/xjson",
         "//x/cpp/xlog",
         "//x/cpp/xpath",
-        "@glog//:glog",
+        "@glog",
         "@grpc//:grpc++",
         "@nlohmann_json//:json",
     ],

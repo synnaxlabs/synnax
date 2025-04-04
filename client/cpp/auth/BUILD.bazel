@@ -2,10 +2,6 @@ cc_library(
     name = "auth",
     srcs = [],
     hdrs = ["auth.h"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp/fgrpc",
@@ -19,10 +15,6 @@ cc_library(
 cc_test(
     name = "auth_test",
     srcs = ["auth_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         ":auth",
         "//freighter/cpp/mock",

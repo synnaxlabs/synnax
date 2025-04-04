@@ -5,6 +5,8 @@ common --enable_bzlmod=true --enable_workspace=true --noincompatible_disallow_ct
 
 # Enable platform-specific configs
 build --enable_platform_specific_config
+build --copt=-fvisibility=hidden
+build --copt=-fvisibility-inlines-hidden
 
 # ===== Platform-Specific Compiler Settings =====
 
