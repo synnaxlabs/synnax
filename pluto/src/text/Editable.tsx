@@ -129,6 +129,7 @@ export const Editable = <L extends text.Level = text.Level>({
   const handleDoubleClick = (
     e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
   ): void => {
+    e.stopPropagation();
     if (allowDoubleClick) {
       setEditable(true);
       triggerReflow(ref.current as HTMLElement);

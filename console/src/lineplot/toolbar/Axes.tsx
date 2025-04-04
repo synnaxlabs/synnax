@@ -146,9 +146,9 @@ export const LinePlotAxisControls = ({
   };
 
   return (
-    <Align.Space direction="y" style={{ padding: "2rem" }} size="small">
-      <Align.Space direction="x">
-        <Input.Item label="Lower Bound" direction="y" grow>
+    <Align.Space y style={{ padding: "2rem" }} size="small">
+      <Align.Space x>
+        <Input.Item label="Lower Bound" y grow>
           <Input.Numeric
             value={axis.bounds.lower}
             onChange={handleLowerBoundChange}
@@ -185,7 +185,7 @@ export const LinePlotAxisControls = ({
           />
         </Input.Item>
       </Align.Space>
-      <Align.Space direction="x">
+      <Align.Space x>
         <Input.Item label="Label" grow>
           <Input.Text
             placeholder={axisKey.toUpperCase()}

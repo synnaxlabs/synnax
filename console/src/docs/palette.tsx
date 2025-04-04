@@ -14,7 +14,7 @@ import { type Palette } from "@/palette";
 
 const READ_COMMAND: Palette.Command = {
   key: "read-the-docs",
-  name: "Read the docs",
+  name: "Read the documentation",
   icon: <Icon.QuestionMark />,
   onSelect: ({ placeLayout }) => placeLayout(LAYOUT),
 };

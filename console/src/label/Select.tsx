@@ -28,7 +28,7 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <Align.Center style={{ height: 150 }} direction="y">
+    <Align.Center style={{ height: 150 }} y>
       <Status.Text variant="disabled" hideIcon>
         No labels created.
       </Status.Text>

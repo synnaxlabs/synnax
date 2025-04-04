@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/resize/Multiple.css";
-
 import { box, direction, math, type xy } from "@synnaxlabs/x";
 import {
   Children,

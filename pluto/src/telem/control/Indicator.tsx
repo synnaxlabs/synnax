@@ -52,7 +52,7 @@ export const Indicator = ({
   let parsedColor: Color.Crude;
   if (status.data?.color != null) parsedColor = Color.Color.z.parse(status.data.color);
   else if (color != null && !color.isZero) parsedColor = color;
-  else parsedColor = "var(--pluto-gray-l8)";
+  else parsedColor = "var(--pluto-gray-l10)";
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>

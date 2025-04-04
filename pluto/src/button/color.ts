@@ -17,7 +17,7 @@ export const color = (
   color?: Color.Crude,
   shade?: Text.Shade,
 ): string | undefined => {
-  if (disabled === true) return "var(--pluto-gray-l5)";
+  if (disabled === true) return "var(--pluto-gray-l7)";
   if (color != null) return Color.cssString(color);
   if (variant === "filled") return "var(--pluto-text-on-primary)";
   if (shade != null) return undefined;

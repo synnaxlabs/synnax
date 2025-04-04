@@ -17,6 +17,32 @@ interface FontStringOptions {
   code?: boolean;
 }
 
+type FontThreshold = {
+  weight: number;
+  style?: "light" | "regular" | "medium" | "bold";
+  value: string;
+};
+
+const thresholds: FontThreshold[] = [
+  { weight: 200, style: "light", value: "Inter 200, sans-serif" },
+  { weight: 300, value: "Inter Threee, sans-serif" },
+  { weight: 400, value: "Inter Four, sans-serif" },
+  { weight: 500, value: "Inter Five, sans-serif" },
+  { weight: 600, value: "Inter Six, sans-serif" },
+  { weight: 700, value: "Inter Seven, sans-serif" },
+  { weight: 800, value: "Inter Eight, sans-serif" },
+  { weight: 900, style: "bold", value: "Inter Nine, sans-serif" },
+];
+
+const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
+  thresholds.find((t, i) => {
+    const isLast = i === thresholds.length - 1;
+    if (isLast) return true;
+    if (typeof weight === "number")
+      return weight >= t.weight && weight < thresholds[i + 1].weight;
+    return t.style === weight;
+  });
+
 export const fontString = (
   theme: ThemeSpec,
   { level, weight, code }: FontStringOptions,
@@ -25,10 +51,16 @@ export const fontString = (
     typography,
     sizes: { base },
   } = theme;
+  let fmly = typography.family;
+  if (code) fmly = typography.codeFamily;
+  else if (weight != null) {
+    const threshold = matchThreshold(weight);
+    if (threshold != null) fmly = threshold.value;
+    else fmly = "Inter Light, sans-serif";
+  }
   const size =
     typography[isComponentSize(level) ? text.ComponentSizeLevels[level] : level].size;
   const sizePx = (base * size).toFixed(1);
-  const fmly = code ? typography.codeFamily : typography.family;
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;
   return ` ${sizePx}px ${fmly}`;

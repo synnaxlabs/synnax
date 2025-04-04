@@ -10,7 +10,7 @@
 import "@/vis/log/Log.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, type Optional } from "@synnaxlabs/x";
+import { box, location, type Optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
@@ -92,6 +92,7 @@ export const Log = ({
           variant="outlined"
           onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
           tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Dynamic />
         </Button.Icon>

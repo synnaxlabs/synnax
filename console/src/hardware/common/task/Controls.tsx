@@ -71,17 +71,17 @@ export const Controls = ({
   return (
     <Align.Space
       className={CSS.B("task-controls")}
-      direction="x"
+      x
       justify="spaceBetween"
       empty
       bordered
       {...props}
     >
-      <Align.Space className={CSS.B("task-state")} direction="x">
+      <Align.Space className={CSS.B("task-state")} x>
         {content}
       </Align.Space>
       {!isSnapshot && (
-        <Align.Space align="center" direction="x" justify="end">
+        <Align.Space align="center" x justify="end">
           <Button.Button
             disabled={!canConfigure}
             loading={isConfiguring}
@@ -89,9 +89,9 @@ export const Controls = ({
             size="medium"
             tooltip={
               hasTriggers ? (
-                <Align.Space direction="x" align="center" size="small">
-                  <Triggers.Text level="small" shade={7} trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small" shade={7}>
+                <Align.Space x align="center" size="small">
+                  <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small" shade={11}>
                     To Configure
                   </Text.Text>
                 </Align.Space>

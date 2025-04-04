@@ -15,7 +15,6 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
-  type ReactNode,
   useCallback,
   useRef,
 } from "react";
@@ -26,6 +25,7 @@ import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { type status } from "@/status/aether";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
@@ -48,7 +48,7 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
-  stopPropagation?: boolean;
+  textShade?: Text.Shade;
 }
 
 /** The props for the {@link Button} component. */
@@ -64,7 +64,6 @@ export type ButtonProps = Omit<
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
-    endContent?: ReactNode;
   };
 
 /**
@@ -108,11 +107,13 @@ export const Button = Tooltip.wrap(
     color,
     status,
     style,
-    endContent,
     onMouseDown,
-    stopPropagation,
+    shade = 0,
+    textShade,
+    tabIndex,
     ...rest
   }: ButtonProps): ReactElement => {
+    if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
@@ -122,7 +123,6 @@ export const Button = Tooltip.wrap(
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (stopPropagation) e.stopPropagation();
       if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };
@@ -130,6 +130,7 @@ export const Button = Tooltip.wrap(
     const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
+      if (tabIndex == -1) e.preventDefault();
       onMouseDown?.(e);
       if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
       document.addEventListener(
@@ -160,12 +161,13 @@ export const Button = Tooltip.wrap(
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
+      const theme = Theming.use();
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-color")] = res.data.rgbString;
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
-        "#000000",
-        "#ffffff",
+        theme.colors.text,
+        theme.colors.textInverted,
       ).rgbCSS;
     }
 
@@ -182,14 +184,17 @@ export const Button = Tooltip.wrap(
         el="button"
         className={CSS(
           CSS.B("btn"),
+          CSS.M("clickable"),
           CSS.size(size),
           CSS.sharp(sharp),
+          CSS.shade(shade),
           variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
-          CSS.BM("btn", variant),
+          CSS.M(variant),
           hasCustomColor && CSS.BM("btn", "custom-color"),
           className,
         )}
+        tabIndex={tabIndex}
         type={type}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
@@ -200,13 +205,9 @@ export const Button = Tooltip.wrap(
         startIcon={startIcon}
         color={color}
         {...rest}
+        shade={textShade}
       >
         {children}
-        {endContent != null ? (
-          <div className={CSS.BE("btn", "end-content")}>
-            {Text.formatChildren(level ?? Text.ComponentSizeLevels[size], endContent)}
-          </div>
-        ) : undefined}
       </Text.WithIcon>
     );
   },

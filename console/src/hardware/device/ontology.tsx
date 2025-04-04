@@ -183,7 +183,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => (
         />
         <Text.Text
           level="small"
-          shade={6}
+          shade={10}
           style={{ lineHeight: "100%", marginTop: "0.25rem" }}
         >
           {entry.extraData?.location as string}

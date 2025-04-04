@@ -49,7 +49,7 @@ export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Align.Space direction="x" grow>
+    <Align.Space x grow>
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
     </Align.Space>

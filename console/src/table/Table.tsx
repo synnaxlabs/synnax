@@ -26,7 +26,7 @@ import {
   box,
   clamp,
   dimensions,
-  type location,
+  location,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
@@ -186,7 +186,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         itemKey="toggleEdit"
         startIcon={editable ? <Icon.EditOff /> : <Icon.Edit />}
       >
-        {editable ? "Disable Edit Mode" : "Enable Edit Mode"}
+        {`${editable ? "Disable" : "Enable"} editing`}
       </PMenu.Item>
       <PMenu.Divider />
       <Menu.HardReloadItem />
@@ -236,36 +236,37 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   let currPos = 3.5 * 6;
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-        <Core.Table
-          visible={visible}
-          style={{
-            width: totalColSizes,
-            height: totalRowSizes,
-          }}
-        >
-          <ColResizer
-            tableKey={layoutKey}
-            onResize={handleColResize}
-            columns={colSizes}
-          />
-          {layout.rows.map((row, rowIndex) => {
-            const pos = currPos;
-            currPos += layout.rows[rowIndex].size;
-            return (
-              <Row
-                key={rowIndex}
-                tableKey={layoutKey}
-                index={rowIndex}
-                cells={row.cells}
-                position={pos}
-                columns={colSizes}
-                size={row.size}
-              />
-            );
-          })}
-        </Core.Table>
-      </PMenu.ContextMenu>
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+      <Core.Table
+        visible={visible}
+        style={{
+          width: totalColSizes,
+          height: totalRowSizes,
+        }}
+        onContextMenu={menuProps.open}
+        className={menuProps.className}
+      >
+        <ColResizer
+          tableKey={layoutKey}
+          onResize={handleColResize}
+          columns={colSizes}
+        />
+        {layout.rows.map((row, rowIndex) => {
+          const pos = currPos;
+          currPos += layout.rows[rowIndex].size;
+          return (
+            <Row
+              key={rowIndex}
+              tableKey={layoutKey}
+              index={rowIndex}
+              cells={row.cells}
+              position={pos}
+              columns={colSizes}
+              size={row.size}
+            />
+          );
+        })}
+      </Core.Table>
       {editable && (
         <>
           <Button.Button
@@ -307,7 +308,13 @@ const TableControls = ({ tableKey }: TableControls) => {
 
   return (
     <Align.Pack className={CSS.BE("table", "edit")}>
-      <Button.ToggleIcon value={editable} onChange={handleEdit}>
+      <Button.ToggleIcon
+        value={editable}
+        onChange={handleEdit}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+      >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.ToggleIcon>
     </Align.Pack>

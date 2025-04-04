@@ -40,20 +40,22 @@ export const InputFilePath = ({
       onChange(path);
     }, "Failed to open file");
   return (
-    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...rest}>
+    <Align.Pack className={CSS.B("input-file-path")} borderShade={5} {...rest}>
       <Button.Button
-        level="p"
+        level="small"
         className={CSS.B("path")}
         variant="outlined"
-        shade={path == null ? 7 : 9}
+        shade={0}
         grow
         onClick={handleClick}
         startIcon={
           path == null ? undefined : (
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l6)" }} />
+            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
           )
         }
         size="medium"
+        textShade={8}
+        weight={450}
       >
         {path == null ? "No file selected" : path}
       </Button.Button>

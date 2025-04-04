@@ -12,8 +12,7 @@
 .pluto-caret-animated {
     transition: transform 0.2s ease-in-out;
     transform-origin: center;
-    color: var(--pluto-gray-l6);
-    /* transform: scale(0.8); */
+    color: var(--pluto-gray-l8);
 
     &.pluto--left {
         transform: rotate(270deg) scale(0.8);
@@ -28,7 +27,7 @@
     }
 
     &.pluto--top {
-        transform: rotate(90deg) scale(0.8);
+        transform: rotate(0deg) scale(0.8);
     }
 }
 

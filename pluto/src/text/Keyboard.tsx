@@ -22,6 +22,7 @@ export const Keyboard = <L extends text.Level = "p">({
   level,
   children,
   style,
+  shade = 10,
   ...rest
 }: KeyboardProps<L>): ReactElement => {
   const iStyle: CSSProperties = {
@@ -39,6 +40,7 @@ export const Keyboard = <L extends text.Level = "p">({
     <Text<L>
       className={CSS(className, CSS.BM("text", "keyboard"), rect && CSS.M("rect"))}
       level={level}
+      shade={shade}
       style={{ ...style, ...iStyle }}
       {...rest}
     >

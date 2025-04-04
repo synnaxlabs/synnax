@@ -33,12 +33,12 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       state: { nodes, setNodes, setSelection },
       newID,
     }) => {
-      if (selection.parent == null) return;
+      if (selection.parentID == null) return;
       const resourcesToGroup = getResourcesToGroup(selection);
       const prevNodes = Tree.deepCopy(nodes);
       let nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.parent.key,
+        destination: selection.parentID.toString(),
         additions: {
           key: newID.toString(),
           icon: <Icon.Group />,
@@ -57,11 +57,11 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection, newID }: CreateArgs) => {
-      if (selection.parent == null) return;
+      if (selection.parentID == null) return;
       const [groupName, renamed] = await Tree.asyncRename(newID.toString());
       if (!renamed) throw errors.CANCELED;
       const resourcesToGroup = getResourcesToGroup(selection);
-      const parentID = new ontology.ID(selection.parent.key);
+      const parentID = new ontology.ID(selection.parentID.toString());
       await client.ontology.groups.create(parentID, groupName, newID.key);
       await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
     },

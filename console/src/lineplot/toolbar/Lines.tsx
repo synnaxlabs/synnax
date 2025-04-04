@@ -38,7 +38,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
-    <Align.Center direction="x" size="small">
+    <Align.Center x size="small">
       <Status.Text variant="disabled" hideIcon>
         No lines plotted. Use the
       </Status.Text>
@@ -102,7 +102,7 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
   } = typedLineKeyFromString(entry.key);
 
   return (
-    <Align.Space style={{ padding: "0.5rem", width: "100%" }} direction="x">
+    <Align.Space style={{ padding: "0.5rem", width: "100%" }} x>
       <Channel.AliasInput
         channelKey={yChannel}
         style={{ width: 305 }}
