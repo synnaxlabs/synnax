@@ -200,7 +200,7 @@ export const Configure = <
       </Status.Text.Centered>
     );
   if (isError) {
-    const color = Status.variantColors.error;
+    const color = Status.VARIANT_COLORS.error;
     return (
       <Align.Space align="center" grow justify="center">
         <Text.Text color={color} level="h2">

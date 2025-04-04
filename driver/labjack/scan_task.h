@@ -85,10 +85,11 @@ class Scanner final : public common::Scanner {
                                : serial_str;
             auto name = device_type_str + "-" + last_four;
 
+            auto rack = synnax::task_key_rack(this->task.key);
             auto sy_dev = synnax::Device(
                 serial_str,
                 name,
-                synnax::task_key_rack(this->task.key),
+                rack,
                 conn_type_str,
                 MAKE,
                 device_type_str,
@@ -96,6 +97,7 @@ class Scanner final : public common::Scanner {
             );
             sy_dev.state = synnax::DeviceState{
                 .key = sy_dev.key,
+                .rack = rack,
                 .variant = "success",
                 .details = json{
                     {"message", "Device present"},

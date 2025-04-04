@@ -155,7 +155,6 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (fr) => {
         const data = fr.get(STATE_CHANNEL_NAME);
-        console.log(Array.from(data));
         if (data.length === 0) return [[], false];
         const states = data.parseJSON(stateZ);
         return [states as State[], true];

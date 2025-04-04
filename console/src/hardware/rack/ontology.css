@@ -1,6 +1,6 @@
 .synnax-rack-heartbeat {
-    position: absolute;
-    right: 2rem;
+    transform: scale(1);
+    transform-origin: center;
 }
 
 .synnax-rack-heartbeat--beat {
@@ -9,12 +9,12 @@
 
 @keyframes beat {
     0% {
-        color: var(--pluto-gray-l6);
+        transform: scale(1.2);
     }
     50% {
-        color: var(--pluto-success-z);
+        transform: scale(1);
     }
     100% {
-        color: var(--pluto-gray-l6);
+        transform: scale(1.2);
     }
 }
