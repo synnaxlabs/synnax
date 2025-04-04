@@ -25,24 +25,11 @@ const std::string TASK_NAME = "Heartbeat";
 const std::string TASK_TYPE = INTEGRATION_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
 
-/// @brief uint64 heartbeat value that communicates the aliveness of a rack. The
-/// first 32 bits are the rack key and the last 32 bits are the version.
-using Heartbeat = std::uint64_t;
+struct State {
+    synnax::RackKey key;
 
-/// @brief creates a new heartbeat value from its components.
-inline Heartbeat create(const synnax::RackKey rack_key, const std::uint32_t version) {
-    return static_cast<Heartbeat>(rack_key) << 32 | version;
-}
-
-/// @brief retrieves the rack key from the heartbeat value.
-inline Heartbeat rack_key(const std::uint64_t hb) {
-    return hb >> 32;
-}
-
-/// @brief retrieves the version from the heartbeat value.
-inline Heartbeat version(const std::uint64_t hb) {
-    return hb & 0xFFFFFFFF;
-}
+    json to_json() const { return json{{"rack", key}}; }
+};
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
@@ -59,11 +46,12 @@ public:
         key(key), rack_key(rack_key), version(0), loop(loop::Timer(EMISSION_RATE)) {}
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        if (fr.size() == 0) fr.emplace(key, telem::Series(0, telem::UINT64_T));
+        fr.clear();
         this->loop.wait(breaker);
-        const Heartbeat hb = create(this->rack_key, this->version);
-        this->version++;
-        fr.series->at(0).set(0, hb);
+        const State state{
+            .key = this->rack_key,
+        };
+        fr.emplace(key, state.to_json());
         return xerrors::NIL;
     }
 };
@@ -80,12 +68,14 @@ public:
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
     ):
-        pipe(pipeline::Acquisition(
-            ctx->client,
-            writer_config,
-            std::move(source),
-            breaker_config
-        )) {
+        pipe(
+            pipeline::Acquisition(
+                ctx->client,
+                writer_config,
+                std::move(source),
+                breaker_config
+            )
+        ) {
         pipe.start();
     }
 

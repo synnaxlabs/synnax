@@ -59,7 +59,7 @@ class Factory final : public task::Factory {
 public:
     explicit Factory(
         const std::shared_ptr<device::Manager> &dev_manager,
-        common::TimingConfig timing_cfg
+        const common::TimingConfig timing_cfg
     ):
         dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 

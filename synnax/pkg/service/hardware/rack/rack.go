@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -53,6 +54,17 @@ func (k Key) IsZero() bool { return k == 0 }
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
+type State struct {
+	// Key is the key of the rack.
+	Key Key `json:"key" msgpack:"key"`
+	// Heartbeat is a unit64 where the first 32 bits are the rack key and the second 32
+	// bits are an incrementing heartbeat counter starting at 0 from when the rack
+	// boots up. When the rack restarts, this counter will reset to 0.
+	Heartbeat Heartbeat `json:"heartbeat" msgpack:"heartbeat"`
+	/// LastReceived is the last time the rack sent a heartbeat signal.
+	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
+}
+
 // Rack represents a driver that can communicate with devices and execute tasks.
 type Rack struct {
 	// Key is a unique identifier for a rack. This key is tied to a specific node.
@@ -65,6 +77,8 @@ type Rack struct {
 	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
+	// State is the current state of the rack.
+	State State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

@@ -1,0 +1,20 @@
+.synnax-rack-heartbeat {
+    position: absolute;
+    right: 2rem;
+}
+
+.synnax-rack-heartbeat--beat {
+    animation: beat 0.2s ease-out;
+}
+
+@keyframes beat {
+    0% {
+        color: var(--pluto-gray-l6);
+    }
+    50% {
+        color: var(--pluto-success-z);
+    }
+    100% {
+        color: var(--pluto-gray-l6);
+    }
+}

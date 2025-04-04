@@ -81,13 +81,14 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type (
 	HardwareRetrieveRackRequest struct {
-		Keys       []rack.Key `json:"keys" msgpack:"keys"`
-		Names      []string   `json:"names" msgpack:"names"`
-		Search     string     `json:"search" msgpack:"search"`
-		Embedded   bool       `json:"embedded" msgpack:"embedded"`
-		HostIsNode bool       `json:"host_is_node" msgpack:"host_is_node"`
-		Limit      int        `json:"limit" msgpack:"limit"`
-		Offset     int        `json:"offset" msgpack:"offset"`
+		Keys         []rack.Key `json:"keys" msgpack:"keys"`
+		Names        []string   `json:"names" msgpack:"names"`
+		Search       string     `json:"search" msgpack:"search"`
+		Embedded     bool       `json:"embedded" msgpack:"embedded"`
+		HostIsNode   bool       `json:"host_is_node" msgpack:"host_is_node"`
+		Limit        int        `json:"limit" msgpack:"limit"`
+		Offset       int        `json:"offset" msgpack:"offset"`
+		IncludeState bool       `json:"include_state" msgpack:"include_state"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -128,6 +129,15 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
 	}
+
+	if req.IncludeState {
+		for i := range resRacks {
+			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
+				resRacks[i].State = s.State
+			}
+		}
+	}
+
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,

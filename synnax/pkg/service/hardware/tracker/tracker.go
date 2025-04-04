@@ -44,14 +44,7 @@ import (
 // RackState is the state of a hardware rack. Unfortunately, we can't put this into
 // the rack package because it would create a circular dependency.
 type RackState struct {
-	// Key is the key of the rack.
-	Key rack.Key `json:"key" msgpack:"key"`
-	// Heartbeat is a unit64 where the first 32 bits are the rack key and the second 32
-	// bits are an incrementing heartbeat counter starting at 0 from when the rack
-	// boots up. When the rack restarts, this counter will reset to 0.
-	Heartbeat rack.Heartbeat `json:"heartbeat" msgpack:"heartbeat"`
-	/// LastReceived is the last time the rack sent a heartbeat signal.
-	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
+	rack.State
 	// Tasks is the state of the tasks associated with the rack.
 	Tasks map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
 	// Devices is the state of the devices associated with the rack.
@@ -180,10 +173,10 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	for _, r := range racks {
 		// Initialize rack state with empty maps
 		rck := &RackState{
-			Key:     r.Key,
 			Tasks:   make(map[task.Key]task.State),
 			Devices: make(map[string]device.State),
 		}
+		rck.Key = r.Key
 
 		// Fetch and initialize tasks for this rack
 		var tasks []task.Task
@@ -394,7 +387,8 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			rackKey := c.Key.Rack()
 			rackState, rckOk := t.mu.Racks[rackKey]
 			if !rckOk {
-				rackState = &RackState{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+				rackState = &RackState{Tasks: make(map[task.Key]task.State)}
+				rackState.Key = rackKey
 				fmt.Println("new rack state")
 				t.mu.Racks[rackKey] = rackState
 			}
@@ -445,7 +439,10 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 			delete(t.mu.Racks, c.Key)
 		} else {
 			if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
-				t.mu.Racks[c.Key] = &RackState{Key: c.Key, Tasks: make(map[task.Key]task.State), LastReceived: telem.Now()}
+				nState := &RackState{Tasks: make(map[task.Key]task.State)}
+				nState.LastReceived = telem.Now()
+				nState.Key = c.Key
+				t.mu.Racks[c.Key] = nState
 			}
 		}
 	}
@@ -525,10 +522,10 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 		r, ok := t.mu.Racks[rackKey]
 		if !ok {
 			r = &RackState{
-				Key:     rackKey,
 				Tasks:   make(map[task.Key]task.State),
 				Devices: make(map[string]device.State),
 			}
+			r.Key = rackKey
 			t.mu.Racks[rackKey] = r
 		}
 		if r.Devices == nil {
@@ -555,10 +552,10 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 			rackState, rackOk := t.mu.Racks[rackKey]
 			if !rackOk {
 				rackState = &RackState{
-					Key:     rackKey,
 					Tasks:   make(map[task.Key]task.State),
 					Devices: make(map[string]device.State),
 				}
+				rackState.Key = rackKey
 				t.mu.Racks[rackKey] = rackState
 			}
 			if rackState.Devices == nil {

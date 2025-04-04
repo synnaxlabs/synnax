@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
@@ -64,6 +65,40 @@ describe("Rack", () => {
       await expect(
         async () => await r.retrieveTaskByName("nonexistent"),
       ).rejects.toThrow(NotFoundError);
+    });
+  });
+  describe("state", () => {
+    it("should include state when includeState is true", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const retrieved = await client.hardware.racks.retrieve(r.key, {
+        includeState: true,
+      });
+
+      expect(retrieved.state).toBeDefined();
+      if (retrieved.state) {
+        expect(retrieved.state.key).toBe(r.key);
+        expect(typeof retrieved.state.heartbeat).toBe("number");
+        expect(retrieved.state.lastReceived).toBeInstanceOf(TimeStamp);
+      }
+    });
+    it("should include state for multiple racks", async () => {
+      const r1 = await client.hardware.racks.create({ name: "test1" });
+      const r2 = await client.hardware.racks.create({ name: "test2" });
+
+      const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
+        includeState: true,
+      });
+
+      expect(retrieved).toHaveLength(2);
+      retrieved.forEach((rack) => {
+        expect(rack.state).toBeDefined();
+        if (rack.state) {
+          expect(rack.state.key).toBe(rack.key);
+          expect(typeof rack.state.heartbeat).toBe("number");
+          expect(rack.state.lastReceived).toBeInstanceOf(TimeStamp);
+        }
+      });
     });
   });
 });

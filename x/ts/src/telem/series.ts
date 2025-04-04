@@ -714,7 +714,10 @@ export class Series<T extends TelemValue = TelemValue> {
       return this as unknown as Series<T>;
     }
     if (jsType === "bigint") {
-      if (!this.dataType.equals(DataType.INT64))
+      if (
+        !this.dataType.equals(DataType.INT64) &&
+        !this.dataType.equals(DataType.UINT64)
+      )
         throw new Error(
           `cannot convert series of type ${this.dataType.toString()} to bigint`,
         );
@@ -953,12 +956,38 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   as(jsType: "bigint"): MultiSeries<bigint>;
 
-  as<T extends TelemValue>(dataType: CrudeDataType): MultiSeries<T> {
-    if (!new DataType(dataType).equals(this.dataType))
-      throw new Error(
-        `cannot convert series of type ${this.dataType.toString()} to ${dataType.toString()}`,
-      );
-    return this as unknown as MultiSeries<T>;
+  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): MultiSeries<T> {
+    if (jsType === "string") {
+      if (
+        !this.dataType.equals(DataType.STRING) &&
+        !this.dataType.equals(DataType.JSON)
+      )
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to string`,
+        );
+
+      return this as unknown as MultiSeries<T>;
+    }
+    if (jsType === "number") {
+      if (!this.dataType.isNumeric)
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to number`,
+        );
+
+      return this as unknown as MultiSeries<T>;
+    }
+    if (jsType === "bigint") {
+      if (
+        !this.dataType.equals(DataType.INT64) &&
+        !this.dataType.equals(DataType.UINT64)
+      )
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to bigint`,
+        );
+
+      return this as unknown as MultiSeries<T>;
+    }
+    throw new Error(`cannot convert series to ${jsType as string}`);
   }
 
   get dataType(): DataType {

@@ -13,15 +13,15 @@ import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface ContextValue {
+export interface StateProviderContextValue {
   states: Record<string, device.State>;
 }
 
-const Context = createContext<ContextValue>({
+const StateContext = createContext<StateProviderContextValue>({
   states: {},
 });
 
-const Provider = ({ children }: { children: ReactElement }) => {
+const StateProvider = ({ children }: { children: ReactElement }) => {
   const client = Synnax.use();
   const [states, setStates] = reactUseState<Record<string, device.State>>({});
 
@@ -47,11 +47,49 @@ const Provider = ({ children }: { children: ReactElement }) => {
     };
   }, []);
 
-  return <Context.Provider value={{ states }}>{children}</Context.Provider>;
+  return <StateContext.Provider value={{ states }}>{children}</StateContext.Provider>;
+};
+interface RackHeartbeatProviderContextValue {
+  heartbeats: Record<number, number>;
+}
+
+const RackHeartbeatContext = createContext<RackHeartbeatProviderContextValue>({
+  heartbeats: {},
+});
+
+const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
+  const client = Synnax.use();
+  const [heartbeats, setHeartbeats] = reactUseState<Record<number, number>>({});
+
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const observer = await client.hardware.racks.openHeartbeatObserver();
+    const disconnect = observer.onChange((beats) => {
+      setHeartbeats((prev) => {
+        const newBeats = Object.fromEntries(beats.map((b) => [b.rackKey, b.heartbeat]));
+        return { ...prev, ...newBeats };
+      });
+    });
+    return async () => {
+      disconnect();
+      await observer.close();
+    };
+  }, []);
+
+  return (
+    <RackHeartbeatContext.Provider value={{ heartbeats }}>
+      {children}
+    </RackHeartbeatContext.Provider>
+  );
+};
+
+export const useHeartbeat = (key: number): number | undefined => {
+  const { heartbeats } = useContext(RackHeartbeatContext);
+  return heartbeats[key];
 };
 
 export const useState = (key: string): device.State | undefined => {
-  const { states } = useContext(Context);
+  const { states } = useContext(StateContext);
   return states[key];
 };
 
@@ -69,15 +107,17 @@ const Content = (): ReactElement => {
   });
 
   return (
-    <Provider>
-      <Align.Space empty style={{ height: "100%" }}>
-        <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
-          <Header.Actions></Header.Actions>
-        </Toolbar.Header>
-        <Ontology.Tree root={group.data} />
-      </Align.Space>
-    </Provider>
+    <StateProvider>
+      <RackHeartbeatProvider>
+        <Align.Space empty style={{ height: "100%" }}>
+          <Toolbar.Header>
+            <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+            <Header.Actions></Header.Actions>
+          </Toolbar.Header>
+          <Ontology.Tree root={group.data} />
+        </Align.Space>
+      </RackHeartbeatProvider>
+    </StateProvider>
   );
 };
 
