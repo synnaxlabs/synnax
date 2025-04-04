@@ -39,6 +39,7 @@ export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
   onChange?: (value: O, extra: ContextValue & { path: string }) => void;
+  defaultValue?: I;
 }
 
 export interface UseNullableFieldProps<I, O = I>
@@ -74,6 +75,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
   optional = false,
   onChange,
+  defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
   const { get, bind, set, setStatus } = ctx;
@@ -88,6 +90,12 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
       listenToChildren: false,
     });
   }, [path, onChange, bind, get]);
+
+  useEffect(() => {
+    console.log(defaultValue, get<I>(path, { optional }));
+    if (defaultValue != null && get<I>(path, { optional }) == null)
+      set(path, defaultValue);
+  }, [defaultValue, set, path, get]);
 
   const handleChange = useCallback(
     (value: O) => {

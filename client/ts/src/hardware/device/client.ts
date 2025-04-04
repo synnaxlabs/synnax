@@ -12,7 +12,7 @@ import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
-import { type framer } from "@/framer";
+import { framer } from "@/framer";
 import {
   type Device,
   deviceZ,
@@ -21,6 +21,8 @@ import {
   type New,
   newZ,
   ONTOLOGY_TYPE,
+  type State,
+  stateZ,
 } from "@/hardware/device/payload";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
@@ -29,6 +31,7 @@ import { nullableArrayZ } from "@/util/zod";
 
 const SET_CHANNEL_NAME = "sy_device_set";
 const DELETE_CHANNEL_NAME = "sy_device_delete";
+const STATE_CHANNEL_NAME = "sy_device_state";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
@@ -50,12 +53,16 @@ const retrieveReqZ = z.object({
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
   ignoreNotFound: z.boolean().optional(),
+  includeState: z.boolean().optional(),
 });
 
 interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "limit" | "offset" | "makes" | "ignoreNotFound"> {}
+  extends Pick<
+    RetrieveRequest,
+    "limit" | "offset" | "makes" | "ignoreNotFound" | "includeState"
+  > {}
 
 interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
 
@@ -75,26 +82,34 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     Properties extends UnknownRecord = UnknownRecord,
     Make extends string = string,
     Model extends string = string,
-  >(key: string, options?: RetrieveOptions): Promise<Device<Properties, Make, Model>>;
+    StateDetails extends {} = UnknownRecord,
+  >(
+    key: string,
+    options?: RetrieveOptions,
+  ): Promise<Device<Properties, Make, Model, StateDetails>>;
 
   async retrieve<
     Properties extends UnknownRecord = UnknownRecord,
     Make extends string = string,
     Model extends string = string,
+    StateDetails extends {} = UnknownRecord,
   >(
     keys: string[],
     options?: RetrieveOptions,
-  ): Promise<Array<Device<Properties, Make, Model>>>;
+  ): Promise<Array<Device<Properties, Make, Model, StateDetails>>>;
 
   async retrieve<
     Properties extends UnknownRecord = UnknownRecord,
     Make extends string = string,
     Model extends string = string,
+    StateDetails extends {} = UnknownRecord,
   >(
     keys: string | string[],
     options?: RetrieveOptions,
   ): Promise<
-    Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>> | null
+    | Device<Properties, Make, Model, StateDetails>
+    | Array<Device<Properties, Make, Model, StateDetails>>
+    | null
   > {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
@@ -106,8 +121,8 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
     checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
     return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model>)
-      : (res.devices as Array<Device<Properties, Make, Model>>);
+      ? (res.devices[0] as Device<Properties, Make, Model, StateDetails>)
+      : (res.devices as Array<Device<Properties, Make, Model, StateDetails>>);
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
@@ -180,6 +195,20 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       SET_CHANNEL_NAME,
       DELETE_CHANNEL_NAME,
       decodeDeviceChanges,
+    );
+  }
+
+  async openStateObserver<Details extends {} = UnknownRecord>(): Promise<
+    framer.ObservableStreamer<State<Details>[]>
+  > {
+    return new framer.ObservableStreamer<State<Details>[]>(
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      (frame) => {
+        const s = frame.get(STATE_CHANNEL_NAME);
+        if (s.length === 0) return [null, false];
+        const states = s.parseJSON(stateZ);
+        return [states as State<Details>[], true];
+      },
     );
   }
 

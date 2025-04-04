@@ -31,15 +31,12 @@ TEST(Scale, None) {
 
 TEST(Scale, Linear) {
     const json j = {
-        {
-            "scale", {
-                {"type", "linear"},
-                {"slope", 2.0},
-                {"y_intercept", 1.0},
-                {"pre_scaled_units", "Volts"},
-                {"scaled_units", "Pascals"}
-            }
-        }
+        {"scale",
+         {{"type", "linear"},
+          {"slope", 2.0},
+          {"y_intercept", 1.0},
+          {"pre_scaled_units", "Volts"},
+          {"scaled_units", "Pascals"}}}
     };
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
@@ -57,17 +54,14 @@ TEST(Scale, Linear) {
 
 TEST(Scale, Map) {
     const json j = {
-        {
-            "scale", {
-                {"type", "map"},
-                {"pre_scaled_min", 0.0},
-                {"pre_scaled_max", 10.0},
-                {"scaled_min", 0.0},
-                {"scaled_max", 100.0},
-                {"pre_scaled_units", "Volts"},
-                {"scaled_units", "Pascals"}
-            }
-        }
+        {"scale",
+         {{"type", "map"},
+          {"pre_scaled_min", 0.0},
+          {"pre_scaled_max", 10.0},
+          {"scaled_min", 0.0},
+          {"scaled_max", 100.0},
+          {"pre_scaled_units", "Volts"},
+          {"scaled_units", "Pascals"}}}
     };
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
@@ -86,16 +80,13 @@ TEST(Scale, Map) {
 
 TEST(Scale, Polynomial) {
     const json j = {
-        {
-            "scale", {
-                {"type", "polynomial"},
-                {"forward_coeffs", {1.0, 2.0, 3.0}},
-                {"min_x", 0.0},
-                {"max_x", 10.0},
-                {"pre_scaled_units", "Volts"},
-                {"scaled_units", "Pascals"}
-            }
-        }
+        {"scale",
+         {{"type", "polynomial"},
+          {"forward_coeffs", {1.0, 2.0, 3.0}},
+          {"min_x", 0.0},
+          {"max_x", 10.0},
+          {"pre_scaled_units", "Volts"},
+          {"scaled_units", "Pascals"}}}
     };
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
@@ -107,8 +98,10 @@ TEST(Scale, Polynomial) {
     ASSERT_NE(poly_scale, nullptr);
     EXPECT_EQ(poly_scale->min_x, 0.0);
     EXPECT_EQ(poly_scale->max_x, 10.0);
-    EXPECT_EQ(poly_scale->reverse_poly_order,
-              channel::REVERSE_POLY_ORDER_SAME_AS_FORWARD);
+    EXPECT_EQ(
+        poly_scale->reverse_poly_order,
+        channel::REVERSE_POLY_ORDER_SAME_AS_FORWARD
+    );
     EXPECT_EQ(poly_scale->pre_scaled_units, DAQmx_Val_Volts);
     EXPECT_EQ(poly_scale->scaled_units, "Pascals");
 
@@ -120,15 +113,12 @@ TEST(Scale, Polynomial) {
 
 TEST(Scale, Table) {
     const json j = {
-        {
-            "scale", {
-                {"type", "table"},
-                {"pre_scaled", {0.0, 5.0, 10.0}},
-                {"scaled", {0.0, 50.0, 100.0}},
-                {"pre_scaled_units", "Volts"},
-                {"scaled_units", "Pascals"}
-            }
-        }
+        {"scale",
+         {{"type", "table"},
+          {"pre_scaled", {0.0, 5.0, 10.0}},
+          {"scaled", {0.0, 50.0, 100.0}},
+          {"pre_scaled_units", "Volts"},
+          {"scaled_units", "Pascals"}}}
     };
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
@@ -151,14 +141,7 @@ TEST(Scale, InvalidType) {
 }
 
 TEST(Scale, MissingRequiredFields) {
-    const json j = {
-        {
-            "scale", {
-                {"type", "linear"},
-                {"y_intercept", 1.0}
-            }
-        }
-    };
+    const json j = {{"scale", {{"type", "linear"}, {"y_intercept", 1.0}}}};
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
@@ -166,13 +149,7 @@ TEST(Scale, MissingRequiredFields) {
 
 TEST(Scale, DefaultUnits) {
     const json j = {
-        {
-            "scale", {
-                {"type", "linear"},
-                {"slope", 2.0},
-                {"y_intercept", 1.0}
-            }
-        }
+        {"scale", {{"type", "linear"}, {"slope", 2.0}, {"y_intercept", 1.0}}}
     };
     const xjson::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");

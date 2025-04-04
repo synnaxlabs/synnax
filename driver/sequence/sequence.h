@@ -16,8 +16,8 @@
 #include "nlohmann/json.hpp"
 
 extern "C" {
-#include <lua.h>
 #include <lauxlib.h>
+#include <lua.h>
 }
 
 /// module
@@ -44,7 +44,8 @@ const xerrors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
 struct TaskConfig {
     /// @brief rate is the rate at which the script loop will execute.
     telem::Rate rate;
-    /// @brief script is the lua scrip that will be executed ihn the fixed rate loop.
+    /// @brief script is the lua scrip that will be executed ihn the fixed rate
+    /// loop.
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
     /// real-time.
@@ -65,31 +66,30 @@ struct TaskConfig {
         read(parser.required_vec<synnax::ChannelKey>("read")),
         write(parser.required_vec<synnax::ChannelKey>("write")),
         globals(parser.optional<json>("globals", json::object())),
-        authority(parser.optional<telem::Authority>("authority", 150)) {
-    }
+        authority(parser.optional<telem::Authority>("authority", 150)) {}
 };
 
-/// @brief deleted used to clean up lua unique pointers to ensure resources are free.
+/// @brief deleted used to clean up lua unique pointers to ensure resources are
+/// free.
 struct LuaStateDeleter {
-    void operator()(lua_State *L) const { if (L) lua_close(L); }
+    void operator()(lua_State *L) const {
+        if (L) lua_close(L);
+    }
 };
 
 class Sequence {
 public:
-    Sequence(
-        const std::shared_ptr<plugins::Plugin> &plugins,
-        std::string script
-    );
+    Sequence(const std::shared_ptr<plugins::Plugin> &plugins, std::string script);
 
     ~Sequence();
 
-    /// @brief compiles the script in the sequence. It is not strictly necessary to run
-    /// this before calling start(), although it can be used to check for compilation
-    /// errors early.
+    /// @brief compiles the script in the sequence. It is not strictly necessary to
+    /// run this before calling start(), although it can be used to check for
+    /// compilation errors early.
     [[nodiscard]] xerrors::Error compile();
 
-    /// @brief starts the sequence, initializing all plugins. Note that this function
-    /// does not actually run the sequence, but prepares it for execution.
+    /// @brief starts the sequence, initializing all plugins. Note that this
+    /// function does not actually run the sequence, but prepares it for execution.
     [[nodiscard]] xerrors::Error begin();
 
     /// @brief executes the next iteration in the sequence.
@@ -120,8 +120,8 @@ class Task final : public task::Task {
     breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
-    /// @brief ctx is the task execution context for communicating with the Synnax cluster
-    /// and updating the task state.
+    /// @brief ctx is the task execution context for communicating with the Synnax
+    /// cluster and updating the task state.
     std::shared_ptr<task::Context> ctx;
     /// @brief the compiled sequence that will be executed within the task.
     std::unique_ptr<sequence::Sequence> seq;
@@ -133,10 +133,8 @@ public:
     /// @returns the configured sequence if configuration was successful, otherwise
     /// returns a nullptr. Configuration errors are communicated through the task
     /// context.
-    static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+    static std::unique_ptr<task::Task>
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
     Task(
         const std::shared_ptr<task::Context> &ctx,
@@ -162,8 +160,8 @@ public:
     /// @brief executes a command on the task, implementing task::Task.
     void exec(task::Command &cmd) override;
 
-    /// @brief starts the task, using the provided key as the key of the command that
-    /// was executed.
+    /// @brief starts the task, using the provided key as the key of the command
+    /// that was executed.
     void start(const std::string &key);
 };
 
@@ -181,4 +179,4 @@ public:
         return {sequence::Task::configure(ctx, task), true};
     }
 };
-}
+} // namespace sequence

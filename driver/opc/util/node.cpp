@@ -26,11 +26,21 @@ namespace util {
 inline UA_Guid string_to_guid(const std::string &guidStr) {
     UA_Guid guid;
     unsigned int data4[8];
-    std::sscanf(guidStr.c_str(),
-                "%8x-%4hx-%4hx-%2x%2x-%2x%2x%2x%2x%2x%2x",
-                &guid.data1, &guid.data2, &guid.data3,
-                &data4[0], &data4[1], &data4[2], &data4[3],
-                &data4[4], &data4[5], &data4[6], &data4[7]);
+    std::sscanf(
+        guidStr.c_str(),
+        "%8x-%4hx-%4hx-%2x%2x-%2x%2x%2x%2x%2x%2x",
+        &guid.data1,
+        &guid.data2,
+        &guid.data3,
+        &data4[0],
+        &data4[1],
+        &data4[2],
+        &data4[3],
+        &data4[4],
+        &data4[5],
+        &data4[6],
+        &data4[7]
+    );
     for (int i = 0; i < 8; ++i)
         guid.data4[i] = static_cast<UA_Byte>(data4[i]);
     return guid;
@@ -40,18 +50,14 @@ inline UA_Guid string_to_guid(const std::string &guidStr) {
 ///@brief Helper function to convert a GUID to a string
 std::string guid_to_string(const UA_Guid &guid) {
     std::ostringstream stream;
-    stream << std::hex << std::setfill('0')
-            << std::setw(8) << guid.data1 << "-"
-            << std::setw(4) << guid.data2 << "-"
-            << std::setw(4) << guid.data3 << "-"
-            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
-                guid.data4[1] & 0xFF) << "-"
-            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
-                guid.data4[3] & 0xFF)
-            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
-                guid.data4[5] & 0xFF)
-            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
-                guid.data4[7] & 0xFF);
+    stream << std::hex << std::setfill('0') << std::setw(8) << guid.data1 << "-"
+           << std::setw(4) << guid.data2 << "-" << std::setw(4) << guid.data3 << "-"
+           << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2)
+           << (guid.data4[1] & 0xFF) << "-" << std::setw(2) << (guid.data4[2] & 0xFF)
+           << std::setw(2) << (guid.data4[3] & 0xFF) << std::setw(2)
+           << (guid.data4[4] & 0xFF) << std::setw(2) << (guid.data4[5] & 0xFF)
+           << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2)
+           << (guid.data4[7] & 0xFF);
     return stream.str();
 }
 
@@ -71,7 +77,10 @@ std::pair<UA_NodeId, xerrors::Error> parse_node_id(const std::string &node_id_st
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {UA_NODEID_NULL, xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
+        return {
+            UA_NODEID_NULL,
+            xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")
+        };
 
     int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
@@ -104,10 +113,11 @@ std::string node_id_to_string(const UA_NodeId &node_id) {
             node_id_str << "I=" << node_id.identifier.numeric;
             break;
         case UA_NODEIDTYPE_STRING:
-            node_id_str << "S=" << std::string(
-                reinterpret_cast<char *>(node_id.identifier.string.data),
-                node_id.identifier.string.length
-            );
+            node_id_str << "S="
+                        << std::string(
+                               reinterpret_cast<char *>(node_id.identifier.string.data),
+                               node_id.identifier.string.length
+                           );
             break;
         case UA_NODEIDTYPE_GUID:
             node_id_str << "G=" << guid_to_string(node_id.identifier.guid);
@@ -116,7 +126,7 @@ std::string node_id_to_string(const UA_NodeId &node_id) {
             node_id_str << "B=";
             for (std::size_t i = 0; i < node_id.identifier.byteString.length; ++i) {
                 node_id_str << std::setfill('0') << std::setw(2) << std::hex
-                        << static_cast<int>(node_id.identifier.byteString.data[i]);
+                            << static_cast<int>(node_id.identifier.byteString.data[i]);
             }
             break;
         default:
@@ -139,4 +149,4 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
-}
+} // namespace util

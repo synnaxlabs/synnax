@@ -15,8 +15,8 @@
 #include "x/cpp/breaker/breaker.h"
 
 /// internal
-#include "driver/task/task.h"
 #include "client/cpp/testutil/testutil.h"
+#include "driver/task/task.h"
 
 
 using json = nlohmann::json;
@@ -29,14 +29,13 @@ public:
     explicit MockEchoTask(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    ) : ctx(ctx), task(task) {
-        ctx->set_state({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"message", "task configured successfully"}
-            }
-        });
+    ):
+        ctx(ctx), task(task) {
+        ctx->set_state(
+            {.task = task.key,
+             .variant = "success",
+             .details = json{{"message", "task configured successfully"}}}
+        );
     }
 
     std::string name() override { return "echo"; }
@@ -51,13 +50,11 @@ public:
     }
 
     void stop(bool will_reconfigure) override {
-        ctx->set_state({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"message", "task stopped successfully"}
-            }
-        });
+        ctx->set_state(
+            {.task = task.key,
+             .variant = "success",
+             .details = json{{"message", "task stopped successfully"}}}
+        );
     }
 };
 
@@ -101,14 +98,14 @@ protected:
             ASSERT_FALSE(t_err) << t_err.message();
         });
         const auto status = started_future.wait_for(std::chrono::seconds(5));
-        ASSERT_EQ(status, std::future_status::ready) << "Manager failed to start within timeout";
+        ASSERT_EQ(status, std::future_status::ready)
+            << "Manager failed to start within timeout";
     }
 
     void TearDown() override {
         if (task_manager != nullptr) {
             task_manager->stop();
-            if (task_thread.joinable())
-                task_thread.join();
+            if (task_thread.joinable()) task_thread.join();
             task_manager.reset();
         }
     }
@@ -119,17 +116,12 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
 
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+    );
     ASSERT_FALSE(s_err) << s_err;
 
-    auto echo_task = synnax::Task(
-        rack.key,
-        "echo_task",
-        "echo",
-        ""
-    );
+    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
     ASSERT_FALSE(t_err) << t_err;
 
@@ -151,17 +143,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
 
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+    );
     ASSERT_FALSE(s_err) << s_err;
 
-    auto echo_task = synnax::Task(
-        rack.key,
-        "echo_task",
-        "echo",
-        ""
-    );
+    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
     ASSERT_FALSE(t_err) << t_err;
 
@@ -191,9 +178,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
 TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+    );
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
     auto [writer, w_err] = client->telem.open_writer(synnax::WriterConfig{
@@ -201,12 +188,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
         .start = telem::TimeStamp::now(),
     });
     ASSERT_FALSE(w_err) << w_err;
-    auto echo_task = synnax::Task(
-        rack.key,
-        "echo_task",
-        "echo",
-        ""
-    );
+    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
     ASSERT_FALSE(t_err) << t_err;
 
@@ -215,11 +197,13 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_FALSE(r_err1) << r_err1;
 
     // Create and send a command
-    auto cmd = task::Command(echo_task.key, "test_command", json{
-                                 {"message", "hello world"}
-                             });
-    auto ok = writer.
-            write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())));
+    auto cmd = task::Command(
+        echo_task.key,
+        "test_command",
+        json{{"message", "hello world"}}
+    );
+    auto ok = writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json()))
+    );
     ASSERT_TRUE(ok);
     auto w_close_err = writer.close();
     ASSERT_FALSE(w_close_err) << w_close_err;
@@ -244,9 +228,9 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
 
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+    );
     ASSERT_FALSE(s_err) << s_err;
 
     // Create a different rack
@@ -254,12 +238,7 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
     ASSERT_FALSE(r_err) << r_err;
 
     // Create a task for the other rack
-    auto echo_task = synnax::Task(
-        other_rack.key,
-        "echo_task",
-        "echo",
-        ""
-    );
+    auto echo_task = synnax::Task(other_rack.key, "echo_task", "echo", "");
     auto t_err = other_rack.tasks.create(echo_task);
     ASSERT_FALSE(t_err) << t_err;
 
@@ -277,8 +256,8 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
     reader.join();
 
     // Verify no state changes were received
-    ASSERT_FALSE(received_state) <<
- "Received unexpected state change for different rack's task";
+    ASSERT_FALSE(received_state)
+        << "Received unexpected state change for different rack's task";
 
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -289,17 +268,12 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
 
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+    );
     ASSERT_FALSE(s_err) << s_err;
 
-    auto echo_task = synnax::Task(
-        rack.key,
-        "echo_task",
-        "echo",
-        ""
-    );
+    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
     ASSERT_FALSE(t_err) << t_err;
 
@@ -332,16 +306,11 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
     auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
     ASSERT_FALSE(ch_err) << ch_err;
-    auto [streamer, s_err] = client->telem.open_streamer(synnax::StreamerConfig{
-        .channels = {sy_task_state.key}
-    });
-    ASSERT_FALSE(s_err) << s_err;
-    auto snapshot_task = synnax::Task(
-        rack.key,
-        "snapshot_task",
-        "echo",
-        ""
+    auto [streamer, s_err] = client->telem.open_streamer(
+        synnax::StreamerConfig{.channels = {sy_task_state.key}}
     );
+    ASSERT_FALSE(s_err) << s_err;
+    auto snapshot_task = synnax::Task(rack.key, "snapshot_task", "echo", "");
     snapshot_task.snapshot = true;
     auto t_err = rack.tasks.create(snapshot_task);
     ASSERT_FALSE(t_err) << t_err;
@@ -353,7 +322,8 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     streamer.close_send();
     reader.join();
-    ASSERT_FALSE(received_state) << "Received unexpected state change for snapshot task";
+    ASSERT_FALSE(received_state)
+        << "Received unexpected state change for snapshot task";
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }

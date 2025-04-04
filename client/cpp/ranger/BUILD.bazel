@@ -2,10 +2,6 @@ cc_library(
     name = "ranger",
     srcs = ["ranger.cpp"],
     hdrs = ["ranger.h"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
@@ -15,22 +11,18 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/go/telem:telem_grpc",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )
 
 cc_test(
     name = "ranger_test",
     srcs = ["ranger_test.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/xerrors",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

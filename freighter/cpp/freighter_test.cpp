@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
 #include "freighter/cpp/freighter.h"
+#include "gtest/gtest.h"
 
 class BasicMiddleware final : public freighter::PassthroughMiddleware {
     std::string value;
 
 public:
-    explicit BasicMiddleware(std::string value) : value(std::move(value)) {
-    }
+    explicit BasicMiddleware(std::string value): value(std::move(value)) {}
 
-    std::pair<freighter::Context, xerrors::Error> operator()(
-        freighter::Context context, freighter::Next &next) override {
+    std::pair<freighter::Context, xerrors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", value);
         return next(context);
     }

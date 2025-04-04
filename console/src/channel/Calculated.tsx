@@ -163,7 +163,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
-      <Align.Space direction="y" grow style={{ height: "100%" }}>
+      <Align.Space y grow style={{ height: "100%" }}>
         <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
       </Align.Space>
     );
@@ -255,7 +255,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string>
               path="dataType"
               label="Output Data Type"
@@ -299,14 +299,14 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
         <Triggers.SaveHelpText action={initialValues.key !== 0 ? "Save" : "Create"} />
         <Nav.Bar.End align="center" size="large">
           {initialValues.key !== 0 && (
-            <Align.Space direction="x" align="center" size="small">
+            <Align.Space x align="center" size="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text level="p" shade={7}>
+              <Text.Text level="p" shade={11}>
                 Create More
               </Text.Text>
             </Align.Space>
           )}
-          <Align.Space direction="x" align="center">
+          <Align.Space x align="center">
             <Button.Button
               disabled={isPending}
               loading={isPending}

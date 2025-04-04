@@ -1,8 +1,8 @@
 #pragma once
 
+#include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_wide.h"
-#include "driver/ni/syscfg/api.h"
 #include "x/cpp/xlib/xlib.h"
 
 namespace syscfg {
@@ -40,9 +40,7 @@ public:
         va_list args
     ) override;
 
-    NISYSCFGCFUNC CloseHandle(
-        void *syscfgHandle
-    ) override;
+    NISYSCFGCFUNC CloseHandle(void *syscfgHandle) override;
 
     NISYSCFGCFUNC FindHardware(
         NISysCfgSessionHandle sessionHandle,
@@ -78,6 +76,7 @@ public:
     ) override;
 
     NISysCfgStatus FreeDetailedStringW(wchar_t str[]) override;
+
 private:
     // Function pointer typedefs
     using InitializeSessionPtr = decltype(&NISysCfgInitializeSession);
@@ -108,4 +107,4 @@ private:
     std::unique_ptr<xlib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };
-}
+} // namespace syscfg

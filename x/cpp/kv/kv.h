@@ -45,7 +45,7 @@ struct JSONFileConfig {
     std::filesystem::path path;
     /// @brief the mode to set the directory to if it doesn't exist.
     std::filesystem::perms dir_mode;
-    /// @brief the mode to set the file to if it doesn't exist. 
+    /// @brief the mode to set the file to if it doesn't exist.
     std::filesystem::perms file_mode;
 };
 
@@ -53,12 +53,12 @@ struct JSONFileConfig {
 class JSONFile final : public KV {
     std::filesystem::path path;
     json data_{};
+
 public:
-    /// @brief opens the key-value store using the provided configuration. If the file
-    /// does not exist, it will be created.
-    static std::pair<std::shared_ptr<KV>, xerrors::Error> open(
-        const JSONFileConfig &config
-        );
+    /// @brief opens the key-value store using the provided configuration. If the
+    /// file does not exist, it will be created.
+    static std::pair<std::shared_ptr<KV>, xerrors::Error>
+    open(const JSONFileConfig &config);
 
     /// @brief implements KV.
     xerrors::Error set(const std::string &key, const std::string &value) override;
@@ -71,4 +71,4 @@ public:
 
     JSONFile(const std::string &path, const json &data);
 };
-}
+} // namespace kv

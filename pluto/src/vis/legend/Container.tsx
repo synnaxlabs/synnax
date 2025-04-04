@@ -193,11 +193,11 @@ export const Container = memo(
         style={style}
         onDragStart={handleCursorDragStart}
         draggable={draggable}
+        borderShade={5}
         ref={ref}
         {...rest}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
-        empty
       />
     );
   },

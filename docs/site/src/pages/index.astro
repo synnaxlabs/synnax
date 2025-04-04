@@ -96,7 +96,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
 
     <style is:global>
         section {
-            --root-box-shadow: var(--pluto-shadow-menu);
+            --root-box-shadow: var(--pluto-shadow-v1);
             --root-border-radius: 1rem;
             border-left: var(--pluto-border);
             border-right: var(--pluto-border);
@@ -171,7 +171,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
             animation: ripple 4s infinite;
             animation-timing-function: steps(60, end);
             background: none;
-            background-image: repeating-radial-gradient(
+            background-image:
+                repeating-radial-gradient(
                     circle at -2rem -2rem,
                     transparent 0,
                     var(--first) 1.5rem

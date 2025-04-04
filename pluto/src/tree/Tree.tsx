@@ -199,6 +199,7 @@ export const DefaultItem = memo(
     index,
     sourceIndex,
     hovered,
+    ...props
   }: ItemProps): ReactElement => {
     const {
       key,
@@ -279,8 +280,8 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
-    let offset = depth * 2.5 + 1;
-    if (actuallyHasChildren && useMargin) offset -= 1;
+    let offset = depth * 2.5 + 1.5;
+    if (actuallyHasChildren) offset -= 0.5;
 
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
@@ -318,7 +319,7 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps} align="center">
+      <Base className={CSS.BE("list", "item")} {...baseProps} align="center" {...props}>
         {childrenProp != null ? (
           childrenProp({
             key,

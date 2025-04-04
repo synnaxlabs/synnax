@@ -24,3 +24,7 @@
 .pluto-space--small {
     gap: 1rem;
 }
+
+.pluto-space--tiny {
+    gap: 0.5rem;
+}

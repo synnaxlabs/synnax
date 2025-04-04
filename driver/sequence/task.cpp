@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/loop/loop.h";
 #include "driver/sequence/sequence.h"
+#include "x/cpp/loop/loop.h"
 
 sequence::Task::Task(
     const std::shared_ptr<task::Context> &ctx,
@@ -16,20 +16,17 @@ sequence::Task::Task(
     TaskConfig cfg,
     std::unique_ptr<sequence::Sequence> seq,
     const breaker::Config &breaker_config
-): cfg(std::move(cfg)),
-   task(std::move(task)),
-   breaker(breaker_config),
-   ctx(ctx),
-   seq(std::move(seq)),
-   state({
-       .task = task.key,
-       .variant = "success",
-       .details = {
-           {"running", false},
-           {"message", ""}
-       }
-   }) {
-}
+):
+    cfg(std::move(cfg)),
+    task(std::move(task)),
+    breaker(breaker_config),
+    ctx(ctx),
+    seq(std::move(seq)),
+    state(
+        {.task = task.key,
+         .variant = "success",
+         .details = {{"running", false}, {"message", ""}}}
+    ) {}
 
 void sequence::Task::run() {
     if (const auto err = this->seq->begin(); err) {
@@ -54,7 +51,10 @@ void sequence::Task::run() {
         auto [elapsed, ok] = timer.wait(this->breaker);
         if (!ok) {
             this->state.variant = "warning";
-            this->state.details["message"] = "Sequence script is executing too slowly for the configured loop rate. Last execution took " + elapsed.to_string();
+            this->state
+                .details["message"] = "Sequence script is executing too slowly for the "
+                                      "configured loop rate. Last execution took " +
+                                      elapsed.to_string();
             this->ctx->set_state(this->state);
         }
     }
@@ -63,13 +63,14 @@ void sequence::Task::run() {
         this->state.details["message"] = end_err.message();
     }
     this->state.details["running"] = false;
-    if (this->state.variant == "error")
-        return this->ctx->set_state(this->state);
+    if (this->state.variant == "error") return this->ctx->set_state(this->state);
     this->state.variant = "success";
     this->state.details["message"] = "Sequence stopped";
 }
 
-void sequence::Task::stop(bool will_reconfigure) { this->stop("", will_reconfigure); }
+void sequence::Task::stop(bool will_reconfigure) {
+    this->stop("", will_reconfigure);
+}
 
 void sequence::Task::exec(task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);
@@ -102,8 +103,8 @@ std::unique_ptr<task::Task> sequence::Task::configure(
     auto parser = xjson::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
-        LOG(ERROR) << "[sequence] failed to parse task configuration: " << parser.
-                error();
+        LOG(ERROR) << "[sequence] failed to parse task configuration: "
+                   << parser.error();
         cfg_state.variant = "error";
         cfg_state.details = parser.error_json();
         ctx->set_state(cfg_state);
@@ -112,7 +113,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 
     auto json_plugin = std::make_shared<plugins::JSON>(cfg.globals);
     auto time_plugin = std::make_shared<plugins::Time>();
-    std::vector<std::shared_ptr<plugins::Plugin> > plugins_list{
+    std::vector<std::shared_ptr<plugins::Plugin>> plugins_list{
         json_plugin,
         time_plugin
     };
@@ -147,18 +148,20 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             return nullptr;
         }
         for (const auto &ch: write_channels)
-            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(),
-                                            ch.index) == cfg.write.end())
+            if (!ch.is_virtual &&
+                std::find(cfg.write.begin(), cfg.write.end(), ch.index) ==
+                    cfg.write.end())
                 cfg.write.push_back(ch.index);
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject = telem::ControlSubject{
-                .name = task.name,
-                .key = std::to_string(task.key),
-            }
+            .subject =
+                telem::ControlSubject{
+                    .name = task.name,
+                    .key = std::to_string(task.key),
+                }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
         auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
@@ -175,10 +178,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
     );
     if (const auto compile_err = seq->compile(); compile_err) {
         cfg_state.variant = "error";
-        cfg_state.details = {
-            {"running", false},
-            {"message", compile_err.message()}
-        };
+        cfg_state.details = {{"running", false}, {"message", compile_err.message()}};
         ctx->set_state(cfg_state);
         return nullptr;
     }

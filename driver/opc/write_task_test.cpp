@@ -10,17 +10,17 @@
 // ReSharper disable CppUseStructuredBinding
 
 /// external
-#include "nlohmann/json.hpp"
 #include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 /// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/opc/write_task.h"
-#include "driver/opc/opc.h"
 #include "driver/opc/mock/server.h"
+#include "driver/opc/opc.h"
+#include "driver/opc/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class TestWriteTask : public ::testing::Test {
@@ -37,11 +37,9 @@ protected:
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        this->cmd_channel = ASSERT_NIL_P(client->channels.create(
-            "cmd",
-            telem::FLOAT32_T,
-            true
-        ));
+        this->cmd_channel = ASSERT_NIL_P(
+            client->channels.create("cmd", telem::FLOAT32_T, true)
+        );
 
         auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
 
@@ -64,44 +62,30 @@ protected:
         json task_cfg = {
             {"data_saving", true},
             {"device", dev.key},
-            {
-                "channels", json::array({
-                    {
-                        {"key", "NS=2;I=12"},
-                        {"name", "test"},
-                        {"node_name", "test"},
-                        {"node_id", "NS=1;S=test"},
-                        {"cmd_channel", this->cmd_channel.key},
-                        {"enabled", true},
-                        {"data_type", "int64"}
-                    }
-                })
-            }
+            {"channels",
+             json::array(
+                 {{{"key", "NS=2;I=12"},
+                   {"name", "test"},
+                   {"node_name", "test"},
+                   {"node_id", "NS=1;S=test"},
+                   {"cmd_channel", this->cmd_channel.key},
+                   {"enabled", true},
+                   {"data_type", "int64"}}}
+             )}
         };
 
-        task = synnax::Task(
-            rack.key,
-            "my_task",
-            "opc_write",
-            ""
-        );
+        task = synnax::Task(rack.key, "my_task", "opc_write", "");
 
         auto p = xjson::Parser(task_cfg);
         this->cfg = std::make_unique<opc::WriteTaskConfig>(client, p);
 
-        mock::ServerChannel server_ch{
-            .ns = 1,
-            .node = "test",
-            .ch = this->cmd_channel
-        };
+        mock::ServerChannel server_ch{.ns = 1, .node = "test", .ch = this->cmd_channel};
 
 
-        mock::ServerConfig cfg{
-            .channels = {server_ch}
-        };
+        mock::ServerConfig cfg{.channels = {server_ch}};
 
         ctx = std::make_shared<task::MockContext>(client);
-        auto reads = std::make_shared<std::vector<synnax::Frame> >();
+        auto reads = std::make_shared<std::vector<synnax::Frame>>();
         auto fr = synnax::Frame(1);
         fr.emplace(this->cmd_channel.key, telem::Series(1, telem::FLOAT32_T));
         reads->push_back(std::move(fr));
@@ -124,10 +108,7 @@ protected:
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::WriteTaskSink>(
-                ua_client,
-                std::move(*cfg)
-            ),
+            std::make_unique<opc::WriteTaskSink>(ua_client, std::move(*cfg)),
             nullptr,
             mock_factory
         );

@@ -13,20 +13,16 @@
 #include "gtest/gtest.h"
 
 /// internal
-#include "x/cpp/xtest/xtest.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xtest/xtest.h"
 
 class XTestTest : public ::testing::Test {
 protected:
     std::atomic<int> counter{0};
-    
-    void inc_counter() {
-        ++this->counter;
-    }
 
-    void SetUp() override {
-        this->counter = 0;
-    }
+    void inc_counter() { ++this->counter; }
+
+    void SetUp() override { this->counter = 0; }
 };
 
 TEST_F(XTestTest, TestEventuallyEQ) {
@@ -70,7 +66,7 @@ TEST_F(XTestTest, TestEventuallyEQWithCustomTimeout) {
     });
 
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        counter.load(), 
+        counter.load(),
         5,
         std::chrono::milliseconds(200),
         std::chrono::milliseconds(10)

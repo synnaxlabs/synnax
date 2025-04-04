@@ -24,7 +24,7 @@ export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonPro
       disabled={isSnapshot}
       onChange={(v) => set(path, v)}
       size="small"
-      stopPropagation
+      onClick={(e) => e.stopPropagation()}
       tooltip={
         isSnapshot ? undefined : (
           <Text.Text level="small">

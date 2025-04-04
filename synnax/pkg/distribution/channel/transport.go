@@ -34,8 +34,8 @@ type Transport interface {
 }
 
 type CreateMessage struct {
-	Channels             []Channel
-	RetrieveIfNameExists bool
+	Channels []Channel
+	Opts     CreateOptions
 }
 
 type RenameRequest struct {

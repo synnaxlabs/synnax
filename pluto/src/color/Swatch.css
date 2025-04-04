@@ -12,23 +12,23 @@
 .pluto-color-swatch {
     border-radius: 1rem;
     border: var(--pluto-border);
-
-    border-color: var(--pluto-gray-l4) !important;
+    border-color: var(--pluto-gray-l6) !important;
 
     &.pluto--no-border {
         border-color: transparent;
     }
 
     &.pluto-haul-drop-region {
-        border: var(--pluto-border-l4) !important;
+        border: var(--pluto-border-l5) !important;
         border-color: var(--haul-border-color) !important;
         background: var(--haul-background) !important;
     }
 
     &.pluto--tiny {
-        width: 3.5rem;
-        height: 2.5rem;
+        width: 3rem;
+        height: 2.25rem;
         padding: 0;
+        border-radius: 0.66666rem;
     }
     &.pluto--small {
         width: 5rem;

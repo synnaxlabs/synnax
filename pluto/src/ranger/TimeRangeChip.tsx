@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
@@ -22,13 +23,15 @@ export interface TimeRangeChipProps
     Pick<Text.TextProps, "level" | "shade"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
+  labeled?: boolean;
 }
 
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
-  shade = 7,
+  shade = 9,
   showSpan = false,
+  labeled = false,
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -38,14 +41,8 @@ export const TimeRangeChip = ({
   const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
   const span = startTS.span(endTS);
 
-  return (
-    <Align.Space
-      direction="x"
-      size="small"
-      className={CSS(CSS.B("time-range-chip"))}
-      align="center"
-      {...rest}
-    >
+  let startTime = (
+    <Align.Space x align="center">
       {startTS.isToday && (
         <Text.Text level={level} shade={shade} weight={450}>
           Today
@@ -60,7 +57,11 @@ export const TimeRangeChip = ({
       >
         {startTS}
       </Text.DateTime>
-      <Icon.Arrow.Right color="var(--pluto-text-color)" />
+    </Align.Space>
+  );
+
+  let endTime = (
+    <>
       {isOpen ? (
         <Text.Text level={level}>Now</Text.Text>
       ) : (
@@ -79,6 +80,41 @@ export const TimeRangeChip = ({
           ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
+    </>
+  );
+
+  if (labeled) {
+    startTime = (
+      <Input.Item label="Start" showHelpText={false}>
+        {startTime}
+      </Input.Item>
+    );
+    endTime = (
+      <Input.Item label="End" showHelpText={false}>
+        {endTime}
+      </Input.Item>
+    );
+  }
+
+  const levelVar = CSS.levelSizeVar(level);
+
+  return (
+    <Align.Space
+      x
+      size="small"
+      className={CSS(CSS.B("time-range-chip"))}
+      align="center"
+      {...rest}
+    >
+      {startTime}
+      <Icon.Arrow.Right
+        color="var(--pluto-text-color)"
+        style={{
+          width: levelVar,
+          height: levelVar,
+        }}
+      />
+      {endTime}
     </Align.Space>
   );
 };

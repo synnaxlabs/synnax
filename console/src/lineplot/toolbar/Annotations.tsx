@@ -35,7 +35,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
-  <Align.Center direction="x" size="small">
+  <Align.Center x size="small">
     <Status.Text level="p" variant="disabled" hideIcon>
       No annotations added.
     </Status.Text>
@@ -60,7 +60,7 @@ const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElemen
       value={entry.label}
       level="p"
       noWrap
-      shade={8}
+      shade={10}
       weight={500}
       style={{ overflow: "hidden", textOverflow: "ellipsis" }}
       onChange={onChangeLabel}
@@ -87,11 +87,11 @@ const List = ({
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space direction="x" empty style={{ width: "20%" }}>
+    <Align.Space x empty style={{ width: "20%" }}>
       <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
-      <Divider.Divider direction="y" />
+      <Divider.Divider y />
       <PList.List<string, RuleState> data={rules}>
         <PList.Selector
           value={selected}
@@ -109,22 +109,27 @@ const List = ({
                 <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
                   Delete
                 </PMenu.Item>
-                <Divider.Divider direction="x" />
+                <Divider.Divider x />
                 <Menu.HardReloadItem />
               </PMenu.Menu>
             )}
             {...menuProps}
+          />
+          <PList.Core<string, RuleState>
+            y
+            empty
+            grow
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
           >
-            <PList.Core<string, RuleState> direction="y" empty grow>
-              {({ key, ...rest }) => (
-                <ListItem
-                  key={key}
-                  {...rest}
-                  onChangeLabel={(v) => onLabelChange(v, key)}
-                />
-              )}
-            </PList.Core>
-          </PMenu.ContextMenu>
+            {({ key, ...rest }) => (
+              <ListItem
+                key={key}
+                {...rest}
+                onChangeLabel={(v) => onLabelChange(v, key)}
+              />
+            )}
+          </PList.Core>
         </PList.Selector>
       </PList.List>
     </Align.Space>
@@ -157,8 +162,8 @@ const RuleContent = ({
   onChangeLineWidth,
   onChangeLineDash,
 }: RuleContentProps): ReactElement => (
-  <Align.Space direction="y" grow style={{ padding: "1.5rem 2rem" }}>
-    <Align.Space direction="x" wrap>
+  <Align.Space y grow style={{ padding: "1.5rem 2rem" }}>
+    <Align.Space x wrap>
       <Input.Item label="Label" grow>
         <Input.Text onChange={onChangeLabel} value={label} />
       </Input.Item>
@@ -183,7 +188,7 @@ const RuleContent = ({
         />
       </Input.Item>
     </Align.Space>
-    <Align.Space direction="x" wrap>
+    <Align.Space x wrap>
       <Input.Item label="Color">
         <Color.Swatch value={color} onChange={onChangeColor} />
       </Input.Item>
@@ -264,7 +269,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   };
   if (shownRule == null) return <EmptyContent onCreateRule={handleCreateRule} />;
   return (
-    <Align.Space direction="x" style={{ height: "100%" }} empty>
+    <Align.Space x style={{ height: "100%" }} empty>
       <List
         selected={selectedRuleKeys}
         onChange={setSelectedRuleKeys}
@@ -273,7 +278,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
         onRemoveAnnotations={handleRemoveRules}
         onLabelChange={handleChangeLabel}
       />
-      <Divider.Divider direction="y" />
+      <Divider.Divider y />
       <RuleContent
         rule={shownRule}
         onChangeLabel={handleChangeLabel}

@@ -37,6 +37,7 @@ export type FieldProps<
     padHelpText?: boolean;
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
     hideIfNull?: boolean;
+    defaultValue?: I;
   };
 
 const defaultInput = componentRenderProp(Input.Text);
@@ -58,12 +59,14 @@ export const Field = <
   optional,
   onChange,
   className,
+  defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
     optional: (optional as true) ?? (hideIfNull as true),
     onChange,
+    defaultValue,
   });
   const ctx = useContext();
   if (field == null) return null;

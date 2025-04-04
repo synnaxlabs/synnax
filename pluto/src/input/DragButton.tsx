@@ -147,10 +147,10 @@ export const DragButton = ({
 
   return (
     <Button.Icon
-      tabIndex={-1}
       ref={elRef}
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
+      tabIndex={-1}
       onDoubleClick={handleDoubleClick}
       onClick={preventDefault}
       {...rest}

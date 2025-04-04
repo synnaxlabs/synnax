@@ -64,7 +64,7 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
-  window: { resizable: false, size: { height: 710, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 720, width: 800 }, navTop: true },
 };
 
 const formSchema = z.object({
@@ -157,8 +157,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               <Input.Text autoFocus placeholder="opc.tcp://localhost:4840" {...p} />
             )}
           </Form.Field>
-          <Divider.Divider direction="x" padded="bottom" />
-          <Align.Space direction="x" justify="spaceBetween">
+          <Divider.Divider x padded="bottom" />
+          <Align.Space x justify="spaceBetween">
             <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
@@ -172,7 +172,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               {SelectSecurityMode}
             </Form.Field>
           </Align.Space>
-          <Divider.Divider direction="x" padded="bottom" />
+          <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
             path="connection.securityPolicy"
@@ -263,7 +263,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Status.Text.Centered>
     );
   if (isError) {
-    const color = Status.variantColors.error;
+    const color = Status.VARIANT_COLORS.error;
     return (
       <Align.Center style={{ padding: "3rem" }}>
         <Text.Text level="h2" color={color}>

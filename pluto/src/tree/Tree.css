@@ -31,7 +31,7 @@
         }
 
         & .pluto-caret-animated path {
-            fill: var(--pluto-gray-l6) !important;
+            fill: var(--pluto-gray-l8) !important;
         }
         &::after {
             transition: opacity 0.2s;
@@ -42,7 +42,7 @@
             bottom: 0;
             left: var(--pluto-tree-indicator-offset);
             width: 1px;
-            background: var(--pluto-gray-l4);
+            background: var(--pluto-gray-l6);
             z-index: 5;
         }
     }

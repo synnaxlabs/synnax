@@ -21,12 +21,7 @@ export interface ToggleExtensionProps extends Input.Control<boolean, boolean> {
 }
 
 const toggleFactory =
-  <
-    E extends Pick<
-      ButtonProps,
-      "className" | "variant" | "onClick" | "stopPropagation"
-    >,
-  >(
+  <E extends Pick<ButtonProps, "className" | "variant" | "onClick">>(
     Base: FunctionComponent<E>,
   ): FunctionComponent<ToggleExtensionProps & Omit<E, "value" | "onChange">> =>
   // eslint-disable-next-line react/display-name
@@ -37,7 +32,6 @@ const toggleFactory =
     checkedVariant = "filled",
     uncheckedVariant = "outlined",
     rightClickToggle = false,
-    stopPropagation,
     ...rest
   }) => (
     // @ts-expect-error - generic component issues
@@ -45,7 +39,6 @@ const toggleFactory =
       {...rest}
       checked={value}
       onClick={(e) => {
-        if (stopPropagation) e.stopPropagation();
         onClick?.(e);
         if (rightClickToggle) return;
         onChange(!value);

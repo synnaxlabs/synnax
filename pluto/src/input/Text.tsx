@@ -72,7 +72,6 @@ export const Text = ({
   endContent,
   borderWidth,
   borderShade = 4,
-  disabledOverlay,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
@@ -126,11 +125,11 @@ export const Text = ({
 
   const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
-  const C = variant === "natural" ? Align.Space : Align.Pack;
+  const Wrapper = variant === "natural" ? Align.Space : Align.Pack;
 
   return (
-    <C
-      direction="x"
+    <Wrapper
+      x
       empty
       style={style}
       className={CSS(
@@ -138,7 +137,7 @@ export const Text = ({
         CSS.disabled(disabled),
         level == null && CSS.size(size),
         shade != null && CSS.shade(shade),
-        CSS.BM("input", variant),
+        CSS.M(variant),
         CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
@@ -149,7 +148,15 @@ export const Text = ({
       align="center"
       size={size}
     >
-      <div className={CSS.BE("input", "internal")}>
+      <div
+        className={CSS(
+          CSS.BE("input", "internal"),
+          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
+          CSS.M("clickable"),
+          CSS.M("outlined"),
+          CSS.shade(1),
+        )}
+      >
         {showPlaceholder && (
           <div
             className={CSS(
@@ -163,7 +170,6 @@ export const Text = ({
             )}
           </div>
         )}
-
         <input
           ref={combinedRef}
           value={tempValue ?? value}
@@ -176,7 +182,6 @@ export const Text = ({
           onKeyDown={handleKeyDown}
           onMouseUp={handleMouseUp}
           onBlur={handleBlur}
-          className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={{ fontWeight: weight, color: Color.cssString(color) }}
@@ -192,6 +197,6 @@ export const Text = ({
         )}
       </div>
       {children}
-    </C>
+    </Wrapper>
   );
 };

@@ -33,10 +33,19 @@ export const JUSTIFICATIONS = [
   "spaceEvenly",
 ] as const;
 
+const CSS_JUSTIFICATIONS: Record<Justification, CSSProperties["justifyContent"]> = {
+  start: "flex-start",
+  center: "center",
+  end: "flex-end",
+  spaceBetween: "space-between",
+  spaceAround: "space-around",
+  spaceEvenly: "space-evenly",
+};
+
 /** The justification for the main axis of a space */
 export type Justification = (typeof JUSTIFICATIONS)[number];
 
-export type SpaceElementType =
+export type ElementType =
   | "div"
   | "header"
   | "nav"
@@ -47,27 +56,33 @@ export type SpaceElementType =
   | "button"
   | "dialog"
   | "a"
-  | "form";
+  | "form"
+  | "main";
 
-export interface SpaceExtensionProps {
+export interface CoreExtensionProps {
+  el?: ElementType;
+  bordered?: boolean;
+  borderShade?: Theming.Shade;
+  borderWidth?: number;
+  rounded?: boolean | number;
+  background?: Theming.Shade;
+}
+
+export interface SpaceExtensionProps extends CoreExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number;
   direction?: direction.Crude;
+  x?: boolean;
+  y?: boolean;
   reverse?: boolean;
   justify?: Justification;
   align?: Alignment;
   grow?: boolean | number;
   shrink?: boolean | number;
   wrap?: boolean;
-  el?: SpaceElementType;
-  bordered?: boolean;
-  borderShade?: Theming.Shade;
-  borderWidth?: number;
-  rounded?: boolean;
-  background?: Theming.Shade;
 }
 
-export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
+export type SpaceProps<E extends ElementType = "div"> = Omit<
   Generic.ElementProps<E>,
   "el"
 > &
@@ -75,6 +90,28 @@ export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
 
 export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
   reverse ?? (direction === "right" || direction === "bottom");
+
+type FlexDirection = CSSProperties["flexDirection"];
+
+const flexDirection = (
+  direction: direction.Direction,
+  reverse: boolean,
+): FlexDirection => {
+  const base = direction === "x" ? "row" : "column";
+  return reverse ? (`${base}-reverse` as FlexDirection) : base;
+};
+
+export const parseDirection = (
+  dir?: direction.Crude,
+  x?: boolean,
+  y?: boolean,
+  def: direction.Direction = "y",
+): direction.Direction => {
+  if (x) return "x";
+  if (y) return "y";
+  if (dir != null) return direction.construct(dir);
+  return def;
+};
 
 /**
  * A component that orients its children in a row or column and adds
@@ -100,7 +137,7 @@ export const shouldReverse = (direction: direction.Crude, reverse?: boolean): bo
  * children.
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
-export const Space = <E extends SpaceElementType = "div">({
+export const Space = <E extends ElementType = "div">({
   style,
   align,
   className,
@@ -110,18 +147,14 @@ export const Space = <E extends SpaceElementType = "div">({
   size = "medium",
   justify = "start",
   reverse,
-  direction: direction_ = "y",
   wrap = false,
-  bordered = false,
-  borderShade,
-  borderWidth,
-  rounded = false,
-  el = "div",
-  background,
+  direction: propsDir,
+  x,
+  y,
   ...rest
 }: SpaceProps<E>): ReactElement => {
-  const dir = direction.construct(direction_);
-  reverse = shouldReverse(direction_, reverse);
+  const dir = parseDirection(propsDir, x, y, "y");
+  reverse = shouldReverse(dir, reverse);
 
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
@@ -130,27 +163,21 @@ export const Space = <E extends SpaceElementType = "div">({
   style = {
     gap,
     flexDirection: flexDirection(dir, reverse),
-    justifyContent: justifications[justify],
+    justifyContent: CSS_JUSTIFICATIONS[justify],
     alignItems: align,
     flexWrap: wrap ? "wrap" : "nowrap",
-    borderWidth,
-    borderColor: CSS.shadeVar(borderShade),
     ...style,
   };
 
   if (grow != null) style.flexGrow = Number(grow);
   if (shrink != null) style.flexShrink = Number(shrink);
-  if (background != null) style.backgroundColor = CSS.shadeVar(background);
 
   return (
     // @ts-expect-error - TODO: fix generic element props
-    <Generic.Element<E>
-      el={el}
+    <Core<E>
       className={CSS(
         CSS.B("space"),
         CSS.dir(dir),
-        CSS.bordered(bordered),
-        CSS.rounded(rounded),
         typeof size === "string" && CSS.BM("space", size),
         className,
       )}
@@ -160,21 +187,44 @@ export const Space = <E extends SpaceElementType = "div">({
   );
 };
 
-type FlexDirection = CSSProperties["flexDirection"];
+export type CoreProps<E extends ElementType = "div"> = Omit<
+  Generic.ElementProps<E>,
+  "el"
+> &
+  CoreExtensionProps & { el?: E };
 
-const flexDirection = (
-  direction: direction.Direction,
-  reverse: boolean,
-): FlexDirection => {
-  const base = direction === "x" ? "row" : "column";
-  return reverse ? (`${base}-reverse` as FlexDirection) : base;
-};
+export const Core = <E extends ElementType = "div">({
+  style,
+  el = "div" as E,
+  bordered = false,
+  borderShade,
+  borderWidth,
+  rounded = false,
+  background,
+  className,
+  ...rest
+}: CoreProps<E>): ReactElement => {
+  let borderRadius: string | undefined;
+  if (rounded != null && typeof rounded === "number") borderRadius = `${rounded}rem`;
+  style = {
+    borderWidth,
+    borderColor: CSS.shadeVar(borderShade),
+    borderRadius,
+    ...style,
+  };
+  if (background != null) style.backgroundColor = CSS.shadeVar(background);
 
-const justifications: Record<Justification, CSSProperties["justifyContent"]> = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  spaceBetween: "space-between",
-  spaceAround: "space-around",
-  spaceEvenly: "space-evenly",
+  return (
+    // @ts-expect-error - TODO: fix generic element props
+    <Generic.Element<E>
+      el={el}
+      className={CSS(
+        CSS.bordered(bordered),
+        typeof rounded === "boolean" && CSS.rounded(rounded),
+        className,
+      )}
+      style={style}
+      {...rest}
+    />
+  );
 };

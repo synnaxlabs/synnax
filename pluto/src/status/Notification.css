@@ -9,16 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
+@keyframes pop {
+    0% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
 .pluto-notification {
     padding: 0.75rem;
-    background: var(--pluto-gray-l3-70);
+    background: var(--pluto-gray-l2);
     -webkit-backdrop-filter: blur(5rem);
     backdrop-filter: blur(5rem);
     width: 275px;
-    box-shadow: var(--pluto-shadow-menu);
-    border: var(--pluto-border-l4);
+    box-shadow: var(--pluto-shadow-v2);
+    border: var(--pluto-border-l5);
     border-radius: 1rem;
     z-index: 20;
+    overflow: hidden;
+    animation: pop 0.2s ease-in-out;
     .pluto-notification__silence {
         opacity: 0;
     }

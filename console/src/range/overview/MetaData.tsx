@@ -51,7 +51,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
       resetOnBlurIfEmpty={true}
       onlyChangeOnBlur={true}
       placeholder="Value"
-      color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l8)"}
+      color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
       <Button.Icon onClick={() => copyToClipboard(value, "value")}>
         <Icon.Copy />
@@ -109,7 +109,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
             arr.push({ key: "", value: "" });
         }}
       />
-      <Divider.Divider direction="y" />
+      <Divider.Divider y />
 
       {key != null && key.length !== 0 && (
         <>
@@ -129,7 +129,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
               arr.remove(index);
             }}
           >
-            <Icon.Delete style={{ color: "var(--pluto-gray-l8)" }} />
+            <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
           </Button.Icon>
         </>
       )}
@@ -199,8 +199,8 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
-    <Align.Space direction="y">
-      <Text.Text level="h4" shade={9} weight={450}>
+    <Align.Space y>
+      <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
       <Form.Form {...formCtx}>

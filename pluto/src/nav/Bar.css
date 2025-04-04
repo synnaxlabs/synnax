@@ -54,7 +54,7 @@
 }
 
 .pluto-navbar.pluto--x .pluto-navbar__content.pluto--absolute-center {
-    position: absolute;
     left: 50%;
     transform: translateX(-50%);
+    position: absolute;
 }

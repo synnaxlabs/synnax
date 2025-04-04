@@ -1,6 +1,6 @@
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_proto_compile")
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_proto_compile")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_compile")
 
 proto_library(
     name = "service_proto",

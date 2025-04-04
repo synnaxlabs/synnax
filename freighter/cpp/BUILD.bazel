@@ -4,10 +4,6 @@ cc_library(
         "url.cpp",
     ],
     hdrs = ["freighter.h"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = ["//x/cpp/xerrors"],
 )
@@ -19,12 +15,8 @@ cc_test(
         "freighter_test.cpp",
         "url_test.cpp",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//freighter/cpp:freighter",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

@@ -9,12 +9,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Notation, NOTATIONS, stringifyNumber } from "@/notation/notation";
+import { notation } from "@/notation";
 
 interface TestCase {
   number: number;
   precision: number;
-  expected: Record<Notation, string>;
+  expected: Record<notation.Notation, string>;
 }
 
 const TEST_CASES: TestCase[] = [
@@ -78,10 +78,10 @@ const TEST_CASES: TestCase[] = [
 describe("stringifyNumber", () => {
   TEST_CASES.forEach(({ number, precision, expected }) =>
     describe(`number: ${number}, precision: ${precision}`, () =>
-      NOTATIONS.forEach((notation) =>
-        it(`should format correctly in ${notation} notation`, () => {
-          const result = stringifyNumber(number, precision, notation);
-          expect(result).toBe(expected[notation]);
+      notation.NOTATIONS.forEach((n) =>
+        it(`should format correctly in ${n} notation`, () => {
+          const result = notation.stringifyNumber(number, precision, n);
+          expect(result).toBe(expected[n]);
         }),
       )),
   );

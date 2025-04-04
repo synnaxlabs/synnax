@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "open62541/types.h"
 #include "glog/logging.h"
+#include "open62541/types.h"
 
 /// module
 #include "x/cpp/telem/series.h"
@@ -59,15 +59,16 @@ static constexpr int64_t UNIX_EPOCH_START_1601 = 11644473600LL;
 // Seconds from 1601 to 1970
 static constexpr int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // 100-nanosecond intervals per second
-constexpr int64_t UNIX_EPOCH_START_IN_100_NANO_INTERVALS =
-        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
+constexpr int64_t
+    UNIX_EPOCH_START_IN_100_NANO_INTERVALS = UNIX_EPOCH_START_1601 *
+                                             HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
 
 inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
     return (dateTime - UNIX_EPOCH_START_IN_100_NANO_INTERVALS) * 100;
 }
 
 std::pair<size_t, xerrors::Error> ua_array_write_to_series(
-    telem::Series& series,
+    telem::Series &series,
     const UA_Variant *val,
     const size_t target_size,
     const std::string &name
@@ -77,9 +78,12 @@ std::pair<size_t, xerrors::Error> ua_array_write_to_series(
         const std::string verb = size < target_size ? "" : "large";
         return {
             0,
-            xerrors::Error(xerrors::VALIDATION,
-                           "OPC UA array for " + name + " is too " + verb + " (size: " + std::to_string(size) + ") for configured array size of " +
-                           std::to_string(target_size))
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "OPC UA array for " + name + " is too " + verb +
+                    " (size: " + std::to_string(size) +
+                    ") for configured array size of " + std::to_string(target_size)
+            )
         };
     }
 
@@ -107,19 +111,16 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     UA_Variant v;
     UA_Variant_init(&v);
     const auto dt = data_type_to_ua(s.data_type());
-    const auto status = UA_Variant_setScalarCopy(
-        &v,
-        cast_to_void_ptr(s.at(-1)),
-        dt
-    );
+    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(s.at(-1)), dt);
     return {v, parse_error(status)};
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-    if (s.data_type() == telem::TIMESTAMP_T && UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
+    if (s.data_type() == telem::TIMESTAMP_T &&
+        UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
         const auto dt = static_cast<const UA_DateTime *>(v.data);
         return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
     return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
 }
-}
+} // namespace util

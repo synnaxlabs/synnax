@@ -27,7 +27,7 @@ struct Hardware {
     [[nodiscard]] virtual xerrors::Error stop() = 0;
 };
 
-struct ReadResult: common::ReadResult {
+struct ReadResult : common::ReadResult {
     int64 skew = 0;
 };
 
@@ -41,10 +41,8 @@ struct Reader : virtual Hardware {
     /// @param data the buffer to read data into.
     /// @return a pair containing the number of samples read and an error if one
     /// occurred.
-    [[nodiscard]] virtual ReadResult read(
-        size_t samples_per_channel,
-        std::vector<T> &data
-    ) = 0;
+    [[nodiscard]] virtual ReadResult
+    read(size_t samples_per_channel, std::vector<T> &data) = 0;
 };
 
 /// @brief Writer interface for hardware that supports writing data.
@@ -109,10 +107,8 @@ struct DigitalReader final : Base, Reader<uint8_t> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    ReadResult read(
-        size_t samples_per_channel,
-        std::vector<unsigned char> &data
-    ) override;
+    ReadResult
+    read(size_t samples_per_channel, std::vector<unsigned char> &data) override;
 };
 
 /// @brief a hardware interface for analog tasks.
@@ -128,16 +124,13 @@ struct AnalogReader final : Base, Reader<double> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    ReadResult read(
-        size_t samples_per_channel,
-        std::vector<double> &data
-    ) override;
+    ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
 
     xerrors::Error start() override;
 
     int64 update_skew(const size_t &n_requested);
 };
-}
+} // namespace daqmx
 
 namespace mock {
 /// @brief Base mock implementation for testing hardware interfaces
@@ -153,8 +146,8 @@ struct Base : virtual hardware::Hardware {
 
 protected:
     explicit Base(
-        const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL}
+        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
+        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL}
     );
 
 public:
@@ -177,15 +170,13 @@ public:
     /// @param stop_errors Sequence of errors to return from stop()
     /// @param read_responses Sequence of data and errors to return from read()
     explicit Reader(
-        const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL},
-        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {{{0.5}, xerrors::NIL}}
+        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
+        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
+        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses =
+            {{{0.5}, xerrors::NIL}}
     );
 
-    ReadResult read(
-        size_t samples_per_channel,
-        std::vector<T>& data
-    ) override;
+    ReadResult read(size_t samples_per_channel, std::vector<T> &data) override;
 };
 
 /// @brief Mock implementation of Writer interface for testing
@@ -206,17 +197,20 @@ public:
     /// @param stop_errors Sequence of errors to return from stop()
     /// @param write_responses Sequence of errors to return from write()
     explicit Writer(
-        std::shared_ptr<std::vector<std::vector<T>>> written_data = std::make_shared<std::vector<std::vector<T>>>(),
-        const std::vector<xerrors::Error>& start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error>& stop_errors = {xerrors::NIL},
+        std::shared_ptr<std::vector<std::vector<T>>> written_data =
+            std::make_shared<std::vector<std::vector<T>>>(),
+        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
+        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
         std::vector<xerrors::Error> write_responses = {xerrors::NIL}
     );
 
     xerrors::Error write(const std::vector<T> &data) override;
-    
-    std::shared_ptr<std::vector<std::vector<T>>> get_written_data() const { return written_data; }
+
+    std::shared_ptr<std::vector<std::vector<T>>> get_written_data() const {
+        return written_data;
+    }
 };
 
-}
+} // namespace mock
 
-}
+} // namespace hardware

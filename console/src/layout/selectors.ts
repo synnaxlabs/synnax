@@ -73,8 +73,7 @@ export const useSelectName = (key: string): string | undefined =>
 export const selectByFilter = (
   state: StoreState,
   filter: (layout: State) => boolean,
-): State | undefined =>
-  Object.values(selectSliceState(state).layouts).find(filter);
+): State | undefined => Object.values(selectSliceState(state).layouts).find(filter);
 
 /**
  * Selects a layout from the store by key.
@@ -237,8 +236,20 @@ export const selectActiveMosaicTabKey = (
   return sliceState.mosaics[winKey].activeTab;
 };
 
+export const selectActiveMosaicTabName = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string | null => {
+  const key = selectActiveMosaicTabKey(state, windowKey);
+  if (key == null) return null;
+  return select(state, key)?.name ?? null;
+};
+
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
+
+export const useSelectActiveMosaicTabName = (): string | null =>
+  useMemoSelect(selectActiveMosaicTabName, []);
 
 export const selectActiveMosaicLayout = (
   state: StoreState & Drift.StoreState,

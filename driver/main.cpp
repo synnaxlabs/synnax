@@ -10,4 +10,6 @@
 /// internal
 #include "driver/cmd/cmd.h"
 
-int main(const int argc, char *argv[]) { return cmd::exec(argc, argv); }
+int main(const int argc, char *argv[]) {
+    return cmd::exec(argc, argv);
+}

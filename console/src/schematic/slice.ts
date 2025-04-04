@@ -425,12 +425,12 @@ export const { actions, reducer } = createSlice({
           const nodeProps = props[node.key];
           if ("color" in nodeProps)
             if (shouldChange(nodeProps.color as string))
-              nodeProps.color = theme.colors.gray.l9;
+              nodeProps.color = theme.colors.gray.l11;
         });
         edges.forEach((edge) => {
           if (edge.color != null && shouldChange(edge.color as string))
-            edge.color = theme.colors.gray.l9;
-          else edge.color ??= theme.colors.gray.l9;
+            edge.color = theme.colors.gray.l11;
+          else edge.color ??= theme.colors.gray.l11;
         });
       });
     },
