@@ -11,12 +11,12 @@ import { Icon, type IconProps } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
 import { type status } from "@/status/aether";
-import { variantColors } from "@/status/colors";
+import { VARIANT_COLORS } from "@/status/colors";
 
 export interface CircleProps extends IconProps {
   variant?: status.Variant;
 }
 
 export const Circle = ({ variant = "info", ...rest }: CircleProps): ReactElement => (
-  <Icon.Circle color={variantColors[variant]} {...rest} />
+  <Icon.Circle color={VARIANT_COLORS[variant]} {...rest} />
 );

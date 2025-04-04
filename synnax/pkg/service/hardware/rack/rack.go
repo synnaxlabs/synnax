@@ -57,12 +57,13 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 type State struct {
 	// Key is the key of the rack.
 	Key Key `json:"key" msgpack:"key"`
-	// Heartbeat is a unit64 where the first 32 bits are the rack key and the second 32
-	// bits are an incrementing heartbeat counter starting at 0 from when the rack
-	// boots up. When the rack restarts, this counter will reset to 0.
-	Heartbeat Heartbeat `json:"heartbeat" msgpack:"heartbeat"`
+	// Variant is the variant of the rack. This is used to determine the type of
+	Variant string `json:"variant" msgpack:"variant"`
 	/// LastReceived is the last time the rack sent a heartbeat signal.
 	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
+	// Message is the last message sent by the rack. This is used to determine if the
+	// rack is healthy.
+	Message string `json:"message" msgpack:"message"`
 }
 
 // Rack represents a driver that can communicate with devices and execute tasks.

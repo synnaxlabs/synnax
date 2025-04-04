@@ -11,10 +11,10 @@ package tracker
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -72,10 +72,12 @@ type Tracker struct {
 	saveNotifications chan task.Key
 	// closer shuts down all go-routines needed to keep the tracker service running.
 	closer io.Closer
-	// taskStateWriter is used to write task state changes to the database.
-	taskStateWriter confluence.Inlet[framer.WriterRequest]
+	// stateWriter is used to write task state changes to the database.
+	stateWriter confluence.Inlet[framer.WriterRequest]
 	// taskStateChannelKey is the key of the channel used to set task state.
 	taskStateChannelKey channel.Key
+	// rackStateChannelKey is the key of the channel used to set rack state.
+	rackStateChannelKey channel.Key
 	opened              confluence.Stream[struct{}]
 }
 
@@ -120,7 +122,7 @@ var (
 	// configuration is not valid on its own, and must be overridden with the required
 	// fields detailed in the Config struct.
 	DefaultConfig = Config{
-		RackStateAliveThreshold: telem.Second * 15,
+		RackStateAliveThreshold: telem.Second * 3,
 	}
 )
 
@@ -227,6 +229,9 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 
 		t.mu.Racks[r.Key] = rck
 	}
+	if err := cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
+		return nil, err
+	}
 	channels := []channel.Channel{
 		{
 			Name:        "sy_task_state",
@@ -236,8 +241,8 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 			Internal:    true,
 		},
 		{
-			Name:        "sy_rack_heartbeat",
-			DataType:    telem.Uint64T,
+			Name:        "sy_rack_state",
+			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
@@ -260,48 +265,50 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	if err = cfg.Channels.CreateMany(
 		ctx,
 		&channels,
+		channel.OverWriteIfNameExistsAndDifferentProperties(true),
 		channel.RetrieveIfNameExists(true),
 	); err != nil {
 		return nil, err
 	}
 	t.taskStateChannelKey = channels[0].Key()
+	t.rackStateChannelKey = channels[1].Key()
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	rackObs := gorp.Observe[rack.Key, rack.Rack](cfg.DB)
 	deviceObs := gorp.Observe[string, device.Device](cfg.DB)
 	dcTaskObs := taskObs.OnChange(t.handleTaskChanges)
 	dcRackObs := rackObs.OnChange(t.handleRackChanges)
 	dcDeviceObs := deviceObs.OnChange(t.handleDeviceChanges)
-	heartBeatObs, closeHeartBeatObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: "sy_rack_heartbeat",
+	rackStateObs, closeRackStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
+		SetChannelName: "sy_rack_state",
 	})
 	if err != nil {
 		return nil, err
 	}
-	dcHeartbeatObs := heartBeatObs.OnChange(t.handleHeartbeat)
+	dcHeartbeatObs := rackStateObs.OnChange(t.handleRackState)
 	taskStateObs, closeTaskStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_task_state",
 	})
 	if err != nil {
 		return nil, err
 	}
-	taskStateWriter, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	stateWriter, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Start: telem.Now(),
-		Keys:  []channel.Key{t.taskStateChannelKey},
+		Keys:  []channel.Key{t.taskStateChannelKey, t.rackStateChannelKey},
 	})
 	if err != nil {
 		return nil, err
 	}
 	taskStateWriterStream := confluence.NewStream[framer.WriterRequest](1)
-	taskStateWriter.InFrom(taskStateWriterStream)
-	t.taskStateWriter = taskStateWriterStream
+	stateWriter.InFrom(taskStateWriterStream)
+	t.stateWriter = taskStateWriterStream
 	obs := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	obs.OnChange(func(ctx context.Context, r framer.WriterResponse) {
 		cfg.L.Error("unexpected writer error", zap.Error(r.Error))
 	})
 	outlets := confluence.NewStream[framer.WriterResponse](1)
 	obs.InFrom(outlets)
-	taskStateWriter.OutTo(outlets)
-	taskStateWriter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	stateWriter.OutTo(outlets)
+	stateWriter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
 	signal.GoRange[task.Key](sCtx, t.saveNotifications, t.saveTaskState)
@@ -312,15 +319,22 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		return nil, err
 	}
 	dcDeviceStateObs := deviceStateObs.OnChange(t.handleDeviceState)
+
+	signal.GoTick(sCtx, t.cfg.RackStateAliveThreshold.Duration(), func(ctx context.Context, _ time.Time) error {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
+		t.checkRackState()
+		return nil
+	})
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(func() error {
 			defer cancel()
-			t.taskStateWriter.Close()
+			t.stateWriter.Close()
 			close(t.saveNotifications)
 			return sCtx.Wait()
 		}),
 		closeTaskStateObs,
-		closeHeartBeatObs,
+		closeRackStateObs,
 		closeDeviceStateObs,
 		xio.NopCloserFunc(dcRackObs),
 		xio.NopCloserFunc(dcTaskObs),
@@ -418,7 +432,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived).Truncate(telem.Second)),
 					})
 				}
-				t.taskStateWriter.Inlet() <- framer.WriterRequest{
+				t.stateWriter.Inlet() <- framer.WriterRequest{
 					Command: writer.Data,
 					Frame: core.Frame{
 						Keys:   channel.Keys{t.taskStateChannelKey},
@@ -448,19 +462,64 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 	}
 }
 
-// handleHeartbeat handles heartbeat changes.
-func (t *Tracker) handleHeartbeat(_ context.Context, changes []change.Change[[]byte, struct{}]) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	for _, ch := range changes {
-		b := binary.LittleEndian.Uint64(ch.Key)
-		rackKey := rack.Key(b >> 32)
-		r, ok := t.mu.Racks[rackKey]
-		if !ok {
-			t.cfg.L.Warn("rack not found for heartbeat update", zap.Uint64("heartbeat", b), zap.Uint32("rack", uint32(rackKey)))
+func (t *Tracker) checkRackState() {
+	rackStates := make([]rack.State, 0, len(t.mu.Racks))
+	taskStates := make([]task.State, 0, len(t.mu.Racks))
+	for _, r := range t.mu.Racks {
+		if r.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
 		}
-		r.Heartbeat = rack.Heartbeat(b)
+		r.State.Variant = "warning"
+		r.State.Message = fmt.Sprintf("Driver %s is not alive", r.Key)
+		rackStates = append(rackStates, r.State)
+		var rck rack.Rack
+		if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
+			WhereKeys(r.Key).
+			Entry(&rck).
+			Exec(context.Background(), t.cfg.DB); err != nil {
+			t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+		}
+		for _, taskState := range r.Tasks {
+			taskState.Variant = task.WarningStateVariant
+			taskState.Details = task.NewStaticDetails(map[string]interface{}{
+				"message": fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second)),
+				"running": false,
+			})
+			taskStates = append(taskStates, taskState)
+		}
+	}
+	t.stateWriter.Inlet() <- framer.WriterRequest{
+		Command: writer.Data,
+		Frame: core.Frame{
+			Keys: channel.Keys{
+				t.rackStateChannelKey,
+				t.taskStateChannelKey,
+			},
+			Series: []telem.Series{
+				telem.NewStaticJSONV(rackStates...),
+				telem.NewStaticJSONV(taskStates...),
+			},
+		},
+	}
+}
+
+// handleRackState handles heartbeat changes.
+func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]byte, struct{}]) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	decoder := &binaryx.JSONCodec{}
+	for _, ch := range changes {
+		var rackState rack.State
+		if err := decoder.Decode(context.Background(), ch.Key, &rackState); err != nil {
+			t.cfg.L.Warn("failed to decode rack state", zap.Error(err))
+			continue
+		}
+		r, ok := t.mu.Racks[rackState.Key]
+		if !ok {
+			t.cfg.L.Warn("rack not found for state update", zap.Uint32("rack", uint32(rackState.Key)))
+			continue
+		}
+		r.State = rackState
 		r.LastReceived = telem.Now()
 	}
 }
@@ -474,6 +533,7 @@ func (t *Tracker) handleTaskState(ctx context.Context, changes []change.Change[[
 		var taskState task.State
 		if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
 			t.cfg.L.Warn("failed to decode task state", zap.Error(err))
+			continue
 		}
 		rackKey := taskState.Task.Rack()
 		r, ok := t.mu.Racks[rackKey]

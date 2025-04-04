@@ -1,7 +1,7 @@
 cc_library(
-    name = "heartbeat",
+    name = "state",
     hdrs = [
-        "heartbeat.h",
+        "state.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -15,14 +15,14 @@ cc_library(
 )
 
 cc_test(
-    name = "heartbeat_test",
+    name = "state_test",
     srcs = [
-        "heartbeat_test.cpp",
+        "state_test.cpp",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/testutil",
-        "//driver/heartbeat",
+        "//driver/rack/state",
         "@googletest//:gtest_main",
     ],
 )

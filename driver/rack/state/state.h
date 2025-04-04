@@ -18,8 +18,8 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
-namespace heartbeat {
-const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
+namespace rack::state {
+const std::string RACK_STATE_CHANNEL = "sy_rack_state";
 const std::string INTEGRATION_NAME = "heartbeat";
 const std::string TASK_NAME = "Heartbeat";
 const std::string TASK_TYPE = INTEGRATION_NAME;
@@ -27,8 +27,16 @@ const auto EMISSION_RATE = telem::HZ * 1;
 
 struct State {
     synnax::RackKey key;
+    std::string variant;
+    std::string message;
 
-    json to_json() const { return json{{"rack", key}}; }
+    [[nodiscard]] json to_json() const {
+        return json{
+            {"key", this->key},
+            {"variant", this->variant},
+            {"message", this->message},
+        };
+    }
 };
 
 class Source final : public pipeline::Source {
@@ -50,8 +58,10 @@ public:
         this->loop.wait(breaker);
         const State state{
             .key = this->rack_key,
+            .variant = "success",
+            .message = "Driver is running"
         };
-        fr.emplace(key, state.to_json());
+        fr.emplace(key, telem::Series(state.to_json()));
         return xerrors::NIL;
     }
 };
@@ -88,7 +98,7 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(RACK_HEARTBEAT_CHANNEL);
+        auto [ch, err] = ctx->client->channels.retrieve(RACK_STATE_CHANNEL);
         if (err) {
             LOG(WARNING) << "[heartbeat] failed to retrieve heartbeat channel: " << err;
             return nullptr;
@@ -136,4 +146,4 @@ class Factory final : public task::Factory {
         return tasks;
     }
 };
-} // namespace heartbeat
+}

@@ -21,8 +21,9 @@ import {
   newZ,
   ONTOLOGY_TYPE,
   type Payload,
-  type RackState,
   rackZ,
+  type State,
+  stateZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
@@ -33,12 +34,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const HEARTBEAT_CHANNEL_NAME = "sy_rack_heartbeat";
-
-interface Heartbeat {
-  rackKey: Key;
-  heartbeat: number;
-}
+const STATE_CHANNEL_NAME = "sy_rack_state";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -154,21 +150,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openHeartbeatObserver(): Promise<framer.ObservableStreamer<Heartbeat[]>> {
-    return new framer.ObservableStreamer<Heartbeat[]>(
-      await this.frameClient.openStreamer(HEARTBEAT_CHANNEL_NAME),
-      (frame) => {
-        const data = frame.get(HEARTBEAT_CHANNEL_NAME);
+  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
+    return new framer.ObservableStreamer<State[]>(
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      (fr) => {
+        const data = fr.get(STATE_CHANNEL_NAME);
+        console.log(Array.from(data));
         if (data.length === 0) return [[], false];
-        const allValues = Array.from(data.as("bigint"));
-        return [
-          allValues.map((value) => {
-            const rackKey = Number(value >> 32n);
-            const heartbeat = Number(value & 0xffffffffn);
-            return { rackKey, heartbeat };
-          }),
-          true,
-        ];
+        const states = data.parseJSON(stateZ);
+        return [states as State[], true];
       },
     );
   }
@@ -183,10 +173,10 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 export class Rack {
   key: Key;
   name: string;
-  state?: RackState;
+  state?: State;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, state?: RackState) {
+  constructor(key: Key, name: string, taskClient: task.Client, state?: State) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;

@@ -26,7 +26,7 @@
 #include "nlohmann/json.hpp"
 
 /// internal
-#include "driver/heartbeat/heartbeat.h"
+#include "driver/rack/state/state.h"
 #include "driver/labjack/labjack.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
@@ -39,7 +39,7 @@ using json = nlohmann::json;
 namespace rack {
 struct RemoteInfo {
     synnax::RackKey rack_key = 0;
-    std::string cluster_key = "";
+    std::string cluster_key;
 
     template<typename Parser>
     void override(Parser &p) {
@@ -47,7 +47,7 @@ struct RemoteInfo {
         this->cluster_key = p.optional("cluster_key", this->cluster_key);
     }
 
-    json to_json() const {
+    [[nodiscard]] json to_json() const {
         return {
             {"rack_key", this->rack_key},
             {"cluster_key", this->cluster_key},
@@ -60,7 +60,6 @@ inline std::vector<std::string> default_integrations() {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
-        heartbeat::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
     };
 }
@@ -142,7 +141,7 @@ struct Config {
                   << " (" << cfg.remote_info.rack_key << ")\n"
                   << xlog::SHALE() << "  cluster: " << xlog::RESET()
                   << cfg.remote_info.cluster_key;
-        const auto err = cfg.save_remote_info(parser, cfg.remote_info);
+        const auto err = Config::save_remote_info(parser, cfg.remote_info);
         return {cfg, err};
     }
 

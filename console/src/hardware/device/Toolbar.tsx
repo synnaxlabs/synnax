@@ -1,4 +1,4 @@
-import { type device, ontology } from "@synnaxlabs/client";
+import { type device, ontology, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Header, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
@@ -50,24 +50,31 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
   return <StateContext.Provider value={{ states }}>{children}</StateContext.Provider>;
 };
 interface RackHeartbeatProviderContextValue {
-  heartbeats: Record<number, number>;
+  states: Record<string, rack.State>;
 }
 
-const RackHeartbeatContext = createContext<RackHeartbeatProviderContextValue>({
-  heartbeats: {},
+const RackStateContext = createContext<RackHeartbeatProviderContextValue>({
+  states: {},
 });
 
 const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
   const client = Synnax.use();
-  const [heartbeats, setHeartbeats] = reactUseState<Record<number, number>>({});
+  const [states, setStates] = reactUseState<Record<string, rack.State>>({});
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const observer = await client.hardware.racks.openHeartbeatObserver();
-    const disconnect = observer.onChange((beats) => {
-      setHeartbeats((prev) => {
-        const newBeats = Object.fromEntries(beats.map((b) => [b.rackKey, b.heartbeat]));
-        return { ...prev, ...newBeats };
+    const racks = await client.hardware.racks.retrieve([], {
+      includeState: true,
+    });
+    const initialStates = Object.fromEntries(
+      racks.filter((r) => r.state != null).map((r) => [r.key, r.state]),
+    ) as Record<string, rack.State>;
+    setStates(initialStates);
+    const observer = await client.hardware.racks.openStateObserver();
+    const disconnect = observer.onChange((states) => {
+      setStates((prev) => {
+        const newStates = Object.fromEntries(states.map((s) => [s.key, s]));
+        return { ...prev, ...newStates };
       });
     });
     return async () => {
@@ -77,15 +84,13 @@ const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
   }, []);
 
   return (
-    <RackHeartbeatContext.Provider value={{ heartbeats }}>
-      {children}
-    </RackHeartbeatContext.Provider>
+    <RackStateContext.Provider value={{ states }}>{children}</RackStateContext.Provider>
   );
 };
 
-export const useHeartbeat = (key: number): number | undefined => {
-  const { heartbeats } = useContext(RackHeartbeatContext);
-  return heartbeats[key];
+export const useRackState = (key: string): rack.State | undefined => {
+  const { states } = useContext(RackStateContext);
+  return states[key];
 };
 
 export const useState = (key: string): device.State | undefined => {

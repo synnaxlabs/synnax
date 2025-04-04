@@ -14,26 +14,28 @@ import { z } from "zod";
 export const keyZ = zod.uint32;
 export type Key = z.infer<typeof keyZ>;
 
-export const rackStateZ = z.object({
+export const stateZ = z.object({
   key: keyZ,
-  heartbeat: z.number(),
-  lastReceived: TimeStamp.z.or(z.number().transform((n) => new TimeStamp(n))),
+  variant: z.string(),
+  message: z.string(),
+  lastReceived: TimeStamp.z.optional(),
 });
 
-export interface RackState {
+export interface State {
   key: Key;
-  heartbeat: number;
-  lastReceived: TimeStamp;
+  variant: string;
+  message: string;
+  lastReceived?: TimeStamp;
 }
 
 export const rackZ = z.object({
   key: keyZ,
   name: z.string(),
-  state: rackStateZ.optional(),
+  state: stateZ.optional(),
 });
 
 export interface Payload extends Omit<z.output<typeof rackZ>, "state"> {
-  state?: RackState;
+  state?: State;
 }
 
 export const newZ = rackZ.partial({ key: true });

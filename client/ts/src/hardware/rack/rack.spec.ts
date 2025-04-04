@@ -78,7 +78,6 @@ describe("Rack", () => {
       expect(retrieved.state).toBeDefined();
       if (retrieved.state) {
         expect(retrieved.state.key).toBe(r.key);
-        expect(typeof retrieved.state.heartbeat).toBe("number");
         expect(retrieved.state.lastReceived).toBeInstanceOf(TimeStamp);
       }
     });
@@ -95,7 +94,6 @@ describe("Rack", () => {
         expect(rack.state).toBeDefined();
         if (rack.state) {
           expect(rack.state.key).toBe(rack.key);
-          expect(typeof rack.state.heartbeat).toBe("number");
           expect(rack.state.lastReceived).toBeInstanceOf(TimeStamp);
         }
       });

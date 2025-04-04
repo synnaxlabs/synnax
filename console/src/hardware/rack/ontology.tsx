@@ -18,7 +18,7 @@ import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useHeartbeat } from "@/hardware/device/Toolbar";
+import { useRackState } from "@/hardware/device/Toolbar";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -65,20 +65,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const heartbeat = useHeartbeat(Number(id.key));
-  const prevHeartbeat = useRef(heartbeat);
-  const heartRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (heartbeat === prevHeartbeat.current) return;
-    if (heartbeat != null && heartbeat > (prevHeartbeat.current ?? 0)) {
-      heartRef.current?.classList.remove("synnax-rack-heartbeat--beat");
-      void heartRef.current?.offsetWidth;
-      heartRef.current?.classList.add("synnax-rack-heartbeat--beat");
-    }
-    prevHeartbeat.current = heartbeat;
-  }, [heartbeat]);
-
+  const state = useRackState(id.key);
   return (
     <Tree.DefaultItem {...rest} entry={entry}>
       {({ entry, onRename, key }) => (
@@ -91,9 +78,9 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
             disabled={!entry.allowRename}
             onChange={(name) => onRename?.(entry.key, name)}
           />
-          <div className="synnax-rack-heartbeat" ref={heartRef}>
-            <Icon.Heart />
-          </div>
+          <Icon.Heart
+            style={{ color: Status.VARIANT_COLORS[state?.variant ?? "info"] }}
+          />
         </>
       )}
     </Tree.DefaultItem>
