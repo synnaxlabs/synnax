@@ -29,12 +29,13 @@ import {
   TankForm,
   TextBoxForm,
   ValueForm,
-  TriangleForm,
+  CommonPolygonForm,
 } from "@/vis/schematic/Forms";
 import { Primitives } from "@/vis/schematic/primitives";
 import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
+  DEFAULT_POLYGON_SIDE_LENGTH,
   TextBox,
   type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
@@ -632,11 +633,12 @@ const triangle: Spec<Primitives.PolygonProps> = {
   name: "Triangle",
   key: "triangle",
   Symbol: Triangle,
-  Form: TriangleForm,
+  Form: CommonPolygonForm,
   defaultProps: (t) => ({
-    sideLengths: [100, 100, 100],
+    sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
     rotation: 0,
     numSides: 3,
+    cornerRounding: 3,
     color: t.colors.gray.l9.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Triangle"),

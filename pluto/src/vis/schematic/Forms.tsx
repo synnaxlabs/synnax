@@ -36,6 +36,7 @@ import {
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
+import { DEFAULT_POLYGON_SIDE_LENGTH } from "./primitives/Primitives";
 
 export interface SymbolFormProps {}
 
@@ -411,31 +412,50 @@ export interface PolygonFormProps {
   numSides: number;
 }
 
-export const PolygonForm = ({ numSides }: PolygonFormProps): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
+export const CommonPolygonForm = (): ReactElement => {
+  return <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
         <ColorControl path="backgroundColor" label="Background Color" />
-        <Form.NumericField path="rotation" label="Rotation (deg)" grow />
+        <Form.NumericField 
+          path="rotation"
+          label="Rotation"
+          inputProps={{
+            dragScale: { x: 1, y: 0.25 },
+            bounds: { lower: 0, upper: 360 },
+            endContent: "degrees",
+          }}
+          grow
+        />
       </Align.Space>
-      <Align.Space direction="x" wrap>
-        {Array.from({ length: numSides }).map((_, i) => (
-          <Form.NumericField
-            key={i}
-            path={`sideLengths.${i}`}
-            label={`Side ${i + 1}`}
-            grow
-          />
-        ))}
+      <Align.Space direction="x">
+        <Form.NumericField 
+          path="sideLength"
+          label="Side Length"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 10, upper: 1000 },
+            endContent: "px",
+          }}
+          grow
+        />
+        <Form.NumericField 
+          path="cornerRounding" 
+          label="Corner Rounding" 
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 0, upper: 51 },
+            endContent: "px",
+          }}
+          grow 
+        />
       </Align.Space>
       <OrientationControl path="" hideInner />
     </Align.Space>
-  </FormWrapper>
-);
-
-export const TriangleForm = () => <PolygonForm numSides={3} />;
+  </FormWrapper>;
+};
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },

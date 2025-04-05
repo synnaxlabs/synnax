@@ -523,7 +523,7 @@ export interface BoxProps extends Omit<TankProps, "borderRadius"> {
 
 export const Triangle = createLabeled(
   ({
-    sideLengths,
+    sideLength,
     rotation,
     color,
     backgroundColor,
@@ -532,7 +532,7 @@ export const Triangle = createLabeled(
   }: SymbolProps<Primitives.PolygonProps>) => (
     <Primitives.Polygon
       numSides={3}
-      sideLengths={sideLengths}
+      sideLength={sideLength}
       rotation={rotation}
       color={color}
       backgroundColor={backgroundColor}

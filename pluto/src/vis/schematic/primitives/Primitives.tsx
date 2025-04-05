@@ -1371,28 +1371,25 @@ export const Tank = ({
   );
 };
 
+export const DEFAULT_POLYGON_SIDE_LENGTH = 60;
 export interface PolygonProps extends DivProps {
   numSides: number;
-  sideLengths: number | number[];
-  rotation?: number; // degrees
+  sideLength: number;
+  rotation?: number;
+  cornerRounding?: number;
   color?: Color.Crude;
   backgroundColor?: Color.Crude;
 }
 
 const calculatePolygonVertices = (
   numSides: number,
-  sideLengths: number | number[],
+  sideLength: number,
   rotationDeg: number = 0,
 ): Array<{ x: number; y: number }> => {
-  const sides = Array.isArray(sideLengths)
-    ? sideLengths
-    : Array(numSides).fill(sideLengths);
-
+  const sides = Array(numSides).fill(sideLength);
   const angleStep = (2 * Math.PI) / numSides;
   const rotationRad = (rotationDeg * Math.PI) / 180;
-  const perimeter = sides.reduce((a, b) => a + b, 0);
-  const avgSide = perimeter / numSides;
-  const radius = avgSide / (2 * Math.sin(Math.PI / numSides));
+  const radius = sideLength / (2 * Math.sin(Math.PI / numSides));
   const vertices = sides.map((_, i) => {
     const angle = angleStep * i + rotationRad - Math.PI / 2;
     return {
@@ -1404,16 +1401,56 @@ const calculatePolygonVertices = (
   return vertices;
 };
 
+const generateRoundedPolygonPath = (
+  vertices: { x: number; y: number }[],
+  rawR: number,
+  sideLength: number
+): string => {
+  const r = Math.min(rawR, sideLength * 0.4); // technically 0.5 but 0.4 provides a safety margin for edge cases (no pun intended)
+  const len = vertices.length;
+  if (len < 3 || r <= 0) {
+    return `M ${vertices.map(v => `${v.x},${v.y}`).join(" L ")} Z`;
+  }
+  const path: string[] = [];
+  for (let i = 0; i < len; i++) {
+    const prev = vertices[(i - 1 + len) % len];
+    const curr = vertices[i];
+    const next = vertices[(i + 1) % len];
+    const dx1 = curr.x - prev.x;
+    const dy1 = curr.y - prev.y;
+    const dx2 = next.x - curr.x;
+    const dy2 = next.y - curr.y;
+    const len1 = Math.hypot(dx1, dy1);
+    const len2 = Math.hypot(dx2, dy2);
+    const offset1 = r / len1;
+    const offset2 = r / len2;
+    const p1x = curr.x - dx1 * offset1;
+    const p1y = curr.y - dy1 * offset1;
+    const p2x = curr.x + dx2 * offset2;
+    const p2y = curr.y + dy2 * offset2;
+    if (i === 0) {
+      path.push(`M ${p1x},${p1y}`);
+    } else {
+      path.push(`L ${p1x},${p1y}`);
+    }
+    path.push(`Q ${curr.x},${curr.y} ${p2x},${p2y}`);
+  }
+
+  path.push("Z");
+  return path.join(" ");
+};
+
 export const Polygon = ({
   numSides,
-  sideLengths,
+  sideLength,
   rotation = 0,
   color,
   backgroundColor,
   className,
+  cornerRounding,
   ...rest
 }: PolygonProps): ReactElement => {
-  const vertices = calculatePolygonVertices(numSides, sideLengths, rotation);
+  const vertices = calculatePolygonVertices(numSides, sideLength, rotation);
   const theme = Theming.use();
   const xs = vertices.map((v) => v.x);
   const ys = vertices.map((v) => v.y);
@@ -1439,12 +1476,12 @@ export const Polygon = ({
     <InternalSVG 
       dimensions={{ width: width, height: height }}
     >
-      <PolygonSvg
-        points={adjustedVertices.map(v => `${v.x},${v.y}`).join(" ")}
+      <Path
+        d={generateRoundedPolygonPath(adjustedVertices, cornerRounding ?? 0, sideLength ?? DEFAULT_POLYGON_SIDE_LENGTH)}
         fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
         stroke={Color.cssString(color ?? theme.colors.gray.l9)}
         strokeWidth={1.5}
-      />
+      />    
     </InternalSVG>
   );
 };
