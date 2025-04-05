@@ -21,7 +21,6 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
-const TOOLTIP_TEXT_SHIFT: xy.XY = xy.construct(0, 6);
 
 export const tooltipStateZ = z.object({
   position: xy.xy.or(z.null()),
