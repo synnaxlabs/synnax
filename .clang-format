@@ -77,4 +77,5 @@ BreakBeforeTernaryOperators: true
 SpaceBeforeCtorInitializerColon: false
 AlwaysBreakBeforeMultilineStrings: false
 FixNamespaceComments: false
+BreakStringLiterals: false
 ...
