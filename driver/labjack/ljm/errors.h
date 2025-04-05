@@ -111,8 +111,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "The device connection was yielded to another process and now cannot be "
      "contacted."},
     {"LJME_USB_FAILURE", "System USB communication failed fatally."},
-    {"LJME_STREAM_FLUSH_TIMEOUT", "Stream flushing did not resolve before the timeout."
-    },
+    {"LJME_STREAM_FLUSH_TIMEOUT",
+     "Stream flushing did not resolve before the timeout."},
     {"LJME_U3_NOT_SUPPORTED_BY_LJM",
      "LJM does not support UD-series LabJack devices; use the UD driver"},
     {"LJME_U6_NOT_SUPPORTED_BY_LJM",
@@ -132,8 +132,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
      "LJM received an unexpected parameter. Please check the LabJackM.h "
      "description of the function that returned this error for an explanation."},
     {"LJME_INVALID_PROTOCOL_ID", "LJM received an unexpected Modbus protocol ID."},
-    {"LJME_INVALID_TRANSACTION_ID", "LJM received an unexpected Modbus transaction ID."
-    },
+    {"LJME_INVALID_TRANSACTION_ID",
+     "LJM received an unexpected Modbus transaction ID."},
     {"LJME_NUM_WRITES_LARGER_THAN_AVAILABLE_SPACE",
      "LJM received more values to stream out than are available in the LJM "
      "write queue."},
@@ -307,8 +307,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"MODBUS_NUM_REGS_MUST_BE_EVEN",
      "Register or group of registers requires the access be in an even number "
      "of registers."},
-    {"MODBUS_STRING_MISSING_NULL", "Strings must be terminated with a null (\\0, 0x00)."
-    },
+    {"MODBUS_STRING_MISSING_NULL",
+     "Strings must be terminated with a null (\\0, 0x00)."},
     {"UDP_DISCOVERY_ONLY_MODE_IS_ENABLED",
      "The UDP discovery socket has been set to discovery only. Only a few "
      "registers may be read while in this mode."},
@@ -509,8 +509,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"STREAM_OUT_BUFF_FULL",
      "Attempted to write more data than the buffer can hold. Extra data was "
      "discarded."},
-    {"STREAM_OUT_TARGET_INVALID", "The specified address cannot be a stream out target."
-    },
+    {"STREAM_OUT_TARGET_INVALID",
+     "The specified address cannot be a stream out target."},
     {"STREAM_BUFF_SIZE_INVALID",
      "The specified buffer was either too large or was not a power of 2."},
     {"STREAM_OUT_BUFF_LOOP_OVERWRITE", ""},
@@ -522,8 +522,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"STREAM_NOT_RUNNING", "Stream was already disabled."},
     {"STREAM_SETTLING_INVALID",
      "Specified settling time is greater than the max possible."},
-    {"STREAM_OUT_LOOP_TOO_BIG", "The loop size is too big for the current buffer size."
-    },
+    {"STREAM_OUT_LOOP_TOO_BIG",
+     "The loop size is too big for the current buffer size."},
     {"STREAM_OUT_DATA_TRGT_MISSMATCH",
      "There is a mismatch between the stream out buffer type and target "
      "register."},
@@ -614,8 +614,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"ASYNCH_READ_BUFF_SIZE_INVALID",
      "The specified buffer size is invalid. Max is 2048."},
     {"ASYNCH_BAUD_TOO_HIGH", "The baud rate is too high for this device."},
-    {"ASYNCH_IS_ENABLED", "The specified operation can not be performed while enabled."
-    },
+    {"ASYNCH_IS_ENABLED",
+     "The specified operation can not be performed while enabled."},
     {"ASYNCH_IS_NOT_ENABLED",
      "The specified operation can not be performed while disabled."},
     {"ASYNCH_TX_BUFFER_FULL", "The transmit buffer is full."},
@@ -638,13 +638,13 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_INVALID_DRIVE", "The logical drive number is invalid."},
     {"FILE_IO_NOT_ENABLED", "The volume has no work area."},
     {"FILE_IO_NO_FILESYSTEM", "There is no valid FAT12, FAT16, or FAT32 volume."},
-    {"FILE_IO_MKFS_ABORTED", "The f_mkfs() function aborted due to any parameter error."
-    },
+    {"FILE_IO_MKFS_ABORTED",
+     "The f_mkfs() function aborted due to any parameter error."},
     {"FILE_IO_TIMEOUT",
      "Could not get granted access to the volume within the defined timeout "
      "period."},
-    {"FILE_IO_LOCKED", "The operation is rejected according to the file sharing policy."
-    },
+    {"FILE_IO_LOCKED",
+     "The operation is rejected according to the file sharing policy."},
     {"FILE_IO_NOT_ENOUGH_CORE", "LFN working buffer could not be allocated."},
     {"FILE_IO_TOO_MANY_OPEN_FILES",
      "The number of open files is greater than the allowable limit (files > "
@@ -730,4 +730,4 @@ inline xerrors::Error parse_error(const std::shared_ptr<ljm::API> &ljm, const in
         description = it->second;
     return xerrors::Error(CRITICAL_ERROR.sub(err_msg), description);
 }
-} 
+} // namespace ljm

@@ -38,27 +38,46 @@ if ! command -v clang-format &> /dev/null; then
   exit 1
 fi
 
-# Read ignore patterns from .clang-format-ignore
-ignore_file="$path/.clang-format-ignore"
-if [ -f "$ignore_file" ]; then
-  while IFS= read -r pattern || [ -n "$pattern" ]; do
-    # Skip empty lines and comments
-    [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
-    files=$(echo "$files" | grep -v -E "$pattern")
-  done < "$ignore_file"
-fi
+# Use the root .clang-format-ignore file
+ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
+
+# Create a temporary file to store filtered files
+declare -a files_to_format=()
+
+while IFS= read -r file; do
+    should_format=true
+    
+    while IFS= read -r pattern || [ -n "$pattern" ]; do
+        # Skip empty lines and comments
+        [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
+        
+        # Clean up pattern
+        pattern=$(echo "$pattern" | tr -d '[:space:]')
+        filename=$(basename "$file")
+        
+        if [[ "$filename" == "$pattern" ]]; then
+            echo "Skipping $file (ignored by pattern $pattern)..."
+            should_format=false
+            break
+        fi
+    done < "$ignore_file"
+    
+    if [ "$should_format" = true ]; then
+        files_to_format+=("$file")
+    fi
+done <<< "$files"
 
 # Format all files and report
 formatted_count=0
-for file in $files; do
-  fullpath="$path/$file"
-  echo "Formatting $file..."
-  clang-format -i "$fullpath"
-  if [ $? -eq 0 ]; then
-    formatted_count=$((formatted_count + 1))
-  else
-    echo "Warning: Failed to format $file"
-  fi
+for file in "${files_to_format[@]}"; do
+    fullpath="$path/$file"
+    echo "Formatting $file..."
+    clang-format -i "$fullpath"
+    if [ $? -eq 0 ]; then
+        formatted_count=$((formatted_count + 1))
+    else
+        echo "Warning: Failed to format $file"
+    fi
 done
 
 echo "Completed! Formatted $formatted_count files."

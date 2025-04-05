@@ -173,9 +173,12 @@ public:
         return this->func_ptrs.eWriteName(dev_handle, name, value);
     }
 
-    [[nodiscard]] LJM_ERROR_RETURN
-    names_to_addrs(const int num_frames, const char **names, int *addrs, int *types)
-        const {
+    [[nodiscard]] LJM_ERROR_RETURN names_to_addrs(
+        const int num_frames,
+        const char **names,
+        int *addrs,
+        int *types
+    ) const {
         return this->func_ptrs.NamesToAddresses(num_frames, names, addrs, types);
     }
 
@@ -214,9 +217,12 @@ public:
         );
     }
 
-    [[nodiscard]] LJM_ERROR_RETURN
-    open(const int dev_type, const int conn_type, const char *id, int *dev_handle)
-        const {
+    [[nodiscard]] LJM_ERROR_RETURN open(
+        const int dev_type,
+        const int conn_type,
+        const char *id,
+        int *dev_handle
+    ) const {
         return func_ptrs.Open(dev_type, conn_type, id, dev_handle);
     }
 
@@ -256,4 +262,4 @@ public:
             .eStreamStart(dev_handle, scans_per_read, num_addrs, scan_list, scan_rate);
     }
 };
-} 
+} // namespace ljm
