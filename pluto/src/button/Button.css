@@ -34,6 +34,10 @@
 .pluto-btn {
     position: relative;
     cursor: pointer;
+    /* We give the button a fixed z-index to ensure that we maintain a consistent
+    stacking context even when increasing the z-index on hover. This prevents strange
+    layout shifting of internal content (especially icons) */
+    z-index: 1;
     font-family: var(--pluto-font-family);
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
@@ -151,10 +155,6 @@
         }
     }
 
-    &.pluto--outlined * {
-        color: var(--pluto-btn-text-color);
-    }
-
     &.pluto--text {
         border: none;
 
@@ -181,22 +181,6 @@
             --pluto-bg: var(--pluto-gray-l3);
             --pluto-hover-bg: var(--pluto-gray-l6);
             --pluto-active-border-color: var(--pluto-gray-l8);
-        }
-    }
-
-    .pluto-btn__end-content {
-        position: absolute;
-        right: -0.5rem;
-        top: 0;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        padding-right: 1.5rem;
-        pointer-events: none;
-        z-index: 0;
-        & > * {
-            color: var(--pluto-gray-l9);
-            transform: scale(0.8);
         }
     }
 }

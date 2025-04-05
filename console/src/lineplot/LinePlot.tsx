@@ -429,7 +429,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   return (
     <div
-      style={{ height: "100%", width: "100%", padding: "2rem" }}
+      style={{ height: "100%", width: "100%", padding: "2rem 1.5rem" }}
       className={props.className}
     >
       <PMenu.ContextMenu

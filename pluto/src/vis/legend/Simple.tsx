@@ -77,7 +77,8 @@ export const legendSwatches = (
               onEntryChange?.({ key, color, label, visible: !visible });
             }}
             onDoubleClick={(e) => e.stopPropagation()}
-            size="small"
+            size="tiny"
+            shade={2}
           >
             {visible ? <Icon.Visible /> : <Icon.Hidden />}
           </Button.Icon>
