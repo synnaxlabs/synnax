@@ -60,6 +60,12 @@ const Line = (props: LineProps): ReactElement => (
   <line vectorEffect="non-scaling-stroke" {...props} />
 );
 
+interface PolygonSVGProps extends ComponentPropsWithoutRef<"polygon"> {}
+
+const PolygonSvg = (props: PolygonSVGProps): ReactElement => (
+  <polygon vectorEffect="non-scaling-stroke" {...props} />
+);
+
 const ORIENTATION_RF_POSITIONS: Record<
   location.Outer,
   Record<location.Outer, RFPosition>
@@ -1362,6 +1368,84 @@ export const Tank = ({
         />
       </HandleBoundary>
     </Div>
+  );
+};
+
+export interface PolygonProps extends DivProps {
+  numSides: number;
+  sideLengths: number | number[];
+  rotation?: number; // degrees
+  color?: Color.Crude;
+  backgroundColor?: Color.Crude;
+}
+
+const calculatePolygonVertices = (
+  numSides: number,
+  sideLengths: number | number[],
+  rotationDeg: number = 0,
+): Array<{ x: number; y: number }> => {
+  const sides = Array.isArray(sideLengths)
+    ? sideLengths
+    : Array(numSides).fill(sideLengths);
+
+  const angleStep = (2 * Math.PI) / numSides;
+  const rotationRad = (rotationDeg * Math.PI) / 180;
+  const perimeter = sides.reduce((a, b) => a + b, 0);
+  const avgSide = perimeter / numSides;
+  const radius = avgSide / (2 * Math.sin(Math.PI / numSides));
+  const vertices = sides.map((_, i) => {
+    const angle = angleStep * i + rotationRad - Math.PI / 2;
+    return {
+      x: radius * Math.cos(angle),
+      y: radius * Math.sin(angle),
+    };
+  });
+
+  return vertices;
+};
+
+export const Polygon = ({
+  numSides,
+  sideLengths,
+  rotation = 0,
+  color,
+  backgroundColor,
+  className,
+  ...rest
+}: PolygonProps): ReactElement => {
+  const vertices = calculatePolygonVertices(numSides, sideLengths, rotation);
+  const theme = Theming.use();
+  const xs = vertices.map((v) => v.x);
+  const ys = vertices.map((v) => v.y);
+  const rawWidth = Math.max(...xs) - Math.min(...xs);
+  const rawHeight = Math.max(...ys) - Math.min(...ys);
+  
+  // Calculate padding so total is multiple of 3 and at least 1 pixel of padding
+  const padToMultipleOf3 = (x: number): number => {
+    const remainder = x % 3;
+    return remainder === 0 ? 3 : 3 - remainder;
+  };
+  const wPad = Math.max(1, padToMultipleOf3(rawWidth));
+  const hPad = Math.max(1, padToMultipleOf3(rawHeight));
+  const width = rawWidth + wPad;
+  const height = rawHeight + hPad;
+  
+  const adjustedVertices = vertices.map((v) => ({
+    x: v.x - Math.min(...xs) + wPad / 2,
+    y: v.y - Math.min(...ys) + hPad / 2,
+  }));
+
+  return (
+    <InternalSVG 
+      dimensions={{ width: width, height: height }}
+    >
+      <PolygonSvg
+        points={adjustedVertices.map(v => `${v.x},${v.y}`).join(" ")}
+        fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+        stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+        strokeWidth={1.5}
+      />
+    </InternalSVG>
   );
 };
 

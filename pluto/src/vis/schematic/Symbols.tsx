@@ -520,6 +520,29 @@ export const TankPreview = (props: TankProps): ReactElement => (
 export interface BoxProps extends Omit<TankProps, "borderRadius"> {
   borderRadius?: number;
 }
+
+export const Triangle = createLabeled(
+  ({
+    sideLengths = 100,
+    rotation = 0,
+    color,
+    backgroundColor,
+    numSides,
+    ...rest
+  }: SymbolProps<Primitives.PolygonProps>) => (
+    <Primitives.Polygon
+      numSides={3}
+      sideLengths={sideLengths}
+      rotation={rotation}
+      color={color}
+      backgroundColor={backgroundColor}
+      {...rest}
+    />
+  ),
+);
+export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
+
+
 export const Box = createLabeled(
   ({
     backgroundColor,
@@ -543,6 +566,7 @@ export const Box = createLabeled(
 export const BoxPreview = (props: BoxProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} borderRadius={0} />
 );
+
 
 export interface SetpointProps
   extends Omit<Primitives.SetpointProps, "value" | "onChange">,
