@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
@@ -82,7 +82,7 @@ export const SelectMode = ({
           variant={rest.selected ? "filled" : "outlined"}
           size="small"
           tooltip={entry.tooltip}
-          tooltipLocation={{ x: "left", y: "bottom" }}
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           {entry.icon}
         </Button.Icon>

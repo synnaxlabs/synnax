@@ -61,7 +61,6 @@
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "transparent": true,
         "dragDropEnabled": false
       }
     ],

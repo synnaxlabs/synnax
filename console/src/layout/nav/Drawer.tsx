@@ -58,7 +58,7 @@ export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement 
       onResize={onResize}
       onSelect={onSelect}
       onMouseLeave={mouseLeaveBy(
-        xy.swap(X_THRESHOLD, direction.construct(loc) === "y"),
+        direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
         onStopHover,
       )}
       eraseEnabled={activeItem != null && !hover}

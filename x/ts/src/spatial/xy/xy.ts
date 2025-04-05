@@ -285,8 +285,7 @@ export const round = (a: Crude): XY => {
   return { x: Math.round(xy.x), y: Math.round(xy.y) };
 };
 
-export const swap = (a: Crude, apply: boolean = true): XY => {
+export const swap = (a: Crude): XY => {
   const xy = construct(a);
-  if (!apply) return xy;
   return { x: xy.y, y: xy.x };
 };

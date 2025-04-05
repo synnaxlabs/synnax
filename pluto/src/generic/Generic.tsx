@@ -14,9 +14,7 @@ import {
   type ReactElement,
 } from "react";
 
-export type JSXElementType = ElementType;
-
-export type ElementProps<E extends JSXElementType> = {
+export type ElementProps<E extends ElementType> = {
   el: E;
 } & ComponentPropsWithRef<E>;
 
@@ -27,7 +25,7 @@ export type ElementProps<E extends JSXElementType> = {
  * the underlying element.
  * @param props.el - The element type to render.
  */
-export const Element = <E extends JSXElementType>({
+export const Element = <E extends ElementType>({
   el,
   children,
   ...rest

@@ -145,7 +145,6 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
-  TbBinaryTreeFilled,
   TbDecimal,
   TbLivePhoto,
   TbPlugConnected,
@@ -373,7 +372,6 @@ export interface IconType {
   };
   TextAlign: { Left: IconFC; Center: IconFC; Right: IconFC };
   Hardware: IconFC;
-  Hierarchy: IconFC;
   Device: IconFC;
   Task: IconFC;
   Save: IconFC;
@@ -596,5 +594,4 @@ export const Icon: IconType = {
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
   Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
-  Hierarchy: wrapIcon(TbBinaryTreeFilled, "hierarchy"),
 };
