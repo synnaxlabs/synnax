@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Align, Form, Text } from "@synnaxlabs/pluto";
 import { deep, type Keyed } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -29,9 +29,10 @@ interface ChannelTypeProps {
 }
 
 const ChannelType = ({ type }: ChannelTypeProps) => (
-  <Text.WithIcon startIcon={AI_CHANNEL_TYPE_ICONS[type]} level="p">
-    {AI_CHANNEL_TYPE_NAMES[type]}
-  </Text.WithIcon>
+  <Align.Space direction="x" size="small">
+    <Text.WithIcon startIcon={AI_CHANNEL_TYPE_ICONS[type]} level="p" shade={7} />
+    <Text.Text level="p">{AI_CHANNEL_TYPE_NAMES[type]}</Text.Text>
+  </Align.Space>
 );
 
 export type SelectAIChannelTypeFieldProps = Form.DropdownButtonFieldProps<
