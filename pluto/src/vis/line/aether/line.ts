@@ -66,6 +66,7 @@ export interface FindResult {
   label?: string;
   // The units of the line.
   units?: string;
+  // The minimum and maximum values of the line.
   bounds: bounds.Bounds;
 }
 
