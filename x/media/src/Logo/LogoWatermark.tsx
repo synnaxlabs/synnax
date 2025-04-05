@@ -22,10 +22,10 @@ export interface LogoWatermarkProps extends PropsWithChildren<LogoProps> {}
  */
 export const LogoWatermark = ({
   children,
-  ...props
+  ...rest
 }: LogoWatermarkProps): ReactElement => (
   <div className="synnax-logo-watermark__container">
-    <Logo className="synnax-logo-watermark" {...props} />
+    <Logo className="synnax-logo-watermark" {...rest} />
     {children}
   </div>
 );

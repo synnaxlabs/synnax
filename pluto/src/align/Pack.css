@@ -69,18 +69,6 @@
             margin: var(--pluto-pack--x-margin);
         }
 
-        /* &.pluto-pack--small > *:not(.pluto-pack) {
-            height: var(--pluto-height-small);
-        }
-
-        &.pluto-pack--medium > *:not(.pluto-pack) {
-            height: var(--pluto-height-medium);
-        }
-
-        &.pluto-pack--large > *:not(.pluto-pack) {
-            height: var(--pluto-height-large);
-        } */
-
         > .pluto-pack.pluto--y {
             &:first-child:not(:only-child) {
                 &:not(:has(+ .pluto--hidden)) > *:first-child:not(:only-child) {

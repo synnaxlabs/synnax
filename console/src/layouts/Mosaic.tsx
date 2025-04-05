@@ -325,7 +325,7 @@ const NavTop = (): ReactElement | null => {
       startIcon={<Icon.Visualize />}
       endIcon={
         <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
-          <Triggers.Text level="small" shade={11} weight={450} trigger={["V"]} />
+          <Triggers.Text level="small" shade={11} weight={450} trigger={["v"]} />
         </Align.Space>
       }
     >

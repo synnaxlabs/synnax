@@ -24,6 +24,7 @@ button:is(:focus, :focus-within, :active, :hover) {
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
+    --pluto-height-tiny: 3rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
@@ -110,6 +111,10 @@ html {
 
 .pluto--medium {
     height: var(--pluto-height-medium);
+}
+
+.pluto--tiny {
+    height: var(--pluto-height-tiny);
 }
 
 .pluto--small {

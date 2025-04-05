@@ -135,7 +135,7 @@ export const Selector = (): ReactElement => {
                   </Input.Text>
                 )}
               </List.Search>
-              <List.Core bordered borderShade={5}>
+              <List.Core bordered borderShade={5} color="red">
                 {componentRenderProp(SelectorListItem)}
               </List.Core>
             </List.Selector>

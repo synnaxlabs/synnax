@@ -65,10 +65,8 @@ export const createBase = <R, A extends BaseArgs<R>>(
         unsubscribe = store.subscribe(() => {
           const state = store.getState();
           const l = select(state, key);
-          console.log("l", l);
           if (l == null) resolve(null);
           const args = selectArgs<A>(state, key);
-          console.log("args", args);
           if (args?.result == null) resolve(null);
           else resolve(args.result);
           unsubscribe?.();
@@ -80,7 +78,6 @@ export const createBase = <R, A extends BaseArgs<R>>(
     const args = useSelectArgs<A>(layoutKey);
     const dispatch = useDispatch();
     const handleResult = (value: R | null) => {
-      console.log("handleResult", value);
       if (value == null) return onClose();
       dispatch(
         setArgs<BaseArgs<R>>({

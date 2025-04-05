@@ -17,6 +17,11 @@ import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
+const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
+const TOOLTIP_LIST_SPACING: number = 3;
+const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
+const TOOLTIP_PADDING: xy.XY = xy.construct(6);
+
 export const tooltipStateZ = z.object({
   position: xy.xy.or(z.null()),
   textColor: color.Color.z.optional().default(color.ZERO),
@@ -117,11 +122,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     draw.list({
       root,
-      offset: { x: 12, y: 12 },
+      offset: TOOLTIP_LIST_OFFSET,
       length: values.length + 1,
-      padding: { x: 6, y: 6 },
-      itemHeight: 14,
-      spacing: 3,
+      padding: TOOLTIP_PADDING,
+      itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
+      spacing: TOOLTIP_LIST_SPACING,
       width: maxLabelLength * 7 + 48,
       position: this.state.position,
       draw: (i, b) => {
@@ -145,7 +150,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           color,
         });
         draw.text({
-          position: box.topRight(b),
+          position: xy.translateY(box.topRight(b), -1),
           text: value,
           level: "small",
           justify: "right",
