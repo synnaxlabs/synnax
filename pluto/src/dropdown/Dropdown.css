@@ -27,7 +27,6 @@
 
 .pluto-dropdown__dialog {
     position: fixed;
-    box-shadow: var(--pluto-shadow-v1);
     overflow: hidden;
     &.pluto--bordered {
         border: var(--pluto-border-l5);
@@ -43,6 +42,7 @@
 
     &:not(.pluto--modal) {
         background: var(--pluto-gray-l1);
+        box-shadow: var(--pluto-shadow-v1);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;

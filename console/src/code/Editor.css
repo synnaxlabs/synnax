@@ -51,11 +51,12 @@ using the default for now.  */
 .console-editor {
     height: 100%;
     background: var(--pluto-gray-l1);
-    padding: 2rem 0;
+    padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
     &:has(.focused) {
         box-sizing: border-box !important;
         border-color: var(--pluto-primary-z);
         border-width: 1px;
+        padding: calc(2rem - 0.5px) 0.5px;
     }
 }

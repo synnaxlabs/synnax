@@ -39,19 +39,21 @@
         & > div {
             position: relative;
             z-index: 11;
-            background: var(--pluto-gray-l0);
-            box-shadow: var(--pluto-shadow-v3);
             min-width: 400px;
             min-height: 150px;
-            border-radius: 1rem;
             overflow: hidden;
-
-            & > div:first-child {
-                border-radius: 1rem 1rem 0 0;
+            & > * {
+                background: var(--pluto-gray-l0);
             }
 
-            & > div:last-child {
-                border-radius: 0 0 1rem 1rem;
+            & > *:first-child {
+                border-top-left-radius: 1rem;
+                border-top-right-radius: 1rem;
+            }
+
+            & > *:last-child {
+                border-bottom-left-radius: 1rem;
+                border-bottom-right-radius: 1rem;
             }
         }
 
