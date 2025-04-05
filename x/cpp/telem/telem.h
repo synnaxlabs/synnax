@@ -297,12 +297,10 @@ public:
         // note that on some machines, hig-res clock refs system_clock and on others
         // it references steady_clock. This could create a problem so we should
         // probably use system_clock.
-        return TimeStamp(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-            )
-                .count()
-        );
+        return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::system_clock::now().time_since_epoch()
+        )
+                             .count());
     }
 
     TimeStamp static midpoint(const TimeStamp &start, const TimeStamp &end) {
@@ -571,8 +569,7 @@ template<typename T>
                     try {
                         return TimeStamp(std::stoll(arg));
                     } catch (...) {
-                        throw std::runtime_error(
-                            "failed to convert string to TimeStamp"
+                        throw std::runtime_error("failed to convert string to TimeStamp"
                         );
                     }
                 }

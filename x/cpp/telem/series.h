@@ -215,8 +215,7 @@ public:
         data_type_(telem::DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
-        data(
-            std::make_unique<std::byte[]>(this->size() * this->data_type().density())
+        data(std::make_unique<std::byte[]>(this->size() * this->data_type().density())
         ) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
@@ -468,8 +467,7 @@ public:
         if constexpr (std::is_same_v<T, std::string> ||
                       std::is_same_v<T, const char *> || std::is_same_v<T, char *>) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
-                throw std::runtime_error(
-                    "cannot write string to non-string/JSON series"
+                throw std::runtime_error("cannot write string to non-string/JSON series"
                 );
             if (this->size() >= this->cap()) return 0;
 
