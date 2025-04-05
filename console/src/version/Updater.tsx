@@ -27,11 +27,12 @@ export const useCheckForUpdates = (): boolean => {
   const isSilenced = useSelectUpdateNotificationsSilenced();
   const [available, setAvailable] = useState(false);
 
-  const checkForUpdates = async (addNotifications: boolean) => {
+  const checkForUpdates = async (addNotification: boolean) => {
+    if (available) return;
     const update = await check();
-    if (update?.available !== true || available) return;
+    if (update == null) return;
     setAvailable(true);
-    if (addNotifications)
+    if (addNotification)
       addStatus({
         key: `${STATUS_KEY_PREFIX}-${id.create()}`,
         variant: "info",
