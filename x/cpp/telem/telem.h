@@ -56,9 +56,6 @@ public:
     /// @brief returns the number of nanoseconds in the timespan.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
-    ////////////////////////////////// INT64 OPERATORS
-    ////////////////////////////////////
-
     bool operator==(const std::int64_t &other) const { return value == other; }
 
     bool operator!=(const std::int64_t &other) const { return value != other; }
@@ -133,9 +130,6 @@ public:
         return TimeSpan(value / other);
     }
 
-    ///////////////////////////////// TIME SPAN OPERATORS
-    /////////////////////////////////
-
     bool operator==(const TimeSpan &other) const { return value == other.value; }
     bool operator!=(const TimeSpan &other) const { return value != other.value; }
     bool operator<(const TimeSpan &other) const { return value < other.value; }
@@ -167,9 +161,6 @@ public:
     TimeSpan operator%(const TimeSpan &other) const {
         return TimeSpan(value % other.value);
     }
-
-    ///////////////////////////// MISC TYPED OPERATORS
-    /////////////////////////////////
 
     TimeSpan operator*(const size_t &other) const {
         return TimeSpan(value * static_cast<std::int64_t>(other));
@@ -316,9 +307,6 @@ public:
         return TimeStamp(start + (end - start) / 2);
     }
 
-    //////////////////////////////// TIMESTAMP OPERATORS
-    ///////////////////////////////////
-
     bool operator==(const TimeStamp &other) const { return value == other.value; }
 
     bool operator!=(const TimeStamp &other) const { return value != other.value; }
@@ -379,15 +367,9 @@ public:
         return TimeStamp(value + other.value);
     }
 
-    /////////////////////////////////// INT OPERATORS
-    /////////////////////////////////////
-
     bool operator==(const int &other) const { return value == other; }
 
     bool operator!=(const int &other) const { return value != other; }
-
-    /////////////////////////////////// INT64 OPERATORS
-    ///////////////////////////////////
 
     friend TimeStamp operator+(const std::int64_t &lhs, const TimeStamp &rhs) {
         return TimeStamp(lhs + rhs.value);
@@ -451,9 +433,6 @@ public:
     explicit Rate(const TimeSpan period):
         value(static_cast<float>(1 / period.seconds())) {}
 
-    ///////////////////////////////// RATE OPERATORS
-    ///////////////////////////////////
-
     bool operator==(const Rate &other) const { return value == other.value; }
 
     bool operator!=(const Rate &other) const { return value != other.value; }
@@ -475,9 +454,6 @@ public:
     size_t operator/(const Rate &other) const { return value / other.value; }
 
 
-    ////// //////////////////////// FLOAT OPERATORS
-    //////////////////////////////////////
-
     friend Rate operator+(const float &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
@@ -497,9 +473,6 @@ public:
     Rate operator*(const float &other) const { return Rate(value * other); }
 
     Rate operator/(const float &other) const { return Rate(value / other); }
-
-    ////////////////////////////////// MISC OPERATORS
-    ////////////////////////////////////
 
     Rate operator/(const int &other) const {
         return Rate(value / static_cast<float>(other));
@@ -817,9 +790,6 @@ public:
     }
 
 
-    /////////////////////////////////// COMPARISON
-    /// H///////////////////////////////////
-
     bool operator==(const DataType &other) const { return value == other.value; }
 
     bool operator==(const std::string &other) const { return value == other; }
@@ -844,9 +814,6 @@ public:
 
     bool operator>=(const std::string &other) const { return value >= other; }
 
-    ////////////////////////////////// ADDITION OPERATORS
-    ////////////////////////////////////
-
     /// @brief Concatenates this DataType with another DataType
     /// @param other The DataType to concatenate with
     /// @returns A string with the concatenated values
@@ -864,8 +831,6 @@ public:
     friend std::string operator+(const std::string &lhs, const DataType &rhs) {
         return lhs + rhs.value;
     }
-
-    ////////////////////////////////// OSTREAM /////////////////////////////////
 
     friend std::ostream &operator<<(std::ostream &os, const DataType &dt) {
         os << dt.value;

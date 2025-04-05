@@ -38,6 +38,16 @@ if ! command -v clang-format &> /dev/null; then
   exit 1
 fi
 
+# Read ignore patterns from .clang-format-ignore
+ignore_file="$path/.clang-format-ignore"
+if [ -f "$ignore_file" ]; then
+  while IFS= read -r pattern || [ -n "$pattern" ]; do
+    # Skip empty lines and comments
+    [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
+    files=$(echo "$files" | grep -v -E "$pattern")
+  done < "$ignore_file"
+fi
+
 # Format all files and report
 formatted_count=0
 for file in $files; do
@@ -52,4 +62,4 @@ for file in $files; do
 done
 
 echo "Completed! Formatted $formatted_count files."
-exit 0 
+exit 0
