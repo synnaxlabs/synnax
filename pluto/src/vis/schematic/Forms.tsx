@@ -407,6 +407,36 @@ export const TankForm = ({
   </FormWrapper>
 );
 
+export interface PolygonFormProps {
+  numSides: number;
+}
+
+export const PolygonForm = ({ numSides }: PolygonFormProps): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.NumericField path="rotation" label="Rotation (deg)" grow />
+      </Align.Space>
+      <Align.Space direction="x" wrap>
+        {Array.from({ length: numSides }).map((_, i) => (
+          <Form.NumericField
+            key={i}
+            path={`sideLengths.${i}`}
+            label={`Side ${i + 1}`}
+            grow
+          />
+        ))}
+      </Align.Space>
+      <OrientationControl path="" hideInner />
+    </Align.Space>
+  </FormWrapper>
+);
+
+export const TriangleForm = () => <PolygonForm numSides={3} />;
+
 const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },
   { tabKey: "telemetry", name: "Telemetry" },

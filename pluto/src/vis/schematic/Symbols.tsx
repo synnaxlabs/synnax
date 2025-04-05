@@ -523,8 +523,8 @@ export interface BoxProps extends Omit<TankProps, "borderRadius"> {
 
 export const Triangle = createLabeled(
   ({
-    sideLengths = 100,
-    rotation = 0,
+    sideLengths,
+    rotation,
     color,
     backgroundColor,
     numSides,

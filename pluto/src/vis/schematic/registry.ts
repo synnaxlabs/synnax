@@ -29,6 +29,7 @@ import {
   TankForm,
   TextBoxForm,
   ValueForm,
+  TriangleForm,
 } from "@/vis/schematic/Forms";
 import { Primitives } from "@/vis/schematic/primitives";
 import {
@@ -630,15 +631,15 @@ const tank: Spec<TankProps> = {
 const triangle: Spec<Primitives.PolygonProps> = {
   name: "Triangle",
   key: "triangle",
-  Symbol: Triangle,  // your Triangle symbol
-  Form: CommonToggleForm,    // using existing form temporarily
+  Symbol: Triangle,
+  Form: TriangleForm,
   defaultProps: (t) => ({
-    sideLengths: 100,              // default side length
-    rotation: 0,                   // no rotation by default
-    numSides: 3,                   // explicitly 3 sides
+    sideLengths: [100, 100, 100],
+    rotation: 0,
+    numSides: 3,
     color: t.colors.gray.l9.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
-    ...zeroLabel("Triangle"),      // helper adds label defaults
+    ...zeroLabel("Triangle"),
   }),
   Preview: removeProps(Primitives.Polygon, ["clickable"]),
   zIndex: Z_INDEX_LOWER,
