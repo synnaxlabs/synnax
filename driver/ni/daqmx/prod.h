@@ -5265,4 +5265,4 @@ private:
     FunctionPointers function_pointers_{};
     std::unique_ptr<xlib::SharedLib> lib;
 };
-} // namespace daqmx
+}

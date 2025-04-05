@@ -38,9 +38,38 @@ if ! command -v clang-format &> /dev/null; then
   exit 1
 fi
 
+# Use the root .clang-format-ignore file
+ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
+
+# Create an array to store files to check
+declare -a files_to_check=()
+
+while IFS= read -r file; do
+    should_check=true
+    
+    while IFS= read -r pattern || [ -n "$pattern" ]; do
+        # Skip empty lines and comments
+        [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
+        
+        # Clean up pattern
+        pattern=$(echo "$pattern" | tr -d '[:space:]')
+        filename=$(basename "$file")
+        
+        if [[ "$filename" == "$pattern" ]]; then
+            echo "Skipping $file (ignored by pattern $pattern)..."
+            should_check=false
+            break
+        fi
+    done < "$ignore_file"
+    
+    if [ "$should_check" = true ]; then
+        files_to_check+=("$file")
+    fi
+done <<< "$files"
+
 # Check if any files need formatting
 needs_formatting=false
-for file in $files; do
+for file in "${files_to_check[@]}"; do
   # Prepend path to the file to get the correct absolute path
   full_path="$path/$file"
   

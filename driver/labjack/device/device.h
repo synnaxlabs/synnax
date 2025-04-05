@@ -299,4 +299,4 @@ public:
         return {dev, xerrors::NIL};
     }
 };
-} // namespace device
+}

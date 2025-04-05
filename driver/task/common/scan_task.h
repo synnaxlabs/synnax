@@ -260,4 +260,4 @@ public:
 
     void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
 };
-} // namespace common
+}

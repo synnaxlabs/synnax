@@ -61,4 +61,4 @@ xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
 void Streamer::assert_open() const {
     if (closed) throw std::runtime_error("streamer is closed");
 }
-} // namespace synnax
+}

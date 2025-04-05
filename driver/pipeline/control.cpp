@@ -103,4 +103,4 @@ SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
     if (err) return {nullptr, err};
     return {std::make_unique<SynnaxStreamer>(std::move(ss)), xerrors::NIL};
 }
-} // namespace pipeline
+}

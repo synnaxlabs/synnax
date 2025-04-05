@@ -40,4 +40,4 @@ inline std::string bool_to_str(const bool b) {
 inline std::string sensitive_string(const std::string &s) {
     return std::string(s.length(), '*');
 }
-} // namespace xlog
+}

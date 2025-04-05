@@ -244,4 +244,4 @@ private:
     /// @brief transport for creating channels.
     std::unique_ptr<ChannelCreateClient> create_client;
 };
-} // namespace synnax
+}

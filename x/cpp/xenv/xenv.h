@@ -80,4 +80,4 @@ inline int unset(const std::string &name) {
     return unsetenv(name.c_str());
 #endif
 }
-} // namespace xenv
+}

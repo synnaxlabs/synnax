@@ -545,4 +545,4 @@ private:
     /// @brief Device deletion transport.
     std::shared_ptr<HardwareDeleteDeviceClient> device_delete_client;
 };
-} // namespace synnax
+}

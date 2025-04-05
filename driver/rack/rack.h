@@ -204,4 +204,4 @@ public:
     /// @brief stops the rack.
     xerrors::Error stop();
 };
-} // namespace rack
+}

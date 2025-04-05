@@ -78,4 +78,4 @@ public:
         const synnax::Rack &rack
     ) override;
 };
-} // namespace labjack
+}

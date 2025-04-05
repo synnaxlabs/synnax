@@ -47,7 +47,7 @@ inline std::string read_file(const std::string &path) {
     fclose(f);
     return data;
 }
-} // namespace priv
+}
 
 namespace fgrpc {
 class Pool {
@@ -335,4 +335,4 @@ public:
         return {res_ctx, xerrors::NIL, std::move(stream)};
     }
 };
-} // namespace fgrpc
+}

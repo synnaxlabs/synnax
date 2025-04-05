@@ -129,4 +129,4 @@ public:
         cfg(std::move(cfg)),
         device_manager(std::move(device_manager)) {}
 };
-} // namespace labjack
+}

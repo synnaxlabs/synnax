@@ -71,6 +71,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
         exclude:
           - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
           - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
@@ -85,6 +88,10 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+
+      - name: Check Formatting
+        if: matrix.format
+        run: bash scripts/check-clang-format.sh freighter/cpp
 
       - name: Test
         run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results

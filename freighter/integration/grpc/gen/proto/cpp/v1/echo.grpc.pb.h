@@ -415,7 +415,7 @@ public:
     typedef WithStreamedUnaryMethod_Exec<Service> StreamedService;
 };
 
-}} // namespace integration::v1
+}}
 
 
 #endif // GRPC_v1_2fecho_2eproto__INCLUDED
