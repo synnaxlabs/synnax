@@ -14,7 +14,7 @@ import { type Optional } from "@synnaxlabs/x";
 import { CSS } from "@/css";
 
 export interface ChannelNameProps
-  extends Optional<Text.WithIconProps<"div", Text.Level>, "level"> {
+  extends Optional<Text.TextProps<Text.Level>, "level"> {
   channel: channel.Key;
   defaultName?: string;
 }
@@ -26,13 +26,13 @@ export const ChannelName = ({
 }: ChannelNameProps) => {
   const name = Channel.useName(channel, defaultName);
   return (
-    <Text.WithIcon
+    <Text.Text
       className={CSS.BE("task", "channel-name")}
-      color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
+      color={channel ? undefined : "var(--pluto-warning-m1)"}
       level="small"
       {...rest}
     >
       {name}
-    </Text.WithIcon>
+    </Text.Text>
   );
 };
