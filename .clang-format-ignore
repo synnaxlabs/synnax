@@ -2,9 +2,6 @@
 *.pb.h
 *.pb.c
 *.pb.c++
-*.pb.c++
-*.pb.c++
-*.pb.c++
 nisyscfg.h
 nidaqmx.h
 LabJackM.h

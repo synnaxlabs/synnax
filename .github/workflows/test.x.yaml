@@ -141,10 +141,6 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install clang-format
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y clang-format
-
       - name: Check Formatting
         if: matrix.format
         run: bash scripts/check-clang-format.sh x/cpp
