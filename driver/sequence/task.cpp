@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/sequence/sequence.h"
-#include "x/cpp/loop/loop.h";
+#include "x/cpp/loop/loop.h"
 
 sequence::Task::Task(
     const std::shared_ptr<task::Context> &ctx,

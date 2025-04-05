@@ -104,7 +104,7 @@ jobs:
           repository-cache: true
 
       - name: Check Formatting
-        run: bash scripts/check-clang-format.sh driver/cpp
+        run: bash scripts/check-clang-format.sh driver
 
       - name: Test Driver
         run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results

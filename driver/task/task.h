@@ -14,6 +14,7 @@
 #include <memory>
 #include <thread>
 #include <utility>
+#include <mutex>
 
 /// external
 #include "glog/logging.h"

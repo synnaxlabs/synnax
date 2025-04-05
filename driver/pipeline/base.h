@@ -75,3 +75,4 @@ public:
     /// called but the pipeline has not stopped yet.
     bool running() const { return this->breaker.running(); }
 };
+}
