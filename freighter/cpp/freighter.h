@@ -312,4 +312,4 @@ public:
 
     virtual ~StreamClient() = default;
 };
-} // namespace freighter
+}

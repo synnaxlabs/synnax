@@ -70,4 +70,4 @@ int32_t inline parse_units(xjson::Parser &cfg, const std::string &path) {
     if (units == UNITS_MAP.end()) cfg.field_err(path, "invalid units: " + str_units);
     return units->second;
 }
-} // namespace channel
+}

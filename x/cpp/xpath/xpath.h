@@ -25,4 +25,4 @@ inline std::string resolve_relative(const std::string &path) {
     const std::filesystem::path relative(path);
     return (base / relative).lexically_normal().string();
 }
-} // namespace xpath
+}

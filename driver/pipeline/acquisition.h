@@ -171,4 +171,4 @@ public:
         const breaker::Config &breaker_config
     );
 };
-} // namespace pipeline
+}

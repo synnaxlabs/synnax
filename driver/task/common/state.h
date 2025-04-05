@@ -122,4 +122,4 @@ inline void handle_config_err(
     }
     ctx->set_state(state);
 }
-} // namespace common
+}

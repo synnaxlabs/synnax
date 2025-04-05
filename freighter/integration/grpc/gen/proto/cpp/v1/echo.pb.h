@@ -50,7 +50,7 @@
 
 namespace google { namespace protobuf { namespace internal {
 class AnyMetadata;
-}}} // namespace google::protobuf::internal
+}}}
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_v1_2fecho_2eproto {
@@ -62,9 +62,9 @@ namespace integration { namespace v1 {
 class Message;
 struct MessageDefaultTypeInternal;
 extern MessageDefaultTypeInternal _Message_default_instance_;
-}} // namespace integration::v1
+}}
 namespace google { namespace protobuf {
-}} // namespace google::protobuf
+}}
 
 namespace integration { namespace v1 {
 
@@ -347,7 +347,7 @@ inline void Message::set_allocated_message(std::string *value) {
 #endif // __GNUC__
 
 // @@protoc_insertion_point(namespace_scope)
-}} // namespace integration::v1
+}}
 
 
 // @@protoc_insertion_point(global_scope)

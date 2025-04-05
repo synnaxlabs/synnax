@@ -66,4 +66,4 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
 
     return {std::move(series), xerrors::NIL};
 }
-} // namespace util
+}

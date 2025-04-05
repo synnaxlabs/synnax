@@ -146,4 +146,4 @@ class Factory final : public task::Factory {
         return tasks;
     }
 };
-} // namespace heartbeat
+}

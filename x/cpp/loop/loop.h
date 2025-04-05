@@ -120,4 +120,4 @@ private:
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
 };
-} // namespace loop
+}

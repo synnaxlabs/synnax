@@ -107,4 +107,4 @@ public:
         UA_Server_delete(server);
     }
 };
-} // namespace mock
+}

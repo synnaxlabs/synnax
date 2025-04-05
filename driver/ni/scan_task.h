@@ -144,4 +144,4 @@ public:
 
     xerrors::Error stop() override;
 };
-} // namespace ni
+}

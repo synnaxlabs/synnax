@@ -242,4 +242,4 @@ inline void generate_index_data(
         s.write(index_data);
     }
 }
-} // namespace common
+}

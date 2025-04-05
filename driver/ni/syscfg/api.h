@@ -84,4 +84,4 @@ public:
 
     virtual NISYSCFGCFUNC FreeDetailedStringW(wchar_t str[]) = 0;
 };
-} // namespace syscfg
+}

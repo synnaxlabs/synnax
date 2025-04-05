@@ -76,4 +76,5 @@ SpaceBeforeParens: ControlStatements
 BreakBeforeTernaryOperators: true
 SpaceBeforeCtorInitializerColon: false
 AlwaysBreakBeforeMultilineStrings: false
+FixNamespaceComments: false
 ...

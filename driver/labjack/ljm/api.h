@@ -256,4 +256,4 @@ public:
             .eStreamStart(dev_handle, scans_per_read, num_addrs, scan_list, scan_rate);
     }
 };
-} // namespace ljm
+}
