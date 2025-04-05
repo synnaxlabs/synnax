@@ -12,9 +12,9 @@
 /// std
 #include <future>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
-#include <mutex>
 
 /// external
 #include "glog/logging.h"
