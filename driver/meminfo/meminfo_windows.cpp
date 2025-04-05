@@ -11,9 +11,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-#include <psapi.h>
 #include <iostream>
+#include <psapi.h>
+#include <windows.h>
 
 std::uint32_t meminfo::getUsage() {
     PROCESS_MEMORY_COUNTERS pmc;

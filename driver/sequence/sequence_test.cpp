@@ -16,10 +16,10 @@
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/sequence/sequence.h"
-#include "driver/sequence/plugins/plugins.h"
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/mock/plugins.h"
+#include "driver/sequence/plugins/plugins.h"
+#include "driver/sequence/sequence.h"
 
 /// @brief it should executed a basic sequence.
 TEST(Sequence, nominal) {
@@ -29,11 +29,15 @@ TEST(Sequence, nominal) {
     read_channel.name = "read_channel";
     read_channel.data_type = telem::FLOAT64_T;
     auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame> >();
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     reads->push_back(std::move(fr_1));
-    auto streamer_factory = pipeline::mock::simple_streamer_factory({read_channel.key}, reads);
+    auto streamer_factory = pipeline::mock::simple_streamer_factory(
+        {read_channel.key},
+        reads
+    );
     auto ch_receive_plugin = std::make_shared<plugins::ChannelReceive>(
-        streamer_factory, std::vector{read_channel}
+        streamer_factory,
+        std::vector{read_channel}
     );
 
     // Write pipeline
@@ -43,11 +47,15 @@ TEST(Sequence, nominal) {
     write_channel.data_type = telem::FLOAT64_T;
     auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
-        mock_sink, std::vector{write_channel});
+        mock_sink,
+        std::vector{write_channel}
+    );
     auto plugins = std::make_shared<plugins::MultiPlugin>(
-        std::vector<std::shared_ptr<plugins::Plugin> >{
-            ch_receive_plugin, ch_write_plugin
-        });
+        std::vector<std::shared_ptr<plugins::Plugin>>{
+            ch_receive_plugin,
+            ch_write_plugin
+        }
+    );
 
 
     const auto script = R"(
@@ -77,8 +85,9 @@ TEST(Sequence, nominal) {
 /// @brief it should correctly return an error when the script fails to compile.
 TEST(Sequence, compileError) {
     auto plugins = std::make_shared<plugins::MultiPlugin>(
-        std::vector<std::shared_ptr<plugins::Plugin> >{});
-    
+        std::vector<std::shared_ptr<plugins::Plugin>>{}
+    );
+
     // Invalid Lua syntax
     const auto script = R"(
         if read_channel = nil then  -- incorrect equality operator
@@ -96,7 +105,8 @@ TEST(Sequence, compileError) {
 /// nil
 TEST(Sequence, compareNil) {
     auto plugins = std::make_shared<plugins::MultiPlugin>(
-        std::vector<std::shared_ptr<plugins::Plugin> >{});
+        std::vector<std::shared_ptr<plugins::Plugin>>{}
+    );
     const auto script = R"(
         if 42 > nil then
             return
@@ -120,16 +130,20 @@ TEST(Sequence, restart) {
     read_channel.key = 2;
     read_channel.name = "read_channel";
     read_channel.data_type = telem::FLOAT64_T;
-    
+
     auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
     auto fr_2 = synnax::Frame(read_channel.key, telem::Series(2.0));
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    
-    auto streamer_factory = pipeline::mock::simple_streamer_factory({read_channel.key}, reads);
+
+    auto streamer_factory = pipeline::mock::simple_streamer_factory(
+        {read_channel.key},
+        reads
+    );
     auto ch_receive_plugin = std::make_shared<plugins::ChannelReceive>(
-        streamer_factory, std::vector{read_channel}
+        streamer_factory,
+        std::vector{read_channel}
     );
 
     // Setup write pipeline
@@ -139,12 +153,16 @@ TEST(Sequence, restart) {
     write_channel.data_type = telem::FLOAT64_T;
     auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
-        mock_sink, std::vector{write_channel});
+        mock_sink,
+        std::vector{write_channel}
+    );
 
     auto plugins = std::make_shared<plugins::MultiPlugin>(
         std::vector<std::shared_ptr<plugins::Plugin>>{
-            ch_receive_plugin, ch_write_plugin
-        });
+            ch_receive_plugin,
+            ch_write_plugin
+        }
+    );
 
     const auto script = R"(
         if read_channel == nil then
@@ -168,7 +186,7 @@ TEST(Sequence, restart) {
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 
     auto curr_size = mock_sink->writes->size();
-    
+
     auto check_writes_2 = [&]() -> size_t {
         auto _ = seq.next();
         return mock_sink->writes->size();

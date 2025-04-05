@@ -8,31 +8,31 @@
 // included in the file licenses/APL.txt.
 
 #include <open62541/client_highlevel.h>
-#include <open62541/plugin/log_stdout.h>
-#include <open62541/plugin/create_certificate.h>
 #include <open62541/plugin/accesscontrol_default.h>
+#include <open62541/plugin/create_certificate.h>
+#include <open62541/plugin/log_stdout.h>
 #include <open62541/plugin/securitypolicy.h>
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 
-#include <signal.h>
-#include <stdlib.h>
-#include <open62541/types.h>
-#include <stdio.h>
 #include <errno.h>
+#include <open62541/types.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 // #include <unistd.h> // For getcwd
 #include <iostream>
 
 
 /* sleep_ms */
 #ifdef _WIN32
-# include <synchapi.h>
-# define sleep_ms(ms) Sleep(ms)
+#include <synchapi.h>
+#define sleep_ms(ms) Sleep(ms)
 #else
 
-# include <unistd.h>
+#include <unistd.h>
 
-# define sleep_ms(ms) usleep(ms * 1000)
+#define sleep_ms(ms) usleep(ms * 1000)
 #endif
 
 /* loadFile parses the certificate file.
@@ -59,10 +59,9 @@ load_file(const char *const path) {
     fileContents.data = (UA_Byte *) UA_malloc(fileContents.length * sizeof(UA_Byte));
     if (fileContents.data) {
         fseek(fp, 0, SEEK_SET);
-        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length,
-                            fp);
-        if (read != fileContents.length)
-            UA_ByteString_clear(&fileContents);
+        size_t
+            read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
+        if (read != fileContents.length) UA_ByteString_clear(&fileContents);
     } else {
         fileContents.length = 0;
     }
@@ -77,8 +76,7 @@ writeFile(const char *const path, const UA_ByteString buffer) {
     FILE *fp = NULL;
 
     fp = fopen(path, "wb");
-    if (fp == NULL)
-        return UA_STATUSCODE_BADINTERNALERROR;
+    if (fp == NULL) return UA_STATUSCODE_BADINTERNALERROR;
 
     for (UA_UInt32 bufIndex = 0; bufIndex < buffer.length; bufIndex++) {
         int retVal = fputc(buffer.data[bufIndex], fp);
@@ -100,49 +98,62 @@ static void stopHandler(int sig) {
 }
 
 
-static UA_Boolean
-allowAddNode(UA_Server *server, UA_AccessControl *ac,
-             const UA_NodeId *sessionId, void *sessionContext,
-             const UA_AddNodesItem *item) {
+static UA_Boolean allowAddNode(
+    UA_Server *server,
+    UA_AccessControl *ac,
+    const UA_NodeId *sessionId,
+    void *sessionContext,
+    const UA_AddNodesItem *item
+) {
     printf("Called allowAddNode\n");
     return UA_TRUE;
 }
 
-static UA_Boolean
-allowAddReference(UA_Server *server, UA_AccessControl *ac,
-                  const UA_NodeId *sessionId, void *sessionContext,
-                  const UA_AddReferencesItem *item) {
+static UA_Boolean allowAddReference(
+    UA_Server *server,
+    UA_AccessControl *ac,
+    const UA_NodeId *sessionId,
+    void *sessionContext,
+    const UA_AddReferencesItem *item
+) {
     printf("Called allowAddReference\n");
     return UA_TRUE;
 }
 
-static UA_Boolean
-allowDeleteNode(UA_Server *server, UA_AccessControl *ac,
-                const UA_NodeId *sessionId, void *sessionContext,
-                const UA_DeleteNodesItem *item) {
+static UA_Boolean allowDeleteNode(
+    UA_Server *server,
+    UA_AccessControl *ac,
+    const UA_NodeId *sessionId,
+    void *sessionContext,
+    const UA_DeleteNodesItem *item
+) {
     printf("Called allowDeleteNode\n");
     return UA_FALSE; // Do not allow deletion from client
 }
 
-static UA_Boolean
-allowDeleteReference(UA_Server *server, UA_AccessControl *ac,
-                     const UA_NodeId *sessionId, void *sessionContext,
-                     const UA_DeleteReferencesItem *item) {
+static UA_Boolean allowDeleteReference(
+    UA_Server *server,
+    UA_AccessControl *ac,
+    const UA_NodeId *sessionId,
+    void *sessionContext,
+    const UA_DeleteReferencesItem *item
+) {
     printf("Called allowDeleteReference\n");
     return UA_TRUE;
 }
 
 static UA_UsernamePasswordLogin userNamePW[2] = {
-        {UA_STRING_STATIC("peter"), UA_STRING_STATIC("peter123")},
-        {UA_STRING_STATIC("paula"), UA_STRING_STATIC("paula123")}
+    {UA_STRING_STATIC("peter"), UA_STRING_STATIC("peter123")},
+    {UA_STRING_STATIC("paula"), UA_STRING_STATIC("paula123")}
 };
 
 static void setCustomAccessControl(UA_ServerConfig *config) {
     /* Use the default AccessControl plugin as the starting point */
     UA_Boolean allowAnonymous = false;
     UA_String encryptionPolicy = UA_STRING_STATIC(
-            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
-    //config->securityPolicies[config->securityPoliciesSize-1].policyUri;
+        "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256"
+    );
+    // config->securityPolicies[config->securityPoliciesSize-1].policyUri;
     config->accessControl.clear(&config->accessControl);
     UA_AccessControl_default(config, allowAnonymous, &encryptionPolicy, 2, userNamePW);
 
@@ -165,8 +176,7 @@ int main(int argc, char *argv[]) {
     }
     /* Load the trustlist */
     size_t trustListSize = 0;
-    if (argc > 3)
-        trustListSize = (size_t) argc - 3;
+    if (argc > 3) trustListSize = (size_t) argc - 3;
     UA_STACKARRAY(UA_ByteString, trustList, trustListSize + 1);
     for (size_t i = 0; i < trustListSize; i++)
         trustList[i] = load_file(argv[i + 3]);
@@ -183,21 +193,28 @@ int main(int argc, char *argv[]) {
     UA_ServerConfig *config = UA_Server_getConfig(server);
     // config->allowNonePolicyPassword = true;
 
-    UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4841,
-                                                                          &certificate,
-                                                                          &privateKey,
-                                                                          trustList,
-                                                                          trustListSize,
-                                                                          issuerList,
-                                                                          issuerListSize,
-                                                                          revocationList,
-                                                                          revocationListSize);
+    UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(
+        config,
+        4841,
+        &certificate,
+        &privateKey,
+        trustList,
+        trustListSize,
+        issuerList,
+        issuerListSize,
+        revocationList,
+        revocationListSize
+    );
     if (retval != UA_STATUSCODE_GOOD) {
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
-                     "Error setting up the server with security policies");
+        UA_LOG_ERROR(
+            UA_Log_Stdout,
+            UA_LOGCATEGORY_SERVER,
+            "Error setting up the server with security policies"
+        );
     }
     // set the security policy URI
-    char securityPolicyUriString[] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
+    char securityPolicyUriString
+        [] = "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256";
     UA_String securityPolicyUri = UA_STRING(securityPolicyUriString);
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
@@ -208,9 +225,17 @@ int main(int argc, char *argv[]) {
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
     UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-    UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
-                              parentReferenceNodeId, myIntegerName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myIntegerNodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myIntegerName,
+        UA_NODEID_NULL,
+        attr,
+        NULL,
+        NULL
+    );
 
     // // add another variable node to the adresspace
     UA_VariableAttributes attr2 = UA_VariableAttributes_default;
@@ -221,9 +246,17 @@ int main(int argc, char *argv[]) {
     attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
     UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");
-    UA_Server_addVariableNode(server, myDoubleNodeId, parentNodeId,
-                              parentReferenceNodeId, myDoubleName,
-                              UA_NODEID_NULL, attr2, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myDoubleNodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myDoubleName,
+        UA_NODEID_NULL,
+        attr2,
+        NULL,
+        NULL
+    );
 
     // add a uint8 variable node to the adresspace
     UA_VariableAttributes attr3 = UA_VariableAttributes_default;
@@ -234,21 +267,27 @@ int main(int argc, char *argv[]) {
     attr3.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myUInt8NodeId = UA_NODEID_STRING_ALLOC(1, "the.answer3");
     UA_QualifiedName myUInt8Name = UA_QUALIFIEDNAME_ALLOC(1, "the answer 3");
-    UA_Server_addVariableNode(server, myUInt8NodeId, parentNodeId,
-                              parentReferenceNodeId, myUInt8Name,
-                              UA_NODEID_NULL, attr3, NULL, NULL);
-                              
+    UA_Server_addVariableNode(
+        server,
+        myUInt8NodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myUInt8Name,
+        UA_NODEID_NULL,
+        attr3,
+        NULL,
+        NULL
+    );
+
 
     setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
     for (size_t i = 0; i < trustListSize; i++)
         UA_ByteString_clear(&trustList[i]);
-    if (retval != UA_STATUSCODE_GOOD)
-        goto cleanup;
+    if (retval != UA_STATUSCODE_GOOD) goto cleanup;
 
-    if (!running)
-        goto cleanup; /* received ctrl-c already */
+    if (!running) goto cleanup; /* received ctrl-c already */
 
     // add a variable node to the adresspace
 
@@ -260,7 +299,7 @@ int main(int argc, char *argv[]) {
 
     retval = UA_Server_run(server, &running);
 
-    cleanup:
+cleanup:
     UA_Server_delete(server);
     return retval == UA_STATUSCODE_GOOD ? EXIT_SUCCESS : EXIT_FAILURE;
 }

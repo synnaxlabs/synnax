@@ -9,8 +9,8 @@
 
 #include "client/cpp/auth/auth.h"
 
-#include <memory>
 #include <gtest/gtest.h>
+#include <memory>
 
 #include "freighter/cpp/mock/mock.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
@@ -19,10 +19,11 @@
 TEST(TestAuth, testLoginHappyPath) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<MockUnaryClient<
-        api::v1::LoginRequest,
-        api::v1::LoginResponse
-    > >(res, xerrors::NIL);
+    auto mock_login_client = std::make_unique<
+        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
+        res,
+        xerrors::NIL
+    );
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
@@ -40,10 +41,11 @@ TEST(TestAuth, testLoginHappyPath) {
 TEST(TestAuth, testLoginInvalidCredentials) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<MockUnaryClient<
-        api::v1::LoginRequest,
-        api::v1::LoginResponse
-    > >(res, xerrors::Error(INVALID_CREDENTIALS, ""));
+    auto mock_login_client = std::make_unique<
+        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
+        res,
+        xerrors::Error(INVALID_CREDENTIALS, "")
+    );
     auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
@@ -62,10 +64,8 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 TEST(TestAuth, testLoginRetry) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<MockUnaryClient<
-        api::v1::LoginRequest,
-        api::v1::LoginResponse
-    >>(
+    auto mock_login_client = std::make_unique<
+        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         std::vector<api::v1::LoginResponse>{res, res},
         std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
     );
@@ -76,8 +76,8 @@ TEST(TestAuth, testLoginRetry) {
         5 * telem::SECOND
     );
     auto mock_client = MockUnaryClient<int, int>{
-            {1, 1},
-            {xerrors::Error(INVALID_TOKEN, ""), xerrors::NIL}
+        {1, 1},
+        {xerrors::Error(INVALID_TOKEN, ""), xerrors::NIL}
     };
     mock_client.use(mw);
     auto v = 1;
@@ -89,19 +89,16 @@ TEST(TestAuth, testLoginRetry) {
 class TestAuthRetry : public ::testing::Test {
 protected:
     api::v1::LoginResponse res;
-    std::unique_ptr<MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>> mock_login_client;
+    std::unique_ptr<MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>
+        mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
     MockUnaryClient<int, int> mock_client;
 
-    void SetUp() override {
-        res.set_token("abc");
-    }
+    void SetUp() override { res.set_token("abc"); }
 
     void setupTest(xerrors::Error first_error) {
-        mock_login_client = std::make_unique<MockUnaryClient<
-            api::v1::LoginRequest,
-            api::v1::LoginResponse
-        >>(
+        mock_login_client = std::make_unique<
+            MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
             std::vector<api::v1::LoginResponse>{res, res},
             std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
         );
@@ -111,10 +108,7 @@ protected:
             "seldon",
             5 * telem::SECOND
         );
-        mock_client = MockUnaryClient<int, int>{
-            {1, 1},
-            {first_error, xerrors::NIL}
-        };
+        mock_client = MockUnaryClient<int, int>{{1, 1}, {first_error, xerrors::NIL}};
         mock_client.use(mw);
     }
 };

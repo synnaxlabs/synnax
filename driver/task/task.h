@@ -10,10 +10,11 @@
 #pragma once
 
 /// std
+#include <future>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
-#include <future>
 
 /// external
 #include "glog/logging.h"
@@ -21,8 +22,8 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/xjson/xjson.h"
 
 using json = nlohmann::json;
 
@@ -42,25 +43,18 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(xjson::Parser parser) :
+    explicit Command(xjson::Parser parser):
         task(parser.required<synnax::TaskKey>("task")),
         type(parser.required<std::string>("type")),
         key(parser.optional<std::string>("key", "")),
-        args(parser.optional<json>("args", json{})) {
-    }
+        args(parser.optional<json>("args", json{})) {}
 
     /// @brief Construct a new Task Command object
-    Command(const synnax::TaskKey task, std::string type, json args)
-        : task(task), type(std::move(type)), args(std::move(args)) {
-    }
+    Command(const synnax::TaskKey task, std::string type, json args):
+        task(task), type(std::move(type)), args(std::move(args)) {}
 
     [[nodiscard]] json to_json() const {
-        return {
-            {"task", task},
-            {"type", type},
-            {"key", key},
-            {"args", args}
-        };
+        return {{"task", task}, {"type", type}, {"key", key}, {"args", args}};
     }
 };
 
@@ -106,10 +100,9 @@ public:
 
     virtual std::string name() { return ""; }
 
-    /// @brief executes the command on the task. The task is responsible for updating
-    /// its state.
-    virtual void exec(Command &cmd) {
-    }
+    /// @brief executes the command on the task. The task is responsible for
+    /// updating its state.
+    virtual void exec(Command &cmd) {}
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -134,8 +127,8 @@ public:
 
     virtual ~Context() = default;
 
-    explicit Context(std::shared_ptr<synnax::Synnax> client) : client(std::move(client)) {
-    }
+    explicit Context(std::shared_ptr<synnax::Synnax> client):
+        client(std::move(client)) {}
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_state(const State &state) = 0;
@@ -148,8 +141,8 @@ class MockContext final : public Context {
 public:
     std::vector<State> states{};
 
-    explicit MockContext(const std::shared_ptr<synnax::Synnax> &client) : Context(client) {
-    }
+    explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
+        Context(client) {}
 
     void set_state(const State &state) override {
         mu.lock();
@@ -164,35 +157,33 @@ class SynnaxContext final : public Context {
     synnax::Channel chan;
 
 public:
-    explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client) : Context(client) {
-    }
+    explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
+        Context(client) {}
 
     void set_state(const State &state) override {
         std::unique_lock lock(mu);
         if (writer == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
             if (err) {
-                LOG(ERROR) <<
-                        "[task.context] failed to retrieve channel to update task state"
-                        << err.
-                        message();
+                LOG(ERROR) << "[task.context] failed to retrieve channel to update "
+                              "task state"
+                           << err.message();
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.open_writer(synnax::WriterConfig{
-                .channels = {ch.key}
-            });
+            auto [su, su_err] = client->telem.open_writer(
+                synnax::WriterConfig{.channels = {ch.key}}
+            );
             if (err) {
-                LOG(ERROR) <<
-                        "[task.context] failed to open writer to update task state"
-                        <<
-                        su_err.
-                        message();
+                LOG(ERROR
+                ) << "[task.context] failed to open writer to update task state"
+                  << su_err.message();
                 return;
             }
             writer = std::make_unique<synnax::Writer>(std::move(su));
         }
-        if (writer->write(synnax::Frame(chan.key, telem::Series(state.to_json())))) return;
+        if (writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))))
+            return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;
@@ -201,7 +192,8 @@ public:
     ~SynnaxContext() override {
         std::unique_lock lock(mu);
         if (writer == nullptr) return;
-        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in destructors.
+        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in
+        /// destructors.
         if (const auto err = writer->close())
             std::cerr << "[task.context] failed to close writer: " << err.message();
     }
@@ -209,37 +201,36 @@ public:
 
 class Factory {
 public:
-    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
+    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
-    ) { return {}; }
+    ) {
+        return {};
+    }
 
-    virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
-        const std::shared_ptr<Context> &ctx,
-        const synnax::Task &task
-    ) = 0;
+    virtual std::pair<std::unique_ptr<Task>, bool>
+    configure_task(const std::shared_ptr<Context> &ctx, const synnax::Task &task) = 0;
 
     virtual ~Factory() = default;
 };
 
 class MultiFactory final : public Factory {
-    std::vector<std::unique_ptr<Factory> > factories;
+    std::vector<std::unique_ptr<Factory>> factories;
 
 public:
-    explicit MultiFactory(std::vector<std::unique_ptr<Factory> > &&factories)
-        : factories(std::move(factories)) {
-    }
+    explicit MultiFactory(std::vector<std::unique_ptr<Factory>> &&factories):
+        factories(std::move(factories)) {}
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
-    configure_initial_tasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
+        std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
             auto new_tasks = factory->configure_initial_tasks(ctx, rack);
-            for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
+            for (auto &task: new_tasks)
+                tasks.emplace_back(std::move(task));
         }
         return tasks;
     }
@@ -256,22 +247,24 @@ public:
     }
 };
 
-/// @brief TaskManager is responsible for configuring, executing, and commanding data
-/// acquisition and control tasks.
+/// @brief TaskManager is responsible for configuring, executing, and commanding
+/// data acquisition and control tasks.
 class Manager {
 public:
     Manager(
         synnax::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory
-    ): rack(std::move(rack)), ctx(std::make_shared<SynnaxContext>(client)),
-       factory(std::move(factory)), channels({}) {
-    }
+    ):
+        rack(std::move(rack)),
+        ctx(std::make_shared<SynnaxContext>(client)),
+        factory(std::move(factory)),
+        channels({}) {}
 
     /// @brief runs the main task manager loop, booting up initial tasks retrieved
-    /// from the cluster, and processing task modifications (set, delete, and command)
-    /// requests through streamed channel values. Note that this function does not
-    /// for a thread to run in, and blocks until stop() is called.
+    /// from the cluster, and processing task modifications (set, delete, and
+    /// command) requests through streamed channel values. Note that this function
+    /// does not for a thread to run in, and blocks until stop() is called.
     ///
     /// This function NOT be called concurrently with any other calls
     /// to run(). It is safe to call run() concurrently with stop().
@@ -281,9 +274,10 @@ public:
     xerrors::Error run(std::promise<void> *started_promise = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing all resources.
-    /// Once the manager has shut down, the run() function will return with any errors
-    /// encountered during operation.
+    /// Once the manager has shut down, the run() function will return with any
+    /// errors encountered during operation.
     void stop();
+
 private:
     /// @brief the rack that this task manager belongs to.
     synnax::Rack rack;
@@ -292,13 +286,13 @@ private:
     /// @brief the factory used to create tasks.
     std::unique_ptr<task::Factory> factory;
     /// @brief a map of tasks that have been configured on the rack.
-    std::unordered_map<synnax::TaskKey, std::unique_ptr<task::Task> > tasks{};
+    std::unordered_map<synnax::TaskKey, std::unique_ptr<task::Task>> tasks{};
 
-    /// @brief the streamer variable is read from in both the run() and stop() functions,
-    /// so we need to lock its assignment.
+    /// @brief the streamer variable is read from in both the run() and stop()
+    /// functions, so we need to lock its assignment.
     std::mutex mu;
-    /// @brief receives streamed values from the Synnax server to change tasks in the
-    /// manager.
+    /// @brief receives streamed values from the Synnax server to change tasks in
+    /// the manager.
     std::unique_ptr<synnax::Streamer> streamer;
     std::atomic<bool> exit_early = false;
 
@@ -316,7 +310,8 @@ private:
     /// incoming task set, delete, and command requests.
     xerrors::Error open_streamer();
 
-    /// @brief retrieves and configures all initial tasks for the rack from the server.
+    /// @brief retrieves and configures all initial tasks for the rack from the
+    /// server.
     xerrors::Error configure_initial_tasks();
 
     /// @brief stops all tasks.

@@ -10,8 +10,8 @@
 #pragma once
 
 /// std.
-#include <string>
 #include <array>
+#include <string>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -42,8 +42,8 @@ const std::string MACOS_NAME = "macOS";
 const std::string LINUX_NAME = "Linux";
 const std::string UNKNOWN_NAME = "unknown";
 
-/// @brief returns the name of the operating system, if the operating system could not
-/// be determined, returns "unknown".
+/// @brief returns the name of the operating system, if the operating system could
+/// not be determined, returns "unknown".
 inline std::string get() {
 #if defined(_WIN32) || defined(_WIN64)
     return WINDOWS_NAME;
@@ -56,4 +56,3 @@ inline std::string get() {
 #endif
 }
 }
-

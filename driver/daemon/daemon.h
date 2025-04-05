@@ -25,7 +25,7 @@ enum class Status {
     READY,
     RUNNING,
     STOPPING,
-    ERROR_  // ERROR is already a reserved macro in <winerror.h>
+    ERROR_ // ERROR is already a reserved macro in <winerror.h>
 };
 
 // Configuration for the daemon
@@ -55,4 +55,4 @@ xerrors::Error status();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);
-} 
+}

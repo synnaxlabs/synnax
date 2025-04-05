@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 /// std
-#include <thread>
 #include <exception>
 #include <stdexcept>
+#include <thread>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -24,26 +24,24 @@
 using json = nlohmann::json;
 
 namespace pipeline {
-SynnaxWriter::SynnaxWriter(synnax::Writer internal)
-    : internal(std::move(internal)) {
+SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
+
+bool SynnaxWriter::write(const synnax::Frame &fr) {
+    return this->internal.write(fr);
 }
 
-bool SynnaxWriter::write(const synnax::Frame &fr) { return this->internal.write(fr); }
-
-xerrors::Error SynnaxWriter::close() { return this->internal.close(); }
-
-SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
-    : client(std::move(client)) {
+xerrors::Error SynnaxWriter::close() {
+    return this->internal.close();
 }
+
+SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
+    client(std::move(client)) {}
 
 std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
 SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
-    return {
-        std::make_unique<SynnaxWriter>(std::move(sw)),
-        xerrors::NIL
-    };
+    return {std::make_unique<SynnaxWriter>(std::move(sw)), xerrors::NIL};
 }
 
 Acquisition::Acquisition(
@@ -51,23 +49,24 @@ Acquisition::Acquisition(
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) : Acquisition(
-    std::make_shared<SynnaxWriterFactory>(std::move(client)),
-    std::move(writer_config),
-    std::move(source),
-    breaker_config
-    ) {
-}
+):
+    Acquisition(
+        std::make_shared<SynnaxWriterFactory>(std::move(client)),
+        std::move(writer_config),
+        std::move(source),
+        breaker_config
+    ) {}
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) : Base(breaker_config), factory(std::move(factory)),
+):
+    Base(breaker_config),
+    factory(std::move(factory)),
     source(std::move(source)),
-    writer_config(std::move(writer_config)) {
-}
+    writer_config(std::move(writer_config)) {}
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
@@ -92,22 +91,20 @@ void Acquisition::run() {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {
             source_err = source_err_i;
-            LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
-                    message();
-            // With a temporary error, we just continue the loop. With any other error
-            // we break and shut things down.
-            if (
-                source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
-                this->breaker.wait(source_err.message())
-            )
+            LOG(ERROR) << "[acquisition] failed to read source: "
+                       << source_err.message();
+            // With a temporary error, we just continue the loop. With any other
+            // error we break and shut things down.
+            if (source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+                this->breaker.wait(source_err.message()))
                 continue;
             break;
         }
         if (source_err) source_err = xerrors::NIL;
         if (frame.empty()) continue;
-        // Open the writer after receiving the first frame so we can resolve the start
-        // timestamp from the data. This helps to account for clock drift between the
-        // source we're recording data from and the system clock.
+        // Open the writer after receiving the first frame so we can resolve the
+        // start timestamp from the data. This helps to account for clock drift
+        // between the source we're recording data from and the system clock.
         if (!writer_opened) {
             this->writer_config.start = resolve_start(frame);
             // There are no scenarios where an acquisition task would want control
@@ -117,8 +114,8 @@ void Acquisition::run() {
             auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
             writer_err = writer_err_i;
             if (writer_err) {
-                LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.
-                        message();
+                LOG(ERROR) << "[acquisition] failed to open writer: "
+                           << writer_err.message();
                 break;
             }
             writer = std::move(writer_i);
@@ -131,13 +128,13 @@ void Acquisition::run() {
         this->breaker.reset();
     }
     if (writer_opened) writer_err = writer->close();
-    if (
-        writer_err.matches(freighter::UNREACHABLE) &&
-        this->breaker.wait(writer_err.message())
-    )
+    if (writer_err.matches(freighter::UNREACHABLE) &&
+        this->breaker.wait(writer_err.message()))
         return this->run();
-    if (source_err) this->source->stopped_with_err(source_err);
-    else if (writer_err) this->source->stopped_with_err(writer_err);
+    if (source_err)
+        this->source->stopped_with_err(source_err);
+    else if (writer_err)
+        this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
 }

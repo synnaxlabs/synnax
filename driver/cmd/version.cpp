@@ -10,11 +10,8 @@
 #include "driver/cmd/cmd.h"
 
 std::string cmd::version() {
-    return "v" +
-        std::string(SYNNAX_DRIVER_VERSION)+
-            " (" +
-            std::string(SYNNAX_BUILD_TIMESTAMP)
-    + ")";
+    return "v" + std::string(SYNNAX_DRIVER_VERSION) + " (" +
+           std::string(SYNNAX_BUILD_TIMESTAMP) + ")";
 }
 
 int cmd::sub::version(xargs::Parser &args) {

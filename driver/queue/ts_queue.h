@@ -9,9 +9,9 @@
 
 #pragma once
 
-#include <queue>
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
+#include <queue>
 
 template<typename T>
 class TSQueue {
@@ -21,9 +21,7 @@ public:
     void enqueue(const T &item) {
         std::unique_lock lock(m);
 
-        if (queue.size() == 1) {
-            queue.pop();
-        }
+        if (queue.size() == 1) { queue.pop(); }
         queue.push(item);
 
         waiting_consumers.notify_one();

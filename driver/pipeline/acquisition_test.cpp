@@ -28,7 +28,8 @@ public:
     explicit MockSource(
         const telem::TimeStamp start_ts,
         const xerrors::Error &read_err = xerrors::NIL
-    ) : start_ts(start_ts), read_err(read_err) {}
+    ):
+        start_ts(start_ts), read_err(read_err) {}
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         if (read_err != xerrors::NIL) return read_err;
@@ -46,7 +47,7 @@ public:
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     auto start_ts = telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
@@ -63,14 +64,14 @@ TEST(AcquisitionPipeline, testStartResolution) {
     ASSERT_EQ(mock_factory->config.start, start_ts);
 }
 
-/// @brief it should correctly retry opening the writer when an unreachable error occurs.
+/// @brief it should correctly retry opening the writer when an unreachable error
+/// occurs.
 TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
-        std::vector{
-            freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL
-        });
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL}
+    );
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
         mock_factory,
@@ -90,12 +91,10 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
 
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
-        std::vector{
-            xerrors::Error(xerrors::UNAUTHORIZED), xerrors::NIL
-        }
+        std::vector{xerrors::Error(xerrors::UNAUTHORIZED), xerrors::NIL}
     );
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
@@ -117,7 +116,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
 /// @brief it should retry opening the writer when write returns false and the
 /// error is unreachable.
 TEST(AcquisitionPipeline, testWriteRetrySuccess) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector<xerrors::Error>{},
@@ -144,7 +143,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
 /// @brief it should not retry opening the writer when write returns false and the
 /// error is not unreachable.
 TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
         writes,
         std::vector<xerrors::Error>{},
@@ -170,7 +169,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
 
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
@@ -187,7 +186,7 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
 
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(
@@ -208,7 +207,10 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     auto critical_error = xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now(), critical_error);
+    const auto source = std::make_shared<MockSource>(
+        telem::TimeStamp::now(),
+        critical_error
+    );
     auto pipeline = pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
@@ -224,7 +226,7 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
 
 /// @brief it should not stop the pipeline if it was never started.
 TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
-    auto writes = std::make_shared<std::vector<synnax::Frame> >();
+    auto writes = std::make_shared<std::vector<synnax::Frame>>();
     const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
     auto pipeline = pipeline::Acquisition(

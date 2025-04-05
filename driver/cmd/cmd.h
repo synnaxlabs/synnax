@@ -20,24 +20,22 @@
 // END OF MISSION CRITICAL CODE BLOCK.
 
 /// std
-#include <string>
 #include <iostream>
 #include <string>
-#include <iostream>
 
 /// external
 #include "glog/logging.h"
 
 /// module
-#include "x/cpp/xshutdown/xshutdown.h"
-#include "x/cpp/xlog/xlog.h"
-#include "synnax/pkg/version/version.h"
 #include "client/cpp/synnax.h"
+#include "synnax/pkg/version/version.h"
+#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xshutdown/xshutdown.h"
 
 /// internal
 #include "driver/cmd/cmd.h"
-#include "driver/rack/rack.h"
 #include "driver/daemon/daemon.h"
+#include "driver/rack/rack.h"
 
 /// @brief the configuration for opening a connection to the driver.
 namespace cmd {
@@ -79,4 +77,5 @@ int service_view_logs(xargs::Parser &args);
 
 /// @brief clears the driver persisted state.
 int clear(xargs::Parser &args);
-}}
+}
+}

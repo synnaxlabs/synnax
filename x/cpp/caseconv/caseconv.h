@@ -10,15 +10,15 @@
 #pragma once
 
 /// std
-#include <string>
 #include <algorithm>
+#include <string>
 
 namespace caseconv {
 /// @brief converts a snake_case string to SCREAMING_SNAKE_CASE
 /// @param input The snake_case string to convert
 /// @return The input string converted to SCREAMING_SNAKE_CASE
 /// @example caseconv::snake_to_scream("hello_world") returns "HELLO_WORLD"
-inline std::string snake_to_scream(const std::string& input) {
+inline std::string snake_to_scream(const std::string &input) {
     std::string result = input;
     std::transform(result.begin(), result.end(), result.begin(), ::toupper);
     return result;
@@ -28,7 +28,7 @@ inline std::string snake_to_scream(const std::string& input) {
 /// @param input The snake_case string to convert
 /// @return The input string converted to kebab-case
 /// @example caseconv::snake_to_kebab("hello_world") returns "hello-world"
-inline std::string snake_to_kebab(const std::string& input) {
+inline std::string snake_to_kebab(const std::string &input) {
     std::string result = input;
     std::replace(result.begin(), result.end(), '_', '-');
     return result;

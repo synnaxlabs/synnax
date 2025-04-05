@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "meminfo.h"
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
+#include "meminfo.h"
 
 std::uint32_t meminfo::getUsage() {
     std::ifstream status("/proc/self/status", std::ios_base::in);

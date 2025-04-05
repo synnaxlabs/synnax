@@ -60,7 +60,7 @@ jobs:
 
       - name: Format
         if: matrix.format
-        run: bash scripts/gofmt-check.sh aspen
+        run: bash scripts/check-gofmt.sh aspen
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo

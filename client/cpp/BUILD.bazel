@@ -25,8 +25,8 @@ cc_library(
         "//x/cpp/xjson",
         "//x/cpp/xlog",
         "//x/cpp/xpath",
-        "@com_github_google_glog//:glog",
-        "@com_github_grpc_grpc//:grpc++",
+        "@glog//:glog",
+        "@grpc//:grpc++",
         "@nlohmann_json//:json",
     ],
 )

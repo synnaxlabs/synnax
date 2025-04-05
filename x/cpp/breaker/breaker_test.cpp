@@ -17,12 +17,15 @@
 #include "x/cpp/breaker/breaker.h"
 
 void helper(breaker::Breaker &b) {
-    while (b.wait("testBreakRetries breaker"));
+    while (b.wait("testBreakRetries breaker"))
+        ;
 }
 
 /// @brief it should correctly wait for an expended number of requests.
 TEST(BreakerTests, testBreaker) {
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 1, 1});
+    auto b = breaker::Breaker(
+        breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 1, 1}
+    );
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
     EXPECT_TRUE(b.wait("testBreaker breaker"));
@@ -34,7 +37,9 @@ TEST(BreakerTests, testBreaker) {
 
 /// @brief it should correctly expend max number of requests
 TEST(BreakerTests, testBreakRetries) {
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 10, 1.1});
+    auto b = breaker::Breaker(
+        breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 10, 1.1}
+    );
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
     while (b.wait("testBreakRetries breaker")) {}
@@ -44,7 +49,9 @@ TEST(BreakerTests, testBreakRetries) {
 
 /// @brief it should correctly shut down before expending the max number of requests
 TEST(BreakerTests, testBreakerPrematureShutdown) {
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 10, 1});
+    auto b = breaker::Breaker(
+        breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 10, 1}
+    );
     EXPECT_TRUE(b.start());
     std::thread t(&helper, std::ref(b));
     std::this_thread::sleep_for(std::chrono::milliseconds(40));
@@ -54,9 +61,9 @@ TEST(BreakerTests, testBreakerPrematureShutdown) {
 
 /// @brief it should correctly shut down before expending the max number of requests
 TEST(BreakerTests, testDestructorShuttingDown) {
-    const auto b = std::make_unique<breaker::Breaker>(breaker::Config{
-        "my-breaker", 10 * telem::MILLISECOND, 10, 1
-    });
+    const auto b = std::make_unique<breaker::Breaker>(
+        breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 10, 1}
+    );
     EXPECT_TRUE(b->start());
     EXPECT_TRUE(b->running());
     std::thread t(&helper, std::ref(*b));
@@ -69,9 +76,9 @@ TEST(BreakerTests, testDestructorShuttingDown) {
 /// @brief it should correctly handle infinite retries
 TEST(BreakerTests, testInfiniteRetries) {
     auto b = breaker::Breaker(breaker::Config{
-        "my-breaker", 
-        10 * telem::MICROSECOND, 
-        breaker::RETRY_INFINITELY,  // Set to infinite retries
+        "my-breaker",
+        10 * telem::MICROSECOND,
+        breaker::RETRY_INFINITELY, // Set to infinite retries
         1.1
     });
     EXPECT_TRUE(b.start());
@@ -80,7 +87,7 @@ TEST(BreakerTests, testInfiniteRetries) {
     std::thread t([&b, &retry_count]() {
         while (b.wait("testInfiniteRetries breaker")) {
             retry_count++;
-            if (retry_count >= 100) break;  // Safety break to prevent infinite test
+            if (retry_count >= 100) break; // Safety break to prevent infinite test
         }
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -113,7 +120,9 @@ TEST(BreakerTests, testStopAlreadyStopped) {
 /// @brief it should increment the retry count when the breaker is triggered, starting
 /// at 0.
 TEST(BreakerTest, testRetryCount) {
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 5, 1});
+    auto b = breaker::Breaker(
+        breaker::Config{"my-breaker", 10 * telem::MILLISECOND, 5, 1}
+    );
     EXPECT_TRUE(b.start());
     EXPECT_EQ(b.retry_count(), 0);
     EXPECT_TRUE(b.wait("first retry"));

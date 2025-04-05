@@ -11,8 +11,8 @@
 #include "gtest/gtest.h"
 
 /// internal
-#include "driver/heartbeat/heartbeat.h"
 #include "client/cpp/testutil/testutil.h"
+#include "driver/heartbeat/heartbeat.h"
 
 TEST(HeartbeatTests, createHeartbeat) {
     auto hb = heartbeat::create(0, 0);
@@ -30,7 +30,10 @@ TEST(HeartbeatTests, testNominal) {
     ASSERT_FALSE(rack_err) << rack_err.message();
     auto [ch, ch_err] = client->channels.retrieve("sy_rack_heartbeat");
     auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = heartbeat::Task::configure(ctx, synnax::Task(rack.key, "heartbeat", "heartbeat", "", true));
+    auto hb = heartbeat::Task::configure(
+        ctx,
+        synnax::Task(rack.key, "heartbeat", "heartbeat", "", true)
+    );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
     auto [streamer, strm_err] = client->telem.open_streamer(synnax::StreamerConfig{

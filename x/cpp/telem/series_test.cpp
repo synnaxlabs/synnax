@@ -58,9 +58,16 @@ protected:
 };
 
 using NumericTypes = ::testing::Types<
-    uint8_t, uint16_t, uint32_t, uint64_t,
-    int8_t, int16_t, int32_t, int64_t,
-    float, double>;
+    uint8_t,
+    uint16_t,
+    uint32_t,
+    uint64_t,
+    int8_t,
+    int16_t,
+    int32_t,
+    int64_t,
+    float,
+    double>;
 
 TYPED_TEST_SUITE(NumericSeriesTest, NumericTypes);
 
@@ -182,7 +189,7 @@ TEST(TestSeries, testSampleValueConstructionString) {
 
 /// @brief it should correclty construct a series from an inline vector.
 TEST(TestSeries, testInlineVectorConstruction) {
-    const auto s = telem::Series(std::vector<float>{1,2,3});
+    const auto s = telem::Series(std::vector<float>{1, 2, 3});
     ASSERT_EQ(s.data_type(), telem::FLOAT32_T);
     ASSERT_EQ(s.size(), 3);
     ASSERT_EQ(s.cap(), 3);
@@ -297,50 +304,70 @@ TEST(TestSeries, testWriteVector) {
 
 /// @brief it should correclty print out the series.
 TEST(TestSeries, testOstreamOperatorForAllTypes) {
-    // Refactored tests to match the new format "Series(type: TYPE, size: SIZE, cap: CAP, data: [DATA ])"
+    // Refactored tests to match the new format "Series(type: TYPE, size: SIZE, cap:
+    // CAP, data: [DATA ])"
     telem::Series s_uint32{telem::UINT32_T, 3};
-    for (std::uint32_t i = 1; i <= 3; ++i) s_uint32.write(i);
+    for (std::uint32_t i = 1; i <= 3; ++i)
+        s_uint32.write(i);
     std::ostringstream oss_uint32;
     oss_uint32 << s_uint32;
-    ASSERT_EQ(oss_uint32.str(),
-              "Series(type: uint32, size: 3, cap: 3, data: [1 2 3 ])");
+    ASSERT_EQ(
+        oss_uint32.str(),
+        "Series(type: uint32, size: 3, cap: 3, data: [1 2 3 ])"
+    );
 
     telem::Series s_float32{telem::FLOAT32_T, 3};
-    for (float i = 1.5f; i <= 3.5f; i += 1.0f)s_float32.write(i);
+    for (float i = 1.5f; i <= 3.5f; i += 1.0f)
+        s_float32.write(i);
     std::ostringstream oss_float32;
     oss_float32 << s_float32;
-    ASSERT_EQ(oss_float32.str(),
-              "Series(type: float32, size: 3, cap: 3, data: [1.5 2.5 3.5 ])");
+    ASSERT_EQ(
+        oss_float32.str(),
+        "Series(type: float32, size: 3, cap: 3, data: [1.5 2.5 3.5 ])"
+    );
 
     telem::Series s_int32{telem::INT32_T, 3};
-    for (int i = -1; i >= -3; --i) s_int32.write(i);
+    for (int i = -1; i >= -3; --i)
+        s_int32.write(i);
     std::ostringstream oss_int32;
     oss_int32 << s_int32;
-    ASSERT_EQ(oss_int32.str(),
-              "Series(type: int32, size: 3, cap: 3, data: [-1 -2 -3 ])");
+    ASSERT_EQ(
+        oss_int32.str(),
+        "Series(type: int32, size: 3, cap: 3, data: [-1 -2 -3 ])"
+    );
 
     telem::Series s_uint64{telem::UINT64_T, 3};
-    for (std::uint64_t i = 1; i <= 3; ++i) s_uint64.write(i);
+    for (std::uint64_t i = 1; i <= 3; ++i)
+        s_uint64.write(i);
     std::ostringstream oss_uint64;
     oss_uint64 << s_uint64;
-    ASSERT_EQ(oss_uint64.str(),
-              "Series(type: uint64, size: 3, cap: 3, data: [1 2 3 ])");
+    ASSERT_EQ(
+        oss_uint64.str(),
+        "Series(type: uint64, size: 3, cap: 3, data: [1 2 3 ])"
+    );
 
     telem::Series s_int64{telem::INT64_T, 3};
-    for (std::int64_t i = -1; i >= -3; --i) s_int64.write(i);
+    for (std::int64_t i = -1; i >= -3; --i)
+        s_int64.write(i);
     std::ostringstream oss_int64;
     oss_int64 << s_int64;
-    ASSERT_EQ(oss_int64.str(),
-              "Series(type: int64, size: 3, cap: 3, data: [-1 -2 -3 ])");
+    ASSERT_EQ(
+        oss_int64.str(),
+        "Series(type: int64, size: 3, cap: 3, data: [-1 -2 -3 ])"
+    );
 
     telem::Series s_float64{telem::FLOAT64_T, 3};
-    for (double i = 1.5; i <= 3.5; i += 1.0)s_float64.write(i);
+    for (double i = 1.5; i <= 3.5; i += 1.0)
+        s_float64.write(i);
     std::ostringstream oss_float64;
     oss_float64 << s_float64;
-    ASSERT_EQ(oss_float64.str(),
-              "Series(type: float64, size: 3, cap: 3, data: [1.5 2.5 3.5 ])");
+    ASSERT_EQ(
+        oss_float64.str(),
+        "Series(type: float64, size: 3, cap: 3, data: [1.5 2.5 3.5 ])"
+    );
     telem::Series s_uint8{telem::UINT8_T, 3};
-    for (std::uint8_t i = 1; i <= 3; ++i) s_uint8.write(i);
+    for (std::uint8_t i = 1; i <= 3; ++i)
+        s_uint8.write(i);
     std::ostringstream oss_uint8;
     oss_uint8 << s_uint8;
     ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [1 2 3 ])");
@@ -471,7 +498,8 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s1.size(), 3);
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
-    ASSERT_EQ(s2.at<std::string>(0), "hello");;
+    ASSERT_EQ(s2.at<std::string>(0), "hello");
+    ;
     ASSERT_EQ(s2.at<std::string>(1), "world");
     ASSERT_EQ(s2.at<std::string>(2), "test");
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
@@ -541,17 +569,57 @@ const std::vector<int64_t> INT64_DATA = {1, 2, 3, 4, 5};
 const std::vector<float> FLOAT32_DATA = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
 const std::vector<double> FLOAT64_DATA = {1.0, 2.0, 3.0, 4.0, 5.0};
 
-#define TEST_ALL_CASTS_FROM_SOURCE(SOURCE_TYPE, SOURCE_DATA) \
-    ASSERT_EQ(telem::Series::cast(telem::UINT8_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<uint8_t>(), UINT8_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::UINT16_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<uint16_t>(), UINT16_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::UINT32_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<uint32_t>(), UINT32_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::UINT64_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<uint64_t>(), UINT64_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::INT8_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int8_t>(), INT8_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::INT16_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int16_t>(), INT16_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::INT32_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int32_t>(), INT32_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::INT64_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int64_t>(), INT64_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::FLOAT32_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<float>(), FLOAT32_DATA); \
-    ASSERT_EQ(telem::Series::cast(telem::FLOAT64_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<double>(), FLOAT64_DATA)
+#define TEST_ALL_CASTS_FROM_SOURCE(SOURCE_TYPE, SOURCE_DATA)                           \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::UINT8_T, SOURCE_DATA.data(), SOURCE_DATA.size())    \
+            .values<uint8_t>(),                                                        \
+        UINT8_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::UINT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())   \
+            .values<uint16_t>(),                                                       \
+        UINT16_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::UINT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())   \
+            .values<uint32_t>(),                                                       \
+        UINT32_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::UINT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())   \
+            .values<uint64_t>(),                                                       \
+        UINT64_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::INT8_T, SOURCE_DATA.data(), SOURCE_DATA.size())     \
+            .values<int8_t>(),                                                         \
+        INT8_DATA                                                                      \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::INT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())    \
+            .values<int16_t>(),                                                        \
+        INT16_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::INT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())    \
+            .values<int32_t>(),                                                        \
+        INT32_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::INT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())    \
+            .values<int64_t>(),                                                        \
+        INT64_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::FLOAT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())  \
+            .values<float>(),                                                          \
+        FLOAT32_DATA                                                                   \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        telem::Series::cast(telem::FLOAT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())  \
+            .values<double>(),                                                         \
+        FLOAT64_DATA                                                                   \
+    )
 
 TEST(TestSeries, testCast) {
     TEST_ALL_CASTS_FROM_SOURCE(uint8_t, UINT8_DATA);
@@ -566,21 +634,111 @@ TEST(TestSeries, testCast) {
     TEST_ALL_CASTS_FROM_SOURCE(double, FLOAT64_DATA);
 }
 
-#define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA) \
-    do { \
-        auto const_void_ptr = static_cast<const void*>(SOURCE_DATA.data()); \
-        auto source_type = telem::DataType::infer<SOURCE_TYPE>(); \
-        ASSERT_EQ(telem::Series::cast(telem::UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint8_t>(), UINT8_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint16_t>(), UINT16_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint32_t>(), UINT32_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<uint64_t>(), UINT64_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int8_t>(), INT8_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int16_t>(), INT16_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int32_t>(), INT32_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<int64_t>(), INT64_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<float>(), FLOAT32_DATA); \
-        ASSERT_EQ(telem::Series::cast(telem::FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type).values<double>(), FLOAT64_DATA); \
-    } while(0)
+#define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA)                          \
+    do {                                                                               \
+        auto const_void_ptr = static_cast<const void *>(SOURCE_DATA.data());           \
+        auto source_type = telem::DataType::infer<SOURCE_TYPE>();                      \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::UINT8_T,                                                        \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<uint8_t>(),                                                    \
+            UINT8_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::UINT16_T,                                                       \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<uint16_t>(),                                                   \
+            UINT16_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::UINT32_T,                                                       \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<uint32_t>(),                                                   \
+            UINT32_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::UINT64_T,                                                       \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<uint64_t>(),                                                   \
+            UINT64_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::INT8_T,                                                         \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<int8_t>(),                                                     \
+            INT8_DATA                                                                  \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::INT16_T,                                                        \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<int16_t>(),                                                    \
+            INT16_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::INT32_T,                                                        \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<int32_t>(),                                                    \
+            INT32_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::INT64_T,                                                        \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<int64_t>(),                                                    \
+            INT64_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::FLOAT32_T,                                                      \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<float>(),                                                      \
+            FLOAT32_DATA                                                               \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            telem::Series::cast(                                                       \
+                telem::FLOAT64_T,                                                      \
+                const_void_ptr,                                                        \
+                SOURCE_DATA.size(),                                                    \
+                source_type                                                            \
+            )                                                                          \
+                .values<double>(),                                                     \
+            FLOAT64_DATA                                                               \
+        );                                                                             \
+    } while (0)
 
 TEST(TestSeries, testCastVoidPointer) {
     TEST_CAST_FROM_VOID_POINTER(uint8_t, UINT8_DATA);

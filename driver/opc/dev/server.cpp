@@ -19,10 +19,10 @@ using namespace std;
 
 int main() {
     UA_Server *server = UA_Server_new();
-    auto server_config =UA_Server_getConfig(server);
-    //print original timeout
+    auto server_config = UA_Server_getConfig(server);
+    // print original timeout
     cout << "Original timeout: " << server_config->maxSessionTimeout << endl;
-    //set timeout to an hour
+    // set timeout to an hour
     server_config->maxSessionTimeout = 3600000;
 
     cout << "New timeout: " << server_config->maxSessionTimeout << endl;
@@ -40,9 +40,17 @@ int main() {
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
     UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-    UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
-                              parentReferenceNodeId, myIntegerName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myIntegerNodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myIntegerName,
+        UA_NODEID_NULL,
+        attr,
+        NULL,
+        NULL
+    );
 
     // // add another variable node to the adresspace
     UA_VariableAttributes attr2 = UA_VariableAttributes_default;
@@ -53,9 +61,17 @@ int main() {
     attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
     UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");
-    UA_Server_addVariableNode(server, myDoubleNodeId, parentNodeId,
-                              parentReferenceNodeId, myDoubleName,
-                              UA_NODEID_NULL, attr2, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myDoubleNodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myDoubleName,
+        UA_NODEID_NULL,
+        attr2,
+        NULL,
+        NULL
+    );
 
 
     // add a uint8 variable node to the adresspace
@@ -67,9 +83,17 @@ int main() {
     attr3.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myUInt8NodeId = UA_NODEID_STRING_ALLOC(1, "the.answer3");
     UA_QualifiedName myUInt8Name = UA_QUALIFIEDNAME_ALLOC(1, "the answer 3");
-    UA_Server_addVariableNode(server, myUInt8NodeId, parentNodeId,
-                              parentReferenceNodeId, myUInt8Name,
-                              UA_NODEID_NULL, attr3, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myUInt8NodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myUInt8Name,
+        UA_NODEID_NULL,
+        attr3,
+        NULL,
+        NULL
+    );
 
 
     // add a boolean variable node to the adresspace
@@ -81,9 +105,17 @@ int main() {
     attr4.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     UA_NodeId myBooleanNodeId = UA_NODEID_STRING_ALLOC(1, "the.boolean");
     UA_QualifiedName myBooleanName = UA_QUALIFIEDNAME_ALLOC(1, "the boolean value");
-    UA_Server_addVariableNode(server, myBooleanNodeId, parentNodeId,
-                              parentReferenceNodeId, myBooleanName,
-                              UA_NODEID_NULL, attr4, NULL, NULL);
+    UA_Server_addVariableNode(
+        server,
+        myBooleanNodeId,
+        parentNodeId,
+        parentReferenceNodeId,
+        myBooleanName,
+        UA_NODEID_NULL,
+        attr4,
+        NULL,
+        NULL
+    );
 
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);

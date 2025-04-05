@@ -11,7 +11,6 @@
 #include "gtest/gtest.h"
 
 namespace {
-
 // A mock global time variable to simulate custom time behavior.
 static telem::TimeStamp mockTime(0);
 
@@ -19,8 +18,7 @@ static telem::TimeStamp mockTime(0);
 telem::TimeStamp customNow() {
     return mockTime;
 }
-
-} 
+}
 
 TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     // Reset mock time to 0 for a clean test.
@@ -67,4 +65,3 @@ TEST(ClockSkewCalculatorTest, ZeroSkewScenario) {
     // Confirm that 0 does not exceed any positive threshold.
     EXPECT_FALSE(calc.exceeds(telem::TimeSpan(1)));
 }
-

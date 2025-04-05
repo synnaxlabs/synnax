@@ -1,10 +1,11 @@
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
 proto_library(
     name = "telem_proto",
     srcs = ["telem.proto"],
     visibility = ["//visibility:public"],
 )
-
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 
 cpp_grpc_library(
     name = "telem_grpc",

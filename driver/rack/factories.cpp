@@ -9,7 +9,7 @@
 
 #include "driver/rack/rack.h"
 
-using FactoryList = std::vector<std::unique_ptr<task::Factory> >;
+using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
 bool rack::Config::integration_enabled(const std::string &i) const {
     return std::find(integrations.begin(), integrations.end(), i) != integrations.end();

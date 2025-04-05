@@ -9,15 +9,15 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <grpc/grpc.h>
 #include <grpcpp/security/server_credentials.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
-#include <string>
 #include <iostream>
 #include <mutex>
-#include <condition_variable>
+#include <string>
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are
@@ -30,8 +30,11 @@ bool end_session = false;
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.
-    grpc::Status Exec(grpc::ServerContext *context, const test::Message *request,
-                      test::Message *reply) override {
+    grpc::Status Exec(
+        grpc::ServerContext *context,
+        const test::Message *request,
+        test::Message *reply
+    ) override {
         // get the key 'test' from metadata
         auto test = context->client_metadata().find("test");
         std::string rep("Read request: ");
@@ -48,9 +51,10 @@ private:
 
 class myStreamServiceImpl final : public test::StreamMessageService::Service {
     /// @brief The implementation of the server side stream.
-    grpc::Status
-    Exec(grpc::ServerContext *context,
-         grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
+    grpc::Status Exec(
+        grpc::ServerContext *context,
+        grpc::ServerReaderWriter<test::Message, test::Message> *stream
+    ) override {
         // Send initial metadata
         context->AddInitialMetadata("test", "dog");
         stream->SendInitialMetadata();

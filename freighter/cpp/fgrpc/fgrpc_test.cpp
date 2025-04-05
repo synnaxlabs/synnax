@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
-#include "gtest/gtest.h"
-#include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/fgrpc.h"
+#include <thread>
+#include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter.h"
+#include "gtest/gtest.h"
 
 /// Internal response type uses message.
 using RQ = test::Message;
@@ -54,9 +54,7 @@ public:
         context.set("test", "5");
         auto [outContext, exc] = next(context);
         auto a = outContext.get("test");
-        if (a == "dog") {
-            ack = true;
-        }
+        if (a == "dog") { ack = true; }
         return {outContext, exc};
     }
 };
@@ -169,10 +167,14 @@ TEST(testGRPC, testMultipleStreamObjects) {
     streamer_two->close_send();
     auto [res_one, err_one2] = streamer_one->receive();
     auto [res_two, err_two2] = streamer_two->receive();
-    ASSERT_EQ(res_one.payload(),
-              "Read request: Sending to Streaming Server from Streamer One");
-    ASSERT_EQ(res_two.payload(),
-              "Read request: Sending to Streaming Server from Streamer Two");
+    ASSERT_EQ(
+        res_one.payload(),
+        "Read request: Sending to Streaming Server from Streamer One"
+    );
+    ASSERT_EQ(
+        res_two.payload(),
+        "Read request: Sending to Streaming Server from Streamer Two"
+    );
     auto err_one3 = streamer_one->receive().second;
     auto err_two3 = streamer_two->receive().second;
     ASSERT_TRUE(err_one3.type == freighter::EOF_.type);
@@ -232,8 +234,10 @@ TEST(testGRPC, testStreamError) {
 }
 
 
-void
-client_send(int num, std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC> > client) {
+void client_send(
+    int num,
+    std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>> client
+) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [res, err] = client->send("", mes);
@@ -243,14 +247,17 @@ client_send(int num, std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC> > cli
 
 const int N_THREADS = 3;
 
-///// @brief Test that we can send many messages with the same client and don't have any errors.
+///// @brief Test that we can send many messages with the same client and don't have any
+/// errors.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto global_unary_client = std::make_shared<fgrpc::UnaryClient<RQ, RS, UNARY_RPC> >(
-        pool, base_target);
+    auto global_unary_client = std::make_shared<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>>(
+        pool,
+        base_target
+    );
 
     auto mw = std::make_shared<myMiddleware>();
     global_unary_client->use(mw);
@@ -267,8 +274,10 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     s.join();
 }
 
-void
-stream_send(int num, std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC> > client) {
+void stream_send(
+    int num,
+    std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC>> client
+) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [stream, err] = client->stream("");
@@ -280,18 +289,16 @@ stream_send(int num, std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC> > c
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
-///// @brief Test that we can send many messages with the same client and different stream invocations.
+///// @brief Test that we can send many messages with the same client and different
+/// stream invocations.
 TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS,
-        STREAM_RPC> >(
-        pool,
-        base_target
-    );
+    auto global_stream_client = std::make_shared<
+        fgrpc::StreamClient<RQ, RS, STREAM_RPC>>(pool, base_target);
 
     const auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);
@@ -314,7 +321,7 @@ TEST(testGRPC, testPoolChannelReuse) {
 
     auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
-    
+
     // Send to first endpoint
     auto mes1 = test::Message();
     mes1.set_payload("First endpoint");
@@ -329,9 +336,9 @@ TEST(testGRPC, testPoolChannelReuse) {
 
     // Get the channel count from the pool's internal map
     size_t channel_count = pool->size();
-    EXPECT_EQ(channel_count, 1) << "Pool should maintain only one channel for the same host:port";
+    EXPECT_EQ(channel_count, 1)
+        << "Pool should maintain only one channel for the same host:port";
 
     stopServers();
     s.join();
 }
-

@@ -13,9 +13,9 @@
 #include <utility>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/telem/series.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/series.h"
 
 namespace common {
 /// @brief used to regulate the acquisition speed of a task, and provide timing
@@ -24,8 +24,7 @@ struct SampleClock {
     virtual ~SampleClock() = default;
 
     /// @brief resets the sample clock, making it ready for task startup.
-    virtual void reset() {
-    }
+    virtual void reset() {}
 
     /// @brief waits for the next acquisition loop to begin, returning the timestamp
     /// of the first sample.
@@ -49,7 +48,7 @@ struct TimingConfig {
 
     friend std::ostream &operator<<(std::ostream &os, const TimingConfig &cfg) {
         os << "  " << xlog::SHALE() << "clock skew correction" << xlog::RESET() << ": "
-                << (cfg.correct_skew ? "enabled" : "disabled");
+           << (cfg.correct_skew ? "enabled" : "disabled");
         return os;
     }
 };
@@ -62,8 +61,7 @@ class SoftwareTimedSampleClock final : public SampleClock {
 
 public:
     explicit SoftwareTimedSampleClock(const telem::Rate &stream_rate):
-        timer(stream_rate) {
-    }
+        timer(stream_rate) {}
 
     telem::TimeStamp wait(breaker::Breaker &breaker) override {
         const auto start = telem::TimeStamp::now();
@@ -71,9 +69,7 @@ public:
         return start;
     }
 
-    telem::TimeStamp end() override {
-        return telem::TimeStamp::now();
-    }
+    telem::TimeStamp end() override { return telem::TimeStamp::now(); }
 };
 
 
@@ -82,31 +78,32 @@ struct HardwareTimedSampleClockConfig {
     telem::NowFunc now = telem::TimeStamp::now;
     /// @brief the sample rate of the task.
     telem::Rate sample_rate, stream_rate;
-    /// @brief the proportional, integral, and derivative gains of the PID controller.
-    /// See: https://en.wikipedia.org/wiki/PID_controller
+    /// @brief the proportional, integral, and derivative gains of the PID
+    /// controller. See: https://en.wikipedia.org/wiki/PID_controller
     ///
     /// The PID controller implements the following equation:
     /// u(t) = Kp * e(t) + Ki * ∫e(t)dt + Kd * de/dt
     ///
     /// where:
     /// - e(t) = expected_end_time - system_end_time
-    ///   (error between expected end time based on period and the actual system time)
+    ///   (error between expected end time based on period and the actual system
+    ///   time)
     /// - u(t) = correction time to subtract from the expected end time
     /// - Kp = proportional gain (unitless)
     /// - Ki = integral gain (1/nanoseconds)
     /// - Kd = derivative gain (nanoseconds)
     ///
     double k_p = 0.01, k_i = 0, k_d = 0;
-    /// @brief the maximum value of the integral term of the PID controller. This is used
-    /// to prevent windup. The value scales with the stream period to ensure the integral
-    /// term remains effective at different sampling rates.
-    /// Default is 1x the stream period in nanoseconds.
+    /// @brief the maximum value of the integral term of the PID controller. This is
+    /// used to prevent windup. The value scales with the stream period to ensure
+    /// the integral term remains effective at different sampling rates. Default is
+    /// 1x the stream period in nanoseconds.
     double max_integral = 0.1;
-    /// @brief max_back_correction_factor sets the maximum that the PID controller can
-    /// shift the end time of the acquisition cycle backwards. This is used to prevent
-    /// scenarios where the PID controller tries to correct for a large error by shifting
-    /// the time of the acquisition cycle to before the previous cycle, resulting in
-    /// out of order timestamps.
+    /// @brief max_back_correction_factor sets the maximum that the PID controller
+    /// can shift the end time of the acquisition cycle backwards. This is used to
+    /// prevent scenarios where the PID controller tries to correct for a large
+    /// error by shifting the time of the acquisition cycle to before the previous
+    /// cycle, resulting in out of order timestamps.
     ///
     /// Expressed as a fraction of the stream period i.e.
     /// (stream_rate.period() * max_back_correction_factor);
@@ -137,12 +134,9 @@ struct HardwareTimedSampleClockConfig {
     }
 
     void validate() const {
-        if (this->k_p < 0)
-            throw std::invalid_argument("k_p must be non-negative");
-        if (this->k_i < 0)
-            throw std::invalid_argument("k_i must be non-negative");
-        if (this->k_d < 0)
-            throw std::invalid_argument("k_d must be non-negative");
+        if (this->k_p < 0) throw std::invalid_argument("k_p must be non-negative");
+        if (this->k_i < 0) throw std::invalid_argument("k_i must be non-negative");
+        if (this->k_d < 0) throw std::invalid_argument("k_d must be non-negative");
     }
 };
 
@@ -151,7 +145,8 @@ struct HardwareTimedSampleClockConfig {
 /// sample rate.
 class HardwareTimedSampleClock final : public SampleClock {
     HardwareTimedSampleClockConfig cfg;
-    /// @brief track the system time marking the end of the previous acquisition loop.
+    /// @brief track the system time marking the end of the previous acquisition
+    /// loop.
     telem::TimeStamp prev_system_end = telem::TimeStamp(0);
     /// @brief timestamp of the first sample in the current acquisition loop.
     telem::TimeStamp curr_start_sample_time = telem::TimeStamp(0);
@@ -159,12 +154,13 @@ class HardwareTimedSampleClock final : public SampleClock {
     double integral = 0.0;
     /// @brief the previous error term of the PID controller.
     double prev_error = 0.0;
-    /// @brief the number of samples per channel acquired during each acquisition loop.
+    /// @brief the number of samples per channel acquired during each acquisition
+    /// loop.
     size_t samples_per_chan = 0;
+
 public:
     explicit HardwareTimedSampleClock(HardwareTimedSampleClockConfig cfg):
-        cfg(std::move(cfg)),
-        samples_per_chan(cfg.sample_rate / cfg.stream_rate) {
+        cfg(std::move(cfg)), samples_per_chan(cfg.sample_rate / cfg.stream_rate) {
         this->cfg.validate();
     }
 
@@ -185,18 +181,21 @@ public:
     }
 
     telem::TimeStamp end() override {
-        // We use a fixed increment based on the number of samples per chan and the sample
-        // rate INSTEAD of the stream rate, as sometimes the stream rate does not
-        // reflect the actual real stream rate. This is true in scenarios where
-        // the sample rate is not an even multiple of the stream rate i.e. 2.5 KHz sample
-        // rate and 200 Hz stream rate, where we'd get 12.5 samples per channel.
-        const auto fixed_increment = this->cfg.sample_rate.period() * this->samples_per_chan;
+        // We use a fixed increment based on the number of samples per chan and the
+        // sample rate INSTEAD of the stream rate, as sometimes the stream rate does
+        // not reflect the actual real stream rate. This is true in scenarios where
+        // the sample rate is not an even multiple of the stream rate i.e. 2.5 KHz
+        // sample rate and 200 Hz stream rate, where we'd get 12.5 samples per
+        // channel.
+        const auto fixed_increment = this->cfg.sample_rate.period() *
+                                     this->samples_per_chan;
         auto sample_end = this->curr_start_sample_time + fixed_increment;
         const auto system_end = this->cfg.now();
-        const double error = static_cast<double>((sample_end - system_end).
-            nanoseconds());
-        const double dt = static_cast<double>((system_end - this->prev_system_end).
-            nanoseconds());
+        const double error = static_cast<double>((sample_end - system_end).nanoseconds()
+        );
+        const double dt = static_cast<double>(
+            (system_end - this->prev_system_end).nanoseconds()
+        );
         const double p_term = this->cfg.k_p * error;
         this->integral += error * dt;
         this->integral = std::clamp(

@@ -9,9 +9,9 @@
 
 #pragma once
 
-#include "x/cpp/xjson/xjson.h"
 #include "driver/task/task.h"
 #include "open62541/types.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace opc {
 const std::string INTEGRATION_NAME = "opc";
@@ -25,7 +25,7 @@ class Factory final : public task::Factory {
         const synnax::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
