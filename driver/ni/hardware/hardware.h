@@ -130,7 +130,7 @@ struct AnalogReader final : Base, Reader<double> {
 
     int64 update_skew(const size_t &n_requested);
 };
-} 
+} // namespace daqmx
 
 namespace mock {
 /// @brief Base mock implementation for testing hardware interfaces
@@ -210,5 +210,5 @@ public:
         return written_data;
     }
 };
-} 
-} 
+} // namespace mock
+} // namespace hardware

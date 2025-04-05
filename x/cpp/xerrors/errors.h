@@ -149,4 +149,4 @@ const Error INTERNAL = SY.sub("internal");
 const Error UNEXPECTED = SY.sub("unexpected");
 const Error CONTROL = SY.sub("control");
 const Error UNAUTHORIZED = CONTROL.sub("unauthorized");
-} 
+} // namespace xerrors

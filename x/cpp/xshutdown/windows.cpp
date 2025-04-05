@@ -65,4 +65,5 @@ void listen_stdin() {
         Sleep(100);
     }
 }
-} /
+} // namespace xshutdown::priv
+/

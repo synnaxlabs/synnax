@@ -481,4 +481,4 @@ private:
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
 };
-} 
+} // namespace synnax

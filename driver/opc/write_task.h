@@ -132,4 +132,4 @@ public:
         return err;
     }
 };
-} 
+} // namespace opc

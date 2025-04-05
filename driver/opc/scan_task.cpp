@@ -157,4 +157,4 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         .details = {{"message", "Connection successful"}},
     });
 }
-} 
+} // namespace opc

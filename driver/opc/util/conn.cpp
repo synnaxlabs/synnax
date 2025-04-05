@@ -294,4 +294,4 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
     if (!err) return xerrors::NIL;
     return parse_error(UA_Client_connect(client.get(), endpoint.c_str()));
 }
-} 
+} // namespace util

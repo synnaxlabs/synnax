@@ -540,4 +540,4 @@ inline void eventually_true(
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(expr, timeout, interval)                   \
     xtest::eventually_true([&]() { return (expr); }, (timeout), (interval))
-} 
+} // namespace xtest

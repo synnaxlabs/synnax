@@ -71,4 +71,4 @@ public:
         return skew().abs() > threshold;
     }
 };
-} 
+} // namespace telem

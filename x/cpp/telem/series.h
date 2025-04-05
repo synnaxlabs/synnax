@@ -957,4 +957,4 @@ public:
         return sum / static_cast<T>(size);
     }
 };
-} 
+} // namespace telem

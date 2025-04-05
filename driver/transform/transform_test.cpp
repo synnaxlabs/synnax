@@ -569,4 +569,4 @@ TEST(ChainTests, ComplexTransformChain) {
     // Check the result: (70 - 50) * 2 + 10 = 50
     ASSERT_EQ(frame2.at<double>(1, 0), 50.0);
 }
-}
+} // namespace transform

@@ -464,4 +464,4 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
     ASSERT_EQ(devices.size(), 1);
     ASSERT_EQ(devices[0].key, d1.key);
 }
-} 
+} // namespace synnax

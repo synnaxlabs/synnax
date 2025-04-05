@@ -65,4 +65,4 @@ private:
 
     void test_connection(const task::Command &cmd) const;
 };
-} 
+} // namespace opc

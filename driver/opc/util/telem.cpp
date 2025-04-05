@@ -123,4 +123,4 @@ size_t write_to_series(telem::Series &s, const UA_Variant &v) {
     }
     return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));
 }
-}
+} // namespace util

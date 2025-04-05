@@ -326,4 +326,4 @@ private:
     /// @brief processes when a command needs to be executed on a configured task.
     void process_task_cmd(const telem::Series &series);
 };
-} 
+} // namespace task

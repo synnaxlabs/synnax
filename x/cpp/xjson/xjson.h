@@ -339,4 +339,4 @@ public:
         return Parser(file);
     }
 };
-} 
+} // namespace xjson

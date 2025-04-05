@@ -192,4 +192,4 @@ NISysCfgStatus ProdAPI::GetStatusDescriptionW(
 NISYSCFGCFUNC ProdAPI::FreeDetailedStringW(wchar_t str[]) {
     return function_pointers_.FreeDetailedStringW(str);
 }
-} 
+} // namespace syscfg

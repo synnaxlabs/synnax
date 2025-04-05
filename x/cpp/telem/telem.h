@@ -31,7 +31,7 @@ constexpr int64_t SECOND = MILLISECOND * 1e3;
 constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
-} 
+} // namespace _priv
 
 
 /// @brief timespan is a nanosecond-precision time duration.
@@ -639,7 +639,7 @@ const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
 const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
-} 
+} // namespace _priv
 
 /// @brief Holds the name and properties of a datatype.
 class DataType {
@@ -930,7 +930,7 @@ const DataType STRING_T(_priv::STRING_T);
 /// Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType JSON_T(_priv::JSON_T);
-} 
+} // namespace telem
 
 // Add hash specialization in std namespace
 template<>

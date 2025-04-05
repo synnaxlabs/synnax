@@ -41,7 +41,7 @@ check_minimum_permissions(const std::filesystem::path &path, const char *context
     }
     return xerrors::NIL;
 }
-} 
+} // namespace
 
 JSONFile::JSONFile(const std::string &path, const json &data):
     path(path), data_(data) {}
@@ -150,4 +150,4 @@ xerrors::Error JSONFile::del(const std::string &key) {
     return xerrors::NIL;
 }
 
-} 
+} // namespace kv

@@ -45,4 +45,4 @@ xerrors::Error view_logs() {
 xerrors::Error status() {
     return NOT_SUPPORTED;
 }
-} 
+} // namespace daemond
