@@ -107,4 +107,4 @@ private:
     std::unique_ptr<xlib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };
-} // namespace syscfg
+} 

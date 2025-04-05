@@ -112,4 +112,4 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
         }
     }
 }
-} // namespace cli
+} 

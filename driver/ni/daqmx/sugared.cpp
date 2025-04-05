@@ -5181,4 +5181,4 @@ xerrors::Error SugaredAPI::CreateAIVoltageRMSChan(
         customScaleName
     ));
 }
-} // namespace daqmx
+} 

@@ -1682,4 +1682,4 @@ inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
 #undef INPUT_CHAN_FACTORY
 #undef FACTORY
 #undef FACTORY_WITH_CJC_SOURCES
-} // namespace channel
+} 

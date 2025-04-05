@@ -10161,4 +10161,4 @@ int32 ProdAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
 int32 ProdAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) {
     return function_pointers_.GetReadTotalSampPerChanAcquired(taskHandle, data);
 }
-} // namespace daqmx
+} 

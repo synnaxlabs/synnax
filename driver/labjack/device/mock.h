@@ -118,4 +118,4 @@ private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
 };
-} // namespace device
+} 

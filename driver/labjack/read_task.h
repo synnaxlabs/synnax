@@ -636,4 +636,4 @@ public:
         return res;
     }
 };
-} // namespace labjack
+} 

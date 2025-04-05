@@ -78,4 +78,4 @@ template class Reader<double>;
 template class Writer<uint8_t>;
 template class Writer<double>;
 
-} // namespace hardware::mock
+} 

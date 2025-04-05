@@ -77,5 +77,5 @@ int service_view_logs(xargs::Parser &args);
 
 /// @brief clears the driver persisted state.
 int clear(xargs::Parser &args);
-} // namespace sub
-} // namespace cmd
+} 
+} 

@@ -55,4 +55,4 @@ inline std::string get() {
     return UNKNOWN_NAME;
 #endif
 }
-} // namespace xos
+} 

@@ -259,4 +259,4 @@ public:
 
     xerrors::Error before_next(lua_State *L) override;
 };
-} // namespace plugins
+}

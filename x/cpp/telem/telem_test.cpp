@@ -578,4 +578,4 @@ TEST(DataTypeTests, testStreamOperator) {
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
 }
-} // namespace telem
+} 

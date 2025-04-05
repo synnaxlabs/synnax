@@ -146,4 +146,4 @@ int64 AnalogReader::update_skew(const size_t &n_requested) {
     return static_cast<int64>(this->total_samples_acquired) -
            static_cast<int64>(this->total_samples_requested);
 }
-} // namespace hardware::daqmx
+} 

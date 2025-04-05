@@ -140,4 +140,4 @@ xerrors::Error Writer::close() const {
 void Writer::assert_open() const {
     if (closed) throw std::runtime_error("cannot call method on closed writer");
 }
-} // namespace synnax
+} 

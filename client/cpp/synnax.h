@@ -39,7 +39,7 @@ inline void check_little_endian() {
                     "may silently corrupt telemetry."
                  << std::endl;
 }
-} // namespace priv
+} 
 
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
@@ -197,4 +197,4 @@ public:
         );
     }
 };
-} // namespace synnax
+} 

@@ -137,4 +137,4 @@ void Acquisition::run() {
         this->source->stopped_with_err(writer_err);
     VLOG(1) << "[acquisition] acquisition thread stopped";
 }
-} // namespace pipeline
+} 

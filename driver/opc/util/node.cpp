@@ -149,4 +149,4 @@ static const std::map<UA_NodeClass, std::string> NODE_CLASS_MAP = {
 std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
-} // namespace util
+} 

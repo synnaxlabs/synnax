@@ -182,4 +182,4 @@ ChannelClient::retrieve(const std::vector<std::string> &names) const {
     std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {channels, err};
 }
-} // namespace synnax
+} 

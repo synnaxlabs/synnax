@@ -182,4 +182,4 @@ std::string node_class_to_string(const UA_NodeClass &node_class);
 
 std::pair<telem::Series, xerrors::Error>
 simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id);
-} // namespace util
+} 

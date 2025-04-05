@@ -179,4 +179,4 @@ public:
         return {sequence::Task::configure(ctx, task), true};
     }
 };
-} // namespace sequence
+} 

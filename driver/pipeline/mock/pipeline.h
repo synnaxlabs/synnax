@@ -308,4 +308,4 @@ inline std::shared_ptr<pipeline::mock::Source>
 simple_source(const std::shared_ptr<std::vector<synnax::Frame>> &reads) {
     return std::make_shared<pipeline::mock::Source>(reads);
 }
-} // namespace pipeline::mock
+} 

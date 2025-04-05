@@ -730,4 +730,4 @@ inline xerrors::Error parse_error(const std::shared_ptr<ljm::API> &ljm, const in
         description = it->second;
     return xerrors::Error(CRITICAL_ERROR.sub(err_msg), description);
 }
-} // namespace ljm
+} 

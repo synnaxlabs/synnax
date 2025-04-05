@@ -218,4 +218,4 @@ private:
     std::pair<std::vector<Range>, xerrors::Error>
     retrieve_many(api::v1::RangeRetrieveRequest &req) const;
 };
-} // namespace synnax
+} 

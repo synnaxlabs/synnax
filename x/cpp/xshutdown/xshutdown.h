@@ -40,7 +40,7 @@ inline bool should_shutdown() {
     std::lock_guard lock(priv::shutdown_mutex);
     return priv::should_stop;
 }
-} // namespace priv
+} 
 
 /// @brief signals the shutdown condition to all listeners.
 inline void signal_shutdown() {
@@ -61,4 +61,4 @@ inline void listen(const bool sig_enabled = true, const bool stdin_enabled = tru
     std::unique_lock lock(priv::shutdown_mutex);
     priv::shutdown_cv.wait(lock, [] { return priv::should_stop; });
 }
-} // namespace xshutdown
+} 

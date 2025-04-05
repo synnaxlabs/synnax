@@ -378,4 +378,4 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_properties(properties);
     device->set_configured(configured);
 }
-} // namespace synnax
+} 

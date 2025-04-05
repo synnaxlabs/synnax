@@ -120,4 +120,4 @@ std::ostream &operator<<(std::ostream &os, const Frame &f) {
     os << "}";
     return os;
 }
-} // namespace synnax
+} 

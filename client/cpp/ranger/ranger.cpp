@@ -176,4 +176,4 @@ xerrors::Error RangeKV::del(const std::string &key) const {
     auto [res, err] = kv_delete_client->send(KV_DELETE_ENDPOINT, req);
     return err;
 }
-} // namespace synnax
+} 

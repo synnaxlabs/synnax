@@ -259,4 +259,4 @@ public:
         return argv_[index];
     }
 };
-} // namespace xargs
+} 

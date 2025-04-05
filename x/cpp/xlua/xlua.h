@@ -305,4 +305,4 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
         xerrors::Error(xerrors::VALIDATION, "Unsupported data type: " + data_type)
     };
 }
-} // namespace xlua
+} 

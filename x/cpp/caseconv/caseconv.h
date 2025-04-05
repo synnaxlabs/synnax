@@ -33,4 +33,4 @@ inline std::string snake_to_kebab(const std::string &input) {
     std::replace(result.begin(), result.end(), '_', '-');
     return result;
 }
-} // namespace caseconv
+} 

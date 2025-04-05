@@ -54,4 +54,4 @@ public:
     defer(const defer &) = delete;
     defer &operator=(const defer &) = delete;
 };
-} // namespace x
+} 

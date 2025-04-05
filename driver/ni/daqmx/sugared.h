@@ -2422,4 +2422,4 @@ public:
     xerrors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
     xerrors::Error GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
 };
-} // namespace daqmx
+} 
