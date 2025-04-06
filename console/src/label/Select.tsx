@@ -50,7 +50,7 @@ export const SelectSingle = (props: SelectSingleProps) => (
 const AddButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Icon onClick={onClick}>
+    <Button.Icon onClick={onClick} variant="outlined">
       <Icon.Add />
     </Button.Icon>
   );

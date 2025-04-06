@@ -73,11 +73,10 @@ export const Core = <K extends Key, E extends Keyed<K>>({
 
   if (variant !== "connected")
     dialogContent = (
-      <Align.Pack y borderShade={5} className={CSS.B("select-dialog-content")}>
+      <Align.Pack y className={CSS.B("select-dialog-content")}>
         {dialogContent}
       </Align.Pack>
     );
-
   return (
     <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>
       {/* @ts-expect-error - selector compatibility with generic props */}
