@@ -159,7 +159,6 @@
         border: none;
 
         &.pluto--shade-0 {
-            --pluto-bg: transparent;
             --pluto-hover-bg: var(--pluto-gray-l2);
             --pluto-active-bg: var(--pluto-gray-l3);
         }

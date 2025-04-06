@@ -19,6 +19,23 @@
 .pluto-select-dialog-content {
     width: 500px;
     height: 200px;
+    .pluto-input {
+        .pluto-input__internal {
+            border-top-color: var(--pluto-gray-l6);
+            border-left-color: var(--pluto-gray-l6);
+        }
+        .pluto-btn {
+            border-top-color: var(--pluto-gray-l6);
+            border-right-color: var(--pluto-gray-l6);
+        }
+    }
+    & .pluto-list__container {
+        background: var(--pluto-gray-l0);
+        border: var(--pluto-border);
+        border-color: var(--pluto-gray-l6);
+        border-bottom-left-radius: 1rem !important;
+        border-bottom-right-radius: 1rem !important;
+    }
 }
 
 .pluto-select__clear {

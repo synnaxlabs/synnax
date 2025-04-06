@@ -42,19 +42,8 @@
             min-width: 400px;
             min-height: 150px;
             overflow: hidden;
-            & > * {
-                background: var(--pluto-gray-l0);
-            }
-
-            & > *:first-child {
-                border-top-left-radius: 1rem;
-                border-top-right-radius: 1rem;
-            }
-
-            & > *:last-child {
-                border-bottom-left-radius: 1rem;
-                border-bottom-right-radius: 1rem;
-            }
+            box-shadow: var(--pluto-shadow-v1);
+            border-radius: 1rem;
         }
 
         @media (max-height: 800px) {

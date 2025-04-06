@@ -45,6 +45,7 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
       onClick={handleClick}
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      shade={1}
       size={size ?? iconSpacing}
       endIcon={
         trigger && (

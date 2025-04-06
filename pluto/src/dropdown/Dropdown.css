@@ -28,7 +28,9 @@
 .pluto-dropdown__dialog {
     position: fixed;
     overflow: hidden;
-    &.pluto--bordered {
+
+    &.pluto--connected {
+        background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
     }
 
@@ -36,13 +38,7 @@
         --pluto-pack-br: 6px;
     }
 
-    &.pluto--modal {
-        top: 15%;
-    }
-
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l1);
-        box-shadow: var(--pluto-shadow-v1);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;
@@ -55,7 +51,8 @@
 
     &.pluto--floating {
         transition: opacity 0.075s ease-in-out;
-        border-radius: calc(var(--pluto-border-radius) * 2);
+        box-shadow: var(--pluto-shadow-v1);
+        border-radius: 1rem;
     }
 
     &.pluto--hidden {
