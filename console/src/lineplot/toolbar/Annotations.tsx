@@ -100,7 +100,6 @@ const List = ({
           onChange={onChange}
         >
           <PMenu.ContextMenu
-            style={{ width: "100%", overflow: "hidden" }}
             menu={({ keys }) => (
               <PMenu.Menu
                 onChange={{ remove: () => onRemoveAnnotations(keys) }}

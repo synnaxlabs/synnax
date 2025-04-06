@@ -47,6 +47,6 @@ export const sliceMigration: migrate.Migration<v4.SliceState, SliceState> =
     migrate: (s) => ({
       ...s,
       version: VERSION,
-      ...ZERO_NAV_STATE,
+      nav: ZERO_NAV_STATE,
     }),
   });

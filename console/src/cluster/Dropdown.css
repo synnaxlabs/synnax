@@ -22,4 +22,10 @@
 
 .console-cluster-list {
     width: 400px;
+    .pluto-header {
+        background: var(--pluto-gray-l1);
+    }
+    .pluto-list__container {
+        background: var(--pluto-gray-l1);
+    }
 }

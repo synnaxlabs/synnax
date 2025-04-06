@@ -39,20 +39,11 @@
         & > div {
             position: relative;
             z-index: 11;
-            background: var(--pluto-gray-l0);
-            box-shadow: var(--pluto-shadow-v3);
             min-width: 400px;
             min-height: 150px;
-            border-radius: 1rem;
             overflow: hidden;
-
-            & > div:first-child {
-                border-radius: 1rem 1rem 0 0;
-            }
-
-            & > div:last-child {
-                border-radius: 0 0 1rem 1rem;
-            }
+            box-shadow: var(--pluto-shadow-v1);
+            border-radius: 1rem;
         }
 
         @media (max-height: 800px) {

@@ -135,6 +135,12 @@ export const parseDirection = (
  * by the theme. If set to a number, the spacing will be that number of rem.
  * @param props.wrap - A boolean value that determines if the space should wrap its
  * children.
+ * @param props.direction - The direction of the space. Defaults to 'y'. If props.x or
+ * props.y are true, this prop is ignored.
+ * @param props.x - A boolean value that determines if the space should be oriented
+ * horizontally. If true, props.y and props.direction are ignored.
+ * @param props.y - A boolean value that determines if the space should be oriented
+ * vertically. If true, props.direction is ignored. props.x takes precedence over props.y.
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
 export const Space = <E extends ElementType = "div">({

@@ -123,7 +123,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     draw.list({
       root,
       offset: TOOLTIP_LIST_OFFSET,
-      length: values.length + 1,
+      length: validValues.length + 1,
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
@@ -137,7 +137,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           label = "Time";
           value = avgXValue.fString("preciseDate", "local");
         } else {
-          const v = values[i - 1];
+          const v = validValues[i - 1];
           label = v.label ?? "";
           value = notation.roundSmart(v.value.y, v.bounds).toString();
           color = v.color;

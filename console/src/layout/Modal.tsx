@@ -47,6 +47,7 @@ export const Modal = ({ state, remove, root }: ModalProps) => {
       style={layoutCSS(window)}
       root={root}
       offset={calculateOffset(window)}
+      background={0}
     >
       {window?.navTop && (
         <Nav.Bar location="top" size="6rem" bordered>
