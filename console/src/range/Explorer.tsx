@@ -1,23 +1,26 @@
+import "@/range/Explorer.css";
+
 import { type label, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  componentRenderProp,
   Divider,
   Dropdown,
   Haul,
   List,
   Menu,
   Ranger,
+  type RenderProp,
   Synnax,
   Tag,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
@@ -30,9 +33,15 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
   icon: "Explore",
 };
 
-interface ExplorerListItemProps extends List.ItemFrameProps<string, ranger.Payload> {}
+interface ExplorerListItemProps
+  extends Omit<List.ItemFrameProps<string, ranger.Payload>, "onDragEnd">,
+    Pick<Haul.UseDragReturn, "startDrag" | "onDragEnd"> {}
 
-const ExplorerListItem = (props: ExplorerListItemProps) => {
+const ExplorerListItem = ({
+  startDrag,
+  onDragEnd,
+  ...props
+}: ExplorerListItemProps) => {
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
@@ -41,8 +50,12 @@ const ExplorerListItem = (props: ExplorerListItemProps) => {
     const labels = await client?.labels.retrieveFor(ranger.ontologyID(entry.key));
     setLabels(labels ?? []);
   }, [entry.key]);
+  const dragGhost = useRef<HTMLElement | null>(null);
+  const elRef = useRef<HTMLDivElement>(null);
+
   return (
     <List.ItemFrame
+      ref={elRef}
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
@@ -50,8 +63,33 @@ const ExplorerListItem = (props: ExplorerListItemProps) => {
       size="tiny"
       justify="spaceBetween"
       align="center"
+      className={CSS(CSS.B("range-explorer-item"))}
       style={{ padding: "1.5rem 3rem", width: "100%" }}
       draggable
+      onDragStart={(e) => {
+        const ghost = elRef.current?.cloneNode(true) as HTMLElement;
+        ghost.classList.add("console--dragging");
+        document.body.appendChild(ghost);
+        dragGhost.current = ghost;
+        e.dataTransfer.setDragImage(ghost, 50, 50);
+        startDrag([
+          {
+            key: entry.key,
+            type: ranger.ONTOLOGY_TYPE,
+            data: {
+              ...(entry as ranger.Range).payload,
+              timeRange: entry.timeRange.numeric,
+            },
+          },
+        ]);
+      }}
+      onDragEnd={(e) => {
+        if (dragGhost.current) {
+          document.body.removeChild(dragGhost.current);
+          dragGhost.current = null;
+        }
+        onDragEnd(e);
+      }}
       {...props}
     >
       <Text.WithIcon
@@ -65,7 +103,7 @@ const ExplorerListItem = (props: ExplorerListItemProps) => {
       >
         {entry.name}
       </Text.WithIcon>
-      <Align.Space x>
+      <Align.Space x className={CSS.B("range-explorer-item-content")}>
         <Align.Stack x size="small">
           {labels.map((l) => (
             <Tag.Tag key={l.key} color={l.color} size="small">
@@ -82,26 +120,11 @@ const ExplorerListItem = (props: ExplorerListItemProps) => {
 export const Explorer: Layout.Renderer = () => {
   const client = Synnax.use();
   const drag = Haul.useDrag({ type: ranger.ONTOLOGY_TYPE, key: "cat" });
-  const item = useCallback(
-    ({ key, ...rest }: ExplorerListItemProps) => {
-      const { entry } = rest;
-      return (
-        <ExplorerListItem
-          key={key}
-          onDragStart={(e) => {
-            console.log("dragging");
-            drag.startDrag(
-              [{ key: entry.key, type: ranger.ONTOLOGY_TYPE, data: entry }],
-              () => {},
-            );
-          }}
-          onDragEnd={drag.onDragEnd}
-          {...rest}
-        />
-      );
-    },
-    [drag.startDrag],
-  );
+  const item: RenderProp<List.ItemProps<string, ranger.Payload> & { key: string }> =
+    useCallback(
+      ({ key, ...rest }) => <ExplorerListItem key={key} {...drag} {...rest} />,
+      [drag.startDrag],
+    );
   return (
     <List.List>
       <List.Search searcher={client?.ranges}>{() => <></>}</List.Search>

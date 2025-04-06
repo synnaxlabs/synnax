@@ -1,0 +1,11 @@
+.console-range-explorer-item {
+    &.console--dragging {
+        width: 300px !important;
+        border: var(--pluto-border);
+        background: var(--pluto-gray-l1);
+        border-radius: 1rem;
+        .console-range-explorer-item-content {
+            display: none;
+        }
+    }
+}

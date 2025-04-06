@@ -168,7 +168,6 @@ export const Dialog = ({
         const isDialog = el?.getAttribute("role") === "dialog";
         if (!isDialog) return false;
         const zi = el.style.zIndex;
-        console.log(zi, zIndex, el, e.target);
         return Number(zi) > zIndex;
       });
       return parent != null;
