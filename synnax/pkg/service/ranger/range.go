@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -28,8 +29,9 @@ import (
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
 	// tx is the transaction used to execute KV operations specific to this range
-	tx  gorp.Tx
-	otg *ontology.Ontology
+	tx    gorp.Tx
+	otg   *ontology.Ontology
+	label *label.Service
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
 	Key uuid.UUID `json:"key" msgpack:"key"`
@@ -251,6 +253,10 @@ func (r Range) listAliases(
 		return nil
 	}
 	return p.listAliases(ctx, accumulated)
+}
+
+func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
+	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
 // OntologyID returns the semantic ID for this range in order to look it up from within

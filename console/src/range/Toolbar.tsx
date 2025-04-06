@@ -14,7 +14,9 @@ import { type label, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  Button,
   componentRenderProp,
+  Haul,
   Header,
   Icon as PIcon,
   List as CoreList,
@@ -45,6 +47,7 @@ import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
+import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
@@ -365,6 +368,22 @@ const List = (): ReactElement => {
     );
   };
 
+  const drop = Haul.useDrop({
+    type: "range-toolbar",
+    canDrop: Haul.canDropOfType(ranger.ONTOLOGY_TYPE),
+    onDrop: ({ items }) => {
+      const ranges = items.map((e) => ({
+        key: e.key,
+        name: e.data?.name,
+        variant: "static",
+        persisted: true,
+        timeRange: e.data?.timeRange.numeric,
+      }));
+      dispatch(add({ ranges }));
+      return items;
+    },
+  });
+
   return (
     <CoreList.List<string, StaticRange>
       data={ranges.filter((r) => r.variant === "static")}
@@ -381,6 +400,7 @@ const List = (): ReactElement => {
           style={{ height: "100%", overflowX: "hidden" }}
           onContextMenu={menuProps.open}
           className={menuProps.className}
+          {...drop}
         >
           {componentRenderProp(ListItem)}
         </CoreList.Core>
@@ -443,7 +463,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           style={{ overflowX: "auto", height: "fit-content" }}
         >
           {labels.map((l) => (
-            <Tag.Tag key={l.key} size="small" color={l.color}>
+            <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}
             </Tag.Tag>
           ))}
@@ -457,11 +477,24 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <Toolbar.Header>
+      <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Header.Actions>
-          {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
-        </Header.Actions>
+        <Align.Pack>
+          <Button.Icon
+            variant="filled"
+            size="small"
+            onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          >
+            <Icon.Explore />
+          </Button.Icon>
+          <Button.Icon
+            variant="outlined"
+            size="small"
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+          >
+            <Icon.Add />
+          </Button.Icon>
+        </Align.Pack>
       </Toolbar.Header>
       <List />
     </Align.Space>

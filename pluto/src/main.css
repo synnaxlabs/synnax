@@ -1,0 +1,10 @@
+.pluto-stack {
+    padding-left: 100px;
+    width: 300px;
+    & > div:first-child {
+        flex-grow: 1;
+    }
+    & > div:not(:first-child) {
+        min-width: 0;
+    }
+}

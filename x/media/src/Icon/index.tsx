@@ -95,6 +95,8 @@ import {
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
+  MdOutlineExplore,
+  MdOutlineFilterList,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
@@ -420,6 +422,8 @@ export interface IconType {
   Visible: IconFC;
   Hidden: IconFC;
   Virtual: IconFC;
+  Filter: IconFC;
+  Explore: IconFC;
 }
 
 export const Icon: IconType = {
@@ -594,4 +598,6 @@ export const Icon: IconType = {
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
   Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
+  Filter: wrapIcon(MdOutlineFilterList, "filter"),
+  Explore: wrapIcon(MdOutlineExplore, "explore"),
 };

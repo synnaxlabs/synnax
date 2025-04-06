@@ -28,6 +28,7 @@ const canDrop = (
   { items: entities }: DraggingState,
   value: ranger.Key[] | readonly ranger.Key[],
 ): boolean => {
+  console.log(entities);
   const f = Haul.filterByType(HAUL_TYPE, entities);
   return f.length > 0 && !f.every((h) => value.includes(h.key as ranger.Key));
 };
@@ -51,6 +52,9 @@ export const SelectMultiple = ({
         No client available
       </Status.Text.Centered>
     );
+
+  const state = Haul.useDraggingState();
+  console.log(state);
 
   const {
     startDrag,
