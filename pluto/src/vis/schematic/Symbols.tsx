@@ -542,6 +542,44 @@ export const Triangle = createLabeled(
 );
 export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
 
+export const PolygonSymbol = createLabeled(
+  ({
+    numSides,
+    sideLength,
+    cornerRounding,
+    rotation,
+    color,
+    backgroundColor,
+    ...rest
+  }: SymbolProps<Primitives.PolygonProps>) => (
+    <Primitives.Polygon
+      numSides={numSides}
+      sideLength={sideLength}
+      cornerRounding={cornerRounding}
+      rotation={rotation}
+      color={color}
+      backgroundColor={backgroundColor}
+      {...rest}
+    />
+  )
+);
+
+export const Circle = createLabeled(
+  ({
+    radius,
+    color,
+    backgroundColor,
+    ...rest
+  }: SymbolProps<Primitives.CircleShapeProps>) => (
+    <Primitives.CircleShape
+      radius={radius}
+      color={color}
+      backgroundColor={backgroundColor}
+      {...rest}
+    />
+  )
+);
+
 
 export const Box = createLabeled(
   ({

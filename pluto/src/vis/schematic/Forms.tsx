@@ -429,6 +429,16 @@ export const CommonPolygonForm = (): ReactElement => {
           }}
           grow
         />
+        <Form.NumericField 
+          path="numSides"
+          label="# of Sides"
+          inputProps={{
+            dragScale: { x: 0.5, y: 0.1 },
+            bounds: { lower: 3, upper: 21 },
+            endContent: "px",
+          }}
+          grow
+        />
       </Align.Space>
       <Align.Space direction="x">
         <Form.NumericField 
@@ -436,7 +446,7 @@ export const CommonPolygonForm = (): ReactElement => {
           label="Side Length"
           inputProps={{
             dragScale: { x: 1, y: 1 },
-            bounds: { lower: 10, upper: 1000 },
+            bounds: { lower: 10, upper: 500 },
             endContent: "px",
           }}
           grow
@@ -446,7 +456,7 @@ export const CommonPolygonForm = (): ReactElement => {
           label="Corner Rounding" 
           inputProps={{
             dragScale: { x: 1, y: 1 },
-            bounds: { lower: 0, upper: 51 },
+            bounds: { lower: 0, upper: 51 }, // internally limited as well to ensure weird things don't happen
             endContent: "px",
           }}
           grow 
@@ -456,6 +466,28 @@ export const CommonPolygonForm = (): ReactElement => {
     </Align.Space>
   </FormWrapper>;
 };
+
+export const CircleForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.NumericField
+          path="radius"
+          label="Radius"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 0, upper: 500 },
+            endContent: "px",
+          }}
+          grow
+        />
+      </Align.Space>
+    </Align.Space>
+  </FormWrapper>
+);
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },

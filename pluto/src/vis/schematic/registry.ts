@@ -30,6 +30,7 @@ import {
   TextBoxForm,
   ValueForm,
   CommonPolygonForm,
+  CircleForm,
 } from "@/vis/schematic/Forms";
 import { Primitives } from "@/vis/schematic/primitives";
 import {
@@ -230,8 +231,8 @@ import {
   type ValveProps,
   Vent,
   type VentProps,
-  Triangle,
-  type TriangleProps,
+  PolygonSymbol,
+  Circle,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -312,7 +313,8 @@ const VARIANTS = [
   "staticMixer",
   "switch",
   "tank",
-  "triangle",
+  "polygon",
+  "circle",
   "textBox",
   "threeWayValve",
   "vacuumPump",
@@ -629,21 +631,36 @@ const tank: Spec<TankProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const triangle: Spec<Primitives.PolygonProps> = {
-  name: "Triangle",
-  key: "triangle",
-  Symbol: Triangle,
+const polygon: Spec<Primitives.PolygonProps> = {
+  name: "Polygon",
+  key: "polygon",
+  Symbol: PolygonSymbol,
   Form: CommonPolygonForm,
   defaultProps: (t) => ({
+    numSides: 6,
     sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
+    cornerRounding: 0,
     rotation: 0,
-    numSides: 3,
-    cornerRounding: 3,
     color: t.colors.gray.l9.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
-    ...zeroLabel("Triangle"),
+    ...zeroLabel("Polygon"),
   }),
   Preview: removeProps(Primitives.Polygon, ["clickable"]),
+  zIndex: Z_INDEX_LOWER,
+};
+
+const circle: Spec<Primitives.CircleShapeProps> = {
+  name: "Circle",
+  key: "circle",
+  Symbol: Circle,
+  Form: CircleForm,
+  defaultProps: (t) => ({
+    radius: 20,
+    color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    ...zeroLabel("Circle"),
+  }),
+  Preview: removeProps(Primitives.CircleShape, ["clickable"]),
   zIndex: Z_INDEX_LOWER,
 };
 
@@ -1766,7 +1783,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
-  triangle,
+  polygon,
+  circle,
   tJunction,
   crossJunction,
   switch: switch_,

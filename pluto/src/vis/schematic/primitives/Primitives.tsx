@@ -60,12 +60,6 @@ const Line = (props: LineProps): ReactElement => (
   <line vectorEffect="non-scaling-stroke" {...props} />
 );
 
-interface PolygonSVGProps extends ComponentPropsWithoutRef<"polygon"> {}
-
-const PolygonSvg = (props: PolygonSVGProps): ReactElement => (
-  <polygon vectorEffect="non-scaling-stroke" {...props} />
-);
-
 const ORIENTATION_RF_POSITIONS: Record<
   location.Outer,
   Record<location.Outer, RFPosition>
@@ -1371,7 +1365,7 @@ export const Tank = ({
   );
 };
 
-export const DEFAULT_POLYGON_SIDE_LENGTH = 60;
+export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
 export interface PolygonProps extends DivProps {
   numSides: number;
   sideLength: number;
@@ -1384,60 +1378,31 @@ export interface PolygonProps extends DivProps {
 const calculatePolygonVertices = (
   numSides: number,
   sideLength: number,
-  rotationDeg: number = 0,
+  rotationDeg: number = 0
 ): Array<{ x: number; y: number }> => {
-  const sides = Array(numSides).fill(sideLength);
   const angleStep = (2 * Math.PI) / numSides;
   const rotationRad = (rotationDeg * Math.PI) / 180;
   const radius = sideLength / (2 * Math.sin(Math.PI / numSides));
-  const vertices = sides.map((_, i) => {
+  const center = radius + 2;
+
+  return Array.from({ length: numSides }).map((_, i) => {
     const angle = angleStep * i + rotationRad - Math.PI / 2;
     return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
+      x: center + radius * Math.cos(angle),
+      y: center + radius * Math.sin(angle),
     };
   });
-
-  return vertices;
 };
 
 const generateRoundedPolygonPath = (
-  vertices: { x: number; y: number }[],
-  rawR: number,
-  sideLength: number
+  vertices: { x: number; y: number }[]
 ): string => {
-  const r = Math.min(rawR, sideLength * 0.4); // technically 0.5 but 0.4 provides a safety margin for edge cases (no pun intended)
-  const len = vertices.length;
-  if (len < 3 || r <= 0) {
-    return `M ${vertices.map(v => `${v.x},${v.y}`).join(" L ")} Z`;
-  }
-  const path: string[] = [];
-  for (let i = 0; i < len; i++) {
-    const prev = vertices[(i - 1 + len) % len];
-    const curr = vertices[i];
-    const next = vertices[(i + 1) % len];
-    const dx1 = curr.x - prev.x;
-    const dy1 = curr.y - prev.y;
-    const dx2 = next.x - curr.x;
-    const dy2 = next.y - curr.y;
-    const len1 = Math.hypot(dx1, dy1);
-    const len2 = Math.hypot(dx2, dy2);
-    const offset1 = r / len1;
-    const offset2 = r / len2;
-    const p1x = curr.x - dx1 * offset1;
-    const p1y = curr.y - dy1 * offset1;
-    const p2x = curr.x + dx2 * offset2;
-    const p2y = curr.y + dy2 * offset2;
-    if (i === 0) {
-      path.push(`M ${p1x},${p1y}`);
-    } else {
-      path.push(`L ${p1x},${p1y}`);
-    }
-    path.push(`Q ${curr.x},${curr.y} ${p2x},${p2y}`);
-  }
-
-  path.push("Z");
-  return path.join(" ");
+  if (vertices.length === 0) return "";
+  return [
+    `M ${vertices[0].x},${vertices[0].y}`,
+    ...vertices.slice(1).map((v) => `L ${v.x},${v.y}`),
+    "Z",
+  ].join(" ");
 };
 
 export const Polygon = ({
@@ -1450,39 +1415,84 @@ export const Polygon = ({
   cornerRounding,
   ...rest
 }: PolygonProps): ReactElement => {
-  const vertices = calculatePolygonVertices(numSides, sideLength, rotation);
   const theme = Theming.use();
-  const xs = vertices.map((v) => v.x);
-  const ys = vertices.map((v) => v.y);
-  const rawWidth = Math.max(...xs) - Math.min(...xs);
-  const rawHeight = Math.max(...ys) - Math.min(...ys);
-  
-  // Calculate padding so total is multiple of 3 and at least 1 pixel of padding
-  const padToMultipleOf3 = (x: number): number => {
-    const remainder = x % 3;
-    return remainder === 0 ? 3 : 3 - remainder;
-  };
-  const wPad = Math.max(1, padToMultipleOf3(rawWidth));
-  const hPad = Math.max(1, padToMultipleOf3(rawHeight));
-  const width = rawWidth + wPad;
-  const height = rawHeight + hPad;
-  
-  const adjustedVertices = vertices.map((v) => ({
-    x: v.x - Math.min(...xs) + wPad / 2,
-    y: v.y - Math.min(...ys) + hPad / 2,
-  }));
+  const vertices = calculatePolygonVertices(numSides, sideLength, rotation);
+  const size = 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + 4
 
   return (
-    <InternalSVG 
-      dimensions={{ width: width, height: height }}
-    >
-      <Path
-        d={generateRoundedPolygonPath(adjustedVertices, cornerRounding ?? 0, sideLength ?? DEFAULT_POLYGON_SIDE_LENGTH)}
-        fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
-        stroke={Color.cssString(color ?? theme.colors.gray.l9)}
-        strokeWidth={1.5}
-      />    
-    </InternalSVG>
+    <Div className={CSS(className, CSS.B("polygon"))} {...rest}>
+      <InternalSVG dimensions={{ width: size, height: size }}>
+        <Path
+          d={generateRoundedPolygonPath(vertices)}
+          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          strokeWidth={2}
+          />
+      </InternalSVG>
+    </Div>
+  );
+};
+
+export interface CircleShapeProps extends DivProps {
+  radius: number;
+  color?: Color.Crude;
+  backgroundColor?: Color.Crude;
+}
+
+export const CircleShape = ({
+  radius,
+  color,
+  backgroundColor,
+  className,
+  ...rest
+}: CircleShapeProps): ReactElement => {
+  const theme = Theming.use();
+  const diameter = radius * 2;
+  const width = diameter + 4;
+  const height = diameter + 4;
+  return (
+    <Div className={CSS(className, CSS.B("circle-shape"))} {...rest}>
+      <HandleBoundary orientation="left" refreshDeps={[radius]}>
+        <Handle
+          location="top"
+          orientation="left"
+          left={50}
+          top={3 / height * 100}
+          id="1"
+        />
+        <Handle
+          location="bottom"
+          orientation="left"
+          left={50}
+          top={(height - 3) / height * 100}
+          id="2"
+        />
+        <Handle
+          location="left"
+          orientation="left"
+          left={3 / width * 100}
+          top={50}
+          id="3"
+        />
+        <Handle
+          location="right"
+          orientation="left"
+          left={(width - 3) / width * 100}
+          top={50}
+          id="4"
+        />
+      </HandleBoundary>
+      <InternalSVG dimensions={{ width: width, height: height }}>
+        <Circle
+          cx={width / 2}
+          cy={height / 2}
+          r={radius}
+          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          strokeWidth={2}
+          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          />
+      </InternalSVG>
+    </Div>
   );
 };
 
@@ -2889,14 +2899,14 @@ export const HeaterElement = ({
         location="top"
         orientation={orientation}
         left={11.9}
-        top={5.5556}
+        top={5.55555556}
         id="3"
       />
       <Handle
         location="bottom"
         orientation={orientation}
         left={11.9}
-        top={94.4444}
+        top={94} // not sure why but this rounding looks better
         id="4"
       />
     </HandleBoundary>
