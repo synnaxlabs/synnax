@@ -42,7 +42,6 @@
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
     padding: 0 2rem;
-    z-index: 1;
     &.pluto--small {
         padding: 0 1.5rem;
     }
