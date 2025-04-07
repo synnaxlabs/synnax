@@ -96,8 +96,8 @@ public:
             idx = this->configs->size() - 1;
         // try to grab the first error. if not, freighter nil
         auto err = this->streamer_opens > this->open_errors.size()
-                       ? xerrors::NIL
-                       : this->open_errors.at(this->streamer_opens - 1);
+                     ? xerrors::NIL
+                     : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
         return {std::make_unique<Streamer>((*this->configs)[idx]), xerrors::NIL};
     }
@@ -202,8 +202,8 @@ public:
         if (!this->close_errors.empty())
             this->close_errors.erase(this->close_errors.begin());
         auto return_false_ok_on = this->return_false_ok_on.empty()
-                                      ? -1
-                                      : this->return_false_ok_on.front();
+                                    ? -1
+                                    : this->return_false_ok_on.front();
         if (!this->return_false_ok_on.empty())
             this->return_false_ok_on.erase(this->return_false_ok_on.begin());
         auto writer = std::make_unique<Writer>(
