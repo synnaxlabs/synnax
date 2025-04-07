@@ -15,7 +15,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
-  Header,
   Icon as PIcon,
   List as CoreList,
   Menu as PMenu,
@@ -459,9 +458,9 @@ const Content = (): ReactElement => {
     <Align.Space empty style={{ height: "100%" }}>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Header.Actions>
+        <Toolbar.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
-        </Header.Actions>
+        </Toolbar.Actions>
       </Toolbar.Header>
       <List />
     </Align.Space>

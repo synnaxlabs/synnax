@@ -128,7 +128,7 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 const LIGHT_SCALE = [
   "#FEFEFE", // l0 - background
-  "#fbfbfb", // l1 - large surfaces
+  "#F9F9F9", // l1 - large surfaces
   "#F2F2F2", // l2 - small surfaces
   "#ECECEC", // l3 - small surfaces hover
   "#E4E4E4", // l4 - border 1

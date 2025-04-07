@@ -14,7 +14,6 @@
     cursor: grabbing;
     padding: 0.5rem 1rem;
     z-index: 4;
-    background-color: var(--pluto-gray-l2);
     backdrop-filter: blur(4rem);
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;

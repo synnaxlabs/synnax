@@ -198,6 +198,7 @@ export const Container = memo(
         {...rest}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
+        background={1}
       />
     );
   },

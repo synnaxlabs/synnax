@@ -467,8 +467,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
         annotationProvider={{ menu: AnnotationMenu }}
       >
-        <NavControls />
+        {!focused && <NavControls />}
       </Channel.LinePlot>
+      {focused && <NavControls />}
     </div>
   );
 };
