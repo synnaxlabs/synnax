@@ -15,7 +15,7 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/go/telem:telem_grpc",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -32,6 +32,6 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

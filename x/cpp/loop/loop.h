@@ -18,8 +18,8 @@
 #include "glog/logging.h"
 
 /// internal
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/telem/telem.h"
 
 using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
@@ -45,7 +45,8 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
         if (start >= end) break;
         std::this_thread::sleep_for(RESOLUTION.chrono());
         const auto curr_end = hs_clock::now();
-        const auto elapsed = std::chrono::duration_cast<nanos>(curr_end - start).count();
+        const auto elapsed = std::chrono::duration_cast<nanos>(curr_end - start)
+                                 .count();
         const telem::TimeSpan delta = elapsed - mean;
         mean += delta / count;
         M2 += delta * (elapsed - mean);
@@ -53,22 +54,19 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
         count++;
     }
     // busy wait for the last bit to ensure we sleep for the correct duration
-    while (end > hs_clock::now());
+    while (end > hs_clock::now())
+        ;
 }
 
 class Timer {
 public:
     Timer() = default;
 
-    explicit Timer(
-        const telem::TimeSpan &interval
-    ) : interval(interval), last(std::chrono::high_resolution_clock::now()) {
-    }
+    explicit Timer(const telem::TimeSpan &interval):
+        interval(interval), last(std::chrono::high_resolution_clock::now()) {}
 
-    explicit Timer(
-        const telem::Rate &rate
-    ) : interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
-    }
+    explicit Timer(const telem::Rate &rate):
+        interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {}
 
     telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
         if (!last_set) {
@@ -87,8 +85,10 @@ public:
             return {telem::TimeSpan(elapsed), false};
         }
         const auto remaining = interval - elapsed;
-        if (this->high_rate()) precise_sleep(remaining);
-        else std::this_thread::sleep_for(remaining.chrono());
+        if (this->high_rate())
+            precise_sleep(remaining);
+        else
+            std::this_thread::sleep_for(remaining.chrono());
         last = hs_clock::now();
         return {telem::TimeSpan(elapsed), true};
     }
@@ -101,10 +101,12 @@ public:
             return {telem::TimeSpan(elapsed), false};
         }
         const auto remaining = interval - elapsed;
-        if (this->high_rate()) precise_sleep(remaining);
+        if (this->high_rate())
+            precise_sleep(remaining);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
-        else breaker.wait_for(remaining);
+        else
+            breaker.wait_for(remaining);
         last = hs_clock::now();
         return {telem::TimeSpan(elapsed), true};
     }
@@ -112,9 +114,7 @@ public:
 private:
     [[nodiscard]] bool high_rate() const { return interval < HIGH_RES_THRESHOLD; }
 
-    [[nodiscard]] bool medium_rate() const {
-        return interval < MEDIUM_RES_THRESHOLD;
-    }
+    [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
 
     telem::TimeSpan interval{};
     bool last_set = false;

@@ -42,26 +42,26 @@ TEST(DeferTests, MultipleDefers) {
 TEST(DeferTests, EarlyReturn) {
     bool called_after_early_return = false;
     bool called_after_normal_return = false;
-    
+
     {
-        auto test_function = [](const bool early_return, bool& called_after) -> bool {
+        auto test_function = [](const bool early_return, bool &called_after) -> bool {
             x::defer d([&called_after] { called_after = true; });
             if (early_return) return false;
             return true;
         };
         test_function(true, called_after_early_return);
     }
-    
+
     {
-        auto test_function = [](bool early_return, bool& called_after) -> bool {
+        auto test_function = [](bool early_return, bool &called_after) -> bool {
             x::defer d([&called_after] { called_after = true; });
             if (early_return) return false;
             return true;
         };
-        
+
         test_function(false, called_after_normal_return);
     }
-    
+
     ASSERT_TRUE(called_after_early_return);
     ASSERT_TRUE(called_after_normal_return);
 }
@@ -72,7 +72,7 @@ TEST(DeferTests, ExceptionHandling) {
     try {
         x::defer d([&called] { called = true; });
         throw std::runtime_error("Test exception");
-    } catch (const std::exception&) {
+    } catch (const std::exception &) {
         // Exception caught
     }
     ASSERT_TRUE(called);
@@ -82,18 +82,18 @@ TEST(DeferTests, ExceptionHandling) {
 TEST(DeferTests, NestedScopes) {
     int outer = 0;
     int inner = 0;
-    
+
     {
         x::defer d_outer([&outer] { outer++; });
         {
             x::defer d_inner([&inner] { inner++; });
             ASSERT_EQ(inner, 0);
         }
-        
+
         ASSERT_EQ(inner, 1);
         ASSERT_EQ(outer, 0);
     }
-    
+
     ASSERT_EQ(inner, 1);
     ASSERT_EQ(outer, 1);
 }
@@ -113,19 +113,17 @@ TEST(DeferTests, ModifyingCapturedVariables) {
 TEST(DeferTests, ConditionalExecution) {
     bool condition = false;
     bool executed = false;
-    
+
     {
-        if (condition)
-            x::defer d([&executed]() { executed = true; });
+        if (condition) x::defer d([&executed]() { executed = true; });
     }
-    
+
     ASSERT_FALSE(executed);
-    
+
     condition = true;
     {
-        if (condition)
-            x::defer d([&executed]() { executed = true; });
+        if (condition) x::defer d([&executed]() { executed = true; });
     }
-    
+
     ASSERT_TRUE(executed);
 }

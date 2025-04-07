@@ -40,9 +40,7 @@ public:
         ...
     ) = 0;
 
-    virtual NISYSCFGCFUNC CloseHandle(
-        void *syscfgHandle
-    ) = 0;
+    virtual NISYSCFGCFUNC CloseHandle(void *syscfgHandle) = 0;
 
     virtual NISYSCFGCFUNC FindHardware(
         NISysCfgSessionHandle sessionHandle,
@@ -79,13 +77,11 @@ public:
 
 
     virtual NISYSCFGCFUNC SetFilterPropertyV(
-            NISysCfgFilterHandle filterHandle,
-            NISysCfgFilterProperty propertyID,
-            va_list args
+        NISysCfgFilterHandle filterHandle,
+        NISysCfgFilterProperty propertyID,
+        va_list args
     ) = 0;
 
-    virtual NISYSCFGCFUNC FreeDetailedStringW(
-        wchar_t str[]
-    ) = 0;
+    virtual NISYSCFGCFUNC FreeDetailedStringW(wchar_t str[]) = 0;
 };
 }

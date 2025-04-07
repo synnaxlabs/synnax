@@ -27,60 +27,48 @@ const xerrors::Error BASE_ERROR = xerrors::SY.sub("shared");
 const xerrors::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
-    /// SharedLib is a shared library loader and lifecycle manager implemented for Windows.
-    class SharedLib
-    {
-        const std::string name;
-        LibraryHandle handle = nullptr;
-
-    public:
-        explicit SharedLib(const std::string &name) : name(name) {}
-
-        ~SharedLib()
-        {
-            this->unload();
-        }
-
-        bool load()
-        {
-            if (this->handle != nullptr || name.empty())
-                return false;
-            this->handle = ::LoadLibraryA(name.c_str());
-            return this->handle != nullptr;
-        }
-
-        void unload()
-        {
-            if (this->handle == nullptr)
-                return;
-            ::FreeLibrary(this->handle);
-        }
-
-        const void *get_func_ptr(const std::string &name) const
-        {
-            if (this->handle == nullptr)
-                return nullptr;
-            return ::GetProcAddress(this->handle, name.c_str());
-        }
-    };
-#else
-
-/// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
-/// systems.
+/// SharedLib is a shared library loader and lifecycle manager implemented for
+/// Windows.
 class SharedLib {
     const std::string name;
     LibraryHandle handle = nullptr;
-public:
-    explicit SharedLib(std::string name) : name(std::move(name)) {
-    }
 
-    ~SharedLib() {
-        this->unload();
-    }
+public:
+    explicit SharedLib(const std::string &name): name(name) {}
+
+    ~SharedLib() { this->unload(); }
 
     bool load() {
-        if (this->handle != nullptr || name.empty())
-            return false;
+        if (this->handle != nullptr || name.empty()) return false;
+        this->handle = ::LoadLibraryA(name.c_str());
+        return this->handle != nullptr;
+    }
+
+    void unload() {
+        if (this->handle == nullptr) return;
+        ::FreeLibrary(this->handle);
+    }
+
+    const void *get_func_ptr(const std::string &name) const {
+        if (this->handle == nullptr) return nullptr;
+        return ::GetProcAddress(this->handle, name.c_str());
+    }
+};
+#else
+
+/// Lib is a shared library loader and lifecycle manager implemented for POSIX
+/// compliant systems.
+class SharedLib {
+    const std::string name;
+    LibraryHandle handle = nullptr;
+
+public:
+    explicit SharedLib(std::string name): name(std::move(name)) {}
+
+    ~SharedLib() { this->unload(); }
+
+    bool load() {
+        if (this->handle != nullptr || name.empty()) return false;
         this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
         if (this->handle == nullptr)
             std::cout << "Error loading library: " << ::dlerror() << std::endl;
@@ -88,15 +76,13 @@ public:
     }
 
     void unload() {
-        if (this->handle == nullptr)
-            return;
+        if (this->handle == nullptr) return;
         ::dlclose(this->handle);
         this->handle = nullptr;
     }
 
     [[nodiscard]] const void *get_func_ptr(const std::string &name) const {
-        if (this->handle == nullptr)
-            return nullptr;
+        if (this->handle == nullptr) return nullptr;
         return ::dlsym(this->handle, name.c_str());
     }
 };

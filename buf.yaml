@@ -12,6 +12,8 @@ build:
     - "bazel-testlogs"
     - "bazel-synnax"
     - "freighter/cpp"
+    - "external"
+    - "vendor"
 breaking:
   use:
     - FILE

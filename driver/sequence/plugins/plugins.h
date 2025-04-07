@@ -17,8 +17,8 @@
 #include "nlohmann/json.hpp"
 
 extern "C" {
-#include <lua.h>
 #include <lauxlib.h>
+#include <lua.h>
 }
 
 /// internal
@@ -34,7 +34,8 @@ public:
     virtual ~Plugin() = default;
 
     /// @brief called before the sequence starts. The caller can optionally override
-    /// this method to perform any setup that is required before the sequence starts.
+    /// this method to perform any setup that is required before the sequence
+    /// starts.
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
@@ -47,31 +48,31 @@ public:
     /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_all(lua_State *L) { return xerrors::NIL; }
 
-    /// @brief called before each iteration of the sequence. The caller can optionally
-    /// override this method to bind any variables or functions that must be updated on
-    /// every loop iteration.
+    /// @brief called before each iteration of the sequence. The caller can
+    /// optionally override this method to bind any variables or functions that must
+    /// be updated on every loop iteration.
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error before_next(lua_State *L) { return xerrors::NIL; }
 
-    /// @brief called after each iteration of the sequence. The caller can optionally
-    /// override this method to perform any cleanup that is required after each loop
-    /// iteration.
+    /// @brief called after each iteration of the sequence. The caller can
+    /// optionally override this method to perform any cleanup that is required
+    /// after each loop iteration.
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
     virtual xerrors::Error after_next(lua_State *L) { return xerrors::NIL; }
 };
 
-/// @brief a Plugin implementation that wraps several plugins into a unified interface.
+/// @brief a Plugin implementation that wraps several plugins into a unified
+/// interface.
 class MultiPlugin final : public Plugin {
-    std::vector<std::shared_ptr<Plugin> > plugins;
+    std::vector<std::shared_ptr<Plugin>> plugins;
 
 public:
-    explicit MultiPlugin(std::vector<std::shared_ptr<Plugin> > ops):
-        plugins(std::move(ops)) {
-    }
+    explicit MultiPlugin(std::vector<std::shared_ptr<Plugin>> ops):
+        plugins(std::move(ops)) {}
 
     /// @brief implements Plugin::before_all.
     xerrors::Error before_all(lua_State *L) override {
@@ -103,8 +104,8 @@ public:
     }
 };
 
-/// @brief Sink is used to abstract away the communication of frames to Synnax, mainly
-/// for the purposes of mocking the implementation during tests.
+/// @brief Sink is used to abstract away the communication of frames to Synnax,
+/// mainly for the purposes of mocking the implementation during tests.
 class FrameSink {
 public:
     virtual ~FrameSink() = default;
@@ -124,7 +125,8 @@ public:
 
 /// @brief a FrameSink implementation that writes frames to Synnax.
 class SynnaxFrameSink final : public FrameSink {
-    /// @brief we store the client so it lets us lazy open a writer only when needed.
+    /// @brief we store the client so it lets us lazy open a writer only when
+    /// needed.
     const std::shared_ptr<synnax::Synnax> client;
     /// @brief the configuration for opening the writer.
     const synnax::WriterConfig cfg;
@@ -162,8 +164,10 @@ class ChannelWrite final : public Plugin {
     std::unordered_map<std::string, synnax::ChannelKey> names_to_keys;
 
 public:
-    ChannelWrite(std::shared_ptr<FrameSink> sink,
-                 const std::vector<synnax::Channel> &channels);
+    ChannelWrite(
+        std::shared_ptr<FrameSink> sink,
+        const std::vector<synnax::Channel> &channels
+    );
 
     std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
 
@@ -191,7 +195,8 @@ class ChannelReceive final : public Plugin {
     pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
     std::unordered_map<synnax::ChannelKey, LatestValue> latest_values;
-    /// @brief maps channel keys to channels in order to bind variable names appropriately.
+    /// @brief maps channel keys to channels in order to bind variable names
+    /// appropriately.
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
 
 
@@ -199,8 +204,7 @@ class ChannelReceive final : public Plugin {
         ChannelReceive &receiver;
 
     public:
-        explicit Sink(ChannelReceive &receiver) : receiver(receiver) {
-        }
+        explicit Sink(ChannelReceive &receiver): receiver(receiver) {}
 
         xerrors::Error write(const synnax::Frame &frame) override;
     };
@@ -211,7 +215,8 @@ public:
         const std::vector<synnax::Channel> &read_from
     );
 
-    /// @brief alternative constructor that can be used to stub Synnax for test cases.
+    /// @brief alternative constructor that can be used to stub Synnax for test
+    /// cases.
     explicit ChannelReceive(
         const std::shared_ptr<pipeline::StreamerFactory> &factory,
         const std::vector<synnax::Channel> &read_from
@@ -248,11 +253,7 @@ class Time final : public Plugin {
 
 public:
     explicit Time(telem::NowFunc now = telem::TimeStamp::now):
-        now(std::move(now)),
-        start_time(0),
-        elapsed(0),
-        iteration(0) {
-    }
+        now(std::move(now)), start_time(0), elapsed(0), iteration(0) {}
 
     xerrors::Error before_all(lua_State *L) override;
 

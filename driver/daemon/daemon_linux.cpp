@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 /// std.
-#include <thread>
-#include <mutex>
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
+#include <thread>
 
 /// external.
-#include <systemd/sd-daemon.h>
 #include <sys/stat.h>
+#include <systemd/sd-daemon.h>
 #include "glog/logging.h"
 
 /// internal
@@ -92,10 +92,9 @@ WantedBy=multi-user.target
 xerrors::Error create_system_user() {
     LOG(INFO) << "Creating system user";
     int result = system(
-        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
-    if (result != 0) {
-        return xerrors::Error("Failed to create system user");
-    }
+        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
+    );
+    if (result != 0) { return xerrors::Error("Failed to create system user"); }
     return {};
 }
 
@@ -104,26 +103,18 @@ xerrors::Error install_binary() {
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return xerrors::Error(
-            "Failed to get current executable path: " + ec.message());
+        return xerrors::Error("Failed to get current executable path: " + ec.message());
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return xerrors::Error("Failed to create binary directory: " + ec.message());
+    if (ec) return xerrors::Error("Failed to create binary directory: " + ec.message());
 
     // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";
-    fs::copy_file(
-        curr_bin_path,
-        target_path,
-        fs::copy_options::overwrite_existing,
-        ec
-    );
-    if (ec)
-        return xerrors::Error("Failed to copy binary: " + ec.message());
+    fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
+    if (ec) return xerrors::Error("Failed to copy binary: " + ec.message());
 
-    if (chmod(target_path.c_str(),
-              S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
+    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
+        0)
         return xerrors::Error("Failed to set binary permissions");
 
     return xerrors::NIL;
@@ -151,8 +142,7 @@ xerrors::Error install_service() {
         return xerrors::Error("Failed to create service directory: " + ec.message());
 
     std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
-    if (!service_file)
-        return xerrors::Error("Failed to create service file");
+    if (!service_file) return xerrors::Error("Failed to create service file");
 
     service_file << SYSTEMD_SERVICE_TEMPLATE;
     service_file.close();
@@ -202,11 +192,12 @@ void update_status(Status status, const std::string &message) {
             break;
     }
 
-    if (!message.empty())
-        status_msg += ": " + message;
+    if (!message.empty()) status_msg += ": " + message;
 
-    if (status == Status::READY) status_msg += "\nREADY=1";
-    else if (status == Status::STOPPING) status_msg += "\nSTOPPING=1";
+    if (status == Status::READY)
+        status_msg += "\nREADY=1";
+    else if (status == Status::STOPPING)
+        status_msg += "\nSTOPPING=1";
     sd_notify(0, status_msg.c_str());
 }
 
@@ -236,7 +227,8 @@ void run(const Config &config, int argc, char *argv[]) {
     }
 
     // Cleanup
-    update_status(Status::STOPPING, "Stopping daemon"); {
+    update_status(Status::STOPPING, "Stopping daemon");
+    {
         std::lock_guard<std::mutex> lock(mtx);
         should_stop = true;
     }
@@ -281,8 +273,7 @@ xerrors::Error view_logs() {
 xerrors::Error status() {
     LOG(INFO) << "Checking service status";
     int result = system("systemctl status synnax-driver");
-    if (result != 0)
-        return xerrors::Error("Service is not running");
+    if (result != 0) return xerrors::Error("Service is not running");
     return xerrors::NIL;
 }
-} 
+}
