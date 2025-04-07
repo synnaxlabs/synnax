@@ -139,8 +139,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (auto &ch: this->channels) {
             const auto &remote_ch = remote_channels.at(ch->synnax_key);
             auto dev = this->device_key == "cross-device"
-                         ? devices.at(ch->dev_key)
-                         : devices.at(this->device_key);
+                           ? devices.at(ch->dev_key)
+                           : devices.at(this->device_key);
             ch->bind_remote_info(remote_ch, dev.location);
             if (ch->ch.index != 0) this->indexes.insert(ch->ch.index);
         }

@@ -132,11 +132,11 @@ public:
         }
 
         const std::string retry_count_msg = this->config.max_retries == -1
-                                              ? std::to_string(this->retries) + "/∞"
-                                              : std::to_string(this->retries) + "/" +
-                                                    std::to_string(
-                                                        this->config.max_retries
-                                                    );
+                                                ? std::to_string(this->retries) + "/∞"
+                                                : std::to_string(this->retries) + "/" +
+                                                      std::to_string(
+                                                          this->config.max_retries
+                                                      );
 
         LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg
                    << " times. " << "Retrying in " << std::fixed << std::setprecision(1)

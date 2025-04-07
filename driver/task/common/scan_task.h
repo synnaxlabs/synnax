@@ -219,10 +219,9 @@ public:
                 .key = dev.dev.key,
                 .variant = "warning",
                 .rack = dev.dev.rack,
-                .details = {
-                    {"message", "Device disconnected"},
-                    {"last_updated", dev.last_available.nanoseconds()}
-                }
+                .details =
+                    {{"message", "Device disconnected"},
+                     {"last_updated", dev.last_available.nanoseconds()}}
             };
         }
         if (const auto state_err = this->propagate_state())
@@ -234,15 +233,15 @@ public:
 
     xerrors::Error propagate_state() {
         if (this->state_writer == nullptr) {
-            const auto [state_channel, ch_err] = this->ctx->client->channels.retrieve("sy_device_state");
+            const auto [state_channel, ch_err] = this->ctx->client->channels.retrieve(
+                "sy_device_state"
+            );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->ctx->client->telem.open_writer(
-                synnax::WriterConfig{
-                    .channels = {this->state_channel.key},
-                    .start = telem::TimeStamp::now(),
-                }
-            );
+            auto [w, err] = this->ctx->client->telem.open_writer(synnax::WriterConfig{
+                .channels = {this->state_channel.key},
+                .start = telem::TimeStamp::now(),
+            });
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }

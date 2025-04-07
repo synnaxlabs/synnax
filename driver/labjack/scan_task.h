@@ -81,8 +81,8 @@ class Scanner final : public common::Scanner {
             );
 
             auto last_four = serial_str.length() >= 4
-                               ? serial_str.substr(serial_str.length() - 4)
-                               : serial_str;
+                                 ? serial_str.substr(serial_str.length() - 4)
+                                 : serial_str;
             auto name = device_type_str + "-" + last_four;
 
             auto rack = synnax::task_key_rack(this->task.key);
@@ -99,9 +99,10 @@ class Scanner final : public common::Scanner {
                 .key = sy_dev.key,
                 .rack = rack,
                 .variant = "success",
-                .details = json{
-                    {"message", "Device present"},
-                }
+                .details =
+                    json{
+                        {"message", "Device present"},
+                    }
             };
 
             devices.push_back(sy_dev);
