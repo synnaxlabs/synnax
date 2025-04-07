@@ -46,10 +46,14 @@ struct ClusterAPI {
     retrieve_devices(std::vector<std::string> &keys) = 0;
 
     virtual xerrors::Error create_devices(std::vector<synnax::Device> &devs) = 0;
+
+    virtual xerrors::Error propagate_state(telem::Series &states) = 0;
 };
 
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
+    synnax::Channel state_channel;
+    std::unique_ptr<synnax::Writer> state_writer;
 
     explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client):
         client(client) {}
@@ -63,6 +67,26 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
         return this->client->hardware.create_devices(devs);
+    }
+
+    xerrors::Error propagate_state(telem::Series &states) override {
+      if (this->state_writer == nullptr) {
+            const auto [state_channel, ch_err] = this->client->channels.retrieve(
+                "sy_device_state"
+            );
+            if (ch_err) return ch_err;
+            this->state_channel = state_channel;
+            auto [w, err] = this->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .channels = {this->state_channel.key},
+                    .start = telem::TimeStamp::now(),
+                }
+            );
+            if (err) return err;
+            this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
+        }
+        this->state_writer->write(            synnax::Frame(this->state_channel.key, std::move(states))        );
+        return xerrors::NIL;
     }
 };
 
@@ -196,6 +220,10 @@ public:
             auto iter = remote_devs.find(scanned_dev.key);
             if (iter == remote_devs.end()) {
                 to_create.push_back(scanned_dev);
+                this->dev_state[scanned_dev.key] = DeviceInfo{
+                    .dev = scanned_dev,
+                    .last_available = last_available
+                };
                 continue;
             }
             const auto remote_dev = iter->second;
@@ -219,9 +247,10 @@ public:
                 .key = dev.dev.key,
                 .variant = "warning",
                 .rack = dev.dev.rack,
-                .details =
-                    {{"message", "Device disconnected"},
-                     {"last_updated", dev.last_available.nanoseconds()}}
+                .details = json{
+                    {"message", "Device disconnected"},
+                    {"last_available", dev.last_available.nanoseconds()}
+                }
             };
         }
         if (const auto state_err = this->propagate_state())
@@ -232,27 +261,12 @@ public:
     }
 
     xerrors::Error propagate_state() {
-        if (this->state_writer == nullptr) {
-            const auto [state_channel, ch_err] = this->ctx->client->channels.retrieve(
-                "sy_device_state"
-            );
-            if (ch_err) return ch_err;
-            this->state_channel = state_channel;
-            auto [w, err] = this->ctx->client->telem.open_writer(synnax::WriterConfig{
-                .channels = {this->state_channel.key},
-                .start = telem::TimeStamp::now(),
-            });
-            if (err) return err;
-            this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
-        }
         std::vector<json> states;
         states.reserve(this->dev_state.size());
-        for (auto &[key, dev]: this->dev_state)
-            states.push_back(dev.dev.state.to_json());
-        this->state_writer->write(
-            synnax::Frame(this->state_channel.key, telem::Series(states))
-        );
-        return xerrors::NIL;
+        for (auto &[key, info]: this->dev_state)
+            states.push_back(info.dev.state.to_json());
+        telem::Series s(states);
+        return this->client->propagate_state(s);
     }
 
     std::string name() override { return this->task_name; }

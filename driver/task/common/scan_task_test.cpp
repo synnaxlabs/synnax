@@ -61,10 +61,11 @@ public:
     }
 };
 
-class MockClusterAPI final : public common::ClusterAPI {
+class MockClusterAPI : public common::ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::Device>> remote;
     std::shared_ptr<std::vector<synnax::Device>> created;
+    std::vector<telem::Series> propagated_states;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
@@ -79,6 +80,11 @@ public:
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
         created->insert(created->end(), devs.begin(), devs.end());
+        return xerrors::NIL;
+    }
+
+    xerrors::Error propagate_state(telem::Series &states) override {
+        propagated_states.push_back(std::move(states));
         return xerrors::NIL;
     }
 };
@@ -254,4 +260,98 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->at(0).rack, 2);
     EXPECT_EQ(created_devices->at(0).properties, "test_properties");
     EXPECT_TRUE(created_devices->at(0).configured);
+}
+
+TEST(TestScanTask, TestStatePropagation) {
+    synnax::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.state.key = "device1";
+    dev1.state.variant = "success";
+    dev1.state.rack = 1;
+    dev1.state.details = json::object();
+
+    synnax::Device dev2;
+    dev2.key = "device2";
+    dev2.name = "Device 2";
+    dev2.rack = 2;
+    dev2.state.key = "device2";
+    dev2.state.variant = "warning";
+    dev2.state.rack = 2;
+    dev2.state.details = json::object();
+
+    // First scan will find both devices, second scan only dev1
+    std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}, {dev1}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+    auto cluster_api_ptr = cluster_api.get();
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    // First scan - both devices should be available
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 1);
+    
+    auto &first_states = cluster_api_ptr->propagated_states[0];
+    ASSERT_EQ(first_states.size(), 2);
+
+    json state;
+    for (auto i = 0; i < first_states.size(); i++) {
+        first_states.at(0, state);
+        if (state["key"] == "device1") {
+            ASSERT_EQ(state["variant"], "success");
+            ASSERT_EQ(state["rack"], 1);
+        } else if (state["key"] == "device2") {
+            ASSERT_EQ(state["variant"], "warning");
+            ASSERT_EQ(state["rack"], 2);
+        } else
+            FAIL() << "Unexpected device key: " << state["key"];
+    }
+
+
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 2);
+    auto &second_states = cluster_api_ptr->propagated_states[1];
+    ASSERT_EQ(second_states.size(), 2);
+
+    for (auto i = 0; i < second_states.size(); i++) {
+        second_states.at(0, state);
+        if (state["key"] == "device1") {
+            ASSERT_EQ(state["variant"], "success");
+            ASSERT_EQ(state["rack"], 1);
+        } else if (state["key"] == "device2") {
+            ASSERT_EQ(state["variant"], "warning");
+            ASSERT_EQ(state["rack"], 2);
+            ASSERT_EQ(state["details"]["message"], "Device disconnected");
+        } else
+            FAIL() << "Unexpected device key: " << state["key"];
+    }
 }
