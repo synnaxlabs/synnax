@@ -9,14 +9,15 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, Synnax } from "@synnaxlabs/pluto";
+import { Align, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
+import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -30,13 +31,22 @@ const Content = (): ReactElement => {
       return res?.filter((r) => r.name === "Workspaces")[0].id;
     },
   });
+  const placeLayout = Layout.usePlacer();
 
   return (
     <Cluster.NoneConnectedBoundary>
       <Align.Space empty style={{ height: "100%" }}>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
-          <Header.Actions></Header.Actions>
+          <Toolbar.Actions>
+            {[
+              {
+                key: "create",
+                children: <Icon.Add />,
+                onClick: () => placeLayout(CREATE_LAYOUT),
+              },
+            ]}
+          </Toolbar.Actions>
         </Toolbar.Header>
         <Ontology.Tree root={group.data} />
       </Align.Space>
