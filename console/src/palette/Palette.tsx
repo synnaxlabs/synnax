@@ -243,6 +243,7 @@ const PaletteDialog = ({
             onChange={handleChange}
             value={value}
             autoComplete="off"
+            onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
           />
           <PaletteList mode={mode} services={services} />
         </Align.Pack>

@@ -17,6 +17,17 @@
     z-index: 3;
 }
 
+@keyframes fade-in-zoom {
+    0% {
+        opacity: 0;
+        transform: scale(0.98) translateY(-4px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
 :root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l5: var(--pluto-border-width) solid var(--pluto-gray-l5);
@@ -27,6 +38,7 @@
     --pluto-height-tiny: 3rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    --pluto-dialog-animation: fade-in-zoom 0.15s ease-in-out;
 }
 
 .pluto-theme-synnax-light {
