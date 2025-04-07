@@ -140,6 +140,20 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     >
       {(p) => <Select.Direction {...p} yDirection="down" />}
     </Form.Field>
+    <Form.Field<Color.Crude>
+      visible={!omit.includes("color")}
+      path={`${path}.color`}
+      label="Label Color"
+      padHelpText={false}
+      optional
+    >
+      {({ value, onChange }) => (
+        <Color.Swatch
+          value={value ?? Color.ZERO.setAlpha(1).rgba255}
+          onChange={(v) => onChange(v.rgba255)}
+        />
+      )}
+    </Form.Field>
   </Align.Space>
 );
 

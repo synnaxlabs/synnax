@@ -10,6 +10,7 @@
 import { type FC } from "react";
 import { z } from "zod";
 
+import { Color } from "@/color";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -384,9 +385,9 @@ const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_P
 
 const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
 
-type zeroLabelReturn = { label: LabelExtensionProps };
+type ZeroLabelReturn = { label: LabelExtensionProps };
 
-const zeroLabel = (label: string): zeroLabelReturn => ({
+const zeroLabel = (label: string): ZeroLabelReturn => ({
   label: {
     label,
     level: "p",
@@ -394,6 +395,7 @@ const zeroLabel = (label: string): zeroLabelReturn => ({
     maxInlineSize: 150,
     align: "center",
     direction: "x",
+    color: Color.ZERO.setAlpha(1).rgba255,
   },
 });
 

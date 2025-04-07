@@ -208,6 +208,8 @@ interface ToggleProps
   triggered?: boolean;
   enabled?: boolean;
   color?: Color.Crude;
+  enabledInfill?: Color.Crude;
+  disabledInfill?: Color.Crude;
 }
 
 interface ToggleValveButtonProps extends ToggleProps, OrientableProps {}
@@ -254,6 +256,9 @@ interface InternalSVGProps
       "direction" | "color" | "orientation" | "scale"
     > {
   dimensions: dimensions.Dimensions;
+  enabled?: boolean;
+  enabledInfill?: Color.Crude;
+  disabledInfill?: Color.Crude;
 }
 
 const BASE_SCALE = 0.8;
@@ -264,6 +269,9 @@ const InternalSVG = ({
   children,
   className,
   color,
+  enabled,
+  enabledInfill,
+  disabledInfill,
   style = {},
   scale = 1,
   ...rest
@@ -281,13 +289,30 @@ const InternalSVG = ({
       theme.colors.gray.l12,
     ).rgbString;
   }
+  if (enabled == true && enabledInfill != null)
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-enabled-infill")] = new Color.Color(enabledInfill).rgbString;
+  else if (enabled == false && disabledInfill != null)
+    // @ts-expect-error - css variables
+    style[CSS.var("symbol-disabled-infill")] = new Color.Color(
+      disabledInfill,
+    ).rgbString;
+
+  const hasCustomEnabledInfill = enabledInfill != null && enabled != null;
+  const hasCustomDisabledInfill = disabledInfill != null && enabled != null;
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
-      className={CSS(CSS.loc(orientation), className)}
-      fill={colorStr}
+      className={CSS(
+        CSS.loc(orientation),
+        className,
+        hasCustomEnabledInfill && CSS.M("has-custom-enabled-infill"),
+        hasCustomDisabledInfill && CSS.M("has-custom-disabled-infill"),
+      )}
       stroke={colorStr}
+      fill={colorStr}
       {...rest}
       style={{
         aspectRatio: `${dims.width} / ${dims.height}`,
@@ -411,6 +436,9 @@ export const SolenoidValve = ({
   orientation = "left",
   normallyOpen = false,
   scale,
+  enabled,
+  enabledInfill = "#00FF00",
+  disabledInfill = "#FF0000",
   ...rest
 }: SolenoidValveProps): ReactElement => (
   <Toggle
@@ -419,6 +447,7 @@ export const SolenoidValve = ({
       normallyOpen && CSS.M("normally-open"),
       className,
     )}
+    enabled={enabled}
     {...rest}
   >
     <HandleBoundary orientation={orientation}>
@@ -457,6 +486,9 @@ export const SolenoidValve = ({
       color={color}
       orientation={orientation}
       scale={scale}
+      enabled={enabled}
+      enabledInfill={enabledInfill}
+      disabledInfill={disabledInfill}
     >
       <Path
         className={CSS.B("body")}

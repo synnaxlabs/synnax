@@ -38,6 +38,7 @@ export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
 export interface LabelExtensionProps {
   label?: string;
   level?: Text.Level;
+  color?: Color.Crude;
   orientation?: location.Outer;
   direction?: direction.Direction;
   maxInlineSize?: number;
@@ -56,6 +57,7 @@ const labelGridItem = (
     direction,
     align,
     maxInlineSize,
+    color,
   } = props;
   if (label == null || label.length === 0) return null;
   return {
@@ -66,6 +68,7 @@ const labelGridItem = (
         level={level}
         value={label}
         onChange={(value: string) => onChange?.({ label: { ...props, label: value } })}
+        color={color}
         allowEmpty
         style={{ textAlign: align as CSSProperties["textAlign"], maxInlineSize }}
       />

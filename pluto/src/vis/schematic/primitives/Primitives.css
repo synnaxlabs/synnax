@@ -46,31 +46,61 @@
 }
 
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+    & svg {
+        --internal-enabled-fill-color: var(
+            --pluto-symbol-enabled-infill,
+            var(--pluto-symbol-color)
+        );
+
+        --internal-disabled-fill-color: var(
+            --pluto-symbol-disabled-infill,
+            var(--pluto-symbol-color)
+        );
+        --disabled-fill-hover-opacity: 0.15;
+        --disabled-fill-active-opacity: 0.25;
+        &.pluto--has-custom-enabled-infill {
+            --disabled-fill-hover-opacity: 0.75;
+            --disabled-fill-active-opacity: 0.85;
+        }
+    }
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
+            fill: rgba(
+                var(--internal-disabled-fill-color),
+                var(--disabled-fill-hover-opacity)
+            ) !important;
             stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
         }
         &.pluto--enabled svg {
             stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+            fill: rgba(var(--internal-enabled-fill-color), 0.85) !important;
         }
     }
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            fill: rgba(
+                var(--internal-disabled-fill-color),
+                var(--disabled-fill-active-opacity)
+            ) !important;
             stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
         }
         &.pluto--enabled svg {
             stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+            fill: rgba(
+                var(--internal-enabled-fill-color),
+                var(--disabled-fill-active-opacity)
+            ) !important;
         }
     }
 }
 
 .pluto--enabled svg {
+    --internal-fill-color: var(
+        --pluto-symbol-enabled-infill,
+        var(--pluto-symbol-color)
+    );
     stroke: rgb(var(--pluto-symbol-color)) !important;
-    fill: rgb(var(--pluto-symbol-color)) !important;
+    fill: rgb(var(--internal-fill-color)) !important;
 }
 
 .pluto-symbol-primitive-toggle {
@@ -88,7 +118,7 @@
     }
 
     &:not(.pluto--enabled) svg {
-        fill: none;
+        fill: rgb(var(--pluto-symbol-disabled-infill, none));
     }
 }
 
