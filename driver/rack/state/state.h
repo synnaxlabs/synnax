@@ -44,14 +44,12 @@ class Source final : public pipeline::Source {
     const synnax::ChannelKey key;
     /// @brief the key of the rack the heartbeat is for.
     const synnax::RackKey rack_key;
-    /// @brief the current heartbeat version incremented on every loop iteration.
-    std::uint32_t version;
     /// @brief the loop used to control the emission rate of the heartbeat.
     loop::Timer loop;
 
 public:
     Source(const synnax::ChannelKey key, const synnax::RackKey rack_key):
-        key(key), rack_key(rack_key), version(0), loop(loop::Timer(EMISSION_RATE)) {}
+        key(key), rack_key(rack_key), loop(loop::Timer(EMISSION_RATE)) {}
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         fr.clear();
