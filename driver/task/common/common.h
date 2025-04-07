@@ -12,8 +12,12 @@
 #include "driver/task/task.h"
 
 namespace common {
+/// @brief a common base configuration for tasks.
 struct TaskConfig {
+    /// @brief whether data saving is enabled for the task.
     bool data_saving;
+    /// @brief whether the task should be auto-started after configuration. This includes
+    /// automatic start on driver start.
     bool auto_start;
 
     TaskConfig(TaskConfig &&other) noexcept:
@@ -27,9 +31,16 @@ struct TaskConfig {
         auto_start(parser.optional<bool>("auto_start", true)) {}
 };
 
+/// @brief a common base configuration result for tasks that is used across various
+/// helper functions.
 struct ConfigureResult {
+    /// @brief the task instantiated by a specific task driver. Should be null if error
+    /// is not xerrors::NIL.
     std::unique_ptr<task::Task> task;
+    /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
+    /// @brief the error that occurred during configuration. If no error occurred, this
+    /// field should be set to xerrors::NIL.
     xerrors::Error error = xerrors::NIL;
 };
 }
