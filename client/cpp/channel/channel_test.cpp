@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <include/gtest/gtest.h>
 #include <random>
 #include <string>
-#include <include/gtest/gtest.h>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xerrors/errors.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xtest/xtest.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
@@ -21,10 +21,9 @@ std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(TestChannel, testCreate) {
     const auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::FLOAT64_T,
-        1 * telem::HZ));
+    auto channel = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, 1 * telem::HZ)
+    );
     ASSERT_EQ(channel.name, "test");
     ASSERT_FALSE(channel.key == 0);
 }
@@ -34,12 +33,7 @@ TEST(TestChannel, testCreate) {
 TEST(TestChannel, testCreateValidation) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.channels.create(
-            "validation",
-            telem::FLOAT64_T,
-            0,
-            true
-        ),
+        client.channels.create("validation", telem::FLOAT64_T, 0, true),
         xerrors::VALIDATION
     );
 }
@@ -47,16 +41,12 @@ TEST(TestChannel, testCreateValidation) {
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(TestChannel, testCreateIndex) {
     auto client = new_test_client();
-    auto index = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::TIMESTAMP_T,
-        0,
-        true));
-    auto indexed = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::FLOAT64_T,
-        index.key,
-        false));
+    auto index = ASSERT_NIL_P(
+        client.channels.create("test", telem::TIMESTAMP_T, 0, true)
+    );
+    auto indexed = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, index.key, false)
+    );
     ASSERT_EQ(index.name, "test");
     ASSERT_FALSE(index.key == 0);
     ASSERT_EQ(indexed.name, "test");
@@ -90,10 +80,9 @@ TEST(TestChannel, testCreateMany) {
 /// @brief it should retrieve a channel by key.
 TEST(TestChannel, testRetrieve) {
     auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::FLOAT64_T,
-        telem::Rate(1)));
+    auto channel = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, telem::Rate(1))
+    );
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(channel.key));
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);
@@ -116,10 +105,9 @@ TEST(TestChannel, testRetrieveNotFound) {
 TEST(TestChannel, testRetrieveByName) {
     auto client = new_test_client();
     auto rand_name = std::to_string(gen_rand());
-    auto channel = ASSERT_NIL_P(client.channels.create(
-        rand_name,
-        telem::FLOAT64_T,
-        telem::Rate(1)));
+    auto channel = ASSERT_NIL_P(
+        client.channels.create(rand_name, telem::FLOAT64_T, telem::Rate(1))
+    );
     auto ch = synnax::Channel("test", telem::FLOAT64_T, true);
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(rand_name));
     ASSERT_EQ(channel.name, retrieved.name);
@@ -149,7 +137,8 @@ TEST(TestChannel, testRetrieveMany) {
     };
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
-        client.channels.retrieve(synnax::keys_from_channels(channels)));
+        client.channels.retrieve(synnax::keys_from_channels(channels))
+    );
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
         auto found = false;
@@ -169,7 +158,7 @@ TEST(TestChannel, testRetrieveMany) {
     }
 }
 
-/// @brief it should return the correct error when a channel cannot be found 
+/// @brief it should return the correct error when a channel cannot be found
 /// by key multiple retrieval.
 TEST(TestChannel, testRetrieveManyNotFound) {
     const auto client = new_test_client();
@@ -179,19 +168,14 @@ TEST(TestChannel, testRetrieveManyNotFound) {
     );
 }
 
-/// @brief multiple channels of the same name found 
+/// @brief multiple channels of the same name found
 TEST(TestChannel, testRetrieveManySameName) {
     auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::FLOAT64_T,
-        telem::Rate(1)));
-    auto channel2 = ASSERT_NIL_P(client.channels.create(
-        "test",
-        telem::FLOAT64_T,
-        telem::Rate(1)));
-    ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve("test"),
-        xerrors::QUERY
+    auto channel = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, telem::Rate(1))
     );
+    auto channel2 = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, telem::Rate(1))
+    );
+    ASSERT_OCCURRED_AS_P(client.channels.retrieve("test"), xerrors::QUERY);
 }

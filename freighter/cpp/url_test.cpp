@@ -22,7 +22,7 @@ TEST(URLTest, ExplicitConstruction) {
     freighter::URL url("127.0.0.1", 8080, "/api/v1");
     EXPECT_EQ(url.ip, "127.0.0.1");
     EXPECT_EQ(url.port, 8080);
-    EXPECT_EQ(url.path, "/api/v1/");  // Note: join_paths adds trailing slash
+    EXPECT_EQ(url.path, "/api/v1/"); // Note: join_paths adds trailing slash
 }
 
 TEST(URLTest, StringParsing) {

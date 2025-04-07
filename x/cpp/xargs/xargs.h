@@ -16,12 +16,12 @@
 #include <vector>
 
 /// internal
-#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/caseconv/caseconv.h"
+#include "x/cpp/xerrors/errors.h"
 
 namespace xargs {
-/// @brief Parser provides a simple command-line argument parsing utility that supports
-/// required arguments, optional arguments with default values, and flags.
+/// @brief Parser provides a simple command-line argument parsing utility that
+/// supports required arguments, optional arguments with default values, and flags.
 ///
 /// The Parser supports three main types of arguments:
 /// 1. Required arguments: Must be provided in the command line
@@ -34,23 +34,23 @@ namespace xargs {
 /// - Snake case is automatically converted to kebab case: my_arg -> --my-arg
 ///
 /// You're required to specify both the short and long form for an argument. So you
-/// need to do p.flag("--arm", "-a") in order to match "-a" as well as "--arm". "--arm"
-/// won't auto-match "-a".
+/// need to do p.flag("--arm", "-a") in order to match "-a" as well as "--arm".
+/// "--arm" won't auto-match "-a".
 ///
 /// Example usage:
 /// @code
 /// int main(int argc, char* argv[]) {
 ///     xargs::Parser parser(argc, argv);
-///     
+///
 ///     // Required argument
 ///     auto name = parser.required<std::string>("name");
-///     
+///
 ///     // Optional argument with default
 ///     auto count = parser.optional<int>("count", 10);
-///     
+///
 ///     // Flag
 ///     auto verbose = parser.flag("verbose", "v");
-///     
+///
 ///     if (parser.error()) {
 ///         std::cerr << parser.error().message() << std::endl;
 ///         return 1;
@@ -92,9 +92,10 @@ class Parser {
     /// @brief Searches for an argument in the command line arguments
     /// @tparam Args Variadic template for multiple possible argument names
     /// @param names The possible names of the argument to search for
-    /// @return A pair containing the argument value and a boolean indicating if found
+    /// @return A pair containing the argument value and a boolean indicating if
+    /// found
     template<typename... Args>
-    std::pair<std::string, bool> find_arg(const Args &... names) {
+    std::pair<std::string, bool> find_arg(const Args &...names) {
         std::pair<std::string, bool> last_found = {"", false};
         for (size_t i = 0; i < argv_.size(); i++) {
             const std::string &arg = argv_[i];
@@ -128,8 +129,11 @@ class Parser {
     /// @param error_msg The error message to use if parsing fails
     /// @return The parsed value of type T
     template<typename T>
-    T parse_value(const std::string &value, const std::string &name,
-                  const char *error_msg) {
+    T parse_value(
+        const std::string &value,
+        const std::string &name,
+        const char *error_msg
+    ) {
         try {
             if constexpr (std::is_same_v<T, std::string>)
                 return value;
@@ -170,11 +174,10 @@ class Parser {
     /// @param names The possible names of the argument to check for
     /// @return true if the argument exists, false otherwise
     template<typename... Args>
-    bool has_arg(const Args &... names) {
+    bool has_arg(const Args &...names) {
         for (const auto &arg: argv_) {
             for (const auto &name: {names...}) {
-                if (matches_arg(arg, normalize_arg_name(name)))
-                    return true;
+                if (matches_arg(arg, normalize_arg_name(name))) return true;
             }
         }
         return false;
@@ -189,15 +192,11 @@ public:
     /// @brief Constructs a parser from argc and argv
     /// @param argc The argument count
     /// @param argv The argument values array
-    explicit Parser(const int argc, char *argv[]) :
-        argv_(argv, argv + argc) {
-    }
+    explicit Parser(const int argc, char *argv[]): argv_(argv, argv + argc) {}
 
     /// @brief Constructs a parser from a vector of strings
     /// @param argv The vector of argument strings
-    explicit Parser(std::vector<std::string> argv) :
-        argv_(std::move(argv)) {
-    }
+    explicit Parser(std::vector<std::string> argv): argv_(std::move(argv)) {}
 
     /// @brief Parses a required argument
     /// @tparam T The type to parse the argument into
@@ -212,7 +211,8 @@ public:
     /// @brief Parses an optional argument with a default value
     /// @tparam T The type to parse the argument into
     /// @param name The name of the optional argument
-    /// @param default_value The default value to use if the argument is not provided
+    /// @param default_value The default value to use if the argument is not
+    /// provided
     /// @return The parsed value or the default value
     template<typename T>
     T optional(const std::string &name, const T &default_value) {
@@ -221,7 +221,8 @@ public:
         return parse_value<T>(value, name, "Invalid value");
     }
 
-    /// @brief Convenience overload for string optional arguments with const char* defaults
+    /// @brief Convenience overload for string optional arguments with const char*
+    /// defaults
     /// @param name The name of the optional argument
     /// @param default_value The default string value
     /// @return The parsed string or the default value
@@ -234,7 +235,7 @@ public:
     /// @param names The possible names of the flag to check for
     /// @return true if the flag is present, false otherwise
     template<typename... Args>
-    [[nodiscard]] bool flag(const Args &... names) {
+    [[nodiscard]] bool flag(const Args &...names) {
         // Just check if the flag exists, don't look for a value after it
         return has_arg(names...);
     }

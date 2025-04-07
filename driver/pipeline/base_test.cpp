@@ -18,20 +18,16 @@
 
 class ThrowingPipeline final : public pipeline::Base {
 public:
-    explicit ThrowingPipeline(const breaker::Config& config) : Base(config) {}
+    explicit ThrowingPipeline(const breaker::Config &config): Base(config) {}
 
-    void run() override {
-        throw std::runtime_error("test exception");
-    }
+    void run() override { throw std::runtime_error("test exception"); }
 };
 
 class StdExceptionPipeline final : public pipeline::Base {
 public:
-    explicit StdExceptionPipeline(const breaker::Config& config) : Base(config) {}
+    explicit StdExceptionPipeline(const breaker::Config &config): Base(config) {}
 
-    void run() override {
-        throw std::out_of_range("test std::exception");
-    }
+    void run() override { throw std::out_of_range("test std::exception"); }
 };
 
 TEST(BasePipeline, testUnknownExceptionHandling) {
@@ -46,4 +42,4 @@ TEST(BasePipeline, testStdExceptionHandling) {
     ASSERT_TRUE(pipeline.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_TRUE(pipeline.stop());
-} 
+}

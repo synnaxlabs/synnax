@@ -10,17 +10,17 @@
 // ReSharper disable CppUseStructuredBinding
 
 /// external
-#include "nlohmann/json.hpp"
 #include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 /// module
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/opc/read_task.h"
-#include "driver/opc/opc.h"
 #include "driver/opc/mock/server.h"
+#include "driver/opc/opc.h"
+#include "driver/opc/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class TestReadTask : public ::testing::Test {
@@ -36,19 +36,14 @@ protected:
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        this->index_channel = ASSERT_NIL_P(client->channels.create(
-            "index",
-            telem::TIMESTAMP_T,
-            0,
-            true
-        ));
+        this->index_channel = ASSERT_NIL_P(
+            client->channels.create("index", telem::TIMESTAMP_T, 0, true)
+        );
 
-        this->data_channel = ASSERT_NIL_P(client->channels.create(
-            "test",
-            telem::FLOAT32_T,
-            this->index_channel.key,
-            false
-        ));
+        this->data_channel = ASSERT_NIL_P(
+            client->channels
+                .create("test", telem::FLOAT32_T, this->index_channel.key, false)
+        );
 
         auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
 
@@ -75,39 +70,29 @@ protected:
         };
 
 
-        mock::ServerConfig cfg{
-            .channels = {server_ch}
-        };
+        mock::ServerConfig cfg{.channels = {server_ch}};
 
 
         json task_cfg{
             {"data_saving", true},
             {"device", dev.key},
-            {
-                "channels", json::array({
-                    {
-                        {"key", "NS=2;I=8"},
-                        {"name", "test"},
-                        {"node_name", "test"},
-                        {"node_id", "NS=1;S=test"},
-                        {"channel", this->data_channel.key},
-                        {"enabled", true},
-                        {"use_as_index", false},
-                        {"data_type", "int64"}
-                    }
-                })
-            },
+            {"channels",
+             json::array(
+                 {{{"key", "NS=2;I=8"},
+                   {"name", "test"},
+                   {"node_name", "test"},
+                   {"node_id", "NS=1;S=test"},
+                   {"channel", this->data_channel.key},
+                   {"enabled", true},
+                   {"use_as_index", false},
+                   {"data_type", "int64"}}}
+             )},
             {"sample_rate", 50},
             {"array_mode", false},
             {"stream_rate", 25}
         };
 
-        task = synnax::Task(
-            rack.key,
-            "my_task",
-            "opc_read",
-            ""
-        );
+        task = synnax::Task(rack.key, "my_task", "opc_read", "");
 
         auto p = xjson::Parser(task_cfg);
         this->cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
@@ -130,10 +115,7 @@ protected:
             task,
             ctx,
             breaker::default_config(task.name),
-            std::make_unique<opc::UnaryReadTaskSource>(
-                client,
-                std::move(*cfg)
-            ),
+            std::make_unique<opc::UnaryReadTaskSource>(client, std::move(*cfg)),
             mock_factory
         );
     }

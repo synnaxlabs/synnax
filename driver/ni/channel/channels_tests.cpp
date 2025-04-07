@@ -9,36 +9,36 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xjson/xjson.h"
 #include "driver/ni/channel/channels.h"
+#include "x/cpp/xjson/xjson.h"
 
 using json = nlohmann::json;
 
 TEST(ChannelsTest, ParseAIAccelChan) {
     json j = {
-        {"type","ai_accel"},
-        {"key","ks1VnWdrSVA"},
-        {"port",0},
-        {"enabled",true},
-        {"name",""},
-        {"channel",0},
-        {"terminal_config","Cfg_Default"},
-        {"min_val",0},
-        {"max_val",1},
-        {"sensitivity",0},
-        {"current_excit_source","Internal"},
-        {"current_excit_val",0},
-        {"custom_scale",{{"type","none"}}},
-        {"units","g"},
-        {"sensitivity_units","mVoltsPerG"},
-        {"device","cDAQ1Mod2"}
+        {"type", "ai_accel"},
+        {"key", "ks1VnWdrSVA"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"terminal_config", "Cfg_Default"},
+        {"min_val", 0},
+        {"max_val", 1},
+        {"sensitivity", 0},
+        {"current_excit_source", "Internal"},
+        {"current_excit_val", 0},
+        {"custom_scale", {{"type", "none"}}},
+        {"units", "g"},
+        {"sensitivity_units", "mVoltsPerG"},
+        {"device", "cDAQ1Mod2"}
     };
 
     xjson::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto accel_chan = dynamic_cast<channel::AIAccel*>(chan.get());
+    const auto accel_chan = dynamic_cast<channel::AIAccel *>(chan.get());
     ASSERT_NE(accel_chan, nullptr);
     EXPECT_EQ(accel_chan->enabled, true);
     EXPECT_EQ(accel_chan->port, 0);
@@ -76,7 +76,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto bridge_chan = dynamic_cast<channel::AIBridge*>(chan.get());
+    const auto bridge_chan = dynamic_cast<channel::AIBridge *>(chan.get());
     ASSERT_NE(bridge_chan, nullptr);
     EXPECT_EQ(bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(bridge_chan->min_val, 0);
@@ -108,7 +108,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto current_chan = dynamic_cast<channel::AICurrent*>(chan.get());
+    const auto current_chan = dynamic_cast<channel::AICurrent *>(chan.get());
     ASSERT_NE(current_chan, nullptr);
     EXPECT_EQ(current_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(current_chan->min_val, 0);
@@ -133,9 +133,9 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
-        {"electrical_vals", {1,2,3}},
+        {"electrical_vals", {1, 2, 3}},
         {"electrical_units", "mVoltsPerVolt"},
-        {"physical_vals", {1,2,3}},
+        {"physical_vals", {1, 2, 3}},
         {"physical_units", "Newtons"},
         {"custom_scale", {{"type", "none"}}},
         {"units", "Newtons"},
@@ -146,13 +146,17 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable*>(chan.get());
+    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable *>(chan.get(
+    ));
     ASSERT_NE(force_bridge_chan, nullptr);
     EXPECT_EQ(force_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(force_bridge_chan->min_val, 0);
     EXPECT_EQ(force_bridge_chan->max_val, 1);
     EXPECT_EQ(force_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(force_bridge_chan->bridge_config.voltage_excit_source, DAQmx_Val_Internal);
+    EXPECT_EQ(
+        force_bridge_chan->bridge_config.voltage_excit_source,
+        DAQmx_Val_Internal
+    );
     EXPECT_EQ(force_bridge_chan->bridge_config.voltage_excit_val, 0);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[0], 1);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[1], 2);
@@ -189,7 +193,9 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTwoPointLin*>(chan.get());
+    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTwoPointLin *>(
+        chan.get()
+    );
     ASSERT_NE(force_bridge_chan, nullptr);
     EXPECT_EQ(force_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(force_bridge_chan->min_val, 0);
@@ -227,7 +233,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_iepe_chan = dynamic_cast<channel::AIForceIEPE*>(chan.get());
+    const auto force_iepe_chan = dynamic_cast<channel::AIForceIEPE *>(chan.get());
     ASSERT_NE(force_iepe_chan, nullptr);
     EXPECT_EQ(force_iepe_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(force_iepe_chan->min_val, 0);
@@ -261,7 +267,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto mic_chan = dynamic_cast<channel::AIMicrophone*>(chan.get());
+    const auto mic_chan = dynamic_cast<channel::AIMicrophone *>(chan.get());
     ASSERT_NE(mic_chan, nullptr);
     EXPECT_EQ(mic_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(mic_chan->excitation_config.source, DAQmx_Val_Internal);
@@ -286,9 +292,9 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
-        {"electrical_vals", {1,2}},
+        {"electrical_vals", {1, 2}},
         {"electrical_units", "mVoltsPerVolt"},
-        {"physical_vals", {1,2}},
+        {"physical_vals", {1, 2}},
         {"physical_units", "PoundsPerSquareInch"},
         {"custom_scale", {{"type", "none"}}},
         {"units", "Pascals"},
@@ -299,13 +305,21 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTable*>(chan.get());
+    const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTable *>(
+        chan.get()
+    );
     ASSERT_NE(pressure_bridge_chan, nullptr);
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
+    EXPECT_EQ(
+        pressure_bridge_chan->bridge_config.ni_bridge_config,
+        DAQmx_Val_FullBridge
+    );
     EXPECT_EQ(pressure_bridge_chan->min_val, 0);
     EXPECT_EQ(pressure_bridge_chan->max_val, 1);
     EXPECT_EQ(pressure_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.voltage_excit_source, DAQmx_Val_Internal);
+    EXPECT_EQ(
+        pressure_bridge_chan->bridge_config.voltage_excit_source,
+        DAQmx_Val_Internal
+    );
     EXPECT_EQ(pressure_bridge_chan->bridge_config.voltage_excit_val, 0);
     pressure_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
@@ -340,9 +354,15 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTwoPointLin*>(chan.get());
+    const auto
+        pressure_bridge_chan = dynamic_cast<channel::AIPressureBridgeTwoPointLin *>(
+            chan.get()
+        );
     ASSERT_NE(pressure_bridge_chan, nullptr);
-    EXPECT_EQ(pressure_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
+    EXPECT_EQ(
+        pressure_bridge_chan->bridge_config.ni_bridge_config,
+        DAQmx_Val_FullBridge
+    );
     EXPECT_EQ(pressure_bridge_chan->min_val, 0);
     EXPECT_EQ(pressure_bridge_chan->max_val, 1);
     EXPECT_EQ(pressure_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
@@ -377,7 +397,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto rtd_chan = dynamic_cast<channel::AIRTD*>(chan.get());
+    const auto rtd_chan = dynamic_cast<channel::AIRTD *>(chan.get());
     ASSERT_NE(rtd_chan, nullptr);
     EXPECT_EQ(rtd_chan->resistance_config, DAQmx_Val_2Wire);
     EXPECT_EQ(rtd_chan->min_val, 0);
@@ -417,7 +437,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto strain_chan = dynamic_cast<channel::AIStrainGauge*>(chan.get());
+    const auto strain_chan = dynamic_cast<channel::AIStrainGauge *>(chan.get());
     ASSERT_NE(strain_chan, nullptr);
     EXPECT_EQ(strain_chan->strain_config, DAQmx_Val_FullBridgeI);
     EXPECT_EQ(strain_chan->min_val, 0);
@@ -449,7 +469,7 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto temp_chan = dynamic_cast<channel::AITempBuiltIn*>(chan.get());
+    const auto temp_chan = dynamic_cast<channel::AITempBuiltIn *>(chan.get());
     ASSERT_NE(temp_chan, nullptr);
     EXPECT_EQ(temp_chan->units, DAQmx_Val_DegC);
     temp_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
@@ -458,24 +478,21 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
 
 TEST(ChannelsTest, ParseAIThermoChan) {
     json j = {
-        {
-            "channels.0", {
-            {"type", "ai_thermocouple"},
-            {"key", "ks1VnWdrSVA"},
-            {"port", 0},
-            {"enabled", true},
-            {"name", ""},
-            {"channel", 0},
-            {"min_val", 0},
-            {"max_val", 1},
-            {"units", "DegC"},
-            {"thermocouple_type", "J"},
-            {"cjc_source", "Chan"},
-            {"cjc_val", 0},
-            {"cjc_port", 1},
-            {"device", "cdaq1Mod2"}
-            }
-        }
+        {"channels.0",
+         {{"type", "ai_thermocouple"},
+          {"key", "ks1VnWdrSVA"},
+          {"port", 0},
+          {"enabled", true},
+          {"name", ""},
+          {"channel", 0},
+          {"min_val", 0},
+          {"max_val", 1},
+          {"units", "DegC"},
+          {"thermocouple_type", "J"},
+          {"cjc_source", "Chan"},
+          {"cjc_val", 0},
+          {"cjc_port", 1},
+          {"device", "cdaq1Mod2"}}}
     };
 
     xjson::Parser p(j);
@@ -483,7 +500,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     const auto chan = channel::parse_input(child);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto thermo_chan = dynamic_cast<channel::AIThermocouple*>(chan.get());
+    const auto thermo_chan = dynamic_cast<channel::AIThermocouple *>(chan.get());
     ASSERT_NE(thermo_chan, nullptr);
     EXPECT_EQ(thermo_chan->thermocouple_type, DAQmx_Val_J_Type_TC);
     EXPECT_EQ(thermo_chan->cjc_source, DAQmx_Val_Chan);
@@ -509,9 +526,9 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
-        {"electrical_vals", {1,2,3}},
+        {"electrical_vals", {1, 2, 3}},
         {"electrical_units", "mVoltsPerVolt"},
-        {"physical_vals", {1,2,3}},
+        {"physical_vals", {1, 2, 3}},
         {"physical_units", "NewtonMeters"},
         {"custom_scale", {{"type", "none"}}},
         {"units", "NewtonMeters"},
@@ -522,13 +539,18 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTable*>(chan.get());
+    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTable *>(
+        chan.get()
+    );
     ASSERT_NE(torque_bridge_chan, nullptr);
     EXPECT_EQ(torque_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(torque_bridge_chan->min_val, 0);
     EXPECT_EQ(torque_bridge_chan->max_val, 1);
     EXPECT_EQ(torque_bridge_chan->bridge_config.nominal_bridge_resistance, 0);
-    EXPECT_EQ(torque_bridge_chan->bridge_config.voltage_excit_source, DAQmx_Val_Internal);
+    EXPECT_EQ(
+        torque_bridge_chan->bridge_config.voltage_excit_source,
+        DAQmx_Val_Internal
+    );
     EXPECT_EQ(torque_bridge_chan->bridge_config.voltage_excit_val, 0);
     torque_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
@@ -563,7 +585,9 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTwoPointLin*>(chan.get());
+    const auto torque_bridge_chan = dynamic_cast<channel::AITorqueBridgeTwoPointLin *>(
+        chan.get()
+    );
     ASSERT_NE(torque_bridge_chan, nullptr);
     EXPECT_EQ(torque_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(torque_bridge_chan->min_val, 0);
@@ -601,7 +625,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto velocity_chan = dynamic_cast<channel::AIVelocityIEPE*>(chan.get());
+    const auto velocity_chan = dynamic_cast<channel::AIVelocityIEPE *>(chan.get());
     ASSERT_NE(velocity_chan, nullptr);
     EXPECT_EQ(velocity_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(velocity_chan->min_val, 0);
@@ -633,7 +657,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto voltage_chan = dynamic_cast<channel::AIVoltage*>(chan.get());
+    const auto voltage_chan = dynamic_cast<channel::AIVoltage *>(chan.get());
     ASSERT_NE(voltage_chan, nullptr);
     EXPECT_EQ(voltage_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(voltage_chan->min_val, 0);
@@ -661,7 +685,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto voltage_chan = dynamic_cast<channel::AOVoltage*>(chan.get());
+    const auto voltage_chan = dynamic_cast<channel::AOVoltage *>(chan.get());
     ASSERT_NE(voltage_chan, nullptr);
     EXPECT_EQ(voltage_chan->min_val, 0);
     EXPECT_EQ(voltage_chan->max_val, 1);
@@ -687,7 +711,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto func_gen_chan = dynamic_cast<channel::AOFunctionGenerator*>(chan.get());
+    const auto func_gen_chan = dynamic_cast<channel::AOFunctionGenerator *>(chan.get());
     ASSERT_NE(func_gen_chan, nullptr);
     EXPECT_EQ(func_gen_chan->wave_type, DAQmx_Val_Sine);
     EXPECT_EQ(func_gen_chan->frequency, 0);
@@ -712,7 +736,7 @@ TEST(ChannelsTest, ParseDIChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto di_chan = dynamic_cast<channel::DI*>(chan.get());
+    const auto di_chan = dynamic_cast<channel::DI *>(chan.get());
     ASSERT_NE(di_chan, nullptr);
     EXPECT_EQ(di_chan->port, 0);
     EXPECT_EQ(di_chan->line, 1);
@@ -737,7 +761,7 @@ TEST(ChannelsTest, ParseDOChan) {
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto do_chan = dynamic_cast<channel::DO*>(chan.get());
+    const auto do_chan = dynamic_cast<channel::DO *>(chan.get());
     ASSERT_NE(do_chan, nullptr);
     EXPECT_EQ(do_chan->port, 0);
     EXPECT_EQ(do_chan->line, 1);

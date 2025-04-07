@@ -42,7 +42,7 @@ cc_library(
         "//x/cpp/xargs",
         "//x/cpp/xlog",
         "//x/cpp/xshutdown",
-        "@com_github_gflags_gflags//:gflags",
-        "@com_github_google_glog//:glog",
+        "@gflags//:gflags",
+        "@glog//:glog",
     ],
 )

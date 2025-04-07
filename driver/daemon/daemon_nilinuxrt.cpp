@@ -11,14 +11,14 @@
 /// script instead.
 
 /// std.
-#include <thread>
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 
 /// external.
-#include <sys/stat.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include "glog/logging.h"
 
 /// internal
@@ -190,9 +190,9 @@ exit 0
 xerrors::Error create_system_user() {
     LOG(INFO) << "creating system user";
     const int result = system(
-        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
-    if (result != 0)
-        return xerrors::Error("failed to create system user");
+        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
+    );
+    if (result != 0) return xerrors::Error("failed to create system user");
     return xerrors::NIL;
 }
 
@@ -204,28 +204,21 @@ xerrors::Error install_binary() {
         return xerrors::Error("failed to get current executable path: " + ec.message());
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return xerrors::Error("failed to create binary directory: " + ec.message());
+    if (ec) return xerrors::Error("failed to create binary directory: " + ec.message());
 
     const fs::path target_path = BINARY_INSTALL_DIR + "/" + BINARY_NAME;
-    
+
     if (fs::exists(target_path)) {
         fs::remove(target_path, ec);
         if (ec)
             return xerrors::Error("failed to remove existing binary: " + ec.message());
     }
 
-    fs::copy_file(
-        curr_bin_path,
-        target_path,
-        fs::copy_options::overwrite_existing,
-        ec
-    );
-    if (ec)
-        return xerrors::Error("failed to copy binary: " + ec.message());
+    fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
+    if (ec) return xerrors::Error("failed to copy binary: " + ec.message());
 
-    if (chmod(target_path.c_str(),
-              S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
+    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
+        0)
         return xerrors::Error("failed to set binary permissions");
 
     return xerrors::NIL;
@@ -235,14 +228,16 @@ xerrors::Error setup_pid_file() {
     LOG(INFO) << "Setting up dedicated PID directory and file";
     const std::string pid_dir = "/var/run/synnax-driver";
     const std::string pid_file = pid_dir + "/synnax-driver.pid";
-    
+
     // Check if directory exists with correct permissions
     std::error_code ec;
     if (!fs::exists(pid_dir)) {
         // Setup PID directory
         fs::create_directories(pid_dir, ec);
         if (ec)
-            return xerrors::Error("failed to create pid directory. try running with sudo: " + ec.message());
+            return xerrors::Error(
+                "failed to create pid directory. try running with sudo: " + ec.message()
+            );
         LOG(INFO) << "PID directory created";
 
         if (chmod(pid_dir.c_str(), 0755) != 0)
@@ -304,8 +299,7 @@ xerrors::Error install_service() {
     // Create log file with proper permissions
     LOG(INFO) << "Creating log file";
     std::ofstream log_file("/var/log/synnax-driver.log");
-    if (!log_file)
-        return xerrors::Error("failed to create log file");
+    if (!log_file) return xerrors::Error("failed to create log file");
     log_file.close();
 
     if (chmod("/var/log/synnax-driver.log", 0666) != 0)
@@ -327,18 +321,18 @@ xerrors::Error install_service() {
     LOG(INFO) << "Creating init script at " << INIT_SCRIPT_PATH;
     std::error_code ec;
     fs::create_directories(fs::path(INIT_SCRIPT_PATH).parent_path(), ec);
-    if (ec)
-        return xerrors::Error("failed to create init.d directory: " + ec.message());
+    if (ec) return xerrors::Error("failed to create init.d directory: " + ec.message());
 
     std::ofstream init_file(INIT_SCRIPT_PATH);
-    if (!init_file)
-        return xerrors::Error("failed to create init script");
+    if (!init_file) return xerrors::Error("failed to create init script");
 
     init_file << init_script;
     init_file.close();
 
-    if (chmod(INIT_SCRIPT_PATH.c_str(),
-              S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0)
+    if (chmod(
+            INIT_SCRIPT_PATH.c_str(),
+            S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+        ) != 0)
         return xerrors::Error("failed to set init script permissions");
 
     LOG(INFO) << "Configuring service runlevels";
@@ -361,15 +355,20 @@ xerrors::Error uninstall_service() {
 void update_status(Status status, const std::string &message) {
     std::string status_str;
     switch (status) {
-        case Status::INITIALIZING: status_str = "Initializing";
+        case Status::INITIALIZING:
+            status_str = "Initializing";
             break;
-        case Status::READY: status_str = "Ready";
+        case Status::READY:
+            status_str = "Ready";
             break;
-        case Status::RUNNING: status_str = "Running";
+        case Status::RUNNING:
+            status_str = "Running";
             break;
-        case Status::STOPPING: status_str = "Stopping";
+        case Status::STOPPING:
+            status_str = "Stopping";
             break;
-        case Status::ERROR_: status_str = "Error";
+        case Status::ERROR_:
+            status_str = "Error";
             break;
     }
 
@@ -401,18 +400,15 @@ xerrors::Error check_stranded_processes() {
     // Get current process PID, so we don't kill ourselves.
     pid_t current_pid = getpid();
     // Use pgrep to find all synnax-driver processes
-    FILE* pipe = popen("pgrep -x synnax-driver", "r");
-    if (!pipe)
-        return xerrors::Error("failed to execute pgrep command");
+    FILE *pipe = popen("pgrep -x synnax-driver", "r");
+    if (!pipe) return xerrors::Error("failed to execute pgrep command");
 
     std::vector<pid_t> pids;
     char buffer[128];
     while (fgets(buffer, sizeof(buffer), pipe)) {
         pid_t pid = std::stoi(buffer);
         // Don't include current process in the list
-        if (pid != current_pid) {
-            pids.push_back(pid);
-        }
+        if (pid != current_pid) { pids.push_back(pid); }
     }
     pclose(pipe);
 
@@ -426,20 +422,21 @@ xerrors::Error check_stranded_processes() {
 
     // Kill stranded processes
     bool found_stranded = false;
-    for (pid_t pid : pids) {
+    for (pid_t pid: pids) {
         if (pid != official_pid && pid != current_pid) {
             LOG(WARNING) << "found stranded driver process with PID: " << pid;
             found_stranded = true;
             if (kill(pid, SIGTERM) != 0) {
-                LOG(WARNING) << "failed to terminate process " << pid << ": " << strerror(errno) << ", killing instead.";
-                if (kill(pid, SIGKILL) != 0) 
-                    LOG(ERROR) << "failed to kill process " << pid << ": " << strerror(errno);
+                LOG(WARNING) << "failed to terminate process " << pid << ": "
+                             << strerror(errno) << ", killing instead.";
+                if (kill(pid, SIGKILL) != 0)
+                    LOG(ERROR)
+                        << "failed to kill process " << pid << ": " << strerror(errno);
             }
         }
     }
 
-    if (found_stranded) 
-        LOG(INFO) << "cleaned up stranded processes";
+    if (found_stranded) LOG(INFO) << "cleaned up stranded processes";
 
     return xerrors::NIL;
 }
@@ -484,11 +481,10 @@ std::string get_log_file_path() {
 
 xerrors::Error view_logs() {
     int result = system("tail -f /var/log/synnax-driver.log");
-    if (result < 0) 
-        return xerrors::Error("Failed to execute tail command");
+    if (result < 0) return xerrors::Error("Failed to execute tail command");
     const int exit_status = WEXITSTATUS(result);
     const bool was_interrupted = WIFSIGNALED(result) && WTERMSIG(result) == SIGINT;
-    if (!was_interrupted && exit_status != 0) 
+    if (!was_interrupted && exit_status != 0)
         return xerrors::Error("Failed to view logs");
     return xerrors::NIL;
 }
@@ -496,8 +492,7 @@ xerrors::Error view_logs() {
 xerrors::Error status() {
     LOG(INFO) << "Checking service status";
     const int result = system("/etc/init.d/synnax-driver status");
-    if (result != 0)
-        return xerrors::Error("Service is not running");
+    if (result != 0) return xerrors::Error("Service is not running");
     return xerrors::NIL;
 }
-} 
+}
