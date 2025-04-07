@@ -154,7 +154,7 @@ export const Text = ({
           CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
           CSS.M("clickable"),
           CSS.M("outlined"),
-          CSS.shade(1),
+          CSS.shade(0),
         )}
       >
         {showPlaceholder && (

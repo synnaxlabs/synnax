@@ -150,6 +150,7 @@ const handleRelationshipsChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
+  root: ontology.ID,
 ): Promise<void> =>
   await mu.runExclusive(async () => {
     // Remove any relationships that were deleted
@@ -168,8 +169,9 @@ const handleRelationshipsChange = async (
       tree: nextTree,
       keys: allSets.map(({ from }) => from.toString()),
     }).map(({ key }) => key.toString());
+    visibleSetNodes.push(root.toString());
 
-    // Get all the relationships that relate to those visibe nodes.
+    // Get all the relationships that relate to those visible nodes.
     const visibleSets = allSets.filter(({ from }) =>
       visibleSetNodes.includes(from.toString()),
     );
@@ -183,18 +185,18 @@ const handleRelationshipsChange = async (
     setResources(updateResources(resources, updatedResources));
 
     // Update the tree.
-    nextTree = visibleSets.reduce(
-      (nextTree, { from, to }) =>
-        Core.setNode({
-          tree: nextTree,
-          destination: from.toString(),
-          additions: toTreeNodes(
-            services,
-            updatedResources.filter(({ id }) => id.toString() === to.toString()),
-          ),
-        }),
-      nextTree,
-    );
+    nextTree = visibleSets.reduce((nextTree, { from, to }) => {
+      let destination: string | null = from.toString();
+      if (from.toString() === root.toString()) destination = null;
+      return Core.setNode({
+        tree: nextTree,
+        destination,
+        additions: toTreeNodes(
+          services,
+          updatedResources.filter(({ id }) => id.toString() === to.toString()),
+        ),
+      });
+    }, nextTree);
 
     setNodes([...nextTree]);
   });
@@ -265,6 +267,7 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
         setNodes,
         setResources,
         resourcesRef.current,
+        root,
       );
     });
 

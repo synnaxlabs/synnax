@@ -28,7 +28,13 @@ export interface ItemProps extends Button.ButtonProps, MenuItemExtraProps {}
 export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useContext();
+  const {
+    onClick: ctxOnClick,
+    selected,
+    level = "p",
+    iconSpacing,
+    shade,
+  } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -45,7 +51,7 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
       onClick={handleClick}
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
-      shade={1}
+      shade={shade}
       size={size ?? iconSpacing}
       endIcon={
         trigger && (
@@ -61,7 +67,7 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
 export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
 
 export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
-  const { itemKey, trigger, className, onClick, size, ...rest } = props;
+  const { itemKey, trigger, className, onClick, size, shade, ...rest } = props;
 
   const { onClick: ctxOnClick, selected, iconSpacing } = useContext();
 
@@ -79,6 +85,7 @@ export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement 
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size ?? iconSpacing}
+      shade={shade}
     />
   );
 };
@@ -88,7 +95,13 @@ export interface ItemLinkProps extends Button.LinkProps, MenuItemExtraProps {}
 export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useContext();
+  const {
+    onClick: ctxOnClick,
+    selected,
+    level = "p",
+    iconSpacing,
+    shade,
+  } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -104,6 +117,7 @@ export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement 
       noWrap={true}
       onClick={handleClick}
       variant="text"
+      shade={shade}
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size ?? iconSpacing}
       endIcon={
