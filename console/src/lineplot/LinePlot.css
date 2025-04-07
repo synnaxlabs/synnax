@@ -23,4 +23,10 @@
             opacity: 1;
         }
     }
+    &.pluto--visible {
+        .console-line-plot__nav-controls {
+            top: unset;
+            bottom: 2rem;
+        }
+    }
 }
