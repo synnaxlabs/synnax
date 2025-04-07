@@ -15,7 +15,7 @@
     border: var(--pluto-border-l5) !important;
     background-color: var(--pluto-gray-l1);
     box-shadow: var(--pluto-shadow-v1);
-    border-radius: 1rem;
+    border-radius: 0.5rem;
     padding: 1rem;
     animation: var(--pluto-dialog-animation);
 }

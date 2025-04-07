@@ -117,6 +117,14 @@ const ExplorerListItem = ({
   );
 };
 
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
+  <Menu.Menu>
+    <Menu.Item itemKey="rangeSnapshot" startIcon={<Icon.Snapshot />}>
+      Snapshot to {props.entry.name}
+    </Menu.Item>
+  </Menu.Menu>
+);
+
 export const Explorer: Layout.Renderer = () => {
   const client = Synnax.use();
   const drag = Haul.useDrag({ type: ranger.ONTOLOGY_TYPE, key: "cat" });
@@ -125,11 +133,15 @@ export const Explorer: Layout.Renderer = () => {
       ({ key, ...rest }) => <ExplorerListItem key={key} {...drag} {...rest} />,
       [drag.startDrag],
     );
+  const pMenuProps = Menu.useContextMenu();
   return (
     <List.List>
+      <Menu.ContextMenu {...pMenuProps} menu={(p) => <ContextMenu {...p} />} />
       <List.Search searcher={client?.ranges}>{() => <></>}</List.Search>
       <Filters />
-      <List.Core>{item}</List.Core>
+      <List.Core onContextMenu={pMenuProps.open} className={pMenuProps.className}>
+        {item}
+      </List.Core>
     </List.List>
   );
 };

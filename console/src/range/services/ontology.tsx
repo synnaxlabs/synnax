@@ -23,10 +23,6 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createCreateLayout } from "@/range/Create";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { select, useSelect } from "@/range/selectors";
-import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {
   addChildRangeMenuItem,
   addToActivePlotMenuItem,
@@ -36,7 +32,11 @@ import {
   fromClientRange,
   setAsActiveMenuItem,
   viewDetailsMenuItem,
-} from "@/range/Toolbar";
+} from "@/range/ContextMenu";
+import { createCreateLayout } from "@/range/Create";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { select, useSelect } from "@/range/selectors";
+import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
