@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, location, notation, scale, TimeStamp, xy } from "@synnaxlabs/x";
+import { bounds, box, location, math, scale, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -139,7 +139,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";
-          value = notation.roundSmart(v.value.y, v.bounds).toString();
+          value = math.roundBySpan(v.value.y, v.bounds).toString();
           color = v.color;
         }
         draw.text({
