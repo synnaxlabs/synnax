@@ -113,4 +113,4 @@ xerrors::Error SugaredAPI::GetResourceIndexedProperty(
     );
     return process_error(status);
 }
-} // namespace syscfg
+}

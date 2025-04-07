@@ -213,4 +213,4 @@ private:
         return xerrors::NIL;
     }
 };
-} // namespace ni
+}

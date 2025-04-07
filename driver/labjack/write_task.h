@@ -237,4 +237,4 @@ public:
         return this->curr_dev_err;
     }
 };
-} // namespace labjack
+}

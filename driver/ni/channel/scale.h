@@ -234,4 +234,4 @@ parse_scale(const xjson::Parser &parent_cfg, const std::string &path) {
     cfg.field_err("type", "invalid scale type");
     return nullptr;
 }
-} // namespace channel
+}

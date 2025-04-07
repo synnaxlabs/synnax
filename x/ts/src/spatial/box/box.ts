@@ -288,9 +288,9 @@ export const bottomCenter = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_CENTER
 
 export const bottomRight = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
 
-export const leftCenter = (b: Crude): xy.XY => xyLoc(b, location.LEFT_CENTER);
+export const centerLeft = (b: Crude): xy.XY => xyLoc(b, location.LEFT_CENTER);
 
-export const rightCenter = (b: Crude): xy.XY => xyLoc(b, location.RIGHT_CENTER);
+export const centerRight = (b: Crude): xy.XY => xyLoc(b, location.RIGHT_CENTER);
 
 export const right = (b: Crude): number => loc(b, "right");
 
@@ -483,9 +483,4 @@ export const constructWithAlternateRoot = (
       second.y -= height;
     }
   return construct(first, second, undefined, undefined, newRoot);
-};
-
-export const round = (b: Crude): Box => {
-  const b_ = construct(b);
-  return construct(xy.round(b_.one), xy.round(b_.two), undefined, undefined, b_.root);
 };

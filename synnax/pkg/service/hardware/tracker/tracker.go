@@ -70,6 +70,13 @@ type Tracker struct {
 	// a task to gorp. This ensures that the most recent task state is persisted
 	// across reloads.
 	saveNotifications chan task.Key
+	// deviceSaveNotifications is used to signal an observing go-routine to save the state of
+	// a device to gorp. This ensures that the most recent device state is persisted
+	// across reloads.
+	deviceSaveNotifications chan struct {
+		key  string
+		rack rack.Key
+	}
 	// closer shuts down all go-routines needed to keep the tracker service running.
 	closer io.Closer
 	// stateWriter is used to write task state changes to the database.
@@ -217,10 +224,9 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 				Variant: "info",
 				Details: "",
 			}
-			existingState := device.State{Key: dev.Key}
 			if err = gorp.NewRetrieve[string, device.State]().
 				WhereKeys(dev.Key).
-				Entry(&existingState).
+				Entry(&deviceState).
 				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
 				return
 			}
@@ -312,6 +318,16 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
 	signal.GoRange[task.Key](sCtx, t.saveNotifications, t.saveTaskState)
+	t.deviceSaveNotifications = make(chan struct {
+		key  string
+		rack rack.Key
+	}, 10)
+	signal.GoRange(sCtx, t.deviceSaveNotifications, func(ctx context.Context, notification struct {
+		key  string
+		rack rack.Key
+	}) error {
+		return t.saveDeviceState(ctx, notification.key, notification.rack)
+	})
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_device_state",
 	})
@@ -320,7 +336,8 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	}
 	dcDeviceStateObs := deviceStateObs.OnChange(t.handleDeviceState)
 
-	signal.GoTick(sCtx, t.cfg.RackStateAliveThreshold.Duration(), func(ctx context.Context, _ time.Time) error {
+	tickCtx, cancel := signal.WithCancel(sCtx)
+	signal.GoTick(tickCtx, t.cfg.RackStateAliveThreshold.Duration(), func(ctx context.Context, _ time.Time) error {
 		t.mu.RLock()
 		defer t.mu.RUnlock()
 		t.checkRackState()
@@ -331,8 +348,10 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 			defer cancel()
 			t.stateWriter.Close()
 			close(t.saveNotifications)
+			close(t.deviceSaveNotifications)
 			return sCtx.Wait()
 		}),
+		signal.NewHardShutdown(tickCtx, cancel),
 		closeTaskStateObs,
 		closeRackStateObs,
 		closeDeviceStateObs,
@@ -592,6 +611,15 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			r.Devices = make(map[string]device.State)
 		}
 		r.Devices[deviceState.Key] = deviceState
+
+		// Trigger a save
+		select {
+		case t.deviceSaveNotifications <- struct {
+			key  string
+			rack rack.Key
+		}{deviceState.Key, rackKey}:
+		default:
+		}
 	}
 }
 
@@ -630,4 +658,15 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 			}
 		}
 	}
+}
+
+func (t *Tracker) saveDeviceState(ctx context.Context, deviceKey string, rackKey rack.Key) error {
+	state, ok := t.GetDevice(ctx, rackKey, deviceKey)
+	if !ok {
+		return nil
+	}
+	if err := gorp.NewCreate[string, device.State]().Entry(&state).Exec(ctx, t.cfg.DB); err != nil {
+		t.cfg.L.Warn("failed to save device state", zap.Error(err))
+	}
+	return nil
 }

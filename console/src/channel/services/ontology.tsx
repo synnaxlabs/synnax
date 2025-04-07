@@ -306,7 +306,7 @@ export const Item: Tree.Item = ({ entry, ...rest }) => {
           />
           {data.virtual && (
             <Icon.Virtual
-              style={{ color: "var(--pluto-gray-l8)", transform: "scale(0.9)" }}
+              style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}
             />
           )}
         </>

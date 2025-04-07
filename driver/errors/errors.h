@@ -21,4 +21,4 @@ const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
 const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
 const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
 const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
-} // namespace driver
+}

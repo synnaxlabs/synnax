@@ -253,4 +253,4 @@ void transfer_buf(
         s.write_casted(buf.data() + i * n_samples_per_channel, n_samples_per_channel);
     }
 }
-} // namespace common
+}

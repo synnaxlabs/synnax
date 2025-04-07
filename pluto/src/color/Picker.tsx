@@ -58,7 +58,12 @@ export const Picker = ({
   );
 
   return (
-    <Align.Space y align="start" className={CSS.B("color-picker-container")}>
+    <Align.Space
+      y
+      align="start"
+      className={CSS.B("color-picker-container")}
+      background={1}
+    >
       {position != null ||
         (onDelete != null && (
           <Align.Space x justify="spaceBetween">

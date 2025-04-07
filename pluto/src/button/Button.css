@@ -34,11 +34,14 @@
 .pluto-btn {
     position: relative;
     cursor: pointer;
+    /* We give the button a fixed z-index to ensure that we maintain a consistent
+    stacking context even when increasing the z-index on hover. This prevents strange
+    layout shifting of internal content (especially icons) */
+    z-index: 1;
     font-family: var(--pluto-font-family);
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
     padding: 0 2rem;
-    z-index: 1;
     &.pluto--small {
         padding: 0 1.5rem;
     }
@@ -152,15 +155,10 @@
         }
     }
 
-    &.pluto--outlined * {
-        color: var(--pluto-btn-text-color);
-    }
-
     &.pluto--text {
         border: none;
 
         &.pluto--shade-0 {
-            --pluto-bg: transparent;
             --pluto-hover-bg: var(--pluto-gray-l2);
             --pluto-active-bg: var(--pluto-gray-l3);
         }
@@ -184,22 +182,6 @@
             --pluto-active-border-color: var(--pluto-gray-l8);
         }
     }
-
-    .pluto-btn__end-content {
-        position: absolute;
-        right: -0.5rem;
-        top: 0;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        padding-right: 1.5rem;
-        pointer-events: none;
-        z-index: 0;
-        & > * {
-            color: var(--pluto-gray-l9);
-            transform: scale(0.8);
-        }
-    }
 }
 
 .pluto-btn-icon {
@@ -214,6 +196,25 @@
         left: 22.5%;
         width: 55%;
         height: 55%;
+    }
+    .pluto-trigger-indicator {
+        opacity: 0;
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: fit-content;
+        height: fit-content;
+        transform: translate(45%, -45%);
+        z-index: 10;
+        & .pluto-text--keyboard {
+            background: var(--pluto-gray-l0);
+            border-color: var(--pluto-gray-l5);
+        }
+        transition: opacity 0.1s ease-in-out;
+    }
+    &:hover .pluto-trigger-indicator {
+        opacity: 1;
     }
 }
 

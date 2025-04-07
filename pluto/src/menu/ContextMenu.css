@@ -17,6 +17,7 @@
     box-shadow: var(--pluto-shadow-v1);
     border-radius: 1rem;
     padding: 1rem;
+    animation: var(--pluto-dialog-animation);
 }
 
 .pluto-menu-context > .pluto-menu-item {

@@ -73,4 +73,4 @@ public:
         void *value
     );
 };
-} // namespace syscfg
+}

@@ -10,6 +10,7 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
 import * as v4 from "@/layout/types/v4";
 
@@ -21,17 +22,15 @@ export const sliceStateZ = v4.sliceStateZ.omit({ version: true }).extend({
 
 export type SliceState = z.infer<typeof sliceStateZ>;
 
-const ZERO_NAV_STATE = {
-  nav: {
-    main: {
-      drawers: {
-        left: {
-          activeItem: null,
-          menuItems: ["channel", "range", "workspace", "device", "task", "user"],
-        },
-        right: { activeItem: null, menuItems: [] },
-        bottom: { activeItem: null, menuItems: ["visualization"] },
+const ZERO_NAV_STATE: NavState = {
+  main: {
+    drawers: {
+      left: {
+        activeItem: null,
+        menuItems: ["channel", "range", "workspace", "device", "task", "user"],
       },
+      right: { activeItem: null, menuItems: [] },
+      bottom: { activeItem: null, menuItems: ["visualization"] },
     },
   },
 };
@@ -39,7 +38,7 @@ const ZERO_NAV_STATE = {
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   ...v4.ZERO_SLICE_STATE,
   version: VERSION,
-  ...ZERO_NAV_STATE,
+  nav: ZERO_NAV_STATE,
 });
 
 export const sliceMigration: migrate.Migration<v4.SliceState, SliceState> =
@@ -48,6 +47,6 @@ export const sliceMigration: migrate.Migration<v4.SliceState, SliceState> =
     migrate: (s) => ({
       ...s,
       version: VERSION,
-      ...ZERO_NAV_STATE,
+      nav: ZERO_NAV_STATE,
     }),
   });

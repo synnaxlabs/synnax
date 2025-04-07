@@ -138,4 +138,4 @@ public:
     common::ConfigureResult
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 };
-} // namespace ni
+}

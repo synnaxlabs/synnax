@@ -54,7 +54,7 @@ json base_analog_config() {
          }})}
     };
 }
-} // namespace
+}
 
 TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());

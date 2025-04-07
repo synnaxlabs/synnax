@@ -385,9 +385,51 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     );
   };
   const addRangeToNewPlot = Range.useAddToNewPlot();
+
+  const AnnotationMenu = ({
+    key,
+    timeRange,
+    name,
+  }: {
+    key: string;
+    timeRange: TimeRange;
+    name: string;
+  }): ReactElement => {
+    const handleSelect = (itemKey: string) => {
+      switch (itemKey) {
+        case "download":
+          if (client == null) return;
+          download({ client, lines, timeRange, name, handleError });
+          break;
+        case "metadata":
+          placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
+          break;
+        case "line-plot":
+          addRangeToNewPlot(key);
+          break;
+        default:
+          break;
+      }
+    };
+
+    return (
+      <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+        <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+          Download as CSV
+        </PMenu.Item>
+        <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
+          Open in New Plot
+        </PMenu.Item>
+        <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
+          View Details
+        </PMenu.Item>
+      </PMenu.Menu>
+    );
+  };
+
   return (
     <div
-      style={{ height: "100%", width: "100%", padding: "2rem" }}
+      style={{ height: "100%", width: "100%", padding: "2rem 1.5rem" }}
       className={props.className}
     >
       <PMenu.ContextMenu
@@ -423,42 +465,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         onDoubleClick={handleDoubleClick}
         onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
         onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-        annotationProvider={{
-          menu: ({ key, timeRange, name }) => {
-            const handleSelect = (itemKey: string) => {
-              switch (itemKey) {
-                case "download":
-                  if (client == null) return;
-                  download({ client, lines, timeRange, name, handleError });
-                  break;
-                case "metadata":
-                  placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
-                  break;
-                case "line-plot":
-                  addRangeToNewPlot(key);
-                  break;
-                default:
-                  break;
-              }
-            };
-            return (
-              <PMenu.Menu level="small" key={key} onChange={handleSelect}>
-                <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-                  Download as CSV
-                </PMenu.Item>
-                <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
-                  Open in New Plot
-                </PMenu.Item>
-                <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
-                  View Details
-                </PMenu.Item>
-              </PMenu.Menu>
-            );
-          },
-        }}
+        annotationProvider={{ menu: AnnotationMenu }}
       >
-        <NavControls />
+        {!focused && <NavControls />}
       </Channel.LinePlot>
+      {focused && <NavControls />}
     </div>
   );
 };

@@ -128,4 +128,4 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     } else ctx->set_state(state);
     return {std::move(res.task), true};
 }
-} // namespace common
+}

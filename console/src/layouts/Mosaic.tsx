@@ -109,6 +109,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       visible={focused}
       style={{ width: "100%", height: "100%" }}
       offset={0}
+      background={focused ? 0 : undefined}
     >
       <PNav.Bar
         location="top"
@@ -325,7 +326,7 @@ const NavTop = (): ReactElement | null => {
       startIcon={<Icon.Visualize />}
       endIcon={
         <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
-          <Triggers.Text level="small" shade={11} weight={450} trigger={["V"]} />
+          <Triggers.Text level="small" shade={11} weight={450} trigger={["v"]} />
         </Align.Space>
       }
     >

@@ -10,9 +10,9 @@
 #pragma once
 
 /// std
-#include <string>
-#include <mutex>
 #include <atomic>
+#include <mutex>
+#include <string>
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"

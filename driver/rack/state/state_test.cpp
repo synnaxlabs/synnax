@@ -10,6 +10,9 @@
 /// external
 #include "gtest/gtest.h"
 
+/// module
+#include "x/cpp/xtest/xtest.h"
+
 /// internal
 #include "client/cpp/testutil/testutil.h"
 #include "driver/rack/state/state.h"
@@ -17,9 +20,8 @@
 /// @brief tests the nominal heartbeat case.
 TEST(HeartbeatTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto [rack, rack_err] = client->hardware.create_rack("test_rack");
-    ASSERT_FALSE(rack_err) << rack_err.message();
-    auto [ch, ch_err] = client->channels.retrieve("sy_rack_heartbeat");
+    auto rack  = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
+    auto ch = ASSERT_NIL_P(client->channels.retrieve("sy_rack_state"));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = rack::state::Task::configure(
         ctx,
@@ -31,15 +33,17 @@ TEST(HeartbeatTests, testNominal) {
         .channels = {ch.key},
     });
     ASSERT_FALSE(strm_err) << strm_err.message();
-    auto [frm, msg_err] = streamer.read();
-    ASSERT_FALSE(msg_err) << msg_err.message();
-    ASSERT_EQ(frm.size(), 1);
     json j;
-    ASSERT_EQ(frm.series->at(0).at(-1, j));
-    auto [frm_2, msg_err_2] = streamer.read();
-    ASSERT_FALSE(msg_err_2) << msg_err_2.message();
-    ASSERT_EQ(frm_2.size(), 1);
-    ASSERT_EQ(frm_2.series->at(0).at(0, j));
+    for (int i = 0; i < 50; i++) {
+        auto [frm, msg_err] = streamer.read();
+        ASSERT_FALSE(msg_err) << msg_err.message();
+        ASSERT_EQ(frm.size(), 1);
+        frm.series->at(0).at(-1, j);
+        if (j["key"] == rack.key) break;
+    }
+    EXPECT_EQ(j["key"], rack.key);
+    EXPECT_EQ(j["variant"], "success");
+    EXPECT_EQ(j["message"], "Driver is running");
     hb->stop(false);
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();

@@ -185,6 +185,8 @@ const navStateZ = z
   .record(z.string(), partialNavStateZ)
   .and(z.object({ [MAIN_LAYOUT_KEY]: mainNavStateZ }));
 
+export type NavState = z.infer<typeof navStateZ>;
+
 export const MAIN_LAYOUT: State = {
   name: "Main",
   key: MAIN_LAYOUT_KEY,

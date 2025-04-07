@@ -56,6 +56,7 @@ export interface DialogProps
   variant?: Variant;
   maxHeight?: ComponentSize | number;
   zIndex?: number;
+  modalOffset?: number;
 }
 
 interface State {
@@ -94,7 +95,8 @@ export const Dialog = ({
   close,
   maxHeight,
   zIndex = 5,
-  bordered = true,
+  bordered = false,
+  modalOffset = 20,
   ...rest
 }: DialogProps): ReactElement => {
   const targetRef = useRef<HTMLDivElement>(null);
@@ -147,7 +149,8 @@ export const Dialog = ({
   if (variant !== "modal" && targetRef.current != null) {
     dialogStyle = { ...stateDialogStyle };
     if (variant === "connected") dialogStyle.width = width;
-  }
+  } else if (variant === "modal") dialogStyle = { top: `${modalOffset}%` };
+
   if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
   if (visible) {
     dialogStyle.zIndex = zIndex;
@@ -160,13 +163,11 @@ export const Dialog = ({
   const exclude = useCallback(
     (e: { target: EventTarget | null }) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
-      return false;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
         const isDialog = el?.getAttribute("role") === "dialog";
         if (!isDialog) return false;
         const zi = el.style.zIndex;
-        console.log(zi, zIndex, el, e.target);
         return Number(zi) > zIndex;
       });
       return parent != null;

@@ -29,7 +29,7 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
 
   return (
     <PMenu.Menu {...rest} onChange={onSelect}>
-      {menuItems.map(({ key, icon }) => (
+      {menuItems.map(({ key, icon, trigger }) => (
         <PMenu.Item.Icon
           className={CSS(
             CSS.BE("main-nav", "item"),
@@ -66,6 +66,7 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
           itemKey={key}
           size="large"
           shade={2}
+          triggerIndicator={trigger}
         >
           {icon}
         </PMenu.Item.Icon>

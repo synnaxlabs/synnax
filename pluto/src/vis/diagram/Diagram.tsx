@@ -507,13 +507,7 @@ export const ToggleEditControl = ({
       checkedVariant="filled"
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
-      tooltip={
-        editable ? (
-          <Text.Text level="small">Disable edit mode</Text.Text>
-        ) : (
-          <Text.Text level="small">Enable edit mode</Text.Text>
-        )
-      }
+      tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}

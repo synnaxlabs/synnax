@@ -243,6 +243,7 @@ const PaletteDialog = ({
             onChange={handleChange}
             value={value}
             autoComplete="off"
+            onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
           />
           <PaletteList mode={mode} services={services} />
         </Align.Pack>
@@ -269,7 +270,8 @@ const PaletteList = ({ mode, services }: PaletteListProps): ReactElement => {
       itemHeight={27}
       grow
       bordered
-      borderShade={5}
+      borderShade={6}
+      background={0}
     >
       {item}
     </List.Core>

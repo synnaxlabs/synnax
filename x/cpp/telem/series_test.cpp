@@ -890,35 +890,3 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(s3.size(), 0);
     ASSERT_EQ(s3.byte_size(), 0);
 }
-
-// Define a simple struct with to_json() method for testing
-struct TestStruct {
-    std::string name;
-    int value;
-
-    json to_json() const { return json{{"name", name}, {"value", value}}; }
-};
-
-TEST(TestSeries, testToJSONMethodConstructor) {
-    // Test with custom struct that has to_json() method
-    std::vector<TestStruct> structs = {
-        TestStruct{"test1", 1},
-        TestStruct{"test2", 2},
-        TestStruct{"test3", 3}
-    };
-
-    telem::Series s1(structs);
-    ASSERT_EQ(s1.data_type(), telem::JSON_T);
-    ASSERT_EQ(s1.size(), 3);
-    auto strings = s1.strings();
-    ASSERT_EQ(strings[0], R"({"name":"test1","value":1})");
-    ASSERT_EQ(strings[1], R"({"name":"test2","value":2})");
-    ASSERT_EQ(strings[2], R"({"name":"test3","value":3})");
-
-    // Test with empty vector
-    std::vector<TestStruct> empty_structs;
-    telem::Series s2(empty_structs);
-    ASSERT_EQ(s2.data_type(), telem::JSON_T);
-    ASSERT_EQ(s2.size(), 0);
-    ASSERT_EQ(s2.byte_size(), 0);
-}

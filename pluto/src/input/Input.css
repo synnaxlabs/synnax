@@ -110,7 +110,7 @@
 
     &.pluto--shadow:not(:focus):not(:focus-within):not(:hover) {
         .pluto-input__internal {
-            background: var(--pluto-bg);
+            background: var(--pluto-gray-l0);
         }
         & > * {
             border-color: transparent;

@@ -97,11 +97,12 @@ class Scanner final : public common::Scanner {
             );
             sy_dev.state = synnax::DeviceState{
                 .key = sy_dev.key,
-                .rack = rack,
                 .variant = "success",
-                .details = json{
-                    {"message", "Device present"},
-                }
+                .rack = rack,
+                .details =
+                    json{
+                        {"message", "Device present"},
+                    }
             };
 
             devices.push_back(sy_dev);
@@ -129,4 +130,4 @@ public:
         cfg(std::move(cfg)),
         device_manager(std::move(device_manager)) {}
 };
-} // namespace labjack
+}

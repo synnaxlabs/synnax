@@ -253,7 +253,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           <Button.Button
             onClick={open}
             shade={0}
-            textShade={7}
+            textShade={9}
             startIcon={<Icon.Add />}
             variant="text"
           >

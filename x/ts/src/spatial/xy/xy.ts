@@ -280,13 +280,16 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
   return miters;
 };
 
-export const round = (a: Crude): XY => {
+/**
+ * Swaps the x and y coordinates of a point.
+ * @param a - The coordinate to swap. Can be provided in any supported format (couple, object, dimensions, etc.)
+ * @returns A new XY coordinate with the x and y values swapped.
+ * @example
+ * swap([1, 2]) // returns { x: 2, y: 1 }
+ * swap({ x: 3, y: 4 }) // returns { x: 4, y: 3 }
+ * swap({ width: 5, height: 6 }) // returns { x: 6, y: 5 }
+ */
+export const swap = (a: Crude): XY => {
   const xy = construct(a);
-  return { x: Math.round(xy.x), y: Math.round(xy.y) };
-};
-
-export const swap = (a: Crude, apply: boolean = true): XY => {
-  const xy = construct(a);
-  if (!apply) return xy;
   return { x: xy.y, y: xy.x };
 };

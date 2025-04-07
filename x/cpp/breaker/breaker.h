@@ -219,4 +219,4 @@ inline Config default_config(const std::string &name) {
         .name = name,
     };
 }
-} // namespace breaker
+}

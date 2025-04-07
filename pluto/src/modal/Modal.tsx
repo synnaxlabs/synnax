@@ -52,6 +52,7 @@ export const Dialog = ({
   close,
   style,
   offset = 15,
+  background,
   ...rest
 }: ModalProps): ReactElement => {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -84,12 +85,19 @@ export const Dialog = ({
       style: { zIndex: 11, ...style, top: `${offset}%` },
       rounded: 1,
       bordered: true,
-      borderShade: 5,
+      borderShade: 6,
     };
 
   return (
     <Background visible={visible}>
-      <Align.Space role="dialog" empty ref={dialogRef} {...rest} {...dialogProps}>
+      <Align.Space
+        role="dialog"
+        empty
+        ref={dialogRef}
+        background={background}
+        {...rest}
+        {...dialogProps}
+      >
         {children}
       </Align.Space>
     </Background>

@@ -306,4 +306,4 @@ private:
         return res;
     }
 };
-} // namespace ni
+}

@@ -86,10 +86,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         .key = dev.key,
         .variant = "success",
         .rack = dev.rack,
-        .details = json{
-            {"message", "Device present"},
-            {"last_updated", telem::TimeStamp::now().nanoseconds()},
-        }
+        .details =
+            json{
+                {"message", "Device present"},
+                {"last_updated", telem::TimeStamp::now().nanoseconds()},
+            }
     };
 
     auto err = xerrors::NIL;

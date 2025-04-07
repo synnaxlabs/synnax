@@ -65,7 +65,12 @@ export const NavControls = (): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Align.Space className={CSS.BE("line-plot", "nav-controls")} x size="small">
+    <Align.Space
+      className={CSS.BE("line-plot", "nav-controls")}
+      x
+      size="small"
+      style={{ zIndex: 500 }}
+    >
       <Viewport.SelectMode
         value={mode}
         onChange={handleModeChange}

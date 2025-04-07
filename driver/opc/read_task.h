@@ -292,4 +292,4 @@ public:
         return this->cfg.sy_channels();
     }
 };
-} // namespace opc
+}

@@ -2478,4 +2478,4 @@ public:
     virtual int32
     GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) = 0;
 };
-} // namespace daqmx
+}
