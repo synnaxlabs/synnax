@@ -14,18 +14,18 @@
 namespace x {
 /**
  * @brief A utility class that executes a function when it goes out of scope.
- * 
+ *
  * The defer class provides a mechanism similar to Go's defer statement, allowing
  * for cleanup code to be specified at the beginning of a scope but executed when
  * the scope is exited, regardless of how the scope is exited (normal execution,
  * return, or exception).
- * 
+ *
  * Example usage:
  * ```
  * {
  *     auto resource = acquire_resource();
  *     x::defer d([&resource]() { release_resource(resource); });
- *     
+ *
  *     // Use resource...
  *     // When scope ends, release_resource will be called automatically
  * }
@@ -35,6 +35,7 @@ namespace x {
  */
 class defer {
     std::function<void()> fn;
+
 public:
     /**
      * @brief Destructor that executes the deferred function.
@@ -42,15 +43,15 @@ public:
     ~defer() { fn(); }
 
     /**
-     * @brief Constructs a defer object with the function to be executed on destruction.
-     * 
+     * @brief Constructs a defer object with the function to be executed on
+     * destruction.
+     *
      * @param fn The function to execute when this object is destroyed.
      */
-    [[nodiscard]] explicit defer(const std::function<void()> &fn) : fn(fn) {
-    }
-    
+    [[nodiscard]] explicit defer(const std::function<void()> &fn): fn(fn) {}
+
     // Prevent copying to avoid multiple executions of the deferred function
-    defer(const defer&) = delete;
-    defer& operator=(const defer&) = delete;
+    defer(const defer &) = delete;
+    defer &operator=(const defer &) = delete;
 };
 }

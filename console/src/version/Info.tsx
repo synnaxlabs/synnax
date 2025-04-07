@@ -45,8 +45,9 @@ export const Info: Layout.Renderer = () => {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      if (!updateQuery.isFetched || updateQuery.data?.available !== true) return;
+      if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
+      if (update == null) return;
       await update.downloadAndInstall((progress: DownloadEvent) => {
         if (progress.event === "Started")
           setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
@@ -89,8 +90,8 @@ export const Info: Layout.Renderer = () => {
           </Align.Space>
         </Align.Space>
       );
-  else if (updateQuery.isFetched)
-    if (updateQuery.data?.available) {
+  else if (updateQuery.isSuccess)
+    if (updateQuery.data != null) {
       const version = updateQuery.data.version;
       updateContent = (
         <>

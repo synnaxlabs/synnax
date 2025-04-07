@@ -17,8 +17,8 @@ inline std::string cwd() {
     return std::filesystem::current_path().string();
 }
 
-/// @brief resolves the relative path into an absolute path using the current working
-/// directory.
+/// @brief resolves the relative path into an absolute path using the current
+/// working directory.
 /// @param path the relative path to resolve.
 inline std::string resolve_relative(const std::string &path) {
     const std::filesystem::path base = std::filesystem::current_path();

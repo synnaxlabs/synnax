@@ -12,9 +12,10 @@
 namespace hardware::mock {
 
 Base::Base(
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors
-) : start_errors(start_errors),
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors
+):
+    start_errors(start_errors),
     stop_errors(stop_errors),
     start_call_count(0),
     stop_call_count(0) {}
@@ -33,22 +34,20 @@ xerrors::Error Base::stop() {
 
 template<typename T>
 Reader<T>::Reader(
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors,
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors,
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses
-) : Base(start_errors, stop_errors),
+):
+    Base(start_errors, stop_errors),
     read_responses(std::move(read_responses)),
     read_call_count(0) {}
 
 template<typename T>
-ReadResult Reader<T>::read(
-    size_t samples_per_channel,
-    std::vector<T>& data
-) {
-    auto [res_data, err] = read_responses[std::min(read_call_count, read_responses.size() - 1)];
+ReadResult Reader<T>::read(size_t samples_per_channel, std::vector<T> &data) {
+    auto [res_data, err] = read_responses
+        [std::min(read_call_count, read_responses.size() - 1)];
     read_call_count++;
-    if (!res_data.empty())
-        std::copy(res_data.begin(), res_data.end(), data.begin());
+    if (!res_data.empty()) std::copy(res_data.begin(), res_data.end(), data.begin());
     ReadResult res;
     res.error = err;
     return res;
@@ -57,10 +56,11 @@ ReadResult Reader<T>::read(
 template<typename T>
 Writer<T>::Writer(
     std::shared_ptr<std::vector<std::vector<T>>> written_data,
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors,
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors,
     std::vector<xerrors::Error> write_responses
-) : Base(start_errors, stop_errors),
+):
+    Base(start_errors, stop_errors),
     write_responses(std::move(write_responses)),
     write_call_count(0),
     written_data(written_data) {}

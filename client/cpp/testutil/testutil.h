@@ -15,12 +15,7 @@
 #include "client/cpp/synnax.h"
 
 
-const synnax::Config test_client_config = {
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
-};
+const synnax::Config test_client_config = {"localhost", 9090, "synnax", "seldon"};
 
 /// @brief instantiates a new client for testing purposes. The cluster
 /// is expected to be running on localhost:9090 in insecure mode.
