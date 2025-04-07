@@ -9,10 +9,11 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { type box, type location, type xy } from "@synnaxlabs/x";
+import { box, type location, type xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
   memo,
+  type PropsWithChildren,
   type ReactElement,
   type RefObject,
   useCallback,
@@ -20,9 +21,11 @@ import {
   useState,
 } from "react";
 
+import { Aether } from "@/aether";
 import { type Align } from "@/align";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { mosaic } from "@/mosaic/aether";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Portal } from "@/portal";
@@ -62,7 +65,24 @@ export interface MosaicProps
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
+  portaledNodes?: ReactElement;
 }
+
+interface AetherEnabledProps extends PropsWithChildren<{}> {
+  root: MosaicProps["root"];
+}
+
+export const AetherEnabled = ({ root, children }: AetherEnabledProps) => {
+  const { path } = Aether.useUnidirectional({
+    state: {
+      root,
+      box: box.ZERO,
+    },
+    type: mosaic.Mosaic.TYPE,
+    schema: mosaic.mosaicStateZ,
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};
 
 /***
  * Mosaic renders a tree of tab panes, with the ability to drag and drop tabs to
@@ -95,6 +115,7 @@ export const Mosaic = memo(
     onReorder,
     contextMenu,
     addTooltip,
+    portaledNodes,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -125,7 +146,8 @@ export const Mosaic = memo(
       initialSizes: size != null ? [size] : undefined,
     });
     let extraProps: Partial<Align.CoreProps> = {};
-    if (key == 1)
+    const isRoot = key == 1;
+    if (isRoot)
       extraProps = {
         ...rest,
         className: CSS(CSS.B("mosaic")),
@@ -157,6 +179,13 @@ export const Mosaic = memo(
       content = null;
       console.warn("Mosaic tree is malformed");
     }
+    if (isRoot)
+      return (
+        <AetherEnabled root={root}>
+          {portaledNodes}
+          {content}
+        </AetherEnabled>
+      );
 
     return content;
   },

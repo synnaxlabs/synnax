@@ -277,7 +277,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   return (
     <>
-      {portalNodes}
       <Core.Mosaic
         rounded={1}
         bordered
@@ -295,6 +294,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         activeTab={activeTab ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create a Component"
+        portaledNodes={portalNodes}
       >
         {renderProp}
       </Core.Mosaic>

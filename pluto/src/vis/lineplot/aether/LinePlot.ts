@@ -60,6 +60,7 @@ export class LinePlot extends aether.Composite<
     this.internal.renderCtx = render.Context.use(ctx);
     render.Controller.control(ctx, (r) => this.requestRender("low", r));
     this.requestRender("high", render.REASON_LAYOUT);
+    console.log(ctx.get("mosaic"));
   }
 
   async afterDelete(ctx: aether.Context): Promise<void> {

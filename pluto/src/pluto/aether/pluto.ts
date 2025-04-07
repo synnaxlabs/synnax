@@ -11,6 +11,7 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { mosaic } from "@/mosaic/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
@@ -61,6 +62,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
+    ...mosaic.REGISTRY,
   };
 
   void aether.render({ comms: w.route("vis"), registry: REGISTRY });
