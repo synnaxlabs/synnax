@@ -6,10 +6,10 @@ AccessModifierOffset: -4
 AlignAfterOpenBracket: BlockIndent
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
-AlignOperands: AlignAfterOperator
+AlignOperands: true
 AlignTrailingComments: false
 AlwaysBreakTemplateDeclarations: Yes
-BraceWrapping: 
+BraceWrapping:
   AfterCaseLabel: false
   AfterClass: false
   AfterControlStatement: false
@@ -35,7 +35,7 @@ NamespaceIndentation: None
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
-IncludeCategories: 
+IncludeCategories:
   - Regex: '^<.*'
     Priority: 1
   - Regex: '^".*'
@@ -77,4 +77,5 @@ BreakBeforeTernaryOperators: true
 SpaceBeforeCtorInitializerColon: false
 AlwaysBreakBeforeMultilineStrings: false
 FixNamespaceComments: false
+BreakStringLiterals: false
 ...

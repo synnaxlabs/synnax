@@ -5,7 +5,7 @@ common --enable_bzlmod=true --enable_workspace=true --noincompatible_disallow_ct
 
 # Enable platform-specific configs
 build --enable_platform_specific_config
-# These hide symbols from the linker in order to prevent symbols collisions with 
+# These hide symbols from the linker in order to prevent symbols collisions with
 # libraries we load dynamically at runtime (LabJack is the primary source of this issue,
 # as it relies an incompatible, legacy GRPC version).
 build --copt=-fvisibility=hidden
