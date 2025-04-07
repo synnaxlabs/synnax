@@ -13,9 +13,10 @@ import { Align, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
+import { CREATE_LAYOUT } from "@/channel/Create";
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
@@ -27,13 +28,17 @@ const Content = (): ReactElement => {
       return await client?.channels.retrieveGroup();
     },
   });
-
+  const placeLayout = Layout.usePlacer();
   return (
     <Cluster.NoneConnectedBoundary>
       <Align.Space empty style={{ height: "100%", overflow: "hidden" }}>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
+          <Toolbar.Actions>
+            {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
+          </Toolbar.Actions>
         </Toolbar.Header>
+
         <Ontology.Tree root={group.data?.ontologyID} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>

@@ -14,7 +14,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Header,
   List,
   Menu as PMenu,
   Observe,
@@ -352,7 +351,7 @@ const Content = () => {
       >
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Header.Actions>{actions}</Header.Actions>
+          <Toolbar.Actions>{actions}</Toolbar.Actions>
         </Toolbar.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
