@@ -97,8 +97,8 @@ class Scanner final : public common::Scanner {
             );
             sy_dev.state = synnax::DeviceState{
                 .key = sy_dev.key,
-                .rack = rack,
                 .variant = "success",
+                .rack = rack,
                 .details =
                     json{
                         {"message", "Device present"},
