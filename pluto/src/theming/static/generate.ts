@@ -28,6 +28,7 @@ const generateStatic = (
 ): string => {
   const lightVars = toCSSVars(light);
   const darkVars = toCSSVars(dark);
+  const darkPrefixedVars = toCSSVars(dark, "dark-");
 
   // Convert record to CSS variable declarations
   const formatVars = (vars: Record<string, string | number | undefined>): string =>
@@ -44,11 +45,13 @@ const generateStatic = (
   return `
 :root {
 ${formatVars(defaultVars)}
+${formatVars(darkPrefixedVars)}
 }
 
 @media (prefers-color-scheme: ${mediaQueryTheme}) {
     :root {
 ${formatVars(mediaQueryVars)}
+${formatVars(darkPrefixedVars)}
     }
 }`;
 };

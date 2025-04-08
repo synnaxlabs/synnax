@@ -14,7 +14,10 @@ const OPACITIES: readonly number[] = [
   95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
 ];
 
-export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
+export const toCSSVars = (
+  theme: Theme,
+  addPrefix: string = "",
+): Record<string, number | string | undefined> =>
   Object.entries({
     "theme-name": theme.name,
     "theme-key": theme.key,
@@ -115,7 +118,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
   }).reduce<Record<string, number | string | undefined>>(
     (acc, [key, value]) => ({
       ...acc,
-      [CSS.var(key)]: value,
+      [CSS.var(addPrefix + key)]: value,
     }),
     {},
   );

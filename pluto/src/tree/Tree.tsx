@@ -376,6 +376,20 @@ export const Tree = ({
   ...rest
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
+  const child: List.ItemRenderProp<string, FlattenedNode> = useCallback(
+    ({ key, ...rest }) =>
+      children({
+        ...rest,
+        key,
+        loading: loading === key,
+        useMargin,
+        onDrop,
+        onRename,
+        onSuccessfulDrop,
+        onDoubleClick,
+      }),
+    [children, loading],
+  );
   return (
     <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
       <List.Selector<string, FlattenedNode>
@@ -389,18 +403,7 @@ export const Tree = ({
           className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
           {...rest}
         >
-          {({ key, ...rest }) =>
-            children({
-              ...rest,
-              key,
-              loading: loading === key,
-              useMargin,
-              onDrop,
-              onRename,
-              onSuccessfulDrop,
-              onDoubleClick,
-            })
-          }
+          {child}
         </Core>
       </List.Selector>
     </List.List>
