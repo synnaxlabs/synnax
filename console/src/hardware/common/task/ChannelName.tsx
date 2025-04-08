@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel, Text } from "@synnaxlabs/pluto";
+import { Channel, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
+import { NULL_CLIENT_ERROR } from "@/errors";
 
 export interface ChannelNameProps
-  extends Optional<Text.TextProps<Text.Level>, "level"> {
+  extends Optional<Omit<Text.MaybeEditableProps<Text.Level>, "value">, "level"> {
   channel: channel.Key;
   defaultName?: string;
 }
@@ -25,14 +26,23 @@ export const ChannelName = ({
   ...rest
 }: ChannelNameProps) => {
   const name = Channel.useName(channel, defaultName);
+  const handleError = Status.useErrorHandler();
+  const client = Synnax.use();
+  const handleChange = (newName: string) => {
+    handleError(async () => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      await client.channels.rename(channel, newName);
+    }, `Failed to rename ${name} to ${newName}`);
+  };
   return (
-    <Text.Text
+    <Text.MaybeEditable
       className={CSS.BE("task", "channel-name")}
       color={channel ? undefined : "var(--pluto-warning-m1)"}
       level="small"
+      value={name}
+      onChange={handleChange}
+      allowDoubleClick={false}
       {...rest}
-    >
-      {name}
-    </Text.Text>
+    />
   );
 };
