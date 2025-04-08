@@ -12,11 +12,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
-import { v4 as uuid } from "uuid";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
+import { createNewID } from "@/group/createNewID";
+import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Link } from "@/link";
@@ -55,7 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
         </>
       )}
-      <GroupMenuItem selection={props.selection} />
+      <MenuItem selection={props.selection} />
       <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
         {isDelete ? "Delete" : "Ungroup"}
@@ -71,21 +71,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     </PMenu.Menu>
   );
 };
-
-const createNewID = (): ontology.ID => group.ontologyID(uuid());
-
-export interface GroupMenuItemProps {
-  selection: Ontology.TreeContextMenuProps["selection"];
-}
-
-export const GroupMenuItem = ({
-  selection,
-}: GroupMenuItemProps): ReactElement | null =>
-  canGroupSelection(selection) ? (
-    <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
-      Group
-    </PMenu.Item>
-  ) : null;
 
 const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
@@ -147,11 +132,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
   };
 };
 
-export const canGroupSelection = (
-  selection: Ontology.TreeContextMenuProps["selection"],
-): boolean => Tree.getAllNodesOfMinDepth(selection.nodes).length > 1;
-
-export const useCreateEmpty = (): ((
+const useCreateEmpty = (): ((
   props: Ontology.TreeContextMenuProps,
 ) => Promise<void>) => {
   const mut = useMutation<
