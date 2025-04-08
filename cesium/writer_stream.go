@@ -106,6 +106,13 @@ type streamWriter struct {
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 }
 
+// recoverableErrors is the list of errors considered recoverable by the writer. By
+// calling error(), recoverable errors will be cleared and the caller will be allowed
+// to continue writing.
+var recoverableErrors = []error{
+	control.Unauthorized,
+}
+
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
@@ -142,6 +149,9 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	}
 	if req.Command == WriterError {
 		w.sendRes(req, false, w.err, 0)
+		if errors.IsAny(w.err, recoverableErrors...) {
+			w.err = nil
+		}
 		return
 	}
 	if req.Command == WriterSetAuthority {
