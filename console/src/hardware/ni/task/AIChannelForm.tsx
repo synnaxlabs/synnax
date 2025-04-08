@@ -1033,7 +1033,7 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
   return (
     <>
-      <Align.Space x>
+      <Align.Space x wrap>
         <Device.Select path={`${prefix}.device`} />
         <Device.PortField path={prefix} />
       </Align.Space>
