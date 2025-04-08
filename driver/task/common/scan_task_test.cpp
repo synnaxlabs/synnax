@@ -319,7 +319,7 @@ TEST(TestScanTask, TestStatePropagation) {
     // First scan - both devices should be available
     ASSERT_NIL(scan_task.scan());
     ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 1);
-    
+
     auto &first_states = cluster_api_ptr->propagated_states[0];
     ASSERT_EQ(first_states.size(), 2);
 
