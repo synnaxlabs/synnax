@@ -278,7 +278,7 @@ const InternalSVG = ({
     // @ts-expect-error - css variables
     style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
       theme.colors.gray.l0,
-      theme.colors.gray.l12,
+      theme.colors.gray.l11,
     ).rgbString;
   }
   return (

@@ -61,15 +61,14 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
   );
 
   return (
-    <>
-      <Menu.ContextMenu
-        style={{ ...gridStyle, cursor: hovered != null ? "pointer" : "default" }}
-        {...menuProps}
-        menu={() => {
-          if (menu == null || hovered == null) return null;
-          return menu(hovered);
-        }}
-      />
+    <Menu.ContextMenu
+      style={{ ...gridStyle, cursor: hovered != null ? "pointer" : "default" }}
+      {...menuProps}
+      menu={() => {
+        if (menu == null || hovered == null) return null;
+        return menu(hovered);
+      }}
+    >
       <Align.Space
         style={{ width: "100%", height: "100%" }}
         className={menuProps.className}
@@ -89,6 +88,6 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
         }}
         onMouseEnter={handleMouseEnter}
       />
-    </>
+    </Menu.ContextMenu>
   );
 };

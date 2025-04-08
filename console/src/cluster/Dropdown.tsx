@@ -144,29 +144,30 @@ export const List = (): ReactElement => {
           Connect
         </Button.Button>
       </Align.Pack>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-      <CoreList.List<string, Cluster>
-        data={allClusters}
-        emptyContent={<NoneConnected />}
-      >
-        <CoreList.Selector
-          value={selected}
-          allowMultiple={false}
-          onChange={handleConnect}
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+        <CoreList.List<string, Cluster>
+          data={allClusters}
+          emptyContent={<NoneConnected />}
         >
-          <CoreList.Core<string, Cluster>
-            style={{ height: 190, width: "100%" }}
-            onContextMenu={menuProps.open}
-            className={menuProps.className}
-            bordered
-            borderShade={5}
+          <CoreList.Selector
+            value={selected}
+            allowMultiple={false}
+            onChange={handleConnect}
           >
-            {({ key, ...p }) => (
-              <ListItem key={key} {...p} validateName={validateName} />
-            )}
-          </CoreList.Core>
-        </CoreList.Selector>
-      </CoreList.List>
+            <CoreList.Core<string, Cluster>
+              style={{ height: 190, width: "100%" }}
+              onContextMenu={menuProps.open}
+              className={menuProps.className}
+              bordered
+              borderShade={5}
+            >
+              {({ key, ...p }) => (
+                <ListItem key={key} {...p} validateName={validateName} />
+              )}
+            </CoreList.Core>
+          </CoreList.Selector>
+        </CoreList.List>
+      </PMenu.ContextMenu>
     </Align.Pack>
   );
 };
