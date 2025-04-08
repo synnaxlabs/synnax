@@ -1266,6 +1266,7 @@ export interface TankProps extends DivProps {
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   backgroundColor?: Color.Crude;
+  strokeWidth?: number;
 }
 
 export const Tank = ({
@@ -1275,6 +1276,7 @@ export const Tank = ({
   boxBorderRadius,
   color,
   backgroundColor,
+  strokeWidth = 2,
   ...rest
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
@@ -1304,6 +1306,7 @@ export const Tank = ({
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
         borderColor: Color.cssString(color ?? t.colors.gray.l11),
         backgroundColor: Color.cssString(backgroundColor),
+        borderWidth: strokeWidth,
       }}
       {...rest}
     >
@@ -1373,17 +1376,19 @@ export interface PolygonProps extends DivProps {
   cornerRounding?: number;
   color?: Color.Crude;
   backgroundColor?: Color.Crude;
+  strokeWidth?: number;
 }
 
 const calculatePolygonVertices = (
   numSides: number,
   sideLength: number,
-  rotationDeg: number = 0
+  rotationDeg: number = 0,
+  padding: number = 4,
 ): Array<{ x: number; y: number }> => {
   const angleStep = (2 * Math.PI) / numSides;
   const rotationRad = (rotationDeg * Math.PI) / 180;
   const radius = sideLength / (2 * Math.sin(Math.PI / numSides));
-  const center = radius + 2;
+  const center = radius + padding / 2;
 
   return Array.from({ length: numSides }).map((_, i) => {
     const angle = angleStep * i + rotationRad - Math.PI / 2;
@@ -1451,20 +1456,25 @@ export const Polygon = ({
   backgroundColor,
   className,
   cornerRounding,
+  strokeWidth,
   ...rest
 }: PolygonProps): ReactElement => {
   const theme = Theming.use();
+  const padding = useMemo(
+    () => 2 * ((strokeWidth ?? 2) + 1),
+    [strokeWidth]
+  )
   const vertices = useMemo(
-    () => calculatePolygonVertices(numSides, sideLength, rotation),
-    [numSides, sideLength, rotation]
+    () => calculatePolygonVertices(numSides, sideLength, rotation, padding),
+    [numSides, sideLength, rotation, padding]
   );
   const path = useMemo(
     () => generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0),
     [vertices, cornerRounding]
   );
   const size = useMemo(() => (
-    2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + 4
-  ), [sideLength, numSides]);
+    2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + padding
+  ), [sideLength, numSides, padding]);
   return (
     <Div className={CSS(className, CSS.B("polygon"))} {...rest}>
       <InternalSVG dimensions={{ width: size, height: size }}>
@@ -1472,7 +1482,7 @@ export const Polygon = ({
           d={path}
           fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
           stroke={Color.cssString(color ?? theme.colors.gray.l9)}
-          strokeWidth={2}
+          strokeWidth={strokeWidth ?? 2}
         />
       </InternalSVG>
     </Div>
@@ -1483,6 +1493,7 @@ export interface CircleShapeProps extends DivProps {
   radius: number;
   color?: Color.Crude;
   backgroundColor?: Color.Crude;
+  strokeWidth?: number;
 }
 
 export const CircleShape = ({
@@ -1490,12 +1501,14 @@ export const CircleShape = ({
   color,
   backgroundColor,
   className,
+  strokeWidth,
   ...rest
 }: CircleShapeProps): ReactElement => {
   const theme = Theming.use();
+  const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
-  const width = diameter + 4;
-  const height = diameter + 4;
+  const width = diameter + 2 * padding;
+  const height = diameter + 2 * padding;
   return (
     <Div className={CSS(className, CSS.B("circle-shape"))} {...rest}>
       <HandleBoundary orientation="left" refreshDeps={[radius]}>
@@ -1503,27 +1516,27 @@ export const CircleShape = ({
           location="top"
           orientation="left"
           left={50}
-          top={3 / height * 100}
+          top={padding / height * 100}
           id="1"
         />
         <Handle
           location="bottom"
           orientation="left"
           left={50}
-          top={(height - 3) / height * 100}
+          top={(height - padding) / height * 100}
           id="2"
         />
         <Handle
           location="left"
           orientation="left"
-          left={3 / width * 100}
+          left={padding / width * 100}
           top={50}
           id="3"
         />
         <Handle
           location="right"
           orientation="left"
-          left={(width - 3) / width * 100}
+          left={(width - padding) / width * 100}
           top={50}
           id="4"
         />
@@ -1534,7 +1547,7 @@ export const CircleShape = ({
           cy={height / 2}
           r={radius}
           stroke={Color.cssString(color ?? theme.colors.gray.l9)}
-          strokeWidth={2}
+          strokeWidth={strokeWidth ?? 2}
           fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
           />
       </InternalSVG>

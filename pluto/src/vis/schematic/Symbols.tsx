@@ -519,6 +519,7 @@ export const TankPreview = (props: TankProps): ReactElement => (
 
 export interface BoxProps extends Omit<TankProps, "borderRadius"> {
   borderRadius?: number;
+  strokeWidth?: number;
 }
 
 export const Triangle = createLabeled(
@@ -550,6 +551,7 @@ export const PolygonSymbol = createLabeled(
     rotation,
     color,
     backgroundColor,
+    strokeWidth,
     ...rest
   }: SymbolProps<Primitives.PolygonProps>) => (
     <Primitives.Polygon
@@ -559,6 +561,7 @@ export const PolygonSymbol = createLabeled(
       rotation={rotation}
       color={color}
       backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
       {...rest}
     />
   )
@@ -569,12 +572,14 @@ export const Circle = createLabeled(
     radius,
     color,
     backgroundColor,
+    strokeWidth,
     ...rest
   }: SymbolProps<Primitives.CircleShapeProps>) => (
     <Primitives.CircleShape
       radius={radius}
       color={color}
       backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
       {...rest}
     />
   )
@@ -589,6 +594,7 @@ export const Box = createLabeled(
     orientation,
     color,
     dimensions,
+    strokeWidth,
   }: SymbolProps<BoxProps>): ReactElement => (
     <Primitives.Tank
       onResize={(dims) => onChange({ dimensions: dims })}
@@ -597,6 +603,7 @@ export const Box = createLabeled(
       dimensions={dimensions}
       boxBorderRadius={borderRadius}
       backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
     />
   ),
 );
