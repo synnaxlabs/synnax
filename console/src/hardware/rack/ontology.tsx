@@ -91,16 +91,20 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
     <Tree.DefaultItem {...rest} entry={entry}>
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow>
-            <Text.MaybeEditable
-              id={`text-${key}`}
-              level="p"
-              allowDoubleClick={false}
-              value={entry.name}
-              disabled={!entry.allowRename}
-              onChange={(name) => onRename?.(entry.key, name)}
-            />
-          </Align.Space>
+          <Text.MaybeEditable
+            id={`text-${key}`}
+            level="p"
+            allowDoubleClick={false}
+            value={entry.name}
+            disabled={!entry.allowRename}
+            onChange={(name) => onRename?.(entry.key, name)}
+            style={{
+              textOverflow: "ellipsis",
+              width: 0,
+              overflow: "hidden",
+              flexGrow: 1,
+            }}
+          />
           <Icon.Heart
             ref={heartRef}
             className="synnax-rack-heartbeat"
