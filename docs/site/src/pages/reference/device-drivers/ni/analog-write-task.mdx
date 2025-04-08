@@ -25,8 +25,9 @@ using the Synnax Console.
 ## Prerequisites
 
 Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the [Configure
-Device](/reference/device-drivers/ni/configure-device) guide for more information.
+and created the relevant channels in Synnax. Check out the
+[Configure Device](/reference/device-drivers/ni/configure-device) guide for more
+information.
 
 <Divider.Divider x />
 
@@ -35,8 +36,8 @@ Device](/reference/device-drivers/ni/configure-device) guide for more informatio
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. In the context of the NI
 Driver, an analog wirte task defines a background process that writes to the analog
-outputs of your device based on values written to Synnax [command
-channels](#how-commands-work-in-synnax).
+outputs of your device based on values written to Synnax
+[command channels](#how-commands-work-in-synnax).
 
 An analog write task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
@@ -84,7 +85,8 @@ running task.
 
 To create an analog write task from the resources toolbar, open the Synnax Console and
 click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device
-you'd like to create the task for, right-click on it, and select "Create Analog Write Task".
+you'd like to create the task for, right-click on it, and select "Create Analog Write
+Task".
 
 <Video client:only="react" id="device-drivers/ni/analog-write-task/create-device" />
 
@@ -94,9 +96,9 @@ To create an analog write task from the command palette, open the Synnax Console
 click on the Quick Search & Command Palette at the top. You can also open this palette
 with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type
-"NI". You'll see an option called "Create a New Analog Write Task". Select this
-option to open the write task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "NI".
+You'll see an option called "Create a New Analog Write Task". Select this option to open
+the write task configuration dialog.
 
 <Video client:only="react" id="device-drivers/ni/analog-write-task/create-palette" />
 
@@ -113,8 +115,8 @@ top right corner and select "NI Analog Write Task".
 
 ### <StepText level="h3" step={1}>Select your NI Device</StepText>
 
-The first step is to select the NI device you'd like to write to the outputs of. Use
-the dropdown menu in the top left corner to do so.
+The first step is to select the NI device you'd like to write to the outputs of. Use the
+dropdown menu in the top left corner to do so.
 
 <Video client:only="react" id="device-drivers/ni/analog-write-task/select-device" />
 

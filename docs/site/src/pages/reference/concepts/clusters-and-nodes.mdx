@@ -16,23 +16,21 @@ export const components = mdxOverrides;
 
 ## What is a Node?
 
-A node is a single, running instance of the Synnax executable. A node can be
-deployed on an edge server to acquire data from sensors in the field, run in a
-local environment for development, or be deployed in the cloud for high
-performance analysis.
+A node is a single, running instance of the Synnax executable. A node can be deployed on
+an edge server to acquire data from sensors in the field, run in a local environment for
+development, or be deployed in the cloud for high performance analysis.
 
 <Divider.Divider x />
 
 ## What is a Cluster?
 
-Multiple nodes join together to form a cluster. These nodes constantly
-communicate with each other to coordinate operations across the cluster. Through
-this communication, the nodes expose the cluster as a monolithic data space.
-This means that a user can query any node and have access to all of the
-cluster's data and compute.
+Multiple nodes join together to form a cluster. These nodes constantly communicate with
+each other to coordinate operations across the cluster. Through this communication, the
+nodes expose the cluster as a monolithic data space. This means that a user can query
+any node and have access to all of the cluster's data and compute.
 
-The smallest Synnax cluster contains a single node. This works well for testing
-and development. We recommend running larger clusters for production.
+The smallest Synnax cluster contains a single node. This works well for testing and
+development. We recommend running larger clusters for production.
 
 <Divider.Divider x />
 
@@ -40,9 +38,9 @@ and development. We recommend running larger clusters for production.
 
 ### Reachable Addresses and IDs
 
-Nodes are uniquely identified by both a reachable address and an ID. A node's
-address allows clients and other nodes to communicate with it. Synnax
-multiplexes client and node communication over the same port.
+Nodes are uniquely identified by both a reachable address and an ID. A node's address
+allows clients and other nodes to communicate with it. Synnax multiplexes client and
+node communication over the same port.
 
 A node's ID is a 16-bit integer that uniquely identifies it within the cluster. The
 first node in the cluster, called the bootstrap node, is assigned the ID 1. Subsquent
@@ -53,11 +51,12 @@ as well as synchronizing operations across the cluster.
 
 ### Heartbeats and Gossip
 
-Nodes use a [gossip protocol](https://en.wikipedia.org/wiki/Gossip_protocol#:~:text=A%20gossip%20protocol%20or%20eschematicemic,all%20members%20of%20a%20group.)
-to continuously exchange information about the cluster topology. Each node
-gossips with a pseudo-randomly chosen node, called a _peer_, on a one second
-interval. Each time a node gossips, it increments a counter, called a heartbeat,
-and sends it along with its current view of the cluster topology. The node and
-its peer then compare their topologies and merge them.
+Nodes use a
+[gossip protocol](https://en.wikipedia.org/wiki/Gossip_protocol#:~:text=A%20gossip%20protocol%20or%20eschematicemic,all%20members%20of%20a%20group.)
+to continuously exchange information about the cluster topology. Each node gossips with
+a pseudo-randomly chosen node, called a _peer_, on a one second interval. Each time a
+node gossips, it increments a counter, called a heartbeat, and sends it along with its
+current view of the cluster topology. The node and its peer then compare their
+topologies and merge them.
 
 Heartbeats play an important role in failure detection and response.

@@ -64,9 +64,8 @@ import synnax as sy
 
 The next step is to connect to a Synnax cluster. This can be done by logging in with
 through the [CLI](/reference/python-client/get-started#the-synnax-login-command) or by
-[passing the
-credentials](/reference/python-client/get-started#passing-credentials-directly) into
-your script.
+[passing the credentials](/reference/python-client/get-started#passing-credentials-directly)
+into your script.
 
 After that, we will want to instantiate the Synnax client so we can interact with the
 cluster:
@@ -87,8 +86,8 @@ PRESSURE = "sensor_0"
 Next, you'll need to open up a `Controller`. A `Controller` is used to control hardware
 by extending a framework for writing data to channels. `Controller`s have methods such
 as `get`, `set`, and `wait_until` that make it easy to interact with channels in a
-control sequence. We recommend using a context manager to ensure that the `Controller` is
-properly closed when the script is finished.
+control sequence. We recommend using a context manager to ensure that the `Controller`
+is properly closed when the script is finished.
 
 ```python
 with client.control.acquire(
@@ -241,16 +240,16 @@ with client.control.acquire(
 
 ## Running the Control Sequence
 
-The first step to running the control sequence is to start a [local Synnax
-cluster](/reference/cluster/quick-start). After installing the server you should run the
-following command:
+The first step to running the control sequence is to start a
+[local Synnax cluster](/reference/cluster/quick-start). After installing the server you
+should run the following command:
 
 ```shell
 synnax start --insecure --memory
 ```
 
-Next, you will want to run the simulated DAQ. You can do this by downloading the [Python
-script](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/simulated_daq.py)
+Next, you will want to run the simulated DAQ. You can do this by downloading the
+[Python script](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/simulated_daq.py)
 from the Synnax GitHub repository. After downloading the script, run the following
 command:
 
@@ -286,8 +285,9 @@ In the schematic, make sure there are the following components:
 | Valve  | State Channel: `valve_response_0`<br/>Command Channel: `valve_command_0` | The valve used to pressurize the tank. |
 | Valve  | State Channel: `valve_response_1`<br/>Command Channel: `valve_command_1` | The valve used to vent the tank.       |
 
-Once the schematic is set up, you can enter [control
-mode](/reference/console/schematics#control-mode) to manually control the valves.
+Once the schematic is set up, you can enter
+[control mode](/reference/console/schematics#control-mode) to manually control the
+valves.
 
 <Video client:only="react" id="guides/operations/automated-control/control" />
 
@@ -315,6 +315,6 @@ You should see this result on the console:
 
 ## Conclusion
 
-If you want to look at more examples of control sequences, visit our [GitHub
-repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control).
+If you want to look at more examples of control sequences, visit our
+[GitHub repository](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control).
 You can find more informations about there about functions used in our Python client.

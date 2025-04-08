@@ -421,6 +421,7 @@ export interface IconType {
   Hidden: IconFC;
   Virtual: IconFC;
   Heart: IconFC;
+  Virtual: IconFC;
 }
 
 export const Icon: IconType = {

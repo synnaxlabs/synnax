@@ -18,6 +18,7 @@ import {
   useState as reactUseState,
 } from "react";
 
+import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -121,17 +122,19 @@ const Content = (): ReactElement => {
   });
 
   return (
-    <StateProvider>
-      <RackHeartbeatProvider>
-        <Align.Space empty style={{ height: "100%" }}>
-          <Toolbar.Header>
-            <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
-            <Header.Actions></Header.Actions>
-          </Toolbar.Header>
-          <Ontology.Tree root={group.data} />
-        </Align.Space>
-      </RackHeartbeatProvider>
-    </StateProvider>
+    <Cluster.NoneConnectedBoundary>
+      <StateProvider>
+        <RackHeartbeatProvider>
+          <Align.Space empty style={{ height: "100%" }}>
+            <Toolbar.Header>
+              <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+              <Header.Actions></Header.Actions>
+            </Toolbar.Header>
+            <Ontology.Tree root={group.data} />
+          </Align.Space>
+        </RackHeartbeatProvider>
+      </StateProvider>
+    </Cluster.NoneConnectedBoundary>
   );
 };
 
