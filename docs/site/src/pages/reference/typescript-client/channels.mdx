@@ -12,9 +12,9 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The TypeScript client provides interfaces for creating, retrieving and deleting
-the channels in a Synnax cluster. In this guide, we'll cover the details of each
-of these operations.
+The TypeScript client provides interfaces for creating, retrieving and deleting the
+channels in a Synnax cluster. In this guide, we'll cover the details of each of these
+operations.
 
 If you're unfamiliar with what channels are and how they work, check out the of
 [channels concepts guide](/reference/concepts/channels).
@@ -58,10 +58,9 @@ index.
 
 ### Creating Multiple Channels
 
-We can also create multiple channels efficiently by providing a list of channels
-to the `create` method. This is far more efficient than creating channels
-individually, and provides the atomic guarantee that either no or all channels
-will be created.
+We can also create multiple channels efficiently by providing a list of channels to the
+`create` method. This is far more efficient than creating channels individually, and
+provides the atomic guarantee that either no or all channels will be created.
 
 <Note.Note variant="info">
   When creating variable rate channels, keep in mind that we need to create index
@@ -118,10 +117,10 @@ const tempChannel = await client.channels.retrieve("my_temp_sensor");
 const tempChannel = await client.channels.retrieve(tempChannel.key);
 ```
 
-If Synnax finds no channels matching the query, the client will raise a
-`NotFoundError`. If more than one channel matches the query, the client will
-raise a `MultipleFoundError`. If you'd like to accept no or multiple results,
-provide a list to the `retrieve` method as shown in the next section.
+If Synnax finds no channels matching the query, the client will raise a `NotFoundError`.
+If more than one channel matches the query, the client will raise a
+`MultipleFoundError`. If you'd like to accept no or multiple results, provide a list to
+the `retrieve` method as shown in the next section.
 
 ### Retrieving Multiple Channels
 
@@ -143,8 +142,8 @@ const channels = await client.channels.retrieve([
 ]);
 ```
 
-Synnax will not raise a `NotFoundError` if no channels match the query. Instead,
-it will simply omit that channel from the list of results.
+Synnax will not raise a `NotFoundError` if no channels match the query. Instead, it will
+simply omit that channel from the list of results.
 
 <Divider.Divider x />
 
@@ -168,9 +167,8 @@ await client.channels.delete(sensor_three.key);
 await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key]);
 ```
 
-Unlike with retrieving channels, Synnax will not raise an error if it cannot
-find a channel matching the key or name. This means that `delete` is an
-idempotent operation, and is safe to call even if the channel has already been
-deleted.
+Unlike with retrieving channels, Synnax will not raise an error if it cannot find a
+channel matching the key or name. This means that `delete` is an idempotent operation,
+and is safe to call even if the channel has already been deleted.
 
 Deleting a channel by name will delete **all** channels with that name.

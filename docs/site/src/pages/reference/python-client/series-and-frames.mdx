@@ -20,9 +20,9 @@ exposed by the Python client.
 
 ## Series
 
-A series is a strongly typed array of data samples. It can contain any data you
-want it to, but in the context of Synnax it almost always represents a set of
-contiguous samples from a single channel.
+A series is a strongly typed array of data samples. It can contain any data you want it
+to, but in the context of Synnax it almost always represents a set of contiguous samples
+from a single channel.
 
 ### Constructing a Series
 
@@ -54,8 +54,8 @@ series = sy.Series([{"a": 1}, {"b": 2}, {"c": 3}])
 
 ### Interop with Numpy
 
-The `Series` class is designed to be directly compatible with numpy, and supports all
-of the operations possible on a numpy array without needing to convert back and forth.
+The `Series` class is designed to be directly compatible with numpy, and supports all of
+the operations possible on a numpy array without needing to convert back and forth.
 Here's a simple example:
 
 ```python
@@ -99,14 +99,13 @@ numpy_array = np.array(series)
 
 ### The Time Range Property
 
-Whenever you read a series from Synnax, it will have a `time_range` property
-that represents the time range occupied by the samples in the Series. This
-method can be useful for getting a high-level understanding of when the samples
-were recorded without needing to query an index channel.
+Whenever you read a series from Synnax, it will have a `time_range` property that
+represents the time range occupied by the samples in the Series. This method can be
+useful for getting a high-level understanding of when the samples were recorded without
+needing to query an index channel.
 
-The `start` field represents the timestamp for the first sample, and the `end`
-field represents a timestamp just after the last sample (start-inclusive,
-end-exclusive).
+The `start` field represents the timestamp for the first sample, and the `end` field
+represents a timestamp just after the last sample (start-inclusive, end-exclusive).
 
 It's also easy to define a time range when constructing your own series:
 
@@ -170,9 +169,9 @@ import synnax as sy
 data = frame["channel1"]
 ```
 
-The `data` variable will be an instance of a `MultiSeries` object, which is a
-special type of series that wraps multiple `Series` instances, but behaves
-pretty much exactly like a single series:
+The `data` variable will be an instance of a `MultiSeries` object, which is a special
+type of series that wraps multiple `Series` instances, but behaves pretty much exactly
+like a single series:
 
 ```python
 import synnax as sy

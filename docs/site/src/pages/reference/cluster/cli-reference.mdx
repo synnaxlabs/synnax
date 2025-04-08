@@ -36,8 +36,8 @@ synnax start -l localhost:9090 -im
 #### Joining a node to an existing cluster
 
 We can use the `p` flag to join a node to an existing cluster. If the node has no
-existing cluster data, it will attempt to join the cluster by repeatedly contacting
-each peer in the list until successful:
+existing cluster data, it will attempt to join the cluster by repeatedly contacting each
+peer in the list until successful:
 
 ```cmd
 synnax start -l localhost:9090 -p localhost:9091,localhost:9092
@@ -203,13 +203,13 @@ Command line flags will take precedence over environment variables.
 
 ### Configuration Files
 
-Synnax will also read configuration files in JSON, TOML and YAML formats. The
-values set in these configuration files take the lowest precedence and will be
-overridden by any environment variables or command line flags.
+Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
+in these configuration files take the lowest precedence and will be overridden by any
+environment variables or command line flags.
 
-By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You
-can specify a different configuration file using the `--config` flag or the
-`SYNNAX_CONFIG` environment variable.
+By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You can
+specify a different configuration file using the `--config` flag or the `SYNNAX_CONFIG`
+environment variable.
 
 Here are example configuration files in various formats:
 

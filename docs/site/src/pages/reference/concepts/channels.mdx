@@ -15,8 +15,8 @@ import { Icon } from "@synnaxlabs/media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This page walks you through what channels are, their important properties, and
-how to use them when structuring your cluster.
+This page walks you through what channels are, their important properties, and how to
+use them when structuring your cluster.
 
 If you’re looking for a practical guide on creating or retrieving channels, visit the
 respective pages for the [Python](/reference/python-client/channels) and
@@ -32,11 +32,11 @@ post-processed results, or any other time-ordered data.
 
 Channels are used for both **data storage** and **real-time communication**. A sensor
 recording samples 25 times per second (or 25Hz) would write data to a channel in order
-to store it permanently within Synnax, while at the same time streaming the data
-for live consumption.
+to store it permanently within Synnax, while at the same time streaming the data for
+live consumption.
 
-The following diagram shows a sensor writing samples to a channel, which are then
-stored and forwarded to a visualization tool and analysis script.
+The following diagram shows a sensor writing samples to a channel, which are then stored
+and forwarded to a visualization tool and analysis script.
 
 <Diagram>
   <Image
@@ -47,10 +47,11 @@ stored and forwarded to a visualization tool and analysis script.
   />
 </Diagram>
 
-Channels are comparable to **tags** in a time-series database like [InfluxDB](https://www.influxdata.com/)
-or SCADA system like [Ignition](https://inductiveautomation.com/). It's common for a single Synnax
-database to have hundreds or thousands of channels, each of which represents a different
-data source.
+Channels are comparable to **tags** in a time-series database like
+[InfluxDB](https://www.influxdata.com/) or SCADA system like
+[Ignition](https://inductiveautomation.com/). It's common for a single Synnax database
+to have hundreds or thousands of channels, each of which represents a different data
+source.
 
 <Divider.Divider x />
 
@@ -69,23 +70,23 @@ that they must contain ordered `int64` nanosecond UTC timestamps.
 
 These channels are comparable to the index in a book. To find a particular piece of
 information, you first look through the index, which then points you to the relevant
-page. In Synnax, index channels are used in a similar fashion. To find the samples in
-a data channel for a particular time range, Synnax will first look through the index
+page. In Synnax, index channels are used in a similar fashion. To find the samples in a
+data channel for a particular time range, Synnax will first look through the index
 channel to find the relevant timestamps, and then retrieve the samples from the data
 channel.
 
 ### Data Channels
 
 Data channels are the primary method for storing telemetry samples in Synnax. Data
-channels can store sensor readings, actuator commands, calculated values, or any
-other time-ordered points.
+channels can store sensor readings, actuator commands, calculated values, or any other
+time-ordered points.
 
-Every sample in a data channel must have the same, fixed size data type. This means
-that data channels cannot store variable length values, such as strings or JSON objects.
+Every sample in a data channel must have the same, fixed size data type. This means that
+data channels cannot store variable length values, such as strings or JSON objects.
 
 Every data channel must have an associated index channel, which is used to look up
-samples at a particular time. It's common to have multiple data channels associated
-with a single index channel.
+samples at a particular time. It's common to have multiple data channels associated with
+a single index channel.
 
 ### Virtual Channels
 
@@ -106,8 +107,8 @@ remain the same.
 
 ### Key
 
-A channel's key is a single, 32-bit number that is automatically assigned by Synnax
-when the channel is created. This key uniquely identifies the channel within the database,
+A channel's key is a single, 32-bit number that is automatically assigned by Synnax when
+the channel is created. This key uniquely identifies the channel within the database,
 and cannot be edited.
 
 ### Name
@@ -118,8 +119,8 @@ recommended that you keep them unique.
 
 ### Data Type
 
-All channel's must have a consistent data type. Index channels must always have a
-data type of `timestamp`, while data channels can have any of the following types:
+All channel's must have a consistent data type. Index channels must always have a data
+type of `timestamp`, while data channels can have any of the following types:
 
 | Data Type   | Description                   | Size    |
 | ----------- | ----------------------------- | ------- |
@@ -153,9 +154,9 @@ index channels have a data type of `timestamp`.
 
 ### Virtual
 
-A boolean field indicating whether the channel is virtual. Virtual channels cannot
-be indexes. This field defaults to `false`, and should only be set to `true` for
-virtual channels.
+A boolean field indicating whether the channel is virtual. Virtual channels cannot be
+indexes. This field defaults to `false`, and should only be set to `true` for virtual
+channels.
 
 ### Index
 
@@ -165,9 +166,10 @@ channels.
 
 ### Expression
 
-The expression field is only used for [calculated
-channels](/reference/console/calculated-channels). This experssion is a Lua string that
-calculated what value should be written to the channel and returns it with `return`.
+The expression field is only used for
+[calculated channels](/reference/console/calculated-channels). This experssion is a Lua
+string that calculated what value should be written to the channel and returns it with
+`return`.
 
 ### Requires
 
