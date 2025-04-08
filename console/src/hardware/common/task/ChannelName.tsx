@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -25,14 +26,26 @@ export const ChannelName = ({
   defaultName = "No Channel",
   ...rest
 }: ChannelNameProps) => {
-  const name = Channel.useName(channel, defaultName);
-  const handleError = Status.useErrorHandler();
+  const [name, setName] = useState(defaultName);
   const client = Synnax.use();
+  useAsyncEffect(async () => {
+    if (channel === 0) return;
+    const ch = await client?.channels.retrieve(channel);
+    if (ch != null) setName(ch.name);
+  }, [channel]);
+  const handleError = Status.useErrorHandler();
   const handleChange = (newName: string) => {
+    const oldName = name;
     handleError(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      await client.channels.rename(channel, newName);
-    }, `Failed to rename ${name} to ${newName}`);
+      setName(newName);
+      try {
+        await client.channels.rename(channel, newName);
+      } catch (e) {
+        setName(oldName);
+        throw e;
+      }
+    }, `Failed to rename ${oldName} to ${newName}`);
   };
   return (
     <Text.MaybeEditable
