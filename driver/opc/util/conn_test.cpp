@@ -16,22 +16,16 @@
 #include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/opc/util/util.h"
 #include "driver/opc/mock/server.h"
+#include "driver/opc/util/util.h"
 
 TEST(ConnTest, testBasicConn) {
     synnax::Channel ch;
     ch.data_type = telem::FLOAT32_T;
 
-    mock::ServerChannel server_ch{
-        .ns = 1,
-        .node = "test",
-        .ch = ch
-    };
+    mock::ServerChannel server_ch{.ns = 1, .node = "test", .ch = ch};
 
-    mock::ServerConfig server_cfg{
-        .channels = {server_ch}
-    };
+    mock::ServerConfig server_cfg{.channels = {server_ch}};
 
     mock::Server server{mock::ServerConfig(server_cfg)};
     server.start();

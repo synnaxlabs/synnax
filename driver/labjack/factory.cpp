@@ -12,12 +12,12 @@
 
 /// internal
 #include "driver/labjack/labjack.h"
-#include "driver/labjack/scan_task.h"
 #include "driver/labjack/read_task.h"
+#include "driver/labjack/scan_task.h"
 #include "driver/labjack/write_task.h"
 
-const std::string NO_LIBS_MSG =
-        "Cannot create task because the LJM Libraries are not installed on this System.";
+const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries are not "
+                                "installed on this System.";
 
 std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
@@ -32,7 +32,8 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
         source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
-    else source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
+    else
+        source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
     return {
         std::make_unique<common::ReadTask>(
             task,
@@ -89,11 +90,14 @@ bool labjack::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->dev_manager != nullptr) return true;
-    ctx->set_state({
-        .task = task.key,
-        .variant = "error",
-        .details = json{{"message", NO_LIBS_MSG,}}
-    });
+    ctx->set_state(
+        {.task = task.key,
+         .variant = "error",
+         .details = json{{
+             "message",
+             NO_LIBS_MSG,
+         }}}
+    );
     return false;
 }
 
@@ -104,8 +108,7 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
     std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
-    if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(this->dev_manager, ctx, task);
+    if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
@@ -114,10 +117,10 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     return {std::move(res.first), true};
 }
 
-std::unique_ptr<labjack::Factory> labjack::Factory::create(common::TimingConfig timing_cfg) {
+std::unique_ptr<labjack::Factory>
+labjack::Factory::create(common::TimingConfig timing_cfg) {
     auto [ljm, ljm_err] = ljm::API::load();
-    if (ljm_err)
-        LOG(WARNING) << ljm_err;
+    if (ljm_err) LOG(WARNING) << ljm_err;
     return std::make_unique<labjack::Factory>(
         ljm != nullptr ? std::make_shared<device::Manager>(ljm) : nullptr,
         timing_cfg
@@ -147,8 +150,10 @@ labjack::Factory::configure_initial_tasks(
         }
         auto [task, handled] = configure_task(ctx, sy_task);
         if (handled)
-            if (task != nullptr) tasks.emplace_back(sy_task, std::move(task));
-        else LOG(ERROR) << "[labjack] Failed to configure scanner task";
+            if (task != nullptr)
+                tasks.emplace_back(sy_task, std::move(task));
+            else
+                LOG(ERROR) << "[labjack] Failed to configure scanner task";
     } else if (err) {
         LOG(ERROR) << "[labjack] Failed to list existing tasks: " << err;
         return tasks;

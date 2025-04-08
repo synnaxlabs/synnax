@@ -15,6 +15,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Legend as Core } from "@/vis/legend";
+import { LegendSwatches } from "@/vis/legend/Simple";
 import { type LineSpec, useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
@@ -35,7 +36,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
   const { lines } = useContext("Legend");
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
-    { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
+    { key, size: lines.length > 0 ? 36 : 0, loc: "bottom", order: 5 },
     "Legend",
   );
 
@@ -44,15 +45,15 @@ const Fixed = ({ onLineChange }: LegendProps) => {
       className={CSS.BE("legend", "container")}
       align="center"
       x
-      size="large"
       style={{
         ...gridStyle,
         padding: "0 1rem",
         height: "var(--pluto-height-medium)",
         margin: "1rem 0 ",
+        width: "fit-content",
       }}
     >
-      {Core.legendSwatches(lines, onLineChange)}
+      <LegendSwatches data={lines} onEntryChange={onLineChange} shade={0} />
     </Align.Space>
   );
 };

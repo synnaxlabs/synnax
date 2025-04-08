@@ -13,8 +13,6 @@
     border: var(--pluto-border-l5) !important;
     border-radius: 1rem !important;
     width: 37rem !important;
-    box-shadow: none !important;
-    background: none !important;
     padding: 1.25rem;
     .pluto-color-picker {
         width: 100% !important;

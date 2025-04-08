@@ -20,14 +20,14 @@ export const components = mdxOverrides;
 Read tasks are the primary method for acquiring data from an OPC UA server and storing
 it in Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have [connected to an OPC UA
 server](/reference/device-drivers/opc-ua/connect-server).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -40,7 +40,7 @@ An OPC UA read task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Important Rules for Read Tasks
 
@@ -70,7 +70,7 @@ Synnax can only accept live data from a channel from one source at a time. If yo
 task running that reads from a `pressure` channel, you cannot create another task that
 also reads from `pressure`.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -88,7 +88,7 @@ You can also open the dialog by clicking in the top-right corner of the window a
 selecting the add <Icon.Add /> icon, or opening the context menu on an OPC UA server
 from the resources toolbar.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Task Configuration Parameters
 
@@ -195,7 +195,7 @@ when you are not concerned with the exact timing of the data.
 If you would like to pull exact timestamps from the OPC UA server, simply add the time
 channel to the task.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Adding Channels to a Task
 
@@ -209,7 +209,7 @@ configuration, and you will be able to pause and resume the tasks whenever you w
 
 <Video client:only="react" id="device-drivers/opc-ua/read-task/channels" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Stopping and Starting Tasks
 

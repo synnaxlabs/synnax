@@ -113,22 +113,23 @@ const List = ({
               </PMenu.Menu>
             )}
             {...menuProps}
-          />
-          <PList.Core<string, RuleState>
-            y
-            empty
-            grow
-            onContextMenu={menuProps.open}
-            className={menuProps.className}
           >
-            {({ key, ...rest }) => (
-              <ListItem
-                key={key}
-                {...rest}
-                onChangeLabel={(v) => onLabelChange(v, key)}
-              />
-            )}
-          </PList.Core>
+            <PList.Core<string, RuleState>
+              y
+              empty
+              grow
+              onContextMenu={menuProps.open}
+              className={menuProps.className}
+            >
+              {({ key, ...rest }) => (
+                <ListItem
+                  key={key}
+                  {...rest}
+                  onChangeLabel={(v) => onLabelChange(v, key)}
+                />
+              )}
+            </PList.Core>
+          </PMenu.ContextMenu>
         </PList.Selector>
       </PList.List>
     </Align.Space>

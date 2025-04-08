@@ -139,7 +139,7 @@
             animation: delay var(--pluto-btn-delay) linear;
             width: 100%;
         }
-        &:focus {
+        &:focus-visible {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l0),
                 0 0 0 3px var(--pluto-primary-z);
@@ -149,18 +149,19 @@
 
     &.pluto--text,
     &.pluto--outlined {
-        &:focus {
+        &:focus-visible {
             outline: none;
             box-shadow: inset 0 0 0 1px var(--pluto-primary-z);
         }
     }
 
     &.pluto--text {
-        border: none;
+        border: none !important;
 
         &.pluto--shade-0 {
             --pluto-hover-bg: var(--pluto-gray-l2);
             --pluto-active-bg: var(--pluto-gray-l3);
+            --pluto-border-color: var(--pluto-gray-l0);
         }
 
         &.pluto--shade-1 {
@@ -194,7 +195,7 @@
         position: absolute;
         top: 22.5%;
         left: 22.5%;
-        width: 55%;
+        width: 55% !important;
         height: 55%;
     }
     .pluto-trigger-indicator {

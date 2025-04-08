@@ -236,61 +236,62 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   let currPos = 3.5 * 6;
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-      <Core.Table
-        visible={visible}
-        style={{
-          width: totalColSizes,
-          height: totalRowSizes,
-        }}
-        onContextMenu={menuProps.open}
-        className={menuProps.className}
-      >
-        <ColResizer
-          tableKey={layoutKey}
-          onResize={handleColResize}
-          columns={colSizes}
-        />
-        {layout.rows.map((row, rowIndex) => {
-          const pos = currPos;
-          currPos += layout.rows[rowIndex].size;
-          return (
-            <Row
-              key={rowIndex}
-              tableKey={layoutKey}
-              index={rowIndex}
-              cells={row.cells}
-              position={pos}
-              columns={colSizes}
-              size={row.size}
-            />
-          );
-        })}
-      </Core.Table>
-      {editable && (
-        <>
-          <Button.Button
-            className={CSS.BE("table", "add-col")}
-            justify="center"
-            align="center"
-            size="small"
-            onClick={handleAddCol}
-          >
-            <Icon.Add />
-          </Button.Button>
-          <Button.Button
-            className={CSS.BE("table", "add-row")}
-            variant="filled"
-            justify="center"
-            align="center"
-            size="small"
-            onClick={handleAddRow}
-          >
-            <Icon.Add />
-          </Button.Button>
-        </>
-      )}
-      <TableControls tableKey={layoutKey} />
+      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+        <Core.Table
+          visible={visible}
+          style={{
+            width: totalColSizes,
+            height: totalRowSizes,
+          }}
+          onContextMenu={menuProps.open}
+          className={menuProps.className}
+        >
+          <ColResizer
+            tableKey={layoutKey}
+            onResize={handleColResize}
+            columns={colSizes}
+          />
+          {layout.rows.map((row, rowIndex) => {
+            const pos = currPos;
+            currPos += layout.rows[rowIndex].size;
+            return (
+              <Row
+                key={rowIndex}
+                tableKey={layoutKey}
+                index={rowIndex}
+                cells={row.cells}
+                position={pos}
+                columns={colSizes}
+                size={row.size}
+              />
+            );
+          })}
+        </Core.Table>
+        {editable && (
+          <>
+            <Button.Button
+              className={CSS.BE("table", "add-col")}
+              justify="center"
+              align="center"
+              size="small"
+              onClick={handleAddCol}
+            >
+              <Icon.Add />
+            </Button.Button>
+            <Button.Button
+              className={CSS.BE("table", "add-row")}
+              variant="filled"
+              justify="center"
+              align="center"
+              size="small"
+              onClick={handleAddRow}
+            >
+              <Icon.Add />
+            </Button.Button>
+          </>
+        )}
+        <TableControls tableKey={layoutKey} />
+      </PMenu.ContextMenu>
     </div>
   );
 };

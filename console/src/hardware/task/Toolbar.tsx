@@ -341,8 +341,7 @@ const Content = () => {
     [handleListItemStopStart, rename],
   );
   return (
-    <>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Align.Space
         empty
         style={{ height: "100%" }}
@@ -359,7 +358,7 @@ const Content = () => {
           </List.Selector>
         </List.List>
       </Align.Space>
-    </>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -401,7 +400,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Circle

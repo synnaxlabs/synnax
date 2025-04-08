@@ -429,46 +429,48 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   return (
     <div
-      style={{ height: "100%", width: "100%", padding: "2rem 1.5rem" }}
+      style={{ height: "100%", width: "100%", padding: "2rem" }}
       className={props.className}
     >
       <PMenu.ContextMenu
         {...props}
         menu={() => <ContextMenuContent layoutKey={layoutKey} />}
-      />
-      <Channel.LinePlot
-        aetherKey={layoutKey}
-        hold={hold}
-        onContextMenu={props.open}
-        title={name}
-        axes={axes}
-        lines={propsLines}
-        rules={vis.rules}
-        clearOverScan={{ x: 5, y: 5 }}
-        onTitleChange={handleTitleChange}
-        visible={visible}
-        titleLevel={vis.title.level}
-        showTitle={vis.title.visible}
-        showLegend={vis.legend.visible}
-        onLineChange={handleLineChange}
-        onRuleChange={handleRuleChange}
-        onAxisChannelDrop={handleChannelAxisDrop}
-        onAxisChange={handleAxisChange}
-        onViewportChange={handleViewportChange}
-        initialViewport={initialViewport}
-        onLegendPositionChange={handleLegendPositionChange}
-        legendPosition={legendPosition}
-        viewportTriggers={triggers}
-        enableTooltip={enableTooltip}
-        legendVariant={focused ? "fixed" : "floating"}
-        enableMeasure={clickMode === "measure"}
-        onDoubleClick={handleDoubleClick}
-        onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
-        onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-        annotationProvider={{ menu: AnnotationMenu }}
       >
-        <NavControls />
-      </Channel.LinePlot>
+        <Channel.LinePlot
+          aetherKey={layoutKey}
+          hold={hold}
+          onContextMenu={props.open}
+          title={name}
+          axes={axes}
+          lines={propsLines}
+          rules={vis.rules}
+          clearOverScan={{ x: 5, y: 5 }}
+          onTitleChange={handleTitleChange}
+          visible={visible}
+          titleLevel={vis.title.level}
+          showTitle={vis.title.visible}
+          showLegend={vis.legend.visible}
+          onLineChange={handleLineChange}
+          onRuleChange={handleRuleChange}
+          onAxisChannelDrop={handleChannelAxisDrop}
+          onAxisChange={handleAxisChange}
+          onViewportChange={handleViewportChange}
+          initialViewport={initialViewport}
+          onLegendPositionChange={handleLegendPositionChange}
+          legendPosition={legendPosition}
+          viewportTriggers={triggers}
+          enableTooltip={enableTooltip}
+          legendVariant={focused ? "fixed" : "floating"}
+          enableMeasure={clickMode === "measure"}
+          onDoubleClick={handleDoubleClick}
+          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
+          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          annotationProvider={{ menu: AnnotationMenu }}
+        >
+          {!focused && <NavControls />}
+        </Channel.LinePlot>
+      </PMenu.ContextMenu>
+      {focused && <NavControls />}
     </div>
   );
 };

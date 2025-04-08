@@ -68,8 +68,9 @@ const WindowInternal = (): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps} />
-      <Content layoutKey={layout.key} />
+      <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+        <Content layoutKey={layout.key} />
+      </PMenu.ContextMenu>
     </Align.Space>
   );
 };

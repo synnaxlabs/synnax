@@ -18,7 +18,7 @@ monitoring. This page guides you through using the TypeScript client to stream
 data from a Synnax cluster. If you'd like a conceptual overview of how streams work in
 Synnax, check out the [streams](/reference/concepts/streams) page.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open a Streamer
 
@@ -29,7 +29,7 @@ provide a list of channels to stream:
 const streamer = await client.openStreamer(["temperature1", "temperature2"]);
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Reading Frames
 
@@ -105,7 +105,7 @@ for await (const frame of streamer) {
 }
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Updating the Channel List
 
@@ -121,7 +121,7 @@ await streamer.update(["temperature1", "temperature2", "pressure"]);
   it.
 </Note.Note>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Closing the Streamer
 

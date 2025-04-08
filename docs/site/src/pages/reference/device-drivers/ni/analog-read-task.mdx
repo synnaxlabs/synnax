@@ -21,7 +21,7 @@ The analog read task is used for acquiring data from analog inputs on your NI de
 In this guide, we'll walk you through the steps for creating an analog read task using
 the Synnax Console.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ Before configuring the task, you'll need to have connected and configured an NI 
 and created the relevant channels in Synnax. Check out the
 [Configure Device](/reference/device-drivers/ni/configure-device) guide for more information.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -42,7 +42,7 @@ An analog read task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Important Rules for Analog Read Tasks
 
@@ -58,7 +58,7 @@ different channels at different rates, create a separate task to do so.
 Synnax can only read live data into a channel from one source at a time. If you have two
 tasks that read from "ai0" on the same device, you cannot have both tasks running at the same time.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -98,7 +98,7 @@ top right corner of the central mosaic and select "NI Analog Read Task".
   id="device-drivers/ni/analog-read-task/layout-create-analog-read-task"
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Configuring the Task
 
@@ -154,7 +154,7 @@ not be available for review.
 We recommend turning data saving off when you're testing a new task or running operations
 where historical data saving is not important.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start the Task
 

@@ -15,7 +15,7 @@ export const components = mdxOverrides;
 This page documents a number of common patterns we've found useful when writing control
 sequences.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Checking if a Channel Has Received Telemetry
 
@@ -77,7 +77,7 @@ conditional block wih valid pressure values.
 We recommend **always** checking if a channel value is defined before using it, as it
 will prevent any unexpected issues from arising.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Initializing Variables
 
@@ -98,7 +98,7 @@ end
 Now, `state` will only be set to `"pressurizing"` once during the first iteration of the
 sequence.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Fixed Delays Between Commands
 
@@ -124,7 +124,7 @@ else if pressure > 100 then
 end
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## State Machines
 
@@ -179,7 +179,7 @@ initial state, using a chain of conditional logic to execute specific control co
 within the state, and then transitioning to a different phase by assigning to the
 `state` variable when ready.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Abort Sequence
 

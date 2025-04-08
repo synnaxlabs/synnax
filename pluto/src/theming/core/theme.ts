@@ -13,24 +13,37 @@ import { color } from "@/color/core";
 import { text } from "@/text/core";
 
 const grayScaleZ = z.object({
+  // Main background surface
   l0: color.Color.z,
+  // Large surfaces to contrast against background
   l1: color.Color.z,
+  // Small surfaces to contrast against background
   l2: color.Color.z,
+  // Hover on small surfaces
   l3: color.Color.z,
+  // Border strength 1
   l4: color.Color.z,
+  // Border strength 2
+  // Border strength 1 hover
   l5: color.Color.z,
+  // Border strength 2 hover
+  // Border strength 1 active
   l6: color.Color.z,
+  // Border strength 2 active
   l7: color.Color.z,
+  // Text strength 1
   l8: color.Color.z,
+  // Text strength 2
   l9: color.Color.z,
+  // Text strength 3
   l10: color.Color.z,
+  // Text strength 4
   l11: color.Color.z,
-  l12: color.Color.z,
 });
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
-export type Shade = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+export type Shade = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
@@ -85,7 +98,11 @@ export const themeZ = z
     }),
     sizes: z.object({
       base: z.number(),
-      border: z.object({ radius: z.number(), width: z.number() }),
+      border: z.object({
+        radius: z.number(),
+        width: z.number(),
+        thickWidth: z.number(),
+      }),
       schematic: z.object({ elementStrokeWidth: z.number() }),
     }),
     typography: z.object({
@@ -128,18 +145,17 @@ const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 const LIGHT_SCALE = [
   "#FEFEFE", // l0 - background
-  "#fbfbfb", // l1 - large surfaces
+  "#F9F9F9", // l1 - large surfaces
   "#F2F2F2", // l2 - small surfaces
   "#ECECEC", // l3 - small surfaces hover
   "#E4E4E4", // l4 - border 1
   "#D1D1D1", // l5 - border 2
-  "#bcbcbc", // l6 - border 2 hover
+  "#BCBCBC", // l6 - border 2 hover
   "#ACACAC", // l7 - border 2 active
   "#8F8F8F", // l8 - text 1
-  "#727272", // l9 - text 2
-  "#4F4F4F", // l10 - text 3
-  "#292929", // l11 - text 4
-  "#050505", // l12 - text 5
+  "#4F4F4F", // l10 - text 2
+  "#292929", // l10 - text 3
+  "#050505", // l11 - text 4
 ];
 
 const lightGrayScale: GrayScale = Object.fromEntries(
@@ -217,7 +233,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1 },
+    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1, thickWidth: 1 },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {
@@ -248,11 +264,10 @@ const DARK_SCALE = [
   "#3B3B3B", // l5
   "#4A4A4A", // l6
   "#5C5C5C", // l7
-  "#767676", // l10
-  "#969696", // l11
-  "#B9B9B9", // l10
-  "#DBDBDB", // l11
-  "#FDFDFD", // l12
+  "#767676", // l8
+  "#8d8d8d", // l9
+  "#dadada", // l10
+  "#FAFAFA", // l11
 ];
 
 const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
@@ -270,7 +285,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     border: DARK_GRAY_SCALE.l3,
     text: DARK_GRAY_SCALE.l11,
     textInverted: DARK_GRAY_SCALE.l0,
-    textOnPrimary: DARK_GRAY_SCALE.l12,
+    textOnPrimary: DARK_GRAY_SCALE.l11,
   },
 });
 

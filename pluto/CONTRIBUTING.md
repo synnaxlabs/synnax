@@ -121,10 +121,10 @@ and other main thread-specific tooling.
 
 | Name                     | Z-Index | Notes                                                                                |
 | ------------------------ | ------- | ------------------------------------------------------------------------------------ |
-| Lower 2D Canvas          | -3      | Used for items that should render below the upper 2D and GL canvases such as `Axes`. |
-| GL Canvas                | -2      | WebGL rendering for lines.                                                           |
+| Lower 2D Canvas          | 0      | Used for items that should render below the upper 2D and GL canvases such as `Axes`. |
+| GL Canvas                | 1      | WebGL rendering for lines.                                                           |
 | Lower Schematic Elements | 2       | Below the upper 2D canvas.                                                           |
-| Upper 2D Canvas          | 3       | Upper 2D canvas for rendering items above other canvases, such as tooltips.          |
+| Upper 2D Canvas          | 2       | Upper 2D canvas for rendering items above other canvases, such as tooltips.          |
 | HTML Legend              | 4       | Above the upper and lower 2D canvases.                                               |
 | Upper Schematic Elements | 4       | Above the upper P&ID elements.                                                       |
 | Dropdown                 | 5       | Above everything except for tooltips.                                                |

@@ -10,7 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, position, unique, xy } from "@synnaxlabs/x";
-import { type ReactElement, type RefCallback, useRef, useState } from "react";
+import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -146,6 +146,35 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
+const Internal = ({
+  ref,
+  menu,
+  visible,
+  open,
+  close,
+  position,
+  keys,
+  className,
+  cursor: _,
+  style,
+  ...rest
+}: ContextMenuProps): ReactNode | null => {
+  if (!visible) return null;
+  return createPortal(
+    <Align.Space
+      className={CSS(CSS.B("menu-context"), CSS.bordered())}
+      ref={ref}
+      style={{ ...xy.css(position), ...style }}
+      onClick={close}
+      size="tiny"
+      {...rest}
+    >
+      {menu?.({ keys })}
+    </Align.Space>,
+    document.body,
+  );
+};
+
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user
  * right clicks within wrapped area, the provided menu will be shown.
@@ -187,31 +216,12 @@ export interface ContextMenuProps
  * @param props.menu - The menu to show when the user right clicks.
  */
 export const ContextMenu = ({
-  ref,
-  children,
   menu,
-  visible,
-  open,
-  close,
-  position,
-  keys,
-  className,
-  cursor: _,
-  style,
+  children,
   ...rest
-}: ContextMenuProps): ReactElement | null => {
-  if (!visible) return null;
-  return createPortal(
-    <Align.Space
-      className={CSS(CSS.B("menu-context"), CSS.bordered())}
-      ref={ref}
-      style={{ ...xy.css(position), ...style }}
-      onClick={close}
-      size="tiny"
-      {...rest}
-    >
-      {menu?.({ keys })}
-    </Align.Space>,
-    document.body,
-  );
-};
+}: ContextMenuProps): ReactNode => (
+  <>
+    <Internal menu={menu} {...rest} />
+    {children}
+  </>
+);

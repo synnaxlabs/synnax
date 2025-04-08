@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/api.h"
+#include "driver/ni/syscfg/nisyscfg.h"
 #include "x/cpp/xlib/xlib.h"
 
 namespace syscfg {
@@ -18,8 +18,9 @@ class SugaredAPI {
     std::shared_ptr<API> syscfg;
 
     xerrors::Error process_error(NISysCfgStatus status) const;
+
 public:
-    explicit SugaredAPI(std::shared_ptr<API> syscfg) : syscfg(std::move(syscfg)) {}
+    explicit SugaredAPI(std::shared_ptr<API> syscfg): syscfg(std::move(syscfg)) {}
 
     xerrors::Error InitializeSession(
         const char *targetName,
@@ -43,9 +44,7 @@ public:
         ...
     );
 
-    xerrors::Error CloseHandle(
-        void *syscfgHandle
-    );
+    xerrors::Error CloseHandle(void *syscfgHandle);
 
     xerrors::Error FindHardware(
         NISysCfgSessionHandle sessionHandle,

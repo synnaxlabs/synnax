@@ -20,7 +20,7 @@ export const components = mdxOverrides;
 The read task is used for acquiring analog and digital data from LabJack devices. In
 this guide, we'll walk you through the steps to create a LabJack read task in Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ device and created the relevant channels in Synnax. Check out the [device
 configuration](/reference/device-drivers/labjack/configure-device) guide for more
 information.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -42,7 +42,7 @@ A read task can be started, stopped, and re-configured at any time. Synnax perma
 stores the configuration of the task in Synnax, so it's easy to set up multiple tasks
 for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Important Rules for Read Tasks
 
@@ -65,7 +65,7 @@ Synnax can only accept live data from a channel from one source at a time. If yo
 task running that reads from a `pressure` channel, you cannot start another task that
 reads from the same channel.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -105,7 +105,7 @@ the top right corner and select "LabJack Read Task".
   id="device-drivers/labjack/read-task/layout-create-read-task"
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Configuring the Task
 
@@ -158,7 +158,7 @@ available for review.
 We recommend turning data saving off when you're testing a new task or running
 operations where historical data saving is not important.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start the Task
 

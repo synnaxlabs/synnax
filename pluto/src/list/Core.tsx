@@ -14,6 +14,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -151,6 +152,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight = 50,
   className,
+  children,
   ...rest
 }: Omit<Align.SpaceProps, "children"> & {
   children: ItemRenderProp<K, E>;
@@ -178,6 +180,23 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     scrollToRelevantChild(hover, prevHover, ref.current);
   }, [hover, itemHeight]);
 
+  const child = useCallback(
+    (entry: E, index: number) => {
+      let sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+      if (transformed) sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+      return children({
+        key: entry.key,
+        index,
+        sourceIndex,
+        onSelect,
+        entry,
+        selected: selected.includes(entry.key),
+        hovered: index === hover,
+      });
+    },
+    [children, transformed, selected, hover, sourceData],
+  );
+
   return (
     <Align.Space
       className={CSS(className, CSS.BE("list", "container"))}
@@ -188,22 +207,7 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       {data.length === 0 ? (
         emptyContent
       ) : (
-        <>
-          {data.map((entry, index) => {
-            let sourceIndex = index;
-            if (transformed)
-              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-            return rest.children({
-              key: entry.key,
-              index,
-              sourceIndex,
-              onSelect,
-              entry,
-              selected: selected.includes(entry.key),
-              hovered: index === hover,
-            });
-          })}
-        </>
+        <>{data.map((entry, index) => child(entry, index))}</>
       )}
     </Align.Space>
   );

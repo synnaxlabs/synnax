@@ -28,8 +28,6 @@
     }
 
     &.pluto--bordered {
-        border: none !important;
-
         &.pluto-pack--shadow {
             &:is(:hover, :focus-within) > * {
                 opacity: 1 !important;

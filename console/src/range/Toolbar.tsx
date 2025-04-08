@@ -97,22 +97,23 @@ const List = (): ReactElement => {
       data={ranges.filter((r) => r.variant === "static")}
       emptyContent={<NoRanges onLinkClick={handleCreate} />}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <CoreList.Selector
-        value={activeRange?.key ?? null}
-        onChange={handleSelect}
-        allowMultiple={false}
-        allowNone={true}
-      >
-        <CoreList.Core
-          style={{ height: "100%", overflowX: "hidden" }}
-          onContextMenu={menuProps.open}
-          className={menuProps.className}
-          {...drop}
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
+        <CoreList.Selector
+          value={activeRange?.key ?? null}
+          onChange={handleSelect}
+          allowMultiple={false}
+          allowNone={true}
         >
-          {componentRenderProp(ListItem)}
-        </CoreList.Core>
-      </CoreList.Selector>
+          <CoreList.Core
+            style={{ height: "100%", overflowX: "hidden" }}
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
+            {...drop}
+          >
+            {componentRenderProp(ListItem)}
+          </CoreList.Core>
+        </CoreList.Selector>
+      </PMenu.ContextMenu>
     </CoreList.List>
   );
 };

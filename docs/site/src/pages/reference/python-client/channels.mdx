@@ -18,7 +18,7 @@ We'll cover the details of each of these operations in this guide.
 If you're unfamiliar with what channels are and how they work, check out the [channels
 concepts guide](/reference/concepts/channels).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Creating Channels
 
@@ -125,7 +125,7 @@ data_channels = client.channels.create(
 )
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Retrieving Channels
 
@@ -209,7 +209,7 @@ It's important to note that if we're expecting multiple channels to match our pa
 we need to pass in a list to the `retrieve` method, otherwise the client will raise a
 `MultipleFoundError`.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Renaming Channels
 
@@ -228,7 +228,7 @@ client.channels.rename(data_channel.key, "new_name")
 client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Deleting Channels
 
