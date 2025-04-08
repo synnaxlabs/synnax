@@ -73,13 +73,14 @@ const url = Astro.url.pathname;
         z-index: 4;
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l1-80);
+        background: var(--pluto-gray-l0-80);
         backdrop-filter: blur(3rem);
         -webkit-backdrop-filter: blur(3rem);
 
         .top {
             height: 9rem;
             border-bottom: var(--pluto-border);
+            border-color: var(--pluto-gray-l3);
             width: 100%;
 
             & .version-button {
@@ -104,6 +105,7 @@ const url = Astro.url.pathname;
             }
             height: 5.5rem;
             border-bottom: var(--pluto-border);
+            border-color: var(--pluto-gray-l3);
             width: 100%;
 
             .pluto-text-link {
