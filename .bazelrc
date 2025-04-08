@@ -49,4 +49,4 @@ build:opt:macos --copt=-march=native
 build:opt:windows --copt=/O2
 
 # Optional: Set this if you want a custom Bazel cache location on Windows
-# startup --output_user_root=C:/tmp startup --output_user_root=C:/tmp
+# startup --output_user_root=C:/tmp
