@@ -19,7 +19,7 @@ export const components = mdxOverrides;
 The Digital Read Task is used for acquiring data from analog inputs on your NI devices. In
 this guide, we'll walk you through the steps to create a digital read Task in Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ Before configuring the task, you'll need to have connected and configured an NI 
 and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/ni/configure-device)
 guide for more information.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -40,7 +40,7 @@ A digital read task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Important Rules for Digital Read Tasks
 
@@ -57,7 +57,7 @@ Synnax can only accept live data from a channel from one source at a time. If yo
 a task running that reads from a `pressure` channel, you cannot start another task that
 reads from the same channel.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -97,7 +97,7 @@ top right corner and select "NI Digital Read Task".
   id="device-drivers/ni/digital-read-task/layout-create-digital-read-task"
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Configuring the Task
 
@@ -153,7 +153,7 @@ Once you'd added all of the channels you need and have configured sampling rates
 the "Configure" button. If there are no errors, Synnax will acknowledge the configured
 task and enable the "Play" button in the dialog. Click this button to start the task.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start the Task
 

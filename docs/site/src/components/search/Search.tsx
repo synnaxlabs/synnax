@@ -188,7 +188,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
         }}
       >
         <List.Hover>
-          <Align.Pack className="search-results__content" direction="y" borderShade={5}>
+          <Align.Pack className="search-results__content" direction="y">
             <Input.Text
               className="search-results__input"
               ref={inputRef}
@@ -204,7 +204,12 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
               }}
               size="huge"
             />
-            <List.Core<string, SearchResult> className="styled-scrollbar">
+            <List.Core<string, SearchResult>
+              className="styled-scrollbar"
+              background={0}
+              bordered
+              borderShade={6}
+            >
               {searchListItem}
             </List.Core>
           </Align.Pack>

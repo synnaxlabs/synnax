@@ -15,7 +15,6 @@
     position: relative;
 
     .pluto-sub {
-        /* transition: background 0.15s ease-in-out; */
         --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
         z-index: 1;
         background: var(--pluto-bg);

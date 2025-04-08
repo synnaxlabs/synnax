@@ -42,13 +42,22 @@
             background-color: var(--pluto-bg) !important;
             & input {
                 outline: none;
-                padding: 0 calc(1.5rem - 0.5px);
+                padding: 0
+                    calc(
+                        1.5rem - var(--pluto-border-thick-width) +
+                            var(--pluto-border-width)
+                    );
             }
             & .pluto-input__placeholder {
-                padding-left: calc(1.75rem - 0.5px);
+                padding-left: calc(
+                    1.75rem - var(--pluto-border-thick-width) +
+                        var(--pluto-border-width)
+                );
             }
             & .pluto-input__end-content {
-                padding-right: calc(1.5rem - 0.5px);
+                padding-right: calc(
+                    1.5rem - var(--pluto-border-thick-width) + var(--pluto-border-width)
+                );
             }
         }
     }

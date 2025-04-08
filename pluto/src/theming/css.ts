@@ -54,8 +54,6 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     ...createHexOpacityVariants("gray-l10", theme.colors.gray.l10, OPACITIES),
     "gray-l11": theme.colors.gray.l11.hex,
     ...createHexOpacityVariants("gray-l11", theme.colors.gray.l11, OPACITIES),
-    "gray-l12": theme.colors.gray.l12.hex,
-    ...createHexOpacityVariants("gray-l12", theme.colors.gray.l12, OPACITIES),
     "logo-color": theme.colors.logo,
     "error-m2": theme.colors.error.m2.hex,
     "error-m1": theme.colors.error.m1.hex,
@@ -85,6 +83,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
+    "border-thick-width": unitProperty(theme.sizes.border.thickWidth, "px"),
     "schematic-element-stroke-width": unitProperty(
       theme.sizes.schematic.elementStrokeWidth,
       "px",

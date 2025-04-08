@@ -341,8 +341,7 @@ const Content = () => {
     [handleListItemStopStart, rename],
   );
   return (
-    <>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Align.Space
         empty
         style={{ height: "100%" }}
@@ -359,7 +358,7 @@ const Content = () => {
           </List.Selector>
         </List.List>
       </Align.Space>
-    </>
+    </PMenu.ContextMenu>
   );
 };
 

@@ -12,7 +12,12 @@ const props = Astro.props;
             <Icon.Log slot="startIcon" style={{ transform: "scale(0.8)" }} />
             On this page
         </Text.WithIcon>
-        <OTP client:only="react"  headings={props.headings} url={props.url}  platforms={props.platforms}/>
+        <OTP
+            client:only="react"
+            headings={props.headings}
+            url={props.url}
+            platforms={props.platforms}
+        />
     </Align.Space>
     <Align.Space direction="y" size={2}>
         <Divider.Divider direction="x" />
@@ -50,6 +55,7 @@ const props = Astro.props;
         & .pluto-menu-item {
             border-radius: 0 !important;
             white-space: normal;
+            margin: 0;
             height: fit-content;
             display: block;
             padding: 0.75rem 2rem !important;
@@ -57,7 +63,7 @@ const props = Astro.props;
             background: none !important;
             & small {
                 font-weight: 400 !important;
-                color: var(--pluto-gray-l6) !important;
+                color: var(--pluto-gray-l8) !important;
             }
             &:is(.pluto--selected, :hover) {
                 box-shadow: inset -2px 0 0 0 var(--pluto-primary-z);

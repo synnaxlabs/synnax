@@ -10,7 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, position, unique, xy } from "@synnaxlabs/x";
-import { type ReactElement, type RefCallback, useRef, useState } from "react";
+import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -199,19 +199,24 @@ export const ContextMenu = ({
   cursor: _,
   style,
   ...rest
-}: ContextMenuProps): ReactElement | null => {
-  if (!visible) return null;
-  return createPortal(
-    <Align.Space
-      className={CSS(CSS.B("menu-context"), CSS.bordered())}
-      ref={ref}
-      style={{ ...xy.css(position), ...style }}
-      onClick={close}
-      size="tiny"
-      {...rest}
-    >
-      {menu?.({ keys })}
-    </Align.Space>,
-    document.body,
+}: ContextMenuProps): ReactNode | null => {
+  if (!visible) return children;
+  return (
+    <>
+      {createPortal(
+        <Align.Space
+          className={CSS(CSS.B("menu-context"), CSS.bordered())}
+          ref={ref}
+          style={{ ...xy.css(position), ...style }}
+          onClick={close}
+          size="tiny"
+          {...rest}
+        >
+          {menu?.({ keys })}
+        </Align.Space>,
+        document.body,
+      )}
+      {children}
+    </>
   );
 };

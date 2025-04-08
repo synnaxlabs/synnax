@@ -9,8 +9,6 @@
 
 import { z } from "zod";
 
-import { bounds } from "@/spatial/bounds";
-
 export const NOTATIONS = ["standard", "scientific", "engineering"] as const;
 export const notationZ = z.enum(NOTATIONS);
 export type Notation = z.infer<typeof notationZ>;
@@ -60,52 +58,4 @@ export const stringifyNumber = (
   else exp = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
   const mantissa = value / 10 ** exp;
   return `${mantissa.toFixed(precision)}ᴇ${exp}`;
-};
-
-/**
- * Rounds a number intelligently based on the span of the provided bounds. The function
- * adjusts the number of significant digits based on the magnitude of the bounds span.
- *
- * @param value - The number to be rounded.
- * @param bounds - The bounds object containing the min and max values that provide context for rounding.
- * @returns The rounded number.
- *
- * Rules for significant digits:
- * - For spans >= 1000: 2 significant digits
- * - For spans >= 1: 3 significant digits
- * - For spans < 1: max(2, |floor(log10(span))| + 2) significant digits
- *
- * Edge cases:
- * - If the value is `NaN`, returns `NaN`
- * - If the value is `Infinity` or `-Infinity`, returns the original value
- * - If the bounds span is 0, returns the original value
- *
- * Examples:
- * ```typescript
- * // Large spans (>= 1000) use 2 significant digits
- * roundSmart(1234.5678, { start: 0, end: 2000 }); // 1200
- *
- * // Medium spans (>= 1) use 3 significant digits
- * roundSmart(1.23456, { start: 0, end: 2 }); // 1.23
- *
- * // Small spans (< 1) adapt based on the span
- * roundSmart(0.123456, { start: 0, end: 0.2 }); // 0.123
- * roundSmart(0.0001234, { start: 0, end: 0.001 }); // 0.00012
- *
- * // Edge cases
- * roundSmart(NaN, { start: 0, end: 1 }); // NaN
- * roundSmart(Infinity, { start: 0, end: 1 }); // Infinity
- * roundSmart(123, { start: 1, end: 1 }); // 123 (span is 0)
- * ```
- */
-export const roundSmart = (value: number, b: bounds.Bounds<number>): number => {
-  if (Number.isNaN(value) || !Number.isFinite(value)) return value;
-  const span = bounds.span(b);
-  if (span == 0) return value;
-  let significantDigits: number;
-  if (span >= 1000) significantDigits = 2;
-  else if (span >= 1) significantDigits = 3;
-  else significantDigits = Math.max(2, Math.abs(Math.floor(Math.log10(span))) + 2);
-  const multiplier = 10 ** significantDigits;
-  return Math.round(value * multiplier) / multiplier;
 };

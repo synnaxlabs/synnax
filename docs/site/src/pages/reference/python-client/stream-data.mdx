@@ -18,7 +18,7 @@ monitoring. This page guides you through using the Python client to stream data
 from a Synnax cluster. If you'd like a conceptual overview of how streaming works
 in Synnax, check out the [streams](/reference/concepts/streams) page.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Opening a Streamer
 
@@ -29,7 +29,7 @@ provide a list of channels to stream:
 streamer = client.open_streamer(["channel1", "channel2"])
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Reading Frames
 
@@ -111,7 +111,7 @@ for frame in streamer:
     print(frame)
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Updating the Channel List
 
@@ -127,7 +127,7 @@ streamer.update_channels(["channel3", "channel4"])
   it.
 </Note.Note>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Closing the Streamer
 
@@ -149,7 +149,7 @@ with client.open_streamer(["channel1", "channel2"]) as streamer:
         print(frame)
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Using an Async Streamer
 
