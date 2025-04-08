@@ -17,14 +17,14 @@ export const components = mdxOverrides;
 Write tasks are the primary method for acquiring data from an OPC UA server and starting
 it in Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have [connected to an OPC UA
 server](/reference/device-drivers/opc-ua/connect-server).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -37,7 +37,7 @@ An OPC UA write task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## How Commands Work in Synnax
 
@@ -73,7 +73,7 @@ solid or transparent based on the state channel.
 Using two channels provides a guarantee that a particular command was acknowledged by
 a running task.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -109,7 +109,7 @@ top right corner and select "OPC write Task".
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/create-from-selector" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Task Configuration Parameters
 
@@ -141,7 +141,7 @@ top right corner and select "OPC write Task".
   </tbody>
 </Table>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Adding Channels to a Task
 
@@ -158,7 +158,7 @@ configure a [read task](/reference/device-drivers/opc-ua/read-task).
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/add-channels-to-task" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Stopping and Starting Tasks
 
@@ -168,7 +168,7 @@ configuration window.
 
 <Video client:only="react" id="device-drivers/opc-ua/read-task/start-stop" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## State Configuration
 
@@ -177,7 +177,7 @@ access the states of the nodes you are writing to, you must configure a [read
 task](/reference/device-drivers/opc-ua/read-task). You can then use the read task to
 read back states of the nodes you are writing to.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Using a Schematic to Control Write Tasks
 

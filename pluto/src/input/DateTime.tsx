@@ -238,7 +238,7 @@ const AISelector = ({
     setEntries([]);
   };
   return (
-    <Align.Pack y className={CSS.B("ai-selector")}>
+    <Align.Pack y className={CSS.B("ai-selector")} background={1}>
       <InputText
         value={value}
         onChange={handleChange}
@@ -270,7 +270,9 @@ const AISelector = ({
           onChange={handleSelect}
         >
           <List.Hover initialHover={0}>
-            <List.Core grow>{aiListItem}</List.Core>
+            <List.Core grow bordered>
+              {aiListItem}
+            </List.Core>
           </List.Hover>
         </List.Selector>
       </List.List>
@@ -327,12 +329,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
 
   return (
     <Align.Pack x className={CSS.B("datetime-picker")}>
-      <Align.Pack
-        y
-        align="stretch"
-        style={{ width: "37rem", height: "37rem" }}
-        className={CSS.B("calendar")}
-      >
+      <Align.Pack y align="stretch" className={CSS.B("calendar")}>
         <Align.Pack x grow>
           <Button.Icon onClick={() => handleMonthChange(month - 1)} variant="outlined">
             <Icon.Caret.Left />

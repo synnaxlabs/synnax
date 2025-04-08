@@ -369,21 +369,22 @@ const List = (): ReactElement => {
       data={ranges.filter((r) => r.variant === "static")}
       emptyContent={<NoRanges onLinkClick={handleCreate} />}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <CoreList.Selector
-        value={activeRange?.key ?? null}
-        onChange={handleSelect}
-        allowMultiple={false}
-        allowNone={true}
-      >
-        <CoreList.Core
-          style={{ height: "100%", overflowX: "hidden" }}
-          onContextMenu={menuProps.open}
-          className={menuProps.className}
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
+        <CoreList.Selector
+          value={activeRange?.key ?? null}
+          onChange={handleSelect}
+          allowMultiple={false}
+          allowNone={true}
         >
-          {componentRenderProp(ListItem)}
-        </CoreList.Core>
-      </CoreList.Selector>
+          <CoreList.Core
+            style={{ height: "100%", overflowX: "hidden" }}
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
+          >
+            {componentRenderProp(ListItem)}
+          </CoreList.Core>
+        </CoreList.Selector>
+      </PMenu.ContextMenu>
     </CoreList.List>
   );
 };
@@ -411,13 +412,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       .catch((e) => handleError(e, "Failed to rename range"));
   };
   return (
-    <CoreList.ItemFrame
-      className={CSS.B("range-list-item")}
-      rightAligned
-      {...props}
-      size="small"
-      y
-    >
+    <CoreList.ItemFrame className={CSS.B("range-list-item")} {...props} size="small" y>
       {!entry.persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>

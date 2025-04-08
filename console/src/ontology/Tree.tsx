@@ -577,7 +577,12 @@ export const Tree = ({ root }: TreeProps): ReactElement => {
         removeLayout,
         handleError,
         addStatus,
-        selection: { parentID, nodes: selectedNodes, resources: selectedResources },
+        selection: {
+          rootID: root,
+          parentID,
+          nodes: selectedNodes,
+          resources: selectedResources,
+        },
         state: {
           nodes: nodeSnapshot,
           resources,
@@ -618,8 +623,7 @@ export const Tree = ({ root }: TreeProps): ReactElement => {
   );
 
   return (
-    <>
-      <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
+    <Menu.ContextMenu menu={handleContextMenu} {...menuProps}>
       <Core.Tree
         onRename={handleRename}
         onDrop={handleDrop}
@@ -633,7 +637,7 @@ export const Tree = ({ root }: TreeProps): ReactElement => {
       >
         {item}
       </Core.Tree>
-    </>
+    </Menu.ContextMenu>
   );
 };
 

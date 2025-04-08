@@ -19,7 +19,7 @@ of these operations.
 If you're unfamiliar with what channels are and how they work, check out the of
 [channels concepts guide](/reference/concepts/channels).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Creating Channels
 
@@ -100,7 +100,7 @@ const sensorThree = new Channel({
 const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]);
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Retrieving Channels
 
@@ -146,7 +146,7 @@ const channels = await client.channels.retrieve([
 Synnax will not raise a `NotFoundError` if no channels match the query. Instead,
 it will simply omit that channel from the list of results.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Deleting Channels
 

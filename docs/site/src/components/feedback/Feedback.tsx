@@ -34,11 +34,11 @@ export const FeedbackButton = (): ReactElement => {
     >
       <Button.Button
         className="feedback-button"
-        variant="outlined"
         size="medium"
         iconSpacing="small"
         onClick={toggle}
         startIcon={<Icon.Feedback />}
+        variant="outlined"
       >
         Stuck? Let us know!
       </Button.Button>
@@ -99,11 +99,12 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         className="feedback-form"
         direction="y"
         style={{
-          borderRadius: "1rem",
-          borderColor: "var(--pluto-gray-l6)",
           width: "800px",
           maxWidth: "100%",
         }}
+        background={1}
+        borderShade={6}
+        rounded={1}
         bordered
         align="center"
         empty

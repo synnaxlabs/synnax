@@ -46,7 +46,7 @@ export const Pack = <E extends ElementType = "div">({
   size = "medium",
   reverse = false,
   direction,
-  bordered = true,
+  bordered = false,
   borderShade = 3 as text.Shade,
   rounded = true,
   shadow = false,

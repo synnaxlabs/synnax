@@ -93,7 +93,7 @@ We'll start off with a high-level overview of the three databases, explaining th
 architecture and ideal use cases. We'll briefly overview our test methodology and setup,
 and then dive into the results.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Database Overviews
 
@@ -176,7 +176,7 @@ data model. Each measurement has a set of tags, which are key-value pairs that d
 the data. This makes Influx ideal for storing and querying data with many dimensions,
 such as user analytics.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Test Summary
 
@@ -223,7 +223,7 @@ That being said, we'll also show where Synnax falls short, and where Timescale a
 are better suited. As always, we recommend running your own benchmarks on workloads
 suitable to your use case - it's the best way to evaluate the performance of a database.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText level="h2" name="Test" step={1}>Varying Batch Size</StepText>
 
@@ -626,7 +626,7 @@ of the other two databases.
   </Table>
 </Details>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText level="h2" name="Test" step={2}>Varying Channel Count</StepText>
 
@@ -1033,7 +1033,7 @@ Influx remain relatively stable.
   </Table>
 </Details>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 {/* prettier-ignore */}
 ## <StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
@@ -1056,7 +1056,7 @@ data.
   <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
 </figure>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Synnax Architecture
 
@@ -1167,7 +1167,7 @@ to disk. This simpler pattern sacrifices complex queries and transaction pattern
 like serializable snapshot isolation, although we've found those unnecessary for
 the sensor data use case.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Conclusion
 
