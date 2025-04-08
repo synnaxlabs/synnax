@@ -10,8 +10,7 @@
 import "@/cluster/Badges.css";
 
 import { type connection } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { Align, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -21,11 +20,18 @@ export interface ConnectionStateBadgeProps {
   state: connection.State;
 }
 
-export const statusVariants: Record<connection.Status, Status.Variant> = {
+export const STATUS_VARIANTS: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "loading",
-  disconnected: "warning",
+  disconnected: "info",
+};
+
+const STATUS_MESSAGES: Record<connection.Status, string> = {
+  connected: "Connected",
+  failed: "Error",
+  connecting: "Connecting",
+  disconnected: "Disconnected",
 };
 
 /**
@@ -35,15 +41,30 @@ export const statusVariants: Record<connection.Status, Status.Variant> = {
  * @param props.state - The connection state of the cluster.
  */
 export const ConnectionStatusBadge = ({
-  state: { status },
+  state: { status, message },
 }: ConnectionStateBadgeProps): ReactElement => (
-  <Status.Text
-    className={CSS.B("connection-status-badge")}
-    variant={statusVariants[status]}
-    justify="center"
-  >
-    {caseconv.capitalize(status)}
-  </Status.Text>
+  <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
+    <Align.Space y size="tiny">
+      <Status.Text
+        variant={STATUS_VARIANTS[status]}
+        weight={650}
+        hideIcon
+        style={{ paddingLeft: 0 }}
+      >
+        {STATUS_MESSAGES[status]}
+      </Status.Text>
+      {message != null && (
+        <Text.Text level="p" shade={9} weight={450}>
+          {message}
+        </Text.Text>
+      )}
+    </Align.Space>
+    <Status.Text
+      variant={STATUS_VARIANTS[status]}
+      justify="center"
+      className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
+    />
+  </Tooltip.Dialog>
 );
 
 /**

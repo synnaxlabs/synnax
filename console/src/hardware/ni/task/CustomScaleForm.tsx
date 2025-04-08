@@ -121,7 +121,7 @@ export interface CustomScaleFormProps {
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <Align.Space direction="x">
+      <Align.Space x>
         <UnitsField
           fieldKey="preScaledUnits"
           label="Prescaled Units"
@@ -135,7 +135,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           grow
         />
       </Align.Space>
-      <Align.Space direction="x">
+      <Align.Space x>
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
         <Form.NumericField
           fieldKey="yIntercept"
@@ -149,7 +149,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
       <UnitsField fieldKey="preScaledUnits" path={prefix} />
-      <Align.Space direction="x">
+      <Align.Space x>
         <Form.NumericField
           fieldKey="preScaledMin"
           label="Pre-Scaled Min"
@@ -162,7 +162,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           path={prefix}
         />
       </Align.Space>
-      <Align.Space direction="x">
+      <Align.Space x>
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
       </Align.Space>
@@ -238,7 +238,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
-        <Align.Space direction="x">
+        <Align.Space x>
           <Input.Item label="Raw Column" padHelpText grow>
             <Select.Single
               columns={NAMED_KEY_COLS}

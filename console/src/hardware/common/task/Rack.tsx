@@ -27,13 +27,13 @@ export const Rack = ({ taskKey }: RackProps) => {
   if (rack == null) return null;
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={8} weight={450}>
+      <Text.Text level="small" shade={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
       <Text.WithIcon
         startIcon={<Icon.Rack />}
         level="p"
-        shade={7}
+        shade={11}
         style={{ paddingRight: "0.5rem" }}
       >
         {rack?.name}

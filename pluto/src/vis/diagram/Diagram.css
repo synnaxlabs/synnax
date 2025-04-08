@@ -11,8 +11,8 @@
 
 .pluto-diagram__controls {
     position: absolute;
-    bottom: 2rem;
-    left: 2rem;
+    top: 2rem;
+    right: 2rem;
     z-index: 4;
 }
 
@@ -44,7 +44,7 @@
 }
 
 .react-flow__background circle {
-    fill: var(--pluto-gray-l5);
+    fill: var(--pluto-gray-l7);
 }
 
 .react-flow__node {

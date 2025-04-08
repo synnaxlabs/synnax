@@ -9,32 +9,34 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-mosaic__mask {
-    position: absolute;
-    pointer-events: none;
-    background: var(--pluto-gray-l5-30);
-    z-index: 7;
-    transition: 0.1s ease-in-out;
-}
-
-.pluto-mosaic__resize {
-    position: relative;
-    height: 100%;
+.pluto-mosaic {
     width: 100%;
+    height: 100%;
     overflow: hidden;
-}
+    box-shadow: var(--pluto-shadow-v2);
 
-.pluto-mosaic__leaf {
-    position: relative;
-    height: 100%;
-}
+    .pluto-mosaic__mask {
+        position: absolute;
+        pointer-events: none;
+        background: var(--pluto-gray-l7-30);
+        z-index: 7;
+        transition: 0.1s ease-in-out;
+    }
 
-.pluto-mosaic__leaf .pluto-tabs {
-    height: 100%;
-    width: 100%;
-
-    & > div:last-child {
-        width: 100%;
+    .pluto-resize-multiple {
         height: 100%;
+    }
+
+    .pluto-tabs {
+        height: 100%;
+        width: 100%;
+    }
+
+    &.pluto--drag-over > * {
+        background: var(--pluto-gray-l7-30);
+    }
+
+    .pluto-tabs-selector .pluto-tabs-selector__tabs {
+        width: 0;
     }
 }

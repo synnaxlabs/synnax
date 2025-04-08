@@ -64,8 +64,6 @@ python_install
 
 # |||| LANDING SITE ||||
 
-landing/
-
 synnax-data/**
 
 synnax/pkg/service/hardware/embedded/assets/**

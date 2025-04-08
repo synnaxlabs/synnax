@@ -15,7 +15,6 @@ import {
   AiFillDelete,
   AiFillFolder,
   AiFillGithub,
-  AiFillInfoCircle,
   AiFillLinkedin,
   AiFillWarning,
   AiOutlineBorder,
@@ -27,7 +26,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -94,13 +93,13 @@ import {
   MdLabel,
   MdLink,
   MdNewReleases,
-  MdOutlineAccessTimeFilled,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineTimelapse,
   MdOutlineVisibility,
   MdOutlineVisibilityOff,
   MdOutlineWebAsset,
@@ -151,6 +150,7 @@ import {
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbSquareLetterVFilled,
   TbVariable,
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
@@ -419,6 +419,7 @@ export interface IconType {
   Rack: IconFC;
   Visible: IconFC;
   Hidden: IconFC;
+  Virtual: IconFC;
 }
 
 export const Icon: IconType = {
@@ -431,7 +432,7 @@ export const Icon: IconType = {
   Subtract: wrapIcon(AiOutlineMinus, "subtract"),
   Copy: wrapIcon(IoCopy, "copy"),
   Close: wrapIcon(AiOutlineClose, "close"),
-  Info: wrapIcon(AiFillInfoCircle, "info"),
+  Info: wrapIcon(BsFillInfoSquareFill, "info"),
   Warning: wrapIcon(AiFillWarning, "warning"),
   Check: wrapIcon(AiOutlineCheck, "check"),
   Refresh: wrapIcon(IoMdRefresh, "refresh"),
@@ -460,7 +461,7 @@ export const Icon: IconType = {
   Download: wrapIcon(HiDownload, "download"),
   Import: wrapIcon(MdFileUpload, "import"),
   Export: wrapIcon(PiDownloadSimple, "export"),
-  Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
+  Range: wrapIcon(MdOutlineTimelapse, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
   Resources: wrapIcon(AiFillFolder, "resources"),
@@ -592,4 +593,5 @@ export const Icon: IconType = {
   Rack: wrapIcon(MdHive, "rack"),
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
+  Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
 };

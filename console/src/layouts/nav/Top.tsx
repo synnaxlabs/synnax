@@ -9,18 +9,17 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Button, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { Logo } from "@synnaxlabs/media";
+import { Nav, OS } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { ChannelServices } from "@/channel/services";
+import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
-import { SIZES } from "@/layouts/nav/sizes";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
@@ -30,6 +29,7 @@ import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
+import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
@@ -66,46 +66,23 @@ const TopPalette = (): ReactElement => (
 );
 
 export const Top = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
   const os = OS.use();
-  const handleDocs = useCallback(() => {
-    placeLayout(Docs.LAYOUT);
-  }, [placeLayout]);
   return (
-    <Nav.Bar
-      location="top"
-      size={SIZES.top}
-      className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
-    >
-      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Layout.Controls className="console-controls--macos" visibleIfOS="macOS" />
-        {os === "Windows" && (
-          <Logo className="console-main-nav-top__logo" variant="icon" />
-        )}
+    <Layout.Nav.Bar location="top" size="6.5rem">
+      <Nav.Bar.Start data-tauri-drag-region>
+        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
+        {os === "Windows" && <Logo variant="icon" />}
         <Workspace.Selector />
       </Nav.Bar.Start>
-      <Nav.Bar.Content
-        grow
-        justify="center"
-        className="console-main-nav-top__center"
-        data-tauri-drag-region
-      >
+      <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
         <TopPalette />
-      </Nav.Bar.Content>
-      <Nav.Bar.End
-        className="console-main-nav-top__end"
-        justify="end"
-        data-tauri-drag-region
-      >
-        <Button.Icon
-          size="medium"
-          onClick={handleDocs}
-          tooltip={<Text.Text level="small">Documentation</Text.Text>}
-        >
-          <Icon.QuestionMark />
-        </Button.Icon>
-        <Layout.Controls className="console-controls--windows" visibleIfOS="Windows" />
+      </Nav.Bar.Center>
+      <Nav.Bar.End justify="end" align="center" data-tauri-drag-region size="small">
+        <Version.Badge />
+        <Cluster.Dropdown />
+        <Docs.OpenButton />
+        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </Nav.Bar>
+    </Layout.Nav.Bar>
   );
 };

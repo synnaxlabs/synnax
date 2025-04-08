@@ -1,8 +1,5 @@
 ---
 import Root from "@/layouts/Root.astro";
-import OneBillionRowsTile from "@/pages/guides/comparison/performance/one-billion-rows/OneBillionRowsTile.astro";
-import ReleaseTile from "@/components/releases/ReleaseTile.astro";
-import Tile from "@/pages/guides/Tile.astro";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Text } from "@synnaxlabs/pluto";
 ---
@@ -15,7 +12,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                     <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
                     <Text.Text
                         level="h4"
-                        shade={7}
+                        shade={9}
                         style={{ maxWidth: "500px" }}
                         weight={350}
                     >
@@ -36,11 +33,11 @@ import { Align, Text } from "@synnaxlabs/pluto";
                         justify="center"
                     >
                         <Align.Space size="small">
-                            <Text.WithIcon level="h4" size="medium" shade={9}>
+                            <Text.WithIcon level="h4" size="medium" shade={10}>
                                 <Icon.Guide slot="startIcon" />
                                 Guides</Text.WithIcon
                             >
-                            <Text.Text level="small" shade={7} weight={400}>
+                            <Text.Text level="small" shade={8} weight={400}>
                                 Thorough walkthroughs to teach every aspect of the
                                 Synnax platform.
                             </Text.Text>
@@ -62,7 +59,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                                 <Icon.Reference slot="startIcon" />
                                 Reference</Text.WithIcon
                             >
-                            <Text.Text level="small" shade={7} weight={400}>
+                            <Text.Text level="small" shade={8} weight={400}>
                                 In-depth documentation on Synnax concepts and
                                 components.
                             </Text.Text>
@@ -72,7 +69,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 </Align.Space>
             </Align.Space>
             <Align.Space direction="y" grow size={10}>
-                <Align.Space>
+                <Align.Space borderShade={3} rounded={1}>
                     <Align.Space
                         direction="y"
                         className="get"
@@ -96,7 +93,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
 
     <style is:global>
         section {
-            --root-box-shadow: var(--pluto-shadow-menu);
+            --root-box-shadow: var(--pluto-shadow-v1);
             --root-border-radius: 1rem;
             border-left: var(--pluto-border);
             border-right: var(--pluto-border);
@@ -161,7 +158,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
             height: 400px;
             aspect-ratio: 1;
             border-radius: var(--root-border-radius);
-            border: var(--pluto-border-l4);
+            border: var(--pluto-border);
             box-shadow: var(--root-box-shadow);
             cursor: pointer;
             transition: all 0.3s;
@@ -171,7 +168,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
             animation: ripple 4s infinite;
             animation-timing-function: steps(60, end);
             background: none;
-            background-image: repeating-radial-gradient(
+            background-image:
+                repeating-radial-gradient(
                     circle at -2rem -2rem,
                     transparent 0,
                     var(--first) 1.5rem

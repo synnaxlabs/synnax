@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
@@ -34,9 +34,9 @@ interface TooltipProps {
 }
 
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Align.Space direction="x" align="center">
+  <Align.Space x align="center">
     <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Align.Space empty direction="x" align="center">
+    <Align.Space empty x align="center">
       <Triggers.Text trigger={triggers[0]} level="small" />
     </Align.Space>
   </Align.Space>
@@ -79,10 +79,10 @@ export const SelectMode = ({
         <Button.Icon
           {...rest}
           key={entry.key}
-          variant={rest.selected ? "filled" : "text"}
-          size="medium"
+          variant={rest.selected ? "filled" : "outlined"}
+          size="small"
           tooltip={entry.tooltip}
-          tooltipLocation={{ x: "right", y: "top" }}
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           {entry.icon}
         </Button.Icon>

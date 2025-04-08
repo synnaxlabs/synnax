@@ -12,3 +12,4 @@ export * from "@/workspace/services/import";
 export * from "@/workspace/services/link";
 export * from "@/workspace/services/ontology";
 export * from "@/workspace/services/palette";
+export * from "@/workspace/services/Toolbar";

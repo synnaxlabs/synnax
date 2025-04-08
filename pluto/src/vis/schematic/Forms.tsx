@@ -101,7 +101,7 @@ interface LabelControlsProps {
 }
 
 const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
-  <Align.Space direction="x" align="stretch">
+  <Align.Space x align="stretch">
     <Form.Field<string> path={`${path}.label`} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
@@ -185,10 +185,10 @@ export const CommonStyleForm = ({
   hideInnerOrientation,
   hideOuterOrientation,
 }: CommonStyleFormProps): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+  <FormWrapper x align="stretch">
+    <Align.Space y grow>
       <LabelControls omit={omit} path="label" />
-      <Align.Space direction="x" grow>
+      <Align.Space x grow>
         <ColorControl path="color" optional />
         <Form.Field<boolean>
           path="normallyOpen"
@@ -266,7 +266,7 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper direction="x" grow align="stretch">
+    <FormWrapper x grow align="stretch">
       <Input.Item label="State Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
@@ -324,10 +324,10 @@ export interface TankFormProps {
 export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+  <FormWrapper x align="stretch">
+    <Align.Space y grow>
       <LabelControls path="label" />
-      <Align.Space direction="x">
+      <Align.Space x>
         <ColorControl path="color" />
         <ColorControl path="backgroundColor" label="Background Color" />
         <Form.Field<number>
@@ -497,17 +497,17 @@ export const ValueForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return (
-          <FormWrapper direction="y" empty>
+          <FormWrapper y empty>
             <Value.TelemForm path="" />;
           </FormWrapper>
         );
 
       default:
         return (
-          <FormWrapper direction="x">
-            <Align.Space direction="y" grow>
+          <FormWrapper x>
+            <Align.Space y grow>
               <LabelControls path="label" />
-              <Align.Space direction="x">
+              <Align.Space x>
                 <ColorControl path="color" />
                 <Form.Field<string>
                   path="units"
@@ -591,7 +591,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   useEffect(() => onChange({ ...value }), [c]);
 
   return (
-    <FormWrapper direction="x" align="stretch">
+    <FormWrapper x align="stretch">
       <Input.Item label="Input Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
@@ -678,7 +678,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper direction="x">
+    <FormWrapper x>
       <Input.Item label="Output Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
@@ -759,7 +759,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper direction="x" grow align="stretch">
+    <FormWrapper x grow align="stretch">
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
@@ -774,10 +774,10 @@ export const SetpointForm = (): ReactElement => {
         return <SetpointTelemForm path="" />;
       default:
         return (
-          <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="y" align="stretch" grow size="small">
+          <FormWrapper x align="stretch">
+            <Align.Space y align="stretch" grow size="small">
               <LabelControls path="label" />
-              <Align.Space direction="x">
+              <Align.Space x>
                 <Form.TextField
                   path="units"
                   label="Units"
@@ -812,9 +812,9 @@ export const TextBoxForm = (): ReactElement => {
     optional: true,
   });
   return (
-    <FormWrapper direction="x" align="stretch" grow>
-      <Align.Space direction="y" grow>
-        <Align.Space direction="x" align="stretch">
+    <FormWrapper x align="stretch" grow>
+      <Align.Space y grow>
+        <Align.Space x align="stretch">
           <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
             {(p) => <Input.Text {...p} />}
           </Form.Field>
@@ -830,7 +830,7 @@ export const TextBoxForm = (): ReactElement => {
             {(p) => <Select.TextAlignment {...p} />}
           </Form.Field>
         </Align.Space>
-        <Align.Space direction="x">
+        <Align.Space x>
           <ColorControl path="color" />
           <Form.Field<number>
             onChange={(_, { set }) => set("autoFit", false)}
@@ -868,8 +868,8 @@ export const TextBoxForm = (): ReactElement => {
 };
 
 export const OffPageReferenceForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+  <FormWrapper x align="stretch">
+    <Align.Space y grow>
       <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
       <ColorControl path="color" />
     </Align.Space>
@@ -878,10 +878,10 @@ export const OffPageReferenceForm = (): ReactElement => (
 );
 
 export const CylinderForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+  <FormWrapper x align="stretch">
+    <Align.Space y grow>
       <LabelControls path="label" />
-      <Align.Space direction="x">
+      <Align.Space x>
         <ColorControl path="color" />
         <ColorControl path="backgroundColor" label="Background Color" />
         <Form.Field<number> path="dimensions.width" label="Width" grow>
@@ -913,10 +913,10 @@ export const CylinderForm = (): ReactElement => (
 );
 
 export const CommonDummyToggleForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+  <FormWrapper x align="stretch">
+    <Align.Space y grow>
       <LabelControls path="label" />
-      <Align.Space direction="x" grow>
+      <Align.Space x grow>
         <ColorControl path="color" />
         <ScaleControl path="scale" />
         <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />

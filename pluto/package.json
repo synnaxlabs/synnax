@@ -11,11 +11,13 @@
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix",
     "preview": "vite preview",
-    "madge": "madge --circular src"
+    "madge": "madge --circular src",
+    "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.5",
     "@fontsource/geist-mono": "^5.2.5",
+    "@fontsource/inter": "^5.2.5",
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",

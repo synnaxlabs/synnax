@@ -28,7 +28,7 @@ interface IconProps {
 type IconElement = ReactElement<IconProps>;
 
 export type WithIconProps<
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
@@ -39,7 +39,7 @@ export type WithIconProps<
   };
 
 export const WithIcon = <
-  E extends Align.SpaceElementType = "div",
+  E extends Align.ElementType = "div",
   L extends text.Level = text.Level,
 >({
   level = "h1" as L,
@@ -67,16 +67,16 @@ export const WithIcon = <
         CSS.noWrap(noWrap),
         className,
       )}
-      direction="x"
+      x
       size="small"
       align="center"
       {...rest}
       style={{ ...rest.style, color }}
     >
       {startIcons}
-      {divided && startIcon != null && <Divider.Divider direction="y" />}
+      {divided && startIcon != null && <Divider.Divider y />}
       {formatted}
-      {divided && endIcon != null && <Divider.Divider direction="y" />}
+      {divided && endIcon != null && <Divider.Divider y />}
       {endIcons}
     </Align.Space>
   );

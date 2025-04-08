@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -66,7 +67,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void =>
     handleChange({ valueStream: telem.streamChannelValue({ channel: v ?? 0 }) });
 
-  const handleNotationChange = (notation: Notation.Notation): void =>
+  const handleNotationChange = (notation: notation.Notation): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });
 
   const handlePrecisionChange = (precision: number): void =>
@@ -86,7 +87,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Align.Space direction="x">
+      <Align.Space x>
         <Input.Item label="Notation">
           <Notation.Select
             value={stringifier.notation}

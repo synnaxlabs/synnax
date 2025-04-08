@@ -278,7 +278,7 @@ const InternalSVG = ({
     // @ts-expect-error - css variables
     style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
       theme.colors.gray.l0,
-      theme.colors.gray.l10,
+      theme.colors.gray.l11,
     ).rgbString;
   }
   return (
@@ -1302,7 +1302,7 @@ export const Tank = ({
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
-        borderColor: Color.cssString(color ?? t.colors.gray.l9),
+        borderColor: Color.cssString(color ?? t.colors.gray.l11),
         backgroundColor: Color.cssString(backgroundColor),
       }}
       {...rest}
@@ -1793,7 +1793,7 @@ export const Value = ({
       : Color.cssString(
           new Color.Color(color).pickByContrast(
             theme.colors.gray.l0,
-            theme.colors.gray.l9,
+            theme.colors.gray.l11,
           ),
         );
   return (
@@ -1897,7 +1897,7 @@ export const TextBox = ({
   orientation = "left",
   text = "",
   width,
-  color = "var(--pluto-gray-l9)",
+  color = "var(--pluto-gray-l11)",
   level,
   autoFit,
   align = "center",
@@ -3003,7 +3003,7 @@ export const Cylinder = ({
       dimensions.width,
     ],
   );
-  const boardColor = Color.cssString(color ?? t.colors.gray.l9);
+  const boardColor = Color.cssString(color ?? t.colors.gray.l11);
   const bgColor =
     backgroundColor == null ? undefined : Color.cssString(backgroundColor);
   const widthScale = dimensions.width / 66;

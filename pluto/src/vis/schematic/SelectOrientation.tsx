@@ -53,10 +53,10 @@ export const SelectOrientation = ({
       className={CSS.B("orientation-control")}
       align="center"
       justify="center"
-      size={0.5}
+      size="tiny"
     >
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
-      <Align.Space direction="x" align="center" justify="center" size={0.5}>
+      <Align.Space x align="center" justify="center" size="tiny">
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
         <InternalOrientation hideInner={hideInner} value={value} onChange={onChange} />
         <Button
@@ -88,7 +88,7 @@ const InternalOrientation = ({
   return (
     <Align.Space
       className={CSS(className, CSS.B("value"))}
-      direction="y"
+      y
       align="center"
       justify="center"
       empty
@@ -101,7 +101,7 @@ const InternalOrientation = ({
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
       />
-      <Align.Space direction="x" align="center" justify="center">
+      <Align.Space x align="center" justify="center">
         <Button
           style={showStyle}
           disabled={hideInner}
