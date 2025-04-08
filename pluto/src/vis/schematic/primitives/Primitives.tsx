@@ -1395,14 +1395,52 @@ const calculatePolygonVertices = (
 };
 
 const generateRoundedPolygonPath = (
-  vertices: { x: number; y: number }[]
+  vertices: { x: number; y: number }[],
+  sideLength: number,
+  cornerRounding: number,
 ): string => {
-  if (vertices.length === 0) return "";
-  return [
-    `M ${vertices[0].x},${vertices[0].y}`,
-    ...vertices.slice(1).map((v) => `L ${v.x},${v.y}`),
-    "Z",
-  ].join(" ");
+  
+  const path: string[] = [];
+  const r = Math.min(cornerRounding, sideLength / 2);
+  
+  const len = vertices.length;
+  if (len < 3 || r <= 0) {
+    return `M ${vertices.map(v => `${v.x},${v.y}`).join(" L ")} Z`;
+  }
+
+  for (let i = 0; i < len; i++) {
+    const prev = vertices[(i - 1 + len) % len];
+    const curr = vertices[i];
+    const next = vertices[(i + 1) % len];
+
+    // Direction vectors
+    const dx1 = curr.x - prev.x;
+    const dy1 = curr.y - prev.y;
+    const dx2 = next.x - curr.x;
+    const dy2 = next.y - curr.y;
+
+    const len1 = Math.hypot(dx1, dy1);
+    const len2 = Math.hypot(dx2, dy2);
+
+    const offset1 = r / len1;
+    const offset2 = r / len2;
+
+    const p1x = curr.x - dx1 * offset1;
+    const p1y = curr.y - dy1 * offset1;
+    const p2x = curr.x + dx2 * offset2;
+    const p2y = curr.y + dy2 * offset2;
+
+    if (i === 0) {
+      path.push(`M ${p1x},${p1y}`);
+    } else {
+      path.push(`L ${p1x},${p1y}`);
+    }
+
+    path.push(`Q ${curr.x},${curr.y} ${p2x},${p2y}`);
+  }
+
+  path.push("Z");
+  return path.join(" ");
 };
 
 export const Polygon = ({
@@ -1416,18 +1454,26 @@ export const Polygon = ({
   ...rest
 }: PolygonProps): ReactElement => {
   const theme = Theming.use();
-  const vertices = calculatePolygonVertices(numSides, sideLength, rotation);
-  const size = 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + 4
-
+  const vertices = useMemo(
+    () => calculatePolygonVertices(numSides, sideLength, rotation),
+    [numSides, sideLength, rotation]
+  );
+  const path = useMemo(
+    () => generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0),
+    [vertices, cornerRounding]
+  );
+  const size = useMemo(() => (
+    2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + 4
+  ), [sideLength, numSides]);
   return (
     <Div className={CSS(className, CSS.B("polygon"))} {...rest}>
       <InternalSVG dimensions={{ width: size, height: size }}>
         <Path
-          d={generateRoundedPolygonPath(vertices)}
+          d={path}
           fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
           stroke={Color.cssString(color ?? theme.colors.gray.l9)}
           strokeWidth={2}
-          />
+        />
       </InternalSVG>
     </Div>
   );
@@ -4486,15 +4532,21 @@ export const Nozzle = ({
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 96, height: 189 }}
+      dimensions={{ width: 64, height: 126 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="18" y="2.5" width="60" height="60" rx="3"/>
-      <Path d="M2 186H94" stroke-linecap="round"/>
-      <Path d="M75.2824 62.5C62.6622 62.5 52.5214 69.5 64.0385 89C89.0214 131.3 95.4491 178.5 94.2824 186" stroke-linecap="round"/>
-      <Path d="M21 62.5C33.6202 62.5 43.761 69.5 32.2439 89C7.26099 131.3 0.833333 178.5 2 186" stroke-linecap="round"/>
+      <Rect x="12" y="1.6667" width="40" height="40" rx="2" />
+      <Path d="M1.3333 124H62.6667" stroke-linecap="round" />
+      <Path
+        d="M50.1883 41.6667C41.7748 41.6667 35.0143 46.3333 42.6923 59.3333C59.3476 87.5333 63.6327 119 62.855 124"
+        stroke-linecap="round"
+      />
+      <Path
+        d="M14 41.6667C22.4135 41.6667 29.174 46.3333 21.496 59.3333C4.84066 87.5333 0.555555 119 1.33333 124"
+        stroke-linecap="round"
+      />
     </InternalSVG>
   </Div>
 );

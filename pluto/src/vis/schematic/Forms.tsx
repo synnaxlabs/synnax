@@ -425,13 +425,13 @@ export const CommonPolygonForm = (): ReactElement => {
           inputProps={{
             dragScale: { x: 1, y: 0.25 },
             bounds: { lower: 0, upper: 360 },
-            endContent: "degrees",
+            endContent: "°",
           }}
           grow
         />
         <Form.NumericField 
           path="numSides"
-          label="# of Sides"
+          label="Number of Sides"
           inputProps={{
             dragScale: { x: 0.5, y: 0.1 },
             bounds: { lower: 3, upper: 21 },
@@ -439,8 +439,6 @@ export const CommonPolygonForm = (): ReactElement => {
           }}
           grow
         />
-      </Align.Space>
-      <Align.Space direction="x">
         <Form.NumericField 
           path="sideLength"
           label="Side Length"
@@ -456,7 +454,7 @@ export const CommonPolygonForm = (): ReactElement => {
           label="Corner Rounding" 
           inputProps={{
             dragScale: { x: 1, y: 1 },
-            bounds: { lower: 0, upper: 51 }, // internally limited as well to ensure weird things don't happen
+            bounds: { lower: 0, upper: 181 }, // internally limited as well to ensure weird things don't happen
             endContent: "px",
           }}
           grow 
