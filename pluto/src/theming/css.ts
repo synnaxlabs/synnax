@@ -83,6 +83,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
+    "border-thick-width": unitProperty(theme.sizes.border.thickWidth, "px"),
     "schematic-element-stroke-width": unitProperty(
       theme.sizes.schematic.elementStrokeWidth,
       "px",

@@ -57,6 +57,7 @@ export interface HandleMosaicDrop {
 export interface TreeContextMenuProps extends BaseProps {
   selection: {
     parentID: ontology.ID;
+    rootID: ontology.ID;
     resources: ontology.Resource[];
     nodes: Tree.NodeWithPosition[];
   };

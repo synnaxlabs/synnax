@@ -527,7 +527,12 @@ export const Tree = ({ root = ontology.ROOT_ID }: TreeProps): ReactElement => {
         removeLayout,
         handleError,
         addStatus,
-        selection: { parentID, nodes: selectedNodes, resources: selectedResources },
+        selection: {
+          rootID: root,
+          parentID,
+          nodes: selectedNodes,
+          resources: selectedResources,
+        },
         state: {
           nodes: nodeSnapshot,
           resources,

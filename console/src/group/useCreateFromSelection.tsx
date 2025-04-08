@@ -38,7 +38,10 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       const prevNodes = Tree.deepCopy(nodes);
       let nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.parentID.toString(),
+        destination:
+          selection.rootID.toString() == selection.parentID.toString()
+            ? null
+            : selection.parentID.toString(),
         additions: {
           key: newID.toString(),
           icon: <Icon.Group />,

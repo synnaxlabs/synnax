@@ -24,7 +24,7 @@ The central mosaic displays visualizations such as line plots and schematics, wh
 toolbars exists to provide access to resources, data ranges, tasks, and visualization
 controls.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Toolbars
 
@@ -110,7 +110,7 @@ cluster that you are connected to and add new clusters.
 
 <Video client:only="react" id="console/ui-overview/cluster-toolbar" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Mosaic
 
@@ -129,31 +129,35 @@ You can also have multiple visualizations displayed at the same time:
 
 <Video client:only="react" id="console/ui-overview/multiple-tabs" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Getting Help
 
 The Synnax documentation website can be opened from within the console by clicking the
+
 <Icon.QuestionMark /> icon.
 
 <Video client:only="react" id="console/ui-overview/documentation" />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Search and Command Palette
 
 The search and command palette at the top can be used to search for resources or to
 activate commands. Searching for resouces can be done by searching or pressing
-<Icon.Keyboard.Control />+`P` (Windows) / <Icon.Keyboard.Command />+`P` (macOS). As an
-example of searching for resources, you could search for a test range and then
-automatically add it as the active range:
+
+<Icon.Keyboard.Control />
++`P` (Windows) / <Icon.Keyboard.Command />
++`P` (macOS). As an example of searching for resources, you could search for a test
+range and then automatically add it as the active range:
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
 
 The search and command palette can run commands by entering a `>` into the toolbar or by
 pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
-<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+`P` (macOS). This allows you to run
-commands such as toggling the color theme, creating a visualization, adding a range, or
-opening the documentation:
+
+<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />
++`P` (macOS). This allows you to run commands such as toggling the color theme, creating
+a visualization, adding a range, or opening the documentation:
 
 <Video client:only="react" id="console/ui-overview/palette-command" />

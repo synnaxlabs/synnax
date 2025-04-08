@@ -98,7 +98,11 @@ export const themeZ = z
     }),
     sizes: z.object({
       base: z.number(),
-      border: z.object({ radius: z.number(), width: z.number() }),
+      border: z.object({
+        radius: z.number(),
+        width: z.number(),
+        thickWidth: z.number(),
+      }),
       schematic: z.object({ elementStrokeWidth: z.number() }),
     }),
     typography: z.object({
@@ -229,7 +233,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1 },
+    border: { radius: 3, width: SUPPORTS_THIN_BORDER ? 0.5 : 1, thickWidth: 1 },
     schematic: { elementStrokeWidth: 2 },
   },
   typography: {
