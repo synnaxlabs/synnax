@@ -21,8 +21,8 @@ export const components = mdxOverrides;
 This page documents the high-level process of writing data to a cluster, including
 transactions, streaming/persistence modes, and dynamic control handoff. This page is a
 theoretical introduction. For practical guides on writing data using a client library,
-see the [Python Client](/reference/python-client/write-data) and [TypeScript
-Client](/reference/typescript-client/write-data) pages.
+see the [Python Client](/reference/python-client/write-data) and
+[TypeScript Client](/reference/typescript-client/write-data) pages.
 
 <Divider.Divider x />
 
@@ -55,8 +55,9 @@ actuators connected to it.
   />
 </Diagram>
 
-Internally, [schematics](/reference/console/schematics) within the Synnax [console](/reference/console/get-started)
-use writers to send commands to actuators when a user clicks on a valve or other control element.
+Internally, [schematics](/reference/console/schematics) within the Synnax
+[console](/reference/console/get-started) use writers to send commands to actuators when
+a user clicks on a valve or other control element.
 
 <Divider.Divider x />
 
@@ -220,9 +221,9 @@ accessed historically.
 
 ### Stream + Persist
 
-When opened in **stream-and-persist** mode, the writer will both persist the
-samples and stream them to any streamers listening on the channel. This is the default
-mode for a writer.
+When opened in **stream-and-persist** mode, the writer will both persist the samples and
+stream them to any streamers listening on the channel. This is the default mode for a
+writer.
 
 <Divider.Divider x />
 
@@ -254,8 +255,13 @@ temperature = {
 }
 ```
 
+{/* prettier-ignore-start */}
+
 When we write to both the `time` and `temperature` channels, we must provide timestamps
-for the time channel in the same frame as the temperature channel. This frame is <b style="color: var(--pluto-secondary-z);">valid</b>.
+for the time channel in the same frame as the temperature channel. This frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -264,8 +270,13 @@ for the time channel in the same frame as the temperature channel. This frame is
 }
 ```
 
+{/* prettier-ignore-start */}
+
 If we try to write to the `temperature` channel without providing timestamps for the
-`time` channel, we violate Rule 1. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
+`time` channel, we violate Rule 1. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -285,10 +296,15 @@ a writer on the `time` channel. We write the following frame:
 }
 ```
 
+{/* prettier-ignore-start */}
+
 This frame is <b style="color: var(--pluto-secondary-z);">valid</b> because we're only
-writing to the `time` channel. Now, we open a writer on the `temperature` channel, marking
-its `start` timestamp as `1677433720770863800`. This frame would be <b style="color: var(--pluto-secondary-z);">valid</b>
-because we've already written timestamps to the `time` channel.
+writing to the `time` channel. Now, we open a writer on the `temperature` channel,
+marking its `start` timestamp as `1677433720770863800`. This frame would be
+<b style="color: var(--pluto-secondary-z);">valid</b> because we've already written
+timestamps to the `time` channel.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -305,9 +321,14 @@ because we've already written timestamps to the `time` channel.
 
 #### Example 3 - Writing to a Data Channel Before an Index Channel
 
+{/* prettier-ignore-start */}
+
 If we repeat example 2, but this time we write to the `temperature` channel before the
-`time` channel, we violate Rule 1. This frame is <b style="color: var(--pluto-error-z);">invalid</b>
-because no timestamps exist to associate with the temperature samples.
+`time` channel, we violate Rule 1. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b> because no timestamps exist to
+associate with the temperature samples.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -325,8 +346,8 @@ because no timestamps exist to associate with the temperature samples.
 #### Example 1
 
 We've created three channels: `time`, `temperature`, and `pressure`. Both `pressure` and
-`temperature` are indexed by the `time` channel. Here's pseudocode for the fields
-of each channel:
+`temperature` are indexed by the `time` channel. Here's pseudocode for the fields of
+each channel:
 
 ```json
 time = {
@@ -350,8 +371,13 @@ pressure = {
 }
 ```
 
-When we open a writer on all three channels, we must write frames that contain the
-same number of samples for each channel. For example, this frame is <b style="color: var(--pluto-secondary-z);">valid</b>.
+{/* prettier-ignore-start */}
+
+When we open a writer on all three channels, we must write frames that contain the same
+number of samples for each channel. For example, this frame is
+<b style="color: var(--pluto-secondary-z);">valid</b>.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -361,7 +387,12 @@ same number of samples for each channel. For example, this frame is <b style="co
 }
 ```
 
-Omitting a sample from the `pressure` channel would violate Rule 2. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
+{/* prettier-ignore-start */}
+
+Omitting a sample from the `pressure` channel would violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -372,7 +403,12 @@ Omitting a sample from the `pressure` channel would violate Rule 2. This frame i
 }
 ```
 
-Entirely omitting a channel from the frame would also violate Rule 2. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
+{/* prettier-ignore-start */}
+
+Entirely omitting a channel from the frame would also violate Rule 2. This frame is
+<b style="color: var(--pluto-error-z);">invalid</b>.
+
+{/* prettier-ignore-end */}
 
 ```json
 {
@@ -390,10 +426,10 @@ Rules 1 and 2 do not apply to virtual channels.
 
 </Rule>
 
-As [virtual channels](/reference/concepts/channels#virtual-channels)
-do not store data, they have far more flexibility in how they can be
-written to. They do not require timestamps, and as a result do not need to be
-associated with an index. Write to them whenever and however you like!
+As [virtual channels](/reference/concepts/channels#virtual-channels) do not store data,
+they have far more flexibility in how they can be written to. They do not require
+timestamps, and as a result do not need to be associated with an index. Write to them
+whenever and however you like!
 
 <Divider.Divider x />
 
@@ -407,10 +443,10 @@ While these rules are subtle, they have a few important implications.
   All channels that share the same index must be sampled at the same rate.
 </Rule>
 
-If you have a temperature and pressure sensor that are recorded by different
-devices. The first device records temperature at 10Hz, while the second records pressure
-at 25Hz. Pressure and temperature samples will not always share the same timestamp, and
-by consequence cannot share the same index.
+If you have a temperature and pressure sensor that are recorded by different devices.
+The first device records temperature at 10Hz, while the second records pressure at 25Hz.
+Pressure and temperature samples will not always share the same timestamp, and by
+consequence cannot share the same index.
 
 ### Implication 2
 
@@ -420,9 +456,10 @@ Command channels almost always require separate indexes.
 
 </Rule>
 
-Channels that are used to send commands to actuators are typically used quite differently
-to channels that record from sensors. It's common for a single device to sample from many
-different sensors at the same rate, meaning that these sensor channels can share an index.
+Channels that are used to send commands to actuators are typically used quite
+differently to channels that record from sensors. It's common for a single device to
+sample from many different sensors at the same rate, meaning that these sensor channels
+can share an index.
 
 This is rarely the case for command channels. Command channels are typically written to
 independently of other command channels (i.e. open one valve, wait a few seconds, then

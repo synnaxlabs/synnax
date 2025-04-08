@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-button:is(:focus, :focus-within, :active, :hover) {
+.pluto-pack button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 

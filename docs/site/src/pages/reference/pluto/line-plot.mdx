@@ -24,8 +24,8 @@ continuously update the plot with new data as it arrives.
 
 ### Example
 
-Here's a simple example that pulls the most recent 30 seconds of data from a channel
-and displays it in a line plot.
+Here's a simple example that pulls the most recent 30 seconds of data from a channel and
+displays it in a line plot.
 
 <ComponentFrame>
   <RealTimePlot client:only="react" />
@@ -77,10 +77,10 @@ const MyDynamicLinePLot = () => (
 
 ## Historical Plot
 
-You can also using the `Channel.LinePlot` component to display historical data. To do this,
-set the `variant` prop of the line to `"static"`, and provide a `timeRange` prop that
-specifies the time range of the data to display. Here's updated code for the previous
-example that displays data from a specific time range.
+You can also using the `Channel.LinePlot` component to display historical data. To do
+this, set the `variant` prop of the line to `"static"`, and provide a `timeRange` prop
+that specifies the time range of the data to display. Here's updated code for the
+previous example that displays data from a specific time range.
 
 ```tsx
 const MyHistoricalLinePlot = () => (

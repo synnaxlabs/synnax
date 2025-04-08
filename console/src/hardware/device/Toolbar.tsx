@@ -18,6 +18,7 @@ import {
   useState as reactUseState,
 } from "react";
 
+import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";

@@ -13,17 +13,17 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Series and Frames are the two fundamental structures used for working with
-channel data in Synnax. This guide will walk you through how to use the `Frame`
-and `Series` classes exposed by the TypeScript client.
+Series and Frames are the two fundamental structures used for working with channel data
+in Synnax. This guide will walk you through how to use the `Frame` and `Series` classes
+exposed by the TypeScript client.
 
 <Divider.Divider x />
 
 ## Series
 
-A series is a strongly typed array of samples. A series can contain any data you
-want it to, but in the context of Synnax it almost always represents a set of
-contiguous samples from a single channel.
+A series is a strongly typed array of samples. A series can contain any data you want it
+to, but in the context of Synnax it almost always represents a set of contiguous samples
+from a single channel.
 
 ### Constructing a Series
 
@@ -57,9 +57,9 @@ const series = new Series([
 ]);
 ```
 
-The values passed to a series cannot have different data types. The constructor
-will not throw an error, as validating data types is an expensive operation, but
-the series will not behave as expected:
+The values passed to a series cannot have different data types. The constructor will not
+throw an error, as validating data types is an expensive operation, but the series will
+not behave as expected:
 
 ```typescript
 const series = new Series([1, "a", 3, "b", 5]);
@@ -82,9 +82,8 @@ console.log(series.at(-1)); // 5
 
 #### The as method
 
-An important caveat of `at` is that its return type will be a Synnax
-`TelemValue` type, which is a union of all the possible data types that a series
-can contain:
+An important caveat of `at` is that its return type will be a Synnax `TelemValue` type,
+which is a union of all the possible data types that a series can contain:
 
 ```typescript
 import { TelemValue } from "@synnaxlabs/client";
@@ -94,10 +93,10 @@ const series = new Series([1, 2, 3, 4, 5]);
 const v: TelemValue = series.at(0);
 ```
 
-This can make it difficult to write type-safe code when working with a series.
-If you know that a series should be of a certain javascript type (`number`,
-`string`, `object`, `bigint`), you can use the `as` method to validate the data
-type and return a `Series<T>` of that type:
+This can make it difficult to write type-safe code when working with a series. If you
+know that a series should be of a certain javascript type (`number`, `string`, `object`,
+`bigint`), you can use the `as` method to validate the data type and return a
+`Series<T>` of that type:
 
 ```typescript
 const series = new Series([1, 2, 3, 4, 5]);
@@ -108,8 +107,7 @@ const v: number = easierSeries.at(0);
 
 #### Accessing a TypedArray
 
-You use the `data` attribute to get the a `TypedArray` representation of the
-series:
+You use the `data` attribute to get the a `TypedArray` representation of the series:
 
 ```typescript
 const series = new Series({ data: [1, 2, 3, 4, 5], dataType: "int8" });
@@ -117,13 +115,13 @@ const ta = series.data;
 console.log(ta); // Int8Array [ 1, 2, 3, 4, 5 ]
 ```
 
-Note that while this method will work for `string` and `json` series, the
-returned typed array will be a `Uint8Array` representing the encoded data.
+Note that while this method will work for `string` and `json` series, the returned typed
+array will be a `Uint8Array` representing the encoded data.
 
 ### Converting to a Javascript Array
 
-Series implement the `Iterable` interface, so you can use the spread operator
-to convert a series to a Javascript array, or use the `Array.from` method:
+Series implement the `Iterable` interface, so you can use the spread operator to convert
+a series to a Javascript array, or use the `Array.from` method:
 
 ```typescript
 const series = new Series([1, 2, 3, 4, 5]);
@@ -144,13 +142,12 @@ console.log(jsArray); // [ { red: 'cherry', yellow: 'banana', orange: 'orange' }
 ### The Time Range Property
 
 Whenever you read a series from Synnax, it will have a `timeRange` property that
-represents the time range occupied by the samples in the Series. This method can
-be useful for getting a high-level understanding of when the samples were
-recorded without needing to query an index channel.
+represents the time range occupied by the samples in the Series. This method can be
+useful for getting a high-level understanding of when the samples were recorded without
+needing to query an index channel.
 
-The `start` field represents the timestamp for the first sample, and the `end`
-field represents a timestamp just after the last sample (start-inclusive,
-end-exclusive).
+The `start` field represents the timestamp for the first sample, and the `end` field
+represents a timestamp just after the last sample (start-inclusive, end-exclusive).
 
 We can also define a time range when constructing the series:
 
@@ -194,9 +191,9 @@ console.log(series.dataType.equals(DataType.STRING)); // true
 
 #### Max, min, and bounds
 
-The `max`, `min`, and `bounds` properties are intelligently cached properties
-that return the maximum, minimum, or both values of the series. These properties
-only work with numeric series:
+The `max`, `min`, and `bounds` properties are intelligently cached properties that
+return the maximum, minimum, or both values of the series. These properties only work
+with numeric series:
 
 ```typescript
 const series = new Series([1, 2, 3, 4, 5]);
@@ -209,8 +206,7 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 ## Frames
 
-A frame is a collection of series from multiple channels. Frames are returned
-by
+A frame is a collection of series from multiple channels. Frames are returned by
 
 - The `read` method of the Synnax data client (`client.read`)
 - The `read` method of a `Streamer` instance (`client.openStreamer`)
@@ -218,8 +214,8 @@ by
 
 ### Constructing a Frame
 
-A frame maps the key or name of a channel to one or more series. Here are a few
-examples of how to construct a frame:
+A frame maps the key or name of a channel to one or more series. Here are a few examples
+of how to construct a frame:
 
 ```typescript
 import { Frame } from "@synnaxlabs/client";
@@ -273,10 +269,9 @@ const frame = new Frame({
 
 #### The get method
 
-The easiest way to access data from a frame is to use the `get` method. This
-method return an instance of a `MultiSeries` class, which is a special type of
-series that wraps multiple `Series` instances, but behaves much like a `Series`
-instance:
+The easiest way to access data from a frame is to use the `get` method. This method
+return an instance of a `MultiSeries` class, which is a special type of series that
+wraps multiple `Series` instances, but behaves much like a `Series` instance:
 
 ```typescript
 import { MultiSeries } from "@synnaxlabs/client";
@@ -301,8 +296,8 @@ console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
 
 #### The at method
 
-The `at` method can be used to access a JavaScript object containing a single
-value for each channel in the frame:
+The `at` method can be used to access a JavaScript object containing a single value for
+each channel in the frame:
 
 ```typescript
 const frame = new Frame({
@@ -315,8 +310,8 @@ const obj = frame.at(3);
 console.log(obj); // { channel1: 1, channel2: 5, channel3: undefined }
 ```
 
-If you set the `required` parameter to `true`, the method will throw an error if
-any of the channels are missing:
+If you set the `required` parameter to `true`, the method will throw an error if any of
+the channels are missing:
 
 ```typescript
 const frame = new Frame({

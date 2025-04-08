@@ -37,16 +37,16 @@ end = datetime.strptime("2023-2-12 14:30:00", time_format)
 data = channel.read(start, end)
 ```
 
-The returned data is an instance of the `Series` class, but for all intents and
-purposes can be treated exactly like a `numpy.ndarray`. For example, we can
-perform vectorized operations on the data:
+The returned data is an instance of the `Series` class, but for all intents and purposes
+can be treated exactly like a `numpy.ndarray`. For example, we can perform vectorized
+operations on the data:
 
 ```python
 data = data - 273.15
 ```
 
-The `Series` class does give us some additional functionality. Most notably, we
-can get the time range occupied by the data:
+The `Series` class does give us some additional functionality. Most notably, we can get
+the time range occupied by the data:
 
 ```python
 tr = data.time_range
@@ -54,29 +54,28 @@ print(tr)
 # 2023-02-12 12:30:00 - 2023-02-12 14:30:00
 ```
 
-This method is important, as it's not always the case that data exists for the
-entire time range queried.
+This method is important, as it's not always the case that data exists for the entire
+time range queried.
 
 <Divider.Divider x />
 
 ## Reading from Multiple Channels
 
-We can also read from multiple channels at once by calling the `read` method on
-the `client`. This method takes a list of channel names/keys and a time range:
+We can also read from multiple channels at once by calling the `read` method on the
+`client`. This method takes a list of channel names/keys and a time range:
 
 ```python
 frame = client.read(start, end, ["my_precise_tc", "time"])
 ```
 
-The returned data is an instance of the `Frame` class. We can access `Series` on
-the class by using the `[]` operator:
+The returned data is an instance of the `Frame` class. We can access `Series` on the
+class by using the `[]` operator:
 
 ```python
 data = frame["my_precise_tc"]
 ```
 
-We can also convert the `Frame` to a `pandas.DataFrame` by calling the `to_df`
-method:
+We can also convert the `Frame` to a `pandas.DataFrame` by calling the `to_df` method:
 
 ```python
 df = frame.to_df()
@@ -91,8 +90,7 @@ the exact range of time we're interested in reading.
 [Ranges](/reference/python-client/ranges) are a useful way of categorizing important
 time ranges in a cluster's data. We can read directly from these ranges.
 
-We can access channels on a `Range` object and call `read` on them to access
-their data:
+We can access channels on a `Range` object and call `read` on them to access their data:
 
 ```python
 rng = client.ranges.retrieve("My Interesting Test")
@@ -103,8 +101,8 @@ data = rng.my_precise_tc.read()
 data = data - 273.15
 ```
 
-It turns out that we don't even need to call the `read` method at all. We can
-just use the channel name directly to perform operations on the data:
+It turns out that we don't even need to call the `read` method at all. We can just use
+the channel name directly to perform operations on the data:
 
 ```python
 data = rng.my_precise_tc - 273.15

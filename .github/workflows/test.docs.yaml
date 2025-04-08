@@ -1,0 +1,66 @@
+name: Test - Docs
+
+on:
+  push:
+    branches:
+      - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            changed:
+              - .github/workflows/test.docs.yaml
+              - alamos/ts/**
+              - client/ts/**
+              - docs/site/**
+              - freighter/ts/**
+              - pluto/**
+              - x/media/**
+              - x/ts/**
+
+  test:
+    name: Test
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build Dependencies
+        run: pnpm build:pluto
+
+      - name: Check Formatting
+        run: pnpm format-check
+        working-directory: docs/site

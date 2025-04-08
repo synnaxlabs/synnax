@@ -32,7 +32,8 @@ instructions, see the [installation guide](/reference/cluster/installation).
 #### Install the Synnax Console
 
 This guide assumes you've installed the [Synnax Console](/reference/console/get-started)
-on your local machine. You can find the latest release [here](https://github.com/synnaxlabs/synnax/releases).
+on your local machine. You can find the latest release
+[here](https://github.com/synnaxlabs/synnax/releases).
 
 <Divider.Divider x />
 
@@ -44,17 +45,18 @@ On the remote machine, start the Synnax node with the following command:
 synnax start -l synnax.example.com:9090 --auto-cert --certs-dir=/usr/local/synnax/certs -d /usr/local/synnax/data
 ```
 
-This command will start a Synnax node that listens on port `9090`, stores
-its data in the `/usr/local/synnax/data` directory, and automatically generates self-signed
+This command will start a Synnax node that listens on port `9090`, stores its data in
+the `/usr/local/synnax/data` directory, and automatically generates self-signed
 certificates in the `/usr/local/synnax/certs` directory.
 
-The host name is important, as it will be the reachable domain authorized by the self-signed
-certificate (the common name). If you have a domain name pointing to the remote machine,
-you can use that instead of `synnax.example.com`.
+The host name is important, as it will be the reachable domain authorized by the
+self-signed certificate (the common name). If you have a domain name pointing to the
+remote machine, you can use that instead of `synnax.example.com`.
 
 If you don't have a domain name, don't use the IP address, as the certificate will not
-be valid for an IP address. Instead, stick with `synnax.example.com` or something similar.
-We'll configure a local host alias for this domain on the local machine in a [later step](#configuring-a-local-host-alias).
+be valid for an IP address. Instead, stick with `synnax.example.com` or something
+similar. We'll configure a local host alias for this domain on the local machine in a
+[later step](#configuring-a-local-host-alias).
 
 <Divider.Divider x />
 
@@ -67,15 +69,15 @@ connect to the cluster from. See the operating system specific instructions belo
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 <Fragment slot="Linux">
 
-We'll start off by copying the CA certificate from the remote machine to your local machine.
-You can do this with the following command:
+We'll start off by copying the CA certificate from the remote machine to your local
+machine. You can do this with the following command:
 
 ```bash
 scp REMOTE_USER@REMOTE_IP:/usr/local/synnax/certs/ca.crt /tmp/synnax-ca.crt
 ```
 
-Next, you'll need to add the CA certificate to your local machine's trust store. To do this,
-first move the CA certificate to the linux certificate directory:
+Next, you'll need to add the CA certificate to your local machine's trust store. To do
+this, first move the CA certificate to the linux certificate directory:
 
 ```bash
 sudo cp /tmp/synnax-ca.crt /usr/local/share/ca-certificates/synnax-ca.crt
@@ -90,15 +92,15 @@ sudo update-ca-certificates
 </Fragment>
 <Fragment slot="macOS">
 
-We'll start off by copying the CA certificate from the remote machine to your local machine.
-You can do this with the following command:
+We'll start off by copying the CA certificate from the remote machine to your local
+machine. You can do this with the following command:
 
 ```bash
 scp REMOTE_USER@REMOTE_IP:/usr/local/synnax/certs/ca.crt /tmp/synnax-ca.crt
 ```
 
-Next, you'll need to add the CA certificate to your local machine's trust store. You can do
-this with the following command:
+Next, you'll need to add the CA certificate to your local machine's trust store. You can
+do this with the following command:
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/synnax-ca.crt
@@ -107,8 +109,8 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 </Fragment>
 <Fragment slot="Windows">
 
-We'll start off by copying the CA certificate from the remote machine to your local machine.
-You can do this with the following command:
+We'll start off by copying the CA certificate from the remote machine to your local
+machine. You can do this with the following command:
 
 ```bash
 scp REMOTE_USER@REMOTE_IP:/usr/local/synnax/certs/ca.crt C:\Users\LOCAL_USER\Downloads\synnax-ca.crt
@@ -131,8 +133,8 @@ Import-Certificate -FilePath C:\Users\LOCAL_USER\Downloads\synnax-ca.crt -CertSt
 If you don't have a domain name pointing to the remote machine, you'll need to configure
 an alias on your local machine that maps the IP address of the remote machine to the
 host name you used when starting the Synnax node. This is necessary because the CA
-certificate you installed on your local machine will only be valid for the host name
-you used when generating it.
+certificate you installed on your local machine will only be valid for the host name you
+used when generating it.
 
 To do this, follow the operating system specific instructions below:
 

@@ -34,6 +34,11 @@
         border: var(--pluto-border-l5);
     }
 
+    &.pluto--connected,
+    &.pluto--floating {
+        box-shadow: var(--pluto-shadow-v1);
+    }
+
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
     }
@@ -51,7 +56,6 @@
 
     &.pluto--floating {
         transition: opacity 0.075s ease-in-out;
-        box-shadow: var(--pluto-shadow-v1);
         border-radius: 1rem;
     }
 

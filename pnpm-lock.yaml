@@ -450,6 +450,9 @@ importers:
       html-escaper:
         specifier: ^3.0.3
         version: 3.0.3
+      prettier:
+        specifier: ^3.5.3
+        version: 3.5.3
       remove-markdown:
         specifier: ^0.6.0
         version: 0.6.0
