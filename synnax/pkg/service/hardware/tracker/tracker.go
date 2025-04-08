@@ -13,6 +13,9 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -35,8 +38,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"sync"
 )
 
 // RackState is the state of a hardware rack. Unfortunately, we can't put this into

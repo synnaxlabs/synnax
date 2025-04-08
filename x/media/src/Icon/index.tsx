@@ -15,7 +15,6 @@ import {
   AiFillDelete,
   AiFillFolder,
   AiFillGithub,
-  AiFillInfoCircle,
   AiFillLinkedin,
   AiFillWarning,
   AiOutlineBorder,
@@ -27,7 +26,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -98,13 +97,13 @@ import {
   MdLabel,
   MdLink,
   MdNewReleases,
-  MdOutlineAccessTimeFilled,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
   MdOutlineTableRows,
+  MdOutlineTimelapse,
   MdOutlineVisibility,
   MdOutlineVisibilityOff,
   MdOutlineWebAsset,
@@ -152,6 +151,9 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
+  TbCircleLetterAFilled,
+  TbCircleLetterVFilled,
+  TbCircuitResistor,
   TbDecimal,
   TbLivePhoto,
   TbMathFunction,
@@ -181,54 +183,6 @@ const LabJack: IconFC = (props) => (
     <path
       d="M0.027809 24.91L0.117809 0.5C0.117809 0.166667 0.284476 0 0.617809 0H17.3078C17.4775 0 17.6403 0.0674271 17.7604 0.18745C17.8804 0.307474 17.9478 0.470261 17.9478 0.639999L18.0178 26.89C18.0578 30.75 18.0711 34.5999 18.0578 38.4399C18.0511 43.9999 18.4211 47.8066 19.1678 49.8599C20.5944 53.7399 23.2744 56.3866 27.2078 57.7999C29.2144 58.5199 32.7411 58.8966 37.7878 58.9299C43.8144 58.9632 50.3878 58.9799 57.5078 58.9799C57.8811 58.9799 58.0678 59.1666 58.0678 59.5399V69.3899C58.0678 69.7699 57.8744 69.9599 57.4878 69.9599C39.7478 70.0266 29.6077 70.0166 27.0678 69.9299C25.4478 69.8699 23.1078 69.5432 20.0478 68.9499C17.1544 68.3832 14.8978 67.7266 13.2778 66.9799C7.59109 64.3666 3.68442 60.3032 1.55775 54.7899C0.571086 52.2432 0.0577555 47.2932 0.0177555 39.9399C-0.0089112 34.9332 -0.00552432 29.9233 0.027809 24.91Z"
       stroke="none"
-    />
-  </svg>
-);
-
-const Ammeter: IconFC = (props) => (
-  <svg
-    width="48"
-    height="48"
-    viewBox="0 0 48 48"
-    fill="currentColor"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM10.5075 37H16.1325L18.5382 29.8267H29.4751L31.8853 37H37.5103L27.2546 7.90909H20.7489L10.5075 37ZM28.0529 25.5938L24.1154 13.875H23.8881L19.9579 25.5938H28.0529Z"
-      fillRule="evenodd"
-    />
-  </svg>
-);
-
-const Ohmmeter: IconFC = (props) => (
-  <svg
-    width="48"
-    height="48"
-    viewBox="0 0 48 48"
-    fill="currentColor"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM10.5536 33.5824V38H21.69V32.4318C20.5915 31.9773 19.5972 31.2812 18.707 30.3438C17.8263 29.3968 17.1256 28.2699 16.6048 26.9631C16.0839 25.6562 15.8235 24.2311 15.8235 22.6875C15.8235 21.3428 16.0224 20.1023 16.4201 18.9659C16.8273 17.8201 17.3955 16.821 18.1246 15.9688C18.8538 15.1165 19.7156 14.4536 20.7099 13.9801C21.7137 13.4972 22.8121 13.2557 24.0053 13.2557C25.6057 13.2557 27.0214 13.6723 28.2525 14.5057C29.4835 15.3295 30.4447 16.4517 31.136 17.8722C31.8368 19.2926 32.1871 20.8977 32.1871 22.6875C32.1871 24.2311 31.9267 25.6562 31.4059 26.9631C30.8851 28.2699 30.1796 29.3968 29.2894 30.3438C28.4087 31.2812 27.4192 31.9773 26.3207 32.4318V38H37.457V33.5824H31.8178V33.3551C33.5508 32.2377 34.9239 30.7604 35.9371 28.9233C36.9504 27.0862 37.457 24.8987 37.457 22.3608C37.457 20.3343 37.1256 18.4782 36.4627 16.7926C35.8093 15.0975 34.8813 13.6345 33.6786 12.4034C32.476 11.1629 31.0555 10.2064 29.4173 9.53409C27.779 8.85227 25.975 8.51136 24.0053 8.51136C22.0356 8.51136 20.2317 8.85227 18.5934 9.53409C16.9551 10.2064 15.5347 11.1629 14.332 12.4034C13.1294 13.6345 12.1966 15.0975 11.5337 16.7926C10.8803 18.4782 10.5536 20.3343 10.5536 22.3608C10.5536 24.8987 11.0603 27.0862 12.0735 28.9233C13.0868 30.7604 14.4599 32.2377 16.1928 33.3551V33.5824H10.5536Z"
-      fillRule="evenodd"
-    />
-  </svg>
-);
-
-const Voltmeter: IconFC = (props) => (
-  <svg
-    width="48"
-    height="48"
-    viewBox="0 0 48 48"
-    fill="currentColor"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      d="M24 48C37.2548 48 48 37.2548 48 24C48 10.7452 37.2548 0 24 0C10.7452 0 0 10.7452 0 24C0 37.2548 10.7452 48 24 48ZM23.8597 33.8068L16.2887 10.9091H10.5075L20.7489 40H27.2546L37.5103 10.9091H31.7148L24.158 33.8068H23.8597Z"
-      fillRule="evenodd"
     />
   </svg>
 );
@@ -489,6 +443,7 @@ export interface IconType {
   Function: IconFC;
   Visible: IconFC;
   Hidden: IconFC;
+  Virtual: IconFC;
 }
 
 export const Icon: IconType = {
@@ -501,7 +456,7 @@ export const Icon: IconType = {
   Subtract: wrapIcon(AiOutlineMinus, "subtract"),
   Copy: wrapIcon(IoCopy, "copy"),
   Close: wrapIcon(AiOutlineClose, "close"),
-  Info: wrapIcon(AiFillInfoCircle, "info"),
+  Info: wrapIcon(BsFillInfoSquareFill, "info"),
   Warning: wrapIcon(AiFillWarning, "warning"),
   Check: wrapIcon(AiOutlineCheck, "check"),
   Refresh: wrapIcon(IoMdRefresh, "refresh"),
@@ -530,7 +485,7 @@ export const Icon: IconType = {
   Download: wrapIcon(HiDownload, "download"),
   Import: wrapIcon(MdFileUpload, "import"),
   Export: wrapIcon(PiDownloadSimple, "export"),
-  Range: wrapIcon(MdOutlineAccessTimeFilled, "range"),
+  Range: wrapIcon(MdOutlineTimelapse, "range"),
   Node: wrapIcon(MdOutlineDeviceHub, "node"),
   Channel: wrapIcon(MdSensors, "channel"),
   Resources: wrapIcon(AiFillFolder, "resources"),
@@ -662,19 +617,20 @@ export const Icon: IconType = {
   Rack: wrapIcon(MdHive, "rack"),
   Units: {
     Acceleration: wrapIcon(FaCarSide, "units-acceleration"),
-    Current: wrapIcon(Ammeter, "units-current"),
+    Current: wrapIcon(TbCircleLetterAFilled, "units-current"),
     Force: wrapIcon(RiWeightFill, "units-force"),
     Pressure: wrapIcon(FaGaugeHigh, "units-pressure"),
-    Resistance: wrapIcon(Ohmmeter, "units-resistance"),
+    Resistance: wrapIcon(TbCircuitResistor, "units-resistance"),
     Strain: wrapIcon(SiSpringCreators, "units-strain"),
     Temperature: wrapIcon(PiThermometerSimpleFill, "units-temperature"),
     Torque: wrapIcon(FaGear, "units-torque"),
     Velocity: wrapIcon(FaWind, "units-velocity"),
-    Voltage: wrapIcon(Voltmeter, "units-voltage"),
+    Voltage: wrapIcon(TbCircleLetterVFilled, "units-voltage"),
   },
   Bridge: wrapIcon(FaBridge, "bridge"),
   Sound: wrapIcon(FaMicrophone, "sound"),
   Function: wrapIcon(TbMathFunction, "function"),
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
+  Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
 };

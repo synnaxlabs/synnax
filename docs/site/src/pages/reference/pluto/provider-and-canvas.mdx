@@ -12,16 +12,16 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Pluto requires a bit of scaffolding to get up and running. In this guide we'll walk
-you through setting up a web worker to handle data fetching and rendering and wrapping
-your application in the `Pluto.Provider` and `Pluto.Canvas` components.
+Pluto requires a bit of scaffolding to get up and running. In this guide we'll walk you
+through setting up a web worker to handle data fetching and rendering and wrapping your
+application in the `Pluto.Provider` and `Pluto.Canvas` components.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## The Web Worker Script
 
-Pluto uses a Web Worker to handle data fetching and rendering. This keeps the rest of the
-user interface smooth even under heavy load. To set up the Web Worker, you need to
+Pluto uses a Web Worker to handle data fetching and rendering. This keeps the rest of
+the user interface smooth even under heavy load. To set up the Web Worker, you need to
 configure a script and start the pluto worker process. Create a file called
 `pluto-worker.ts` and add the following code:
 
@@ -31,7 +31,7 @@ import { pluto } from "@synnaxlabs/pluto/ether";
 pluto.render();
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## The Provider
 
@@ -73,7 +73,7 @@ const Main = () => (
 );
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## The Canvas
 
@@ -82,9 +82,9 @@ rendering canvas for them to display on. This comes in the form of the `Pluto.Ca
 component.
 
 To increase performance, Pluto re-uses the canvas element across all visualizations. You
-should only use one `Pluto.Canvas` component in your application, and we recommend placing
-it as a fixed element that stretches across the display. Here's our previous example
-edited to include the rendering canvas:
+should only use one `Pluto.Canvas` component in your application, and we recommend
+placing it as a fixed element that stretches across the display. Here's our previous
+example edited to include the rendering canvas:
 
 ```tsx
 import { Pluto, Canvas } from "@synnaxlabs/pluto";
@@ -128,4 +128,5 @@ const Main = () => {
 ## Next Steps
 
 Now that you have Pluto set up, you can start using the components in your application.
-Check out this [guide](/reference/pluto/line-plot) to learn how to plot data in real-time.
+Check out this [guide](/reference/pluto/line-plot) to learn how to plot data in
+real-time.

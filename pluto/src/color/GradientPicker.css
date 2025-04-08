@@ -39,7 +39,7 @@
             border-radius: 0.5rem;
             border: var(--pluto-border);
             border-color: var(--pluto-gray-l10);
-            box-shadow: var(--pluto-shadow-menu);
+            box-shadow: var(--pluto-shadow-v1);
         }
 
         & .pluto-text {

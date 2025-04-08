@@ -60,7 +60,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/gofmt-check.sh synnax
+        run: bash scripts/check-gofmt.sh synnax
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo

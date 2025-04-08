@@ -17,7 +17,7 @@
     .pluto-sub {
         --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
         z-index: 1;
-        background-color: var(--pluto-bg, var(--pluto-gray-l0));
+        background: var(--pluto-bg);
         border-radius: 1rem;
         &.synnax-icon-add * {
             stroke-width: 4px;
@@ -27,29 +27,33 @@
     .pluto--bottomLeft {
         transform: translate(-55%, 35%) var(--pluto-scale);
         position: absolute;
-        backdrop-filter: blur(100px);
         bottom: 0;
         left: 0;
     }
     .pluto--bottomRight {
         transform: translate(55%, 25%) var(--pluto-scale);
         position: absolute;
-        backdrop-filter: blur(100px);
         bottom: 0;
         right: 0;
     }
     .pluto--topLeft {
         transform: translate(-55%, -35%) var(--pluto-scale);
         position: absolute;
-        backdrop-filter: blur(100px);
         top: 0;
         left: 0;
     }
     .pluto--topRight {
         transform: translate(55%, -35%) var(--pluto-scale);
         position: absolute;
-        backdrop-filter: blur(100px);
         top: 0;
         right: 0;
     }
+}
+
+.pluto--clickable:hover .pluto-icon .pluto-sub {
+    background: var(--pluto-hover-bg);
+}
+
+.pluto--clickable:active .pluto-icon .pluto-sub {
+    background: var(--pluto-active-bg);
 }

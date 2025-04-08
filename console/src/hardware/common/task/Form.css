@@ -25,10 +25,10 @@
         .console-task-channel-form-container {
             border-radius: 1rem;
             overflow: hidden;
-            background: var(--pluto-gray-l1-75);
-            border-color: var(--pluto-gray-l4);
+            background: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l5);
             .pluto-header {
-                background: var(--pluto-gray-l2-50);
+                background: var(--pluto-gray-l2);
             }
         }
 
@@ -58,8 +58,8 @@
 
     .console-task-controls {
         border-radius: 1rem;
-        border-color: var(--pluto-gray-l4);
-        background-color: var(--pluto-gray-l1-75);
+        border-color: var(--pluto-gray-l6);
+        background-color: var(--pluto-gray-l1);
         .console-task-state {
             flex-grow: 1;
             border-right: var(--pluto-border);
@@ -75,7 +75,7 @@
         overflow: hidden;
         white-space: nowrap;
         font-weight: 500;
-        color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l9);
         flex-shrink: 1;
     }
 }
@@ -89,7 +89,7 @@
             }
         }
 
-        .console-task__channel-name:last-of-type {
+        .console-task__channel-name:not(:only-child):last-of-type {
             display: none;
         }
     }

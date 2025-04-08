@@ -92,8 +92,8 @@ import { Logo } from "@synnaxlabs/media";
         transition: all 0.2s;
         text-decoration: none !important;
         &:hover {
-            --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.06),
-                0px 4px 8px -4px rgba(0, 0, 0, 0.1),
+            --pluto-shadow-v1:
+                0px 1px 1px rgba(0, 0, 0, 0.06), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
                 0px 16px 24px -8px rgba(0, 0, 0, 0.2);
             & h1 {
                 color: var(--pluto-dark-gray-l5-80);
@@ -124,8 +124,8 @@ import { Logo } from "@synnaxlabs/media";
             transform: translate(-50%, -50%);
             font-size: 20rem;
         }
-        border: var(--pluto-border-l4);
-        box-shadow: var(--pluto-shadow-menu);
+        border: var(--pluto-border);
+        box-shadow: var(--pluto-shadow-v1);
         border-radius: 2rem;
         height: 200px;
     }

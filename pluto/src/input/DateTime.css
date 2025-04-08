@@ -35,9 +35,10 @@ input::-webkit-calendar-picker-indicator {
 
 .pluto-datetime-modal {
     border-radius: 1rem;
-    border: var(--pluto-border-l4);
+    border: var(--pluto-border-l5);
     width: calc(98vw - 6rem);
     max-width: 800px;
+    background: var(--pluto-gray-l0);
 
     .pluto-content {
         padding: 2rem;
@@ -61,14 +62,31 @@ input::-webkit-calendar-picker-indicator {
     }
 
     .pluto-calendar {
-        width: 39rem;
+        width: 37rem;
         height: 37rem;
+        & > * > .pluto-text-icon {
+            border-top: var(--pluto-border-l5);
+        }
+        & *:nth-child(3) {
+            border: var(--pluto-border-l5);
+        }
     }
 
     .pluto-time-list {
         width: 11rem;
         height: 33rem !important;
         border-top-left-radius: 0 !important;
+        border-right: var(--pluto-border-l5);
+        border-top: var(--pluto-border-l5);
+
+        .pluto-list__item {
+            border-left: var(--pluto-border);
+            border-color: transparent;
+
+            &:hover {
+                border-color: var(--pluto-gray-l5);
+            }
+        }
     }
 
     .pluto-close-btn {
@@ -79,6 +97,7 @@ input::-webkit-calendar-picker-indicator {
 
     .pluto-datetime-picker {
         border-top-left-radius: 0 !important;
+        background: var(--pluto-gray-l1);
 
         ::-webkit-scrollbar {
             width: 0.5rem;
@@ -96,8 +115,6 @@ input::-webkit-calendar-picker-indicator {
         .pluto-input__internal {
             width: min-content;
             border-bottom-left-radius: 0 !important;
-            border-color: var(--pluto-gray-l3) !important;
-            border-top: none !important;
             background: none !important;
         }
 

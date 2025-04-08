@@ -10,8 +10,8 @@
 #pragma once
 
 #include "driver/labjack/device/device.h"
-#include "driver/task/task.h"
 #include "driver/task/common/sample_clock.h"
+#include "driver/task/task.h"
 
 namespace labjack {
 /// @brief make of LabJack devices.
@@ -39,8 +39,7 @@ const std::vector UNREACHABLE_ERRORS = {
 
 /// @brief translates LJM errors into useful errors for managing the task lifecycle.
 inline xerrors::Error translate_error(const xerrors::Error &err) {
-    if (err.matches(UNREACHABLE_ERRORS))
-        return ljm::TEMPORARILY_UNREACHABLE;
+    if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
     return err;
 }
 
@@ -61,10 +60,12 @@ public:
     explicit Factory(
         const std::shared_ptr<device::Manager> &dev_manager,
         common::TimingConfig timing_cfg
-    ): dev_manager(dev_manager), timing_cfg(timing_cfg) {}
+    ):
+        dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new Labjack factory, loading the LJM library.
-    static std::unique_ptr<Factory> create(common::TimingConfig timing_cfg = common::TimingConfig());
+    static std::unique_ptr<Factory>
+    create(common::TimingConfig timing_cfg = common::TimingConfig());
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -77,4 +78,4 @@ public:
         const synnax::Rack &rack
     ) override;
 };
-} 
+}

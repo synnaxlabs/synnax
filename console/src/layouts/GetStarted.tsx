@@ -65,7 +65,7 @@ const NoCluster = (): ReactElement => {
     <Align.Center className="console-get-started" align="center" size={6}>
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
-      <Align.Space direction="x" size="large" justify="center" wrap>
+      <Align.Space x size="large" justify="center" wrap>
         <Button.Button
           startIcon={<Icon.Cluster />}
           onClick={handleCluster}
@@ -99,18 +99,12 @@ const Overview = (): ReactElement => {
       <Align.Center
         className="console-get-started"
         size={6}
-        direction="y"
+        y
         style={{ padding: "200px" }}
       >
         <Logo variant="title" className="console-get-started__logo" />
-        <Align.Space
-          direction="x"
-          style={{ width: "100%" }}
-          justify="center"
-          size={30}
-          wrap
-        >
-          <Align.Space direction="y">
+        <Align.Space x style={{ width: "100%" }} justify="center" size={30} wrap>
+          <Align.Space y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
             <Workspace.Recent />
             <Button.Button
@@ -121,7 +115,7 @@ const Overview = (): ReactElement => {
               Create a Workspace
             </Button.Button>
           </Align.Space>
-          <Align.Space direction="y" align="center">
+          <Align.Space y align="center">
             <Text.Text level="h1">Recent Ranges</Text.Text>
           </Align.Space>
         </Align.Space>

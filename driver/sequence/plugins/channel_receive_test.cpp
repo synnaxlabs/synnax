@@ -16,8 +16,8 @@ extern "C" {
 }
 
 /// internal.
-#include "driver/sequence/plugins/plugins.h"
 #include "driver/pipeline/mock/pipeline.h"
+#include "driver/sequence/plugins/plugins.h"
 
 TEST(ChannelReceive, Basic) {
     synnax::Channel ch;
@@ -26,7 +26,7 @@ TEST(ChannelReceive, Basic) {
     ch.data_type = telem::FLOAT64_T;
     auto fr_1 = synnax::Frame(1);
     fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
-    const auto reads = std::make_shared<std::vector<synnax::Frame> >();
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     reads->push_back(std::move(fr_1));
     const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
@@ -48,7 +48,10 @@ TEST(ChannelReceive, StopBeforeStart) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, std::make_shared<std::vector<synnax::Frame>>());
+    const auto factory = pipeline::mock::simple_streamer_factory(
+        {ch.key},
+        std::make_shared<std::vector<synnax::Frame>>()
+    );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
@@ -62,7 +65,10 @@ TEST(ChannelReceive, DoubleStart) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, std::make_shared<std::vector<synnax::Frame>>());
+    const auto factory = pipeline::mock::simple_streamer_factory(
+        {ch.key},
+        std::make_shared<std::vector<synnax::Frame>>()
+    );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
@@ -78,7 +84,10 @@ TEST(ChannelReceive, DoubleStop) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, std::make_shared<std::vector<synnax::Frame>>());
+    const auto factory = pipeline::mock::simple_streamer_factory(
+        {ch.key},
+        std::make_shared<std::vector<synnax::Frame>>()
+    );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);

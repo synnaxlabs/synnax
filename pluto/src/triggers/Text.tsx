@@ -21,9 +21,9 @@ const CUSTOM_TEXT: Partial<Record<Key, (() => ReactElement) | string>> = {
   Control: () => <Core.Symbols.Meta key="control" />,
   Alt: () => <Core.Symbols.Alt key="alt" />,
   Shift: () => <Icon.Keyboard.Shift key="shift" />,
-  MouseLeft: "Left Click",
-  MouseRight: "Right Click",
-  MouseMiddle: "Middle Click",
+  MouseLeft: "Click",
+  MouseRight: "Click",
+  MouseMiddle: "Click",
   Enter: () => <Icon.Keyboard.Return key="enter" />,
 };
 
@@ -32,6 +32,18 @@ const getCustomText = (trigger: Key): ReactElement | string => {
   if (t != null) return typeof t === "function" ? t() : t;
   return trigger;
 };
+
+const isMouseTrigger = (trigger: Key): boolean =>
+  trigger === "MouseLeft" || trigger === "MouseRight" || trigger === "MouseMiddle";
+
+const sortTriggers = (trigger: Trigger): Trigger =>
+  [...trigger].sort((a, b) => {
+    const aIsMouse = isMouseTrigger(a);
+    const bIsMouse = isMouseTrigger(b);
+    if (aIsMouse && !bIsMouse) return 1;
+    if (!aIsMouse && bIsMouse) return -1;
+    return 0;
+  });
 
 export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   trigger.map((t) => getCustomText(t));
@@ -44,7 +56,7 @@ export const Text = <L extends Core.Level>({
   ...rest
 }: TextProps<L>): ReactElement => (
   <>
-    {trigger.map((t) => (
+    {sortTriggers(trigger).map((t) => (
       // @ts-expect-error - issues with generic element types
       <Core.Keyboard<L> key={t} {...rest}>
         {getCustomText(t)}

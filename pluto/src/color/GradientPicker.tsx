@@ -160,7 +160,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
     <Align.Space
       ref={stopElRef}
       className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
-      direction="y"
+      y
       style={{
         left: `${stop.position * 100}%`,
         width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
@@ -169,7 +169,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       onClick={(e) => e.stopPropagation()}
     >
       <Align.Space
-        direction="y"
+        y
         className={CSS.BE("gradient-picker", "drag-region")}
         draggable
         onDragStart={onDragStart}

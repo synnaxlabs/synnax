@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
 #include "x/cpp/loop/loop.h"
+#include "gtest/gtest.h"
 #include "x/cpp/telem/telem.h"
 
 /// @brief it should correctly wait for an expended number of requests.
@@ -78,9 +78,10 @@ TEST(LoopTest, testWaitBreaker) {
     brker.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = telem::TimeSpan(end - start);
-    EXPECT_NEAR(elapsed.nanoseconds(),
-                (telem::MILLISECOND * 10).nanoseconds(),
-                (telem::MILLISECOND * 10).nanoseconds()
+    EXPECT_NEAR(
+        elapsed.nanoseconds(),
+        (telem::MILLISECOND * 10).nanoseconds(),
+        (telem::MILLISECOND * 10).nanoseconds()
     );
     t.join();
 }

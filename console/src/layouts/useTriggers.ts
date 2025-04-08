@@ -14,13 +14,16 @@ import { useStore } from "react-redux";
 import { selectActiveMosaicTabKey, selectFocused } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
+import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
+import { createSelectorLayout } from "@/layouts/Selector";
 import { type RootState } from "@/store";
 
 export const useTriggers = (): void => {
   const store = useStore<RootState>();
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();
+  const placeLayout = usePlacer();
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
@@ -66,6 +69,14 @@ export const useTriggers = (): void => {
       const active = selectActiveMosaicTabKey(state);
       if (active == null) return;
       Text.edit(`pluto-tab-${active}`);
+    },
+  });
+  Triggers.use({
+    triggers: [["Control", "T"]],
+    loose: true,
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
+      placeLayout(createSelectorLayout({ tab: { location: "center" } }));
     },
   });
 };

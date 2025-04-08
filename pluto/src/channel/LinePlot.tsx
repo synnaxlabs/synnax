@@ -134,6 +134,7 @@ export const LinePlot = ({
   viewportTriggers,
   annotationProvider,
   onSelectRule,
+  children,
   ...rest
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
@@ -188,6 +189,7 @@ export const LinePlot = ({
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && <Measure.Measure />}
+        {children}
       </Core.Viewport>
     </Core.LinePlot>
   );

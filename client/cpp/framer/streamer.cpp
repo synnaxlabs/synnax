@@ -32,9 +32,7 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     return {Streamer(std::move(s)), res_err};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
-    stream(std::move(stream)) {
-}
+Streamer::Streamer(std::unique_ptr<StreamerStream> stream): stream(std::move(stream)) {}
 
 std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
@@ -43,7 +41,9 @@ std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     return {std::move(synnax::Frame(fr.frame())), exc};
 }
 
-void Streamer::close_send() const { this->stream->close_send(); }
+void Streamer::close_send() const {
+    this->stream->close_send();
+}
 
 xerrors::Error Streamer::close() const {
     this->close_send();

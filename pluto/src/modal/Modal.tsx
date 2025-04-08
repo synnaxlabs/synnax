@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Dialog as Core } from "@/dialog";
-import { useClickOutside } from "@/hooks";
+import { useClickOutside, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
@@ -23,22 +23,40 @@ import { getRootElement } from "@/util/rootElement";
 export interface ModalProps
   extends Pick<Core.UseReturn, "visible" | "close">,
     Align.SpaceProps {
-  centered?: boolean;
-  enabled?: boolean;
   root?: string;
+  offset?: number;
 }
+
+interface BackgroundProps extends Align.SpaceProps {
+  visible: boolean;
+}
+
+export const Background = ({
+  children,
+  visible,
+  ...rest
+}: BackgroundProps): ReactElement => (
+  <Align.Space
+    className={CSS(CSS.BE("modal", "bg"), CSS.visible(visible))}
+    empty
+    align="center"
+    {...rest}
+  >
+    {children}
+  </Align.Space>
+);
 
 export const Dialog = ({
   children,
-  centered,
   visible,
-  enabled = true,
   close,
   style,
+  offset = 15,
+  background,
   ...rest
 }: ModalProps): ReactElement => {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const visibleRef = useRef(visible);
+  const visibleRef = useSyncedRef(visible);
   useClickOutside({
     ref: dialogRef,
     exclude: (e: MouseEvent) => {
@@ -61,29 +79,28 @@ export const Dialog = ({
     [close],
   );
   Triggers.use({ triggers: [["Escape"]], callback: handleTrigger, loose: true });
+  let dialogProps: Partial<Align.SpaceProps> = {};
+  if (visible)
+    dialogProps = {
+      style: { zIndex: 11, ...style, top: `${offset}%` },
+      rounded: 1,
+      bordered: true,
+      borderShade: 6,
+    };
+
   return (
-    <Align.Space
-      className={CSS(
-        CSS.BE("modal", "bg"),
-        CSS.visible(visible),
-        enabled && CSS.M("enabled-modal"),
-      )}
-      empty
-      align="center"
-    >
+    <Background visible={visible}>
       <Align.Space
-        className={CSS(CSS.BE("modal", "dialog"), centered && CSS.M("centered"))}
         role="dialog"
         empty
         ref={dialogRef}
+        background={background}
         {...rest}
-        style={{ zIndex: enabled ? 11 : undefined, ...style }}
+        {...dialogProps}
       >
-        <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
-          {children}
-        </Align.Space>
+        {children}
       </Align.Space>
-    </Align.Space>
+    </Background>
   );
 };
 

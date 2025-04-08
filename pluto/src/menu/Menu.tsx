@@ -25,13 +25,14 @@ export interface ContextValue {
   selected: string;
   level?: Text.Level;
   iconSpacing?: ComponentSize;
+  shade?: Text.Shade;
 }
 
 const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
 
 export interface MenuProps
   extends PropsWithChildren,
-    Pick<ContextValue, "level" | "iconSpacing"> {
+    Pick<ContextValue, "level" | "iconSpacing" | "shade"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
@@ -53,6 +54,7 @@ export const Menu = ({
   onChange,
   level,
   iconSpacing,
+  shade = 1,
   value: selected = "",
 }: MenuProps): ReactElement => {
   const onClick = useCallback(
@@ -68,10 +70,11 @@ export const Menu = ({
       selected,
       level,
       iconSpacing,
+      shade,
     }),
-    [selected, onClick, level, iconSpacing],
+    [selected, onClick, level, iconSpacing, shade],
   );
   return <Context value={ctxValue}>{children}</Context>;
 };
 
-export const Divider = (): ReactElement => <CoreDivider.Divider direction="x" padded />;
+export const Divider = (): ReactElement => <CoreDivider.Divider x padded />;

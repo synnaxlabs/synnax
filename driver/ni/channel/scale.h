@@ -37,9 +37,10 @@ struct Scale {
 
     /// @brief applies the scale to the DAQmx task, returning a key for the scale
     /// and any error that occurred during application.
-    virtual std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx
-    ) { return {"", xerrors::NIL}; }
+    virtual std::pair<std::string, xerrors::Error>
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) {
+        return {"", xerrors::NIL};
+    }
 };
 
 /// @brief base scale data structure for all scale types.
@@ -52,26 +53,25 @@ struct BaseScale : Scale {
     explicit BaseScale(xjson::Parser &cfg):
         type(cfg.required<std::string>("type")),
         pre_scaled_units(parse_units(cfg, "pre_scaled_units")),
-        scaled_units(cfg.optional<std::string>("scaled_units", "Volts")) {
-    }
+        scaled_units(cfg.optional<std::string>("scaled_units", "Volts")) {}
 };
 
 /// @brief Linear scaling that applies y = mx + b transformation
-/// @details Transforms values using a linear equation with configurable slope and y-intercept
+/// @details Transforms values using a linear equation with configurable slope and
+/// y-intercept
 struct LinearScale final : BaseScale {
     /// @brief The slope (m) in the linear equation
     const double slope;
     /// @brief The y-intercept (b) in the linear equation
     const double offset;
 
-    explicit LinearScale(xjson::Parser &cfg) :
+    explicit LinearScale(xjson::Parser &cfg):
         BaseScale(cfg),
         slope(cfg.required<double>("slope")),
-        offset(cfg.required<double>("y_intercept")) {
-    }
+        offset(cfg.required<double>("y_intercept")) {}
 
-    std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
+    std::pair<std::string, xerrors::Error>
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -87,7 +87,8 @@ struct LinearScale final : BaseScale {
 };
 
 /// @brief Map scaling that performs linear interpolation between configured ranges
-/// @details Maps values from one range [pre_scaled_min, pre_scaled_max] to another range [scaled_min, scaled_max]
+/// @details Maps values from one range [pre_scaled_min, pre_scaled_max] to another
+/// range [scaled_min, scaled_max]
 struct MapScale final : BaseScale {
     /// @brief Minimum value in the pre-scaled range
     const double pre_scaled_min;
@@ -103,11 +104,10 @@ struct MapScale final : BaseScale {
         pre_scaled_min(cfg.required<double>("pre_scaled_min")),
         pre_scaled_max(cfg.required<double>("pre_scaled_max")),
         scaled_min(cfg.required<double>("scaled_min")),
-        scaled_max(cfg.required<double>("scaled_max")) {
-    }
+        scaled_max(cfg.required<double>("scaled_max")) {}
 
-    std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
+    std::pair<std::string, xerrors::Error>
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -124,12 +124,13 @@ struct MapScale final : BaseScale {
     }
 };
 
-/// @brief the default mode for calculating the reverse polynomial is to use the same
-/// number of coefficients as the forward polynomial.
+/// @brief the default mode for calculating the reverse polynomial is to use the
+/// same number of coefficients as the forward polynomial.
 constexpr int REVERSE_POLY_ORDER_SAME_AS_FORWARD = -1;
 
 /// @brief Polynomial scaling that applies an nth-order polynomial transformation
-/// @details Transforms values using both forward and reverse polynomial coefficients
+/// @details Transforms values using both forward and reverse polynomial
+/// coefficients
 struct PolynomialScale final : BaseScale {
     /// @brief Coefficients for the forward polynomial transformation
     std::vector<double> forward_coeffs;
@@ -148,22 +149,22 @@ struct PolynomialScale final : BaseScale {
         min_x(cfg.required<double>("min_x")),
         max_x(cfg.required<double>("max_x")),
         reverse_poly_order(cfg.optional<int>("poly_order", -1)),
-        num_points_to_compute(cfg.optional<size_t>("num_points_to_compute", 100)) {
-   }
+        num_points_to_compute(cfg.optional<size_t>("num_points_to_compute", 100)) {}
 
-    std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
+    std::pair<std::string, xerrors::Error>
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         std::vector<double> reverse_coeffs(this->forward_coeffs.size());
         if (const auto err = dmx->CalculateReversePolyCoeff(
-            this->forward_coeffs.data(),
-            this->forward_coeffs.size(),
-            this->min_x,
-            this->max_x,
-            this->num_points_to_compute,
-            this->reverse_poly_order,
-            reverse_coeffs.data()
-        )) return {key, err};
+                this->forward_coeffs.data(),
+                this->forward_coeffs.size(),
+                this->min_x,
+                this->max_x,
+                this->num_points_to_compute,
+                this->reverse_poly_order,
+                reverse_coeffs.data()
+            ))
+            return {key, err};
         return {
             key,
             dmx->CreatePolynomialScale(
@@ -180,7 +181,8 @@ struct PolynomialScale final : BaseScale {
 };
 
 /// @brief Table scaling that performs lookup-based transformation
-/// @details Transforms values using a lookup table with linear interpolation between points
+/// @details Transforms values using a lookup table with linear interpolation
+/// between points
 struct TableScale final : BaseScale {
     /// @brief Input values for the lookup table
     const std::vector<double> pre_scaled;
@@ -192,12 +194,14 @@ struct TableScale final : BaseScale {
         pre_scaled(cfg.required_vec<double>("pre_scaled")),
         scaled(cfg.required_vec<double>("scaled")) {
         if (pre_scaled.size() == scaled.size()) return;
-        cfg.field_err("pre_scaled_vals",
-                      "pre_scaled and scaled values must be the same size");
+        cfg.field_err(
+            "pre_scaled_vals",
+            "pre_scaled and scaled values must be the same size"
+        );
     }
 
-    std::pair<std::string, xerrors::Error> apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
+    std::pair<std::string, xerrors::Error>
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
             key,
@@ -218,10 +222,8 @@ struct TableScale final : BaseScale {
 /// @param parent_cfg The parent configuration parser
 /// @param path The path to the scale configuration within the parent
 /// @return A unique pointer to the created Scale object
-inline std::unique_ptr<Scale> parse_scale(
-    const xjson::Parser &parent_cfg,
-    const std::string &path
-) {
+inline std::unique_ptr<Scale>
+parse_scale(const xjson::Parser &parent_cfg, const std::string &path) {
     auto cfg = parent_cfg.child(path);
     const auto type = cfg.required<std::string>("type");
     if (type == "linear") return std::make_unique<LinearScale>(cfg);

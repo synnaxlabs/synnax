@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type KeyedNamed, type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Notation } from "@/notation/notation";
 import { Button, type ButtonProps } from "@/select/Button";
 
-const DATA: KeyedNamed<Notation>[] = [
+const DATA: KeyedNamed<notation.Notation>[] = [
   { key: "standard", name: "Standard" },
   { key: "scientific", name: "Scientific" },
   { key: "engineering", name: "Engineering" },
@@ -21,7 +20,7 @@ const DATA: KeyedNamed<Notation>[] = [
 
 export interface SelectNotationProps
   extends Omit<
-    ButtonProps<Notation, KeyedNamed<Notation>>,
+    ButtonProps<notation.Notation, KeyedNamed<notation.Notation>>,
     "data" | "entryRenderKey"
   > {}
 

@@ -21,7 +21,7 @@
         width: 3rem;
         background-color: var(--pluto-gray-l1);
         text-align: center;
-        border-color: var(--pluto-gray-l4) !important;
+        border-color: var(--pluto-gray-l6) !important;
     }
     & *:last-child {
         width: 40px;

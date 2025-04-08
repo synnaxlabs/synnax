@@ -30,7 +30,12 @@ interface ChannelTypeProps {
 
 const ChannelType = ({ type }: ChannelTypeProps) => (
   <Align.Space direction="x" size="small">
-    <Text.WithIcon startIcon={AI_CHANNEL_TYPE_ICONS[type]} level="p" shade={7} />
+    <Text.WithIcon
+      startIcon={AI_CHANNEL_TYPE_ICONS[type]}
+      level="p"
+      shade={9}
+      style={{ transform: "scale(0.85)" }}
+    />
     <Text.Text level="p">{AI_CHANNEL_TYPE_NAMES[type]}</Text.Text>
   </Align.Space>
 );

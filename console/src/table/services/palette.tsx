@@ -17,7 +17,7 @@ import { import_ } from "@/table/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-table",
-  name: "Create Table",
+  name: "Create a Table",
   icon: <Icon.Table />,
   onSelect: ({ placeLayout }) => placeLayout(Table.create()),
 };
