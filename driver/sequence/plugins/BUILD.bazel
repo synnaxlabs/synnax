@@ -17,8 +17,7 @@ cc_library(
         "//driver/pipeline",
         "//x/cpp/xerrors",
         "//x/cpp/xlua",
-        "@com_github_google_glog//:glog",
-        "@lua",
+        "@glog",
         "@nlohmann_json//:json",
     ],
 )
@@ -41,6 +40,6 @@ cc_test(
         "//driver/sequence/plugins",
         "//driver/sequence/plugins/mock",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

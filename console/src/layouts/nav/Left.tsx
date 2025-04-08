@@ -13,30 +13,24 @@ import { Logo } from "@synnaxlabs/media";
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { NAV_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { Menu } from "@/layouts/nav/Menu";
-import { SIZES } from "@/layouts/nav/sizes";
 
 export const Left = (): ReactElement => {
-  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer(
-    "left",
-    NAV_DRAWER_ITEMS,
-  );
-  const os = OS.use();
+  const os = OS.use({});
   return (
-    <Nav.Bar className={CSS.B("main-nav")} location="left" size={SIZES.side}>
+    <Layout.Nav.Bar location="left" size="8rem">
       {os !== "Windows" && (
-        <Nav.Bar.Start className="console-main-nav-left__start" bordered>
-          <Logo className="console-main-nav-left__logo" />
+        <Nav.Bar.Start bordered>
+          <Logo />
         </Nav.Bar.Start>
       )}
-      <Nav.Bar.Content className="console-main-nav__content">
-        <Menu activeItem={activeItem} onChange={onSelect}>
-          {menuItems}
-        </Menu>
+      <Nav.Bar.Content>
+        <Menu location="left" />
       </Nav.Bar.Content>
-    </Nav.Bar>
+      <Nav.Bar.End bordered>
+        <Menu location="bottom" />
+      </Nav.Bar.End>
+    </Layout.Nav.Bar>
   );
 };

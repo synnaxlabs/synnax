@@ -71,6 +71,7 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
     >
       <Align.Space
         style={{ width: "100%", height: "100%" }}
+        className={menuProps.className}
         onClick={() => {
           if (hovered != null) {
             setViewport({

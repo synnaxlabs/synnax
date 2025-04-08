@@ -15,111 +15,69 @@
     left: 0;
     z-index: 11;
     pointer-events: none;
-    background: var(--pluto-gray-l1);
-    border: var(--pluto-border-l4);
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border-l5);
     border-radius: calc(var(--pluto-border-radius) * 2);
-    box-shadow: var(--pluto-shadow-menu);
+    box-shadow: var(--pluto-shadow-v1);
     padding: 1rem 1.5rem;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    --translate-amount: 0.666rem;
+    --transform-x: 0;
+    --transform-y: 0;
+    --scale: 0.95;
+    transform: translate(var(--transform-x), var(--transform-y)) scale(var(--scale));
+    transition:
+        opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
     .pluto-text {
-        color: var(--pluto-gray-l9);
+        color: var(--pluto-gray-l11);
         font-weight: 350;
     }
 
     &.pluto--loaded {
         opacity: 1;
+        --scale: 1;
     }
 
     &.pluto--center {
         &.pluto--top {
-            transform: translate(
-                calc(var(--pos-x) - 50%),
-                calc(var(--pos-y) + calc(-100% - 1rem))
-            );
+            --transform-x: calc(var(--pos-x) - 50%);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
         &.pluto--bottom {
-            transform: translate(calc(var(--pos-x) - 50%), calc(var(--pos-y) + 1rem));
+            --transform-x: calc(var(--pos-x) - 50%);
+            --transform-y: calc(var(--pos-y) + var(--translate-amount));
         }
         &.pluto--left {
-            transform: translate(
-                calc(var(--pos-x) + calc(-100% - 1rem)),
-                calc(var(--pos-y) - 50%)
-            );
-            &::after {
-                right: -2rem;
-                border-color: transparent transparent transparent var(--pluto-gray-l4);
-            }
+            --transform-x: calc(var(--pos-x) + calc(-100% - var(--translate-amount)));
+            --transform-y: calc(var(--pos-y) - 50%);
         }
         &.pluto--right {
-            transform: translate(calc(var(--pos-x) + 1rem), calc(var(--pos-y) - 50%));
-            &::after {
-                left: -2rem;
-                border-color: transparent var(--pluto-gray-l4) transparent transparent;
-            }
-        }
-
-        &.pluto--top,
-        &.pluto--bottom {
-            &::after {
-                left: calc(50% - 1rem);
-            }
-        }
-
-        &.pluto--left,
-        &.pluto--right {
-            &::after {
-                top: calc(50% - 1rem);
-            }
-        }
-    }
-
-    &.pluto--left {
-        &::after {
-            right: calc(var(--el-width) / 2 - 1rem);
-        }
-    }
-
-    &.pluto--right {
-        &::after {
-            left: calc(var(--el-width) / 2 - 1rem);
+            --transform-x: calc(var(--pos-x) + var(--translate-amount));
+            --transform-y: calc(var(--pos-y) - 50%);
         }
     }
 
     &.pluto--top {
-        &::after {
-            border-color: var(--pluto-gray-l4) transparent transparent transparent;
-            top: 100%;
-        }
         &.pluto--right {
-            transform: translate(var(--pos-x), calc(var(--pos-y) + calc(-100% - 1rem)));
+            --transform-x: var(--pos-x);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
         &.pluto--left {
-            transform: translate(
-                calc(var(--pos-x) - 100%),
-                calc(var(--pos-y) + calc(-100% - 1rem))
-            );
+            --transform-x: calc(var(--pos-x) - 100%);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
     }
 
     &.pluto--bottom {
-        &::after {
-            border-color: transparent transparent var(--pluto-gray-l4) transparent;
-            bottom: 100%;
-        }
         &.pluto--right {
-            transform: translate(var(--pos-x), calc(var(--pos-y) - 1rem));
+            --transform-x: var(--pos-x);
+            --transform-y: calc(var(--pos-y) - var(--translate-amount));
         }
         &.pluto--left {
-            transform: translate(calc(var(--pos-x) - 100%), calc(var(--pos-y) + 1rem));
+            --transform-x: calc(var(--pos-x) - 100%);
+            --transform-y: calc(var(--pos-y) + var(--translate-amount));
         }
-    }
-
-    &::after {
-        content: " ";
-        position: absolute;
-        border-width: 1rem;
-        border-style: solid;
     }
 }

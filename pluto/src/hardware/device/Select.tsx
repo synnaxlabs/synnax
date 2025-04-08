@@ -29,7 +29,7 @@ const COLUMNS: Array<List.ColumnSpec<device.Key, Entry>> = [
     render: ({ entry: { location, rackName } }) => (
       <Breadcrumb.Breadcrumb
         level="small"
-        shade={7}
+        shade={11}
         weight={500}
         style={{ marginTop: "0.25rem" }}
       >

@@ -15,7 +15,7 @@ export const components = mdxOverrides;
 This page documents a number of common patterns we've found useful when writing control
 sequences.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Checking if a Channel Has Received Telemetry
 
@@ -27,12 +27,12 @@ For example, imagine we're writing a control sequence that reads a set of analog
 from a National Instruments (NI) device that is connected to pressure transducers, and
 writing to a set of digital outputs on another NI device that control a solenoid valve.
 
-In this setup, we'll create an [NI Analog Read
-Task](/reference/device-drivers/ni/analog-read-task) that samples the pressure channels
-at 100 Hz, then we'll create an [NI Digital Write
-Task](/reference/device-drivers/ni/digital-write-task) to write to the outputs of the
-device. We won't start any of them, so we're not acquiring data or controlling outputs
-yet.
+In this setup, we'll create an
+[NI Analog Read Task](/reference/device-drivers/ni/analog-read-task) that samples the
+pressure channels at 100 Hz, then we'll create an
+[NI Digital Write Task](/reference/device-drivers/ni/digital-write-task) to write to the
+outputs of the device. We won't start any of them, so we're not acquiring data or
+controlling outputs yet.
 
 First, we'll create the following control sequence that runs at 10 Hz:
 
@@ -77,14 +77,14 @@ conditional block wih valid pressure values.
 We recommend **always** checking if a channel value is defined before using it, as it
 will prevent any unexpected issues from arising.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Initializing Variables
 
 In some cases, it's useful to initialize one or more variables a single time during the
-first loop in a sequence. This is particularly relevant for building [State
-Machines](#state-machines). To do this, we can use the built-in `iteration` variable
-along with a conditional check surrounding the block where we define our first
+first loop in a sequence. This is particularly relevant for building
+[State Machines](#state-machines). To do this, we can use the built-in `iteration`
+variable along with a conditional check surrounding the block where we define our first
 variables:
 
 ```lua
@@ -98,7 +98,7 @@ end
 Now, `state` will only be set to `"pressurizing"` once during the first iteration of the
 sequence.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Fixed Delays Between Commands
 
@@ -124,7 +124,7 @@ else if pressure > 100 then
 end
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## State Machines
 
@@ -179,7 +179,7 @@ initial state, using a chain of conditional logic to execute specific control co
 within the state, and then transitioning to a different phase by assigning to the
 `state` variable when ready.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Abort Sequence
 

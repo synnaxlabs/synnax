@@ -11,7 +11,9 @@
     "astro": "astro",
     "algolia": "node ./src/util/algoliasearch.js",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "fix": "eslint --cache --fix",
+    "format": "prettier --write .",
+    "format-check": "prettier --check ."
   },
   "dependencies": {
     "@astrojs/mdx": "^4.2.0",
@@ -44,6 +46,7 @@
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
+    "prettier": "^3.5.3",
     "remove-markdown": "^0.6.0",
     "typescript": "^5.8.2"
   }

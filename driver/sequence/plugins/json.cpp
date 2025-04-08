@@ -15,8 +15,7 @@
 #include "x/cpp/xlua/xlua.h"
 
 
-plugins::JSON::JSON(json source_data): data(std::move(source_data)) {
-}
+plugins::JSON::JSON(json source_data): data(std::move(source_data)) {}
 
 xerrors::Error plugins::JSON::before_all(lua_State *L) {
     return xlua::set_globals_from_json_object(L, this->data);

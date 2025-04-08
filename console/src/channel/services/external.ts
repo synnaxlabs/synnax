@@ -10,3 +10,4 @@
 export * from "@/channel/services/link";
 export * from "@/channel/services/ontology";
 export * from "@/channel/services/palette";
+export * from "@/channel/services/Toolbar";

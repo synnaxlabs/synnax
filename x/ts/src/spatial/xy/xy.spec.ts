@@ -143,4 +143,12 @@ describe("XY", () => {
       ]);
     });
   });
+
+  describe("swap", () => {
+    it("should swap x and y coordinates", () => {
+      expect(xy.swap([1, 2])).toEqual({ x: 2, y: 1 });
+      expect(xy.swap({ x: 3, y: 4 })).toEqual({ x: 4, y: 3 });
+      expect(xy.swap({ width: 5, height: 6 })).toEqual({ x: 6, y: 5 });
+    });
+  });
 });

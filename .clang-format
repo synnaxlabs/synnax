@@ -3,9 +3,10 @@
 Language: Cpp
 BasedOnStyle: LLVM
 AccessModifierOffset: -4
+AlignAfterOpenBracket: BlockIndent
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
-AlignOperands: true
+AlignOperands: AlignAfterOperator
 AlignTrailingComments: false
 AlwaysBreakTemplateDeclarations: Yes
 BraceWrapping: 
@@ -26,12 +27,14 @@ BraceWrapping:
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 BreakBeforeBraces: Custom
-BreakConstructorInitializers: AfterColon
 BreakConstructorInitializersBeforeComma: false
+BreakConstructorInitializers: AfterColon
 ColumnLimit: 88
 CompactNamespaces: true
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
-ContinuationIndentWidth: 8
+NamespaceIndentation: None
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
 IncludeCategories: 
   - Regex: '^<.*'
     Priority: 1
@@ -55,4 +58,24 @@ SpacesInConditionalStatement: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 TabWidth: 4
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+PenaltyBreakAssignment: 10000
+PenaltyBreakBeforeFirstCallParameter: 1
+PenaltyExcessCharacter: 1000000
+ExperimentalAutoDetectBinPacking: false
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakAfterReturnType: None
+BreakAfterJavaFieldAnnotations: false
+BreakBeforeInheritanceComma: false
+AllowShortBlocksOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+SpaceBeforeParens: ControlStatements
+BreakBeforeTernaryOperators: true
+SpaceBeforeCtorInitializerColon: false
+AlwaysBreakBeforeMultilineStrings: false
+FixNamespaceComments: false
+BreakStringLiterals: false
 ...

@@ -26,7 +26,7 @@ import {
   box,
   clamp,
   dimensions,
-  type location,
+  location,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
@@ -186,7 +186,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         itemKey="toggleEdit"
         startIcon={editable ? <Icon.EditOff /> : <Icon.Edit />}
       >
-        {editable ? "Disable Edit Mode" : "Enable Edit Mode"}
+        {`${editable ? "Disable" : "Enable"} editing`}
       </PMenu.Item>
       <PMenu.Divider />
       <Menu.HardReloadItem />
@@ -243,6 +243,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             width: totalColSizes,
             height: totalRowSizes,
           }}
+          onContextMenu={menuProps.open}
+          className={menuProps.className}
         >
           <ColResizer
             tableKey={layoutKey}
@@ -265,31 +267,31 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             );
           })}
         </Core.Table>
+        {editable && (
+          <>
+            <Button.Button
+              className={CSS.BE("table", "add-col")}
+              justify="center"
+              align="center"
+              size="small"
+              onClick={handleAddCol}
+            >
+              <Icon.Add />
+            </Button.Button>
+            <Button.Button
+              className={CSS.BE("table", "add-row")}
+              variant="filled"
+              justify="center"
+              align="center"
+              size="small"
+              onClick={handleAddRow}
+            >
+              <Icon.Add />
+            </Button.Button>
+          </>
+        )}
+        <TableControls tableKey={layoutKey} />
       </PMenu.ContextMenu>
-      {editable && (
-        <>
-          <Button.Button
-            className={CSS.BE("table", "add-col")}
-            justify="center"
-            align="center"
-            size="small"
-            onClick={handleAddCol}
-          >
-            <Icon.Add />
-          </Button.Button>
-          <Button.Button
-            className={CSS.BE("table", "add-row")}
-            variant="filled"
-            justify="center"
-            align="center"
-            size="small"
-            onClick={handleAddRow}
-          >
-            <Icon.Add />
-          </Button.Button>
-        </>
-      )}
-      <TableControls tableKey={layoutKey} />
     </div>
   );
 };
@@ -307,7 +309,13 @@ const TableControls = ({ tableKey }: TableControls) => {
 
   return (
     <Align.Pack className={CSS.BE("table", "edit")}>
-      <Button.ToggleIcon value={editable} onChange={handleEdit}>
+      <Button.ToggleIcon
+        value={editable}
+        onChange={handleEdit}
+        size="small"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+      >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.ToggleIcon>
     </Align.Pack>

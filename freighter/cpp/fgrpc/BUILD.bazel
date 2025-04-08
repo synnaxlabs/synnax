@@ -9,8 +9,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
-        "@com_github_google_glog//:glog",
-        "@com_github_grpc_grpc//:grpc++",
+        "@glog//:glog",
+        "@grpc//:grpc++",
     ],
 )
 
@@ -25,6 +25,6 @@ cc_test(
     deps = [
         "//freighter/cpp/fgrpc/mock:server",
         "//freighter/cpp/fgrpc/mock:service_grpc",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

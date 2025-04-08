@@ -37,7 +37,7 @@ export const createResourceListItem = (
           startIcon={isValidElement(icon) ? icon : icon(entry)}
           level="p"
           weight={450}
-          shade={9}
+          shade={11}
           size="medium"
         >
           {name}

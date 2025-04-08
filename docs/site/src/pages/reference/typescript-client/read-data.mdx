@@ -13,15 +13,15 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The TypeScript client supports several different methods for reading data from a
-cluster. We can read directly from a channel, read from multiple channels at
-once, or use iterators to efficiently process large amounts of data.
+cluster. We can read directly from a channel, read from multiple channels at once, or
+use iterators to efficiently process large amounts of data.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Reading from a Channel
 
-The simplest way to read data from Synnax is to use the `read` method on a
-`Channel` object:
+The simplest way to read data from Synnax is to use the `read` method on a `Channel`
+object:
 
 ```typescript
 const channel = await client.channels.retrieve("temperature");
@@ -40,12 +40,12 @@ etc.). We can convert the returned data to a JavaScript array easily:
 const data = Array.from(series);
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Reading from Multiple Channels
 
-We can also read from multiple channels at once by calling the `read` method on
-the client. This method takes a list of channel names/keys and a time range:
+We can also read from multiple channels at once by calling the `read` method on the
+client. This method takes a list of channel names/keys and a time range:
 
 ```typescript
 import { TimeStamp } from "@synnaxlabs/pluto";
@@ -64,16 +64,16 @@ const temperature = frame.get("temperature");
 const humidity = frame.get("humidity");
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Using Iterators
 
-While the above methods will cover most use cases, there are situations where
-it's necessary to query large volumes of data. Iterators provide a way to
-efficiently process data in chunks to avoid keeping large amounts of data in memory.
-By default, Synnax uses a chunk size of 100,000 samples. To configure a
-custom chunk size, set the `chunk_size` field in the options argument to the
-`open_iterator` method with the desired number of samples per iteration.
+While the above methods will cover most use cases, there are situations where it's
+necessary to query large volumes of data. Iterators provide a way to efficiently process
+data in chunks to avoid keeping large amounts of data in memory. By default, Synnax uses
+a chunk size of 100,000 samples. To configure a custom chunk size, set the `chunk_size`
+field in the options argument to the `open_iterator` method with the desired number of
+samples per iteration.
 
 ```typescript
 const start = TimeStamp.now();
@@ -97,7 +97,6 @@ try {
 }
 ```
 
-It's very important to `close` the iterator when you're done with it to free up
-network resources. We highly recommend wrapping the iterator in a
-`try...finally` block to ensure that it's closed properly in the event of an
-error.
+It's very important to `close` the iterator when you're done with it to free up network
+resources. We highly recommend wrapping the iterator in a `try...finally` block to
+ensure that it's closed properly in the event of an error.

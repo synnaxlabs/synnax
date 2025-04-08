@@ -293,8 +293,8 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
   const { entry } = props;
   return (
     <List.ItemFrame
-      direction="y"
-      size={0.5}
+      y
+      size="tiny"
       style={{ padding: "1.5rem" }}
       highlightHovered
       {...props}
@@ -303,7 +303,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         startIcon={<Icon.Range />}
         level="p"
         weight={450}
-        shade={9}
+        shade={11}
         size="medium"
       >
         {entry.name}{" "}

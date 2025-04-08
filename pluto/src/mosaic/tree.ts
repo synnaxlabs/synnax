@@ -29,6 +29,7 @@ export const insertTab = (
   tab: Tabs.Tab,
   loc: location.Location = "center",
   key?: number,
+  index?: number,
 ): Node => {
   root = shallowCopyNode(root);
   if (key === undefined) return insertAnywhere(root, tab);
@@ -36,9 +37,13 @@ export const insertTab = (
   const node = findNodeOrAncestor(root, key);
 
   // In the case where we're dropping the node in the center,
-  // simply add the tab, change the selection, and return.
+  // simply add the tab at the specified index or append it
   if (loc === "center") {
-    node.tabs?.push(tab);
+    node.tabs ||= [];
+    if (index !== undefined && index >= 0 && index <= node.tabs.length)
+      node.tabs.splice(index, 0, tab);
+    else node.tabs.push(tab);
+
     node.selected = tab.tabKey;
     return root;
   }
@@ -172,9 +177,10 @@ export const selectTab = (root: Node, tabKey: string): Node => {
  * Moves a tab from one node to another.
  *
  * @param root - The root of the mosaic.
- * @param to - The key of the node to move the tab to.
  * @param tabKey - The key of the tab to move. This tab must exist in the mosaic.
  * @param loc - The location where the tab was 'dropped' relative to the node.
+ * @param to - The key of the node to move the tab to.
+ * @param index - Optional index where to insert the tab in the target node.
  * @returns A shallow copy of the root of the mosaic with the tab moved.
  */
 export const moveTab = (
@@ -182,12 +188,13 @@ export const moveTab = (
   tabKey: string,
   loc: location.Location,
   to: number,
+  index?: number,
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
   const [tab, entry] = findTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   const [r2, selected] = removeTab(root, tabKey);
-  const r3 = insertTab(r2, tab, loc, to);
+  const r3 = insertTab(r2, tab, loc, to, index);
   return [r3, selected];
 };
 

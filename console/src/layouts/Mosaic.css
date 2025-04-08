@@ -9,6 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-resize-multiple {
-    position: relative;
+.console-mosaic-window {
+    .console-nav__drawer:is(.console--hover, .pluto--hidden) {
+        left: 0.5rem;
+        width: calc(100vw - 1rem - 1px);
+    }
+}
+
+.console--os-macos {
+    .console-mosaic__controls-button {
+        border-top-right-radius: 1rem;
+    }
+}
+
+.console--os-windows {
+    .console-mosaic__controls-button {
+        border-top-left-radius: 1rem;
+    }
 }

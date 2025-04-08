@@ -234,14 +234,14 @@ export const wrapForm = <
     const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Align.Space
-        direction="y"
+        y
         className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
         <Align.Space grow>
           <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
-            <Align.Space direction="x" justify="spaceBetween">
+            <Align.Space x justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
@@ -255,11 +255,11 @@ export const wrapForm = <
               </Align.Space>
             </Align.Space>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} direction="x" wrap>
+            <Align.Space className={CSS.B("task-properties")} x wrap>
               <Properties />
             </Align.Space>
             <Align.Space
-              direction="x"
+              x
               className={CSS.B("task-channel-form-container")}
               bordered
               rounded
