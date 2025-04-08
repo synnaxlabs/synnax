@@ -10,34 +10,40 @@
 package core
 
 import (
-	"fmt"
+	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
 )
 
+// Synchronizer is used to synchronized sequenced responses across multiple nodes.
+// Synchronizer assumes that a request sent to multiple nodes contains a sequence
+// number that is incremented with every request.
 type Synchronizer struct {
+	alamos.Instrumentation
 	NodeCount int
-	Counter   int
-	SeqNum    int
+	counter   int
 	ack       bool
+	seqNum    int
 }
 
-func (s *Synchronizer) Sync(seqNum int, ack bool) (_ack bool, _seqNum int, fulfilled bool) {
-	if seqNum != s.SeqNum {
-		fmt.Printf("[distribution.framer.core] - received out of order response: %d, expected: %d", seqNum, s.SeqNum)
+func (s *Synchronizer) Sync(nodeSeqNum int, nodeAck bool) (ack bool, seqNum int, fulfilled bool) {
+	if s.seqNum != nodeSeqNum {
+		s.L.Warn("unexpected sequence number", zap.Int("expected", s.seqNum), zap.Int("actual", nodeSeqNum))
+		return false, 0, false
 	}
-	if s.Counter == 0 {
+	if s.counter == 0 {
 		s.ack = true
+		s.seqNum = nodeSeqNum
 	}
-	s.Counter++
-	if !ack {
+	s.counter++
+	// If we have a bad ack for any response, set the ack for the
+	if !nodeAck {
 		s.ack = false
 	}
-	if s.Counter == s.NodeCount {
-		s.Counter = 0
-		_seqNum = s.SeqNum
-		s.SeqNum++
-		_ack = s.ack
+	if s.counter == s.NodeCount {
+		s.counter = 0
+		ack = s.ack
 		s.ack = true
-		return _ack, _seqNum, true
+		return ack, seqNum, true
 	}
-	return ack, s.SeqNum, false
+	return ack, seqNum, false
 }

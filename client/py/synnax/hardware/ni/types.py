@@ -11,7 +11,7 @@ import json
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, confloat, conint, validator
+from pydantic import BaseModel, confloat, conint, validator, field_validator
 
 from synnax import ValidationError
 from synnax.hardware.task import (
@@ -827,15 +827,15 @@ class AnalogReadTaskConfig(BaseModel):
     channels: list[AIChan]
     data_saving: bool
 
-    @validator("stream_rate")
+    @field_validator("stream_rate")
     def validate_stream_rate(cls, v, values):
-        if "sample_rate" in values and v > values["sample_rate"]:
+        if "sample_rate" in values.data and v > values.data["sample_rate"]:
             raise ValueError(
                 "Stream rate must be less than or equal to the sample rate"
             )
         return v
 
-    @validator("channels")
+    @field_validator("channels")
     def validate_channel_ports(cls, v, values):
         ports = {c.port for c in v}
         if len(ports) < len(v):

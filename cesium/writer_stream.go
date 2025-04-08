@@ -47,6 +47,9 @@ type WriterRequest struct {
 	Frame Frame
 	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
 	Config WriterConfig
+	// SeqNum is used to match the request with the response. The sequence number should
+	// be incremented with each request.
+	SeqNum int
 }
 
 // WriterResponse contains any errors that occurred during write execution.
@@ -138,30 +141,24 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 		return
 	}
 	if req.Command == WriterError {
-		w.seqNum++
 		w.sendRes(req, false, w.err, 0)
-		w.err = nil
 		return
 	}
 	if req.Command == WriterSetAuthority {
-		w.seqNum++
 		w.setAuthority(ctx, req.Config)
 		w.sendRes(req, true, nil, 0)
 		return
 	}
 	if w.err != nil {
-		w.seqNum++
 		w.sendRes(req, false, nil, 0)
 		return
 	}
 	if req.Command == WriterCommit {
-		w.seqNum++
 		var end telem.TimeStamp
 		end, w.err = w.commit(ctx)
 		w.sendRes(req, w.err == nil, nil, end)
 	} else {
 		if w.err = w.write(ctx, req); w.err != nil {
-			w.seqNum++
 			w.sendRes(req, false, nil, 0)
 		}
 	}
@@ -221,7 +218,7 @@ func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem
 	w.Out.Inlet() <- WriterResponse{
 		Command: req.Command,
 		Ack:     ack,
-		SeqNum:  w.seqNum,
+		SeqNum:  req.SeqNum,
 		Err:     err,
 		End:     end,
 	}
