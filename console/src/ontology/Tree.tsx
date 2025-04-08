@@ -19,7 +19,7 @@ import {
   useCombinedStateAndRef,
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
+import { deep, type Optional, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import {
@@ -247,10 +247,10 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
 };
 
 export interface TreeProps {
-  root?: ontology.ID;
+  root: ontology.ID;
 }
 
-export const Tree = ({ root }: TreeProps): ReactElement => {
+const Internal = ({ root }: TreeProps): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
   const store = useStore<RootState, RootAction>();
@@ -654,3 +654,9 @@ const AdapterItem = memo<AdapterItemProps>(
   },
 );
 AdapterItem.displayName = "AdapterItem";
+
+export const Tree = memo<Optional<TreeProps, "root">>(({ root }) => {
+  if (root == null) return null;
+  return <Internal root={root} />;
+});
+Tree.displayName = "Tree";

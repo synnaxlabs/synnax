@@ -11,6 +11,11 @@
 
 .pluto-text-icon {
     color: var(--pluto-text-color);
+    &.pluto--ellipsis .pluto-text {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
 }
 
 .pluto-text-icon svg {

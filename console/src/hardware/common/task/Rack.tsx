@@ -33,8 +33,14 @@ export const Rack = ({ taskKey }: RackProps) => {
       <Text.WithIcon
         startIcon={<Icon.Rack />}
         level="p"
-        shade={11}
-        style={{ paddingRight: "0.5rem" }}
+        shade={8}
+        noWrap
+        ellipsis
+        style={{
+          maxWidth: "30rem",
+          textOverflow: "ellipsis",
+          overflow: "hidden",
+        }}
       >
         {rack?.name}
       </Text.WithIcon>

@@ -11,14 +11,7 @@ import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Icon as PIcon,
-  Menu as PMenu,
-  Status,
-  Text,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Icon as PIcon, Menu as PMenu, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
@@ -74,17 +67,16 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const state = useRackState(id.key);
 
-  const heartRef = useRef<HTMLDivElement>(null);
+  const heartRef = useRef<SVGSVGElement>(null);
+
+  const variant = (state?.variant ?? "disabled") as Status.Variant;
 
   useEffect(() => {
-    if (state?.variant !== "success") return;
+    if (variant !== "success") return;
     const heart = heartRef.current;
     if (!heart) return;
     heart.classList.remove("synnax-rack-heartbeat--beat");
-    requestAnimationFrame(() => {
-      heart.offsetHeight;
-      heart.classList.add("synnax-rack-heartbeat--beat");
-    });
+    requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
   }, [state]);
 
   return (
@@ -108,12 +100,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
           <Icon.Heart
             ref={heartRef}
             className="synnax-rack-heartbeat"
-            style={{
-              color:
-                Status.VARIANT_COLORS[
-                  state?.variant as keyof typeof Status.VARIANT_COLORS
-                ],
-            }}
+            style={{ color: Status.VARIANT_COLORS[variant] }}
           />
         </>
       )}

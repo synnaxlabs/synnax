@@ -36,6 +36,7 @@ export type WithIconProps<
     endIcon?: false | IconElement | IconElement[];
     divided?: boolean;
     noWrap?: boolean;
+    ellipsis?: boolean;
   };
 
 export const WithIcon = <
@@ -52,6 +53,7 @@ export const WithIcon = <
   noWrap = false,
   shade,
   weight,
+  ellipsis = false,
   ...rest
 }: WithIconProps<E, L>): ReactElement => {
   const color = evalColor(crudeColor, shade);
@@ -65,6 +67,7 @@ export const WithIcon = <
         CSS.B("text-icon"),
         CSS.BM("text-icon", level),
         CSS.noWrap(noWrap),
+        ellipsis && CSS.M("ellipsis"),
         className,
       )}
       x
