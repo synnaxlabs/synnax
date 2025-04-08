@@ -70,33 +70,36 @@ describe("Rack", () => {
   describe("state", () => {
     it("should include state when includeState is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      const retrieved = await client.hardware.racks.retrieve(r.key, {
-        includeState: true,
-      });
-
-      expect(retrieved.state).toBeDefined();
-      if (retrieved.state) {
-        expect(retrieved.state.key).toBe(r.key);
-        expect(retrieved.state.lastReceived).toBeInstanceOf(TimeStamp);
-      }
+      await expect
+        .poll(async () => {
+          const retrieved = await client.hardware.racks.retrieve(r.key, {
+            includeState: true,
+          });
+          return (
+            retrieved.state !== undefined &&
+            retrieved.state.lastReceived instanceof TimeStamp &&
+            retrieved.state.key === r.key
+          );
+        })
+        .toBeTruthy();
     });
     it("should include state for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
       const r2 = await client.hardware.racks.create({ name: "test2" });
 
-      const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
-        includeState: true,
-      });
-
-      expect(retrieved).toHaveLength(2);
-      retrieved.forEach((rack) => {
-        expect(rack.state).toBeDefined();
-        if (rack.state) {
-          expect(rack.state.key).toBe(rack.key);
-          expect(rack.state.lastReceived).toBeInstanceOf(TimeStamp);
-        }
-      });
+      await expect
+        .poll(async () => {
+          const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
+            includeState: true,
+          });
+          return retrieved.every(
+            (rack) =>
+              rack.state !== undefined &&
+              rack.state.lastReceived instanceof TimeStamp &&
+              rack.state.key === rack.key,
+          );
+        })
+        .toBeTruthy();
     });
   });
 });

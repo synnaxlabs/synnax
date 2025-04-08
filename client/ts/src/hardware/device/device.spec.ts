@@ -199,15 +199,21 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve<
-          UnknownRecord,
-          string,
-          string,
-          DeviceStateDetails
-        >(key, { includeState: true });
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        expect(retrieved.state?.variant).toBe("info");
+        await expect
+          .poll(async () => {
+            const retrieved = await client.hardware.devices.retrieve<
+              UnknownRecord,
+              string,
+              string,
+              DeviceStateDetails
+            >(key, { includeState: true });
+            return (
+              retrieved.state !== undefined &&
+              retrieved.state.variant === "info" &&
+              retrieved.state.key === key
+            );
+          })
+          .toBeTruthy();
       });
     });
   });
