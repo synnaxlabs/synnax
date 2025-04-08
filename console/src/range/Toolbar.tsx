@@ -412,13 +412,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       .catch((e) => handleError(e, "Failed to rename range"));
   };
   return (
-    <CoreList.ItemFrame
-      className={CSS.B("range-list-item")}
-      rightAligned
-      {...props}
-      size="small"
-      y
-    >
+    <CoreList.ItemFrame className={CSS.B("range-list-item")} {...props} size="small" y>
       {!entry.persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>

@@ -400,7 +400,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Circle
