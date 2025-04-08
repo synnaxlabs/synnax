@@ -18,10 +18,15 @@
         }
     }
     & *:nth-child(2) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         width: 3rem;
-        background-color: var(--pluto-gray-l1);
-        text-align: center;
+        background-color: var(--pluto-gray-l4);
         border-color: var(--pluto-gray-l6) !important;
+        height: 4.5rem;
+        border-top: var(--pluto-border);
+        border-bottom: var(--pluto-border);
     }
     & *:last-child {
         width: 40px;

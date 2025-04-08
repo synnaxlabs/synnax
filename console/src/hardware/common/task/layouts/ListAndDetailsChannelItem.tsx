@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Align, Icon, List, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type Key, type Keyed } from "@synnaxlabs/x";
 import { type JSX } from "react";
 
@@ -39,7 +39,7 @@ export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K
 
 const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
   level: "p",
-  shade: 7,
+  shade: 9,
   weight: 450,
   style: {
     maxWidth: hasIcon ? 100 : 150,
@@ -77,24 +77,25 @@ export const ListAndDetailsChannelItem = <K extends string, E extends Keyed<K>>(
       <Align.Space direction="x" size="small" align="center">
         <Text.Text
           level="p"
-          shade={6}
+          shade={8}
           weight={500}
           style={{ width: `${portMaxChars * 1.25}rem` }}
         >
           {port}
         </Text.Text>
         {hasIcon && (
-          <Text.WithIcon
-            shade={6}
-            weight={500}
-            level="p"
-            startIcon={
-              <Tooltip.Dialog>
-                {icon.name}
-                {icon.icon}
-              </Tooltip.Dialog>
-            }
-          />
+          <Tooltip.Dialog>
+            {icon.name}
+            <Icon.Icon
+              style={{
+                height: "var(--pluto-p-size)",
+                fontSize: "var(--pluto-p-size)",
+                color: "var(--pluto-gray-l8)",
+              }}
+            >
+              {icon.icon}
+            </Icon.Icon>
+          </Tooltip.Dialog>
         )}
         {hasStateChannel ? (
           <Align.Space direction="y" size="small">
