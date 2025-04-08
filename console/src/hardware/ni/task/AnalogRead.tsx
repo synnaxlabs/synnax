@@ -128,6 +128,7 @@ const Form: FC<
       initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
     />
   );
 };

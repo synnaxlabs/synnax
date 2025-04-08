@@ -38,7 +38,7 @@ export interface DetailsProps {
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<
     ChannelListProps<C>,
-    "onTare" | "allowTare" | "isSnapshot" | "listItem"
+    "onTare" | "allowTare" | "isSnapshot" | "listItem" | "contextMenuItems"
   > {
   details: RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;

@@ -15,7 +15,7 @@ import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import { Form } from "@/hardware/opc/task/Form";
+import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   WRITE_TYPE,
   type WriteChannel,
@@ -50,11 +50,9 @@ const Properties = () => (
 
 const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
   const nodeId = data?.nodeId as string;
-  const name = data?.name as string;
   return {
     key: nodeId,
-    name,
-    nodeName: name,
+    nodeName: data?.name as string,
     nodeId,
     cmdChannel: 0,
     enabled: true,
@@ -62,10 +60,22 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
   };
 };
 
+const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
+  cmdChannel,
+  key,
+}) => ({
+  key: cmdChannel,
+  id: Common.Task.getChannelNameID(key, "cmd"),
+});
+
 const TaskForm: FC<
   Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
 > = ({ isSnapshot }) => (
-  <Form isSnapshot={isSnapshot} convertHaulItemToChannel={convertHaulItemToChannel} />
+  <Form
+    isSnapshot={isSnapshot}
+    convertHaulItemToChannel={convertHaulItemToChannel}
+    getChannelKeyAndID={getChannelKeyAndID}
+  />
 );
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
@@ -109,15 +119,15 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
     )
       dev.properties.write.channels = {};
     const commandIndexes = await client.channels.create(
-      commandsToCreate.map(({ name }) => ({
-        name: `${name}_cmd_time`,
+      commandsToCreate.map(({ nodeName }) => ({
+        name: `${nodeName}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map(({ dataType, name }, i) => ({
-        name: `${name}_cmd`,
+      commandsToCreate.map(({ dataType, nodeName }, i) => ({
+        name: `${nodeName}_cmd`,
         dataType,
         index: commandIndexes[i].key,
       })),

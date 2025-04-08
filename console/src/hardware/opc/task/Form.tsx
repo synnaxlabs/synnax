@@ -9,13 +9,16 @@
 
 import "@/hardware/opc/task/Form.css";
 
+import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  componentRenderProp,
   Form as PForm,
   Haul,
   Header as PHeader,
   List,
+  Menu,
   type RenderProp,
   Text,
   useSyncedRef,
@@ -23,6 +26,7 @@ import {
 import { useCallback, useState } from "react";
 
 import { Common } from "@/hardware/common";
+import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { Device } from "@/hardware/opc/device";
 import { type Channel } from "@/hardware/opc/task/types";
 
@@ -31,35 +35,34 @@ export interface ExtraItemProps {
   snapshot: boolean;
 }
 
+export interface ChannelKeyAndIDGetter<C extends Channel> {
+  (channel: C): { id: string; key: channel.Key };
+}
+
 interface ChannelListItemProps<C extends Channel>
   extends Common.Task.ChannelListItemProps<C> {
   children: RenderProp<ExtraItemProps>;
+  getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
-const ChannelListItem = ({
+const ChannelListItem = <C extends Channel>({
   path,
   children,
   isSnapshot,
+  getChannelKeyAndID,
   ...rest
-}: ChannelListItemProps<Channel>) => {
+}: ChannelListItemProps<C>) => {
   const {
-    entry: { name, nodeName, nodeId },
+    entry: { nodeName, nodeId },
   } = rest;
   const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";
   let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
+  const { key: channel, id } = getChannelKeyAndID(rest.entry);
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="y" size="small">
-        <Text.WithIcon
-          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="p"
-          weight={500}
-          shade={9}
-          align="end"
-        >
-          {name}
-        </Text.WithIcon>
+        <ChannelName level="p" weight={500} shade={9} channel={channel} id={id} />
         <Text.WithIcon
           startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
           level="small"
@@ -102,13 +105,6 @@ const EmptyContent = () => (
 
 const CHANNELS_PATH = "config.channels";
 
-interface ChannelListProps<C extends Channel>
-  extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot"> {
-  children: RenderProp<ExtraItemProps>;
-  device: Device.Device;
-  convertHaulItemToChannel: (item: Haul.Item) => C;
-}
-
 const VARIABLE_NODE_CLASS = "Variable";
 
 const filterHaulItem = (item: Haul.Item): boolean =>
@@ -116,10 +112,41 @@ const filterHaulItem = (item: Haul.Item): boolean =>
 
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 
+export const generateContextMenuItemRenderProps = <C extends Channel>(
+  getChannelKeyAndID: ChannelKeyAndIDGetter<C>,
+): RenderProp<Common.Task.ContextMenuItemProps<C>> => {
+  const C = ({ channels, keys }: Common.Task.ContextMenuItemProps<C>) => {
+    if (keys.length !== 1) return null;
+    const key = keys[0];
+    const channel = channels.find((ch) => ch.key === key);
+    if (!channel) return null;
+    const { key: channelKey, id } = getChannelKeyAndID(channel);
+    if (!channelKey) return null;
+    const handleRename = () => Text.edit(id);
+    return (
+      <>
+        <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+          Rename
+        </Menu.Item>
+      </>
+    );
+  };
+  return componentRenderProp(C);
+};
+
+interface ChannelListProps<C extends Channel>
+  extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
+  children: RenderProp<ExtraItemProps>;
+  device: Device.Device;
+  convertHaulItemToChannel: (item: Haul.Item) => C;
+  getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+}
+
 const ChannelList = <C extends Channel>({
   device,
   children,
   convertHaulItemToChannel,
+  getChannelKeyAndID,
   ...rest
 }: ChannelListProps<C>) => {
   const { value, push, remove } = PForm.useFieldArray<C>({
@@ -152,7 +179,7 @@ const ChannelList = <C extends Channel>({
   const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
   const listItem = useCallback(
     ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
-      <ChannelListItem key={key} {...p}>
+      <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
         {children}
       </ChannelListItem>
     ),
@@ -180,28 +207,38 @@ export interface FormProps<C extends Channel> {
   isSnapshot: boolean;
   children?: RenderProp<ExtraItemProps>;
   convertHaulItemToChannel: (item: Haul.Item) => C;
+  getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
 export const Form = <C extends Channel>({
   isSnapshot,
   convertHaulItemToChannel,
   children = () => null,
-}: FormProps<C>) => (
-  <Common.Device.Provider<Device.Properties, Device.Make>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONNECT_LAYOUT}
-  >
-    {({ device }) => (
-      <>
-        {!isSnapshot && <Device.Browser device={device} />}
-        <ChannelList<C>
-          device={device}
-          isSnapshot={isSnapshot}
-          convertHaulItemToChannel={convertHaulItemToChannel}
-        >
-          {children}
-        </ChannelList>
-      </>
-    )}
-  </Common.Device.Provider>
-);
+  getChannelKeyAndID,
+}: FormProps<C>) => {
+  const contextMenuItems = useCallback(
+    generateContextMenuItemRenderProps(getChannelKeyAndID),
+    [getChannelKeyAndID],
+  );
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONNECT_LAYOUT}
+    >
+      {({ device }) => (
+        <>
+          {!isSnapshot && <Device.Browser device={device} />}
+          <ChannelList<C>
+            device={device}
+            isSnapshot={isSnapshot}
+            convertHaulItemToChannel={convertHaulItemToChannel}
+            getChannelKeyAndID={getChannelKeyAndID}
+            contextMenuItems={contextMenuItems}
+          >
+            {children}
+          </ChannelList>
+        </>
+      )}
+    </Common.Device.Provider>
+  );
+};

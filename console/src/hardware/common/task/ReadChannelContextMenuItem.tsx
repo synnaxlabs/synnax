@@ -1,0 +1,40 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/media";
+import { componentRenderProp, Menu, Text } from "@synnaxlabs/pluto";
+
+import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
+import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
+import { type ReadChannel } from "@/hardware/common/task/types";
+
+interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<ReadChannel> {}
+
+export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
+  channels,
+  keys,
+}) => {
+  if (keys.length !== 1) return null;
+  const key = keys[0];
+  const channel = channels.find((ch) => ch.key === key)?.channel;
+  if (!channel) return null;
+  const handleRename = () => Text.edit(getChannelNameID(key));
+  return (
+    <>
+      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+        Rename
+      </Menu.Item>
+      <Menu.Divider />
+    </>
+  );
+};
+
+export const readChannelContextMenuItem = componentRenderProp(
+  ReadChannelContextMenuItem,
+);

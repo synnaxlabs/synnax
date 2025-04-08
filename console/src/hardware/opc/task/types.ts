@@ -16,7 +16,6 @@ import { type Device } from "@/hardware/opc/device";
 export const PREFIX = "opc";
 
 const baseChannelZ = Common.Task.channelZ.extend({
-  name: z.string(),
   nodeId: z.string(),
   nodeName: z.string(),
 });
