@@ -87,7 +87,7 @@ export class StateProvider extends aether.Composite<
     i.instrumentation = alamos.useInstrumentation(ctx, "control-state");
     const theme = theming.use(ctx);
     i.palette = theme.colors.visualization.palettes.default;
-    i.defaultColor = theme.colors.gray.l6;
+    i.defaultColor = theme.colors.gray.l8;
     const nextClient = synnax.use(ctx);
     if (i.client != null && nextClient === i.client) return;
     i.client = nextClient;

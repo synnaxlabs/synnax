@@ -80,7 +80,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
         grow
         selectProps={SELECT_PROPS}
       />
-      <Align.Space direction="x" grow wrap>
+      <Align.Space x grow wrap>
         <Range.SelectMultipleInputItem
           data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}

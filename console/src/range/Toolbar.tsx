@@ -15,7 +15,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
-  Header,
   Icon as PIcon,
   List as CoreList,
   Menu as PMenu,
@@ -210,7 +209,7 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
 
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} size="small">
         <Text.Text level="p">No ranges added.</Text.Text>
         <Text.Link level="p" onClick={handleLinkClick}>
           Add a range
@@ -366,23 +365,27 @@ const List = (): ReactElement => {
   };
 
   return (
-    <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <CoreList.List<string, StaticRange>
-        data={ranges.filter((r) => r.variant === "static")}
-        emptyContent={<NoRanges onLinkClick={handleCreate} />}
-      >
+    <CoreList.List<string, StaticRange>
+      data={ranges.filter((r) => r.variant === "static")}
+      emptyContent={<NoRanges onLinkClick={handleCreate} />}
+    >
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
         <CoreList.Selector
           value={activeRange?.key ?? null}
           onChange={handleSelect}
           allowMultiple={false}
           allowNone={true}
         >
-          <CoreList.Core style={{ height: "100%", overflowX: "hidden" }}>
+          <CoreList.Core
+            style={{ height: "100%", overflowX: "hidden" }}
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
+          >
             {componentRenderProp(ListItem)}
           </CoreList.Core>
         </CoreList.Selector>
-      </CoreList.List>
-    </PMenu.ContextMenu>
+      </PMenu.ContextMenu>
+    </CoreList.List>
   );
 };
 
@@ -409,17 +412,11 @@ const ListItem = (props: ListItemProps): ReactElement => {
       .catch((e) => handleError(e, "Failed to rename range"));
   };
   return (
-    <CoreList.ItemFrame
-      className={CSS.B("range-list-item")}
-      direction="y"
-      rightAligned
-      {...props}
-      size="small"
-    >
+    <CoreList.ItemFrame className={CSS.B("range-list-item")} {...props} size="small" y>
       {!entry.persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small" shade={7}>
+          <Text.Text className="save-button" weight={700} level="small" shade={11}>
             L
           </Text.Text>
         </Tooltip.Dialog>
@@ -434,7 +431,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
-          direction="x"
+          x
           size="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
@@ -456,9 +453,9 @@ const Content = (): ReactElement => {
     <Align.Space empty style={{ height: "100%" }}>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Header.Actions>
+        <Toolbar.Actions>
           {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
-        </Header.Actions>
+        </Toolbar.Actions>
       </Toolbar.Header>
       <List />
     </Align.Space>
@@ -470,6 +467,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Ranges",
+  trigger: ["R"],
   initialSize: 300,
   minSize: 175,
   maxSize: 400,

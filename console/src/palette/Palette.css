@@ -11,14 +11,16 @@
 
 .console-palette {
     width: 100% !important;
-    max-width: 800px;
+    max-width: 600px;
 }
 
-.console-palette__btn {
-    width: 100%;
-
-    &:hover {
-        background-color: var(--pluto-gray-l3) !important;
+@media (max-width: 700px) {
+    .console-palette {
+        width: 100% !important;
+        max-width: 50px;
+        .pluto-text {
+            display: none;
+        }
     }
 }
 
@@ -29,27 +31,20 @@
     width: 95vw;
     min-height: 400px;
     max-width: 1200px;
+    background: transparent !important;
     overflow: hidden;
+    .pluto-input__internal {
+        border-color: var(--pluto-primary-z);
+        border-width: 1px;
+    }
 }
 
 .console-palette__list {
     overflow-y: auto;
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
 
     & .pluto-status-text {
         height: 150px;
     }
-}
-
-.console-palette__item {
-    width: 100%;
-}
-
-.console-palette__item--hovered {
-    background: var(--pluto-gray-l2) !important;
-    border-left: 2px var(--pluto-primary-z) solid !important;
-}
-
-.console-palette__input.pluto-haul-drop-region .pluto-input__internal {
-    background: var(--haul-background) !important;
-    border-color: var(--haul-border-color) !important;
 }

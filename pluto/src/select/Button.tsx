@@ -101,7 +101,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   return (
     <Align.Pack
-      borderShade={4}
+      borderShade={5}
       className={CSS(CSS.B("select-button"), className)}
       size={size}
       {...rest}

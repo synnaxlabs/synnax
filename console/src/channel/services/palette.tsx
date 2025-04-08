@@ -15,14 +15,14 @@ import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
   icon: <Icon.Channel />,
-  name: "Create Channel",
+  name: "Create a Channel",
   key: "create-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CREATE_LAYOUT),
 };
 
 const CREATE_CALCULATED_COMMAND: Palette.Command = {
   icon: <Icon.Channel />,
-  name: "Create Calculated Channel",
+  name: "Create a Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
   endContent: [<Beta.Tag key="beta-tag" />],

@@ -129,7 +129,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
     <Context value={ctxValue as ColumnContextValue}>
       {!hide && (
         <Align.Space
-          direction="x"
+          x
           size="medium"
           className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
         >

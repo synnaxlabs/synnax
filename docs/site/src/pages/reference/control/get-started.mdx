@@ -18,32 +18,32 @@ Synnax deployment. They provide a systematic way to control actuators and other
 mechanisms. On this page, we'll explore the different types of control sequences
 available within Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Control Sequence Types
 
-There are two ways to write control sequences in Synnax: via our [Python
-Client](/reference/python-client/get-started) and our [Embedded Sequence
-Editor](/reference/control/embedded/get-started).
+There are two ways to write control sequences in Synnax: via our
+[Python Client](/reference/python-client/get-started) and our
+[Embedded Sequence Editor](/reference/control/embedded/get-started).
 
 Python control sequences are ideal for complex automations requiring a high degree of
 customization. Embedded control sequences are simple, but can be run on real-time OSs
-such as National Instruments cRIOs through our [NI Linux Real-Time
-Driver](/reference/device-drivers/standalone?platform=ni-linux-rt). Embedded control
-sequences can be edited and deployed directly from within the [Synnax
-Console](/reference/console/get-started).
+such as National Instruments cRIOs through our
+[NI Linux Real-Time Driver](/reference/device-drivers/standalone?platform=ni-linux-rt).
+Embedded control sequences can be edited and deployed directly from within the
+[Synnax Console](/reference/console/get-started).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## How Control Sequences Work
 
 Both our Python and embedded sequencing systems use the same conceptual approach to
-control. Control sequences [stream data](/reference/concepts/streams) from a set
-of input channels, perform some computations, and [write
-data](/reference/concepts/writes) to a set of output channels.
+control. Control sequences [stream data](/reference/concepts/streams) from a set of
+input channels, perform some computations, and [write data](/reference/concepts/writes)
+to a set of output channels.
 
-A control sequence is just a process, such as a Python script or a loop, that [streams
-data](/reference/concepts/streams) from a set of input channels, performs some
+A control sequence is just a process, such as a Python script or a loop, that
+[streams data](/reference/concepts/streams) from a set of input channels, performs some
 computation, and [writes data](/reference/concepts/writes) to a set of output channels.
 
 ```lua
@@ -59,11 +59,10 @@ else
 end
 ```
 
-There is no mention of hardware configuration in this sequence.
-Parameters like acquisition rates, scaling, and other hardware specific details are
-kept independent from sequencing mechanisms. This allows for a high degree of
-flexibility, including the ability to move and change hardware without changing the
-control sequence algorithms.
+There is no mention of hardware configuration in this sequence. Parameters like
+acquisition rates, scaling, and other hardware specific details are kept independent
+from sequencing mechanisms. This allows for a high degree of flexibility, including the
+ability to move and change hardware without changing the control sequence algorithms.
 
 ### Example Deployment
 

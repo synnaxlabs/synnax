@@ -56,7 +56,7 @@
         "title": "Synnax",
         "width": 1080,
         "minWidth": 625,
-        "minHeight": 375,
+        "minHeight": 425,
         "visible": false,
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",

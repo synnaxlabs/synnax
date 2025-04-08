@@ -87,7 +87,7 @@ export const CustomConnectionLine = ({
         stroke: Color.cssString(
           connectionStatus === "invalid"
             ? "var(--pluto-error-z)"
-            : "var(--pluto-gray-l9)",
+            : "var(--pluto-gray-l11)",
         ),
         strokeWidth: 2,
         fill: "none",
@@ -106,7 +106,7 @@ export const Edge = ({
   style,
   segments: propsSegments = [],
   onSegmentsChange,
-  color = "var(--pluto-gray-l9)",
+  color = "var(--pluto-gray-l11)",
   selected = false,
   variant = "pipe",
   ...rest
