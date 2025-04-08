@@ -51,6 +51,7 @@ const Properties = () => (
     <Align.Space x grow>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
