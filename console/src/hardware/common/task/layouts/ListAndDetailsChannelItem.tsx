@@ -7,38 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, List, Text } from "@synnaxlabs/pluto";
+import { type channel } from "@synnaxlabs/client";
+import { Align, Icon, List, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type JSX } from "react";
 
 import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { EnableDisableButton } from "@/hardware/common/task/EnableDisableButton";
 import { TareButton } from "@/hardware/common/task/TareButton";
 
+export interface ListAndDetailsIconProps {
+  icon: JSX.Element;
+  name: string;
+}
+
 export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K>>
   extends List.ItemProps<K, E> {
   port: string | number;
   portMaxChars: number;
+  icon?: ListAndDetailsIconProps;
   canTare: boolean;
-  channel: number;
-  onTare?: (channel: number) => void;
+  channel: channel.Key;
+  stateChannel?: channel.Key;
+  onTare?: (channel: channel.Key) => void;
   isSnapshot: boolean;
   path: string;
   hasTareButton: boolean;
-  name?: string;
 }
 
-const NAME_PROPS: Text.TextProps = {
+const getChannelNameProps = (hasIcon: boolean): Text.TextProps => ({
   level: "p",
   shade: 9,
   weight: 450,
   style: {
-    maxWidth: 150,
+    maxWidth: hasIcon ? 100 : 150,
     flexGrow: 1,
     textOverflow: "ellipsis",
     overflow: "hidden",
   },
   noWrap: true,
-};
+});
 
 export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   port,
@@ -49,35 +57,64 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   path,
   hasTareButton,
   channel,
-  name,
+  icon,
+  stateChannel,
   ...rest
-}: ListAndDetailsChannelItemProps<K, E>) => (
-  <List.ItemFrame
-    {...rest}
-    justify="spaceBetween"
-    align="center"
-    style={{ padding: "1.25rem 2rem" }}
-  >
-    <Align.Space x size="small" align="center">
-      <Text.Text
-        level="p"
-        shade={10}
-        weight={500}
-        style={{ width: `${portMaxChars * 1.25}rem` }}
-      >
-        {port}
-      </Text.Text>
-      {name != null ? (
-        <Text.Text {...NAME_PROPS}>{name}</Text.Text>
-      ) : (
-        <ChannelName {...NAME_PROPS} channel={channel} />
-      )}
-    </Align.Space>
-    <Align.Pack x align="center" size="small">
-      {hasTareButton && (
-        <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
-      )}
-      <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
-    </Align.Pack>
-  </List.ItemFrame>
-);
+}: ListAndDetailsChannelItemProps<K, E>) => {
+  const hasStateChannel = stateChannel != null;
+  const hasIcon = icon != null;
+  const channelNameProps = getChannelNameProps(hasIcon);
+  return (
+    <List.ItemFrame
+      {...rest}
+      justify="spaceBetween"
+      align="center"
+      style={{ padding: "1.25rem 2rem" }}
+    >
+      <Align.Space direction="x" size="small" align="center">
+        <Text.Text
+          level="p"
+          shade={9}
+          weight={500}
+          style={{ width: `${portMaxChars * 1.25}rem` }}
+        >
+          {port}
+        </Text.Text>
+        {hasIcon && (
+          <Tooltip.Dialog>
+            {icon.name}
+            <Icon.Icon
+              style={{
+                height: "var(--pluto-p-size)",
+                fontSize: "var(--pluto-p-size)",
+                color: "var(--pluto-gray-l8)",
+              }}
+            >
+              {icon.icon}
+            </Icon.Icon>
+          </Tooltip.Dialog>
+        )}
+        <Align.Space direction="y" size="small">
+          <ChannelName
+            {...channelNameProps}
+            channel={channel}
+            defaultName={hasStateChannel ? "No Command Channel" : undefined}
+          />
+          {hasStateChannel && (
+            <ChannelName
+              {...channelNameProps}
+              channel={stateChannel}
+              defaultName="No State Channel"
+            />
+          )}
+        </Align.Space>
+      </Align.Space>
+      <Align.Pack direction="x" align="center" size="small">
+        {hasTareButton && (
+          <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
+        )}
+        <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
+      </Align.Pack>
+    </List.ItemFrame>
+  );
+};
