@@ -11,7 +11,7 @@ import json
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, confloat, conint, validator, field_validator
+from pydantic import BaseModel, confloat, conint, field_validator, validator
 
 from synnax import ValidationError
 from synnax.hardware.task import (
