@@ -48,8 +48,8 @@
 
     &.pluto--disabled {
         cursor: not-allowed;
-        --pluto-btn-text-color: var(--pluto-gray-l7) !important;
-        --pluto-border-color: var(--pluto-gray-l3) !important;
+        --pluto-btn-text-color: var(--pluto-gray-l6) !important;
+        --pluto-border-color: var(--pluto-gray-l4) !important;
     }
 
     &.pluto--filled,
@@ -195,9 +195,10 @@
         position: absolute;
         top: 22.5%;
         left: 22.5%;
-        width: 55% !important;
+        width: 55%;
         height: 55%;
     }
+
     .pluto-trigger-indicator {
         opacity: 0;
         display: block;
@@ -208,11 +209,11 @@
         height: fit-content;
         transform: translate(45%, -45%);
         z-index: 10;
+        transition: opacity 0.1s ease-in-out;
         & .pluto-text--keyboard {
             background: var(--pluto-gray-l0);
             border-color: var(--pluto-gray-l5);
         }
-        transition: opacity 0.1s ease-in-out;
     }
     &:hover .pluto-trigger-indicator {
         opacity: 1;

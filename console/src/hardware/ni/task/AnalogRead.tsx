@@ -19,6 +19,7 @@ import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { createAIChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
+  AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
@@ -70,7 +71,7 @@ const ChannelListItem = ({
   ...rest
 }: ChannelListItemProps) => {
   const {
-    entry: { channel, enabled, type, port },
+    entry: { channel, enabled, port, type },
   } = rest;
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
@@ -84,7 +85,10 @@ const ChannelListItem = ({
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      name={AI_CHANNEL_TYPE_NAMES[type]}
+      icon={{
+        name: AI_CHANNEL_TYPE_NAMES[type],
+        icon: AI_CHANNEL_TYPE_ICONS[type],
+      }}
       portMaxChars={2}
     />
   );

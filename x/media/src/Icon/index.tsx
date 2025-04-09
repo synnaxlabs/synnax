@@ -33,12 +33,16 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
+  FaCarSide,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
+  FaMicrophone,
   FaStream,
+  FaWind,
   FaWindows,
 } from "react-icons/fa";
+import { FaBridge, FaGaugeHigh, FaGear } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -125,17 +129,19 @@ import {
   PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiThermometerSimpleFill,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
   SiPnpm,
   SiPython,
+  SiSpringCreators,
   SiTypescript,
   SiYarn,
 } from "react-icons/si";
@@ -145,12 +151,15 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
+  TbCircleLetterAFilled,
+  TbCircleLetterVFilled,
+  TbCircuitResistor,
   TbDecimal,
   TbLivePhoto,
+  TbMathFunction,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
-  TbSquareLetterVFilled,
   TbVariable,
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
@@ -195,7 +204,7 @@ const NI: IconFC = (props) => (
     </g>
     <defs>
       <clipPath id="clip0_327_656">
-        <rect width="77.8615" height="51" fill="white"></rect>
+        <rect width="77.8615" height="51" fill="white" />
       </clipPath>
     </defs>
   </svg>
@@ -417,9 +426,23 @@ export interface IconType {
   String: IconFC;
   Control: IconFC;
   Rack: IconFC;
+  Units: {
+    Acceleration: IconFC;
+    Current: IconFC;
+    Force: IconFC;
+    Pressure: IconFC;
+    Resistance: IconFC;
+    Strain: IconFC;
+    Temperature: IconFC;
+    Torque: IconFC;
+    Velocity: IconFC;
+    Voltage: IconFC;
+  };
+  Bridge: IconFC;
+  Sound: IconFC;
+  Function: IconFC;
   Visible: IconFC;
   Hidden: IconFC;
-  Virtual: IconFC;
   Heart: IconFC;
   Virtual: IconFC;
 }
@@ -593,8 +616,23 @@ export const Icon: IconType = {
   String: wrapIcon(VscSymbolString, "string"),
   Control: wrapIcon(MdOutlineControlCamera, "control"),
   Rack: wrapIcon(MdHive, "rack"),
+  Units: {
+    Acceleration: wrapIcon(FaCarSide, "units-acceleration"),
+    Current: wrapIcon(TbCircleLetterAFilled, "units-current"),
+    Force: wrapIcon(RiWeightFill, "units-force"),
+    Pressure: wrapIcon(FaGaugeHigh, "units-pressure"),
+    Resistance: wrapIcon(TbCircuitResistor, "units-resistance"),
+    Strain: wrapIcon(SiSpringCreators, "units-strain"),
+    Temperature: wrapIcon(PiThermometerSimpleFill, "units-temperature"),
+    Torque: wrapIcon(FaGear, "units-torque"),
+    Velocity: wrapIcon(FaWind, "units-velocity"),
+    Voltage: wrapIcon(TbCircleLetterVFilled, "units-voltage"),
+  },
+  Bridge: wrapIcon(FaBridge, "bridge"),
+  Sound: wrapIcon(FaMicrophone, "sound"),
+  Function: wrapIcon(TbMathFunction, "function"),
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
-  Virtual: wrapIcon(TbSquareLetterVFilled, "virtual"),
   Heart: wrapIcon(IoMdHeart, "heart"),
+  Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
 };
