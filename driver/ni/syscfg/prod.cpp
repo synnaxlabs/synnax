@@ -17,6 +17,8 @@
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "driver/ni/syscfg/prod.h"
+
+/// module
 #include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32
@@ -32,7 +34,7 @@ const auto LOAD_ERROR = xerrors::Error(
 );
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
-    if (xos::get() == "macOS") return {nullptr, xerrors::NIL};
+    if (xos::get() == xos::MACOS_NAME) return {nullptr, xerrors::NIL};
     auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), xerrors::NIL};

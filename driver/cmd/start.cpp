@@ -14,7 +14,8 @@
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    LOG(INFO) << xlog::BLUE() << "[driver] starting up" << xlog::RESET();
+    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version()
+           << xlog::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
     VLOG(1) << "[driver] stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
@@ -26,9 +27,6 @@ int cmd::sub::start(xargs::Parser &args) {
         LOG(ERROR) << "[driver] invalid arguments: " << args.error();
         return 1;
     }
-
-    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version()
-              << xlog::RESET();
 
     rack::Rack r;
 

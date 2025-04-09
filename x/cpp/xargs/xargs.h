@@ -108,7 +108,6 @@ class Parser {
                 }
                 if (matches_arg(arg, norm, false) && i + 1 < argv_.size()) {
                     last_found = {argv_[i + 1], true};
-                    continue;
                 }
             }
         }
@@ -119,7 +118,25 @@ class Parser {
     /// @param name The name of the argument that caused the error
     /// @param msg The error message
     void add_error(const std::string &name, const char *msg) {
-        errors.push_back(xerrors::Error(name, msg));
+        errors.emplace_back(name, msg);
+    }
+
+    /// @brief Splits a string by comma delimiter
+    /// @param str The string to split
+    /// @return Vector of substrings
+    static std::vector<std::string> split_by_comma(const std::string& str) {
+        std::vector<std::string> result;
+        std::string current;
+        for (const char c : str) {
+            if (c == ',') {
+                if (!current.empty()) {
+                    result.push_back(current);
+                    current.clear();
+                }
+            } else current += c;
+        }
+        if (!current.empty()) result.push_back(current);
+        return result;
     }
 
     /// @brief Parses a string value into the specified type
@@ -130,25 +147,43 @@ class Parser {
     /// @return The parsed value of type T
     template<typename T>
     T parse_value(
-        const std::string &value,
-        const std::string &name,
-        const char *error_msg
+        const std::string& value,
+        const std::string& name,
+        const char* error_msg
     ) {
         try {
             if constexpr (std::is_same_v<T, std::string>)
                 return value;
+            else if constexpr (std::is_same_v<T, std::vector<std::string>>)
+                return split_by_comma(value);
             else if constexpr (std::is_floating_point_v<T>)
                 return static_cast<T>(std::stold(value));
             else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
                 return static_cast<T>(std::stoll(value));
             else if constexpr (std::is_same_v<T, bool>)
                 return value == "true" || value == "1";
-            else if constexpr (std::is_same_v<T, const char *>)
+            else if constexpr (std::is_same_v<T, const char*>)
                 return value.c_str();
+            else if constexpr (std::is_same_v<T, std::vector<int>>) {
+                const auto strings = split_by_comma(value);
+                std::vector<int> result;
+                result.reserve(strings.size());
+                for (const auto& s : strings)
+                    result.push_back(std::stoi(s));
+                return result;
+            }
+            else if constexpr (std::is_same_v<T, std::vector<double>>) {
+                const auto strings = split_by_comma(value);
+                std::vector<double> result;
+                result.reserve(strings.size());
+                for (const auto& s : strings)
+                    result.push_back(std::stod(s));
+                return result;
+            }
 
             add_error(name, "Unsupported type");
             return T();
-        } catch (const std::exception &) {
+        } catch (const std::exception&) {
             add_error(name, error_msg);
             return T();
         }
@@ -163,7 +198,7 @@ class Parser {
     T handle_required(const std::string &name, const char *error_msg) {
         const auto [value, found] = find_arg(name);
         if (!found) {
-            errors.push_back(xerrors::Error(name, "Required argument not found"));
+            errors.emplace_back(name, "Required argument not found");
             return T();
         }
         return parse_value<T>(value, name, error_msg);
@@ -253,7 +288,7 @@ public:
     /// @return The argument at the specified index or empty string if out of bounds
     std::string at(const int index, const std::string &error_msg) {
         if (static_cast<size_t>(index) >= argv_.size()) {
-            errors.push_back(xerrors::Error("index", error_msg));
+            errors.emplace_back("index", error_msg);
             return "";
         }
         return argv_[index];

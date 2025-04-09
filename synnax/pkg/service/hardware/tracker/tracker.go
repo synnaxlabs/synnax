@@ -49,8 +49,6 @@ type RackState struct {
 	rack.State
 	// Tasks is the state of the tasks associated with the rack.
 	Tasks map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
-	// Devices is the state of the devices associated with the rack.
-	Devices map[string]device.State `json:"devices" msgpack:"devices"`
 }
 
 // Alive returns true if the rack is alive.
@@ -67,6 +65,8 @@ type Tracker struct {
 		sync.RWMutex
 		// Racks is the map of racks to their corresponding state.
 		Racks map[rack.Key]*RackState
+		// Devices is the map of devices to their corresponding state.
+		Devices map[string]device.State
 	}
 	// saveNotifications is used to signal an observing go-routine to save the state of
 	// a task to gorp. This ensures that the most recent task state is persisted
@@ -75,10 +75,7 @@ type Tracker struct {
 	// deviceSaveNotifications is used to signal an observing go-routine to save the state of
 	// a device to gorp. This ensures that the most recent device state is persisted
 	// across reloads.
-	deviceSaveNotifications chan struct {
-		key  string
-		rack rack.Key
-	}
+	deviceSaveNotifications chan string
 	// closer shuts down all go-routines needed to keep the tracker service running.
 	closer io.Closer
 	// stateWriter is used to write state changes to the database.
@@ -181,11 +178,12 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	sCtx, cancel := signal.Isolated()
 	t = &Tracker{cfg: cfg}
 	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
+	t.mu.Devices = make(map[string]device.State)
+
 	for _, r := range racks {
 		// Initialize rack state with empty maps
 		rck := &RackState{
-			Tasks:   make(map[task.Key]task.State),
-			Devices: make(map[string]device.State),
+			Tasks: make(map[task.Key]task.State),
 		}
 		rck.Key = r.Key
 
@@ -212,32 +210,33 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 			rck.Tasks[tsk.Key] = taskState
 		}
 
-		// Fetch and initialize devices for this rack
-		var devices []device.Device
-		if err = cfg.Device.NewRetrieve().
-			WhereRacks(r.Key).
-			Entries(&devices).
-			Exec(ctx, cfg.DB); err != nil {
-			return
-		}
-
-		for _, dev := range devices {
-			deviceState := device.State{
-				Key:     dev.Key,
-				Variant: "info",
-				Details: "",
-			}
-			if err = gorp.NewRetrieve[string, device.State]().
-				WhereKeys(dev.Key).
-				Entry(&deviceState).
-				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
-				return
-			}
-			rck.Devices[dev.Key] = deviceState
-		}
-
 		t.mu.Racks[r.Key] = rck
 	}
+
+	// Fetch and initialize all devices
+	var allDevices []device.Device
+	if err = cfg.Device.NewRetrieve().
+		Entries(&allDevices).
+		Exec(ctx, cfg.DB); err != nil {
+		return
+	}
+
+	for _, dev := range allDevices {
+		deviceState := device.State{
+			Key:     dev.Key,
+			Variant: "info",
+			Details: "",
+			Rack:    dev.Rack,
+		}
+		if err = gorp.NewRetrieve[string, device.State]().
+			WhereKeys(dev.Key).
+			Entry(&deviceState).
+			Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+			return
+		}
+		t.mu.Devices[dev.Key] = deviceState
+	}
+
 	if err := cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
@@ -309,6 +308,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	}
 	taskStateWriterStream := confluence.NewStream[framer.WriterRequest](1)
 	stateWriter.InFrom(taskStateWriterStream)
+	// Try to delete a non-existent task
 	t.stateWriter = taskStateWriterStream
 	obs := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	obs.OnChange(func(ctx context.Context, r framer.WriterResponse) {
@@ -321,15 +321,9 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
 	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState)
-	t.deviceSaveNotifications = make(chan struct {
-		key  string
-		rack rack.Key
-	}, 10)
-	signal.GoRange(sCtx, t.deviceSaveNotifications, func(ctx context.Context, notification struct {
-		key  string
-		rack rack.Key
-	}) error {
-		return t.saveDeviceState(ctx, notification.key, notification.rack)
+	t.deviceSaveNotifications = make(chan string, 10)
+	signal.GoRange(sCtx, t.deviceSaveNotifications, func(ctx context.Context, notification string) error {
+		return t.saveDeviceState(ctx, notification)
 	})
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_device_state",
@@ -395,14 +389,10 @@ func (t *Tracker) GetRack(_ context.Context, key rack.Key) (RackState, bool) {
 
 // GetDevice returns the state of a device by its key. If the device is not found, the second
 // return value will be false.
-func (t *Tracker) GetDevice(_ context.Context, rackKey rack.Key, deviceKey string) (device.State, bool) {
+func (t *Tracker) GetDevice(_ context.Context, deviceKey string) (device.State, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	r, ok := t.mu.Racks[rackKey]
-	if !ok {
-		return device.State{}, false
-	}
-	dev, ok := r.Devices[deviceKey]
+	dev, ok := t.mu.Devices[deviceKey]
 	return dev, ok
 }
 
@@ -588,63 +578,37 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 	defer t.mu.Unlock()
 	decoder := &binaryx.JSONCodec{}
 	for _, ch := range changes {
-		var deviceState device.State
-		if err := decoder.Decode(ctx, ch.Key, &deviceState); err != nil {
+		var incomingState device.State
+		if err := decoder.Decode(ctx, ch.Key, &incomingState); err != nil {
 			t.cfg.L.Warn("failed to decode device state", zap.Error(err))
 			continue
 		}
-		rackKey := deviceState.Rack
-		if rackKey == 0 {
+
+		existingState, exists := t.mu.Devices[incomingState.Key]
+		if exists && existingState.Rack != incomingState.Rack {
+			var racks []rack.Rack
+			if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
+				WhereKeys(incomingState.Rack, existingState.Rack).
+				Entries(&racks).
+				Exec(ctx, t.cfg.DB); err != nil {
+				t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+				return
+			}
 			t.cfg.L.Warn(
-				"invalid rack key in device state update",
-				zap.String("device", deviceState.Key),
+				"device state update with different rack key",
+				zap.String("device", incomingState.Key),
+				zap.Uint32("provided_rack", uint32(existingState.Rack)),
+				zap.String("old_rack_name", racks[0].Name),
+				zap.Uint32("new_rack", uint32(incomingState.Rack)),
+				zap.String("new_rack_name", racks[1].Name),
 			)
-			continue
-		}
-		r, ok := t.mu.Racks[rackKey]
-		if !ok {
-			r = &RackState{
-				Tasks:   make(map[task.Key]task.State),
-				Devices: make(map[string]device.State),
-			}
-			r.Key = rackKey
-			t.mu.Racks[rackKey] = r
-		}
-		if r.Devices == nil {
-			r.Devices = make(map[string]device.State)
-		}
-		r.Devices[deviceState.Key] = deviceState
-		for _, rck := range t.mu.Racks {
-			if rck.Key == rackKey {
-				continue
-			}
-			for k := range rck.Devices {
-				if k == deviceState.Key {
-					delete(rck.Devices, k)
-					var racks []rack.Rack
-					if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
-						WhereKeys([]rack.Key{rck.Key, rackKey}...).
-						Entries(&racks).
-						Exec(ctx, t.cfg.DB); err != nil {
-						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
-					}
-					zap.S().Warn("device moved from rack",
-						zap.String("device", deviceState.Key),
-						zap.Uint32("from_rack_key", uint32(rck.Key)),
-						zap.Uint32("to_rack_key", uint32(rackKey)),
-						zap.String("from_rack_name", racks[0].Name),
-						zap.String("to_rack_name", racks[1].Name),
-					)
-					break
-				}
-			}
+			return
 		}
 
+		t.mu.Devices[incomingState.Key] = incomingState
+
 		select {
-		case t.deviceSaveNotifications <- struct {
-			key  string
-			rack rack.Key
-		}{deviceState.Key, rackKey}:
+		case t.deviceSaveNotifications <- incomingState.Key:
 		default:
 		}
 	}
@@ -656,30 +620,12 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 	defer t.mu.Unlock()
 	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
 		if c.Variant == change.Delete {
-			for _, rackState := range t.mu.Racks {
-				if _, exists := rackState.Devices[c.Key]; exists {
-					delete(rackState.Devices, c.Key)
-					break
-				}
-			}
+			delete(t.mu.Devices, c.Key)
 		} else {
-			rackKey := c.Value.Rack
-			rackState, rackOk := t.mu.Racks[rackKey]
-			if !rackOk {
-				rackState = &RackState{
-					Tasks:   make(map[task.Key]task.State),
-					Devices: make(map[string]device.State),
-				}
-				rackState.Key = rackKey
-				t.mu.Racks[rackKey] = rackState
-			}
-			if rackState.Devices == nil {
-				rackState.Devices = make(map[string]device.State)
-			}
-			if _, hasState := rackState.Devices[c.Key]; !hasState {
-				rackState.Devices[c.Key] = device.State{
+			if _, hasState := t.mu.Devices[c.Key]; !hasState {
+				t.mu.Devices[c.Key] = device.State{
 					Key:     c.Key,
-					Rack:    rackKey,
+					Rack:    c.Value.Rack,
 					Variant: status.InfoVariant,
 				}
 			}
@@ -687,8 +633,8 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 	}
 }
 
-func (t *Tracker) saveDeviceState(ctx context.Context, deviceKey string, rackKey rack.Key) error {
-	state, ok := t.GetDevice(ctx, rackKey, deviceKey)
+func (t *Tracker) saveDeviceState(ctx context.Context, deviceKey string) error {
+	state, ok := t.GetDevice(ctx, deviceKey)
 	if !ok {
 		return nil
 	}

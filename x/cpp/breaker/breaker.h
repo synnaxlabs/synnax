@@ -140,8 +140,7 @@ public:
 
         LOG(ERROR) << "[" << this->config.name << "] failed " << retry_count_msg
                    << " times. " << "Retrying in " << std::fixed << std::setprecision(1)
-                   << this->interval.seconds() << " seconds. " << "Error: " << message
-                   << ".";
+                   << this->interval.seconds() << " seconds. " << "Error: " << message;
         std::unique_lock lock(this->mu);
         shutdown_cv.wait_for(lock, this->interval.chrono());
         if (!this->running()) {

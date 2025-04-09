@@ -15,6 +15,7 @@
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/scan_task.h"
 #include "driver/labjack/write_task.h"
+#include "driver/task/common/factory.h"
 
 const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries are not "
                                 "installed on this System.";
@@ -147,30 +148,13 @@ labjack::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-    auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
-    if (err.matches(xerrors::NOT_FOUND)) {
-        VLOG(1) << "[labjack] Creating scanner task";
-        auto sy_task = synnax::Task(
-            rack.key,
-            "Labjack Scanner",
-            SCAN_TASK_TYPE,
-            "",
-            true
-        );
-        if (const auto c_err = rack.tasks.create(sy_task)) {
-            LOG(ERROR) << "[labjack] Failed to create scanner task: " << c_err;
-            return tasks;
-        }
-        auto [task, handled] = configure_task(ctx, sy_task);
-        if (handled)
-            if (task != nullptr)
-                tasks.emplace_back(sy_task, std::move(task));
-            else
-                LOG(ERROR) << "[labjack] Failed to configure scanner task";
-    } else if (err) {
-        LOG(ERROR) << "[labjack] Failed to list existing tasks: " << err;
-        return tasks;
-    }
-    return tasks;
+    if (!this->check_health(ctx, synnax::Task())) return {};
+    return common::configure_initial_factory_tasks(
+        this,
+        ctx,
+        rack,
+        "LabJack Scanner",
+        SCAN_TASK_TYPE,
+        INTEGRATION_NAME
+    );
 }

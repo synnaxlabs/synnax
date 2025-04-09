@@ -15,6 +15,7 @@
 
 /// module
 #include "client/cpp/synnax.h"
+#include "driver/task/common/factory.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
@@ -22,7 +23,7 @@
 namespace rack::state {
 const std::string INTEGRATION_NAME = "rack_state";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
-const std::string TASK_NAME = INTEGRATION_NAME;
+const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
 
@@ -46,6 +47,7 @@ public:
             .variant = status::VARIANT_SUCCESS,
             .message = "Driver is running"
         };
+        VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
         fr.emplace(key, telem::Series(state.to_json()));
         return xerrors::NIL;
     }
@@ -106,7 +108,7 @@ public:
     }
 };
 
-class Factory final : public task::Factory {
+struct Factory final : task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
@@ -120,30 +122,15 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        VLOG(1) << "[rack_state] configuring tasks";
-        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-        auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(
-            LEGACY_HEARTBEAT_TYPE
+        common::delete_legacy_task_by_type(rack, LEGACY_HEARTBEAT_TYPE, INTEGRATION_NAME);
+        return common::configure_initial_factory_tasks(
+            this,
+            ctx,
+            rack,
+            TASK_NAME,
+            TASK_TYPE,
+            INTEGRATION_NAME
         );
-        if (!o_err.matches(xerrors::NOT_FOUND) &&
-            synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
-            if (const auto del_err = rack.tasks.del(old_heartbeat_task.key))
-                LOG(ERROR) << "[rack_state] failed to delete legacy heartbeat task: "
-                           << del_err;
-            else
-                LOG(INFO) << "[rack_state] deleted legacy heartbeat task";
-        }
-        auto [existing, err] = rack.tasks.retrieve_by_type(TASK_TYPE);
-        if (err.matches(xerrors::NOT_FOUND)) {
-            auto sy_task = synnax::Task(rack.key, TASK_NAME, TASK_TYPE, "", true);
-            err = rack.tasks.create(sy_task);
-            if (err) LOG(ERROR) << "[rack_state] failed to task: " << err;
-            auto [task, ok] = configure_task(ctx, sy_task);
-            if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
-        } else if (err)
-            LOG(ERROR) << "[rack_state] failed to retrieve task: " << err;
-        VLOG(1) << "[rack_state] configured " << tasks.size() << " tasks";
-        return tasks;
     }
 
     std::string name() override { return INTEGRATION_NAME; }

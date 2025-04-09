@@ -19,7 +19,7 @@ const std::string SCAN_TASK_TYPE = "opc_scan";
 const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
 
-class Factory final : public task::Factory {
+struct Factory final : public task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task

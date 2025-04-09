@@ -19,7 +19,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         this->remote_info.rack_key != 0) {
         this->remote_info.rack_key = 0;
         this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
-        LOG(INFO) << "Cluster identity changed. Creating a new rack.";
+        LOG(INFO) << "Cluster identity changed. Creating a new rack";
     }
     if (this->remote_info.rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
@@ -35,7 +35,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         // recursively to create a new rack.
         if (res.second.matches(xerrors::NOT_FOUND)) {
             LOG(INFO) << "Rack " << this->remote_info.rack_key
-                      << " not found. Creating a new rack.";
+                      << " not found. Creating a new rack";
             this->remote_info.rack_key = 0;
             return this->load_remote(breaker);
         }

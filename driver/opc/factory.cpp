@@ -15,6 +15,7 @@
 #include "driver/opc/read_task.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/write_task.h"
+#include "driver/task/common/factory.h"
 
 common::ConfigureResult
 configure_read(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
@@ -81,39 +82,13 @@ opc::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-
-    auto [old_scanner, res_err] = rack.tasks.retrieve_by_type("opcScanner");
-    if (res_err == xerrors::NIL) {
-        LOG(INFO) << "[opc] Removing old scanner task";
-        if (auto del_err = rack.tasks.del(old_scanner.key)) {
-            LOG(ERROR) << "[opc] Failed to delete old scanner task: " << del_err;
-            return tasks;
-        }
-    }
-
-    auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
-    if (err.matches(xerrors::NOT_FOUND)) {
-        LOG(INFO) << "[opc] creating scanner task";
-        auto sy_task = synnax::Task(
-            rack.key,
-            "OPC UA Scanner",
-            SCAN_TASK_TYPE,
-            "",
-            true
-        );
-        if (const auto c_err = rack.tasks.create(sy_task)) {
-            LOG(ERROR) << "[opc] Failed to create scanner task: " << c_err;
-            return tasks;
-        }
-        auto [task, ok] = configure_task(ctx, sy_task);
-        if (ok && task != nullptr)
-            tasks.emplace_back(sy_task, std::move(task));
-        else
-            LOG(ERROR) << "[opc] Failed to configure scanner task";
-    } else if (err) {
-        LOG(ERROR) << "[opc] Failed to list existing tasks: " << err;
-        return tasks;
-    }
-    return tasks;
+    common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
+    return common::configure_initial_factory_tasks(
+        this,
+        ctx,
+        rack,
+        "OPC UA Scanner",
+        SCAN_TASK_TYPE,
+        INTEGRATION_NAME
+    );
 }

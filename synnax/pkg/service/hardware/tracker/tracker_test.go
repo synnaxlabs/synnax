@@ -10,8 +10,9 @@
 package tracker_test
 
 import (
-	xjson "github.com/synnaxlabs/x/json"
 	"time"
+
+	xjson "github.com/synnaxlabs/x/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -377,7 +378,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				state, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+				state, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(state.Key).To(Equal(dev.Key))
 				g.Expect(state.Rack).To(Equal(rck.Key))
@@ -398,14 +399,14 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				_, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+				_, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 			}).Should(Succeed())
 
 			Expect(cfg.Device.NewWriter(nil).Delete(ctx, dev.Key)).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				_, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+				_, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeFalse())
 			}).Should(Succeed())
 		})
@@ -415,7 +416,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 
 			dev := device.Device{
-				Key:      "dev1",
+				Key:      "dev122314",
 				Rack:     rck.Key,
 				Name:     "device1",
 				Location: "slot1",
@@ -448,7 +449,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+				devState, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Variant).To(Equal(status.WarningVariant))
 				g.Expect(string(devState.Details)).To(ContainSubstring("Device is warming up"))
@@ -456,12 +457,12 @@ var _ = Describe("Tracker", Ordered, func() {
 			}).Should(Succeed())
 		})
 
-		It("Should maintain device state across rack restarts", func() {
+		It("Should maintain device state across restarts", func() {
 			rck := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 
 			dev := device.Device{
-				Key:      "dev1",
+				Key:      "dev56676",
 				Rack:     rck.Key,
 				Name:     "device1",
 				Location: "slot1",
@@ -491,19 +492,62 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+				devState, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Variant).To(Equal(status.ErrorVariant))
 			}).Should(Succeed())
 
-			// Close and reopen the tracker
 			Expect(tr.Close()).To(Succeed())
 			tr = MustSucceed(tracker.Open(ctx, cfg))
 
-			// Verify state is maintained
-			devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
+			devState, ok := tr.GetDevice(ctx, dev.Key)
 			Expect(ok).To(BeTrue())
 			Expect(devState.Variant).To(Equal(status.ErrorVariant))
+		})
+
+		It("Should reject device state updates from incorrect racks", func() {
+			rack1 := &rack.Rack{Name: "rack1"}
+			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack1)).To(Succeed())
+
+			rack2 := &rack.Rack{Name: "rack2"}
+			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack2)).To(Succeed())
+
+			dev := device.Device{
+				Key:      "dev_wrong_rack",
+				Rack:     rack1.Key,
+				Name:     "device1",
+				Location: "slot1",
+			}
+			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
+
+			var deviceStateCh channel.Channel
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{deviceStateCh.Key()},
+			}))
+
+			state := device.State{
+				Key:     dev.Key,
+				Rack:    rack2.Key,
+				Variant: status.WarningVariant,
+				Details: xjson.NewStaticString(ctx, "Update from wrong rack"),
+			}
+
+			Expect(w.Write(framer.Frame{
+				Keys:   []channel.Key{deviceStateCh.Key()},
+				Series: []telem.Series{telem.NewStaticJSONV(state)},
+			})).To(BeTrue())
+
+			Expect(w.Close()).To(Succeed())
+
+			Consistently(func(g Gomega) {
+				devState, ok := tr.GetDevice(ctx, dev.Key)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(devState.Rack).To(Equal(rack1.Key))             // Should still be rack1
+				g.Expect(devState.Variant).To(Equal(status.InfoVariant)) // Should remain unchanged
+			}).Should(Succeed())
 		})
 	})
 })

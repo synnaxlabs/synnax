@@ -127,28 +127,40 @@ struct Config {
                 },
             .integrations = default_integrations(),
         };
-        VLOG(1) << "[rack] loading configuration from persisted state";
+        VLOG(1) << "[driver] loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
-        VLOG(1) << "[rack] loading configuration from config file";
-        if (const auto err = cfg.load_config_file(parser)) return {cfg, err};
-        VLOG(1) << "[rack] loading configuration from environment";
+        VLOG(1) << "[driver] loading configuration from config file";
+        if (const auto err = cfg.load_config_file(parser, breaker)) return {cfg, err};
+        VLOG(1) << "[driver] loading configuration from environment";
         if (const auto err = cfg.load_env()) return {cfg, err};
-        VLOG(1) << "[rack] loading configuration from command line";
+        VLOG(1) << "[driver] loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        LOG(INFO) << xlog::BLUE() << "successfully reached cluster at "
-                  << cfg.connection.address() << ". Continuing with driver startup."
+        LOG(INFO) << xlog::BLUE() << "[driver] successfully reached cluster at "
+                  << cfg.connection.address() << ". Continuing with driver startup"
                   << xlog::RESET();
         LOG(INFO) << "[driver] remote info" << "\n"
                   << xlog::SHALE() << "  rack: " << xlog::RESET() << cfg.rack.name
                   << " (" << cfg.remote_info.rack_key << ")\n"
                   << xlog::SHALE() << "  cluster: " << xlog::RESET()
                   << cfg.remote_info.cluster_key;
-        VLOG(1) << "[rack] saving remote info";
+        VLOG(1) << "[driver] saving remote info";
         const auto err = Config::save_remote_info(parser, cfg.remote_info);
-        VLOG(1) << "[rack] saved remote info";
+        VLOG(1) << "[driver] saved remote info";
         return {cfg, err};
+    }
+
+    void override_integrations(
+        const std::vector<std::string> &enable,
+        const std::vector<std::string> &disable
+    ) {
+        std::set i_set(this->integrations.begin(), this->integrations.end());
+        for (const auto &integration: disable)
+            i_set.erase(integration);
+        for (const auto &integration: enable)
+            i_set.insert(integration);
+        this->integrations = std::vector(i_set.begin(), i_set.end());
     }
 
     /// @brief permanently saves connection parameters to the persisted state file.
@@ -165,7 +177,7 @@ struct Config {
     /// Looks for a "--config" flag followed by a configuration file path.
     [[nodiscard]] xerrors::Error load_persisted_state(xargs::Parser &args);
 
-    [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args);
+    [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args, breaker::Breaker &breaker);
 
     [[nodiscard]] xerrors::Error load_env();
 

@@ -22,6 +22,10 @@
 #include "driver/ni/scan_task.h"
 #include "driver/ni/syscfg/prod.h"
 #include "driver/ni/write_task.h"
+#include "driver/task/common/factory.h"
+
+/// module
+#include "x/cpp/xos/xos.h"
 
 const std::string
     NO_LIBS_MSG = "Cannot create the task because the National Instruments DAQMX and "
@@ -52,6 +56,8 @@ bool ni::Factory::check_health(
 }
 
 std::unique_ptr<ni::Factory> ni::Factory::create(common::TimingConfig timing_cfg) {
+    if (xos::get() == xos::MACOS_NAME)
+        LOG(WARNING) << "[ni] integration is not supported on macOS";
     auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
     if (syscfg_err) LOG(WARNING) << syscfg_err;
     auto [dmx, dmx_err] = daqmx::ProdAPI::load();
@@ -106,35 +112,14 @@ ni::Factory::configure_initial_tasks(
     const synnax::Rack &rack
 ) {
     if (!this->check_health(ctx, synnax::Task())) return {};
-    VLOG(1) << "[ni] checking for existing scanner task";
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-
-    // If the scan task already exists, don't do anything.
-    auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
-    if (!err) {
-        VLOG(1) << "[ni] scan task already exists. skipping creation.";
-        return tasks;
-    }
-    if (err && !err.matches(xerrors::NOT_FOUND)) {
-        LOG(ERROR) << "[ni] failed to list existing tasks: " << err;
-        return tasks;
-    }
-
-    auto sy_scan_task = synnax::Task(rack.key, "ni scanner", SCAN_TASK_TYPE, "", true);
-    const auto c_err = rack.tasks.create(sy_scan_task);
-    if (c_err) {
-        LOG(ERROR) << "[ni] failed to create scan task: " << c_err;
-        return tasks;
-    }
-    auto [task, ok] = configure_task(ctx, sy_scan_task);
-    if (!ok) {
-        LOG(ERROR) << "[ni] failed to configure scan task: " << c_err;
-        return tasks;
-    }
-    tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task>>(
-        {sy_scan_task, std::move(task)}
-    ));
-    return tasks;
+    return common::configure_initial_factory_tasks(
+        this,
+        ctx,
+        rack,
+        "NI Scanner",
+        SCAN_TASK_TYPE,
+        INTEGRATION_NAME
+    );
 }
 
 common::ConfigureResult ni::Factory::configure_scan(

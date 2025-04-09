@@ -15,28 +15,58 @@ bool rack::Config::integration_enabled(const std::string &i) const {
     return std::find(integrations.begin(), integrations.end(), i) != integrations.end();
 }
 
+template<typename F>
+void configure_integration(
+    const rack::Config &config,
+    FactoryList &factories,
+    const std::string &integration_name,
+    F factory_creator
+) {
+    if (!config.integration_enabled(integration_name)) {
+        VLOG(1) << "[" << integration_name << "] integration disabled";
+        return;
+    }
+    VLOG(1) << "[" << integration_name << "] integration enabled";
+    factories.push_back(factory_creator());
+}
+
 void configure_opc(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(opc::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<opc::Factory>());
+    configure_integration(
+        config, 
+        factories,
+        opc::INTEGRATION_NAME,
+        []() { return std::make_unique<opc::Factory>(); }
+    );
 }
 
 void configure_ni(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(ni::INTEGRATION_NAME)) return;
-    factories.push_back(ni::Factory::create(config.timing));
+    configure_integration(
+        config,
+        factories,
+        ni::INTEGRATION_NAME,
+        [&config]() { return ni::Factory::create(config.timing); }
+    );
 }
 
 void configure_sequences(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(sequence::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<sequence::Factory>());
+    configure_integration(
+        config,
+        factories,
+        sequence::INTEGRATION_NAME,
+        []() { return std::make_unique<sequence::Factory>(); }
+    );
 }
 
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(labjack::INTEGRATION_NAME)) return;
-    factories.push_back(labjack::Factory::create(config.timing));
+    configure_integration(
+        config,
+        factories,
+        labjack::INTEGRATION_NAME,
+        [&config]() { return labjack::Factory::create(config.timing); }
+    );
 }
 
 void configure_state(FactoryList &factories) {
-    // The state factory cannot be disabled.
     factories.push_back(std::make_unique<rack::state::Factory>());
 }
 

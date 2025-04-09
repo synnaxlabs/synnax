@@ -28,7 +28,7 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 xerrors::Error task::Manager::open_streamer() {
-    VLOG(1) << "[task_manager] opening streamer";
+    VLOG(1) << "[driver] opening streamer";
     auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
         {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
     );
@@ -59,34 +59,34 @@ xerrors::Error task::Manager::open_streamer() {
 }
 
 xerrors::Error task::Manager::configure_initial_tasks() {
-    VLOG(1) << "[task_manager] configuring initial tasks";
+    VLOG(1) << "[driver] configuring initial tasks";
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
-    VLOG(1) << "[task_manager] retrieved " << tasks.size() << " tasks from cluster";
+    VLOG(1) << "[driver] retrieved " << tasks.size() << " tasks from cluster";
     for (const auto &task: tasks) {
-        VLOG(1) << "[task_manager] configuring task " << task;
+        VLOG(1) << "[driver] configuring task " << task;
         if (task.snapshot) {
-            VLOG(1) << "[task_manager] ignoring snapshot task " << task;
+            VLOG(1) << "[driver] ignoring snapshot task " << task;
             continue;
         }
         auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
         if (handled && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
         else if (handled && driver_task == nullptr)
-            LOG(WARNING) << "[task_manager] unexpected nullptr returned by factory for"
+            LOG(WARNING) << "[driver] unexpected nullptr returned by factory for"
                          << task;
     }
-    VLOG(1) << "[task_manager] configuring initial tasks from factories";
+    VLOG(1) << "[driver] configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     for (auto &[sy_task, driver_task]: initial_tasks) {
         if (driver_task == nullptr)
-            LOG(WARNING) << "[task_manager] unexpected nullptr returned by factory for "
+            LOG(WARNING) << "[driver] unexpected nullptr returned by factory for "
                             "initial task"
                          << sy_task;
         else
             this->tasks[sy_task.key] = std::move(driver_task);
     }
-    VLOG(1) << "[task_manager] configured tasks";
+    VLOG(1) << "[driver] configured tasks";
     return xerrors::NIL;
 }
 
@@ -100,7 +100,7 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
-        VLOG(1) << "[task_manager] received task for foreign rack: " << task_key
+        VLOG(1) << "[driver] received task for foreign rack: " << task_key
                 << ", skipping";
         return true;
     }
@@ -109,12 +109,12 @@ bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
 
 xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
     if (this->exit_early) {
-        VLOG(1) << "[task_manager] exiting early";
+        VLOG(1) << "[driver] exiting early";
         return xerrors::NIL;
     }
     if (const auto err = this->configure_initial_tasks()) return err;
     if (this->exit_early) {
-        VLOG(1) << "[task_manager] exiting early";
+        VLOG(1) << "[driver] exiting early";
         this->stop_all_tasks();
         return xerrors::NIL;
     }
@@ -200,7 +200,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
 
 void task::Manager::stop_all_tasks() {
     for (auto &[task_key, task]: this->tasks) {
-        VLOG(1) << "[task_manager] stopping task " << task->name();
+        VLOG(1) << "[driver] stopping task " << task->name();
         task->stop(false);
     }
     this->tasks.clear();
@@ -212,11 +212,11 @@ void task::Manager::process_task_delete(const telem::Series &series) {
         if (this->skip_foreign_rack(task_key)) continue;
         const auto it = this->tasks.find(task_key);
         if (it != this->tasks.end()) {
-            LOG(INFO) << "[task_manager] stopping task " << it->second->name();
+            LOG(INFO) << "[driver] stopping task " << it->second->name();
             it->second->stop(false);
             this->tasks.erase(it);
         } else
-            LOG(WARNING) << "[task_manager] could not find task for " << task_key
+            LOG(WARNING) << "[driver] could not find task for " << task_key
                          << " to delete";
     }
 }

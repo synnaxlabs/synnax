@@ -340,3 +340,44 @@ TEST_F(XArgsTest, TestRegressionDash) {
     ASSERT_TRUE(correct_skew);
     cleanup(argc, argv);
 }
+
+TEST_F(XArgsTest, TestVectorArguments) {
+    auto [argc, argv] = make_args({
+        "program",
+        "--strings=dog,cat,ferret",
+        "--numbers=1,2,3,4,5",
+        "--doubles=1.5,2.7,3.14"
+    });
+    parser = xargs::Parser(argc, argv);
+
+    // Test string vector
+    auto strings = parser.required<std::vector<std::string>>("strings");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(strings.size(), 3);
+    ASSERT_EQ(strings[0], "dog");
+    ASSERT_EQ(strings[1], "cat");
+    ASSERT_EQ(strings[2], "ferret");
+
+    // Test integer vector
+    auto numbers = parser.required<std::vector<int>>("numbers");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(numbers.size(), 5);
+    ASSERT_EQ(numbers[0], 1);
+    ASSERT_EQ(numbers[4], 5);
+
+    // Test double vector
+    auto doubles = parser.required<std::vector<double>>("doubles");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(doubles.size(), 3);
+    ASSERT_DOUBLE_EQ(doubles[0], 1.5);
+    ASSERT_DOUBLE_EQ(doubles[1], 2.7);
+    ASSERT_DOUBLE_EQ(doubles[2], 3.14);
+
+    // Test optional vector with default
+    std::vector<int> default_vec = {1, 2, 3};
+    auto optional_nums = parser.optional<std::vector<int>>("missing", default_vec);
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(optional_nums, default_vec);
+
+    cleanup(argc, argv);
+}
