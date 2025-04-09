@@ -20,14 +20,14 @@
 #include "x/cpp/status/status.h"
 
 namespace rack::state {
-const std::string INTEGRATION_NAME = "heartbeat";
+const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "rack_state";
-const std::string TASK_TYPE = INTEGRATION_NAME;
+const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
-    const synnax::ChannelKey key;
+    const synnax::ChannelKey key
     /// @brief the key of the rack the heartbeat is for.
     const synnax::RackKey rack_key;
     /// @brief the loop used to control the emission rate of the heartbeat.
@@ -42,7 +42,7 @@ public:
         this->loop.wait(breaker);
         const synnax::RackState state{
             .key = this->rack_key,
-            .variant = status::variant::SUCCESS,
+            .variant = status::VARIANT_SUCCESS,
             .message = "Driver is running"
         };
         fr.emplace(key, telem::Series(state.to_json()));
@@ -82,7 +82,7 @@ public:
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
         auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME);
         if (err) {
-            LOG(WARNING) << "[rack_state] failed to retrieve rack stat channel: "
+            LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "
                          << err;
             return nullptr;
         }
@@ -120,6 +120,14 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
+        auto [old_heartbeat_task, err] = rack.tasks.retrieve_by_type(LEGACY_HEARTBEAT_TYPE);
+        if (!err.matches(xerrors::NOT_FOUND) && synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
+            if (const auto err = rack.tasks.del(old_heartbeat_task.key))
+                LOG(ERROR) << "[rack_state] failed to delete legacy heartbeat task: "
+                           << err;
+            else
+                LOG(INFO) << "[rack_state] deleted legacy heartbeat task";
+        }
         auto [existing, err] = rack.tasks.retrieve_by_type(TASK_TYPE);
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(rack.key, TASK_NAME, TASK_TYPE, "", true);

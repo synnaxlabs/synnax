@@ -122,13 +122,13 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
     wt->stop("stop_cmd", true);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
 }

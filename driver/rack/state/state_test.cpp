@@ -45,7 +45,7 @@ TEST(stateTests, testNominal) {
         if (j["key"] == rack.key) break;
     }
     EXPECT_EQ(j["key"], rack.key);
-    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
+    EXPECT_EQ(j["variant"], status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();

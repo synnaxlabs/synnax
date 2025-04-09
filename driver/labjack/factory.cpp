@@ -108,7 +108,7 @@ bool labjack::Factory::check_health(
     if (this->dev_manager != nullptr) return true;
     ctx->set_state(
         {.task = task.key,
-         .variant = status::variant::ERROR,
+         .variant = status::VARIANT_ERROR,
          .details = json{{
              "message",
              NO_LIBS_MSG,

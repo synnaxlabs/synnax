@@ -34,7 +34,7 @@ public:
         ctx(ctx), task(task) {
         ctx->set_state(
             {.task = task.key,
-             .variant = status::variant::SUCCESS,
+             .variant = status::VARIANT_SUCCESS,
              .details = json{{"message", "task configured successfully"}}}
         );
     }
@@ -45,7 +45,7 @@ public:
         ctx->set_state({
             .task = task.key,
             .key = cmd.key,
-            .variant = status::variant::SUCCESS,
+            .variant = status::VARIANT_SUCCESS,
             .details = cmd.args,
         });
     }
@@ -53,7 +53,7 @@ public:
     void stop(bool will_reconfigure) override {
         ctx->set_state(
             {.task = task.key,
-             .variant = status::variant::SUCCESS,
+             .variant = status::VARIANT_SUCCESS,
              .details = json{{"message", "task stopped successfully"}}}
         );
     }
@@ -135,7 +135,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
     ASSERT_EQ(state.details["message"], "task configured successfully");
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -173,7 +173,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
     ASSERT_EQ(state.details["message"], "task stopped successfully");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -224,7 +224,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto [task, key, variant, details] = task::State::parse(parser);
     ASSERT_EQ(task, echo_task.key);
     ASSERT_EQ(key, cmd.key);
-    ASSERT_EQ(variant, status::variant::SUCCESS);
+    ASSERT_EQ(variant, status::VARIANT_SUCCESS);
     ASSERT_EQ(details["message"], "hello world");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -306,7 +306,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     auto state = task::State::parse(parser);
 
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
     ASSERT_EQ(state.details["message"], "task stopped successfully");
 
     const auto close_err = streamer.close();
@@ -330,7 +330,16 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
     std::atomic received_state = false;
     std::thread reader([&] {
         auto [frame, err] = streamer.read();
-        if (!err) received_state = true;
+        if (err) return;
+        auto json_vs = frame.series->at(0).json_values();
+        for (const auto &j : json_vs) {
+            auto parser = xjson::Parser(j);
+            auto [task, key, variant, details] = task::State::parse(parser);
+            if (task == snapshot_task.key) {
+                received_state = true;
+                break;
+            }
+        }
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     streamer.close_send();

@@ -25,7 +25,7 @@ sequence::Task::Task(
     seq(std::move(seq)),
     state(
         {.task = task.key,
-         .variant = status::variant::SUCCESS,
+         .variant = status::VARIANT_SUCCESS,
          .details = {{"running", false}, {"message", ""}}}
     ) {}
 
@@ -33,25 +33,25 @@ void sequence::Task::run() {
     if (const auto err = this->seq->begin(); err) {
         if (const auto end_err = this->seq->end())
             LOG(ERROR) << "[sequence] failed to end after failed start:" << end_err;
-        this->state.variant = status::variant::ERROR;
+        this->state.variant = status::VARIANT_ERROR;
         this->state.details["running"] = false;
         this->state.details["message"] = err.message();
         return ctx->set_state(state);
     }
-    this->state.variant = status::variant::SUCCESS;
+    this->state.variant = status::VARIANT_SUCCESS;
     this->state.details["running"] = true;
     this->state.details["message"] = "Sequence started";
     this->ctx->set_state(this->state);
     loop::Timer timer(this->cfg.rate);
     while (this->breaker.running()) {
         if (const auto next_err = this->seq->next()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::VARIANT_ERROR;
             this->state.details["message"] = next_err.message();
             break;
         }
         auto [elapsed, ok] = timer.wait(this->breaker);
         if (!ok) {
-            this->state.variant = status::variant::WARNING;
+            this->state.variant = status::VARIANT_WARNING;
             this->state
                 .details["message"] = "Sequence script is executing too slowly for the "
                                       "configured loop rate. Last execution took " +
@@ -60,13 +60,13 @@ void sequence::Task::run() {
         }
     }
     if (const auto end_err = this->seq->end()) {
-        this->state.variant = status::variant::ERROR;
+        this->state.variant = status::VARIANT_ERROR;
         this->state.details["message"] = end_err.message();
     }
     this->state.details["running"] = false;
-    if (this->state.variant == status::variant::ERROR)
+    if (this->state.variant == status::VARIANT_ERROR)
         return this->ctx->set_state(this->state);
-    this->state.variant = status::variant::SUCCESS;
+    this->state.variant = status::VARIANT_SUCCESS;
     this->state.details["message"] = "Sequence stopped";
 }
 
@@ -107,7 +107,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
     if (!parser.ok()) {
         LOG(ERROR) << "[sequence] failed to parse task configuration: "
                    << parser.error();
-        cfg_state.variant = status::variant::ERROR;
+        cfg_state.variant = status::VARIANT_ERROR;
         cfg_state.details = parser.error_json();
         ctx->set_state(cfg_state);
         return nullptr;
@@ -124,7 +124,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         auto [read_channels, r_err] = ctx->client->channels.retrieve(cfg.read);
         if (r_err) {
             LOG(ERROR) << "[sequence] failed to retrieve read channels: " << r_err;
-            cfg_state.variant = status::variant::ERROR;
+            cfg_state.variant = status::VARIANT_ERROR;
             cfg_state.details = {
                 {"running", false},
                 {"message", r_err.message()},
@@ -142,7 +142,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         auto [write_channels, w_err] = ctx->client->channels.retrieve(cfg.write);
         if (w_err) {
             LOG(ERROR) << "[sequence] failed to retrieve write channels: " << w_err;
-            cfg_state.variant = status::variant::ERROR;
+            cfg_state.variant = status::VARIANT_ERROR;
             cfg_state.details = {
                 {"running", false},
                 {"message", w_err.message()},
@@ -179,13 +179,13 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         cfg.script
     );
     if (const auto compile_err = seq->compile(); compile_err) {
-        cfg_state.variant = status::variant::ERROR;
+        cfg_state.variant = status::VARIANT_ERROR;
         cfg_state.details = {{"running", false}, {"message", compile_err.message()}};
         ctx->set_state(cfg_state);
         return nullptr;
     }
 
-    cfg_state.variant = status::variant::SUCCESS;
+    cfg_state.variant = status::VARIANT_SUCCESS;
     cfg_state.details = {
         {"running", false},
         {"message", "Sequence configured successfully"}

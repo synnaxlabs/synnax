@@ -10,13 +10,13 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
