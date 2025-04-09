@@ -15,7 +15,7 @@ import { Mosaic } from "@/mosaic";
 
 const TestMosaic = (props: Mosaic.UseProps): ReactElement => {
   const props_ = Mosaic.use(props);
-  return <Mosaic.Mosaic {...props_}>{() => <></>}</Mosaic.Mosaic>;
+  return <Mosaic.Mosaic {...props_}>{() => null}</Mosaic.Mosaic>;
 };
 
 describe("Mosaic", () => {
