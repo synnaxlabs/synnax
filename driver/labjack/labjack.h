@@ -72,6 +72,8 @@ public:
         const synnax::Task &task
     ) override;
 
+    std::string name() override { return INTEGRATION_NAME; }
+
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,

@@ -134,6 +134,7 @@ public:
         return result;
     }
 
+    std::string name() override { return INTEGRATION_NAME; }
 
     common::ConfigureResult
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);

@@ -51,7 +51,7 @@ public:
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
-    std::string name() override { return task.name; }
+    std::string name() const override { return task.name; }
 
     void exec(task::Command &cmd) override;
 

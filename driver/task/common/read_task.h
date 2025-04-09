@@ -231,7 +231,7 @@ public:
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return this->state.task.name; }
+    std::string name() const override { return this->state.task.name; }
 };
 
 inline std::string skew_warning(const size_t skew) {

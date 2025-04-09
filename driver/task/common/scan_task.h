@@ -270,7 +270,7 @@ public:
         return this->client->propagate_state(s);
     }
 
-    std::string name() override { return this->task_name; }
+    std::string name() const override { return this->task_name; }
 
     void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
 };

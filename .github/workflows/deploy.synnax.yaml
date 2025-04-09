@@ -126,7 +126,7 @@ jobs:
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config --config=opt --config=opt_windows //driver
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config --config=opt --config=opt_windows --announce_rc //driver
 
       - name: Determine OS
         id: os

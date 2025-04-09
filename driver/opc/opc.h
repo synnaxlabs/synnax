@@ -30,5 +30,7 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
+
+    std::string name() override { return INTEGRATION_NAME; }
 };
 }

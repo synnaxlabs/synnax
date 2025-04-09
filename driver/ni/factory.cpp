@@ -105,33 +105,35 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    VLOG(1) << "[ni] configuring initial tasks";
     if (!this->check_health(ctx, synnax::Task())) return {};
     VLOG(1) << "[ni] checking for existing scanner task";
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
+    // If the scan task already exists, don't do anything.
     auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
-    if (!err) return tasks;
-    else if (err && !err.matches(xerrors::NOT_FOUND)) {
+    if (!err) {
+        VLOG(1) << "[ni] scan task already exists. skipping creation.";
+        return tasks;
+    }
+    if (err && !err.matches(xerrors::NOT_FOUND)) {
         LOG(ERROR) << "[ni] failed to list existing tasks: " << err;
         return tasks;
     }
 
-    auto sy_task = synnax::Task(rack.key, "ni scanner", SCAN_TASK_TYPE, "", true);
-    const auto c_err = rack.tasks.create(sy_task);
+    auto sy_scan_task = synnax::Task(rack.key, "ni scanner", SCAN_TASK_TYPE, "", true);
+    const auto c_err = rack.tasks.create(sy_scan_task);
     if (c_err) {
-        LOG(ERROR) << "[ni] failed to create scanner task: " << c_err;
+        LOG(ERROR) << "[ni] failed to create scan task: " << c_err;
         return tasks;
     }
-    auto [task, ok] = configure_task(ctx, sy_task);
+    auto [task, ok] = configure_task(ctx, sy_scan_task);
     if (!ok) {
-        LOG(ERROR) << "[ni] failed to configure scanner task: " << c_err;
+        LOG(ERROR) << "[ni] failed to configure scan task: " << c_err;
         return tasks;
     }
     tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task>>({sy_task, std::move(task)})
+        std::pair<synnax::Task, std::unique_ptr<task::Task>>({sy_scan_task, std::move(task)})
     );
-    VLOG(1) << "[ni] configured initial tasks";
     return tasks;
 }
 

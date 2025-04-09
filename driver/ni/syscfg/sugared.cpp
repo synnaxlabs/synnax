@@ -3,7 +3,7 @@
 namespace syscfg {
 xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
-    if (status == NISysCfg_OK) return xerrors::Error();
+    if (status == NISysCfg_OK) return xerrors::NIL;
     const auto desc_status = this->syscfg
                                  ->GetStatusDescriptionW(nullptr, status, &error_buf);
     if (desc_status != NISysCfg_OK || error_buf == nullptr)

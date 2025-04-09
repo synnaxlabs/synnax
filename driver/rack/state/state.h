@@ -20,8 +20,9 @@
 #include "x/cpp/status/status.h"
 
 namespace rack::state {
+const std::string INTEGRATION_NAME = "rack_state";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
-const std::string TASK_NAME = "rack_state";
+const std::string TASK_NAME = INTEGRATION_NAME;
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
 
@@ -72,7 +73,7 @@ public:
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return TASK_NAME; }
+    std::string name() const override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
     void stop(bool will_reconfigure) override { pipe.stop(); }
@@ -144,5 +145,7 @@ class Factory final : public task::Factory {
         VLOG(1) << "[rack_state] configured " << tasks.size() << " tasks";
         return tasks;
     }
+
+    std::string name() override { return INTEGRATION_NAME; }
 };
 }
