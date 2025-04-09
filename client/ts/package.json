@@ -43,12 +43,12 @@
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^22.13.10",
     "@types/uuid": "^10.0.0",
-    "eslint": "^9.22.0",
+    "eslint": "^9.24.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "madge": "^8.0.0",
-    "typescript": "^5.8.2",
-    "vite": "^6.2.1",
-    "vitest": "^2.1.9"
+    "typescript": "^5.8.3",
+    "vite": "^6.2.5",
+    "vitest": "^3.1.1"
   },
   "type": "module",
   "types": "dist/index.d.ts",
