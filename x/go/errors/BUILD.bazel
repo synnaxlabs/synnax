@@ -9,10 +9,6 @@ proto_library(
 
 cpp_grpc_library(
     name = "errors_grpc",
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     output_mode = "NO_PREFIX",
     protos = [":errors_proto"],
     visibility = ["//visibility:public"],

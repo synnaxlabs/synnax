@@ -17,27 +17,13 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/status/status.h"
 
 namespace rack::state {
-const std::string RACK_STATE_CHANNEL = "sy_rack_state";
 const std::string INTEGRATION_NAME = "heartbeat";
-const std::string TASK_NAME = "Heartbeat";
+const std::string TASK_NAME = "rack_state";
 const std::string TASK_TYPE = INTEGRATION_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
-
-struct State {
-    synnax::RackKey key;
-    std::string variant;
-    std::string message;
-
-    [[nodiscard]] json to_json() const {
-        return json{
-            {"key", this->key},
-            {"variant", this->variant},
-            {"message", this->message},
-        };
-    }
-};
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
@@ -54,9 +40,9 @@ public:
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         fr.clear();
         this->loop.wait(breaker);
-        const State state{
+        const synnax::RackState state{
             .key = this->rack_key,
-            .variant = "success",
+            .variant = status::variant::SUCCESS,
             .message = "Driver is running"
         };
         fr.emplace(key, telem::Series(state.to_json()));
@@ -94,18 +80,18 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(RACK_STATE_CHANNEL);
+        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME);
         if (err) {
-            LOG(WARNING) << "[heartbeat] failed to retrieve heartbeat channel: " << err;
+            LOG(WARNING) << "[rack_state] failed to retrieve rack stat channel: " << err;
             return nullptr;
         }
-        auto source = std::make_shared<Source>(ch.key, synnax::task_key_rack(task.key));
+        auto source = std::make_shared<Source>(ch.key, synnax::rack_key_from_task_key(task.key));
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
             .start = telem::TimeStamp::now(),
         };
         auto breaker_config = breaker::Config{
-            .name = "heartbeat",
+            .name = TASK_NAME,
             .base_interval = 1 * telem::SECOND,
             .max_retries = breaker::RETRY_INFINITELY,
             .scale = 1.05,
@@ -134,11 +120,11 @@ class Factory final : public task::Factory {
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(rack.key, TASK_NAME, TASK_TYPE, "", true);
             err = rack.tasks.create(sy_task);
-            if (err) LOG(ERROR) << "failed to create heartbeat task: " << err;
+            if (err) LOG(ERROR) << "[rack_state] failed to create state task: " << err;
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
-            LOG(ERROR) << "failed to retrieve heartbeat task: " << err;
+            LOG(ERROR) << "[rack_state] failed to retrieve state task: " << err;
         return tasks;
     }
 };

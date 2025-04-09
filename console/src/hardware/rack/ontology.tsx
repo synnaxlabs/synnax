@@ -11,7 +11,14 @@ import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu as PMenu, Status, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  Icon as PIcon,
+  Menu as PMenu,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
@@ -97,11 +104,16 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
               flexGrow: 1,
             }}
           />
-          <Icon.Heart
-            ref={heartRef}
-            className="synnax-rack-heartbeat"
-            style={{ color: Status.VARIANT_COLORS[variant] }}
-          />
+          <Tooltip.Dialog location="right">
+            <Status.Text variant={variant} hideIcon level="small" weight={450}>
+              {state?.message}
+            </Status.Text>
+            <Icon.Heart
+              ref={heartRef}
+              className="synnax-rack-heartbeat"
+              style={{ color: Status.VARIANT_COLORS[variant] }}
+            />
+          </Tooltip.Dialog>
         </>
       )}
     </Tree.DefaultItem>

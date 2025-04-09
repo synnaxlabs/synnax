@@ -110,12 +110,12 @@ TEST_F(XEnvTest, AutomaticCaseConversion) {
 
 TEST_F(XEnvTest, CaseConversionWithMixedCase) {
     // Test that mixed case gets converted correctly
-    xenv::set("MIXED_CASE_VALUE", "success");
+    xenv::set("MIXED_CASE_VALUE", status::variant::SUCCESS);
 
     // All these should work and access the same env var
-    EXPECT_EQ(xenv::load("mixed_case_value", std::string("default")), "success");
-    EXPECT_EQ(xenv::load("MIXED_CASE_VALUE", std::string("default")), "success");
-    EXPECT_EQ(xenv::load("Mixed_Case_Value", std::string("default")), "success");
+    EXPECT_EQ(xenv::load("mixed_case_value", std::string("default")), status::variant::SUCCESS);
+    EXPECT_EQ(xenv::load("MIXED_CASE_VALUE", std::string("default")), status::variant::SUCCESS);
+    EXPECT_EQ(xenv::load("Mixed_Case_Value", std::string("default")), status::variant::SUCCESS);
 
     xenv::unset("MIXED_CASE_VALUE");
 }

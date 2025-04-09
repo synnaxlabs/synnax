@@ -198,8 +198,10 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
-	if err := lp.deleteOverwritten(ctx, tx, channels, opt.OverwriteIfNameExistsAndDifferentProperties); err != nil {
-		return err
+	if opt.OverwriteIfNameExistsAndDifferentProperties {
+		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+			return err
+		}
 	}
 
 	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, opt.RetrieveIfNameExists)
@@ -305,11 +307,7 @@ func (lp *leaseProxy) deleteOverwritten(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	overwriteIfNameExists bool,
 ) error {
-	if !overwriteIfNameExists {
-		return nil
-	}
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := gorp.NewDelete[Key, Channel]().
 		Where(func(c *Channel) bool {
@@ -337,9 +335,12 @@ func (lp *leaseProxy) createGateway(
 	channels *[]Channel,
 	opts CreateOptions,
 ) error {
-	if err := lp.deleteOverwritten(ctx, tx, channels, opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
-		return err
+	if opts.OverwriteIfNameExistsAndDifferentProperties {
+		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+			return err
+		}
 	}
+
 	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
 		return err
 	}

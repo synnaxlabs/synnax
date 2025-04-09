@@ -9,7 +9,7 @@
 
 import { type device, ontology, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Align, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import {
   createContext,
@@ -23,22 +23,18 @@ import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface StateProviderContextValue {
-  states: Record<string, device.State>;
-}
+export interface StateContextValue extends Record<string, device.State> {}
 
-const StateContext = createContext<StateProviderContextValue>({
-  states: {},
-});
+const StateContext = createContext<StateContextValue>({});
 
 const StateProvider = ({ children }: { children: ReactElement }) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<Record<string, device.State>>({});
+  const [states, setStates] = reactUseState<StateContextValue>({});
 
   useAsyncEffect(async () => {
     if (client == null) return;
     const devs = await client.hardware.devices.retrieve([], { includeState: true });
-    const initialStates: Record<string, device.State> = Object.fromEntries(
+    const initialStates: StateContextValue = Object.fromEntries(
       devs.filter((d) => d.state != null).map((d) => [d.key, d.state as device.State]),
     );
     setStates(initialStates);
@@ -55,25 +51,21 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
     };
   }, []);
 
-  return <StateContext.Provider value={{ states }}>{children}</StateContext.Provider>;
+  return <StateContext.Provider value={states}>{children}</StateContext.Provider>;
 };
 
-interface RackHeartbeatProviderContextValue {
-  states: Record<string, rack.State>;
-}
+interface RackStateContextValue extends Record<string, rack.State> {}
 
-const RackStateContext = createContext<RackHeartbeatProviderContextValue>({
-  states: {},
-});
+const RackStateContext = createContext<RackStateContextValue>({});
 
-const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
+const RackStateProvider = ({ children }: { children: ReactElement }) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<Record<string, rack.State>>({});
+  const [states, setStates] = reactUseState<RackStateContextValue>({});
 
   useAsyncEffect(async () => {
     if (client == null) return;
     const racks = await client.hardware.racks.retrieve([], { includeState: true });
-    const initialStates: Record<string, rack.State> = Object.fromEntries(
+    const initialStates: RackStateContextValue = Object.fromEntries(
       racks.filter((r) => r.state != null).map((r) => [r.key, r.state as rack.State]),
     );
     setStates(initialStates);
@@ -91,19 +83,15 @@ const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
   }, []);
 
   return (
-    <RackStateContext.Provider value={{ states }}>{children}</RackStateContext.Provider>
+    <RackStateContext.Provider value={states}>{children}</RackStateContext.Provider>
   );
 };
 
-export const useRackState = (key: string): rack.State | undefined => {
-  const { states } = useContext(RackStateContext);
-  return states[key];
-};
+export const useRackState = (key: string): rack.State | undefined =>
+  useContext(RackStateContext)[key];
 
-export const useState = (key: string): device.State | undefined => {
-  const { states } = useContext(StateContext);
-  return states[key];
-};
+export const useState = (key: string): device.State | undefined =>
+  useContext(StateContext)[key];
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -121,15 +109,14 @@ const Content = (): ReactElement => {
   return (
     <Cluster.NoneConnectedBoundary>
       <StateProvider>
-        <RackHeartbeatProvider>
+        <RackStateProvider>
           <Align.Space empty style={{ height: "100%" }}>
             <Toolbar.Header>
               <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
-              <Header.Actions></Header.Actions>
             </Toolbar.Header>
             <Ontology.Tree root={group.data} />
           </Align.Space>
-        </RackHeartbeatProvider>
+        </RackStateProvider>
       </StateProvider>
     </Cluster.NoneConnectedBoundary>
   );

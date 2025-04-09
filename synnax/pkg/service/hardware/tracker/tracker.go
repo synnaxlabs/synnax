@@ -12,6 +12,8 @@ package tracker
 import (
 	"context"
 	"fmt"
+	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/status"
 	"io"
 	"sync"
 	"time"
@@ -197,8 +199,10 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		}
 
 		for _, tsk := range tasks {
-			// try to fetch the task state
-			taskState := task.State{Task: tsk.Key, Variant: task.InfoStateVariant}
+			if tsk.Snapshot {
+				continue
+			}
+			taskState := task.State{Task: tsk.Key, Variant: status.InfoVariant}
 			if err = gorp.NewRetrieve[task.Key, task.State]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
@@ -220,7 +224,6 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		for _, dev := range devices {
 			deviceState := device.State{
 				Key:     dev.Key,
-				Rack:    dev.Rack,
 				Variant: "info",
 				Details: "",
 			}
@@ -271,7 +274,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	if err = cfg.Channels.CreateMany(
 		ctx,
 		&channels,
-		channel.OverwriteIfNameExistsAndDifferentProperties(true),
+		channel.OverwriteIfNameExistsAndDifferentProperties(),
 		channel.RetrieveIfNameExists(true),
 	); err != nil {
 		return nil, err
@@ -340,7 +343,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	signal.GoTick(tickCtx, t.cfg.RackStateAliveThreshold.Duration(), func(ctx context.Context, _ time.Time) error {
 		t.mu.RLock()
 		defer t.mu.RUnlock()
-		t.checkRackState()
+		t.checkRackState(ctx)
 		return nil
 	})
 	t.closer = xio.MultiCloser{
@@ -426,14 +429,14 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 				t.mu.Racks[rackKey] = rackState
 			}
 			if _, taskOk := rackState.Tasks[c.Key]; !taskOk {
-				rackState.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.InfoStateVariant}
+				rackState.Tasks[c.Key] = task.State{Task: c.Key, Variant: status.InfoVariant}
 			}
 			alive := rackState.Alive(t.cfg.RackStateAliveThreshold)
 			if !rckOk || !alive {
 				state := task.State{
 					Task:    c.Key,
-					Variant: task.WarningStateVariant,
-					Details: task.NewStaticDetails(map[string]interface{}{
+					Variant: status.WarningVariant,
+					Details: xjson.NewStaticString(ctx, map[string]interface{}{
 						"message": "rack is not alive",
 						"running": false,
 					}),
@@ -446,7 +449,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						Exec(ctx, t.cfg.DB); err != nil {
 						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 					}
-					state.Details = task.NewStaticDetails(map[string]interface{}{
+					state.Details = xjson.NewStaticString(ctx, map[string]interface{}{
 						"running": "false",
 						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived).Truncate(telem.Second)),
 					})
@@ -481,7 +484,7 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 	}
 }
 
-func (t *Tracker) checkRackState() {
+func (t *Tracker) checkRackState(ctx context.Context) {
 	rackStates := make([]rack.State, 0, len(t.mu.Racks))
 	taskStates := make([]task.State, 0, len(t.mu.Racks))
 	for _, r := range t.mu.Racks {
@@ -499,8 +502,8 @@ func (t *Tracker) checkRackState() {
 			t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 		}
 		for _, taskState := range r.Tasks {
-			taskState.Variant = task.WarningStateVariant
-			taskState.Details = task.NewStaticDetails(map[string]interface{}{
+			taskState.Variant = status.WarningVariant
+			taskState.Details = xjson.NewStaticString(ctx, map[string]interface{}{
 				"message": fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second)),
 				"running": false,
 			})
@@ -612,7 +615,6 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 		}
 		r.Devices[deviceState.Key] = deviceState
 
-		// Trigger a save
 		select {
 		case t.deviceSaveNotifications <- struct {
 			key  string
@@ -653,7 +655,7 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 				rackState.Devices[c.Key] = device.State{
 					Key:     c.Key,
 					Rack:    rackKey,
-					Variant: "info",
+					Variant: status.InfoVariant,
 				}
 			}
 		}

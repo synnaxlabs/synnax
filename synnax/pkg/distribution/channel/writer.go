@@ -54,9 +54,9 @@ func RetrieveIfNameExists(v bool) CreateOption {
 	}
 }
 
-func OverwriteIfNameExistsAndDifferentProperties(v bool) CreateOption {
+func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	return func(o *CreateOptions) {
-		o.OverwriteIfNameExistsAndDifferentProperties = v
+		o.OverwriteIfNameExistsAndDifferentProperties = true
 	}
 }
 

@@ -23,7 +23,7 @@
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve("sy_rack_state"));
+    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = rack::state::Task::configure(
         ctx,
@@ -45,7 +45,7 @@ TEST(stateTests, testNominal) {
         if (j["key"] == rack.key) break;
     }
     EXPECT_EQ(j["key"], rack.key);
-    EXPECT_EQ(j["variant"], "success");
+    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();

@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "meminfo.h"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <iostream>
-#include <psapi.h>
-#include <windows.h>
+#pragma once
 
-std::uint32_t meminfo::getUsage() {
-    PROCESS_MEMORY_COUNTERS pmc;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
-        return static_cast<std::uint32_t>(pmc.WorkingSetSize);
-    return 0;
+#include <string>
+
+/// @brief utility packages for managing status messages.
+namespace status::variant {
+const std::string SUCCESS = "success";
+const std::string ERROR = "error";
+const std::string WARNING = "warning";
+const std::string INFO = "info";
 }

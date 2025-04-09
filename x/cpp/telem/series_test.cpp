@@ -890,3 +890,30 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(s3.size(), 0);
     ASSERT_EQ(s3.byte_size(), 0);
 }
+
+TEST(TestSeries, testJSONValuesBasic) {
+    std::vector<json> input_values = {
+        json{{"key1", "value1"}},
+        json{{"key2", 42}},
+        json::array({1, 2, 3}),
+        json{{"nested", {{"a", 1}, {"b", "test"}}}}
+    };
+
+    const telem::Series s(input_values);
+    const auto output_values = s.json_values();
+    
+    ASSERT_EQ(output_values.size(), input_values.size());
+    for (size_t i = 0; i < input_values.size(); i++)
+        ASSERT_EQ(output_values[i], input_values[i]);
+}
+
+TEST(TestSeries, testJSONValuesEmpty) {
+    const telem::Series empty_series(std::vector<json>{});
+    auto empty_values = empty_series.json_values();
+    ASSERT_TRUE(empty_values.empty());
+}
+
+TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
+    const telem::Series non_json_series(std::vector<int>{1, 2, 3});
+    ASSERT_THROW(non_json_series.json_values(), std::runtime_error);
+}

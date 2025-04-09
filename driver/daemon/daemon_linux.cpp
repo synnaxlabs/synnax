@@ -188,7 +188,7 @@ void update_status(Status status, const std::string &message) {
             status_msg += "Stopping";
             break;
         case Status::ERROR_:
-            status_msg += "Error";
+            status_msg += status::variant::ERROR;
             break;
     }
 
