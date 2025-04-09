@@ -1,3 +1,10 @@
+config_setting(
+    name = "nilinuxrt",
+    values = {
+        "define": "platform=nilinuxrt",
+    },
+)
+
 cc_library(
     name = "rack",
     srcs = [
