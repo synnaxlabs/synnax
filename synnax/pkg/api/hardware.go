@@ -453,7 +453,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 	if req.IncludeState {
 		for i := range res.Devices {
-			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Rack, res.Devices[i].Key); ok {
+			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Key); ok {
 				res.Devices[i].State = s
 			}
 		}
