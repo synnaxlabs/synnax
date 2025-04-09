@@ -19,9 +19,9 @@
 #include "open62541/types.h"
 
 /// module
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/status/status.h"
+#include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/opc/scan_task.h"

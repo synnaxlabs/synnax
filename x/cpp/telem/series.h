@@ -597,10 +597,10 @@ public:
     [[nodiscard]] std::vector<json> json_values() const {
         if (!this->data_type().matches({JSON_T}))
             throw std::runtime_error("cannot convert a non-JSON series to JSON values");
-        
+
         std::vector<json> v;
         v.reserve(this->size());
-        for (const auto& str : this->strings())
+        for (const auto &str: this->strings())
             v.push_back(json::parse(str));
         return v;
     }

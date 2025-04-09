@@ -64,7 +64,8 @@ void sequence::Task::run() {
         this->state.details["message"] = end_err.message();
     }
     this->state.details["running"] = false;
-    if (this->state.variant == status::variant::ERROR) return this->ctx->set_state(this->state);
+    if (this->state.variant == status::variant::ERROR)
+        return this->ctx->set_state(this->state);
     this->state.variant = status::variant::SUCCESS;
     this->state.details["message"] = "Sequence stopped";
 }
