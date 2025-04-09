@@ -17,18 +17,21 @@
 #include "client/cpp/testutil/testutil.h"
 #include "driver/rack/state/state.h"
 
-/// @brief tests the nominal heartbeat case.
-TEST(HeartbeatTests, testNominal) {
+#include "x/cpp/defer/defer.h"
+
+/// @brief tests the nominal state case.
+TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve("sy_rack_state"));
+    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = rack::state::Task::configure(
         ctx,
-        synnax::Task(rack.key, "heartbeat", "heartbeat", "", true)
+        synnax::Task(rack.key, "state", "state", "", true)
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
+    x::defer stop([&hb]() { hb->stop(false); });
     auto [streamer, strm_err] = client->telem.open_streamer(synnax::StreamerConfig{
         .channels = {ch.key},
     });
@@ -42,9 +45,8 @@ TEST(HeartbeatTests, testNominal) {
         if (j["key"] == rack.key) break;
     }
     EXPECT_EQ(j["key"], rack.key);
-    EXPECT_EQ(j["variant"], "success");
+    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
-    hb->stop(false);
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();
 }

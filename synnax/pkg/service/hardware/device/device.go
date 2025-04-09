@@ -10,12 +10,11 @@
 package device
 
 import (
-	"encoding/json"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,7 +35,9 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties
 	Properties string `json:"properties" msgpack:"properties"`
-	State      State  `json:"state" msgpack:"state"`
+	// State is the state of the device. This field is not stored directly with the
+	// device inside of gorp, and is not guaranteed to be valid.
+	State State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[string] = Device{}
@@ -59,55 +60,21 @@ func (d Device) Validate() error {
 	return v.Error()
 }
 
-type Details string
-
-var detailsCodec = &binary.JSONCodec{}
-
-func NewStaticDetails(data interface{}) Details {
-	b, err := detailsCodec.Encode(nil, data)
-	if err != nil {
-		panic(err)
-	}
-	return Details(b)
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface for Details.
-// It should correctly handle a raw JSON string or a JSON object/array.
-func (d *Details) UnmarshalJSON(data []byte) error {
-	// Try to unmarshal data into a plain string
-	var plainString string
-	if err := json.Unmarshal(data, &plainString); err == nil {
-		*d = Details(plainString)
-		return nil
-	}
-
-	// If the above fails, it means the data might be an object or an array,
-	// so we re-marshal it into a string regardless of its type.
-	var obj interface{}
-	if err := json.Unmarshal(data, &obj); err != nil {
-		return errors.New("input data is neither a plain string nor valid JSON")
-	}
-
-	// Marshal the object back to string
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	*d = Details(bytes)
-	return nil
-}
-
-type Status string
-
 // State represents the state of a device.
 type State struct {
-	Key     string   `json:"key" msgpack:"key"`
-	Rack    rack.Key `json:"rack" msgpack:"rack"`
-	Variant string   `json:"variant" msgpack:"variant"`
-	Details Details  `json:"details" msgpack:"details"`
+	// Key is the key of the device.
+	Key string `json:"key" msgpack:"key"`
+	// Rack is the rack that the device is in.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Variant is the status variant representing the general state of the device.
+	Variant status.Variant `json:"variant" msgpack:"variant"`
+	// Details are JSON-stringified details about the device's state. These are arbitrary,
+	// and vary based on the device vendor.
+	Details xjson.String `json:"details" msgpack:"details"`
 }
 
+// GorpKey implements gorp.Entry.
 func (s State) GorpKey() string { return s.Key }
 
+// SetOptions implements gorp.Entry.
 func (s State) SetOptions() []interface{} { return []interface{}{s.Rack.Node()} }

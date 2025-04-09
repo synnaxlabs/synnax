@@ -13,13 +13,12 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -64,7 +63,7 @@ func newLeaseProxy(
 		return nil, err
 	}
 	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
-	externalNonVirtualSet := set.NewInteger[Key](externalNonVirtualKeys...)
+	externalNonVirtualSet := set.NewInteger(externalNonVirtualKeys...)
 
 	p := &leaseProxy{
 		ServiceConfig:         cfg,
@@ -116,7 +115,7 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 	return types.Nil{}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opt CreateOptions) error {
+func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
@@ -132,7 +131,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
-		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries, opt)
+		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries, opts)
 		if err != nil {
 			return err
 		}
@@ -140,20 +139,20 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free, opt)
+			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opt)
+			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts)
 			if err != nil {
 				return err
 			}
 			oChannels = append(oChannels, batch.Free...)
 		}
 	}
-	err := lp.createGateway(ctx, tx, &batch.Gateway, opt)
+	err := lp.createGateway(ctx, tx, &batch.Gateway, opts)
 	if err != nil {
 		return err
 	}
@@ -199,8 +198,10 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
-	if err := lp.deleteOverwritten(ctx, tx, channels, opt.OverWriteIfNameExistsAndDifferentProperties); err != nil {
-		return err
+	if opt.OverwriteIfNameExistsAndDifferentProperties {
+		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+			return err
+		}
 	}
 
 	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, opt.RetrieveIfNameExists)
@@ -306,11 +307,7 @@ func (lp *leaseProxy) deleteOverwritten(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	overWriteIfNameExists bool,
 ) error {
-	if !overWriteIfNameExists {
-		return nil
-	}
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := gorp.NewDelete[Key, Channel]().
 		Where(func(c *Channel) bool {
@@ -338,9 +335,12 @@ func (lp *leaseProxy) createGateway(
 	channels *[]Channel,
 	opts CreateOptions,
 ) error {
-	if err := lp.deleteOverwritten(ctx, tx, channels, opts.OverWriteIfNameExistsAndDifferentProperties); err != nil {
-		return err
+	if opts.OverwriteIfNameExistsAndDifferentProperties {
+		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+			return err
+		}
 	}
+
 	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
 		return err
 	}

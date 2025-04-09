@@ -12,12 +12,11 @@ package tracker_test
 import (
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
@@ -208,7 +207,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys: []channel.Key{taskStateCh.Key()},
 			}))
 			sCtx, sCancel := signal.Isolated()
-			requests, responses := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer)
+			requests, responses := confluence.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(1 * time.Millisecond)
 			tsk := &task.Task{Key: taskKey, Name: "task1"}

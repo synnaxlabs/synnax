@@ -28,7 +28,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
-    dev.rack = synnax::task_key_rack(this->task.key);
+    dev.rack = synnax::rack_key_from_task_key(this->task.key);
     dev.configured = false;
 
     NISysCfgBool is_simulated;
@@ -84,7 +84,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     dev.state = synnax::DeviceState{
         .key = dev.key,
-        .variant = "success",
+        .variant = status::variant::SUCCESS,
         .rack = dev.rack,
         .details =
             json{
@@ -144,19 +144,13 @@ xerrors::Error ni::Scanner::stop() {
 xerrors::Error ni::Scanner::start() {
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
-            // target (ip, mac or dns name)
             nullptr,
-            // username (NULL for local system)
             nullptr,
-            // password (NULL for local system)
             NISysCfgLocaleDefault,
-            // language
             NISysCfgBoolTrue,
-            // force properties to be queried everytime rather than cached
             (this->cfg.rate.period() - telem::SECOND).milliseconds(),
             nullptr,
-            // expert handle
-            &this->session // session handle
+            &this->session
         ))
         return err;
 

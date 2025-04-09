@@ -17,6 +17,7 @@
 /// internal
 #include "client/cpp/testutil/testutil.h"
 #include "driver/task/task.h"
+#include "x/cpp/status/status.h"
 
 
 using json = nlohmann::json;
@@ -33,7 +34,7 @@ public:
         ctx(ctx), task(task) {
         ctx->set_state(
             {.task = task.key,
-             .variant = "success",
+             .variant = status::variant::SUCCESS,
              .details = json{{"message", "task configured successfully"}}}
         );
     }
@@ -44,7 +45,7 @@ public:
         ctx->set_state({
             .task = task.key,
             .key = cmd.key,
-            .variant = "success",
+            .variant = status::variant::SUCCESS,
             .details = cmd.args,
         });
     }
@@ -52,7 +53,7 @@ public:
     void stop(bool will_reconfigure) override {
         ctx->set_state(
             {.task = task.key,
-             .variant = "success",
+             .variant = status::variant::SUCCESS,
              .details = json{{"message", "task stopped successfully"}}}
         );
     }
@@ -113,7 +114,9 @@ protected:
 
 /// @brief it should correctly configure an echo task.
 TEST_F(TaskManagerTestFixture, testEchoTask) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
@@ -132,7 +135,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, "success");
+    ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.details["message"], "task configured successfully");
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -140,7 +143,9 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
 
 /// @brief it should stop and remove the task.
 TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
@@ -168,7 +173,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto parser = xjson::Parser(state_str);
     auto state = task::State::parse(parser);
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, "success");
+    ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.details["message"], "task stopped successfully");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -176,7 +181,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
 
 /// @brief it should execute an echo command on the task.
 TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
     auto [streamer, s_err] = client->telem.open_streamer(
         synnax::StreamerConfig{.channels = {sy_task_state.key}}
@@ -217,7 +224,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto [task, key, variant, details] = task::State::parse(parser);
     ASSERT_EQ(task, echo_task.key);
     ASSERT_EQ(key, cmd.key);
-    ASSERT_EQ(variant, "success");
+    ASSERT_EQ(variant, status::variant::SUCCESS);
     ASSERT_EQ(details["message"], "hello world");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -225,7 +232,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
 
 /// @brief should ignore tasks for a different rack.
 TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
@@ -265,7 +274,9 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
 
 /// @brief it should stop all tasks when the manager is shut down.
 TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
@@ -295,7 +306,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     auto state = task::State::parse(parser);
 
     ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, "success");
+    ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.details["message"], "task stopped successfully");
 
     const auto close_err = streamer.close();
@@ -304,7 +315,9 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 
 /// @brief it should ignore snapshot tasks during configuration.
 TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve("sy_task_state");
+    auto [sy_task_state, ch_err] = client->channels.retrieve(
+        synnax::TASK_STATE_CHAN_NAME
+    );
     ASSERT_FALSE(ch_err) << ch_err;
     auto [streamer, s_err] = client->telem.open_streamer(
         synnax::StreamerConfig{.channels = {sy_task_state.key}}

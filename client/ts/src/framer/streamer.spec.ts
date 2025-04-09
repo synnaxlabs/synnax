@@ -27,7 +27,6 @@ describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
     const streamer = await client.openStreamer(ch.key);
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
@@ -56,7 +55,6 @@ describe("Streamer", () => {
       channels: ch.key,
       downsampleFactor: 1,
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
@@ -75,7 +73,6 @@ describe("Streamer", () => {
       channels: ch.key,
       downsampleFactor: 2,
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
@@ -94,7 +91,6 @@ describe("Streamer", () => {
       channels: ch.key,
       downsampleFactor: 10,
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
@@ -144,9 +140,6 @@ describe("Streamer - Calculated Channels", () => {
 
     // Set up streamer to listen for calculated results
     const streamer = await client.openStreamer(calcChannel.key);
-
-    // Give streamer time to initialize
-    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Write test data
     const startTime = TimeStamp.now();
@@ -200,7 +193,6 @@ describe("Streamer - Calculated Channels", () => {
     });
 
     const streamer = await client.openStreamer(calcChannel.key);
-    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const startTime = TimeStamp.now();
     const writer = await client.openWriter({
@@ -254,7 +246,6 @@ describe("Streamer - Calculated Channels", () => {
     });
 
     const streamer = await client.openStreamer(calcChannel.key);
-    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const startTime = TimeStamp.now();
     const writer = await client.openWriter({

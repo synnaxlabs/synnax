@@ -24,6 +24,7 @@ import {
   type State,
   stateZ,
 } from "@/hardware/device/payload";
+import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -46,12 +47,15 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
 const retrieveReqZ = z.object({
-  search: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
+  models: z.string().array().optional(),
+  locations: z.string().array().optional(),
+  racks: rackKeyZ.array().optional(),
+  search: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
   ignoreNotFound: z.boolean().optional(),
   includeState: z.boolean().optional(),
 });
@@ -109,7 +113,6 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   ): Promise<
     | Device<Properties, Make, Model, StateDetails>
     | Array<Device<Properties, Make, Model, StateDetails>>
-    | null
   > {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(

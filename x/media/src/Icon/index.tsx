@@ -445,6 +445,7 @@ export interface IconType {
   Hidden: IconFC;
   Heart: IconFC;
   Virtual: IconFC;
+  Heart: IconFC;
 }
 
 export const Icon: IconType = {
@@ -635,4 +636,5 @@ export const Icon: IconType = {
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
   Heart: wrapIcon(IoMdHeart, "heart"),
   Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
+  Heart: wrapIcon(IoMdHeart, "heart"),
 };

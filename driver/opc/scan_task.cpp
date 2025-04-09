@@ -19,12 +19,13 @@
 #include "open62541/types.h"
 
 /// module
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/opc/scan_task.h"
 #include "driver/opc/util/util.h"
-#include "x/cpp/defer/defer.h"
 
 namespace opc {
 std::unique_ptr<task::Task> ScanTask::configure(
@@ -112,7 +113,7 @@ void ScanTask::scan(const task::Command &cmd) const {
         return ctx->set_state(
             {.task = task.key,
              .key = cmd.key,
-             .variant = "error",
+             .variant = status::variant::ERROR,
              .details = {{"message", err.message()}}}
         );
 
@@ -129,7 +130,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = "success",
+        .variant = status::variant::SUCCESS,
         .details = util::DeviceProperties(args.connection, *scan_ctx->channels)
                        .to_json(),
     });
@@ -147,13 +148,13 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         return ctx->set_state(
             {.task = task.key,
              .key = cmd.key,
-             .variant = "error",
+             .variant = status::variant::ERROR,
              .details = {{"message", err.data}}}
         );
     return ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = "success",
+        .variant = status::variant::SUCCESS,
         .details = {{"message", "Connection successful"}},
     });
 }

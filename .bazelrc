@@ -9,10 +9,10 @@ build --enable_platform_specific_config
 # These hide symbols from the linker in order to prevent symbols collisions with
 # libraries we load dynamically at runtime (LabJack is the primary source of this issue,
 # as it relies an incompatible, legacy GRPC version).
-build:linux --copt=-fvisibility=hidden
-build:linux --copt=-fvisibility-inlines-hidden
-build:macos --copt=-fvisibility=hidden
-build:macos --copt=-fvisibility-inlines-hidden
+build:opt:linux --copt=-fvisibility=hidden
+build:opt:linux --cxxopt=-fvisibility-inlines-hidden
+build:opt:macos --copt=-fvisibility=hidden
+build:opt:macos --cxxopt=-fvisibility-inlines-hidden
 
 # ===== Platform-Specific Compiler Settings =====
 

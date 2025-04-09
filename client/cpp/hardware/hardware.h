@@ -73,6 +73,13 @@ using RackKey = std::uint32_t;
 /// @brief An alias for the type of task's key.
 using TaskKey = std::uint64_t;
 
+/// @brief the name of the channel used to propagate device state.
+const std::string DEVICE_STATE_CHAN_NAME = "sy_device_state";
+/// @brief the name of the channel used to propagate task state.
+const std::string TASK_STATE_CHAN_NAME = "sy_task_state";
+/// @brief the name of the channel used to propagate rack state.
+const std::string RACK_STATE_CHAN_NAME = "sy_rack_state";
+
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
 /// @param task The local task key.
@@ -84,17 +91,16 @@ inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey task_key_rack(const TaskKey key) {
+inline RackKey rack_key_from_task_key(const TaskKey key) {
     return key >> 32;
 }
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t task_key_local(const TaskKey key) {
+inline std::uint32_t local_task_key(const TaskKey key) {
     return key & 0xFFFFFFFF;
 }
-
 
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
@@ -303,10 +309,15 @@ private:
     friend class HardwareClient;
 };
 
+/// @brief utility struct storing the current state of a device.
 struct DeviceState {
+    /// @brief the key of the device.
     std::string key;
+    /// @brief the status variant of the device's current state.
     std::string variant;
-    RackKey rack;
+    /// @brief the device rack.
+    RackKey rack = 0;
+    /// @brief additional json details about the device's current state.
     json details;
 
     [[nodiscard]] json to_json() const {
@@ -316,6 +327,25 @@ struct DeviceState {
         j["details"] = this->details;
         j["rack"] = this->rack;
         return j;
+    }
+};
+
+
+/// @brief utility struct storing the current state of a rack.
+struct RackState {
+    /// @brief the key of the rack.
+    synnax::RackKey key;
+    /// @brief the status variant of the rack's current state.
+    std::string variant;
+    /// @brief a message describing the current state of the rack.
+    std::string message;
+
+    [[nodiscard]] json to_json() const {
+        return json{
+            {"key", this->key},
+            {"variant", this->variant},
+            {"message", this->message},
+        };
     }
 };
 
@@ -370,7 +400,6 @@ private:
 
     friend class HardwareClient;
 };
-
 
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
@@ -545,4 +574,6 @@ private:
     /// @brief Device deletion transport.
     std::shared_ptr<HardwareDeleteDeviceClient> device_delete_client;
 };
+
+
 }

@@ -35,14 +35,14 @@ var (
 func translateOptionsForward(opts channel.CreateOptions) *channelv1.CreateOptions {
 	return &channelv1.CreateOptions{
 		RetrieveIfNameExists:  opts.RetrieveIfNameExists,
-		OverwriteIfNameExists: opts.OverWriteIfNameExistsAndDifferentProperties,
+		OverwriteIfNameExists: opts.OverwriteIfNameExistsAndDifferentProperties,
 	}
 }
 
 func translateOptionsBackward(opts *channelv1.CreateOptions) channel.CreateOptions {
 	return channel.CreateOptions{
 		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
-		OverWriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
+		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
 	}
 }
 

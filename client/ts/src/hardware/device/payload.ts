@@ -22,9 +22,8 @@ export const stateZ = z.object({
   details: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
 });
 
-export interface State<Details extends {} = UnknownRecord> {
-  variant: string;
-  key: Key;
+export interface State<Details extends {} = UnknownRecord>
+  extends Omit<z.infer<typeof stateZ>, "details"> {
   details: Details;
 }
 
@@ -44,18 +43,17 @@ export interface Device<
   Properties extends UnknownRecord = UnknownRecord,
   Make extends string = string,
   Model extends string = string,
-  Details extends {} = UnknownRecord,
+  StateDetails extends {} = UnknownRecord,
 > extends Omit<z.output<typeof deviceZ>, "properties" | "state"> {
   properties: Properties;
   make: Make;
   model: Model;
-  state?: State<Details>;
+  state?: State<StateDetails>;
 }
 
 export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
-
 export interface New<
   Properties extends UnknownRecord = UnknownRecord,
   Make extends string = string,

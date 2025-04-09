@@ -15,6 +15,7 @@ cc_library(
         "//driver/task",
         "//driver/transform",
         "//x/cpp/loop",
+        "//x/cpp/status",
     ],
 )
 

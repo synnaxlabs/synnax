@@ -592,6 +592,19 @@ public:
         return v;
     }
 
+    /// @brief returns the data as a vector of JSON values. This method can only be used
+    /// if the data type is JSON.
+    [[nodiscard]] std::vector<json> json_values() const {
+        if (!this->data_type().matches({JSON_T}))
+            throw std::runtime_error("cannot convert a non-JSON series to JSON values");
+
+        std::vector<json> v;
+        v.reserve(this->size());
+        for (const auto &str: this->strings())
+            v.push_back(json::parse(str));
+        return v;
+    }
+
     /// @brief accesses the number at the given index.
     /// @param index the index to get the number at. If negative, the index is
     /// treated as an offset from the end of the series.

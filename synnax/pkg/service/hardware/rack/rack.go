@@ -10,12 +10,14 @@
 package rack
 
 import (
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
+	"strconv"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -54,13 +56,18 @@ func (k Key) IsZero() bool { return k == 0 }
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
+// State is the state of the rack. This is updated by external device drivers to
+// communicate the racks health.
 type State struct {
 	// Key is the key of the rack.
 	Key Key `json:"key" msgpack:"key"`
-	// Variant is the variant of the rack. This is used to determine the type of
-	Variant string `json:"variant" msgpack:"variant"`
-	/// LastReceived is the last time the rack sent a heartbeat signal.
+	// LastReceived is the last time the rack sent a heartbeat signal. This is the
+	// time a fresh variant and message have been received, and shows that the rack
+	// is alive. Note that even if LastReceived is updated, Variant and Message may
+	// still be the same.
 	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
+	// Variant is status variant of the state update.
+	Variant status.Variant `json:"variant" msgpack:"variant"`
 	// Message is the last message sent by the rack. This is used to determine if the
 	// rack is healthy.
 	Message string `json:"message" msgpack:"message"`
@@ -97,13 +104,3 @@ func (r Rack) Validate() error {
 	validate.NotEmptyString(v, "Name", r.Name)
 	return v.Error()
 }
-
-type Heartbeat uint64
-
-func NewHeartbeat(rack Key, secondsSinceStart uint32) Heartbeat {
-	return Heartbeat(uint64(rack)<<32 | uint64(secondsSinceStart))
-}
-
-func (h Heartbeat) Rack() Key { return Key(h >> 32) }
-
-func (h Heartbeat) SecondsSinceStart() uint32 { return uint32(h & 0xFFFFFFFF) }

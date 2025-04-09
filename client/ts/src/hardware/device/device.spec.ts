@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, type UnknownRecord } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -122,7 +122,7 @@ describe("Device", async () => {
         });
 
         const retrieved = await client.hardware.devices.retrieve(d.key);
-        expect(retrieved.state).toBeUndefined();
+        expect(retrieved.state?.key).toHaveLength(0);
       });
 
       it("should include state when includeState is true", async () => {
@@ -188,8 +188,9 @@ describe("Device", async () => {
           temperature: number;
         }
 
-        const d = await client.hardware.devices.create({
-          key: "SN_STATE_TEST5",
+        const key = id.create();
+        await client.hardware.devices.create({
+          key,
           rack: testRack.key,
           location: "Dev1",
           name: "state_test5",
@@ -198,18 +199,21 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve<
-          typeof d.properties,
-          typeof d.make,
-          typeof d.model,
-          DeviceStateDetails
-        >(d.key, { includeState: true });
-
-        if (retrieved.state) {
-          // TypeScript should recognize these properties
-          expect(typeof retrieved.state.details.status).toBe("string");
-          expect(typeof retrieved.state.details.temperature).toBe("number");
-        }
+        await expect
+          .poll(async () => {
+            const retrieved = await client.hardware.devices.retrieve<
+              UnknownRecord,
+              string,
+              string,
+              DeviceStateDetails
+            >(key, { includeState: true });
+            return (
+              retrieved.state !== undefined &&
+              retrieved.state.variant === "info" &&
+              retrieved.state.key === key
+            );
+          })
+          .toBeTruthy();
       });
     });
   });

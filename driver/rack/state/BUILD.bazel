@@ -11,6 +11,7 @@ cc_library(
         "//freighter/cpp:freighter",
         "//x/cpp/breaker",
         "//x/cpp/loop",
+        "//x/cpp/status",
     ],
 )
 
@@ -23,6 +24,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack/state",
+        "//x/cpp/defer",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

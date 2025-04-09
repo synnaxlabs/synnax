@@ -50,8 +50,8 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
-    ASSERT_NE(synnax::task_key_local(m.key), 0);
+    ASSERT_EQ(synnax::rack_key_from_task_key(m.key), r.key);
+    ASSERT_NE(synnax::local_task_key(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -63,8 +63,8 @@ TEST(TaskTests, testRetrieveTask) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
-    ASSERT_EQ(synnax::task_key_local(t2.key), synnax::task_key_local(t.key));
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(synnax::local_task_key(t2.key), synnax::local_task_key(t.key));
     ASSERT_TRUE(t2.snapshot);
 }
 
@@ -78,7 +78,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should retrieve a task by its type
@@ -91,7 +91,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -104,8 +104,8 @@ TEST(TaskTests, testListTasks) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(tasks[0].key), r.key);
-    ASSERT_NE(synnax::task_key_local(tasks[0].key), 0);
+    ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
+    ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
 }
 
 /// @brief it should correctly create a device.

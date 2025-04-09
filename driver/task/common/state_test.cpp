@@ -29,7 +29,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     const auto first = ctx->states[0];
     EXPECT_EQ(first.key, "cmd_key");
     EXPECT_EQ(first.task, task.key);
-    EXPECT_EQ(first.variant, "success");
+    EXPECT_EQ(first.variant, status::variant::SUCCESS);
     EXPECT_EQ(first.details["running"], true);
     EXPECT_EQ(first.details["message"], "Task started successfully");
 
@@ -39,7 +39,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     const auto second = ctx->states[1];
     EXPECT_EQ(second.key, "cmd_key");
     EXPECT_EQ(second.task, task.key);
-    EXPECT_EQ(second.variant, "error");
+    EXPECT_EQ(second.variant, status::variant::ERROR);
     EXPECT_EQ(second.details["running"], false);
     EXPECT_EQ(second.details["message"], "task validation error");
 }
@@ -54,7 +54,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     ASSERT_GE(ctx->states.size(), 1);
     const auto first = ctx->states[0];
     EXPECT_EQ(first.task, task.key);
-    EXPECT_EQ(first.variant, "warning");
+    EXPECT_EQ(first.variant, status::variant::WARNING);
     EXPECT_EQ(first.details["message"], "Test warning message");
 
     handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));
@@ -62,7 +62,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second = ctx->states[1];
     EXPECT_EQ(second.task, task.key);
-    EXPECT_EQ(second.variant, "error");
+    EXPECT_EQ(second.variant, status::variant::ERROR);
     EXPECT_EQ(second.details["message"], "task validation error");
 }
 
@@ -77,7 +77,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->states.size(), 1);
     const auto first = ctx->states[0];
     EXPECT_EQ(first.task, task.key);
-    EXPECT_EQ(first.variant, "warning");
+    EXPECT_EQ(first.variant, status::variant::WARNING);
     EXPECT_EQ(first.details["message"], "Test warning message");
 
     // Now clear the warning
@@ -85,7 +85,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->states.size(), 2);
     const auto second = ctx->states[1];
     EXPECT_EQ(second.task, task.key);
-    EXPECT_EQ(second.variant, "success");
+    EXPECT_EQ(second.variant, status::variant::SUCCESS);
     EXPECT_EQ(second.details["message"], "Task started successfully");
 
     // Test that clear_warning doesn't do anything if not in warning state
@@ -93,7 +93,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     handler.send_warning("This is an error");
     ASSERT_GE(ctx->states.size(), 3);
     const auto third = ctx->states[2];
-    EXPECT_EQ(third.variant, "error");
+    EXPECT_EQ(third.variant, status::variant::ERROR);
 
     // Clear warning should have no effect when in error state
     const size_t stateCount = ctx->states.size();
@@ -112,7 +112,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     const auto first = ctx->states[0];
     EXPECT_EQ(first.key, "cmd_key");
     EXPECT_EQ(first.task, task.key);
-    EXPECT_EQ(first.variant, "success");
+    EXPECT_EQ(first.variant, status::variant::SUCCESS);
     EXPECT_EQ(first.details["running"], false);
     EXPECT_EQ(first.details["message"], "Task stopped successfully");
 
@@ -122,7 +122,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     const auto second = ctx->states[1];
     EXPECT_EQ(second.key, "cmd_key");
     EXPECT_EQ(second.task, task.key);
-    EXPECT_EQ(second.variant, "error");
+    EXPECT_EQ(second.variant, status::variant::ERROR);
     EXPECT_EQ(second.details["running"], false);
     EXPECT_EQ(second.details["message"], "task validation error");
 }

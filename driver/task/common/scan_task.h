@@ -72,7 +72,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
     xerrors::Error propagate_state(telem::Series &states) override {
         if (this->state_writer == nullptr) {
             const auto [state_channel, ch_err] = this->client->channels.retrieve(
-                "sy_device_state"
+                synnax::DEVICE_STATE_CHAN_NAME
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
@@ -156,17 +156,17 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = "error";
+            this->state.variant = status::variant::ERROR;
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
             return;
         }
-        this->state.variant = "success";
+        this->state.variant = status::variant::SUCCESS;
         this->state.details["message"] = "scan task started";
         this->ctx->set_state(this->state);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->state.variant = "warning";
+                this->state.variant = status::variant::WARNING;
                 this->state.details["message"] = err.message();
                 this->ctx->set_state(this->state);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
@@ -174,10 +174,10 @@ public:
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = "error";
+            this->state.variant = status::variant::ERROR;
             this->state.details["message"] = err.message();
         } else {
-            this->state.variant = "success";
+            this->state.variant = status::variant::SUCCESS;
             this->state.details["message"] = "scan task stopped";
         }
         this->ctx->set_state(this->state);
@@ -190,7 +190,7 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = "error";
+            this->state.variant = status::variant::ERROR;
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
         }
@@ -245,7 +245,7 @@ public:
             if (present.find(key) != present.end()) continue;
             this->dev_state[key].dev.state = synnax::DeviceState{
                 .key = dev.dev.key,
-                .variant = "warning",
+                .variant = status::variant::WARNING,
                 .rack = dev.dev.rack,
                 .details =
                     json{

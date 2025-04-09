@@ -9,14 +9,7 @@
 
 import { box, clamp, location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
-import {
-  type ReactElement,
-  use,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";

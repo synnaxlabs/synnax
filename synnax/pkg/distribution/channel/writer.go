@@ -43,7 +43,7 @@ func (w writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 
 type CreateOptions struct {
 	RetrieveIfNameExists                        bool
-	OverWriteIfNameExistsAndDifferentProperties bool
+	OverwriteIfNameExistsAndDifferentProperties bool
 }
 
 type CreateOption func(*CreateOptions)
@@ -54,9 +54,9 @@ func RetrieveIfNameExists(v bool) CreateOption {
 	}
 }
 
-func OverWriteIfNameExistsAndDifferentProperties(v bool) CreateOption {
+func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	return func(o *CreateOptions) {
-		o.OverWriteIfNameExistsAndDifferentProperties = v
+		o.OverwriteIfNameExistsAndDifferentProperties = true
 	}
 }
 
