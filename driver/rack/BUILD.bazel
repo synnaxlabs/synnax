@@ -7,19 +7,16 @@ config_setting(
 
 cc_library(
     name = "rack",
+    hdrs = ["rack.h"],
     srcs = [
         "args.cpp",
         "env.cpp",
-        "factories.cpp",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ] + select({
-        ":nilinuxrt": ["factories_nilinuxrt.cpp"],
-        "//conditions:default": ["factories_noop.cpp"],
-    }),
-    hdrs = ["rack.h"],
+        "factories.cpp",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/labjack",

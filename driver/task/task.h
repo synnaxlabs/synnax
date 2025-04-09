@@ -98,7 +98,7 @@ public:
     /// @brief the key of the task
     synnax::TaskKey key = 0;
 
-    virtual std::string name() { return ""; }
+    [[nodiscard]] virtual std::string name() const { return ""; }
 
     /// @brief executes the command on the task. The task is responsible for
     /// updating its state.
@@ -209,6 +209,8 @@ public:
         return {};
     }
 
+    virtual std::string name() { return ""; }
+
     virtual std::pair<std::unique_ptr<Task>, bool>
     configure_task(const std::shared_ptr<Context> &ctx, const synnax::Task &task) = 0;
 
@@ -228,7 +230,11 @@ public:
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
+            VLOG(1) << "[task_factory] configuring initial tasks for "
+                    << factory->name() << " integration";
             auto new_tasks = factory->configure_initial_tasks(ctx, rack);
+            VLOG(1) << "[task_factory] configured " << new_tasks.size() << " tasks for "
+                    << factory->name() << " integration";
             for (auto &task: new_tasks)
                 tasks.emplace_back(std::move(task));
         }

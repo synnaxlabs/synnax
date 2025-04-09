@@ -106,33 +106,34 @@ ni::Factory::configure_initial_tasks(
     const synnax::Rack &rack
 ) {
     if (!this->check_health(ctx, synnax::Task())) return {};
+    VLOG(1) << "[ni] checking for existing scanner task";
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
 
-    auto [existing, err] = rack.tasks.list();
-    if (err) {
+    // If the scan task already exists, don't do anything.
+    auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
+    if (!err) {
+        VLOG(1) << "[ni] scan task already exists. skipping creation.";
+        return tasks;
+    }
+    if (err && !err.matches(xerrors::NOT_FOUND)) {
         LOG(ERROR) << "[ni] failed to list existing tasks: " << err;
         return tasks;
     }
 
-    bool has_scanner = false;
-    for (const auto &t: existing)
-        if (t.type == SCAN_TASK_TYPE) has_scanner = true;
-    if (has_scanner) return tasks;
-
-    auto sy_task = synnax::Task(rack.key, "ni scanner", SCAN_TASK_TYPE, "", true);
-    const auto c_err = rack.tasks.create(sy_task);
+    auto sy_scan_task = synnax::Task(rack.key, "ni scanner", SCAN_TASK_TYPE, "", true);
+    const auto c_err = rack.tasks.create(sy_scan_task);
     if (c_err) {
-        LOG(ERROR) << "[ni] failed to create scanner task: " << c_err;
+        LOG(ERROR) << "[ni] failed to create scan task: " << c_err;
         return tasks;
     }
-    auto [task, ok] = configure_task(ctx, sy_task);
+    auto [task, ok] = configure_task(ctx, sy_scan_task);
     if (!ok) {
-        LOG(ERROR) << "[ni] failed to configure scanner task: " << c_err;
+        LOG(ERROR) << "[ni] failed to configure scan task: " << c_err;
         return tasks;
     }
-    tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task>>({sy_task, std::move(task)})
-    );
+    tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task>>(
+        {sy_scan_task, std::move(task)}
+    ));
     return tasks;
 }
 
@@ -147,7 +148,7 @@ common::ConfigureResult ni::Factory::configure_scan(
         res.error = parser.error();
         return res;
     }
-    auto scan_task = std::make_unique<common::ScanTask>(
+    res.task = std::make_unique<common::ScanTask>(
         std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
         ctx,
         task,

@@ -257,6 +257,6 @@ public:
     }
 
     /// @brief implements task::Task to return the task's name.
-    std::string name() override { return this->state.task.name; }
+    std::string name() const override { return this->state.task.name; }
 };
 }

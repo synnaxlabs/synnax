@@ -20,8 +20,9 @@
 #include "x/cpp/status/status.h"
 
 namespace rack::state {
+const std::string INTEGRATION_NAME = "rack_state";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
-const std::string TASK_NAME = "rack_state";
+const std::string TASK_NAME = INTEGRATION_NAME;
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HZ * 1;
 
@@ -72,7 +73,7 @@ public:
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return TASK_NAME; }
+    std::string name() const override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
     void stop(bool will_reconfigure) override { pipe.stop(); }
@@ -119,6 +120,7 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
+        VLOG(1) << "[rack_state] configuring tasks";
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
         auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(
             LEGACY_HEARTBEAT_TYPE
@@ -140,7 +142,10 @@ class Factory final : public task::Factory {
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
             LOG(ERROR) << "[rack_state] failed to retrieve task: " << err;
+        VLOG(1) << "[rack_state] configured " << tasks.size() << " tasks";
         return tasks;
     }
+
+    std::string name() override { return INTEGRATION_NAME; }
 };
 }

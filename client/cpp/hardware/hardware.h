@@ -173,6 +173,10 @@ public:
     /// @brief Default constructor for an empty task.
     Task() = default;
 
+    friend std::ostream &operator<<(std::ostream &os, const Task &task) {
+        return os << task.name << " (" << task.key << ")";
+    }
+
 private:
     /// @brief Converts the task to its protobuf representation.
     /// @param task The protobuf object to populate.

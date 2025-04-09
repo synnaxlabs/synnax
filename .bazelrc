@@ -9,8 +9,7 @@ build --enable_platform_specific_config
 # These hide symbols from the linker in order to prevent symbols collisions with
 # libraries we load dynamically at runtime (LabJack is the primary source of this issue,
 # as it relies an incompatible, legacy GRPC version).
-build:opt_unix --copt=-fvisibility=hidden --copt=-march=native --cxxopt=-fvisibility-inlines-hidden
-build:opt_windows --copt=/O2
+build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidden
 
 # ===== Platform-Specific Compiler Settings =====
 
@@ -38,6 +37,3 @@ build:opt --strip=always
 build:opt --copt=-O3
 build:opt --copt=-flto
 build:opt --linkopt=-flto
-
-# Optional: Set this if you want a custom Bazel cache location on Windows
-# startup --output_user_root=C:/tmp

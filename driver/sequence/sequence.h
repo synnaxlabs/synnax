@@ -33,6 +33,8 @@ using json = nlohmann::json;
 namespace sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
+/// @brief task type for use in driver configuration.
+const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief base error for all sequencing problems.
 const xerrors::Error BASE_ERROR = xerrors::SY.sub("sequence");
 /// @brief returned when a sequence fails to compile.
@@ -145,7 +147,7 @@ public:
     );
 
     /// @brief returns the name of the task for logging.
-    std::string name() override { return this->task.name; }
+    std::string name() const override { return this->task.name; }
 
     /// @brief main run loop that will execute in a separate thread.
     void run();
@@ -175,8 +177,10 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
-        if (task.type != "sequence") return {nullptr, false};
+        if (task.type != TASK_TYPE) return {nullptr, false};
         return {sequence::Task::configure(ctx, task), true};
     }
+
+    std::string name() override { return INTEGRATION_NAME; }
 };
 }
