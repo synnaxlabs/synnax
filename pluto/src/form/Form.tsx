@@ -39,7 +39,6 @@ export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
   onChange?: (value: O, extra: ContextValue & { path: string }) => void;
-  defaultValue?: I;
 }
 
 export interface UseNullableFieldProps<I, O = I>

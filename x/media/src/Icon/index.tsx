@@ -443,7 +443,6 @@ export interface IconType {
   Function: IconFC;
   Visible: IconFC;
   Hidden: IconFC;
-  Heart: IconFC;
   Virtual: IconFC;
   Heart: IconFC;
 }
@@ -634,7 +633,6 @@ export const Icon: IconType = {
   Function: wrapIcon(TbMathFunction, "function"),
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
-  Heart: wrapIcon(IoMdHeart, "heart"),
   Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
   Heart: wrapIcon(IoMdHeart, "heart"),
 };
