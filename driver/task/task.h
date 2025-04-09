@@ -110,10 +110,6 @@ public:
     virtual void stop(bool will_reconfigure) = 0;
 
     virtual ~Task() = default;
-
-    friend std::ostream& operator<<(std::ostream& os, const Task& task) {
-        return os << task.name() << " (" << task.key << ")";
-    }
 };
 
 /// @brief name of the channel used in Synnax to communicate state updates.

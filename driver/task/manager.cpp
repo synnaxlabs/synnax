@@ -197,7 +197,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
 
 void task::Manager::stop_all_tasks() {
     for (auto &[task_key, task]: this->tasks) {
-        VLOG(1) << "[task_manager] stopping task " << task;
+        VLOG(1) << "[task_manager] stopping task " << task->name();
         task->stop(false);
     }
     this->tasks.clear();
