@@ -127,9 +127,13 @@ struct Config {
                 },
             .integrations = default_integrations(),
         };
+        VLOG(1) << "[rack] loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
+        VLOG(1) << "[rack] loading configuration from config file";
         if (const auto err = cfg.load_config_file(parser)) return {cfg, err};
+        VLOG(1) << "[rack] loading configuration from environment";
         if (const auto err = cfg.load_env()) return {cfg, err};
+        VLOG(1) << "[rack] loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
@@ -141,7 +145,9 @@ struct Config {
                   << " (" << cfg.remote_info.rack_key << ")\n"
                   << xlog::SHALE() << "  cluster: " << xlog::RESET()
                   << cfg.remote_info.cluster_key;
+        VLOG(1) << "[rack] saving remote info";
         const auto err = Config::save_remote_info(parser, cfg.remote_info);
+        VLOG(1) << "[rack] saved remote info";
         return {cfg, err};
     }
 

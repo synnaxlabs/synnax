@@ -98,7 +98,11 @@
         "valarray": "cpp",
         "variant": "cpp",
         "*.inc": "cpp",
-        "securitypolicy.h": "c"
+        "securitypolicy.h": "c",
+        "string_view": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "slist": "cpp"
     },
     "vitest.disableWorkspaceWarning": true
 }

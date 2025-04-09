@@ -176,6 +176,7 @@ public:
         const synnax::Task &task
     ) override {
         if (task.type != "sequence") return {nullptr, false};
+        VLOG(1) << "[sequence] configuring task" << task.name << "(" << task.key << ")";
         return {sequence::Task::configure(ctx, task), true};
     }
 };

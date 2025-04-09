@@ -147,8 +147,8 @@ labjack::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
+    VLOG(1) << "[labjack] configuring initial tasks";
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-
     auto [existing, err] = rack.tasks.retrieve_by_type(SCAN_TASK_TYPE);
     if (err.matches(xerrors::NOT_FOUND)) {
         VLOG(1) << "[labjack] Creating scanner task";
@@ -173,5 +173,6 @@ labjack::Factory::configure_initial_tasks(
         LOG(ERROR) << "[labjack] Failed to list existing tasks: " << err;
         return tasks;
     }
+    VLOG(1) << "[labjack] configuring initial tasks";
     return tasks;
 }

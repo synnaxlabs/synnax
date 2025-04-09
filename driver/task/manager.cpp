@@ -58,17 +58,22 @@ xerrors::Error task::Manager::open_streamer() {
 }
 
 xerrors::Error task::Manager::configure_initial_tasks() {
+    VLOG(1) << "[task_manager] configuring initial tasks";
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
+    VLOG(1) << "[task_manager] retrieved " << tasks.size() << " tasks from cluster";
     for (const auto &task: tasks) {
+        VLOG(1) << "[task_manager] configuring task " << task.name << " (" << task.key;
         if (task.snapshot) continue;
         auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
         if (handled && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
     }
+    VLOG(1) << "[task_manager] configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
+    VLOG(1) << "[task_manager] configured tasls";
     return xerrors::NIL;
 }
 

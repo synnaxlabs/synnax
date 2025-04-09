@@ -27,6 +27,7 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
             if (this->should_exit(err, on_shutdown)) return;
             continue;
         }
+        VLOG(1) << "[rack] loaded config. starting task manager";
         if (!this->breaker.running()) return;
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,

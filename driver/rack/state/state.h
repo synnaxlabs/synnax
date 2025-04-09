@@ -119,6 +119,7 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
+        VLOG(1) << "[rack_state] configuring tasks";
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
         auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(
             LEGACY_HEARTBEAT_TYPE
@@ -140,6 +141,7 @@ class Factory final : public task::Factory {
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
             LOG(ERROR) << "[rack_state] failed to retrieve task: " << err;
+        VLOG(1) << "[rack_state] configured " << tasks.size() << " tasks";
         return tasks;
     }
 };
