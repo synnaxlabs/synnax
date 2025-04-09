@@ -15,7 +15,6 @@
     border: var(--pluto-border-l5);
     border-width: 0.5px;
     width: fit-content;
-    height: 4rem;
     background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;
@@ -51,5 +50,13 @@
         transition:
             width 0.1s ease-out,
             opacity 0.1s ease-out;
+    }
+    &.pluto--small {
+        padding: 0rem 1.5rem 0rem 1rem;
+        height: 3.5rem;
+    }
+    &.pluto--medium {
+        padding: 0rem 1.5rem 0rem 1rem;
+        height: 4rem;
     }
 }

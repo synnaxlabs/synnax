@@ -1,10 +1,12 @@
 import "@/range/Explorer.css";
 
-import { type label, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Haul,
+  Icon as PIcon,
+  Input,
   List,
   Menu as PMenu,
   Ranger,
@@ -14,7 +16,8 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -22,10 +25,14 @@ import { Layout } from "@/layout";
 import {
   deleteMenuItem,
   useDelete,
+  useLabels,
   useViewDetails,
   viewDetailsMenuItem,
 } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { useSelectKeys } from "@/range/selectors";
+import { add, remove } from "@/range/slice";
+import { useRename } from "@/range/Toolbar";
 
 export const EXPLORER_LAYOUT_TYPE = "explorer";
 
@@ -43,26 +50,33 @@ interface ExplorerListItemProps
 const ExplorerListItem = ({
   startDrag,
   onDragEnd,
+  selected,
   ...props
 }: ExplorerListItemProps) => {
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
-  const client = Synnax.use();
-  const [labels, setLabels] = useState<label.Label[]>([]);
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const labels = await client.labels.retrieveFor(ranger.ontologyID(entry.key));
-    setLabels(labels ?? []);
-    const labelObs = await client.labels.trackLabelsOf(ranger.ontologyID(entry.key));
-    labelObs?.onChange((changes) => {
-      setLabels(changes);
-    });
-    return async () => {
-      await labelObs?.close();
-    };
-  }, [entry.key]);
+  const labels = useLabels(entry.key);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
+  const onRename = useRename(entry.key);
+  const dispatch = useDispatch();
+  const handleStar = () => {
+    if (!selected)
+      dispatch(
+        add({
+          ranges: [
+            {
+              key: entry.key,
+              name: entry.name,
+              variant: "static",
+              persisted: true,
+              timeRange: entry.timeRange.numeric,
+            },
+          ],
+        }),
+      );
+    else dispatch(remove({ keys: [entry.key] }));
+  };
 
   return (
     <List.ItemFrame
@@ -75,11 +89,14 @@ const ExplorerListItem = ({
       justify="spaceBetween"
       align="center"
       className={CSS(CSS.B("range-explorer-item"))}
-      style={{ padding: "1.5rem 3rem", width: "100%" }}
+      style={{ padding: "0rem 3rem 0 2rem", width: "100%", height: "7rem" }}
       draggable
+      selected={false}
       onDragStart={(e) => {
         const ghost = elRef.current?.cloneNode(true) as HTMLElement;
+        console.log(elRef.current);
         ghost.classList.add("console--dragging");
+        console.log(ghost);
         document.body.appendChild(ghost);
         dragGhost.current = ghost;
         e.dataTransfer.setDragImage(ghost, 50, 50);
@@ -103,17 +120,36 @@ const ExplorerListItem = ({
       }}
       {...props}
     >
-      <Text.WithIcon
-        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
-        level="p"
-        weight={450}
-        shade={11}
-        size="small"
-        grow
-        shrink={0}
-      >
-        {entry.name}
-      </Text.WithIcon>
+      <Align.Space x align="center">
+        <PIcon.Icon
+          className={CSS(
+            CSS.B("range-explorer-item-star"),
+            selected && CSS.M("selected"),
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStar();
+          }}
+        >
+          {selected ? <Icon.StarFilled /> : <Icon.StarOutlined />}
+        </PIcon.Icon>
+        <Text.WithIcon
+          startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
+          level="p"
+          weight={450}
+          shade={11}
+          size="small"
+          grow
+          shrink={0}
+        >
+          <Text.Editable
+            id={`explorer-${entry.key}`}
+            level="p"
+            value={entry.name}
+            onChange={onRename}
+          />
+        </Text.WithIcon>
+      </Align.Space>
       <Align.Space x className={CSS.B("range-explorer-item-content")}>
         <Align.Stack x size="small">
           {labels.map((l) => (
@@ -151,40 +187,69 @@ const ChangeLoader = () => {
   return null;
 };
 
-const ExplorerContextMenu = ({ keys }: PMenu.ContextMenuMenuProps) => {
+const ExplorerContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const details = useViewDetails();
-  const del = useDelete();
+  const del = useDelete("this range");
   const handleSelect: PMenu.MenuProps["onChange"] = {
-    details: () => details(keys[0]),
-    delete: () => del.mutate(keys[0]),
+    details: () => details(key),
+    delete: () => del.mutate(key),
+    rename: () => Text.edit(`explorer-${key}`),
   };
   return (
     <PMenu.Menu level="small" onChange={handleSelect}>
       {viewDetailsMenuItem}
-      {deleteMenuItem}
       <PMenu.Divider />
+      {deleteMenuItem}
       <Menu.RenameItem />
+      <PMenu.Divider />
+      <Menu.HardReloadItem />
     </PMenu.Menu>
   );
 };
+
 export const Explorer: Layout.Renderer = () => {
   const client = Synnax.use();
   const drag = Haul.useDrag({ type: ranger.ONTOLOGY_TYPE, key: "cat" });
+  const selected = useSelectKeys();
   const item: RenderProp<List.ItemProps<string, ranger.Payload> & { key: string }> =
     useCallback(
-      ({ key, ...rest }) => <ExplorerListItem key={key} {...drag} {...rest} />,
-      [drag.startDrag],
+      ({ key, ...rest }) => (
+        <ExplorerListItem
+          key={key}
+          {...drag}
+          {...rest}
+          selected={selected.includes(key)}
+        />
+      ),
+      [drag.startDrag, selected],
     );
   const pMenuProps = PMenu.useContextMenu();
+  const details = useViewDetails();
 
   return (
     <List.List>
       <PMenu.ContextMenu {...pMenuProps} menu={(p) => <ExplorerContextMenu {...p} />}>
         <ChangeLoader />
-        <List.Search searcher={client?.ranges} />
-        <List.Core onContextMenu={pMenuProps.open} className={pMenuProps.className}>
-          {item}
-        </List.Core>
+        <Align.Space x className={CSS.B("range-explorer-header")}>
+          <List.Search searcher={client?.ranges}>
+            {(p) => <Input.Text {...p} placeholder="Search Ranges" />}
+          </List.Search>
+        </Align.Space>
+        <List.Selector
+          allowMultiple={false}
+          value={null}
+          onChange={(key: string) => details(key)}
+        >
+          <List.Hover>
+            <List.Core.Virtual
+              onContextMenu={pMenuProps.open}
+              className={pMenuProps.className}
+              itemHeight={6 * 7}
+            >
+              {item}
+            </List.Core.Virtual>
+          </List.Hover>
+        </List.Selector>
       </PMenu.ContextMenu>
     </List.List>
   );

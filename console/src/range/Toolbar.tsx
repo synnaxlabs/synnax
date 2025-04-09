@@ -9,7 +9,7 @@
 
 import "@/range/Toolbar.css";
 
-import { type label, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -24,19 +24,19 @@ import {
   Tag,
   Text,
   Tooltip,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement } from "react";
+import { useDispatch, useStore } from "react-redux";
 
 import { Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { ContextMenu } from "@/range/ContextMenu";
+import { ContextMenu, useLabels } from "@/range/ContextMenu";
 import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
-import { useSelect, useSelectMultiple } from "@/range/selectors";
+import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { type RootState } from "@/store";
 
 interface NoRangesProps {
   onLinkClick: (key?: string) => void;
@@ -118,28 +118,28 @@ const List = (): ReactElement => {
   );
 };
 
+export const useRename = (key: string) => {
+  const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  return (name: string) => {
+    const rng = select(store.getState(), key);
+    dispatch(rename({ key, name }));
+    if (rng != null && !rng.persisted) return;
+    client?.ranges
+      .rename(key, name)
+      .catch((e) => handleError(e, "Failed to rename range"));
+  };
+};
+
 interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
-  const client = Synnax.use();
-  const dispatch = useDispatch();
-  const [labels, setLabels] = useState<label.Label[]>([]);
-  useAsyncEffect(async () => {
-    if (client == null || labels.length > 0 || !entry.persisted) return;
-    const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
-    setLabels(labels_);
-  }, [entry.key, client]);
-  const handleError = Status.useErrorHandler();
-  const onRename = (name: string): void => {
-    if (name.length === 0) return;
-    dispatch(rename({ key: entry.key, name }));
-    dispatch(Layout.rename({ key: entry.key, name }));
-    if (!entry.persisted) return;
-    client?.ranges
-      .rename(entry.key, name)
-      .catch((e) => handleError(e, "Failed to rename range"));
-  };
+  const labels = useLabels(entry.key);
+  const onRename = useRename(entry.key);
+
   return (
     <CoreList.ItemFrame className={CSS.B("range-list-item")} {...props} size="small" y>
       {!entry.persisted && (

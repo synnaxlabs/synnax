@@ -4,8 +4,40 @@
         border: var(--pluto-border);
         background: var(--pluto-gray-l1);
         border-radius: 1rem;
-        .console-range-explorer-item-content {
+        transform: none !important;
+        .console-range-explorer-item-content,
+        .console-range-explorer-item-star {
             display: none;
         }
+    }
+    .console-range-explorer-item-star {
+        font-size: var(--pluto-p-size);
+        height: 14px;
+        transform: scale(1.1);
+        & svg {
+            opacity: 0;
+            color: #ffd700;
+        }
+        &.console--selected {
+            & svg {
+                opacity: 1;
+            }
+        }
+    }
+    &:hover {
+        .console-range-explorer-item-star {
+            & svg {
+                opacity: 1;
+            }
+        }
+    }
+}
+.console-range-explorer-header {
+    width: 100%;
+    padding: 2rem 3rem;
+    background: var(--pluto-gray-l1);
+    border-bottom: var(--pluto-border);
+    .pluto-input {
+        flex-grow: 1;
     }
 }

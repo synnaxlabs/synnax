@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { ranger, type Synnax } from "@synnaxlabs/client";
+import { type label, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Icon as PIcon,
@@ -16,10 +16,11 @@ import {
   Status,
   Synnax as PSynnax,
   Text,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -177,22 +178,39 @@ export const addChildRangeMenuItem = (
   </PMenu.Item>
 );
 
+export const useLabels = (key: string) => {
+  const client = PSynnax.use();
+  const [labels, setLabels] = useState<label.Label[]>([]);
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const labels = await client.labels.retrieveFor(ranger.ontologyID(key));
+    setLabels(labels ?? []);
+    const labelObs = await client.labels.trackLabelsOf(ranger.ontologyID(key));
+    labelObs?.onChange((changes) => {
+      setLabels(changes);
+    });
+    return async () => {
+      await labelObs?.close();
+    };
+  }, [key]);
+  return labels;
+};
+
 export const useViewDetails = (): ((key: string) => void) => {
-  const store = useStore<RootState>();
   const client = PSynnax.use();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await fetchIfNotInState(store, client, key);
+      const rng = await client.ranges.retrieve(key);
       placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
     onError: (e) => handleError(e, "Failed to view details"),
   }).mutate;
 };
 
-export const useDelete = () => {
+export const useDelete = (name?: string) => {
   const dispatch = useDispatch();
   const client = PSynnax.use();
   const remover = Layout.useRemover();
@@ -208,7 +226,7 @@ export const useDelete = () => {
       const rng = ranges.find((r) => r.key === key);
       if (
         !(await confirm({
-          message: `Are you sure you want to delete ${rng?.name}?`,
+          message: `Are you sure you want to delete ${name ?? rng?.name}?`,
           description: "This action cannot be undone.",
           cancel: { label: "Cancel" },
           confirm: { label: "Delete", variant: "error" },
@@ -231,7 +249,6 @@ export const useDelete = () => {
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
   const client = PSynnax.use();
-  const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));
@@ -241,8 +258,6 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     dispatch(remove({ keys }));
   };
   const handleError = Status.useErrorHandler();
-
-  const confirm = Modals.useConfirm();
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Layout.useSelectActiveMosaicLayout();

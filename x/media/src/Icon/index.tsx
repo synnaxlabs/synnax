@@ -38,6 +38,8 @@ import {
   FaDocker,
   FaLinux,
   FaMicrophone,
+  FaRegStar,
+  FaStar,
   FaStream,
   FaWind,
   FaWindows,
@@ -448,6 +450,8 @@ export interface IconType {
   Virtual: IconFC;
   Explore: IconFC;
   Filter: IconFC;
+  StarFilled: IconFC;
+  StarOutlined: IconFC;
 }
 
 export const Icon: IconType = {
@@ -639,4 +643,6 @@ export const Icon: IconType = {
   Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
   Explore: wrapIcon(MdOutlineExplore, "explore"),
   Filter: wrapIcon(MdOutlineFilterList, "filter"),
+  StarFilled: wrapIcon(FaStar, "star-filled"),
+  StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
 };

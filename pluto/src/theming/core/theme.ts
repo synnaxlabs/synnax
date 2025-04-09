@@ -265,7 +265,7 @@ const DARK_SCALE = [
   "#4A4A4A", // l6
   "#5C5C5C", // l7
   "#767676", // l8
-  "#8d8d8d", // l9
+  "#959595", // l9
   "#dadada", // l10
   "#FAFAFA", // l11
 ];
