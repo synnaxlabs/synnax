@@ -152,7 +152,7 @@ const Internal = <
           )}
         </Align.Space>
       </Form.Form>
-      <Nav.Bar location="bottom" size={48}>
+      <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button

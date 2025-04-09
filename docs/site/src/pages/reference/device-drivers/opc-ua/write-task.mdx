@@ -21,8 +21,8 @@ it in Synnax.
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have [connected to an OPC UA
-server](/reference/device-drivers/opc-ua/connect-server).
+Before configuring the task, you'll need to have
+[connected to an OPC UA server](/reference/device-drivers/opc-ua/connect-server).
 
 <Divider.Divider x />
 
@@ -57,12 +57,13 @@ output, and `_cmd` indicates that it's a command channel.
   `my_temp_card_do_0_1_cmd_time`.
 </Note.Note>
 
-State channels represent the current state of the digital output. When you send a command,
-the corresponding digital write task will process the command and update the value in
-the state channel.
+State channels represent the current state of the digital output. When you send a
+command, the corresponding digital write task will process the command and update the
+value in the state channel.
 
 State channels are typically suffixed with `_state`. A state channel maintains the same
-format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
+format as its corresponding command channel, but suffixed with `_state` instead of
+`_cmd`.
 
 As an example, to configure a valve in a [schematic](/reference/console/schematics) to
 write to a digital output, you would set the `command` field to the command channel of
@@ -70,8 +71,8 @@ the digital output and the `state` field to the state channel of the digital out
 Clicking the valve would send a command to the digital output, and the valve would turn
 solid or transparent based on the state channel.
 
-Using two channels provides a guarantee that a particular command was acknowledged by
-a running task.
+Using two channels provides a guarantee that a particular command was acknowledged by a
+running task.
 
 <Divider.Divider x />
 
@@ -81,9 +82,9 @@ There are several ways to create OPC UA write tasks in the Synnax Console.
 
 ### From the Resources Toolbar
 
-To create a write task from the resources toolbar, open the Synnax Console and
-click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device
-you'd like to create the task for, right-click on it, and select "Create a Write Task".
+To create a write task from the resources toolbar, open the Synnax Console and click on
+the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device you'd
+like to create the task for, right-click on it, and select "Create a Write Task".
 
 <Video
   client:only="react"
@@ -96,16 +97,16 @@ To create a write task from the command palette, open the Synnax Console and cli
 the Quick Search & Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type
-"OPC UA". You'll see an option called "Create a New Write Task". Select this
-option to open the write task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "OPC UA".
+You'll see an option called "Create a New Write Task". Select this option to open the
+write task configuration dialog.
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/create-from-palette" />
 
 ### From The Layout Selector
 
-To create a write task from the layout selector, click on the "+" button in the
-top right corner and select "OPC write Task".
+To create a write task from the layout selector, click on the "+" button in the top
+right corner and select "OPC write Task".
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/create-from-selector" />
 
@@ -152,9 +153,9 @@ the right of the channel.
 
 To configure the task, just click the "Configure" button. This will save the task
 configuration, and you will be able to pause and resume the tasks whenever you want.
-Note that configuring a write task here will only create [command
-channels](#how-commands-work-in-synnax). In order to create state channels, you must
-configure a [read task](/reference/device-drivers/opc-ua/read-task).
+Note that configuring a write task here will only create
+[command channels](#how-commands-work-in-synnax). In order to create state channels, you
+must configure a [read task](/reference/device-drivers/opc-ua/read-task).
 
 <Video client:only="react" id="device-drivers/opc-ua/write-task/add-channels-to-task" />
 
@@ -173,9 +174,9 @@ configuration window.
 ## State Configuration
 
 Configuring a write task will only create command channels. To create state channels to
-access the states of the nodes you are writing to, you must configure a [read
-task](/reference/device-drivers/opc-ua/read-task). You can then use the read task to
-read back states of the nodes you are writing to.
+access the states of the nodes you are writing to, you must configure a
+[read task](/reference/device-drivers/opc-ua/read-task). You can then use the read task
+to read back states of the nodes you are writing to.
 
 <Divider.Divider x />
 

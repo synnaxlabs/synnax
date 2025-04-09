@@ -89,7 +89,7 @@
             }
         }
 
-        .console-task__channel-name:last-of-type {
+        .console-task__channel-name:not(:only-child):last-of-type {
             display: none;
         }
     }

@@ -20,8 +20,8 @@ import { Server } from "@/components/server";
 
 export const components = mdxOverrides;
 
-This page will walk you through how to install the Synnax binary on Windows,
-macOS, and Linux. To get started, select your operating system below:
+This page will walk you through how to install the Synnax binary on Windows, macOS, and
+Linux. To get started, select your operating system below:
 
 <Platform.Tabs client:only="react">
 
@@ -41,18 +41,18 @@ docker pull synnaxlabs/synnax:latest
 
 ## Installing on Linux
 
-To install Synnax on a Linux distribution, run the following command to download the latest
-binary:
+To install Synnax on a Linux distribution, run the following command to download the
+latest binary:
 
 <SynnaxDownloadURL os="linux" />
 
-We recommend you move the binary into a directory that is in your `PATH`. Most of our users
-use `/usr/local/bin`:
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
 
 <SynnaxMoveCommand os="linux" />
 
-If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running
-the following:
+If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
+following:
 
 ```bash
 export PATH=$PATH:/usr/local/bin
@@ -70,8 +70,8 @@ Or, for `zsh`:
 echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 ```
 
-If any previous versions of Synnax are installed and available on your `PATH`, you
-may need to remove them to avoid conflicts.
+If any previous versions of Synnax are installed and available on your `PATH`, you may
+need to remove them to avoid conflicts.
 
 <Note.Note variant="warning">
 If you've also installed the [Synnax Python
@@ -94,8 +94,8 @@ Next, give execution permissions to the binary:
 chmod +x /usr/local/bin/synnax
 ```
 
-You may need to use `sudo` to run the above command if you do not have the
-necessary permissions.
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
 
 To verify that the installation was successful, run:
 
@@ -117,13 +117,13 @@ To install Synnax on macOS, run the following command to download the latest bin
 
 <SynnaxDownloadURL os="macos" />
 
-We recommend you move the binary into a directory that is in your `PATH`. Most
-of our users use `/usr/local/bin`:
+We recommend you move the binary into a directory that is in your `PATH`. Most of our
+users use `/usr/local/bin`:
 
 <SynnaxMoveCommand os="macos" />
 
-If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running
-the following:
+If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
+following:
 
 ```bash
 export PATH=$PATH:/usr/local/bin
@@ -135,8 +135,8 @@ Or, you can add it permanently using the following one-liner for your shell:
 echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 ```
 
-If any previous versions of Synnax are installed and available on your `PATH`,
-you may need to remove them to avoid conflicts.
+If any previous versions of Synnax are installed and available on your `PATH`, you may
+need to remove them to avoid conflicts.
 
 <Note.Note variant="warning">
 If you've also installed the [Synnax Python
@@ -158,8 +158,8 @@ Next, give execution permissions to the binary:
 chmod +x /usr/local/bin/synnax
 ```
 
-You may need to use `sudo` to run the above command if you do not have the
-necessary permissions.
+You may need to use `sudo` to run the above command if you do not have the necessary
+permissions.
 
 To verify that the installation was successful, run:
 
@@ -198,7 +198,8 @@ Install the Synnax cluster on Windows by downloading and running the latest inst
   `synnax-server` command which has also been added to your `PATH`.
 </Note.Note>
 
-To verify that the installation was successful, run the following command in a **PowerShell** terminal:
+To verify that the installation was successful, run the following command in a
+**PowerShell** terminal:
 
 ```powershell
 synnax --version

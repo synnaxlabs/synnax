@@ -11,9 +11,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Powering the inner workings of the [Synnax Console](/reference/console/get-started),
-Pluto is a [React](https://react.dev/) component library designed to build high-performance,
-real-time user interfaces on top of Synnax. It provides a number of components from simple
-buttons to complex data visualizations.
+Pluto is a [React](https://react.dev/) component library designed to build
+high-performance, real-time user interfaces on top of Synnax. It provides a number of
+components from simple buttons to complex data visualizations.
 
 <Note.Note variant="warning">
   Pluto is currently in beta and it's API is subject to changes before reaching V1.
@@ -23,9 +23,10 @@ buttons to complex data visualizations.
 
 ## Installation
 
-Pluto is available on [npm](https://www.npmjs.com/package/@synnaxlabs/pluto), and can
-be installed with your package manager of choice. We'll be using `npm` in our documentation,
-but feel free to use `yarn`, `pnpm`, or any other package manager you prefer.
+Pluto is available on [npm](https://www.npmjs.com/package/@synnaxlabs/pluto), and can be
+installed with your package manager of choice. We'll be using `npm` in our
+documentation, but feel free to use `yarn`, `pnpm`, or any other package manager you
+prefer.
 
 ```bash
 npm install @synnaxlabs/pluto
@@ -35,8 +36,8 @@ npm install @synnaxlabs/pluto
 
 ## Prerequisites and Important Notes
 
-Pluto is designed for high performance and flexibility, which comes at the
-cost of ease of use. We're working hard to improve user friendliness!
+Pluto is designed for high performance and flexibility, which comes at the cost of ease
+of use. We're working hard to improve user friendliness!
 
 ### Browser Compatibility
 
@@ -44,14 +45,15 @@ Pluto leverages **Web Workers** and the `OffscreenCanvas` API. These features ar
 generally available on the latest versions of all major browsers, but may not be
 compatible with older versions.
 
-See [here](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas#browser_compatibility)
+See
+[here](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas#browser_compatibility)
 for the `OffscreenCanvas` compatibility table.
 
 ### Bundle Size and Import Structure
 
-Pluto is relatively large at around ~500kb minified and gzipped. We don't recommend deploying
-applications that use Pluto in serverless environments or when building interfaces
-designed to serve users with a slow network.
+Pluto is relatively large at around ~500kb minified and gzipped. We don't recommend
+deploying applications that use Pluto in serverless environments or when building
+interfaces designed to serve users with a slow network.
 
 The component library is designed to be tree-shakeable, so you can import only the
 components you need. For example, when importing a `Button` component, you can do:
@@ -69,14 +71,14 @@ import { Button } from "@synnaxlabs/pluto";
 ### Strict Mode Incompatibility
 
 Pluto uses several mechanisms to manage communication between the main thread and the
-Web Worker. These mechanisms are not yet compatible with React's Strict Mode. If you
-do use Strict Mode, you may encounter errors or unexpected behavior.
+Web Worker. These mechanisms are not yet compatible with React's Strict Mode. If you do
+use Strict Mode, you may encounter errors or unexpected behavior.
 
 ### Components as Modules
 
 When you import the `Button` above, you're not actually importing the `Button` component
-itself. Instead, you're importing a module that exports the `Button`, along
-with other useful utilities. You'll see this syntax with almost every component in Pluto:
+itself. Instead, you're importing a module that exports the `Button`, along with other
+useful utilities. You'll see this syntax with almost every component in Pluto:
 
 ```typescript
 import { Button } from "@synnaxlabs/pluto/button";
@@ -101,5 +103,5 @@ const onlyIconButton = <IconButton>🚀</IconButton>;
 
 ## Next Steps
 
-Now that you've installed Pluto, it's time to set up the [provider and canvas](/reference/pluto/provider-and-canvas)
-in your application.
+Now that you've installed Pluto, it's time to set up the
+[provider and canvas](/reference/pluto/provider-and-canvas) in your application.

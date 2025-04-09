@@ -80,7 +80,7 @@ const Properties = (): ReactElement => {
   return (
     <>
       <Device.Select />
-      <Align.Space x grow>
+      <Align.Space x>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"

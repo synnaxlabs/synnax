@@ -29,15 +29,15 @@ the acquisition rate of the device.
 ## Hardware Timed Tasks
 
 Where possible, the driver will leverage sample clocks on the hardware data acquisition
-module itself to provide the most accurate timestamps possible. In hardware-timed
-mode, the driver uses the clock rate of the module to interpolate the time
-difference between samples.
+module itself to provide the most accurate timestamps possible. In hardware-timed mode,
+the driver uses the clock rate of the module to interpolate the time difference between
+samples.
 
 Hardware timing is used for LabJack Read Tasks and NI Analog Read Tasks.
 
 For example, we have a task with a sample rate of 100 Hz, and a stream rate of 10 Hz.
-This means that we'll acquire 10 samples on every read from the module. Assuming that
-we started the task at absolute time 0, this is what the timestamps would look like:
+This means that we'll acquire 10 samples on every read from the module. Assuming that we
+started the task at absolute time 0, this is what the timestamps would look like:
 
 | Sample Index | Time (s) | Notes                       |
 | ------------ | -------- | --------------------------- |
@@ -59,8 +59,8 @@ we started the task at absolute time 0, this is what the timestamps would look l
 ### Skew Correction
 
 While assuming that timestamps are evenly distributed is a very good approximation, the
-reality is that acquisition rates may fluctuate over time. This can happen for
-several reasons:
+reality is that acquisition rates may fluctuate over time. This can happen for several
+reasons:
 
 - The driver runs on a non-real-time operating system, meaning that individual
   acquisition loops may take longer or shorter than the specified stream rate.
@@ -85,8 +85,8 @@ closely aligned with the hardware-timed samples from an analog input task.
 
 Skew correction is enabled by default, but can be disabled by setting the `correct_skew`
 option to `false` in the driver configuration file, setting `--correct-skew=false` on
-the command line, or by setting the `SYNNAX_DRIVER_CORRECT_SKEW` environment variable
-to `false`.
+the command line, or by setting the `SYNNAX_DRIVER_CORRECT_SKEW` environment variable to
+`false`.
 
 <Divider.Divider x />
 
@@ -97,5 +97,5 @@ in order to generate timestamps. This is less accurate than hardware timing, as 
 are timestamped when they are received by the driver, rather than when they are acquired
 the hardware.
 
-Software timed clocks are used for NI Digital Write/Read Tasks, LabJack Write Tasks,
-and OPC-UA Read Tasks.
+Software timed clocks are used for NI Digital Write/Read Tasks, LabJack Write Tasks, and
+OPC-UA Read Tasks.
