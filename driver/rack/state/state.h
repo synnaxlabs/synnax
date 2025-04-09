@@ -122,7 +122,11 @@ struct Factory final : task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        common::delete_legacy_task_by_type(rack, LEGACY_HEARTBEAT_TYPE, INTEGRATION_NAME);
+        common::delete_legacy_task_by_type(
+            rack,
+            LEGACY_HEARTBEAT_TYPE,
+            INTEGRATION_NAME
+        );
         return common::configure_initial_factory_tasks(
             this,
             ctx,

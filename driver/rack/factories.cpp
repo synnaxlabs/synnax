@@ -31,39 +31,27 @@ void configure_integration(
 }
 
 void configure_opc(const rack::Config &config, FactoryList &factories) {
-    configure_integration(
-        config, 
-        factories,
-        opc::INTEGRATION_NAME,
-        []() { return std::make_unique<opc::Factory>(); }
-    );
+    configure_integration(config, factories, opc::INTEGRATION_NAME, []() {
+        return std::make_unique<opc::Factory>();
+    });
 }
 
 void configure_ni(const rack::Config &config, FactoryList &factories) {
-    configure_integration(
-        config,
-        factories,
-        ni::INTEGRATION_NAME,
-        [&config]() { return ni::Factory::create(config.timing); }
-    );
+    configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
+        return ni::Factory::create(config.timing);
+    });
 }
 
 void configure_sequences(const rack::Config &config, FactoryList &factories) {
-    configure_integration(
-        config,
-        factories,
-        sequence::INTEGRATION_NAME,
-        []() { return std::make_unique<sequence::Factory>(); }
-    );
+    configure_integration(config, factories, sequence::INTEGRATION_NAME, []() {
+        return std::make_unique<sequence::Factory>();
+    });
 }
 
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
-    configure_integration(
-        config,
-        factories,
-        labjack::INTEGRATION_NAME,
-        [&config]() { return labjack::Factory::create(config.timing); }
-    );
+    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
+        return labjack::Factory::create(config.timing);
+    });
 }
 
 void configure_state(FactoryList &factories) {

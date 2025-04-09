@@ -7,13 +7,15 @@
 #include "driver/task/task.h"
 
 namespace common {
-/// @brief Creates a task on a rack if a task of the specified type doesn't already exist
+/// @brief Creates a task on a rack if a task of the specified type doesn't already
+/// exist
 /// @param rack The rack to create the task on
 /// @param task The task configuration to create
 /// @return A pair containing:
-///         - bool: true if a new task was created, false if a task of that type already exists
+///         - bool: true if a new task was created, false if a task of that type already
+///         exists
 ///         - Error: any error that occurred during the operation
-/// @note If a task of the specified type already exists, returns {false, err} where err 
+/// @note If a task of the specified type already exists, returns {false, err} where err
 ///       is the error from the retrieval operation
 inline std::pair<bool, xerrors::Error>
 create_if_type_not_exists_on_rack(const synnax::Rack &rack, synnax::Task &task) {
@@ -36,7 +38,7 @@ create_if_type_not_exists_on_rack(const synnax::Rack &rack, synnax::Task &task) 
 /// @return Vector of pairs containing:
 ///         - synnax::Task: The created Synnax task configuration
 ///         - std::unique_ptr<task::Task>: The configured task implementation
-/// @note 
+/// @note
 /// - Returns an empty vector if:
 ///   1. A task of the specified type already exists
 ///   2. Task creation fails
@@ -79,7 +81,7 @@ configure_initial_factory_tasks(
 /// @param task_type The type of task to delete
 /// @param integration_name Name of the integration for logging purposes
 /// @return Error if any occurred during the operation (NOT_FOUND errors are skipped)
-/// @note 
+/// @note
 /// - Logs success/failure through glog
 /// - Silently succeeds if no task of the specified type exists
 /// - Useful for cleaning up legacy tasks during system upgrades or reconfigurations

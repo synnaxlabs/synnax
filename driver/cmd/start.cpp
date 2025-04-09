@@ -15,7 +15,7 @@
 
 int cmd::sub::start(xargs::Parser &args) {
     LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version()
-           << xlog::RESET();
+              << xlog::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
     VLOG(1) << "[driver] stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
