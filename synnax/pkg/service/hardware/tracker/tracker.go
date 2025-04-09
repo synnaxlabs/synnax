@@ -614,6 +614,31 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			r.Devices = make(map[string]device.State)
 		}
 		r.Devices[deviceState.Key] = deviceState
+		for _, rck := range t.mu.Racks {
+			if rck.Key == rackKey {
+				continue
+			}
+			for k, _ := range rck.Devices {
+				if k == deviceState.Key {
+					delete(rck.Devices, k)
+					var racks []rack.Rack
+					if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
+						WhereKeys([]rack.Key{rck.Key, rackKey}...).
+						Entries(&racks).
+						Exec(ctx, t.cfg.DB); err != nil {
+						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+					}
+					zap.S().Warn("device moved from rack",
+						zap.String("device", deviceState.Key),
+						zap.Uint32("from_rack_key", uint32(rck.Key)),
+						zap.Uint32("to_rack_key", uint32(rackKey)),
+						zap.String("from_rack_name", racks[0].Name),
+						zap.String("to_rack_name", racks[1].Name),
+					)
+					break
+				}
+			}
+		}
 
 		select {
 		case t.deviceSaveNotifications <- struct {
