@@ -26,6 +26,7 @@ import {
   deleteMenuItem,
   useDelete,
   useLabels,
+  useParent,
   useViewDetails,
   viewDetailsMenuItem,
 } from "@/range/ContextMenu";
@@ -37,6 +38,7 @@ import { useRename } from "@/range/Toolbar";
 export const EXPLORER_LAYOUT_TYPE = "explorer";
 
 export const EXPLORER_LAYOUT: Layout.BaseState = {
+  key: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
   name: "Explorer",
   location: "mosaic",
@@ -56,6 +58,7 @@ const ExplorerListItem = ({
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
   const labels = useLabels(entry.key);
+  const parent = useParent(entry.key);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
   const onRename = useRename(entry.key);
@@ -94,9 +97,7 @@ const ExplorerListItem = ({
       selected={false}
       onDragStart={(e) => {
         const ghost = elRef.current?.cloneNode(true) as HTMLElement;
-        console.log(elRef.current);
         ghost.classList.add("console--dragging");
-        console.log(ghost);
         document.body.appendChild(ghost);
         dragGhost.current = ghost;
         e.dataTransfer.setDragImage(ghost, 50, 50);
@@ -121,20 +122,8 @@ const ExplorerListItem = ({
       {...props}
     >
       <Align.Space x align="center">
-        <PIcon.Icon
-          className={CSS(
-            CSS.B("range-explorer-item-star"),
-            selected && CSS.M("selected"),
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleStar();
-          }}
-        >
-          {selected ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-        </PIcon.Icon>
         <Text.WithIcon
-          startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
+          startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l9)" }} />}
           level="p"
           weight={450}
           shade={11}
@@ -148,9 +137,21 @@ const ExplorerListItem = ({
             value={entry.name}
             onChange={onRename}
           />
+          {parent != null && (
+            <Text.WithIcon
+              level="p"
+              shade={8}
+              weight={450}
+              startIcon={<Icon.Caret.Right />}
+              style={{ marginTop: "1px" }}
+              size="tiny"
+            >
+              {parent.name}
+            </Text.WithIcon>
+          )}
         </Text.WithIcon>
       </Align.Space>
-      <Align.Space x className={CSS.B("range-explorer-item-content")}>
+      <Align.Space x className={CSS.B("range-explorer-item-content")} align="center">
         <Align.Stack x size="small">
           {labels.map((l) => (
             <Tag.Tag key={l.key} color={l.color} size="small">
@@ -159,6 +160,18 @@ const ExplorerListItem = ({
           ))}
         </Align.Stack>
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
+        <PIcon.Icon
+          className={CSS(
+            CSS.B("range-explorer-item-star"),
+            selected && CSS.M("selected"),
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStar();
+          }}
+        >
+          {selected ? <Icon.StarFilled /> : <Icon.StarOutlined />}
+        </PIcon.Icon>
       </Align.Space>
     </List.ItemFrame>
   );
@@ -183,6 +196,9 @@ const ChangeLoader = () => {
         ];
       });
     });
+    return async () => {
+      await obs?.close();
+    };
   }, [client]);
   return null;
 };
@@ -245,6 +261,7 @@ export const Explorer: Layout.Renderer = () => {
               onContextMenu={pMenuProps.open}
               className={pMenuProps.className}
               itemHeight={6 * 7}
+              style={{ height: "calc(100% - 9rem)" }}
             >
               {item}
             </List.Core.Virtual>

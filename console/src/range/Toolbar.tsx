@@ -33,7 +33,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu, useLabels } from "@/range/ContextMenu";
 import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
-import { EXPLORER_LAYOUT } from "@/range/Explorer";
+import { EXPLORER_LAYOUT, EXPLORER_LAYOUT_TYPE } from "@/range/Explorer";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
@@ -48,13 +48,39 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
     onLinkClick();
   };
 
+  const explorerLayoutOpen = Layout.useSelect(EXPLORER_LAYOUT_TYPE);
+  const placeLayout = Layout.usePlacer();
+
   return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
+    <Align.Space
+      empty
+      style={{ height: "100%", position: "relative" }}
+      className={CSS.B("range-toolbar-no-ranges")}
+    >
       <Align.Center y style={{ height: "100%" }} size="small">
-        <Text.Text level="p">No ranges added.</Text.Text>
-        <Text.Link level="p" onClick={handleLinkClick}>
-          Add a range
-        </Text.Link>
+        {explorerLayoutOpen ? (
+          <>
+            <Text.Text level="p">
+              <Icon.StarFilled /> or drag a range from the explorer to make it available
+              for viewing.
+            </Text.Text>
+            <Text.Link level="p" onClick={() => placeLayout(EXPLORER_LAYOUT)}>
+              Focus explorer
+            </Text.Link>
+          </>
+        ) : (
+          <>
+            <Text.Text level="p">
+              No ranges loaded. Create a range or load one from the explorer.
+            </Text.Text>
+            <Text.Link level="p" onClick={() => placeLayout(EXPLORER_LAYOUT)}>
+              Open explorer
+            </Text.Link>
+            <Text.Link level="p" onClick={handleLinkClick}>
+              Create a range
+            </Text.Link>
+          </>
+        )}
       </Align.Center>
     </Align.Space>
   );

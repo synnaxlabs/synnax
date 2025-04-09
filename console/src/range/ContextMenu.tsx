@@ -40,6 +40,28 @@ import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { type RootState } from "@/store";
 
+export const useParent = (rangeKey: string) => {
+  const client = PSynnax.use();
+  const handleError = Status.useErrorHandler();
+  const [parent, setParent] = useState<ranger.Range | null>();
+  useAsyncEffect(async () => {
+    try {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const rng = await client.ranges.retrieve(rangeKey);
+      const childRanges = await rng.retrieveParent();
+      setParent(childRanges);
+      const tracker = await rng.openParentRangeTracker();
+      if (tracker == null) return;
+      tracker.onChange((ranges) => setParent(ranges));
+      return async () => await tracker.close();
+    } catch (e) {
+      handleError(e, "Failed to retrieve child ranges");
+      return undefined;
+    }
+  }, [rangeKey, client?.key]);
+  return parent;
+};
+
 export interface SnapshotMenuItemProps {
   range?: Range | null;
 }

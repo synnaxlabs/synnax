@@ -15,22 +15,19 @@ import {
   Divider,
   Form,
   Input,
-  Status,
-  Synnax,
   Text,
-  useAsyncEffect,
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { type change, deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect, useState } from "react";
+import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
+import { useParent } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -42,26 +39,9 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const [parent, setParent] = useState<ranger.Range | null>();
+  const parent = useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
 
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveParent();
-      setParent(childRanges);
-      const tracker = await rng.openParentRangeTracker();
-      if (tracker == null) return;
-      tracker.onChange((ranges) => setParent(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, "Failed to retrieve child ranges");
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
   if (parent == null) return null;
   return (
     <Align.Space x size="small" align="center">
