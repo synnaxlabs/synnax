@@ -12,9 +12,11 @@ import { Align, Icon, List, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type Key, type Keyed } from "@synnaxlabs/x";
 import { type JSX } from "react";
 
-import { ChannelName } from "@/hardware/common/task/ChannelName";
+import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { EnableDisableButton } from "@/hardware/common/task/EnableDisableButton";
+import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 import { TareButton } from "@/hardware/common/task/TareButton";
+import { WriteChannelNames } from "@/hardware/common/task/WriteChannelNames";
 
 export interface ListAndDetailsIconProps {
   icon: JSX.Element;
@@ -35,7 +37,7 @@ export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K
   hasTareButton: boolean;
 }
 
-const getChannelNameProps = (hasIcon: boolean): Text.TextProps => ({
+const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
   level: "p",
   shade: 9,
   weight: 450,
@@ -48,7 +50,7 @@ const getChannelNameProps = (hasIcon: boolean): Text.TextProps => ({
   noWrap: true,
 });
 
-export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
+export const ListAndDetailsChannelItem = <K extends string, E extends Keyed<K>>({
   port,
   portMaxChars,
   canTare,
@@ -61,6 +63,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
   stateChannel,
   ...rest
 }: ListAndDetailsChannelItemProps<K, E>) => {
+  const { key } = rest.entry;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
@@ -74,7 +77,7 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
       <Align.Space direction="x" size="small" align="center">
         <Text.Text
           level="p"
-          shade={9}
+          shade={8}
           weight={500}
           style={{ width: `${portMaxChars * 1.25}rem` }}
         >
@@ -94,20 +97,21 @@ export const ListAndDetailsChannelItem = <K extends Key, E extends Keyed<K>>({
             </Icon.Icon>
           </Tooltip.Dialog>
         )}
-        <Align.Space direction="y" size="small">
+        {hasStateChannel ? (
+          <Align.Space direction="y" size="small">
+            <WriteChannelNames
+              cmdChannel={channel}
+              stateChannel={stateChannel}
+              itemKey={key}
+            />
+          </Align.Space>
+        ) : (
           <ChannelName
             {...channelNameProps}
             channel={channel}
-            defaultName={hasStateChannel ? "No Command Channel" : undefined}
+            id={getChannelNameID(key)}
           />
-          {hasStateChannel && (
-            <ChannelName
-              {...channelNameProps}
-              channel={stateChannel}
-              defaultName="No State Channel"
-            />
-          )}
-        </Align.Space>
+        )}
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
         {hasTareButton && (
