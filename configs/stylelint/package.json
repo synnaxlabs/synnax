@@ -16,7 +16,7 @@
     "stylelint-config-standard": "^37.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.22.0",
+    "eslint": "^9.24.0",
     "eslint-config-synnaxlabs": "workspace:*"
   }
 }
