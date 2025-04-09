@@ -241,6 +241,7 @@ const ChannelsForm = ({
       initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
     />
   );
 };

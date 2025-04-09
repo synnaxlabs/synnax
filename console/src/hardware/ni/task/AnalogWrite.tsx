@@ -104,6 +104,7 @@ const Form: FC<
     createChannel={createAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
+    contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
 

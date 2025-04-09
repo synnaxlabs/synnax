@@ -9,19 +9,34 @@
 
 import { type channel } from "@synnaxlabs/client";
 
-import { ChannelName } from "@/hardware/common/task/ChannelName";
+import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
+import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 
-export interface WriteChannelNamesProps {
+export interface WriteChannelNamesProps
+  extends Omit<ChannelNameProps, "channel" | "defaultName" | "id"> {
   cmdChannel: channel.Key;
   stateChannel: channel.Key;
+  itemKey: string;
 }
 
 export const WriteChannelNames = ({
   cmdChannel,
   stateChannel,
+  itemKey,
+  ...rest
 }: WriteChannelNamesProps) => (
   <>
-    <ChannelName channel={cmdChannel} defaultName="No Command Channel" />
-    <ChannelName channel={stateChannel} defaultName="No State Channel" />
+    <ChannelName
+      channel={cmdChannel}
+      defaultName="No Command Channel"
+      id={getChannelNameID(itemKey, "cmd")}
+      {...rest}
+    />
+    <ChannelName
+      channel={stateChannel}
+      defaultName="No State Channel"
+      id={getChannelNameID(itemKey, "state")}
+      {...rest}
+    />
   </>
 );

@@ -104,7 +104,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
       onClose();
     }
   }, [rootUser, onClose, addStatus]);
-  if (rootUser) return <></>;
+  if (rootUser) return null;
 
   return (
     <Align.Space y grow>

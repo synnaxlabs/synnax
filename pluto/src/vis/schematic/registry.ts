@@ -17,7 +17,9 @@ import { removeProps } from "@/util/removeProps";
 import {
   BoxForm,
   ButtonForm,
+  CircleForm,
   CommonDummyToggleForm,
+  CommonPolygonForm,
   CommonStyleForm,
   CommonToggleForm,
   CylinderForm,
@@ -34,6 +36,7 @@ import { Primitives } from "@/vis/schematic/primitives";
 import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
+  DEFAULT_POLYGON_SIDE_LENGTH,
   TextBox,
   type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
@@ -69,6 +72,9 @@ import {
   type CentrifugalCompressorProps,
   CheckValve,
   type CheckValveProps,
+  CheckValveWithArrow,
+  type CheckValveWithArrowProps,
+  Circle,
   Compressor,
   type CompressorProps,
   CrossBeamAgitator,
@@ -84,6 +90,8 @@ import {
   EjectorCompressor,
   type EjectorCompressorProps,
   ElectricRegulator,
+  ElectricRegulatorMotorized,
+  type ElectricRegulatorMotorizedProps,
   type ElectricRegulatorProps,
   Filter,
   type FilterProps,
@@ -109,6 +117,8 @@ import {
   type FlowmeterGeneralProps,
   FlowmeterNozzle,
   type FlowmeterNozzleProps,
+  FlowmeterOrifice,
+  type FlowmeterOrificeProps,
   FlowmeterPositiveDisplacement,
   type FlowmeterPositiveDisplacementProps,
   FlowmeterPulse,
@@ -121,10 +131,14 @@ import {
   type FlowmeterVariableAreaProps,
   FlowmeterVenturi,
   type FlowmeterVenturiProps,
+  FlowStraightener,
+  type FlowStraightenerProps,
   FourWayValve,
   type FourWayValveProps,
   GateValve,
   type GateValveProps,
+  HeaterElement,
+  type HeaterElementProps,
   HeatExchangerGeneral,
   type HeatExchangerGeneralProps,
   HeatExchangerM,
@@ -150,6 +164,8 @@ import {
   type ManualValveProps,
   NeedleValve,
   type NeedleValveProps,
+  Nozzle,
+  type NozzleProps,
   OffPageReference,
   OffPageReferencePreview,
   type OffPageReferenceProps,
@@ -161,11 +177,14 @@ import {
   type PaddleAgitatorProps,
   PistonPump,
   type PistonPumpProps,
+  PolygonSymbol,
   PropellerAgitator,
   type PropellerAgitatorProps,
   Pump,
   type PumpProps,
   Regulator,
+  RegulatorManual,
+  type RegulatorManualProps,
   type RegulatorProps,
   ReliefValve,
   type ReliefValveProps,
@@ -251,7 +270,11 @@ const VARIANTS = [
   "cylinder",
   "crossBeamAgitator",
   "electricRegulator",
+  "electricRegulatorMotorized",
   "filter",
+  "flowStraightener",
+  "heaterElement",
+  "checkValveWithArrow",
   "flatBladeAgitator",
   "flowmeterGeneral",
   "flowmeterElectromagnetic",
@@ -264,6 +287,7 @@ const VARIANTS = [
   "flowmeterTurbine",
   "flowmeterPulse",
   "flowmeterFloatSensor",
+  "flowmeterOrifice",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -279,6 +303,7 @@ const VARIANTS = [
   "pistonPump",
   "pump",
   "regulator",
+  "regulatorManual",
   "reliefValve",
   "rotaryMixer",
   "screwPump",
@@ -288,6 +313,8 @@ const VARIANTS = [
   "staticMixer",
   "switch",
   "tank",
+  "polygon",
+  "circle",
   "textBox",
   "threeWayValve",
   "vacuumPump",
@@ -313,6 +340,7 @@ const VARIANTS = [
   "flameArrestorFireRes",
   "flameArrestorFireResDetonation",
   "thruster",
+  "nozzle",
   "strainer",
   "strainerCone",
 ] as const;
@@ -533,14 +561,14 @@ const butterflyValveOne: Spec<ButterflyValveOneProps> = {
 const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
   name: "Butterfly Valve (Manual)",
   key: "butterflyValveTwo",
-  Form: CommonDummyToggleForm,
+  Form: CommonToggleForm,
   Symbol: ButterflyValveTwo,
   defaultProps: (t) => ({
     color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Butterfly Valve (Manual)"),
-    ...ZERO_DUMMY_TOGGLE_PROPS,
+    ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: removeProps(Primitives.ButterflyValveTwo, ["clickable"]),
+  Preview: Primitives.ButterflyValveTwo,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -603,6 +631,41 @@ const tank: Spec<TankProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
+const polygon: Spec<Primitives.PolygonProps> = {
+  name: "Polygon",
+  key: "polygon",
+  Symbol: PolygonSymbol,
+  Form: CommonPolygonForm,
+  defaultProps: (t) => ({
+    numSides: 6,
+    sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
+    cornerRounding: 0,
+    rotation: 0,
+    color: t.colors.gray.l11.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    strokeWidth: 2,
+    ...zeroLabel("Polygon"),
+  }),
+  Preview: removeProps(Primitives.Polygon, ["clickable"]),
+  zIndex: Z_INDEX_LOWER,
+};
+
+const circle: Spec<Primitives.CircleShapeProps> = {
+  name: "Circle",
+  key: "circle",
+  Symbol: Circle,
+  Form: CircleForm,
+  defaultProps: (t) => ({
+    radius: 20,
+    color: t.colors.gray.l11.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    ...zeroLabel("Circle"),
+    strokeWidth: 2,
+  }),
+  Preview: removeProps(Primitives.CircleShape, ["clickable"]),
+  zIndex: Z_INDEX_LOWER,
+};
+
 const cylinder: Spec<CylinderProps> = {
   name: "Cylinder",
   key: "cylinder",
@@ -632,6 +695,7 @@ const box: Spec<BoxProps> = {
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Box"),
     borderRadius: ZERO_BOX_BORDER_RADIUS,
+    strokeWidth: 2,
     ...ZERO_BOX_PROPS,
     ...ZERO_PROPS,
   }),
@@ -695,6 +759,20 @@ const regulator: Spec<RegulatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const regulatorManual: Spec<RegulatorManualProps> = {
+  name: "Manual Regulator",
+  key: "regulatorManual",
+  Form: CommonStyleForm,
+  Symbol: RegulatorManual,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Manual Regulator"),
+    ...ZERO_PROPS,
+  }),
+  Preview: removeProps(Primitives.RegulatorManual, ["clickable"]),
+  zIndex: Z_INDEX_UPPER,
+};
+
 const electricRegulator: Spec<ElectricRegulatorProps> = {
   name: "Electric Regulator",
   key: "electricRegulator",
@@ -706,6 +784,20 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.ElectricRegulator,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
+  name: "Electric Regulator Motorized",
+  key: "electricRegulatorMotorized",
+  Form: CommonStyleForm,
+  Symbol: ElectricRegulatorMotorized,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Electric Regulator Motorized"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ElectricRegulatorMotorized,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -818,6 +910,34 @@ const filter: Spec<FilterProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.Filter,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowStraightener: Spec<FlowStraightenerProps> = {
+  name: "Flow Straightener",
+  key: "flowStraightener",
+  Form: CommonStyleForm,
+  Symbol: FlowStraightener,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Flow Straightener"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowStraightener,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heaterElement: Spec<HeaterElementProps> = {
+  name: "Heater Element",
+  key: "heaterElement",
+  Form: CommonStyleForm,
+  Symbol: HeaterElement,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Heater Element"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeaterElement,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1172,6 +1292,20 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
+  name: "Check Valve Variant",
+  key: "checkValveWithArrow",
+  Form: CommonStyleForm,
+  Symbol: CheckValveWithArrow,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Check Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.CheckValveWithArrow,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const vent: Spec<VentProps> = {
   name: "Vent",
   key: "vent",
@@ -1365,6 +1499,20 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
     ...ZERO_PROPS,
   }),
   Preview: Primitives.FlowmeterFloatSensor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
+  name: "Flowmeter Orifice",
+  key: "flowmeterOrifice",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterOrifice,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Orifice Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterOrifice,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1592,6 +1740,20 @@ const thruster: Spec<ThrusterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const nozzle: Spec<NozzleProps> = {
+  name: "Nozzle",
+  key: "nozzle",
+  Form: CommonStyleForm,
+  Symbol: Nozzle,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11.rgba255,
+    ...zeroLabel("Nozzle"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.Nozzle,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const strainer: Spec<StrainerProps> = {
   name: "Strainer",
   key: "strainer",
@@ -1624,6 +1786,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
+  polygon,
+  circle,
   tJunction,
   crossJunction,
   switch: switch_,
@@ -1649,7 +1813,9 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   angledReliefValve,
   checkValve,
   regulator,
+  regulatorManual,
   electricRegulator,
+  electricRegulatorMotorized,
   springLoadedReliefValve,
   angledSpringLoadedReliefValve,
   pump,
@@ -1673,6 +1839,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   isoCap,
   filter,
   isoFilter,
+  flowStraightener,
+  heaterElement,
   orifice,
   orificePlate,
   agitator,
@@ -1682,6 +1850,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   isoCheckValve,
+  checkValveWithArrow,
   vent,
   cylinder,
   flowmeterGeneral,
@@ -1695,6 +1864,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterTurbine,
   flowmeterPulse,
   flowmeterFloatSensor,
+  flowmeterOrifice,
   heatExchangerGeneral,
   heatExchangerM,
   heatExchangerStraightTube,
@@ -1704,6 +1874,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flameArrestorFireRes,
   flameArrestorFireResDetonation,
   thruster,
+  nozzle,
   strainer,
   strainerCone,
 };

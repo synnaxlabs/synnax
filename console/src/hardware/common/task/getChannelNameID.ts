@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package json_test
+import { type WriteChannelType } from "@/hardware/common/task/types";
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestJson(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Json Suite")
-}
+export const getChannelNameID = (key: string, type?: WriteChannelType) => {
+  switch (type) {
+    case "cmd":
+      return `text-cmd-${key}`;
+    case "state":
+      return `text-state-${key}`;
+    default:
+      return `text-${key}`;
+  }
+};

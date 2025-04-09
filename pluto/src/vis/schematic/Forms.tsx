@@ -318,10 +318,12 @@ const BORDER_RADIUS_BOUNDS: bounds.Bounds = { lower: 0, upper: 51 };
 
 export interface TankFormProps {
   includeBorderRadius?: boolean;
+  includeStrokeWidth?: boolean;
 }
 
 export const TankForm = ({
   includeBorderRadius = false,
+  includeStrokeWidth = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper x align="stretch">
     <Align.Space y grow>
@@ -379,6 +381,24 @@ export const TankForm = ({
             )}
           </Form.Field>
         )}
+        {includeStrokeWidth && (
+          <Form.Field<number>
+            path="strokeWidth"
+            hideIfNull
+            optional
+            label="Border Width"
+            grow
+          >
+            {(props) => (
+              <Input.Numeric
+                dragScale={DIMENSIONS_DRAG_SCALE}
+                bounds={{ lower: 0, upper: 21 }}
+                endContent="px"
+                {...props}
+              />
+            )}
+          </Form.Field>
+        )}
         <Form.Field<number> path="dimensions.width" label="Width" grow>
           {({ value, ...rest }) => (
             <Input.Numeric
@@ -404,6 +424,103 @@ export const TankForm = ({
       </Align.Space>
     </Align.Space>
     <OrientationControl path="" hideInner />
+  </FormWrapper>
+);
+
+export interface PolygonFormProps {
+  numSides: number;
+}
+
+export const CommonPolygonForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.NumericField
+          path="rotation"
+          label="Rotation"
+          inputProps={{
+            dragScale: { x: 1, y: 0.25 },
+            bounds: { lower: 0, upper: 360 },
+            endContent: "°",
+          }}
+          grow
+        />
+        <Form.NumericField
+          path="numSides"
+          label="Number of Sides"
+          inputProps={{
+            dragScale: { x: 0.5, y: 0.1 },
+            bounds: { lower: 3, upper: 21 },
+          }}
+          grow
+        />
+        <Form.NumericField
+          path="sideLength"
+          label="Side Length"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 10, upper: 500 },
+            endContent: "px",
+          }}
+          grow
+        />
+        <Form.NumericField
+          path="cornerRounding"
+          label="Corner Rounding"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 0, upper: 181 }, // internally limited as well to ensure weird things don't happen
+            endContent: "px",
+          }}
+          grow
+        />
+        <Form.NumericField
+          path="strokeWidth"
+          label="Border Width"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 1, upper: 21 },
+            endContent: "px",
+          }}
+          grow
+        />
+      </Align.Space>
+    </Align.Space>
+  </FormWrapper>
+);
+
+export const CircleForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.NumericField
+          path="radius"
+          label="Radius"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 0, upper: 500 },
+            endContent: "px",
+          }}
+          grow
+        />
+        <Form.NumericField
+          path="strokeWidth"
+          label="Border Width"
+          inputProps={{
+            dragScale: { x: 1, y: 1 },
+            bounds: { lower: 1, upper: 21 },
+            endContent: "px",
+          }}
+          grow
+        />
+      </Align.Space>
+    </Align.Space>
   </FormWrapper>
 );
 
@@ -846,6 +963,8 @@ export const CommonDummyToggleForm = (): ReactElement => (
   </FormWrapper>
 );
 
-export const BoxForm = (): ReactElement => <TankForm includeBorderRadius />;
+export const BoxForm = (): ReactElement => (
+  <TankForm includeBorderRadius includeStrokeWidth />
+);
 
 export const SwitchForm = (): ReactElement => <CommonToggleForm hideInnerOrientation />;

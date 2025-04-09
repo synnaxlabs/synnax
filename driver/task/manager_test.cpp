@@ -332,7 +332,7 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
         auto [frame, err] = streamer.read();
         if (err) return;
         auto json_vs = frame.series->at(0).json_values();
-        for (const auto &j : json_vs) {
+        for (const auto &j: json_vs) {
             auto parser = xjson::Parser(j);
             auto [task, key, variant, details] = task::State::parse(parser);
             if (task == snapshot_task.key) {

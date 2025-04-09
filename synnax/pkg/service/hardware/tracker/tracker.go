@@ -12,8 +12,6 @@ package tracker
 import (
 	"context"
 	"fmt"
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/status"
 	"io"
 	"sync"
 	"time"
@@ -35,9 +33,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -614,6 +614,31 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			r.Devices = make(map[string]device.State)
 		}
 		r.Devices[deviceState.Key] = deviceState
+		for _, rck := range t.mu.Racks {
+			if rck.Key == rackKey {
+				continue
+			}
+			for k := range rck.Devices {
+				if k == deviceState.Key {
+					delete(rck.Devices, k)
+					var racks []rack.Rack
+					if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
+						WhereKeys([]rack.Key{rck.Key, rackKey}...).
+						Entries(&racks).
+						Exec(ctx, t.cfg.DB); err != nil {
+						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+					}
+					zap.S().Warn("device moved from rack",
+						zap.String("device", deviceState.Key),
+						zap.Uint32("from_rack_key", uint32(rck.Key)),
+						zap.Uint32("to_rack_key", uint32(rackKey)),
+						zap.String("from_rack_name", racks[0].Name),
+						zap.String("to_rack_name", racks[1].Name),
+					)
+					break
+				}
+			}
+		}
 
 		select {
 		case t.deviceSaveNotifications <- struct {
