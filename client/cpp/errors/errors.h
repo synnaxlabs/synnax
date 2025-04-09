@@ -15,7 +15,7 @@
 inline xerrors::Error unexpected_missing(const std::string &name) {
     return xerrors::Error(
         xerrors::UNEXPECTED,
-        "No " + name + 
+        "No " + name +
             " returned from server on create. Please report this error to the Synnax team."
     );
 }

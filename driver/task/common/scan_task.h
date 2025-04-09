@@ -70,22 +70,22 @@ struct SynnaxClusterAPI final : ClusterAPI {
     }
 
     xerrors::Error propagate_state(telem::Series &states) override {
-      if (this->state_writer == nullptr) {
+        if (this->state_writer == nullptr) {
             const auto [state_channel, ch_err] = this->client->channels.retrieve(
                 "sy_device_state"
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->client->telem.open_writer(
-                synnax::WriterConfig{
-                    .channels = {this->state_channel.key},
-                    .start = telem::TimeStamp::now(),
-                }
-            );
+            auto [w, err] = this->client->telem.open_writer(synnax::WriterConfig{
+                .channels = {this->state_channel.key},
+                .start = telem::TimeStamp::now(),
+            });
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
-        this->state_writer->write(            synnax::Frame(this->state_channel.key, std::move(states))        );
+        this->state_writer->write(
+            synnax::Frame(this->state_channel.key, std::move(states))
+        );
         return xerrors::NIL;
     }
 };
@@ -247,10 +247,11 @@ public:
                 .key = dev.dev.key,
                 .variant = "warning",
                 .rack = dev.dev.rack,
-                .details = json{
-                    {"message", "Device disconnected"},
-                    {"last_available", dev.last_available.nanoseconds()}
-                }
+                .details =
+                    json{
+                        {"message", "Device disconnected"},
+                        {"last_available", dev.last_available.nanoseconds()}
+                    }
             };
         }
         if (const auto state_err = this->propagate_state())

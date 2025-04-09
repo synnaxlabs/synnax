@@ -20,7 +20,7 @@
 /// @brief tests the nominal heartbeat case.
 TEST(HeartbeatTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack  = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     auto ch = ASSERT_NIL_P(client->channels.retrieve("sy_rack_state"));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = rack::state::Task::configure(

@@ -16,8 +16,8 @@ namespace common {
 struct BaseTaskConfig {
     /// @brief whether data saving is enabled for the task.
     bool data_saving;
-    /// @brief whether the task should be auto-started after configuration. This includes
-    /// automatic start on driver start.
+    /// @brief whether the task should be auto-started after configuration. This
+    /// includes automatic start on driver start.
     bool auto_start;
 
     BaseTaskConfig(BaseTaskConfig &&other) noexcept:
