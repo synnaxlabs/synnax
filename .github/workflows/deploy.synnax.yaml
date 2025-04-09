@@ -119,14 +119,14 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
-            bazel build --enable_platform_specific_config --config=opt --config=opt_unix --define=platform=nilinuxrt //driver
+            bazel build --enable_platform_specific_config --config=opt --config=opt_unix --define=platform=nilinuxrt --announce_rc //driver
           else
-            bazel build --enable_platform_specific_config --config=opt --config=opt_unix //driver
+            bazel build --enable_platform_specific_config --config=opt --config=opt_unix --announce_rc //driver
           fi
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt //driver
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config --config=opt =//driver
 
       - name: Determine OS
         id: os

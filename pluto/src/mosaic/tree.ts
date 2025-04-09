@@ -333,7 +333,9 @@ const findNodeOrAncestor = (root: Node, key: number): Node => {
 const gc = (root: Node): Node => {
   let gced = true;
   while (gced) [root, gced] = _gc(root);
-  if (root.first == null && root.last == null) root.key = 1;
+  // After garbage collection, ensure the root has key 1 and
+  // recursively fix all child keys
+  root = normalizeKeys(root, 1);
   return root;
 };
 
@@ -349,7 +351,6 @@ const _gc = (node: Node): [Node, boolean] => {
 
 const liftUp = (node: Node, isLast: boolean): Node => {
   node.size = undefined;
-  node.key = (node.key - Number(isLast)) / 2;
   return node;
 };
 
@@ -411,4 +412,15 @@ export const forEachNode = (root: Node, fn: (node: Node) => void): void => {
   fn(root);
   if (root.first != null) forEachNode(root.first, fn);
   if (root.last != null) forEachNode(root.last, fn);
+};
+
+// New helper function to normalize keys throughout the tree
+const normalizeKeys = (node: Node, key: number): Node => {
+  node = shallowCopyNode(node);
+  node.key = key;
+  if (node.first != null) node.first = normalizeKeys(node.first, key * 2);
+
+  if (node.last != null) node.last = normalizeKeys(node.last, key * 2 + 1);
+
+  return node;
 };

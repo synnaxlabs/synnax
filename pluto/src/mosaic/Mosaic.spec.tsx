@@ -283,6 +283,80 @@ describe("Mosaic", () => {
           tabs: [tabTwo, tabThree, tabOne],
         });
       });
+      it("should maintain correct key hierarchy after moving tabs and garbage collection", () => {
+        // Initial state matching the bug scenario
+        const initialTree: Mosaic.Node = {
+          key: 1,
+          direction: "y",
+          last: {
+            key: 3,
+            tabs: [
+              {
+                closable: true,
+                icon: "Logo.LabJack",
+                name: "LabJack Read Task",
+                tabKey: "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
+              },
+            ],
+            selected: "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
+          },
+          first: {
+            key: 2,
+            direction: "x",
+            last: {
+              key: 5,
+              tabs: [
+                {
+                  closable: true,
+                  icon: "Visualize",
+                  name: "New Component",
+                  tabKey: "ff989ff2-9bdb-49fe-b6fc-d71c8f933309",
+                },
+              ],
+              selected: "ff989ff2-9bdb-49fe-b6fc-d71c8f933309",
+              size: 0.5,
+            },
+            first: {
+              key: 4,
+              tabs: [
+                {
+                  closable: true,
+                  icon: "Visualize",
+                  name: "New Component",
+                  tabKey: "dbca1c5e-7d69-4ac6-bb59-22c9d2bf3ee3",
+                },
+              ],
+              selected: "dbca1c5e-7d69-4ac6-bb59-22c9d2bf3ee3",
+            },
+          },
+        };
+
+        // Move the LabJack tab
+        const [result] = Mosaic.moveTab(
+          initialTree,
+          "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
+          "bottom",
+          5,
+        );
+
+        // Helper function to verify key hierarchy
+        const verifyKeyHierarchy = (node: Mosaic.Node): boolean => {
+          let valid = true;
+          if (node.first) {
+            valid &&= node.first.key === node.key * 2;
+            valid &&= verifyKeyHierarchy(node.first);
+          }
+          if (node.last) {
+            valid &&= node.last.key === node.key * 2 + 1;
+            valid &&= verifyKeyHierarchy(node.last);
+          }
+          return valid;
+        };
+
+        expect(result.key).toBe(1);
+
+        expect(verifyKeyHierarchy(result)).toBe(true);
+      });
     });
 
     describe("Mosaic.resizeLeaf", () => {
