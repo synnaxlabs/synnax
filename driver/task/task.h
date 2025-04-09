@@ -233,7 +233,8 @@ public:
             const std::string factory_name = factory->name();
             VLOG(1) << "[" << factory_name << "] configuring initial tasks";
             auto new_tasks = factory->configure_initial_tasks(ctx, rack);
-            VLOG(1) << "[" << factory_name << "] configured " << new_tasks.size() << " initial tasks";
+            VLOG(1) << "[" << factory_name << "] configured " << new_tasks.size()
+                    << " initial tasks";
             for (auto &task: new_tasks)
                 tasks.emplace_back(std::move(task));
         }

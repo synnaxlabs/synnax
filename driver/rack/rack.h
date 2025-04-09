@@ -177,7 +177,8 @@ struct Config {
     /// Looks for a "--config" flag followed by a configuration file path.
     [[nodiscard]] xerrors::Error load_persisted_state(xargs::Parser &args);
 
-    [[nodiscard]] xerrors::Error load_config_file(xargs::Parser &args, breaker::Breaker &breaker);
+    [[nodiscard]] xerrors::Error
+    load_config_file(xargs::Parser &args, breaker::Breaker &breaker);
 
     [[nodiscard]] xerrors::Error load_env();
 

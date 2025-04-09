@@ -342,12 +342,12 @@ TEST_F(XArgsTest, TestRegressionDash) {
 }
 
 TEST_F(XArgsTest, TestVectorArguments) {
-    auto [argc, argv] = make_args({
-        "program",
-        "--strings=dog,cat,ferret",
-        "--numbers=1,2,3,4,5",
-        "--doubles=1.5,2.7,3.14"
-    });
+    auto [argc, argv] = make_args(
+        {"program",
+         "--strings=dog,cat,ferret",
+         "--numbers=1,2,3,4,5",
+         "--doubles=1.5,2.7,3.14"}
+    );
     parser = xargs::Parser(argc, argv);
 
     // Test string vector

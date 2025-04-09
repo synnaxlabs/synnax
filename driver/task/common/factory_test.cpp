@@ -159,12 +159,16 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     synnax::Task legacy_task(rack.key, "legacy_task", "legacy_type", "");
     ASSERT_NIL(rack.tasks.create(legacy_task));
     ASSERT_NIL(delete_legacy_task_by_type(rack, "legacy_type", "test_integration"));
-    ASSERT_OCCURRED_AS_P(rack.tasks.retrieve_by_type("legacy_type"), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(
+        rack.tasks.retrieve_by_type("legacy_type"),
+        xerrors::NOT_FOUND
+    );
 }
 
 TEST(TestFactory, TestDeleteLegacyTaskByType_NonExistent) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    ASSERT_NIL(delete_legacy_task_by_type(rack, "non_existent_type", "test_integration"));
+    ASSERT_NIL(delete_legacy_task_by_type(rack, "non_existent_type", "test_integration")
+    );
 }
 }

@@ -124,16 +124,17 @@ class Parser {
     /// @brief Splits a string by comma delimiter
     /// @param str The string to split
     /// @return Vector of substrings
-    static std::vector<std::string> split_by_comma(const std::string& str) {
+    static std::vector<std::string> split_by_comma(const std::string &str) {
         std::vector<std::string> result;
         std::string current;
-        for (const char c : str) {
+        for (const char c: str) {
             if (c == ',') {
                 if (!current.empty()) {
                     result.push_back(current);
                     current.clear();
                 }
-            } else current += c;
+            } else
+                current += c;
         }
         if (!current.empty()) result.push_back(current);
         return result;
@@ -147,9 +148,9 @@ class Parser {
     /// @return The parsed value of type T
     template<typename T>
     T parse_value(
-        const std::string& value,
-        const std::string& name,
-        const char* error_msg
+        const std::string &value,
+        const std::string &name,
+        const char *error_msg
     ) {
         try {
             if constexpr (std::is_same_v<T, std::string>)
@@ -162,28 +163,27 @@ class Parser {
                 return static_cast<T>(std::stoll(value));
             else if constexpr (std::is_same_v<T, bool>)
                 return value == "true" || value == "1";
-            else if constexpr (std::is_same_v<T, const char*>)
+            else if constexpr (std::is_same_v<T, const char *>)
                 return value.c_str();
             else if constexpr (std::is_same_v<T, std::vector<int>>) {
                 const auto strings = split_by_comma(value);
                 std::vector<int> result;
                 result.reserve(strings.size());
-                for (const auto& s : strings)
+                for (const auto &s: strings)
                     result.push_back(std::stoi(s));
                 return result;
-            }
-            else if constexpr (std::is_same_v<T, std::vector<double>>) {
+            } else if constexpr (std::is_same_v<T, std::vector<double>>) {
                 const auto strings = split_by_comma(value);
                 std::vector<double> result;
                 result.reserve(strings.size());
-                for (const auto& s : strings)
+                for (const auto &s: strings)
                     result.push_back(std::stod(s));
                 return result;
             }
 
             add_error(name, "Unsupported type");
             return T();
-        } catch (const std::exception&) {
+        } catch (const std::exception &) {
             add_error(name, error_msg);
             return T();
         }
