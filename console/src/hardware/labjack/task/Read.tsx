@@ -55,7 +55,7 @@ export const READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x grow>
+    <Align.Space x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
