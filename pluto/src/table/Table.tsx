@@ -203,7 +203,7 @@ export const ColumnIndicators = ({
   let currPos = 2.5 * 6;
   return (
     <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-      <td></td>
+      <td />
       {columns.map((size, i) => {
         const pos = currPos;
         currPos += size;

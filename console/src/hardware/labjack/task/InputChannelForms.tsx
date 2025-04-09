@@ -83,7 +83,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
     </Align.Space>
   ),
-  [NO_SCALE_TYPE]: () => <></>,
+  [NO_SCALE_TYPE]: () => null,
 };
 
 interface CustomScaleFormProps {
@@ -182,7 +182,7 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={path} />
     </>
   ),
-  [DI_CHANNEL_TYPE]: () => <></>,
+  [DI_CHANNEL_TYPE]: () => null,
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
       <Divider.Divider x padded="bottom" />

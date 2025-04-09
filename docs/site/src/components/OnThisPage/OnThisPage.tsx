@@ -25,7 +25,7 @@ export interface OnThisPageProps {
 export const OnThisPage = ({
   headings = [],
   platforms = [],
-}: OnThisPageProps): ReactElement => {
+}: OnThisPageProps): ReactElement | null => {
   const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
@@ -82,7 +82,7 @@ export const OnThisPage = ({
 
   // If there are no headings,
   // return an empty div.
-  if (headings.length === 0) return <></>;
+  if (headings.length === 0) return null;
 
   return (
     <>

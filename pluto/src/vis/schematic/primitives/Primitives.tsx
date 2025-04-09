@@ -137,12 +137,12 @@ const HandleBoundary = ({
   children,
   orientation,
   refreshDeps,
-}: SmartHandlesProps): ReactElement => {
+}: SmartHandlesProps): ReactElement | null => {
   let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
   try {
     updateInternals = useUpdateNodeInternals();
   } catch {
-    return <></>;
+    return null;
   }
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
   const first = useRef<boolean>(true);
