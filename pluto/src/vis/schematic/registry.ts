@@ -641,7 +641,7 @@ const polygon: Spec<Primitives.PolygonProps> = {
     sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
     cornerRounding: 0,
     rotation: 0,
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     strokeWidth: 2,
     ...zeroLabel("Polygon"),
@@ -657,7 +657,7 @@ const circle: Spec<Primitives.CircleShapeProps> = {
   Form: CircleForm,
   defaultProps: (t) => ({
     radius: 20,
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Circle"),
     strokeWidth: 2,
@@ -765,7 +765,7 @@ const regulatorManual: Spec<RegulatorManualProps> = {
   Form: CommonStyleForm,
   Symbol: RegulatorManual,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Manual Regulator"),
     ...ZERO_PROPS,
   }),
@@ -793,7 +793,7 @@ const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
   Form: CommonStyleForm,
   Symbol: ElectricRegulatorMotorized,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Electric Regulator Motorized"),
     ...ZERO_PROPS,
   }),
@@ -919,7 +919,7 @@ const flowStraightener: Spec<FlowStraightenerProps> = {
   Form: CommonStyleForm,
   Symbol: FlowStraightener,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Flow Straightener"),
     ...ZERO_PROPS,
   }),
@@ -933,7 +933,7 @@ const heaterElement: Spec<HeaterElementProps> = {
   Form: CommonStyleForm,
   Symbol: HeaterElement,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Heater Element"),
     ...ZERO_PROPS,
   }),
@@ -1298,7 +1298,7 @@ const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
   Form: CommonStyleForm,
   Symbol: CheckValveWithArrow,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
   }),
@@ -1508,7 +1508,7 @@ const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterOrifice,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Orifice Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1746,7 +1746,7 @@ const nozzle: Spec<NozzleProps> = {
   Form: CommonStyleForm,
   Symbol: Nozzle,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l11.rgba255,
     ...zeroLabel("Nozzle"),
     ...ZERO_PROPS,
   }),

@@ -3201,24 +3201,24 @@ export const TJunction = ({
 }: TJunctionProps): ReactElement => (
   <Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={20} id="1" />
+      <Handle location="left" orientation={orientation} left={3.8462} top={22.3095} id="1" />
       <Handle
         location="right"
         orientation={orientation}
-        left={98.3333}
-        top={20}
+        left={96.1538}
+        top={22.3095}
         id="2"
       />
-      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={92.8571} id="3" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 36, height: 18 }}
+      dimensions={{ width: 39, height: 21 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
       <Path
-        d="M0 4V2C0 0.895431 0.895431 0 2 0H34C35.1046 0 36 0.89543 36 2V4C36 5.10457 35.1046 6 34 6H23C21.8954 6 21 6.89543 21 8V16C21 17.1046 20.1046 18 19 18H17C15.8954 18 15 17.1046 15 16V8C15 6.89543 14.1046 6 13 6H2C0.895431 6 0 5.10457 0 4Z"
+        d="M1.5 5.5V3.5C1.5 2.39543 2.39543 1.5 3.5 1.5H35.5C36.6046 1.5 37.5 2.39543 37.5 3.5V5.5C37.5 6.60457 36.6046 7.5 35.5 7.5H24.5C23.3954 7.5 22.5 8.39543 22.5 9.5V17.5C22.5 18.6046 21.6046 19.5 20.5 19.5H18.5C17.3954 19.5 16.5 18.6046 16.5 17.5V9.5C16.5 8.39543 15.6046 7.5 14.5 7.5H3.5C2.39543 7.5 1.5 6.60457 1.5 5.5Z"
         fill={Color.cssString(color)}
         stroke="none"
       />
@@ -3237,19 +3237,19 @@ export const CrossJunction = ({
 }: CrossJunctionProps): ReactElement => (
   <Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={5} top={49} id="1" />
-      <Handle location="right" orientation={orientation} left={95} top={49} id="2" />
-      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
-      <Handle location="top" orientation={orientation} left={50} top={5} id="4" />
+      <Handle location="left" orientation={orientation} left={3.8462} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={96.1539} top={50} id="2" />
+      <Handle location="bottom" orientation={orientation} left={50.5} top={96.1539} id="3" />
+      <Handle location="top" orientation={orientation} left={50.5} top={3.8462} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 36, height: 36 }}
+      dimensions={{ width: 39, height: 39 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
       <Path
-        d="M21 34C21 35.1046 20.1046 36 19 36H17C15.8954 36 15 35.1046 15 34V23C15 21.8954 14.1046 21 13 21H2C0.895432 21 0 20.1046 0 19V17C0 15.8954 0.895432 15 2 15H13C14.1046 15 15 14.1046 15 13V2C15 0.895432 15.8954 0 17 0H19C20.1046 0 21 0.895432 21 2V13C21 14.1046 21.8954 15 23 15H34C35.1046 15 36 15.8954 36 17V19C36 20.1046 35.1046 21 34 21H23C21.8954 21 21 21.8954 21 23V34Z"
+        d="M22.5 35.5C22.5 36.6046 21.6046 37.5 20.5 37.5H18.5C17.3954 37.5 16.5 36.6046 16.5 35.5V24.5C16.5 23.3954 15.6046 22.5 14.5 22.5H3.5C2.39543 22.5 1.5 21.6046 1.5 20.5V18.5C1.5 17.3954 2.39543 16.5 3.5 16.5H14.5C15.6046 16.5 16.5 15.6046 16.5 14.5V3.5C16.5 2.39543 17.3954 1.5 18.5 1.5H20.5C21.6046 1.5 22.5 2.39543 22.5 3.5V14.5C22.5 15.6046 23.3954 16.5 24.5 16.5H35.5C36.6046 16.5 37.5 17.3954 37.5 18.5V20.5C37.5 21.6046 36.6046 22.5 35.5 22.5H24.5C23.3954 22.5 22.5 23.3954 22.5 24.5V35.5Z"
         fill={Color.cssString(color)}
         stroke="none"
       />
