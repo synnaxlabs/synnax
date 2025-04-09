@@ -27,7 +27,7 @@ const auto EMISSION_RATE = telem::HZ * 1;
 
 class Source final : public pipeline::Source {
     /// @brief the key of the heartbeat channel.
-    const synnax::ChannelKey key
+    const synnax::ChannelKey key;
     /// @brief the key of the rack the heartbeat is for.
     const synnax::RackKey rack_key;
     /// @brief the loop used to control the emission rate of the heartbeat.
@@ -120,11 +120,11 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-        auto [old_heartbeat_task, err] = rack.tasks.retrieve_by_type(LEGACY_HEARTBEAT_TYPE);
-        if (!err.matches(xerrors::NOT_FOUND) && synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
-            if (const auto err = rack.tasks.del(old_heartbeat_task.key))
+        auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(LEGACY_HEARTBEAT_TYPE);
+        if (!o_err.matches(xerrors::NOT_FOUND) && synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
+            if (const auto del_err = rack.tasks.del(old_heartbeat_task.key))
                 LOG(ERROR) << "[rack_state] failed to delete legacy heartbeat task: "
-                           << err;
+                           << del_err;
             else
                 LOG(INFO) << "[rack_state] deleted legacy heartbeat task";
         }
@@ -132,11 +132,11 @@ class Factory final : public task::Factory {
         if (err.matches(xerrors::NOT_FOUND)) {
             auto sy_task = synnax::Task(rack.key, TASK_NAME, TASK_TYPE, "", true);
             err = rack.tasks.create(sy_task);
-            if (err) LOG(ERROR) << "[rack_state] failed to create state task: " << err;
+            if (err) LOG(ERROR) << "[rack_state] failed to task: " << err;
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err)
-            LOG(ERROR) << "[rack_state] failed to retrieve state task: " << err;
+            LOG(ERROR) << "[rack_state] failed to retrieve task: " << err;
         return tasks;
     }
 };
