@@ -40,6 +40,7 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
     setStates(initialStates);
     const observer = await client.hardware.devices.openStateObserver();
     const disconnect = observer.onChange((states) => {
+      console.log("states", states);
       setStates((prevStates) => {
         const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
         return { ...prevStates, ...nextStates };

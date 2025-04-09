@@ -133,6 +133,7 @@ public:
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)) {
+        this->key = task.key;
         this->state.task = task.key;
         this->ctx->set_state(this->state);
     }
