@@ -264,8 +264,10 @@ public:
     xerrors::Error propagate_state() {
         std::vector<json> states;
         states.reserve(this->dev_state.size());
-        for (auto &[key, info]: this->dev_state)
+        for (auto &[key, info]: this->dev_state) {
+            info.dev.state.rack = synnax::rack_key_from_task_key(this->key);
             states.push_back(info.dev.state.to_json());
+        }
         telem::Series s(states);
         return this->client->propagate_state(s);
     }

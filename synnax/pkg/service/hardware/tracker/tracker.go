@@ -84,11 +84,8 @@ type Tracker struct {
 	taskStateChannelKey channel.Key
 	// rackStateChannelKey is the key of the channel used to set rack state.
 	rackStateChannelKey channel.Key
-	opened              confluence.Stream[struct{}]
-}
-
-func (t *Tracker) Opened() <-chan struct{} {
-	return t.opened.Outlet()
+	// deviceStateChannelKey is the key of the channel used to set device state.
+	deviceStateChannelKey channel.Key
 }
 
 // Config is the configuration for the Tracker service.
@@ -280,6 +277,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	}
 	t.taskStateChannelKey = channels[0].Key()
 	t.rackStateChannelKey = channels[1].Key()
+	t.deviceStateChannelKey = channels[3].Key()
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	rackObs := gorp.Observe[rack.Key, rack.Rack](cfg.DB)
 	deviceObs := gorp.Observe[string, device.Device](cfg.DB)
@@ -301,7 +299,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	}
 	stateWriter, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Start: telem.Now(),
-		Keys:  []channel.Key{t.taskStateChannelKey, t.rackStateChannelKey},
+		Keys:  []channel.Key{t.taskStateChannelKey, t.rackStateChannelKey, t.deviceStateChannelKey},
 	})
 	if err != nil {
 		return nil, err
@@ -415,7 +413,6 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			if !rckOk {
 				rackState = &RackState{Tasks: make(map[task.Key]task.State)}
 				rackState.Key = rackKey
-				fmt.Println("new rack state")
 				t.mu.Racks[rackKey] = rackState
 			}
 			if _, taskOk := rackState.Tasks[c.Key]; !taskOk {
@@ -477,6 +474,8 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 func (t *Tracker) checkRackState(ctx context.Context) {
 	rackStates := make([]rack.State, 0, len(t.mu.Racks))
 	taskStates := make([]task.State, 0, len(t.mu.Racks))
+	deviceStates := make([]device.State, 0)
+
 	for _, r := range t.mu.Racks {
 		if r.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
@@ -484,35 +483,57 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		r.State.Variant = "warning"
 		r.State.Message = fmt.Sprintf("Driver %s is not alive", r.Key)
 		rackStates = append(rackStates, r.State)
+
 		var rck rack.Rack
 		if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
 			WhereKeys(r.Key).
 			Entry(&rck).
 			Exec(context.Background(), t.cfg.DB); err != nil {
 			t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
+			continue
 		}
+
+		msg := fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second))
 		for _, taskState := range r.Tasks {
 			taskState.Variant = status.WarningVariant
 			taskState.Details = xjson.NewStaticString(ctx, map[string]interface{}{
-				"message": fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second)),
+				"message": msg,
 				"running": false,
 			})
 			taskStates = append(taskStates, taskState)
 		}
+
+		for _, dev := range t.mu.Devices {
+			if dev.Rack == r.Key {
+				dev.Variant = status.WarningVariant
+				dev.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+					"message": msg,
+				})
+				deviceStates = append(deviceStates, dev)
+			}
+		}
+
 	}
-	t.stateWriter.Inlet() <- framer.WriterRequest{
-		Command: writer.Data,
-		Frame: core.Frame{
-			Keys: channel.Keys{
-				t.rackStateChannelKey,
-				t.taskStateChannelKey,
-			},
-			Series: []telem.Series{
-				telem.NewStaticJSONV(rackStates...),
-				telem.NewStaticJSONV(taskStates...),
-			},
-		},
+
+	fr := core.Frame{}
+	if len(rackStates) > 0 {
+		fr.Keys = append(fr.Keys, t.rackStateChannelKey)
+		fr.Series = append(fr.Series, telem.NewStaticJSONV(rackStates...))
 	}
+	if len(taskStates) > 0 {
+		fr.Keys = append(fr.Keys, t.taskStateChannelKey)
+		fr.Series = append(fr.Series, telem.NewStaticJSONV(taskStates...))
+	}
+	if len(deviceStates) > 0 {
+		fr.Keys = append(fr.Keys, t.deviceStateChannelKey)
+		fr.Series = append(fr.Series, telem.NewStaticJSONV(deviceStates...))
+	}
+
+	if len(fr.Keys) == 0 {
+		return
+	}
+
+	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Data, Frame: fr}
 }
 
 // handleRackState handles heartbeat changes.
@@ -597,10 +618,10 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			t.cfg.L.Warn(
 				"device state update with different rack key",
 				zap.String("device", incomingState.Key),
-				zap.Uint32("provided_rack", uint32(existingState.Rack)),
-				zap.String("old_rack_name", racks[0].Name),
-				zap.Uint32("new_rack", uint32(incomingState.Rack)),
-				zap.String("new_rack_name", racks[1].Name),
+				zap.Uint32("incoming_rack", uint32(existingState.Rack)),
+				zap.String("incoming_rack_name", racks[0].Name),
+				zap.Uint32("valid_rack", uint32(incomingState.Rack)),
+				zap.String("valid_rack_name", racks[1].Name),
 			)
 			return
 		}
@@ -622,13 +643,13 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 		if c.Variant == change.Delete {
 			delete(t.mu.Devices, c.Key)
 		} else {
-			if _, hasState := t.mu.Devices[c.Key]; !hasState {
-				t.mu.Devices[c.Key] = device.State{
-					Key:     c.Key,
-					Rack:    c.Value.Rack,
-					Variant: status.InfoVariant,
-				}
+			existing, hasState := t.mu.Devices[c.Key]
+			existing.Key = c.Value.Key
+			existing.Rack = c.Value.Rack
+			if !hasState {
+				existing.Variant = status.InfoVariant
 			}
+			t.mu.Devices[c.Key] = existing
 		}
 	}
 }
