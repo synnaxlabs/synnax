@@ -10,6 +10,7 @@
 package tracker_test
 
 import (
+	xjson "github.com/synnaxlabs/x/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -153,7 +155,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			state := rack.State{
 				Key:          rck.Key,
-				Variant:      "info",
+				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),
 				Message:      "Rack is alive",
 			}
@@ -168,7 +170,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				r, ok := tr.GetRack(ctx, rck.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(r.State.Variant).To(Equal("info"))
+				g.Expect(r.State.Variant).To(Equal(status.InfoVariant))
 				g.Expect(r.State.Message).To(Equal("Rack is alive"))
 			}).Should(Succeed())
 		})
@@ -188,7 +190,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			state := rack.State{
 				Key:          rck.Key,
-				Variant:      "info",
+				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),
 				Message:      "Rack is alive",
 			}
@@ -232,7 +234,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
 			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
-				Variant: task.ErrorStateVariant,
+				Variant: status.ErrorVariant,
 				Task:    tsk.Key,
 			}))
 			Expect(w.Write(framer.Frame{
@@ -246,7 +248,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
+				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
 			}).Should(Succeed())
 		})
 	})
@@ -266,7 +268,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Write(framer.Frame{
 				Keys: []channel.Key{taskStateCh.Key()},
 				Series: []telem.Series{telem.NewStaticJSONV(task.State{
-					Variant: task.ErrorStateVariant,
+					Variant: status.ErrorVariant,
 					Task:    tsk.Key,
 				})},
 			})).To(BeTrue())
@@ -274,13 +276,13 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(t.Variant).To(Equal(task.ErrorStateVariant))
+				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
 			}).Should(Succeed())
 			Expect(tr.Close()).To(Succeed())
 			tr = MustSucceed(tracker.Open(ctx, cfg))
 			state, ok := tr.GetTask(ctx, tsk.Key)
 			Expect(ok).To(BeTrue())
-			Expect(state.Variant).To(Equal(task.ErrorStateVariant))
+			Expect(state.Variant).To(Equal(status.ErrorVariant))
 		})
 	})
 
@@ -328,7 +330,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			state := rack.State{
 				Key:          rck.Key,
-				Variant:      "info",
+				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),
 				Message:      "Rack is alive",
 			}
@@ -379,7 +381,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				g.Expect(ok).To(BeTrue())
 				g.Expect(state.Key).To(Equal(dev.Key))
 				g.Expect(state.Rack).To(Equal(rck.Key))
-				g.Expect(state.Variant).To(Equal("info"))
+				g.Expect(state.Variant).To(Equal(status.InfoVariant))
 			}).Should(Succeed())
 		})
 
@@ -431,8 +433,8 @@ var _ = Describe("Tracker", Ordered, func() {
 			state := device.State{
 				Key:     dev.Key,
 				Rack:    rck.Key,
-				Variant: "warning",
-				Details: device.NewStaticDetails(map[string]interface{}{
+				Variant: status.WarningVariant,
+				Details: xjson.NewStaticString(ctx, map[string]interface{}{
 					"message":     "Device is warming up",
 					"temperature": 45.5,
 				}),
@@ -448,7 +450,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(devState.Variant).To(Equal("warning"))
+				g.Expect(devState.Variant).To(Equal(status.WarningVariant))
 				g.Expect(string(devState.Details)).To(ContainSubstring("Device is warming up"))
 				g.Expect(string(devState.Details)).To(ContainSubstring("45.5"))
 			}).Should(Succeed())
@@ -477,8 +479,8 @@ var _ = Describe("Tracker", Ordered, func() {
 			state := device.State{
 				Key:     dev.Key,
 				Rack:    rck.Key,
-				Variant: "error",
-				Details: device.NewStaticDetails("Device error state"),
+				Variant: status.ErrorVariant,
+				Details: xjson.NewStaticString(ctx, "Device error state"),
 			}
 
 			Expect(w.Write(framer.Frame{
@@ -491,7 +493,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(devState.Variant).To(Equal("error"))
+				g.Expect(devState.Variant).To(Equal(status.ErrorVariant))
 			}).Should(Succeed())
 
 			// Close and reopen the tracker
@@ -501,7 +503,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			// Verify state is maintained
 			devState, ok := tr.GetDevice(ctx, rck.Key, dev.Key)
 			Expect(ok).To(BeTrue())
-			Expect(devState.Variant).To(Equal("error"))
+			Expect(devState.Variant).To(Equal(status.ErrorVariant))
 		})
 	})
 })

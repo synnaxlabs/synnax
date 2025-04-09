@@ -330,7 +330,16 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
     std::atomic received_state = false;
     std::thread reader([&] {
         auto [frame, err] = streamer.read();
-        if (!err) received_state = true;
+        if (err) return;
+        auto json_vs = frame.series->at(0).json_values();
+        for (const auto &j : json_vs) {
+            auto parser = xjson::Parser(j);
+            auto [task, key, variant, details] = task::State::parse(parser);
+            if (task == snapshot_task.key) {
+                received_state = true;
+                break;
+            }
+        }
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     streamer.close_send();
