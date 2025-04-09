@@ -50,7 +50,7 @@ struct OutputChan {
 };
 
 /// @brief the configuration for opening a write task.
-struct WriteTaskConfig: common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which to propagate state updates back to Synnax.
     const telem::Rate state_rate;
     /// @brief the connection method to the device.

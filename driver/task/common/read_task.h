@@ -13,10 +13,10 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/common.h"
+#include "driver/task/common/sample_clock.h"
 #include "driver/task/common/state.h"
 #include "driver/task/task.h"
 #include "driver/transform/transform.h"
-#include "driver/task/common/sample_clock.h"
 
 namespace common {
 /// @brief common read task configuration parameters used across multiple drivers.

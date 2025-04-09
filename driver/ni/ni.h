@@ -15,8 +15,8 @@
 /// internal
 #include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/syscfg/sugared.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/common/common.h"
+#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
 namespace ni {

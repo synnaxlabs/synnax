@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "driver/task/task.h"
 #include "driver/task/common/common.h"
+#include "driver/task/task.h"
 
 namespace common {
 const std::string STOP_CMD_TYPE = "stop";
@@ -124,9 +124,10 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         }
     }
     if (res.auto_start) {
-        task::Command start_cmd(task.key,START_CMD_TYPE,{});
-        res.task->exec( start_cmd);
-    } else ctx->set_state(state);
+        task::Command start_cmd(task.key, START_CMD_TYPE, {});
+        res.task->exec(start_cmd);
+    } else
+        ctx->set_state(state);
     return {std::move(res.task), true};
 }
 }
