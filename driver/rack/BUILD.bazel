@@ -8,7 +8,10 @@ cc_library(
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ],
+    ] + select({
+        ":nilinuxrt": ["factories_nilinuxrt.cpp"],
+        "//conditions:default": ["factories_noop.cpp"],
+    }),
     hdrs = ["rack.h"],
     visibility = ["//visibility:public"],
     deps = [

@@ -7,9 +7,8 @@ config_setting(
 
 cc_library(
     name = "daemon",
-    srcs = [
-        "daemon.h",
-    ] + select({
+    hdrs = ["daemon.h"],
+    srcs = select({
         ":nilinuxrt": ["daemon_nilinuxrt.cpp"],
         "@platforms//os:linux": ["daemon_linux.cpp"],
         "//conditions:default": ["daemon_noop.cpp"],
