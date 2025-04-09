@@ -65,7 +65,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 };
 
 export const createCreateLayout = (
-  initial: CreateLayoutArgs,
+  initial: CreateLayoutArgs = {},
 ): Layout.BaseState<CreateLayoutArgs> => ({
   ...CREATE_LAYOUT,
   args: initial,

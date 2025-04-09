@@ -48,36 +48,46 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
     onLinkClick();
   };
 
-  const explorerLayoutOpen = Layout.useSelect(EXPLORER_LAYOUT_TYPE);
-  const placeLayout = Layout.usePlacer();
+  const isExplorerOpen = Layout.useSelect(EXPLORER_LAYOUT_TYPE) != null;
+  const isExplorerFocused =
+    Layout.useSelectActiveMosaicTabKey() === EXPLORER_LAYOUT_TYPE;
 
+  const placeLayout = Layout.usePlacer();
   return (
     <Align.Space
       empty
-      style={{ height: "100%", position: "relative" }}
+      style={{ height: "100%", position: "relative", padding: "1rem" }}
       className={CSS.B("range-toolbar-no-ranges")}
     >
-      <Align.Center y style={{ height: "100%" }} size="small">
-        {explorerLayoutOpen ? (
+      <Align.Center y style={{ height: "100%" }} size="medium">
+        {isExplorerOpen ? (
           <>
             <Text.Text level="p">
               <Icon.StarFilled /> or drag a range from the explorer to make it available
               for viewing.
             </Text.Text>
-            <Text.Link level="p" onClick={() => placeLayout(EXPLORER_LAYOUT)}>
-              Focus explorer
-            </Text.Link>
+            {!isExplorerFocused && (
+              <Text.Link
+                level="h5"
+                onClick={() => placeLayout(EXPLORER_LAYOUT)}
+                weight={700}
+              >
+                Focus Explorer
+              </Text.Link>
+            )}
           </>
         ) : (
           <>
-            <Text.Text level="p">
-              No ranges loaded. Create a range or load one from the explorer.
-            </Text.Text>
-            <Text.Link level="p" onClick={() => placeLayout(EXPLORER_LAYOUT)}>
-              Open explorer
+            <Text.Text level="p">No ranges loaded.</Text.Text>
+            <Text.Link
+              level="h5"
+              onClick={() => placeLayout(EXPLORER_LAYOUT)}
+              weight={700}
+            >
+              Open Explorer
             </Text.Link>
-            <Text.Link level="p" onClick={handleLinkClick}>
-              Create a range
+            <Text.Link level="h5" onClick={handleLinkClick} weight={700}>
+              Create a Range
             </Text.Link>
           </>
         )}

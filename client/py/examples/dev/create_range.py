@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 import random
-from datetime import timedelta
+
+import synnax as sy
 
 # Lists for generating meaningful range names
 experiments = ["Experiment", "Test", "Trial", "Analysis", "Measurement"]
@@ -24,14 +24,14 @@ start_time = sy.TimeStamp.now()
 for i in range(100):
     # Generate a random name by combining words from our lists
     name = f"{random.choice(experiments)}_{random.choice(subjects)}_{random.choice(conditions)}_{random.choice(locations)}_{i+1}"
-    
+
     # Create a time range that's sequential (each range starts after the previous one)
     range_start = start_time + (i * 10 * sy.TimeSpan.SECOND)
     range_end = range_start + 10 * sy.TimeSpan.SECOND
-    
+
     # Generate a random color
     color = f"#{random.randint(0, 0xFFFFFF):06x}"
-    
+
     client.ranges.create(
         name=name,
         time_range=sy.TimeRange(range_start, range_end),

@@ -11,7 +11,6 @@ package ranger
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
