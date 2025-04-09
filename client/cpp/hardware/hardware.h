@@ -22,6 +22,7 @@
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.
@@ -72,6 +73,13 @@ using RackKey = std::uint32_t;
 /// @brief An alias for the type of task's key.
 using TaskKey = std::uint64_t;
 
+/// @brief the name of the channel used to propagate device state.
+const std::string DEVICE_STATE_CHAN_NAME = "sy_device_state";
+/// @brief the name of the channel used to propagate task state.
+const std::string TASK_STATE_CHAN_NAME = "sy_task_state";
+/// @brief the name of the channel used to propagate rack state.
+const std::string RACK_STATE_CHAN_NAME = "sy_rack_state";
+
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
 /// @param task The local task key.
@@ -83,17 +91,16 @@ inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey task_key_rack(const TaskKey key) {
+inline RackKey rack_key_from_task_key(const TaskKey key) {
     return key >> 32;
 }
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t task_key_local(const TaskKey key) {
+inline std::uint32_t local_task_key(const TaskKey key) {
     return key & 0xFFFFFFFF;
 }
-
 
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
@@ -302,30 +309,66 @@ private:
     friend class HardwareClient;
 };
 
+/// @brief utility struct storing the current state of a device.
+struct DeviceState {
+    /// @brief the key of the device.
+    std::string key;
+    /// @brief the status variant of the device's current state.
+    std::string variant;
+    /// @brief the device rack.
+    RackKey rack = 0;
+    /// @brief additional json details about the device's current state.
+    json details;
+
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["key"] = this->key;
+        j["variant"] = this->variant;
+        j["details"] = this->details;
+        j["rack"] = this->rack;
+        return j;
+    }
+};
+
+
+/// @brief utility struct storing the current state of a rack.
+struct RackState {
+    /// @brief the key of the rack.
+    synnax::RackKey key;
+    /// @brief the status variant of the rack's current state.
+    std::string variant;
+    /// @brief a message describing the current state of the rack.
+    std::string message;
+
+    [[nodiscard]] json to_json() const {
+        return json{
+            {"key", this->key},
+            {"variant", this->variant},
+            {"message", this->message},
+        };
+    }
+};
+
 /// @brief A Device represents a physical hardware device connected to a rack.
 struct Device {
     /// @brief The unique identifier for the device.
     std::string key;
-
     /// @brief A human-readable name for the device.
     std::string name;
-
     /// @brief The rack that this device is connected to.
     RackKey rack = 0;
-
     /// @brief The physical location of the device.
     std::string location;
-
     /// @brief The manufacturer of the device.
     std::string make;
-
     /// @brief The model of the device.
     std::string model;
-
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
-
+    /// @brief whether the device has been configured.
     bool configured = false;
+    /// @brief The state of the device.
+    DeviceState state;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.
@@ -369,6 +412,32 @@ map_device_keys(const std::vector<Device> &devices) {
         map[device.key] = device;
     return map;
 }
+
+struct HardwareDeviceRetrieveRequest {
+    std::vector<std::string> keys;
+    std::vector<std::string> names;
+    std::vector<std::string> makes;
+    std::vector<std::string> models;
+    std::vector<std::string> locations;
+    std::vector<RackKey> racks;
+    std::string search;
+    std::uint32_t limit;
+    std::uint32_t offset;
+    bool ignore_not_found = false;
+
+    void to_proto(api::v1::HardwareRetrieveDeviceRequest &request) const {
+        request.set_ignore_not_found(ignore_not_found);
+        request.set_limit(limit);
+        request.set_offset(offset);
+        request.mutable_keys()->Add(keys.begin(), keys.end());
+        request.mutable_names()->Add(names.begin(), names.end());
+        request.mutable_makes()->Add(makes.begin(), makes.end());
+        request.mutable_models()->Add(models.begin(), models.end());
+        request.mutable_locations()->Add(locations.begin(), locations.end());
+        request.mutable_racks()->Add(racks.begin(), racks.end());
+        request.set_search(search);
+    }
+};
 
 /// @brief Client for managing hardware components in a Synnax cluster.
 /// Provides methods for creating, retrieving, and deleting racks, tasks, and
@@ -452,6 +521,9 @@ public:
         bool ignore_not_found = false
     ) const;
 
+    std::pair<std::vector<Device>, xerrors::Error>
+    retrieve_devices(HardwareDeviceRetrieveRequest &req) const;
+
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
@@ -502,4 +574,6 @@ private:
     /// @brief Device deletion transport.
     std::shared_ptr<HardwareDeleteDeviceClient> device_delete_client;
 };
+
+
 }

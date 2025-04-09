@@ -100,11 +100,14 @@ describe("Task", async () => {
         };
         expect(await w.write("sy_task_state", [state])).toBeTruthy();
         await w.close();
-        const retrieved = await client.hardware.tasks.retrieve(t.key, {
-          includeState: true,
-        });
-        expect(retrieved.state).not.toBeNull();
-        expect(retrieved.state?.variant).toBe(state.variant);
+        await expect
+          .poll(async () => {
+            const retrieved = await client.hardware.tasks.retrieve(t.key, {
+              includeState: true,
+            });
+            return retrieved.state?.variant === state.variant;
+          })
+          .toBeTruthy();
       });
     });
   });

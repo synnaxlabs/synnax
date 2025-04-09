@@ -51,7 +51,7 @@ import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
-import { IoMdRefresh } from "react-icons/io";
+import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
@@ -452,6 +452,7 @@ export interface IconType {
   Filter: IconFC;
   StarFilled: IconFC;
   StarOutlined: IconFC;
+  Heart: IconFC;
 }
 
 export const Icon: IconType = {
@@ -645,4 +646,5 @@ export const Icon: IconType = {
   Filter: wrapIcon(MdOutlineFilterList, "filter"),
   StarFilled: wrapIcon(FaStar, "star-filled"),
   StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
+  Heart: wrapIcon(IoMdHeart, "heart"),
 };

@@ -66,6 +66,8 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
           { key: "downsample", name: "Downsampling", width: 110 },
           { key: "color", name: "Color", width: 100 },
         ]}
+        level="small"
+        weight={450}
       />
       <List.Core<string, LineState> style={{ height: "calc(100% - 28px)" }}>
         {(p) => <Line onChange={handleChange} {...p} />}

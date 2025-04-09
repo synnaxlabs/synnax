@@ -51,7 +51,9 @@ const ListItem = <C extends DigitalChannel>({
           showHelpText={false}
           path={`${path}.port`}
         />
-        <Text.Text level="p">/</Text.Text>
+        <Text.Text level="p" shade={9} weight={550}>
+          /
+        </Text.Text>
         <Form.NumericField
           inputProps={{ showDragHandle: false }}
           hideIfNull

@@ -1,5 +1,5 @@
 cc_library(
-    name = "queue",
-    hdrs = ["ts_queue.h"],
+    name = "status",
+    srcs = ["status.h"],
     visibility = ["//visibility:public"],
 )

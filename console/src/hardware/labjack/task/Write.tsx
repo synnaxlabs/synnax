@@ -66,7 +66,7 @@ const ChannelListItem = ({
 }: ChannelListItemProps) => {
   const {
     entry,
-    entry: { cmdChannel, stateChannel, type, port },
+    entry: { cmdChannel, key, stateChannel, type, port },
   } = rest;
   const { set } = PForm.useContext();
   return (
@@ -135,6 +135,7 @@ const ChannelListItem = ({
       <Align.Space x align="center" justify="spaceEvenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
+          itemKey={key}
           stateChannel={stateChannel}
         />
         <Common.Task.EnableDisableButton
@@ -188,6 +189,7 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
       isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
+      contextMenuItems={Common.Task.writeChannelContextMenuItems}
     />
   );
 };

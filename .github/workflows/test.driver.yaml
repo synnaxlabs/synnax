@@ -107,4 +107,4 @@ jobs:
         run: bash scripts/check-clang-format.sh driver
 
       - name: Test Driver
-        run: bazel test --test_output=all //driver/... --test_tag_filters=-hardware --nocache_test_results
+        run: bazel test --test_output=all //driver/... --jobs=1 --test_tag_filters=-hardware --nocache_test_results

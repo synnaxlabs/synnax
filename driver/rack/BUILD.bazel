@@ -12,10 +12,10 @@ cc_library(
     hdrs = ["rack.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/heartbeat",
         "//driver/labjack",
         "//driver/ni",
         "//driver/opc",
+        "//driver/rack/state",
         "//driver/sequence",
         "//driver/task",
         "//driver/task/common",

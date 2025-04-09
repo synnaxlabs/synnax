@@ -24,10 +24,9 @@ if [ ! -d "$path" ]; then
 fi
 
 # Check formatting of all Go files in the provided path
-files=$(gofmt -l -s -e "$path")
-if [[ -n "$files" ]]; then
-    echo "The following files need to be formatted:"
-    echo "$files"
+diffs=$(gofmt -d -s -e "$path")
+if [[ -n "$diffs" ]]; then
+    echo "$diffs"
     exit 1
 else
     echo "All files are properly formatted."

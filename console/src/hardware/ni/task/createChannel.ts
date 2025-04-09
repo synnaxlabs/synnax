@@ -9,6 +9,7 @@
 
 import { deep, id } from "@synnaxlabs/x";
 
+import { Common } from "@/hardware/common";
 import {
   type AIChannel,
   type AnalogChannel,
@@ -31,15 +32,16 @@ const createDigitalChannel = <C extends DigitalChannel>(
 };
 
 export const createDIChannel = (channels: DIChannel[]): DIChannel =>
-  createDigitalChannel(channels, ZERO_DI_CHANNEL);
+  createDigitalChannel<DIChannel>(channels, ZERO_DI_CHANNEL);
 
 export const createDOChannel = (channels: DOChannel[]): DOChannel =>
-  createDigitalChannel(channels, ZERO_DO_CHANNEL);
+  createDigitalChannel<DOChannel>(channels, ZERO_DO_CHANNEL);
 
 const createAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
   index: number,
   zeroChannel: C,
+  override: Partial<C>,
 ): C => {
   const key = id.create();
   let template: C;
@@ -49,11 +51,21 @@ const createAnalogChannel = <C extends AnalogChannel>(
   const existingPorts = new Set(channels.map(({ port }) => port));
   let port = 0;
   while (existingPorts.has(port)) port++;
-  return { ...template, channel: 0, key, port };
+  return { ...template, key, port, ...override };
 };
 
 export const createAIChannel = (channels: AIChannel[], index: number): AIChannel =>
-  createAnalogChannel(channels, index, ZERO_AI_CHANNEL);
+  createAnalogChannel(
+    channels,
+    index,
+    ZERO_AI_CHANNEL,
+    Common.Task.READ_CHANNEL_OVERRIDE,
+  );
 
 export const createAOChannel = (channels: AOChannel[], index: number): AOChannel =>
-  createAnalogChannel(channels, index, ZERO_AO_CHANNEL);
+  createAnalogChannel(
+    channels,
+    index,
+    ZERO_AO_CHANNEL,
+    Common.Task.WRITE_CHANNEL_OVERRIDE,
+  );

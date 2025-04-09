@@ -139,8 +139,13 @@ export const Browser = ({ device }: BrowserProps) => {
           Browser
         </Header.Title>
         <Header.Actions>
-          <Button.Icon onClick={refresh} disabled={scanTask == null || initialLoading}>
-            <Icon.Refresh style={{ color: "var(--pluto-gray-l11)" }} />
+          <Button.Icon
+            onClick={refresh}
+            disabled={scanTask == null || initialLoading}
+            sharp
+            shade={2}
+          >
+            <Icon.Refresh />
           </Button.Icon>
         </Header.Actions>
       </Header.Header>

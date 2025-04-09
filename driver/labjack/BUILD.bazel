@@ -9,7 +9,7 @@ cc_library(
         "scan_task.h",
         "write_task.h",
     ],
-    copts = select({
+   copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
             "/DNOMINMAX",
@@ -30,7 +30,6 @@ cc_library(
         "//driver/labjack/device",
         "//driver/labjack/ljm",
         "//driver/pipeline",
-        "//driver/queue",
         "//driver/task",
         "//driver/task/common",
         "//driver/transform",

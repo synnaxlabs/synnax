@@ -38,7 +38,7 @@ std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     auto api_frame = fr.frame();
-    return {std::move(synnax::Frame(fr.frame())), exc};
+    return {synnax::Frame(fr.frame()), exc};
 }
 
 void Streamer::close_send() const {

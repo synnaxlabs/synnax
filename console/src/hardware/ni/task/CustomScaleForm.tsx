@@ -259,7 +259,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       </>
     );
   },
-  [NO_SCALE_TYPE]: () => <></>,
+  [NO_SCALE_TYPE]: () => null,
 };
 
 export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {

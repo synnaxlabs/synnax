@@ -16,6 +16,7 @@ import {
   convertRenderV,
   type Key,
   type Keyed,
+  type Optional,
   type RenderableValue,
 } from "@synnaxlabs/x";
 import {
@@ -78,7 +79,11 @@ const useColumnContext = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() 
 type SortState<E> = [keyof E | null, boolean];
 
 export interface ColumnHeaderProps<K extends Key, E extends Keyed<K>>
-  extends PropsWithChildren<{}> {
+  extends PropsWithChildren<{}>,
+    Optional<
+      Pick<Text.TextProps, "level" | "weight" | "shade">,
+      "level" | "weight" | "shade"
+    > {
   hide?: boolean;
   columns: Array<ColumnSpec<K, E>>;
 }
@@ -89,6 +94,9 @@ const Header = <K extends Key, E extends Keyed<K>>({
   hide = false,
   columns: initialColumns,
   children,
+  level = "p",
+  weight,
+  shade,
 }: ColumnHeaderProps<K, E>): ReactElement => {
   const sourceData = useSourceData<K, E>();
   const { setTransform, deleteTransform } = useDataUtils<K, E>();
@@ -146,7 +154,9 @@ const Header = <K extends Key, E extends Keyed<K>>({
                   className={CSS.BE("list-col-header", "item")}
                   key={key.toString()}
                   justify="spaceBetween"
-                  level="p"
+                  level={level}
+                  weight={weight}
+                  shade={shade}
                   endIcon={endIcon}
                   style={{ width }}
                   shrink={false}

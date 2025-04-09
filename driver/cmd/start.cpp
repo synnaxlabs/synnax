@@ -14,8 +14,8 @@
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
-    bool sig_stop_enabled = !args.flag("--disable-sig-stop");
+    const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
+    const bool sig_stop_enabled = !args.flag("--disable-sig-stop");
     if (args.error()) {
         LOG(ERROR) << "[driver] invalid arguments: " << args.error();
         return 1;
@@ -24,7 +24,7 @@ int cmd::sub::start(xargs::Parser &args) {
               << xlog::RESET();
     rack::Rack r;
     volatile bool early_shutdown = false;
-    std::function on_shutdown = [&early_shutdown] {
+    const std::function on_shutdown = [&early_shutdown] {
         xshutdown::signal_shutdown();
         early_shutdown = true;
     };

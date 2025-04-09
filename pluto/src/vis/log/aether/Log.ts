@@ -232,7 +232,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       draw2D.text({
         text,
         level: this.state.font,
-        shade: 9,
+        shade: 11,
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
         code: true,
       });

@@ -74,6 +74,7 @@ const ChannelListItem = ({
   } = rest;
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
+  const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -86,7 +87,7 @@ const ChannelListItem = ({
       channel={channel}
       icon={{
         name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: AI_CHANNEL_TYPE_ICONS[type],
+        icon: <Icon style={{ color: "var(--pluto-gray-l9)" }} />,
       }}
       portMaxChars={2}
     />
@@ -128,6 +129,7 @@ const Form: FC<
       initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
     />
   );
 };

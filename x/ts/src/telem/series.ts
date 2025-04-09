@@ -126,6 +126,17 @@ const nullArrayZ = z
 
 const NEW_LINE = 10;
 
+type JSType = "string" | "number" | "bigint";
+
+const checkAsType = (jsType: JSType, dataType: DataType) => {
+  if (jsType === "string" && !dataType.isVariable)
+    throw new Error(`cannot convert series of type ${dataType.toString()} to string`);
+  if (jsType === "number" && !dataType.isNumeric)
+    throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
+  if (jsType === "bigint" && !dataType.usesBigInt)
+    throw new Error(`cannot convert series of type ${dataType.toString()} to bigint`);
+};
+
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
@@ -696,28 +707,8 @@ export class Series<T extends TelemValue = TelemValue> {
   as(jsType: "bigint"): Series<bigint>;
 
   as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
-    if (jsType === "string") {
-      if (!this.dataType.equals(DataType.STRING))
-        throw new Error(
-          `cannot convert series of type ${this.dataType.toString()} to string`,
-        );
-      return this as unknown as Series<T>;
-    }
-    if (jsType === "number") {
-      if (!this.dataType.isNumeric)
-        throw new Error(
-          `cannot convert series of type ${this.dataType.toString()} to number`,
-        );
-      return this as unknown as Series<T>;
-    }
-    if (jsType === "bigint") {
-      if (!this.dataType.equals(DataType.INT64))
-        throw new Error(
-          `cannot convert series of type ${this.dataType.toString()} to bigint`,
-        );
-      return this as unknown as Series<T>;
-    }
-    throw new Error(`cannot convert series to ${jsType as string}`);
+    checkAsType(jsType, this.dataType);
+    return this as unknown as Series<T>;
   }
 
   get digest(): SeriesDigest {
@@ -950,11 +941,8 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   as(jsType: "bigint"): MultiSeries<bigint>;
 
-  as<T extends TelemValue>(dataType: CrudeDataType): MultiSeries<T> {
-    if (!new DataType(dataType).equals(this.dataType))
-      throw new Error(
-        `cannot convert series of type ${this.dataType.toString()} to ${dataType.toString()}`,
-      );
+  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): MultiSeries<T> {
+    checkAsType(jsType, this.dataType);
     return this as unknown as MultiSeries<T>;
   }
 

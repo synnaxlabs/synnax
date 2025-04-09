@@ -81,7 +81,7 @@ void task::Manager::stop() {
 }
 
 bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
-    if (synnax::task_key_rack(task_key) != this->rack.key) {
+    if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
         VLOG(1) << "[driver] received task for foreign rack: " << task_key
                 << ", skipping";
         return true;

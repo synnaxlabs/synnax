@@ -330,7 +330,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser,
-        common::TimingConfig timing_cfg = common::TimingConfig()
+        const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         common::BaseReadTaskConfig(parser, timing_cfg),
         device_key(parser.optional<std::string>("device", "cross-device")),
@@ -571,7 +571,7 @@ public:
     }
 
     /// @brief restarts the source.
-    xerrors::Error restart(bool force) {
+    xerrors::Error restart(const bool force) {
         this->stop();
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());

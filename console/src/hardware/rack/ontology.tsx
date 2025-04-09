@@ -7,14 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import "@/hardware/rack/ontology.css";
+
+import { ontology, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
+import {
+  Icon as PIcon,
+  Menu as PMenu,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
+import { useRackState } from "@/hardware/device/Toolbar";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -57,6 +68,56 @@ const handleRename: Ontology.HandleTreeRename = {
     const rack = await client.hardware.racks.retrieve(id.key);
     await client.hardware.racks.create({ ...rack, name });
   },
+};
+
+const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
+  const id = new ontology.ID(entry.key);
+  const state = useRackState(id.key);
+
+  const heartRef = useRef<SVGSVGElement>(null);
+
+  const variant = (state?.variant ?? "disabled") as Status.Variant;
+
+  useEffect(() => {
+    if (variant !== "success") return;
+    const heart = heartRef.current;
+    if (!heart) return;
+    heart.classList.remove("synnax-rack-heartbeat--beat");
+    requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
+  }, [state]);
+
+  return (
+    <Tree.DefaultItem {...rest} entry={entry}>
+      {({ entry, onRename, key }) => (
+        <>
+          <Text.MaybeEditable
+            id={`text-${key}`}
+            level="p"
+            allowDoubleClick={false}
+            value={entry.name}
+            disabled={!entry.allowRename}
+            onChange={(name) => onRename?.(entry.key, name)}
+            style={{
+              textOverflow: "ellipsis",
+              width: 0,
+              overflow: "hidden",
+              flexGrow: 1,
+            }}
+          />
+          <Tooltip.Dialog location="right">
+            <Status.Text variant={variant} hideIcon level="small" weight={450}>
+              {state?.message}
+            </Status.Text>
+            <Icon.Heart
+              ref={heartRef}
+              className="synnax-rack-heartbeat"
+              style={{ color: Status.VARIANT_COLORS[variant] }}
+            />
+          </Tooltip.Dialog>
+        </>
+      )}
+    </Tree.DefaultItem>
+  );
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -123,4 +184,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename: () => true,
   onRename: handleRename,
   TreeContextMenu,
+  Item,
 };

@@ -197,8 +197,11 @@ interface EdgePropertiesProps {
   onChange: (key: string, props: any) => void;
 }
 
-const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
-  if (edge.type !== "edge") return <></>;
+const EdgeProperties = ({
+  edge,
+  onChange,
+}: EdgePropertiesProps): ReactElement | null => {
+  if (edge.type !== "edge") return null;
   return (
     <Align.Space style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">

@@ -57,8 +57,8 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
-  <Common.Task.ChannelName channel={channel} />
+const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
+  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
 );
 
 const name = componentRenderProp(NameComponent);
@@ -70,6 +70,7 @@ const Form: FC<
     {...props}
     createChannel={createDIChannel}
     name={name}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );
 

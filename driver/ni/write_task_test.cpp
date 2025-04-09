@@ -151,7 +151,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.task, task.key);
-    EXPECT_EQ(first_state.variant, "success");
+    EXPECT_EQ(first_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
@@ -162,7 +162,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.task, task.key);
-    EXPECT_EQ(second_state.variant, "success");
+    EXPECT_EQ(second_state.variant, status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.details["message"], "Task stopped successfully");
 
     auto first = std::move(

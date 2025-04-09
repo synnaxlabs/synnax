@@ -853,3 +853,74 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     std::vector<double> expected_double = {1.0, 2.0, 3.0, 4.0, 5.0};
     ASSERT_EQ(double_result, expected_double);
 }
+
+TEST(TestSeries, testJSONVectorConstruction) {
+    // Test with simple JSON objects
+    std::vector<json> simple_values = {
+        json{{"key1", "value1"}},
+        json{{"key2", "value2"}}
+    };
+    telem::Series s1(simple_values);
+    ASSERT_EQ(s1.data_type(), telem::JSON_T);
+    ASSERT_EQ(s1.size(), 2);
+    auto strings1 = s1.strings();
+    ASSERT_EQ(strings1[0], R"({"key1":"value1"})");
+    ASSERT_EQ(strings1[1], R"({"key2":"value2"})");
+
+    // Test with mixed JSON types including nulls and booleans
+    std::vector<json> complex_values = {
+        json{{"string", "hello"}},
+        json{{"number", 42}},
+        json{{"null_value", nullptr}},
+        json{{"bool_value", true}},
+        json::array({1, 2, 3}),
+        json{{"nested", {{"a", 1}, {"b", 2}, {"c", false}, {"d", nullptr}}}}
+    };
+    telem::Series s2(complex_values);
+    ASSERT_EQ(s2.data_type(), telem::JSON_T);
+    ASSERT_EQ(s2.size(), 6);
+    auto strings2 = s2.strings();
+    ASSERT_EQ(strings2[0], R"({"string":"hello"})");
+    ASSERT_EQ(strings2[1], R"({"number":42})");
+    ASSERT_EQ(strings2[2], R"({"null_value":null})");
+    ASSERT_EQ(strings2[3], R"({"bool_value":true})");
+    ASSERT_EQ(strings2[4], R"([1,2,3])");
+    ASSERT_EQ(strings2[5], R"({"nested":{"a":1,"b":2,"c":false,"d":null}})");
+
+    // Test with empty vector
+    std::vector<json> empty_values;
+    telem::Series s3(empty_values);
+    ASSERT_EQ(s3.data_type(), telem::JSON_T);
+    ASSERT_EQ(s3.size(), 0);
+    ASSERT_EQ(s3.byte_size(), 0);
+}
+
+TEST(TestSeries, testJSONValuesBasic) {
+    std::vector<json> input_values = {
+        json{{"key1", "value1"}},
+        json{{"key2", 42}},
+        json{{"null_field", nullptr}},
+        json{{"bool_true", true}},
+        json{{"bool_false", false}},
+        json::array({1, 2, nullptr, true, false}),
+        json{{"nested", {{"a", 1}, {"b", "test"}, {"c", nullptr}, {"d", true}}}}
+    };
+
+    const telem::Series s(input_values);
+    const auto output_values = s.json_values();
+
+    ASSERT_EQ(output_values.size(), input_values.size());
+    for (size_t i = 0; i < input_values.size(); i++)
+        ASSERT_EQ(output_values[i], input_values[i]);
+}
+
+TEST(TestSeries, testJSONValuesEmpty) {
+    const telem::Series empty_series(std::vector<json>{});
+    auto empty_values = empty_series.json_values();
+    ASSERT_TRUE(empty_values.empty());
+}
+
+TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
+    const telem::Series non_json_series(std::vector<int>{1, 2, 3});
+    ASSERT_THROW(non_json_series.json_values(), std::runtime_error);
+}

@@ -11,8 +11,6 @@
 
 .pluto-color-swatch {
     border-radius: 1rem;
-    border: var(--pluto-border);
-    border-color: var(--pluto-gray-l6) !important;
 
     &.pluto--no-border {
         border-color: transparent;

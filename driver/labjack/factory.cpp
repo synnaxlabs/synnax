@@ -23,7 +23,7 @@ std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    common::TimingConfig timing_cfg
+    const common::TimingConfig timing_cfg
 ) {
     auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task, timing_cfg);
     if (err) return {nullptr, err};
@@ -92,7 +92,7 @@ bool labjack::Factory::check_health(
     if (this->dev_manager != nullptr) return true;
     ctx->set_state(
         {.task = task.key,
-         .variant = "error",
+         .variant = status::VARIANT_ERROR,
          .details = json{{
              "message",
              NO_LIBS_MSG,

@@ -10,6 +10,7 @@
 #pragma once
 
 /// std
+#include <optional>
 #include <regex>
 #include <string>
 #include <thread>
@@ -27,7 +28,6 @@
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/common/scan_task.h"
-#include "driver/task/task.h"
 
 namespace ni {
 const std::string RESET_DEVICE_CMD = "reset_device";
@@ -38,7 +38,6 @@ struct ResetDeviceCommandArgs {
     explicit ResetDeviceCommandArgs(xjson::Parser &parser):
         device_keys(parser.required_vec<std::string>("device_keys")) {}
 };
-
 
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
@@ -62,7 +61,7 @@ struct Device : synnax::Device {
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
     synnax::Device to_synnax() {
-        return synnax::Device(
+        auto dev = synnax::Device(
             this->key,
             this->name,
             this->rack,
@@ -74,6 +73,8 @@ struct Device : synnax::Device {
                 {"resource_name", this->resource_name}
             })
         );
+        dev.state = this->state;
+        return dev;
     }
 };
 
@@ -103,7 +104,7 @@ struct ScanTaskConfig {
     }
 
     /// @brief returns if the device with the given model should be ignored.
-    bool should_ignore(const std::string &model) const {
+    [[nodiscard]] bool should_ignore(const std::string &model) const {
         for (const auto &pattern: this->ignored_models)
             if (std::regex_match(model, pattern)) return true;
         return false;

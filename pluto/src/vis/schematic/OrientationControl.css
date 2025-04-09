@@ -42,6 +42,10 @@
                 background-color: var(--pluto-text-on-primary) !important;
             }
         }
+        & .symbol {
+            top: unset;
+            left: unset;
+        }
 
         &.pluto--y {
             transform: rotate(90deg);

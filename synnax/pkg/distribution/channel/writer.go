@@ -41,24 +41,31 @@ func (w writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 	return err
 }
 
-type createOptions struct {
-	retrieveIfNameExists bool
+type CreateOptions struct {
+	RetrieveIfNameExists                        bool
+	OverwriteIfNameExistsAndDifferentProperties bool
 }
 
-type CreateOption func(*createOptions)
+type CreateOption func(*CreateOptions)
 
 func RetrieveIfNameExists(v bool) CreateOption {
-	return func(o *createOptions) {
-		o.retrieveIfNameExists = v
+	return func(o *CreateOptions) {
+		o.RetrieveIfNameExists = v
+	}
+}
+
+func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
+	return func(o *CreateOptions) {
+		o.OverwriteIfNameExistsAndDifferentProperties = true
 	}
 }
 
 func (w writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
-	var o createOptions
+	var o CreateOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), o.retrieveIfNameExists)
+	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), o)
 }
 
 func (w writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
