@@ -12,12 +12,12 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/synnaxlabs/x/gorp"
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/status"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/x/gorp"
+	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/types"
 )
 
