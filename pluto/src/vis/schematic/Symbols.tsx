@@ -356,8 +356,11 @@ export const RegulatorManual = createLabeled(Primitives.RegulatorManual);
 export type RegulatorManualProps = LabeledProps<Primitives.RegulatorManualProps>;
 export const ElectricRegulator = createLabeled(Primitives.ElectricRegulator);
 export type ElectricRegulatorProps = LabeledProps<Primitives.ElectricRegulatorProps>;
-export const ElectricRegulatorMotorized = createLabeled(Primitives.ElectricRegulatorMotorized);
-export type ElectricRegulatorMotorizedProps = LabeledProps<Primitives.ElectricRegulatorMotorizedProps>;
+export const ElectricRegulatorMotorized = createLabeled(
+  Primitives.ElectricRegulatorMotorized,
+);
+export type ElectricRegulatorMotorizedProps =
+  LabeledProps<Primitives.ElectricRegulatorMotorizedProps>;
 export const BurstDisc = createLabeled(Primitives.BurstDisc);
 export type BurstDiscProps = LabeledProps<Primitives.BurstDiscProps>;
 export const Cap = createLabeled(Primitives.Cap);
@@ -371,7 +374,8 @@ export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;
 export const ISOCheckValve = createLabeled(Primitives.ISOCheckValve);
 export type ISOCheckValveProps = LabeledProps<Primitives.ISOCheckValveProps>;
 export const CheckValveWithArrow = createLabeled(Primitives.CheckValveWithArrow);
-export type CheckValveWithArrowProps = LabeledProps<Primitives.CheckValveWithArrowProps>;
+export type CheckValveWithArrowProps =
+  LabeledProps<Primitives.CheckValveWithArrowProps>;
 export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch);
@@ -564,7 +568,7 @@ export const PolygonSymbol = createLabeled(
       strokeWidth={strokeWidth}
       {...rest}
     />
-  )
+  ),
 );
 
 export const Circle = createLabeled(
@@ -582,9 +586,8 @@ export const Circle = createLabeled(
       strokeWidth={strokeWidth}
       {...rest}
     />
-  )
+  ),
 );
-
 
 export const Box = createLabeled(
   ({
@@ -611,7 +614,6 @@ export const Box = createLabeled(
 export const BoxPreview = (props: BoxProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} borderRadius={0} />
 );
-
 
 export interface SetpointProps
   extends Omit<Primitives.SetpointProps, "value" | "onChange">,

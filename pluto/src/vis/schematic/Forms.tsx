@@ -36,7 +36,6 @@ import {
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
-import { DEFAULT_POLYGON_SIDE_LENGTH } from "./primitives/Primitives";
 
 export interface SymbolFormProps {}
 
@@ -432,14 +431,14 @@ export interface PolygonFormProps {
   numSides: number;
 }
 
-export const CommonPolygonForm = (): ReactElement => {
-  return <FormWrapper direction="x" align="stretch">
+export const CommonPolygonForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
         <ColorControl path="backgroundColor" label="Background Color" />
-        <Form.NumericField 
+        <Form.NumericField
           path="rotation"
           label="Rotation"
           inputProps={{
@@ -449,7 +448,7 @@ export const CommonPolygonForm = (): ReactElement => {
           }}
           grow
         />
-        <Form.NumericField 
+        <Form.NumericField
           path="numSides"
           label="Number of Sides"
           inputProps={{
@@ -459,7 +458,7 @@ export const CommonPolygonForm = (): ReactElement => {
           }}
           grow
         />
-        <Form.NumericField 
+        <Form.NumericField
           path="sideLength"
           label="Side Length"
           inputProps={{
@@ -469,15 +468,15 @@ export const CommonPolygonForm = (): ReactElement => {
           }}
           grow
         />
-        <Form.NumericField 
-          path="cornerRounding" 
-          label="Corner Rounding" 
+        <Form.NumericField
+          path="cornerRounding"
+          label="Corner Rounding"
           inputProps={{
             dragScale: { x: 1, y: 1 },
             bounds: { lower: 0, upper: 181 }, // internally limited as well to ensure weird things don't happen
             endContent: "px",
           }}
-          grow 
+          grow
         />
         <Form.NumericField
           path="strokeWidth"
@@ -491,8 +490,8 @@ export const CommonPolygonForm = (): ReactElement => {
         />
       </Align.Space>
     </Align.Space>
-  </FormWrapper>;
-};
+  </FormWrapper>
+);
 
 export const CircleForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
@@ -965,6 +964,8 @@ export const CommonDummyToggleForm = (): ReactElement => (
   </FormWrapper>
 );
 
-export const BoxForm = (): ReactElement => <TankForm includeBorderRadius includeStrokeWidth/>;
+export const BoxForm = (): ReactElement => (
+  <TankForm includeBorderRadius includeStrokeWidth />
+);
 
 export const SwitchForm = (): ReactElement => <CommonToggleForm hideInnerOrientation />;
