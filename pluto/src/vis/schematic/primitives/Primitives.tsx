@@ -1478,7 +1478,7 @@ export const Polygon = ({
   );
   const path = useMemo(
     () => generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0),
-    [vertices, cornerRounding],
+    [vertices, sideLength, cornerRounding],
   );
   const size = useMemo(
     () => 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + padding,
