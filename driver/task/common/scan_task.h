@@ -230,6 +230,7 @@ public:
             const auto remote_dev = iter->second;
             if (scanned_dev.rack != remote_dev.rack &&
                 this->update_threshold_exceeded(scanned_dev.key)) {
+                LOG(INFO) << "[scan_task] taking ownership over device";
                 scanned_dev.properties = remote_dev.properties;
                 scanned_dev.name = remote_dev.name;
                 scanned_dev.configured = remote_dev.configured;
@@ -254,6 +255,17 @@ public:
                         {"last_available", dev.last_available.nanoseconds()}
                     }
             };
+            if (since(dev.last_available) < telem::MINUTE) {
+                std::vector<std::string> keys;
+                auto [dev, err] = this->client->retrieve_devices(keys);
+                if (err && !err.matches(xerrors::NOT_FOUND)) {
+                    LOG(WARNING) << "[scan_task] failed to retrieve device: "
+                                 << err.message();
+                    continue;
+                }
+                if (err.matches(xerrors::NOT_FOUND) || dev[0].rack != synnax::rack_key_from_task_key(this->key))
+                    this->dev_state.erase(key);
+            }
         }
         if (const auto state_err = this->propagate_state())
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
@@ -265,10 +277,8 @@ public:
     xerrors::Error propagate_state() {
         std::vector<json> states;
         states.reserve(this->dev_state.size());
-        for (auto &[key, info]: this->dev_state) {
-            info.dev.state.rack = synnax::rack_key_from_task_key(this->key);
+        for (auto &[key, info]: this->dev_state)
             states.push_back(info.dev.state.to_json());
-        }
         telem::Series s(states);
         return this->client->propagate_state(s);
     }

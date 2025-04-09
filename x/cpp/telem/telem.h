@@ -385,6 +385,10 @@ public:
     }
 };
 
+inline TimeSpan since(const TimeStamp stamp) {
+    return TimeStamp::now() - stamp;
+}
+
 class TimeRange {
 public:
     TimeStamp start;
