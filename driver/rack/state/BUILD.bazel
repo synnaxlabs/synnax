@@ -23,6 +23,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack/state",
+        "//x/cpp/defer",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
