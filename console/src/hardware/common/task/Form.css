@@ -75,7 +75,7 @@
         overflow: hidden;
         white-space: nowrap;
         font-weight: 500;
-        color: var(--pluto-gray-l9);
+        color: var(--pluto-gray-l10);
         flex-shrink: 1;
     }
 }
@@ -89,7 +89,7 @@
             }
         }
 
-        .console-task__channel-name:not(:only-child):last-of-type {
+        .console-task__channel-name:nth-of-type(2) {
             display: none;
         }
     }

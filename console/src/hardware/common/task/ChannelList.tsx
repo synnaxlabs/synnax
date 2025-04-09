@@ -15,6 +15,11 @@ import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/types";
 
+export interface ContextMenuItemProps<C extends Channel> {
+  channels: C[];
+  keys: string[];
+}
+
 interface ContextMenuProps<C extends Channel> {
   allowTare?: (keys: string[], channels: C[]) => boolean;
   channels: C[];
@@ -25,6 +30,7 @@ interface ContextMenuProps<C extends Channel> {
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
   remove: (index: number | number[]) => void;
+  contextMenuItems?: RenderProp<ContextMenuItemProps<C>>;
 }
 
 const ContextMenu = <C extends Channel>({
@@ -37,6 +43,7 @@ const ContextMenu = <C extends Channel>({
   onTare,
   path,
   remove,
+  contextMenuItems,
 }: ContextMenuProps<C>) => {
   const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
   const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
@@ -86,7 +93,8 @@ const ContextMenu = <C extends Channel>({
               </PMenu.Item>
             </>
           )}
-          {canDuplicate || (canRemove && <PMenu.Divider />)}
+          {(canDuplicate || canRemove) && <PMenu.Divider />}
+          {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
             <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
               Disable

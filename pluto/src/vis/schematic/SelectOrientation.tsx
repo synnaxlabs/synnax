@@ -136,6 +136,6 @@ export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElem
     className={CSS(className, CSS.selected(selected))}
     {...rest}
   >
-    <div className="symbol"></div>
+    <div className="symbol" />
   </CoreButton.Icon>
 );
