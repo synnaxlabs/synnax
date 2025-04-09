@@ -867,21 +867,25 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(strings1[0], R"({"key1":"value1"})");
     ASSERT_EQ(strings1[1], R"({"key2":"value2"})");
 
-    // Test with mixed JSON types
+    // Test with mixed JSON types including nulls and booleans
     std::vector<json> complex_values = {
         json{{"string", "hello"}},
         json{{"number", 42}},
+        json{{"null_value", nullptr}},
+        json{{"bool_value", true}},
         json::array({1, 2, 3}),
-        json{{"nested", {{"a", 1}, {"b", 2}}}}
+        json{{"nested", {{"a", 1}, {"b", 2}, {"c", false}, {"d", nullptr}}}}
     };
     telem::Series s2(complex_values);
     ASSERT_EQ(s2.data_type(), telem::JSON_T);
-    ASSERT_EQ(s2.size(), 4);
+    ASSERT_EQ(s2.size(), 6);
     auto strings2 = s2.strings();
     ASSERT_EQ(strings2[0], R"({"string":"hello"})");
     ASSERT_EQ(strings2[1], R"({"number":42})");
-    ASSERT_EQ(strings2[2], R"([1,2,3])");
-    ASSERT_EQ(strings2[3], R"({"nested":{"a":1,"b":2}})");
+    ASSERT_EQ(strings2[2], R"({"null_value":null})");
+    ASSERT_EQ(strings2[3], R"({"bool_value":true})");
+    ASSERT_EQ(strings2[4], R"([1,2,3])");
+    ASSERT_EQ(strings2[5], R"({"nested":{"a":1,"b":2,"c":false,"d":null}})");
 
     // Test with empty vector
     std::vector<json> empty_values;
@@ -895,8 +899,11 @@ TEST(TestSeries, testJSONValuesBasic) {
     std::vector<json> input_values = {
         json{{"key1", "value1"}},
         json{{"key2", 42}},
-        json::array({1, 2, 3}),
-        json{{"nested", {{"a", 1}, {"b", "test"}}}}
+        json{{"null_field", nullptr}},
+        json{{"bool_true", true}},
+        json{{"bool_false", false}},
+        json::array({1, 2, nullptr, true, false}),
+        json{{"nested", {{"a", 1}, {"b", "test"}, {"c", nullptr}, {"d", true}}}}
     };
 
     const telem::Series s(input_values);
