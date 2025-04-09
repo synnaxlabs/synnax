@@ -177,7 +177,7 @@ export const addChildRangeMenuItem = (
   </PMenu.Item>
 );
 
-const useViewDetails = (): ((key: string) => void) => {
+export const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = PSynnax.use();
   const handleError = Status.useErrorHandler();
@@ -190,6 +190,42 @@ const useViewDetails = (): ((key: string) => void) => {
     },
     onError: (e) => handleError(e, "Failed to view details"),
   }).mutate;
+};
+
+export const useDelete = () => {
+  const dispatch = useDispatch();
+  const client = PSynnax.use();
+  const remover = Layout.useRemover();
+  const ranges = useSelectMultiple();
+  const handleRemove = (keys: string[]): void => {
+    dispatch(remove({ keys }));
+  };
+  const handleError = Status.useErrorHandler();
+  const confirm = Modals.useConfirm();
+
+  return useMutation<void, Error, string, Range | undefined>({
+    onMutate: async (key: string) => {
+      const rng = ranges.find((r) => r.key === key);
+      if (
+        !(await confirm({
+          message: `Are you sure you want to delete ${rng?.name}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        }))
+      )
+        throw errors.CANCELED;
+      handleRemove([key]);
+      remover(key);
+      return rng;
+    },
+    mutationFn: async (key: string) => await client?.ranges.delete(key),
+    onError: (e, _, range) => {
+      if (errors.CANCELED.matches(e)) return;
+      handleError(e, "Failed to delete range");
+      dispatch(add({ ranges: [range as Range] }));
+    },
+  });
 };
 
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
@@ -227,29 +263,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
 
   const rangeExists = rng != null;
 
-  const del = useMutation<void, Error, string, Range | undefined>({
-    onMutate: async (key: string) => {
-      const rng = ranges.find((r) => r.key === key);
-      if (
-        !(await confirm({
-          message: `Are you sure you want to delete ${rng?.name}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        }))
-      )
-        throw errors.CANCELED;
-      handleRemove([key]);
-      remover(key);
-      return rng;
-    },
-    mutationFn: async (key: string) => await client?.ranges.delete(key),
-    onError: (e, _, range) => {
-      if (errors.CANCELED.matches(e)) return;
-      handleError(e, "Failed to delete range");
-      dispatch(add({ ranges: [range as Range] }));
-    },
-  });
+  const del = useDelete();
 
   const save = useMutation<void, Error, string, Range | undefined>({
     onMutate: async (key: string) => {

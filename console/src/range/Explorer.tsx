@@ -4,12 +4,9 @@ import { type label, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
-  Divider,
-  Dropdown,
   Haul,
   List,
-  Menu,
+  Menu as PMenu,
   Ranger,
   type RenderProp,
   Synnax,
@@ -17,11 +14,17 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import {
+  deleteMenuItem,
+  useDelete,
+  useViewDetails,
+  viewDetailsMenuItem,
+} from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 export const EXPLORER_LAYOUT_TYPE = "explorer";
@@ -47,8 +50,16 @@ const ExplorerListItem = ({
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
   useAsyncEffect(async () => {
-    const labels = await client?.labels.retrieveFor(ranger.ontologyID(entry.key));
+    if (client == null) return;
+    const labels = await client.labels.retrieveFor(ranger.ontologyID(entry.key));
     setLabels(labels ?? []);
+    const labelObs = await client.labels.trackLabelsOf(ranger.ontologyID(entry.key));
+    labelObs?.onChange((changes) => {
+      setLabels(changes);
+    });
+    return async () => {
+      await labelObs?.close();
+    };
   }, [entry.key]);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
@@ -117,14 +128,45 @@ const ExplorerListItem = ({
   );
 };
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
-  <Menu.Menu>
-    <Menu.Item itemKey="rangeSnapshot" startIcon={<Icon.Snapshot />}>
-      Snapshot to {props.entry.name}
-    </Menu.Item>
-  </Menu.Menu>
-);
+const ChangeLoader = () => {
+  const { setSourceData } = List.useDataUtils<string>();
+  const client = Synnax.use();
+  useAsyncEffect(async () => {
+    const obs = await client?.ranges.openTracker();
+    obs?.onChange((changes) => {
+      setSourceData((prev) => {
+        const deletes = new Set(
+          changes.filter((c) => c.variant === "delete").map((c) => c.key),
+        );
+        const next = prev.filter((r) => !deletes.has(r.key));
+        const sets = changes.filter((c) => c.variant === "set");
+        const setKeys = new Set(sets.map((c) => c.key));
+        return [
+          ...next.filter((r) => !setKeys.has(r.key)),
+          ...sets.map((c) => c.value),
+        ];
+      });
+    });
+  }, [client]);
+  return null;
+};
 
+const ExplorerContextMenu = ({ keys }: PMenu.ContextMenuMenuProps) => {
+  const details = useViewDetails();
+  const del = useDelete();
+  const handleSelect: PMenu.MenuProps["onChange"] = {
+    details: () => details(keys[0]),
+    delete: () => del.mutate(keys[0]),
+  };
+  return (
+    <PMenu.Menu level="small" onChange={handleSelect}>
+      {viewDetailsMenuItem}
+      {deleteMenuItem}
+      <PMenu.Divider />
+      <Menu.RenameItem />
+    </PMenu.Menu>
+  );
+};
 export const Explorer: Layout.Renderer = () => {
   const client = Synnax.use();
   const drag = Haul.useDrag({ type: ranger.ONTOLOGY_TYPE, key: "cat" });
@@ -133,52 +175,17 @@ export const Explorer: Layout.Renderer = () => {
       ({ key, ...rest }) => <ExplorerListItem key={key} {...drag} {...rest} />,
       [drag.startDrag],
     );
-  const pMenuProps = Menu.useContextMenu();
+  const pMenuProps = PMenu.useContextMenu();
+
   return (
     <List.List>
-      <Menu.ContextMenu {...pMenuProps} menu={(p) => <ContextMenu {...p} />} />
-      <List.Search searcher={client?.ranges}>{() => <></>}</List.Search>
-      <Filters />
-      <List.Core onContextMenu={pMenuProps.open} className={pMenuProps.className}>
-        {item}
-      </List.Core>
+      <PMenu.ContextMenu {...pMenuProps} menu={(p) => <ExplorerContextMenu {...p} />}>
+        <ChangeLoader />
+        <List.Search searcher={client?.ranges} />
+        <List.Core onContextMenu={pMenuProps.open} className={pMenuProps.className}>
+          {item}
+        </List.Core>
+      </PMenu.ContextMenu>
     </List.List>
-  );
-};
-
-export const Filters = () => (
-  <Align.Space
-    x
-    style={{ height: "6rem", padding: "0 2rem", borderBottom: "var(--pluto-border)" }}
-    background={1}
-    align="center"
-  >
-    <FilterDropdown />
-    <Divider.Divider y />
-  </Align.Space>
-);
-
-const FilterDropdown = () => {
-  const dropdownProps = Dropdown.use();
-  return (
-    <Dropdown.Dialog
-      {...dropdownProps}
-      variant="floating"
-      location={location.BOTTOM_LEFT}
-    >
-      <Button.Icon onClick={dropdownProps.toggle} shade={1}>
-        <Icon.Filter />
-      </Button.Icon>
-      <Align.Space size="small" style={{ padding: "1rem" }}>
-        <Menu.Menu>
-          <Menu.Item itemKey="label" startIcon={<Icon.Time />}>
-            Time
-          </Menu.Item>
-          <Menu.Item itemKey="label" startIcon={<Icon.Label />}>
-            Labels
-          </Menu.Item>
-        </Menu.Menu>
-      </Align.Space>
-    </Dropdown.Dialog>
   );
 };

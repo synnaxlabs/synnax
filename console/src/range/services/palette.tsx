@@ -22,7 +22,7 @@ const CREATE_COMMAND: Palette.Command = {
 export const EXPLORER_COMMAND: Palette.Command = {
   key: "explore-range",
   name: "Explore Range",
-  icon: <Icon.Search />,
+  icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
 };
 

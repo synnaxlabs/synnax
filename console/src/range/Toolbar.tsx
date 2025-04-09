@@ -183,13 +183,14 @@ const Content = (): ReactElement => {
       <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Align.Pack>
-          <Button.Icon
+          <Button.Button
             variant="filled"
             size="small"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
+            startIcon={<Icon.Explore />}
           >
-            <Icon.Explore />
-          </Button.Icon>
+            Explorer
+          </Button.Button>
           <Button.Icon
             variant="outlined"
             size="small"
