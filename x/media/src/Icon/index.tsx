@@ -49,7 +49,7 @@ import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
-import { IoMdRefresh } from "react-icons/io";
+import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
@@ -444,6 +444,7 @@ export interface IconType {
   Visible: IconFC;
   Hidden: IconFC;
   Virtual: IconFC;
+  Heart: IconFC;
 }
 
 export const Icon: IconType = {
@@ -633,4 +634,5 @@ export const Icon: IconType = {
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
   Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
+  Heart: wrapIcon(IoMdHeart, "heart"),
 };

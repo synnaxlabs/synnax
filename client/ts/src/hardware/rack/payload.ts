@@ -8,12 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { zod } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 export const keyZ = zod.uint32;
 export type Key = z.infer<typeof keyZ>;
 
-export const rackZ = z.object({ key: keyZ, name: z.string() });
+export const stateZ = z.object({
+  key: keyZ,
+  variant: z.string(),
+  message: z.string(),
+  lastReceived: TimeStamp.z.optional(),
+});
+
+export interface State extends z.infer<typeof stateZ> {}
+
+export const rackZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  state: stateZ.optional(),
+});
+
 export interface Payload extends z.infer<typeof rackZ> {}
 
 export const newZ = rackZ.partial({ key: true });

@@ -137,7 +137,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               ontologyID={schematic.ontologyID(state.key)}
             />
           </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 285 }} />}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
         </Align.Space>
       </Core.Header>
       <Tabs.Content />

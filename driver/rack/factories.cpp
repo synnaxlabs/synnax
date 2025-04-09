@@ -30,19 +30,19 @@ void configure_sequences(const rack::Config &config, FactoryList &factories) {
     factories.push_back(std::make_unique<sequence::Factory>());
 }
 
-void configure_heartbeat(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(heartbeat::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<heartbeat::Factory>());
-}
-
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
     if (!config.integration_enabled(labjack::INTEGRATION_NAME)) return;
     factories.push_back(labjack::Factory::create(config.timing));
 }
 
+void configure_state(FactoryList &factories) {
+    // The state factory cannot be disabled.
+    factories.push_back(std::make_unique<rack::state::Factory>());
+}
+
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     FactoryList factories;
-    configure_heartbeat(*this, factories);
+    configure_state(factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
     configure_sequences(*this, factories);

@@ -263,7 +263,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Status.Text.Centered>
     );
   if (isError) {
-    const color = Status.variantColors.error;
+    const color = Status.VARIANT_COLORS.error;
     return (
       <Align.Center style={{ padding: "3rem" }}>
         <Text.Text level="h2" color={color}>

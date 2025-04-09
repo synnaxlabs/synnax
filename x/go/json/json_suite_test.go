@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "meminfo.h"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <iostream>
-#include <psapi.h>
-#include <windows.h>
+package json_test
 
-std::uint32_t meminfo::getUsage() {
-    PROCESS_MEMORY_COUNTERS pmc;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
-        return static_cast<std::uint32_t>(pmc.WorkingSetSize);
-    return 0;
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestJson(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Json Suite")
 }

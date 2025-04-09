@@ -135,6 +135,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		DB:              cfg.DB,
 		Rack:            rackSvc,
 		Task:            taskSvc,
+		Device:          deviceSvc,
 		Signals:         cfg.Signals,
 		HostProvider:    cfg.HostProvider,
 		Channels:        cfg.Channel,

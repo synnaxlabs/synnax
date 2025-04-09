@@ -23,7 +23,6 @@
 
 /// @brief it should executed a basic sequence.
 TEST(Sequence, nominal) {
-    // Read pipeline
     synnax::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
@@ -84,11 +83,10 @@ TEST(Sequence, nominal) {
 
 /// @brief it should correctly return an error when the script fails to compile.
 TEST(Sequence, compileError) {
-    auto plugins = std::make_shared<plugins::MultiPlugin>(
+    const auto plugins = std::make_shared<plugins::MultiPlugin>(
         std::vector<std::shared_ptr<plugins::Plugin>>{}
     );
 
-    // Invalid Lua syntax
     const auto script = R"(
         if read_channel = nil then  -- incorrect equality operator
             return
@@ -125,7 +123,6 @@ TEST(Sequence, compareNil) {
 /// @brief it should correctly restart and re-execute a sequence several times,
 /// including binding correct variable names and functions.
 TEST(Sequence, restart) {
-    // Setup read pipeline
     synnax::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
@@ -146,7 +143,6 @@ TEST(Sequence, restart) {
         std::vector{read_channel}
     );
 
-    // Setup write pipeline
     synnax::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
