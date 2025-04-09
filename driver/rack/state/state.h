@@ -42,7 +42,7 @@ public:
         this->loop.wait(breaker);
         const synnax::RackState state{
             .key = this->rack_key,
-            .variant = status::variant::SUCCESS,
+            .variant = status::VARIANT_SUCCESS,
             .message = "Driver is running"
         };
         fr.emplace(key, telem::Series(state.to_json()));

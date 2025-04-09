@@ -111,18 +111,9 @@ TEST_F(XEnvTest, AutomaticCaseConversion) {
 TEST_F(XEnvTest, CaseConversionWithMixedCase) {
     xenv::set("MIXED_CASE_VALUE", "success");
 
-    EXPECT_EQ(
-        xenv::load("mixed_case_value", std::string("default")),
-        "success"
-    );
-    EXPECT_EQ(
-        xenv::load("MIXED_CASE_VALUE", std::string("default")),
-        "success"
-    );
-    EXPECT_EQ(
-        xenv::load("Mixed_Case_Value", std::string("default")),
-        "success"
-    );
+    EXPECT_EQ(xenv::load("mixed_case_value", std::string("default")), "success");
+    EXPECT_EQ(xenv::load("MIXED_CASE_VALUE", std::string("default")), "success");
+    EXPECT_EQ(xenv::load("Mixed_Case_Value", std::string("default")), "success");
 
     xenv::unset("MIXED_CASE_VALUE");
 }

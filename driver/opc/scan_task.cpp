@@ -113,7 +113,7 @@ void ScanTask::scan(const task::Command &cmd) const {
         return ctx->set_state(
             {.task = task.key,
              .key = cmd.key,
-             .variant = status::variant::ERROR,
+             .variant = status::VARIANT_ERROR,
              .details = {{"message", err.message()}}}
         );
 
@@ -130,7 +130,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = status::variant::SUCCESS,
+        .variant = status::VARIANT_SUCCESS,
         .details = util::DeviceProperties(args.connection, *scan_ctx->channels)
                        .to_json(),
     });
@@ -148,13 +148,13 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         return ctx->set_state(
             {.task = task.key,
              .key = cmd.key,
-             .variant = status::variant::ERROR,
+             .variant = status::VARIANT_ERROR,
              .details = {{"message", err.data}}}
         );
     return ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = status::variant::SUCCESS,
+        .variant = status::VARIANT_SUCCESS,
         .details = {{"message", "Connection successful"}},
     });
 }

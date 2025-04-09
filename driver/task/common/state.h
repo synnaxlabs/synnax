@@ -30,12 +30,12 @@ struct StateHandler {
     StateHandler(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
         ctx(ctx), task(task) {
         this->wrapped.task = task.key;
-        this->wrapped.variant = status::variant::SUCCESS;
+        this->wrapped.variant = status::VARIANT_SUCCESS;
     }
 
     /// @brief resets the state handler to its initial state.
     void reset() {
-        this->wrapped.variant = status::variant::SUCCESS;
+        this->wrapped.variant = status::VARIANT_SUCCESS;
         this->err = xerrors::NIL;
     }
 
@@ -44,7 +44,7 @@ struct StateHandler {
     /// will override any other accumulated errors.
     bool error(const xerrors::Error &err) {
         if (!err) return false;
-        this->wrapped.variant = status::variant::ERROR;
+        this->wrapped.variant = status::VARIANT_ERROR;
         this->err = err;
         return true;
     }
@@ -57,7 +57,7 @@ struct StateHandler {
         this->wrapped.key = "";
         // If there's already an error bound, communicate it instead.
         if (!this->err) {
-            this->wrapped.variant = status::variant::WARNING;
+            this->wrapped.variant = status::VARIANT_WARNING;
             this->wrapped.details["message"] = warning;
         } else
             this->wrapped.details["message"] = this->err.data;
@@ -65,8 +65,8 @@ struct StateHandler {
     }
 
     void clear_warning() {
-        if (this->wrapped.variant != status::variant::WARNING) return;
-        this->wrapped.variant = status::variant::SUCCESS;
+        if (this->wrapped.variant != status::VARIANT_WARNING) return;
+        this->wrapped.variant = status::VARIANT_SUCCESS;
         this->wrapped.details["message"] = "Task started successfully";
         this->ctx->set_state(this->wrapped);
     }
@@ -81,7 +81,7 @@ struct StateHandler {
             this->wrapped.details["running"] = true;
             this->wrapped.details["message"] = "Task started successfully";
         } else {
-            this->wrapped.variant = status::variant::ERROR;
+            this->wrapped.variant = status::VARIANT_ERROR;
             this->wrapped.details["running"] = false;
             this->wrapped.details["message"] = this->err.data;
         }
@@ -96,7 +96,7 @@ struct StateHandler {
         this->wrapped.key = cmd_key;
         this->wrapped.details["running"] = false;
         if (this->err) {
-            this->wrapped.variant = status::variant::ERROR;
+            this->wrapped.variant = status::VARIANT_ERROR;
             this->wrapped.details["message"] = this->err.data;
         } else
             this->wrapped.details["message"] = "Task stopped successfully";
@@ -115,10 +115,10 @@ inline void handle_config_err(
     state.task = task.key;
     state.details["running"] = false;
     if (err) {
-        state.variant = status::variant::ERROR;
+        state.variant = status::VARIANT_ERROR;
         state.details["message"] = err.message();
     } else {
-        state.variant = status::variant::SUCCESS;
+        state.variant = status::VARIANT_SUCCESS;
         state.details["message"] = "Task configured successfully";
     }
     ctx->set_state(state);
