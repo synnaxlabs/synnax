@@ -13,12 +13,10 @@ import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  componentRenderProp,
   Form as PForm,
   Haul,
   Header as PHeader,
   List,
-  Menu,
   type RenderProp,
   Text,
   useSyncedRef,
@@ -112,28 +110,6 @@ const filterHaulItem = (item: Haul.Item): boolean =>
 
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 
-export const generateContextMenuItemRenderProps = <C extends Channel>(
-  getChannelKeyAndID: ChannelKeyAndIDGetter<C>,
-): RenderProp<Common.Task.ContextMenuItemProps<C>> => {
-  const C = ({ channels, keys }: Common.Task.ContextMenuItemProps<C>) => {
-    if (keys.length !== 1) return null;
-    const key = keys[0];
-    const channel = channels.find((ch) => ch.key === key);
-    if (!channel) return null;
-    const { key: channelKey, id } = getChannelKeyAndID(channel);
-    if (!channelKey) return null;
-    const handleRename = () => Text.edit(id);
-    return (
-      <>
-        <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
-          Rename
-        </Menu.Item>
-      </>
-    );
-  };
-  return componentRenderProp(C);
-};
-
 interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
   children: RenderProp<ExtraItemProps>;
@@ -203,10 +179,12 @@ const ChannelList = <C extends Channel>({
   );
 };
 
-export interface FormProps<C extends Channel> {
+export interface FormProps<C extends Channel>
+  extends Required<
+    Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
+  > {
   isSnapshot: boolean;
   children?: RenderProp<ExtraItemProps>;
-  convertHaulItemToChannel: (item: Haul.Item) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -215,30 +193,25 @@ export const Form = <C extends Channel>({
   convertHaulItemToChannel,
   children = () => null,
   getChannelKeyAndID,
-}: FormProps<C>) => {
-  const contextMenuItems = useCallback(
-    generateContextMenuItemRenderProps(getChannelKeyAndID),
-    [getChannelKeyAndID],
-  );
-  return (
-    <Common.Device.Provider<Device.Properties, Device.Make>
-      canConfigure={!isSnapshot}
-      configureLayout={Device.CONNECT_LAYOUT}
-    >
-      {({ device }) => (
-        <>
-          {!isSnapshot && <Device.Browser device={device} />}
-          <ChannelList<C>
-            device={device}
-            isSnapshot={isSnapshot}
-            convertHaulItemToChannel={convertHaulItemToChannel}
-            getChannelKeyAndID={getChannelKeyAndID}
-            contextMenuItems={contextMenuItems}
-          >
-            {children}
-          </ChannelList>
-        </>
-      )}
-    </Common.Device.Provider>
-  );
-};
+  contextMenuItems,
+}: FormProps<C>) => (
+  <Common.Device.Provider<Device.Properties, Device.Make>
+    canConfigure={!isSnapshot}
+    configureLayout={Device.CONNECT_LAYOUT}
+  >
+    {({ device }) => (
+      <>
+        {!isSnapshot && <Device.Browser device={device} />}
+        <ChannelList<C>
+          device={device}
+          isSnapshot={isSnapshot}
+          convertHaulItemToChannel={convertHaulItemToChannel}
+          getChannelKeyAndID={getChannelKeyAndID}
+          contextMenuItems={contextMenuItems}
+        >
+          {children}
+        </ChannelList>
+      </>
+    )}
+  </Common.Device.Provider>
+);

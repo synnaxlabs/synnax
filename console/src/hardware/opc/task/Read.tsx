@@ -132,6 +132,7 @@ const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
     isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
   >
     {isIndexItem}
   </Form>

@@ -14,7 +14,7 @@ import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 import { type WriteChannel, type WriteChannelType } from "@/hardware/common/task/types";
 
-interface WriteChannelContextMenuItemsProps
+export interface WriteChannelContextMenuItemsProps
   extends ContextMenuItemProps<WriteChannel> {}
 
 export const WriteChannelContextMenuItems: React.FC<
@@ -23,12 +23,12 @@ export const WriteChannelContextMenuItems: React.FC<
   if (keys.length !== 1) return null;
   const key = keys[0];
   const channel = channels.find((ch) => ch.key === key);
-  if (!channel) return null;
+  if (channel == null) return null;
   const canRenameCmdChannel = channel.cmdChannel !== 0;
   const canRenameStateChannel = channel.stateChannel !== 0;
+  if (!canRenameCmdChannel && !canRenameStateChannel) return null;
   const handleRename = (type: WriteChannelType) =>
     Text.edit(getChannelNameID(key, type));
-  if (!canRenameCmdChannel && !canRenameStateChannel) return null;
   return (
     <>
       {canRenameCmdChannel && (

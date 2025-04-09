@@ -14,7 +14,8 @@ import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 import { type ReadChannel } from "@/hardware/common/task/types";
 
-interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<ReadChannel> {}
+export interface ReadChannelContextMenuItemProps
+  extends ContextMenuItemProps<ReadChannel> {}
 
 export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
   channels,
@@ -23,7 +24,7 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   if (keys.length !== 1) return null;
   const key = keys[0];
   const channel = channels.find((ch) => ch.key === key)?.channel;
-  if (!channel) return null;
+  if (channel == null || channel == 0) return null;
   const handleRename = () => Text.edit(getChannelNameID(key));
   return (
     <>

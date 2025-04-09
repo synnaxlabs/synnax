@@ -9,7 +9,7 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul } from "@synnaxlabs/pluto";
+import { componentRenderProp, type Haul, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -68,6 +68,26 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   id: Common.Task.getChannelNameID(key, "cmd"),
 });
 
+interface ContextMenuItemProps extends Common.Task.ContextMenuItemProps<WriteChannel> {}
+
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
+  if (keys.length !== 1) return null;
+  const key = keys[0];
+  const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
+  if (cmdChannel == null || cmdChannel == 0) return null;
+  const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
+  return (
+    <>
+      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+        Rename
+      </Menu.Item>
+      <Menu.Divider />
+    </>
+  );
+};
+
+const contextMenuItems = componentRenderProp(ContextMenuItem);
+
 const TaskForm: FC<
   Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
 > = ({ isSnapshot }) => (
@@ -75,6 +95,7 @@ const TaskForm: FC<
     isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
+    contextMenuItems={contextMenuItems}
   />
 );
 
