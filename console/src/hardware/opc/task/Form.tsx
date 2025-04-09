@@ -60,12 +60,12 @@ const ChannelListItem = <C extends Channel>({
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="y" size="small">
-        <ChannelName level="p" weight={500} shade={9} channel={channel} id={id} />
+        <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
         <Text.WithIcon
           startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
           level="small"
           weight={350}
-          shade={7}
+          shade={9}
           color={opcNodeColor}
           size="small"
         >
@@ -84,8 +84,8 @@ const ChannelListItem = <C extends Channel>({
 };
 
 const Header = () => (
-  <PHeader.Header level="p">
-    <PHeader.Title weight={500} shade={8}>
+  <PHeader.Header level="p" style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
+    <PHeader.Title weight={500} shade={10}>
       Channels
     </PHeader.Title>
   </PHeader.Header>
