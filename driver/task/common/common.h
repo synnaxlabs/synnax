@@ -13,22 +13,22 @@
 
 namespace common {
 /// @brief a common base configuration for tasks.
-struct TaskConfig {
+struct BaseTaskConfig {
     /// @brief whether data saving is enabled for the task.
     bool data_saving;
     /// @brief whether the task should be auto-started after configuration. This includes
     /// automatic start on driver start.
     bool auto_start;
 
-    TaskConfig(TaskConfig &&other) noexcept:
+    BaseTaskConfig(BaseTaskConfig &&other) noexcept:
         data_saving(other.data_saving), auto_start(other.auto_start) {}
 
-    TaskConfig(const TaskConfig &other) = delete;
-    const TaskConfig &operator=(const TaskConfig &other) = delete;
+    BaseTaskConfig(const BaseTaskConfig &other) = delete;
+    const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
-    explicit TaskConfig(xjson::Parser &parser):
+    explicit BaseTaskConfig(xjson::Parser &parser):
         data_saving(parser.optional<bool>("data_saving", false)),
-        auto_start(parser.optional<bool>("auto_start", true)) {}
+        auto_start(parser.optional<bool>("auto_start", false)) {}
 };
 
 /// @brief a common base configuration result for tasks that is used across various

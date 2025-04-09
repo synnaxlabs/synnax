@@ -10,6 +10,7 @@
 #pragma once
 
 #include "driver/task/task.h"
+#include "driver/task/common/common.h"
 
 namespace common {
 const std::string STOP_CMD_TYPE = "stop";

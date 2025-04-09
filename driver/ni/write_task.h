@@ -16,23 +16,20 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
+#include "driver/ni/ni.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
 #include "driver/task/common/common.h"
-#include "ni.h"
 
 namespace ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
 /// Write Task.
-struct WriteTaskConfig: public common::TaskConfig {
-    /// @brief the key of the device the task is writing to.
-    const std::string device_key;
+struct WriteTaskConfig: common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
     const telem::Rate state_rate;
@@ -49,8 +46,7 @@ struct WriteTaskConfig: public common::TaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        common::TaskConfig(std::move(other)),
-        device_key(other.device_key),
+        common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
@@ -72,8 +68,7 @@ struct WriteTaskConfig: public common::TaskConfig {
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
-    ): common::TaskConfig(cfg),
-        device_key(cfg.required<std::string>("device")),
+    ): common::BaseWriteTaskConfig(cfg),
         state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);

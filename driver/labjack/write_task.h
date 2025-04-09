@@ -23,8 +23,6 @@
 #include "driver/task/common/write_task.h"
 
 namespace labjack {
-
-
 /// @brief configuration for an output channel on a LabJack device.
 struct OutputChan {
     /// @brief the port location of the output channel e.g. "DIO4"
@@ -52,9 +50,7 @@ struct OutputChan {
 };
 
 /// @brief the configuration for opening a write task.
-struct WriteTaskConfig: common::TaskConfig {
-    /// @brief the device key to write to.
-    const std::string device_key;
+struct WriteTaskConfig: common::BaseWriteTaskConfig {
     /// @brief the rate at which to propagate state updates back to Synnax.
     const telem::Rate state_rate;
     /// @brief the connection method to the device.
@@ -67,8 +63,7 @@ struct WriteTaskConfig: common::TaskConfig {
     std::set<synnax::ChannelKey> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        common::TaskConfig(std::move(other)),
-        device_key(other.device_key),
+        common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         conn_method(other.conn_method),
         dev_model(std::move(other.dev_model)),
@@ -83,8 +78,7 @@ struct WriteTaskConfig: common::TaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
     ):
-        common::TaskConfig(parser),
-        device_key(parser.required<std::string>("device")),
+        common::BaseWriteTaskConfig(parser),
         state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
         conn_method(parser.optional<std::string>("connection_type", "")) {
         std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;

@@ -16,10 +16,11 @@
 #include "driver/task/common/state.h"
 #include "driver/task/task.h"
 #include "driver/transform/transform.h"
-#include "sample_clock.h"
+#include "driver/task/common/sample_clock.h"
 
 namespace common {
-struct BaseReadTaskConfig : TaskConfig {
+/// @brief common read task configuration parameters used across multiple drivers.
+struct BaseReadTaskConfig : BaseTaskConfig {
     /// @brief sets the sample rate for the task.
     const telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
@@ -28,7 +29,7 @@ struct BaseReadTaskConfig : TaskConfig {
     common::TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
-        TaskConfig(std::move(other)),
+        BaseTaskConfig(std::move(other)),
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
         timing(other.timing) {}
@@ -42,7 +43,7 @@ struct BaseReadTaskConfig : TaskConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ):
-        TaskConfig(cfg),
+        BaseTaskConfig(cfg),
         sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
         stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
         timing(timing_cfg) {

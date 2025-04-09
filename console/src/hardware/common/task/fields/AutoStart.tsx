@@ -10,10 +10,5 @@
 import { Form } from "@synnaxlabs/pluto";
 
 export const AutoStart = () => (
-  <Form.SwitchField
-    label="Auto Start"
-    path="config.autoStart"
-    defaultValue={false}
-    hideIfNull
-  />
+  <Form.SwitchField label="Auto Start" path="config.autoStart" hideIfNull />
 );
