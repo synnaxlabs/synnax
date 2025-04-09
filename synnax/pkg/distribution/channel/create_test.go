@@ -189,7 +189,7 @@ var _ = Describe("Create", Ordered, func() {
 					Leaseholder: 1,
 				}
 
-				Expect(services[1].Create(ctx, &newCh, channel.OverWriteIfNameExistsAndDifferentProperties(true))).To(Succeed())
+				Expect(services[1].Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties(true))).To(Succeed())
 
 				var resChannels []channel.Channel
 				err := services[1].NewRetrieve().WhereKeys(newCh.Key()).Entries(&resChannels).Exec(ctx, nil)
@@ -219,7 +219,7 @@ var _ = Describe("Create", Ordered, func() {
 					Leaseholder: 1,
 				}
 
-				Expect(services[1].Create(ctx, &newCh, channel.OverWriteIfNameExistsAndDifferentProperties(true))).To(Succeed())
+				Expect(services[1].Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties(true))).To(Succeed())
 				Expect(newCh.Key()).To(Equal(originalKey))
 
 				var resChannels []channel.Channel

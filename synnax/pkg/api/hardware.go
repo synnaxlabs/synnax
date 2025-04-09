@@ -13,17 +13,16 @@ import (
 	"context"
 	"go/types"
 
-	access "github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type HardwareService struct {

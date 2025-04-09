@@ -157,7 +157,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
         const data = fr.get(STATE_CHANNEL_NAME);
         if (data.length === 0) return [[], false];
         const states = data.parseJSON(stateZ);
-        return [states as State[], true];
+        return [states, true];
       },
     );
   }

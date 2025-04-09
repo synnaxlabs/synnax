@@ -37,18 +37,16 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const devs = await client?.hardware.devices.retrieve([], {
-      includeState: true,
-    });
-    const initialStates = Object.fromEntries(
-      devs.filter((d) => d.state != null).map((d) => [d.key, d.state]),
-    ) as Record<string, device.State>;
+    const devs = await client.hardware.devices.retrieve([], { includeState: true });
+    const initialStates: Record<string, device.State> = Object.fromEntries(
+      devs.filter((d) => d.state != null).map((d) => [d.key, d.state as device.State]),
+    );
     setStates(initialStates);
     const observer = await client.hardware.devices.openStateObserver();
-    const disconnect = observer.onChange((state) => {
-      setStates((prev) => {
-        const newStates = Object.fromEntries(state.map((s) => [s.key, s]));
-        return { ...prev, ...newStates };
+    const disconnect = observer.onChange((states) => {
+      setStates((prevStates) => {
+        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
+        return { ...prevStates, ...nextStates };
       });
     });
     return async () => {
@@ -59,6 +57,7 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
 
   return <StateContext.Provider value={{ states }}>{children}</StateContext.Provider>;
 };
+
 interface RackHeartbeatProviderContextValue {
   states: Record<string, rack.State>;
 }
@@ -73,18 +72,16 @@ const RackHeartbeatProvider = ({ children }: { children: ReactElement }) => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const racks = await client.hardware.racks.retrieve([], {
-      includeState: true,
-    });
-    const initialStates = Object.fromEntries(
-      racks.filter((r) => r.state != null).map((r) => [r.key, r.state]),
-    ) as Record<string, rack.State>;
+    const racks = await client.hardware.racks.retrieve([], { includeState: true });
+    const initialStates: Record<string, rack.State> = Object.fromEntries(
+      racks.filter((r) => r.state != null).map((r) => [r.key, r.state as rack.State]),
+    );
     setStates(initialStates);
     const observer = await client.hardware.racks.openStateObserver();
     const disconnect = observer.onChange((states) => {
-      setStates((prev) => {
-        const newStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prev, ...newStates };
+      setStates((prevStates) => {
+        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
+        return { ...prevStates, ...nextStates };
       });
     });
     return async () => {

@@ -10,12 +10,13 @@
 package rack
 
 import (
+	"strconv"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -59,7 +60,7 @@ type State struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Variant is the variant of the rack. This is used to determine the type of
 	Variant string `json:"variant" msgpack:"variant"`
-	/// LastReceived is the last time the rack sent a heartbeat signal.
+	// LastReceived is the last time the rack sent a heartbeat signal.
 	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
 	// Message is the last message sent by the rack. This is used to determine if the
 	// rack is healthy.

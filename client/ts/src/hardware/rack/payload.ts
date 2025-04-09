@@ -21,12 +21,7 @@ export const stateZ = z.object({
   lastReceived: TimeStamp.z.optional(),
 });
 
-export interface State {
-  key: Key;
-  variant: string;
-  message: string;
-  lastReceived?: TimeStamp;
-}
+export interface State extends z.infer<typeof stateZ> {}
 
 export const rackZ = z.object({
   key: keyZ,
@@ -34,14 +29,10 @@ export const rackZ = z.object({
   state: stateZ.optional(),
 });
 
-export interface Payload extends Omit<z.output<typeof rackZ>, "state"> {
-  state?: State;
-}
+export interface Payload extends z.infer<typeof rackZ> {}
 
 export const newZ = rackZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "rack";
 export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export type Heartbeat = number;

@@ -79,7 +79,7 @@ type Tracker struct {
 	}
 	// closer shuts down all go-routines needed to keep the tracker service running.
 	closer io.Closer
-	// stateWriter is used to write task state changes to the database.
+	// stateWriter is used to write state changes to the database.
 	stateWriter confluence.Inlet[framer.WriterRequest]
 	// taskStateChannelKey is the key of the channel used to set task state.
 	taskStateChannelKey channel.Key
@@ -101,7 +101,7 @@ type Config struct {
 	// [REQUIRED]
 	Rack *rack.Service
 	// Task is the service used to retrieve task information.
-	// [TASK]
+	// [REQUIRED]
 	Task *task.Service
 	// Device is the service used to retrieve device information.
 	// [REQUIRED]
@@ -165,7 +165,7 @@ func (c Config) Validate() error {
 // Open opens a new task/rack state tracker with the provided configuration. If error
 // is nil, the Tracker must be closed after use.
 func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
-	cfg, err := config.New[Config](DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
@@ -271,7 +271,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	if err = cfg.Channels.CreateMany(
 		ctx,
 		&channels,
-		channel.OverWriteIfNameExistsAndDifferentProperties(true),
+		channel.OverwriteIfNameExistsAndDifferentProperties(true),
 		channel.RetrieveIfNameExists(true),
 	); err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	if err != nil {
 		return nil, err
 	}
-	dcHeartbeatObs := rackStateObs.OnChange(t.handleRackState)
+	dcRackStateObs := rackStateObs.OnChange(t.handleRackState)
 	taskStateObs, closeTaskStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_task_state",
 	})
@@ -317,7 +317,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	stateWriter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
-	signal.GoRange[task.Key](sCtx, t.saveNotifications, t.saveTaskState)
+	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState)
 	t.deviceSaveNotifications = make(chan struct {
 		key  string
 		rack rack.Key
@@ -358,7 +358,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		xio.NopCloserFunc(dcRackObs),
 		xio.NopCloserFunc(dcTaskObs),
 		xio.NopCloserFunc(dcDeviceObs),
-		xio.NopCloserFunc(dcHeartbeatObs),
+		xio.NopCloserFunc(dcRackStateObs),
 		xio.NopCloserFunc(dcTaskStateObs),
 		xio.NopCloserFunc(dcDeviceStateObs),
 	}
