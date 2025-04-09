@@ -120,8 +120,11 @@ class Factory final : public task::Factory {
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
-        auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(LEGACY_HEARTBEAT_TYPE);
-        if (!o_err.matches(xerrors::NOT_FOUND) && synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
+        auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(
+            LEGACY_HEARTBEAT_TYPE
+        );
+        if (!o_err.matches(xerrors::NOT_FOUND) &&
+            synnax::rack_key_from_task_key(old_heartbeat_task.key) == rack.key) {
             if (const auto del_err = rack.tasks.del(old_heartbeat_task.key))
                 LOG(ERROR) << "[rack_state] failed to delete legacy heartbeat task: "
                            << del_err;
