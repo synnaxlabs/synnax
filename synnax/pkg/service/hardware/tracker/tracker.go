@@ -618,7 +618,7 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			if rck.Key == rackKey {
 				continue
 			}
-			for k, _ := range rck.Devices {
+			for k := range rck.Devices {
 				if k == deviceState.Key {
 					delete(rck.Devices, k)
 					var racks []rack.Rack
