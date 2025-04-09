@@ -12,9 +12,9 @@
 #include <string>
 
 /// @brief utility packages for managing status messages.
-namespace status::variant {
-const std::string SUCCESS = "success";
-const std::string ERROR = "error";
-const std::string WARNING = "warning";
-const std::string INFO = "info";
+namespace status {
+const std::string VARIANT_SUCCESS = "success";
+const std::string VARIANT_ERROR = "error";
+const std::string VARIANT_WARNING = "warning";
+const std::string VARIANT_INFO = "info";
 }

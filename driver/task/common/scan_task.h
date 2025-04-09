@@ -156,17 +156,17 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::VARIANT_ERROR;
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
             return;
         }
-        this->state.variant = status::variant::SUCCESS;
+        this->state.variant = status::VARIANT_SUCCESS;
         this->state.details["message"] = "scan task started";
         this->ctx->set_state(this->state);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->state.variant = status::variant::WARNING;
+                this->state.variant = status::VARIANT_WARNING;
                 this->state.details["message"] = err.message();
                 this->ctx->set_state(this->state);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
@@ -174,10 +174,10 @@ public:
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::VARIANT_ERROR;
             this->state.details["message"] = err.message();
         } else {
-            this->state.variant = status::variant::SUCCESS;
+            this->state.variant = status::VARIANT_SUCCESS;
             this->state.details["message"] = "scan task stopped";
         }
         this->ctx->set_state(this->state);
@@ -190,7 +190,7 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::VARIANT_ERROR;
             this->state.details["message"] = err.message();
             this->ctx->set_state(this->state);
         }
@@ -245,7 +245,7 @@ public:
             if (present.find(key) != present.end()) continue;
             this->dev_state[key].dev.state = synnax::DeviceState{
                 .key = dev.dev.key,
-                .variant = status::variant::WARNING,
+                .variant = status::VARIANT_WARNING,
                 .rack = dev.dev.rack,
                 .details =
                     json{

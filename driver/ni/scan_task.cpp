@@ -84,7 +84,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     dev.state = synnax::DeviceState{
         .key = dev.key,
-        .variant = status::variant::SUCCESS,
+        .variant = status::VARIANT_SUCCESS,
         .rack = dev.rack,
         .details =
             json{
