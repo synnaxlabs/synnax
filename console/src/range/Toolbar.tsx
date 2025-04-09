@@ -35,7 +35,7 @@ import { ContextMenu, useLabels } from "@/range/ContextMenu";
 import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
 import { EXPLORER_LAYOUT, EXPLORER_LAYOUT_TYPE } from "@/range/Explorer";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { add, type Range, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
 
 interface NoRangesProps {
@@ -121,7 +121,7 @@ const List = (): ReactElement => {
         persisted: true,
         timeRange: e.data?.timeRange,
       }));
-      dispatch(add({ ranges }));
+      dispatch(add({ ranges: ranges as Range[] }));
       return items;
     },
   });
