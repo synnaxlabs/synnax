@@ -31,9 +31,7 @@ TEST(stateTests, testNominal) {
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
-    x::defer stop([&hb]() {
-        hb->stop(false);
-    });
+    x::defer stop([&hb]() { hb->stop(false); });
     auto [streamer, strm_err] = client->telem.open_streamer(synnax::StreamerConfig{
         .channels = {ch.key},
     });
