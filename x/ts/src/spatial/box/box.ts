@@ -288,9 +288,9 @@ export const bottomCenter = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_CENTER
 
 export const bottomRight = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
 
-export const centerLeft = (b: Crude): xy.XY => xyLoc(b, location.LEFT_CENTER);
+export const centerLeft = (b: Crude): xy.XY => xyLoc(b, location.CENTER_LEFT);
 
-export const centerRight = (b: Crude): xy.XY => xyLoc(b, location.RIGHT_CENTER);
+export const centerRight = (b: Crude): xy.XY => xyLoc(b, location.CENTER_RIGHT);
 
 export const right = (b: Crude): number => loc(b, "right");
 

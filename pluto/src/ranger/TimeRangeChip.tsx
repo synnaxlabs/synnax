@@ -42,7 +42,7 @@ export const TimeRangeChip = ({
   const span = startTS.span(endTS);
 
   let startTime = (
-    <Align.Space x align="center">
+    <Align.Space x align="center" size="small">
       {startTS.isToday && (
         <Text.Text level={level} shade={shade} weight={450}>
           Today
@@ -108,7 +108,7 @@ export const TimeRangeChip = ({
     >
       {startTime}
       <Icon.Arrow.Right
-        color="var(--pluto-text-color)"
+        color="var(--pluto-gray-l9)"
         style={{
           width: levelVar,
           height: levelVar,

@@ -65,6 +65,7 @@ export const Tag = ({
       className={CSS(
         className,
         CSS.B("tag"),
+        CSS.size(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       level={Text.ComponentSizeLevels[size]}

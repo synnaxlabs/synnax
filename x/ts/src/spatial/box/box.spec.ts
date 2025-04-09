@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it,test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import * as box from "@/spatial/box/box";
 import * as location from "@/spatial/location/location";
@@ -102,8 +102,8 @@ describe("Box", () => {
     describe("xyLoc", () => {
       const v: location.XY[] = [
         location.BOTTOM_CENTER,
-        location.LEFT_CENTER,
-        location.RIGHT_CENTER,
+        location.CENTER_LEFT,
+        location.CENTER_RIGHT,
         location.TOP_CENTER,
         location.BOTTOM_LEFT,
         location.BOTTOM_RIGHT,

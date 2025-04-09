@@ -9,22 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-list-item {
-    & p {
-        font-weight: 450;
+.pluto-stack {
+    padding-left: 100px;
+    width: 300px;
+    & > div:first-child {
+        flex-grow: 1;
     }
-
-    & .save-button {
-        position: absolute;
-        top: 1rem;
-        right: 1.5rem;
-    }
-}
-
-.console-range-toolbar-no-ranges {
-    & p {
-        max-width: 45rem;
-        text-align: center;
-        color: var(--pluto-gray-l8);
+    & > div:not(:first-child) {
+        min-width: 0;
     }
 }

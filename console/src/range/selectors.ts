@@ -105,3 +105,9 @@ export const selectMultiple = (
  */
 export const useSelectMultiple = (keys?: string[]): Range[] =>
   useMemoSelect((state: StoreState) => selectMultiple(state, keys), [keys]);
+
+export const selectKeys = (state: StoreState): string[] =>
+  Object.keys(selectState(state).ranges);
+
+export const useSelectKeys = (): string[] =>
+  useMemoSelect((state: StoreState) => selectKeys(state), []);

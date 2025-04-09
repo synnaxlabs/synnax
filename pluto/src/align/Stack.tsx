@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/index.css";
-import "@/main.css";
+import "@/align/Stack.css";
 
+import { toArray } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
+import { type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
-import { Pluto } from "@/pluto";
 
-const Main = (): ReactElement => (
-  <Pluto.Provider>
-    <div style={{ padding: "2rem" }}>
-      <Align.Space x className={CSS.B("stack")} />
-    </div>
-  </Pluto.Provider>
-);
+export interface StackProps extends SpaceProps {}
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);
+export const Stack = ({ className, children, ...rest }: StackProps): ReactElement => {
+  const arr = toArray(children);
+  return (
+    <Align.Space x className={CSS.B("stack")} {...rest}>
+      <div />
+      {arr.map((child, i) => (
+        <div key={i}>{child}</div>
+      ))}
+    </Align.Space>
+  );
+};

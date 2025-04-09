@@ -24,7 +24,7 @@ describe("position", () => {
         target: box.construct(45, 55, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
       },
-      location.LEFT_CENTER,
+      location.CENTER_LEFT,
     ];
 
     const SPEC_CASE_2: Spec = [
@@ -54,7 +54,7 @@ describe("position", () => {
         dialog: box.construct(0, 0, 20, 20),
         initial: "left",
       },
-      location.LEFT_CENTER,
+      location.CENTER_LEFT,
     ];
 
     const SPEC_CASE_5: Spec = [
@@ -64,7 +64,7 @@ describe("position", () => {
         dialog: box.construct(0, 0, 20, 20),
         initial: "right",
       },
-      location.RIGHT_CENTER,
+      location.CENTER_RIGHT,
     ];
 
     // Target is in bottom right corner
@@ -74,7 +74,7 @@ describe("position", () => {
         target: box.construct(90, 90, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
       },
-      location.LEFT_CENTER,
+      location.CENTER_LEFT,
     ];
 
     // Target is in the top left corner
@@ -186,12 +186,12 @@ describe("position", () => {
       [location.TOP_CENTER, "start", location.BOTTOM_LEFT],
       [location.TOP_CENTER, "center", location.BOTTOM_CENTER],
       [location.TOP_CENTER, "end", location.BOTTOM_RIGHT],
-      [location.LEFT_CENTER, "start", location.BOTTOM_RIGHT],
-      [location.LEFT_CENTER, "center", location.RIGHT_CENTER],
-      [location.LEFT_CENTER, "end", location.TOP_RIGHT],
-      [location.RIGHT_CENTER, "start", location.BOTTOM_LEFT],
-      [location.RIGHT_CENTER, "center", location.LEFT_CENTER],
-      [location.RIGHT_CENTER, "end", location.TOP_LEFT],
+      [location.CENTER_LEFT, "start", location.BOTTOM_RIGHT],
+      [location.CENTER_LEFT, "center", location.CENTER_RIGHT],
+      [location.CENTER_LEFT, "end", location.TOP_RIGHT],
+      [location.CENTER_RIGHT, "start", location.BOTTOM_LEFT],
+      [location.CENTER_RIGHT, "center", location.CENTER_LEFT],
+      [location.CENTER_RIGHT, "end", location.TOP_LEFT],
       [location.BOTTOM_LEFT, "start", location.TOP_RIGHT],
       [location.BOTTOM_LEFT, "center", location.TOP_CENTER],
       [location.BOTTOM_LEFT, "end", location.TOP_LEFT],

@@ -38,6 +38,8 @@ import {
   FaDocker,
   FaLinux,
   FaMicrophone,
+  FaRegStar,
+  FaStar,
   FaStream,
   FaWind,
   FaWindows,
@@ -99,6 +101,8 @@ import {
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
+  MdOutlineExplore,
+  MdOutlineFilterList,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
@@ -444,6 +448,10 @@ export interface IconType {
   Visible: IconFC;
   Hidden: IconFC;
   Virtual: IconFC;
+  Explore: IconFC;
+  Filter: IconFC;
+  StarFilled: IconFC;
+  StarOutlined: IconFC;
   Heart: IconFC;
 }
 
@@ -634,5 +642,9 @@ export const Icon: IconType = {
   Visible: wrapIcon(MdOutlineVisibility, "visible"),
   Hidden: wrapIcon(MdOutlineVisibilityOff, "invisible"),
   Virtual: wrapIcon(TbCircleLetterVFilled, "virtual"),
+  Explore: wrapIcon(MdOutlineExplore, "explore"),
+  Filter: wrapIcon(MdOutlineFilterList, "filter"),
+  StarFilled: wrapIcon(FaStar, "star-filled"),
+  StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
   Heart: wrapIcon(IoMdHeart, "heart"),
 };

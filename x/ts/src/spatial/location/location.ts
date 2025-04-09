@@ -102,11 +102,11 @@ export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" })
 export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
 export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
 export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });
-export const RIGHT_CENTER: XY = Object.freeze({ x: "right", y: "center" });
-export const LEFT_CENTER: XY = Object.freeze({ x: "left", y: "center" });
+export const CENTER_RIGHT: XY = Object.freeze({ x: "right", y: "center" });
+export const CENTER_LEFT: XY = Object.freeze({ x: "left", y: "center" });
 export const XY_LOCATIONS: readonly XY[] = Object.freeze([
-  LEFT_CENTER,
-  RIGHT_CENTER,
+  CENTER_LEFT,
+  CENTER_RIGHT,
   TOP_CENTER,
   BOTTOM_CENTER,
   TOP_LEFT,

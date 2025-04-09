@@ -77,6 +77,7 @@ type (
 		Names        []string        `json:"names" msgpack:"names"`
 		Term         string          `json:"term" msgpack:"term"`
 		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		HasLabels    []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
 		Limit        int             `json:"limit" msgpack:"limit"`
 		Offset       int             `json:"offset" msgpack:"offset"`
 	}

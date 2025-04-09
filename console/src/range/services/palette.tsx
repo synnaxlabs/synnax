@@ -19,4 +19,11 @@ const CREATE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_COMMAND];
+const EXPLORER_COMMAND: Palette.Command = {
+  key: "open-range-explorer",
+  name: "Open the Range Explorer",
+  icon: <Icon.Explore />,
+  onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
+};
+
+export const COMMANDS = [CREATE_COMMAND, EXPLORER_COMMAND];
