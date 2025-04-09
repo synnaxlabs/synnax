@@ -256,10 +256,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleExport = useExport(EXTRACTORS);
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => {
-      console.log("rename", resources[0].id.toString());
-      Tree.startRenaming(resources[0].id.toString());
-    },
+    rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
     createLog: () => createLog(props),
     createPlot: () => createPlot(props),
