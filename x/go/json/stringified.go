@@ -12,6 +12,7 @@ package json
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ type String string
 
 var detailsCodec = &binary.JSONCodec{}
 
-func NewStaticString(ctx context.Context, data interface{}) String {
+func NewStaticString(ctx context.Context, data any) String {
 	b, err := detailsCodec.Encode(ctx, data)
 	if err != nil {
 		zap.S().DPanic("unexpected static encode error", zap.Error(err))
@@ -37,7 +38,7 @@ func (d *String) UnmarshalJSON(data []byte) error {
 		*d = String(plainString)
 		return nil
 	}
-	var obj interface{}
+	var obj any
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return errors.Wrap(err, "failed to unmarshal JSON")
 	}
