@@ -13,7 +13,6 @@ import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
   componentRenderProp,
   Haul,
   List as CoreList,
@@ -32,27 +31,16 @@ import { Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu, useLabels } from "@/range/ContextMenu";
-import { CREATE_LAYOUT, createCreateLayout } from "@/range/Create";
-import { EXPLORER_LAYOUT, EXPLORER_LAYOUT_TYPE } from "@/range/Explorer";
+import { CREATE_LAYOUT } from "@/range/Create";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, type Range, rename, setActive, type StaticRange } from "@/range/slice";
+import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
 
-interface NoRangesProps {
-  onLinkClick: (key?: string) => void;
-}
-
-const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
-  const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
-    e.stopPropagation();
-    onLinkClick();
-  };
-
-  const isExplorerOpen = Layout.useSelect(EXPLORER_LAYOUT_TYPE) != null;
-  const isExplorerFocused =
-    Layout.useSelectActiveMosaicTabKey() === EXPLORER_LAYOUT_TYPE;
-
+const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const handleLinkClick = () => {
+    placeLayout(CREATE_LAYOUT);
+  };
   return (
     <Align.Space
       empty
@@ -60,37 +48,10 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
       className={CSS.B("range-toolbar-no-ranges")}
     >
       <Align.Center y style={{ height: "100%" }} size="medium">
-        {isExplorerOpen ? (
-          <>
-            <Text.Text level="p">
-              <Icon.StarFilled /> or drag a range from the explorer to make it available
-              for viewing.
-            </Text.Text>
-            {!isExplorerFocused && (
-              <Text.Link
-                level="h5"
-                onClick={() => placeLayout(EXPLORER_LAYOUT)}
-                weight={700}
-              >
-                Focus Explorer
-              </Text.Link>
-            )}
-          </>
-        ) : (
-          <>
-            <Text.Text level="p">No ranges loaded.</Text.Text>
-            <Text.Link
-              level="h5"
-              onClick={() => placeLayout(EXPLORER_LAYOUT)}
-              weight={700}
-            >
-              Open Explorer
-            </Text.Link>
-            <Text.Link level="h5" onClick={handleLinkClick} weight={700}>
-              Create a Range
-            </Text.Link>
-          </>
-        )}
+        <Text.Text level="p">No ranges loaded.</Text.Text>
+        <Text.Link level="p" onClick={handleLinkClick}>
+          Create a Range
+        </Text.Link>
       </Align.Center>
     </Align.Space>
   );
@@ -105,23 +66,21 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const placeLayout = Layout.usePlacer();
-  const handleCreate = (key?: string): void => {
-    placeLayout(createCreateLayout({ key }));
-  };
-
   const drop = Haul.useDrop({
     type: "range-toolbar",
     canDrop: Haul.canDropOfType(ranger.ONTOLOGY_TYPE),
     onDrop: ({ items }) => {
-      const ranges = items.map((e) => ({
-        key: e.key,
-        name: e.data?.name,
-        variant: "static",
-        persisted: true,
-        timeRange: e.data?.timeRange,
-      }));
-      dispatch(add({ ranges: ranges as Range[] }));
+      const ranges = items.map(
+        ({ data, key }) =>
+          ({
+            key,
+            name: data?.name,
+            variant: "static",
+            persisted: true,
+            timeRange: data?.timeRange,
+          }) as StaticRange,
+      );
+      dispatch(add({ ranges }));
       return items;
     },
   });
@@ -131,7 +90,7 @@ const List = (): ReactElement => {
   return (
     <CoreList.List<string, StaticRange>
       data={ranges.filter((r) => r.variant === "static")}
-      emptyContent={<NoRanges onLinkClick={handleCreate} />}
+      emptyContent={<NoRanges />}
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
         <CoreList.Selector
@@ -218,23 +177,15 @@ const Content = (): ReactElement => {
     <Align.Space empty style={{ height: "100%" }}>
       <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Align.Pack>
-          <Button.Button
-            variant="filled"
-            size="small"
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            startIcon={<Icon.Explore />}
-          >
-            Explorer
-          </Button.Button>
-          <Button.Icon
-            variant="outlined"
-            size="small"
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-          >
-            <Icon.Add />
-          </Button.Icon>
-        </Align.Pack>
+        <Toolbar.Actions>
+          {[
+            {
+              key: "create",
+              children: <Icon.Add />,
+              onClick: () => placeLayout(CREATE_LAYOUT),
+            },
+          ]}
+        </Toolbar.Actions>
       </Toolbar.Header>
       <List />
     </Align.Space>

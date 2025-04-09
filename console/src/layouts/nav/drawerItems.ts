@@ -11,6 +11,7 @@ import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
 import { Device } from "@/hardware/device";
 import { type Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
@@ -24,4 +25,5 @@ export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ChannelServices.TOOLBAR,
   WorkspaceServices.TOOLBAR,
   UserServices.TOOLBAR,
+  Ontology.TOOLBAR,
 ];

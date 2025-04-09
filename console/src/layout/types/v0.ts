@@ -225,7 +225,15 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
       drawers: {
         left: {
           activeItem: null,
-          menuItems: ["channel", "range", "workspace", "device", "task", "user"],
+          menuItems: [
+            "ontology",
+            "channel",
+            "range",
+            "workspace",
+            "device",
+            "task",
+            "user",
+          ],
         },
         right: { activeItem: null, menuItems: [] },
         bottom: { activeItem: null, menuItems: ["visualization"] },

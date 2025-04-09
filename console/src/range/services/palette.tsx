@@ -19,6 +19,7 @@ const CREATE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const EXPLORER_COMMAND: Palette.Command = {
   key: "open-range-explorer",
   name: "Open the Range Explorer",
@@ -26,4 +27,4 @@ const EXPLORER_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_COMMAND, EXPLORER_COMMAND];
+export const COMMANDS = [CREATE_COMMAND];
