@@ -121,7 +121,7 @@ jobs:
           if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
             bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt //driver
           else
-            bazel build --enable_platform_specific_config -c opt //driver
+            bazel build --enable_platform_specific_config -c opt --config=hide_symbols //driver
           fi
 
       - name: Build Driver (Windows)
