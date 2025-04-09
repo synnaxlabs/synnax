@@ -230,9 +230,11 @@ public:
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
-            VLOG(1) << "[task_factory] configuring initial tasks for " << factory->name() << " integration";
+            VLOG(1) << "[task_factory] configuring initial tasks for "
+                    << factory->name() << " integration";
             auto new_tasks = factory->configure_initial_tasks(ctx, rack);
-            VLOG(1) << "[task_factory] configured " << new_tasks.size() << " tasks for " << factory->name() << " integration";
+            VLOG(1) << "[task_factory] configured " << new_tasks.size() << " tasks for "
+                    << factory->name() << " integration";
             for (auto &task: new_tasks)
                 tasks.emplace_back(std::move(task));
         }

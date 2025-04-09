@@ -131,9 +131,9 @@ ni::Factory::configure_initial_tasks(
         LOG(ERROR) << "[ni] failed to configure scan task: " << c_err;
         return tasks;
     }
-    tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task>>({sy_scan_task, std::move(task)})
-    );
+    tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task>>(
+        {sy_scan_task, std::move(task)}
+    ));
     return tasks;
 }
 
