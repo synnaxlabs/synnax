@@ -908,7 +908,7 @@ TEST(TestSeries, testJSONValuesBasic) {
 
     const telem::Series s(input_values);
     const auto output_values = s.json_values();
-    
+
     ASSERT_EQ(output_values.size(), input_values.size());
     for (size_t i = 0; i < input_values.size(); i++)
         ASSERT_EQ(output_values[i], input_values[i]);

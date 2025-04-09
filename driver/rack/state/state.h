@@ -82,10 +82,14 @@ public:
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
         auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME);
         if (err) {
-            LOG(WARNING) << "[rack_state] failed to retrieve rack stat channel: " << err;
+            LOG(WARNING) << "[rack_state] failed to retrieve rack stat channel: "
+                         << err;
             return nullptr;
         }
-        auto source = std::make_shared<Source>(ch.key, synnax::rack_key_from_task_key(task.key));
+        auto source = std::make_shared<Source>(
+            ch.key,
+            synnax::rack_key_from_task_key(task.key)
+        );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
             .start = telem::TimeStamp::now(),
