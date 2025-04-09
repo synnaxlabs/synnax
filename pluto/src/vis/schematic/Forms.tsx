@@ -454,7 +454,7 @@ export const CommonPolygonForm = (): ReactElement => (
           inputProps={{
             dragScale: { x: 0.5, y: 0.1 },
             bounds: { lower: 3, upper: 21 },
-            endContent: "px",
+            endContent: "sides",
           }}
           grow
         />
