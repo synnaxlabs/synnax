@@ -45,6 +45,7 @@ const Properties = () => (
   <>
     <Device.Select />
     <Common.Task.Fields.DataSaving />
+    <Common.Task.Fields.AutoStart />
   </>
 );
 

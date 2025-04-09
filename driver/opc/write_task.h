@@ -17,7 +17,6 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/opc/opc.h"
 #include "driver/opc/util/util.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
@@ -35,7 +34,7 @@ struct OutputChan {
     explicit OutputChan(xjson::Parser &parser):
         enabled(parser.optional<bool>("enabled", true)),
         node(util::parse_node_id("node_id", parser)),
-        cmd_channel([&parser]() {
+        cmd_channel([&parser] {
             auto ch = parser.optional("cmd_channel", 0);
             if (ch == 0) ch = parser.optional("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
@@ -43,9 +42,7 @@ struct OutputChan {
         }()) {}
 };
 
-struct WriteTaskConfig {
-    /// @brief the device representing the OPC UA server to read from.
-    std::string device;
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
@@ -55,7 +52,7 @@ struct WriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
     ):
-        device(parser.required<std::string>("device")) {
+        common::BaseWriteTaskConfig(parser) {
         parser.iter("channels", [&](xjson::Parser &channel_builder) {
             auto ch = std::make_unique<OutputChan>(channel_builder);
             if (ch->enabled) channels[ch->cmd_channel] = std::move(ch);
@@ -64,7 +61,7 @@ struct WriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device);
+        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;

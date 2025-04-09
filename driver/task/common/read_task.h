@@ -12,15 +12,15 @@
 /// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/task/common/common.h"
+#include "driver/task/common/sample_clock.h"
 #include "driver/task/common/state.h"
 #include "driver/task/task.h"
 #include "driver/transform/transform.h"
-#include "sample_clock.h"
 
 namespace common {
-struct BaseReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
+/// @brief common read task configuration parameters used across multiple drivers.
+struct BaseReadTaskConfig : BaseTaskConfig {
     /// @brief sets the sample rate for the task.
     const telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
@@ -29,7 +29,7 @@ struct BaseReadTaskConfig {
     common::TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        BaseTaskConfig(std::move(other)),
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
         timing(other.timing) {}
@@ -43,7 +43,7 @@ struct BaseReadTaskConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ):
-        data_saving(cfg.optional<bool>("data_saving", false)),
+        BaseTaskConfig(cfg),
         sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
         stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
         timing(timing_cfg) {

@@ -43,7 +43,7 @@ struct InputChan {
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
 };
 
-struct ReadTaskConfig : public common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
     /// @brief array_size;

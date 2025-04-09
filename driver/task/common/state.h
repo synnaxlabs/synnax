@@ -9,7 +9,11 @@
 
 #pragma once
 
+/// internal
+#include "driver/task/common/common.h"
 #include "driver/task/task.h"
+
+/// modules
 #include "x/cpp/status/status.h"
 
 namespace common {
@@ -106,21 +110,28 @@ struct StateHandler {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format.
-inline void handle_config_err(
+inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const xerrors::Error &err
+    common::ConfigureResult &res
 ) {
     task::State state;
     state.task = task.key;
     state.details["running"] = false;
-    if (err) {
+    if (res.error) {
         state.variant = status::VARIANT_ERROR;
-        state.details["message"] = err.message();
+        state.details["message"] = res.error.message();
     } else {
         state.variant = status::VARIANT_SUCCESS;
-        state.details["message"] = "Task configured successfully";
+        if (!res.auto_start) {
+            state.details["message"] = "Task configured successfully";
+        }
     }
-    ctx->set_state(state);
+    if (res.auto_start) {
+        task::Command start_cmd(task.key, START_CMD_TYPE, {});
+        res.task->exec(start_cmd);
+    } else
+        ctx->set_state(state);
+    return {std::move(res.task), true};
 }
 }

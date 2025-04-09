@@ -130,9 +130,17 @@ export const validateWriteChannels = (
   });
 };
 
-export const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Device.keyZ });
+export const baseConfigZ = z.object({
+  autoStart: z.boolean().default(false),
+  dataSaving: z.boolean(),
+  device: Device.keyZ,
+});
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-export const ZERO_BASE_CONFIG: BaseConfig = { dataSaving: true, device: "" };
+export const ZERO_BASE_CONFIG: BaseConfig = {
+  autoStart: false,
+  dataSaving: true,
+  device: "",
+};
 
 interface ConfigWithSampleRateAndStreamRate {
   sampleRate: number;

@@ -20,6 +20,21 @@
 #include "driver/task/task.h"
 
 namespace common {
+/// @brief common write task configuration parameters used across multiple drivers.
+struct BaseWriteTaskConfig : BaseTaskConfig {
+    /// @brief the key of the device the task is writing to.
+    const std::string device_key;
+
+    BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
+        BaseTaskConfig(std::move(other)), device_key(std::move(other.device_key)) {}
+
+    BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
+
+    const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
+
+    explicit BaseWriteTaskConfig(xjson::Parser &cfg):
+        BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
+};
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief a timer that is used to control the rate at which the state is
     /// propagated.

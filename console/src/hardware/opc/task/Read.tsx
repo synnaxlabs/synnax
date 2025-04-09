@@ -102,6 +102,7 @@ const Properties = (): ReactElement => {
           <Common.Task.Fields.StreamRate />
         )}
         <Common.Task.Fields.DataSaving />
+        <Common.Task.Fields.AutoStart />
       </Align.Space>
     </>
   );
