@@ -12,9 +12,9 @@
 .pluto-legend {
     position: absolute;
     cursor: grabbing;
-    padding: 0.5rem 1rem;
     z-index: 4;
     backdrop-filter: blur(4rem);
+    padding: 1rem;
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;
     max-height: 50%;
@@ -27,6 +27,9 @@
     .pluto-visible-toggle {
         width: 0;
         transition: width 0.2s ease-in-out;
+    }
+    &.pluto--with-visible-toggle {
+        padding: 0.5rem 0.5rem 0.5rem 1rem;
     }
 
     &:hover {

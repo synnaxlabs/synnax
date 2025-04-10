@@ -90,11 +90,12 @@ const FallBackRenderContent = ({
   }, []);
   return (
     <Align.Space y className={CSS.B("error-overlay")}>
-      <Nav.Bar location="top" size="6.5rem" className="console-main-nav-top">
+      <Nav.Bar location="top" size="6.5rem" className="console-main-nav-top" bordered>
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="macOS"
+            forceOS={os}
             onClose={() => {
               void getCurrentWindow().close();
             }}
@@ -113,6 +114,8 @@ const FallBackRenderContent = ({
           <OS.Controls
             className="console-controls--windows"
             visibleIfOS="Windows"
+            forceOS={os}
+            shade={0}
             onClose={() => {
               void getCurrentWindow().close();
             }}

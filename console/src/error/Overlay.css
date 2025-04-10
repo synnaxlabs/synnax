@@ -15,6 +15,16 @@
         max-width: 1200px;
     }
 
+    & .pluto-navbar.pluto--top {
+        padding-left: 2rem;
+        padding-right: 1rem;
+
+        & .synnax-logo {
+            height: 3rem;
+            width: 3rem;
+        }
+    }
+
     & .console-details {
         max-width: 650px;
     }
