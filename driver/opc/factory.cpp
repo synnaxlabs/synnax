@@ -35,6 +35,7 @@ configure_read(const std::shared_ptr<task::Context> &ctx, const synnax::Task &ta
         s = std::make_unique<opc::ArrayReadTaskSource>(client, std::move(cfg));
     else
         s = std::make_unique<opc::UnaryReadTaskSource>(client, std::move(cfg));
+    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -54,6 +55,7 @@ configure_write(const std::shared_ptr<task::Context> &ctx, const synnax::Task &t
     }
     auto [client, c_err] = util::connect(cfg.conn, "[opc.write]");
     if (c_err) return result;
+    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,

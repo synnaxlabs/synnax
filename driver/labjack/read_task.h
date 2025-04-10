@@ -497,7 +497,7 @@ public:
         for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
             auto &s = data.series->at(i);
             s.clear();
-            s.write_casted(&values[i++], 1);
+            s.write_casted(&values[i], 1);
         }
         const auto start = telem::TimeStamp::now();
         const auto end = start;

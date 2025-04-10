@@ -21,7 +21,6 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/breaker/breaker.h"
 
 /// internal
 #include "driver/ni/ni.h"
