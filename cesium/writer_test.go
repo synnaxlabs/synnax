@@ -524,11 +524,12 @@ var _ = Describe("Writer Behavior", func() {
 
 							By("Resolving the error to be commit error")
 							err := w.Error()
+							resultMatcher := ContainSubstring("overlaps with existing data occupying time range %v", (10 * telem.SecondTS).Range(14*telem.SecondTS+1))
 							Expect(err).To(MatchError(validate.Error))
-							Expect(err).To(MatchError(ContainSubstring("overlaps with existing data occupying time range %v", (10 * telem.SecondTS).Range(14*telem.SecondTS+1))))
+							Expect(err).To(MatchError(resultMatcher))
 
 							By("Closing the writer")
-							Expect(w.Close()).To(Succeed())
+							Expect(w.Close()).To(MatchError(resultMatcher))
 						})
 						It("Should work with the write method", func() {
 							start := 10 * telem.SecondTS
@@ -1584,8 +1585,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
 					))).To(BeTrue())
 					err = w.Error()
-					Expect(err).ToNot(HaveOccurred())
-					Expect(w.Close()).To(Succeed())
+					Expect(err).To(MatchError(validate.Error))
+					Expect(w.Close()).To(MatchError(validate.Error))
 				})
 			})
 

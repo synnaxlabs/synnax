@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 )
@@ -20,10 +21,10 @@ type synchronizer struct {
 	confluence.LinearTransform[Response, Response]
 }
 
-func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
+func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
 	s.internal.NodeCount = nodeCount
-	s.internal.SeqNum = 1
+	s.internal.Instrumentation = ins
 	s.Transform = s.sync
 	return s
 }

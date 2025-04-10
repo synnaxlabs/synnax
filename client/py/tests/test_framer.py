@@ -9,7 +9,6 @@
 
 import asyncio
 import time
-from operator import index
 
 import numpy as np
 import pandas as pd
@@ -77,7 +76,7 @@ class TestIterator:
     def test_advanced_iterate(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ):
-        [idx_ch, data_ch] = indexed_pair
+        idx_ch, data_ch = indexed_pair
         idx_ch.write(
             0,
             np.array(
@@ -450,6 +449,105 @@ class TestWriter:
         assert series[2] == 3
         assert series[3] == 4
         assert series[4] == 5
+
+    def test_write_uneven_samples_per_chan(
+        self, client: sy.Synnax,
+    ):
+        time_ch_1 = client.channels.create(
+            name="time",
+            data_type="timestamp",
+            is_index=True
+        )
+        data_ch_1 = client.channels.create(
+            name="data_1",
+            data_type="float64",
+            index=time_ch_1.key
+        )
+        data_ch_2 = client.channels.create(
+            name="data_2",
+            data_type="float32",
+            index=time_ch_1.key
+        )
+        start = sy.TimeStamp.now()
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(
+                start=start,
+                channels=[time_ch_1.key, data_ch_1.key, data_ch_2.key],
+                enable_auto_commit=True
+            ) as w:
+                for i in range(100):
+                    data = {
+                        "time": [
+                            start + 1 * sy.TimeSpan.SECOND,
+                            start + 2 * sy.TimeSpan.SECOND,
+                            start + 3 * sy.TimeSpan.SECOND
+                        ]
+                    }
+                    start = data["time"][-1]
+                    if i < 50:
+                        data = {
+                            **data,
+                            "data_1": [1, 2, 3],
+                            "data_2": [1, 2, 3]
+                        }
+                    else:
+                        data = {
+                            **data,
+                            "data_1": [1, 2, 3],
+                            "data_2": [1, 2]
+                        }
+                    w.write(data)
+
+    def test_repeated_calls_to_error(self, client: sy.Synnax, indexed_pair: tuple):
+        """Should not throw an error when calling error() multiple times"""
+        idx_ch, data_ch = indexed_pair
+        start = sy.TimeStamp.now()
+
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(start, [idx_ch.key, data_ch.key]) as w:
+                for i in range(10):
+                    assert w.error() is None
+                w.write({
+                    idx_ch.key: [start - i * sy.TimeSpan.SECOND],
+                    data_ch.key: [i],
+                })
+                w.commit()
+
+    def test_repeated_calls_to_error_2(self, client: sy.Synnax, indexed_pair: tuple):
+        """Should not throw an error when calling error() multiple times"""
+        idx_ch = client.channels.create(
+            name="time",
+            data_type="timestamp",
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name="data",
+            data_type="uint8",
+            index=idx_ch.key,
+        )
+        start = sy.TimeStamp.now()
+
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(start, [idx_ch.key, data_ch.key],
+                                    enable_auto_commit=True) as w:
+                w.write({
+                    idx_ch.key: [start],
+                    data_ch.key: [1],
+                })
+                w.write({
+                    idx_ch.key: [start - 2 * sy.TimeSpan.SECOND],
+                    data_ch.key: [3],
+                })
+                assert w.error() is not None
+                w.write({
+                    idx_ch.key: [start - 1 * sy.TimeSpan.SECOND],
+                    data_ch.key: sy.Series([123.24571], data_type=sy.DataType.UINT64)
+                })
+                assert w.error() is None
+                w.write({
+                    idx_ch.key: [start - 1 * sy.TimeSpan.SECOND],
+                    data_ch.key: [1,2,3,4]
+                })
 
 
 @pytest.mark.framer

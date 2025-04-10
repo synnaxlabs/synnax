@@ -29,6 +29,7 @@ type validator struct {
 	}
 	confluence.AbstractLinear[Request, Request]
 	accumulatedError error
+	seqNum           int
 }
 
 // Flow implements the confluence.Flow interface.
@@ -45,51 +46,22 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				if v.accumulatedError != nil {
-					if req.Command == Error {
-						if err := signal.SendUnderContext(
-							ctx,
-							v.responses.Out.Inlet(),
-							Response{Command: Error, Error: v.accumulatedError},
-						); err != nil {
-							return err
-						}
-						v.accumulatedError = nil
-					} else {
-						if err := signal.SendUnderContext(
-							ctx,
-							v.responses.Out.Inlet(),
-							Response{Command: req.Command, Ack: false},
-						); err != nil {
-							return err
-						}
+				v.seqNum++
+				res := Response{Command: req.Command, SeqNum: v.seqNum, Ack: true}
+				block := v.closed && (req.Command == Data || req.Command == Commit)
+				if v.accumulatedError != nil || block {
+					res.Error = v.accumulatedError
+					res.Ack = false
+				} else if v.accumulatedError = v.validate(req); v.accumulatedError != nil {
+					res.Ack = false
+				} else {
+					if err := signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
+						return err
 					}
 					continue
 				}
-
-				block := v.closed && (req.Command == Data || req.Command == Commit)
-				if block {
-					if err := signal.SendUnderContext(
-						ctx,
-						v.responses.Out.Inlet(),
-						Response{Command: req.Command, Ack: false, SeqNum: -1},
-					); err != nil {
-						return err
-					}
-				} else {
-					if v.accumulatedError = v.validate(req); v.accumulatedError != nil {
-						if err := signal.SendUnderContext(
-							ctx,
-							v.responses.Out.Inlet(),
-							Response{Command: req.Command, Ack: false, SeqNum: -1},
-						); err != nil {
-							return err
-						}
-					} else {
-						if err := signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
-							return err
-						}
-					}
+				if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), res); err != nil {
+					return err
 				}
 			}
 		}

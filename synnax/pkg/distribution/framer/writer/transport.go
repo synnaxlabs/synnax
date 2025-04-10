@@ -41,16 +41,9 @@ type Request struct {
 	// when open command is sent.
 	Config Config `json:"config" msgpack:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Data commands.
-	Frame core.Frame `json:"frame" msgpack:"keys"`
+	Frame  core.Frame `json:"frame" msgpack:"keys"`
+	SeqNum int
 }
-
-type ResponseVariant uint8
-
-const (
-	// Ack represents a successful acknowledgement.
-	Ack ResponseVariant = iota + 1
-	Control
-)
 
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
@@ -62,7 +55,6 @@ type Response struct {
 	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
 	Error         error            `json:"error" msgpack:"error"`
 	End           telem.TimeStamp  `json:"end" msgpack:"end"`
-	Variant       ResponseVariant  `json:"variant" msgpack:"variant"`
 	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
 }
 

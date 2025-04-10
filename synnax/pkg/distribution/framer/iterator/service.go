@@ -167,7 +167,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders())),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
 	)
 
 	plumber.MultiRouter[Response]{

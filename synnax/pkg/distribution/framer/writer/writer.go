@@ -10,6 +10,7 @@
 package writer
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -49,7 +50,8 @@ func (w *Writer) Commit() bool {
 	select {
 	case <-w.wg.Stopped():
 		return false
-	case <-w.responses.Outlet():
+	case v, ok := <-w.responses.Outlet():
+		fmt.Println(v, ok)
 		w.hasAccumulatedErr = true
 		return false
 	case w.requests.Inlet() <- Request{Command: Commit}:
