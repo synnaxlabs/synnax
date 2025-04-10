@@ -245,7 +245,7 @@ public:
             };
         }
 
-        std::vector<std::string> keys_to_erase;
+        std::vector<std::string> to_erase;
         for (auto &[key, dev]: this->dev_state) {
             if (present.find(key) != present.end()) continue;
             this->dev_state[key].dev.state = synnax::DeviceState{
@@ -257,18 +257,18 @@ public:
                     {"last_available", dev.last_available.nanoseconds()}
                 }
             };
-            std::vector<std::string> keys;
-            auto [dev, err] = this->client->retrieve_devices(keys);
+            std::vector<std::string> keys{dev.dev.key};
+            auto [other_dev, err] = this->client->retrieve_devices(keys);
             if (err && !err.matches(xerrors::NOT_FOUND)) {
                 LOG(WARNING) << "[scan_task] failed to retrieve device: "
                              << err.message();
                 continue;
             }
             if (err.matches(xerrors::NOT_FOUND) ||
-                dev[0].rack != synnax::rack_key_from_task_key(this->key))
-                keys_to_erase.push_back(key);
+                other_dev[0].rack != synnax::rack_key_from_task_key(this->key))
+                to_erase.push_back(key);
         }
-        for (const auto &key: keys_to_erase)
+        for (const auto &key: to_erase)
             this->dev_state.erase(key);
         if (const auto state_err = this->propagate_state())
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
