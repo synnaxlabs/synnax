@@ -64,6 +64,9 @@ class Factory final : public task::Factory {
     common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
+    bool check_health() const;
+
+    /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
     /// task state and return false.
     [[nodiscard]] bool check_health(

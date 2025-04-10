@@ -39,11 +39,15 @@ ni::Factory::Factory(
 ):
     dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
 
+bool ni::Factory::check_health() const {
+    return this->dmx != nullptr && this->syscfg != nullptr;
+}
+
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) const {
-    if (this->dmx != nullptr && this->syscfg != nullptr) return true;
+    if (this->check_health()) return true;
     ctx->set_state(
         {.task = task.key,
          .variant = status::VARIANT_ERROR,
@@ -111,7 +115,7 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->check_health(ctx, synnax::Task())) return {};
+    if (!this->check_health()) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,
