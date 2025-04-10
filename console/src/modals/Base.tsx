@@ -44,10 +44,10 @@ export const createBase = <R, A extends BaseArgs<R>>(
   ): Layout.BaseState<A> & Pick<Layout.State<A>, "key"> => ({
     name,
     type,
-    key,
     location: "modal",
     window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
     ...layoutOverrides,
+    key,
     args: { ...args, result: undefined },
   });
   const useModal = (): Prompt<R, A> => {
@@ -67,8 +67,8 @@ export const createBase = <R, A extends BaseArgs<R>>(
           const l = select(state, key);
           if (l == null) resolve(null);
           const args = selectArgs<A>(state, key);
-          if (args?.result == null) resolve(null);
-          else resolve(args.result);
+          if (args?.result == null) return;
+          resolve(args.result);
           unsubscribe?.();
         });
       });
@@ -78,6 +78,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
     const args = useSelectArgs<A>(layoutKey);
     const dispatch = useDispatch();
     const handleResult = (value: R | null) => {
+      console.log(value);
       if (value == null) return onClose();
       dispatch(
         setArgs<BaseArgs<R>>({

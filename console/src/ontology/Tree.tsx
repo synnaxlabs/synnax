@@ -567,13 +567,14 @@ const Internal = ({ root }: TreeProps): ReactElement => {
 
   const item = useCallback(
     (props: Core.ItemProps) => (
-      <AdapterItem {...props} key={props.entry.path} services={services} />
+      <AdapterItem {...props} services={services} key={props.entry.path} />
     ),
     [services],
   );
 
   return (
-    <Menu.ContextMenu menu={handleContextMenu} {...menuProps}>
+    <>
+      <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree
         onRename={handleRename}
         onDrop={handleDrop}
@@ -587,7 +588,7 @@ const Internal = ({ root }: TreeProps): ReactElement => {
       >
         {item}
       </Core.Tree>
-    </Menu.ContextMenu>
+    </>
   );
 };
 

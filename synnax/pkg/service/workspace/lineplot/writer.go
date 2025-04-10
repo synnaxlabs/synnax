@@ -27,10 +27,19 @@ func (w Writer) Create(
 	ws uuid.UUID,
 	p *LinePlot,
 ) (err error) {
+	var exists bool
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
+	} else {
+		exists, err = gorp.NewRetrieve[uuid.UUID, LinePlot]().WhereKeys(p.Key).Exists(ctx, w.tx)
+		if err != nil {
+			return
+		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, LinePlot]().Entry(p).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	if exists {
 		return
 	}
 	otgID := OntologyID(p.Key)

@@ -66,7 +66,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   replaceOnSingle,
   className,
-  size = "small",
+  size = "medium",
   actions,
   pack = true,
   variant,
@@ -117,12 +117,13 @@ const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Key
   onClick,
   selected,
   title,
+  size,
 }: ButtonOptionProps<K, E>): ReactElement => (
   <CoreButton.Button
     key={key}
     onClick={onClick}
     variant={selected ? "filled" : "outlined"}
-    size="small"
+    size={size}
   >
     {title as ReactNode}
   </CoreButton.Button>

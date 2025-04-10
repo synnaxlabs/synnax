@@ -388,7 +388,7 @@ export const Tree = ({
         onSuccessfulDrop,
         onDoubleClick,
       }),
-    [children, loading],
+    [children, loading, onDrop, onDoubleClick, onRename, onSuccessfulDrop],
   );
   return (
     <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>

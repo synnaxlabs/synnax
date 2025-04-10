@@ -130,6 +130,7 @@ const Content = () => {
   const [tasks, setTasks] = useState<SugaredTask[]>([]);
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
+  const confirm = Modals.useConfirm();
   const rename = useMutation({
     onMutate: ({ key }) => tasks.find((t) => t.key === key)?.name ?? "task",
     mutationFn: async ({ name, key }: RenameArgs) => {
@@ -142,6 +143,7 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
         });
+        console.log(confirmed);
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
@@ -243,7 +245,6 @@ const Content = () => {
         );
     },
   });
-  const confirm = Modals.useConfirm();
   const handleDelete = useMutation({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
