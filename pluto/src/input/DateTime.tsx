@@ -134,7 +134,7 @@ const DateTimeModal = ({
 }: DateTimeModalProps): ReactElement => (
   <Align.Space className={CSS.B("datetime-modal")} empty>
     <Align.Space className={CSS.B("content")}>
-      <Align.Space direction="x" className={CSS.B("header")}>
+      <Align.Space x className={CSS.B("header")}>
         <Text.DateTime level="h3" format="preciseDate">
           {value}
         </Text.DateTime>
@@ -142,15 +142,15 @@ const DateTimeModal = ({
       <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
         <Icon.Close />
       </Button.Icon>
-      <Align.Space direction="x" className={CSS.B("content")}>
+      <Align.Space x className={CSS.B("content")}>
         <AISelector value={value} onChange={onChange} close={close} />
         <Calendar value={value} onChange={onChange} />
       </Align.Space>
     </Align.Space>
     <Nav.Bar location="bottom" size="7rem">
       <Nav.Bar.Start size="small">
-        <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-        <Text.Text shade={7} level="small">
+        <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
+        <Text.Text shade={11} level="small">
           To Finish
         </Text.Text>
       </Nav.Bar.Start>
@@ -238,7 +238,7 @@ const AISelector = ({
     setEntries([]);
   };
   return (
-    <Align.Pack direction="y" className={CSS.B("ai-selector")}>
+    <Align.Pack y className={CSS.B("ai-selector")} background={1}>
       <InputText
         value={value}
         onChange={handleChange}
@@ -249,14 +249,14 @@ const AISelector = ({
         data={entries}
         emptyContent={
           <Align.Center empty grow>
-            <Align.Space direction="y" size={0.5}>
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+            <Align.Space y size="tiny">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "April 1 at 2PM"
               </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "Add 2 two hours"
               </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l5)">
+              <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "Next Friday"
               </Text.Text>
             </Align.Space>
@@ -270,7 +270,9 @@ const AISelector = ({
           onChange={handleSelect}
         >
           <List.Hover initialHover={0}>
-            <List.Core grow>{aiListItem}</List.Core>
+            <List.Core grow bordered>
+              {aiListItem}
+            </List.Core>
           </List.Hover>
         </List.Selector>
       </List.List>
@@ -326,14 +328,9 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const handleDayChange = (next: number): void => onChange(value.setDay(next));
 
   return (
-    <Align.Pack direction="x" className={CSS.B("datetime-picker")}>
-      <Align.Pack
-        direction="y"
-        align="stretch"
-        style={{ width: "37rem", height: "37rem" }}
-        className={CSS.B("calendar")}
-      >
-        <Align.Pack direction="x" grow>
+    <Align.Pack x className={CSS.B("datetime-picker")}>
+      <Align.Pack y align="stretch" className={CSS.B("calendar")}>
+        <Align.Pack x grow>
           <Button.Icon onClick={() => handleMonthChange(month - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Icon>
@@ -348,7 +345,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Icon.Caret.Right />
           </Button.Icon>
         </Align.Pack>
-        <Align.Pack direction="x" grow>
+        <Align.Pack x grow>
           <Button.Icon onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Icon>
@@ -359,12 +356,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Icon.Caret.Right />
           </Button.Icon>
         </Align.Pack>
-        <Align.Space
-          direction="x"
-          wrap
-          size={0.5}
-          style={{ padding: "0.5rem", height: "100%" }}
-        >
+        <Align.Space x wrap size="tiny" style={{ padding: "0.5rem", height: "100%" }}>
           {Array.from({ length: MONTHS[month].days }).map((_, i) => (
             <Button.Icon
               key={i}
@@ -430,12 +422,8 @@ interface TimeSelectorProps {
 }
 
 export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
-  <Align.Pack
-    direction="y"
-    className={CSS.B("time-selector")}
-    style={{ height: "37rem" }}
-  >
-    <Align.Pack direction="x" grow>
+  <Align.Pack y className={CSS.B("time-selector")} style={{ height: "37rem" }}>
+    <Align.Pack x grow>
       <HoursList
         value={value.hour}
         onChange={(next) => onChange(value.setHour(next))}

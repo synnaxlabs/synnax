@@ -14,7 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
-import { Menu } from "@/components";
+import { Menu } from "@/components/menu";
 import { createNewID } from "@/group/createNewID";
 import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
@@ -24,7 +24,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes, parent, resources },
+    selection: { nodes, resources },
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
@@ -36,7 +36,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     newGroup: () => createEmptyGroup(props),
     group: () => createFromSelection(props),
     link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+      handleLink({
+        name: resources[0].name,
+        ontologyID: resources[0].id.payload,
+      }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -53,12 +56,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <MenuItem selection={props.selection} />
-      {parent != null && (
-        <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
-          {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
-          {isDelete ? "Delete" : "Ungroup"}
-        </PMenu.Item>
-      )}
+      <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+        {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
+        {isDelete ? "Delete" : "Ungroup"}
+      </PMenu.Item>
       <PMenu.Divider />
       {singleResource && (
         <>
@@ -74,12 +75,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, selection, state: { nodes } }) => {
-      if (selection.parent == null) return;
+      if (selection.parentID == null) return;
       for (const res of selection.resources) {
         const id = res.id;
         const children =
           Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
-        const parentID = new ontology.ID(selection.parent.key);
+        const parentID = selection.parentID;
         const childKeys = children.map((c) => new ontology.ID(c.key));
         await client.ontology.moveChildren(id, parentID, ...childKeys);
         await client.ontology.groups.delete(id.key);
@@ -89,7 +90,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       e,
       { selection, handleError, state: { setNodes, nodes: prevNodes } },
     ) => {
-      if (selection.parent == null || prevNodes == null) return;
+      if (selection.parentID == null || prevNodes == null) return;
       setNodes(prevNodes);
       handleError(e, "Failed to ungroup resources");
     },
@@ -103,7 +104,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       selection,
       state: { nodes, setNodes },
     } = props;
-    if (selection.parent == null) return;
+    if (selection.parentID == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resources.sort((a, b) => {
       const a_depth =
@@ -113,13 +114,14 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       return b_depth - a_depth;
     });
     const prevNodes = Tree.deepCopy(nodes);
+    const isLevel0 = selection.nodes.some(({ depth }) => depth === 0);
     setNodes([
       ...selection.resources.reduce((acc, { id }) => {
         const children =
           Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
         acc = Tree.moveNode({
           tree: acc,
-          destination: selection.parent?.key as string,
+          destination: isLevel0 ? null : selection.parentID.toString(),
           keys: children.map((c) => c.key),
         });
         acc = Tree.removeNode({ tree: acc, keys: id.toString() });

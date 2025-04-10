@@ -15,8 +15,7 @@
 
 const std::string STREAM_ENDPOINT = "/frame/stream";
 
-using namespace synnax;
-
+namespace synnax {
 void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
@@ -33,18 +32,18 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     return {Streamer(std::move(s)), res_err};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
-    stream(std::move(stream)) {
-}
+Streamer::Streamer(std::unique_ptr<StreamerStream> stream): stream(std::move(stream)) {}
 
-std::pair<Frame, xerrors::Error> Streamer::read() const {
+std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     auto api_frame = fr.frame();
-    return {std::move(Frame(fr.frame())), exc};
+    return {synnax::Frame(fr.frame()), exc};
 }
 
-void Streamer::close_send() const { this->stream->close_send(); }
+void Streamer::close_send() const {
+    this->stream->close_send();
+}
 
 xerrors::Error Streamer::close() const {
     this->close_send();
@@ -61,4 +60,5 @@ xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
 
 void Streamer::assert_open() const {
     if (closed) throw std::runtime_error("streamer is closed");
+}
 }

@@ -11,7 +11,9 @@
     "astro": "astro",
     "algolia": "node ./src/util/algoliasearch.js",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "fix": "eslint --cache --fix",
+    "format": "prettier --write .",
+    "format-check": "prettier --check ."
   },
   "dependencies": {
     "@astrojs/mdx": "^4.2.0",
@@ -27,8 +29,8 @@
     "astro-seo": "^0.8.4",
     "clsx": "^2.1.1",
     "posthog-js": "^1.230.2",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "shiki": "^1.29.2",
     "zod": "^3.24.2"
   },
@@ -36,15 +38,16 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@types/html-escaper": "^3.0.4",
     "@types/offscreencanvas": "^2019.7.3",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.1",
     "algoliasearch": "^4.24.0",
     "dotenv": "^16.4.7",
-    "eslint": "^9.22.0",
+    "eslint": "^9.24.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
+    "prettier": "^3.5.3",
     "remove-markdown": "^0.6.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   }
 }

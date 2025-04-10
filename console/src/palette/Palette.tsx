@@ -98,6 +98,7 @@ export const Palette = ({
           className={CSS.B("palette")}
           location="bottom"
           variant="modal"
+          bordered={false}
         >
           <Button.Button
             onClick={open}
@@ -107,9 +108,11 @@ export const Palette = ({
             size="medium"
             justify="center"
             startIcon={<Icon.Search />}
-            shade={7}
+            shade={2}
+            textShade={9}
+            iconSpacing="small"
           >
-            Quick Search & Command Palette
+            Search & Command
           </Button.Button>
           <PaletteDialog
             value={value}
@@ -227,11 +230,7 @@ const PaletteDialog = ({
       allowMultiple={false}
     >
       <List.Hover<Key, Entry> initialHover={0}>
-        <Align.Pack
-          className={CSS.BE("palette", "content")}
-          direction="y"
-          borderShade={4}
-        >
+        <Align.Pack className={CSS.BE("palette", "content")} y bordered={false}>
           <Input.Text
             className={CSS(CSS.BE("palette", "input"))}
             placeholder={
@@ -244,6 +243,7 @@ const PaletteDialog = ({
             onChange={handleChange}
             value={value}
             autoComplete="off"
+            onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
           />
           <PaletteList mode={mode} services={services} />
         </Align.Pack>
@@ -265,7 +265,14 @@ const PaletteList = ({ mode, services }: PaletteListProps): ReactElement => {
     return componentRenderProp(Item);
   }, [mode, services]);
   return (
-    <List.Core<Key, Entry> className={CSS.BE("palette", "list")} itemHeight={27} grow>
+    <List.Core<Key, Entry>
+      className={CSS.BE("palette", "list")}
+      itemHeight={27}
+      grow
+      bordered
+      borderShade={6}
+      background={0}
+    >
       {item}
     </List.Core>
   );

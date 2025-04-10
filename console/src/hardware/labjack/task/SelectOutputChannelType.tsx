@@ -33,7 +33,6 @@ export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => 
   <Select.Button<OutputChannelType, OutputChannelTypeEntry>
     onClick={(e) => e.stopPropagation()}
     pack={false}
-    size="medium"
     {...props}
     data={OUTPUT_CHANNEL_TYPES}
     entryRenderKey="name"

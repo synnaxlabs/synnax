@@ -9,10 +9,6 @@ cc_library(
         "base.h",
         "control.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
@@ -24,25 +20,17 @@ cc_library(
 )
 
 cc_test(
-    name = "acquisition_test",
-    srcs = ["acquisition_test.cpp"],
-    deps = [
-        "//driver/pipeline",
-        "//driver/pipeline/mock",
-        "//x/cpp/xtest",
-        "@com_github_google_glog//:glog",
-        "@com_google_googletest//:gtest_main",
+    name = "pipeline_test",
+    srcs = [
+        "acquisition_test.cpp",
+        "base_test.cpp",
+        "control_test.cpp",
     ],
-)
-
-cc_test(
-    name = "control_test",
-    srcs = ["control_test.cpp"],
     deps = [
         "//driver/pipeline",
         "//driver/pipeline/mock",
         "//x/cpp/xtest",
-        "@com_github_google_glog//:glog",
-        "@com_google_googletest//:gtest_main",
+        "@glog",
+        "@googletest//:gtest_main",
     ],
 )

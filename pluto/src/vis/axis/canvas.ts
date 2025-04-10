@@ -22,7 +22,7 @@ import {
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type render } from "@/vis/render";
 
-const TICK_LINE_SIZE = 4;
+const TICK_LINE_SIZE = 5;
 
 class TickTextDimensions {
   private readonly numberDims: dimensions.Dimensions;
@@ -117,7 +117,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,
-        p.y + 5 + d.height,
+        p.y + 10 + d.height,
       );
     });
     // Add some extra padding to the bottom of the axis.

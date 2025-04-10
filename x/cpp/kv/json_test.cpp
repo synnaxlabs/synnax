@@ -1,22 +1,22 @@
+#include <filesystem>
 #include <gtest/gtest.h>
 #include "x/cpp/kv/kv.h"
-#include <filesystem>
 
 class JSONTest : public ::testing::Test {
 protected:
     std::string temp_path;
-    
+
     void SetUp() override {
         // Use system temp directory as base
         auto temp_dir = std::filesystem::temp_directory_path();
         temp_path = (temp_dir / "json_test" / "test.json").string();
     }
-    
+
     void TearDown() override {
         // Clean up test files after each test
         try {
             std::filesystem::remove_all(std::filesystem::path(temp_path).parent_path());
-        } catch (const std::filesystem::filesystem_error& e) {
+        } catch (const std::filesystem::filesystem_error &e) {
             // Log error but don't fail the test
             std::cerr << "Cleanup failed: " << e.what() << std::endl;
         }
@@ -27,11 +27,11 @@ TEST_F(JSONTest, CreateNewFile) {
     kv::JSONFileConfig config;
     config.path = temp_path;
     config.dir_mode = std::filesystem::perms::owner_read |
-                     std::filesystem::perms::owner_write |
-                     std::filesystem::perms::owner_exec;
+                      std::filesystem::perms::owner_write |
+                      std::filesystem::perms::owner_exec;
     config.file_mode = std::filesystem::perms::owner_read |
-                      std::filesystem::perms::owner_write;
-    
+                       std::filesystem::perms::owner_write;
+
     auto [kv, err] = kv::JSONFile::open(config);
     ASSERT_FALSE(err) << err.message();
     ASSERT_TRUE(std::filesystem::exists(temp_path));
@@ -41,10 +41,10 @@ TEST_F(JSONTest, SetGetDelete) {
     kv::JSONFileConfig config;
     config.path = temp_path;
     config.dir_mode = std::filesystem::perms::owner_read |
-                     std::filesystem::perms::owner_write |
-                     std::filesystem::perms::owner_exec;
+                      std::filesystem::perms::owner_write |
+                      std::filesystem::perms::owner_exec;
     config.file_mode = std::filesystem::perms::owner_read |
-                      std::filesystem::perms::owner_write;
+                       std::filesystem::perms::owner_write;
 
     auto [kv, err] = kv::JSONFile::open(config);
     ASSERT_FALSE(err) << err.message();
@@ -80,10 +80,10 @@ TEST_F(JSONTest, Persistence) {
     kv::JSONFileConfig config;
     config.path = temp_path;
     config.dir_mode = std::filesystem::perms::owner_read |
-                     std::filesystem::perms::owner_write |
-                     std::filesystem::perms::owner_exec;
+                      std::filesystem::perms::owner_write |
+                      std::filesystem::perms::owner_exec;
     config.file_mode = std::filesystem::perms::owner_read |
-                      std::filesystem::perms::owner_write;
+                       std::filesystem::perms::owner_write;
     // Write some data
     {
         auto [kv, err] = kv::JSONFile::open(config);

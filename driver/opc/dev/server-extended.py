@@ -81,8 +81,8 @@ async def main():
                 math.sin((timestamps[j] - start_ref).total_seconds())
                 for j in range(ARRAY_SIZE)
             ]
-            for arr in arrays:
-                await arr.set_value(values, varianttype=ua.VariantType.Float)
+            for i, arr in enumerate(arrays):
+                await arr.set_value([v + i for v in values], varianttype=ua.VariantType.Float)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start

@@ -49,16 +49,17 @@ export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
 
-const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
-  <Common.Task.ChannelName channel={channel} />
+const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
+  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
 );
 
 const name = componentRenderProp(NameComponent);
@@ -70,6 +71,7 @@ const Form: FC<
     {...props}
     createChannel={createDIChannel}
     name={name}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );
 

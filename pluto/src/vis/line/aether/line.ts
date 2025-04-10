@@ -40,6 +40,7 @@ export const stateZ = z.object({
   color: color.Color.z,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
+  visible: z.boolean().optional().default(true),
 });
 
 const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
@@ -65,6 +66,8 @@ export interface FindResult {
   label?: string;
   // The units of the line.
   units?: string;
+  // The minimum and maximum values of the line.
+  bounds: bounds.Bounds;
 }
 
 export const ZERO_FIND_RESULT: FindResult = {
@@ -72,6 +75,7 @@ export const ZERO_FIND_RESULT: FindResult = {
   position: xy.NAN,
   value: xy.NAN,
   color: color.ZERO,
+  bounds: bounds.ZERO,
 };
 
 export interface LineProps {
@@ -105,18 +109,9 @@ export class GLProgram extends render.GLProgram {
     TranslationBufferCacheEntry
   >();
 
-  // Add cached attribute locations
-  private readonly attrLocations: Record<string, number> = {};
-
   constructor(ctx: render.Context, vertShader: string, fragShader: string) {
     super(ctx, vertShader, fragShader);
     this.translationBufferCache = new Map();
-    // Cache commonly used attribute locations
-    this.attrLocations = {
-      x: this.renderCtx.gl.getAttribLocation(this.prog, "a_x"),
-      y: this.renderCtx.gl.getAttribLocation(this.prog, "a_y"),
-      translate: this.renderCtx.gl.getAttribLocation(this.prog, "a_translate"),
-    };
   }
 
   bindState({ strokeWidth, color }: ParsedState): number {
@@ -330,9 +325,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       label,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
+      bounds: { lower: 0, upper: 0 },
     };
 
-    if (index === -1 || series === -1) return result;
+    if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData[series];
     result.value.x = safelyGetDataValue(series, index, xData);
@@ -345,6 +341,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
     result.value.y = Number(ySeries.at(index - alignmentDiff));
 
+    result.bounds = { ...ySeries.bounds };
+
     result.position = {
       x: props.dataToDecimalScale.x.pos(result.value.x),
       y: props.dataToDecimalScale.y.pos(result.value.y),
@@ -353,7 +351,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async render(props: LineProps): Promise<void> {
-    if (this.deleted) return;
+    if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, ctx } = this.internal;
 

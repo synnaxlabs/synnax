@@ -242,13 +242,14 @@ func start(cmd *cobra.Command) {
 		hardwareSvc, err := hardware.OpenService(
 			ctx,
 			hardware.Config{
-				DB:           gorpDB,
-				Ontology:     dist.Ontology,
-				Group:        dist.Group,
-				HostProvider: dist.Cluster,
-				Signals:      dist.Signals,
-				Channel:      dist.Channel,
-				Framer:       dist.Framer,
+				Instrumentation: ins.Child("hardware"),
+				DB:              gorpDB,
+				Ontology:        dist.Ontology,
+				Group:           dist.Group,
+				HostProvider:    dist.Cluster,
+				Signals:         dist.Signals,
+				Channel:         dist.Channel,
+				Framer:          dist.Framer,
 			})
 		if err != nil {
 			return err

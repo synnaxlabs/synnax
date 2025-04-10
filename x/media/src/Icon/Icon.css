@@ -53,3 +53,9 @@
     --pluto-base-scale: 1.25;
     transform: scale(var(--pluto-base-scale));
 }
+
+.synnax-icon-units-current,
+.synnax-icon-units-voltage {
+    --pluto-base-scale: 1.05;
+    transform: scale(var(--pluto-base-scale));
+}

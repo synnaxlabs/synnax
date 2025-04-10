@@ -24,9 +24,10 @@ import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
-export interface HoverProps extends PropsWithChildren<{}> {
+export interface HoverProps<K extends Key = Key> extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
+  onEnter?: (key: K) => void;
 }
 
 const UP_TRIGGER: Triggers.Trigger = ["ArrowUp"];
@@ -50,6 +51,7 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   initialHover = -1,
   disabled = false,
+  onEnter,
 }: HoverProps): ReactElement => {
   const getData = useGetTransformedData<K, E>();
   const { transformedData: data } = useDataContext<K, E>();
@@ -79,6 +81,7 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       const data = getData();
       if (Triggers.match(triggers, [SELECT_TRIGGER])) {
         if (hoverRef.current === -1) return;
+        onEnter?.(data[hoverRef.current].key);
         onSelect?.(data[hoverRef.current].key);
         return;
       }

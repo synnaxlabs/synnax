@@ -199,6 +199,7 @@ export const DefaultItem = memo(
     index,
     sourceIndex,
     hovered,
+    ...rest
   }: ItemProps): ReactElement => {
     const {
       key,
@@ -279,8 +280,8 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
-    let offset = depth * 2.5 + 1;
-    if (actuallyHasChildren && useMargin) offset -= 1;
+    let offset = depth * 2.5 + 1.5;
+    if (actuallyHasChildren) offset -= 0.5;
 
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
@@ -318,7 +319,7 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps} align="center">
+      <Base className={CSS.BE("list", "item")} {...baseProps} align="center" {...rest}>
         {childrenProp != null ? (
           childrenProp({
             key,
@@ -375,6 +376,20 @@ export const Tree = ({
   ...rest
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
+  const child: List.ItemRenderProp<string, FlattenedNode> = useCallback(
+    ({ key, ...rest }) =>
+      children({
+        ...rest,
+        key,
+        loading: loading === key,
+        useMargin,
+        onDrop,
+        onRename,
+        onSuccessfulDrop,
+        onDoubleClick,
+      }),
+    [children, loading, onDrop, onDoubleClick, onRename, onSuccessfulDrop],
+  );
   return (
     <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
       <List.Selector<string, FlattenedNode>
@@ -388,18 +403,7 @@ export const Tree = ({
           className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
           {...rest}
         >
-          {({ key, ...rest }) =>
-            children({
-              ...rest,
-              key,
-              loading: loading === key,
-              useMargin,
-              onDrop,
-              onRename,
-              onSuccessfulDrop,
-              onDoubleClick,
-            })
-          }
+          {child}
         </Core>
       </List.Selector>
     </List.List>

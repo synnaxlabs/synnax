@@ -97,9 +97,9 @@ export const PropertiesControls = memo(
         .filter((el) => el !== null);
 
       return (
-        <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
+        <Align.Space align="start" x style={{ padding: "2rem" }}>
           <Input.Item label="Selection Colors" align="start">
-            <Align.Space direction="y">
+            <Align.Space y>
               {Object.entries(groups).map(([hex, elements]) => (
                 <Color.Swatch
                   key={elements[0].key}
@@ -112,7 +112,7 @@ export const PropertiesControls = memo(
             </Align.Space>
           </Input.Item>
           <Input.Item label="Align">
-            <Align.Space direction="x">
+            <Align.Space x>
               <Button.Icon
                 tooltip="Align nodes vertically"
                 onClick={() => {
@@ -184,7 +184,7 @@ const IndividualProperties = ({
   });
 
   return (
-    <Align.Space style={{ height: "100%" }} direction="y">
+    <Align.Space style={{ height: "100%" }} y>
       <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={selected.key} />
       </Form.Form>
@@ -197,10 +197,13 @@ interface EdgePropertiesProps {
   onChange: (key: string, props: any) => void;
 }
 
-const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
-  if (edge.type !== "edge") return <></>;
+const EdgeProperties = ({
+  edge,
+  onChange,
+}: EdgePropertiesProps): ReactElement | null => {
+  if (edge.type !== "edge") return null;
   return (
-    <Align.Space style={{ padding: "2rem" }} align="start" direction="x">
+    <Align.Space style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.edge.color ?? Color.ZERO}

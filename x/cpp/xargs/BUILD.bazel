@@ -4,7 +4,10 @@ cc_library(
         "xargs.h",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//x/cpp/xerrors"],
+    deps = [
+        "//x/cpp/caseconv",
+        "//x/cpp/xerrors",
+    ],
 )
 
 cc_test(
@@ -14,6 +17,6 @@ cc_test(
     ],
     deps = [
         "//x/cpp/xargs",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

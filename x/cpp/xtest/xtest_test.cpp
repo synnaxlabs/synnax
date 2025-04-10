@@ -13,20 +13,16 @@
 #include "gtest/gtest.h"
 
 /// internal
-#include "x/cpp/xtest/xtest.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xtest/xtest.h"
 
 class XTestTest : public ::testing::Test {
 protected:
     std::atomic<int> counter{0};
-    
-    void inc_counter() {
-        ++this->counter;
-    }
 
-    void SetUp() override {
-        this->counter = 0;
-    }
+    void inc_counter() { ++this->counter; }
+
+    void SetUp() override { this->counter = 0; }
 };
 
 TEST_F(XTestTest, TestEventuallyEQ) {
@@ -70,7 +66,7 @@ TEST_F(XTestTest, TestEventuallyEQWithCustomTimeout) {
     });
 
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        counter.load(), 
+        counter.load(),
         5,
         std::chrono::milliseconds(200),
         std::chrono::milliseconds(10)
@@ -114,4 +110,52 @@ TEST_F(XTestTest, TestMustSucceedSuccess) {
         return {42, xerrors::NIL};
     };
     EXPECT_EQ(ASSERT_NIL_P(successful_op()), 42);
+}
+
+TEST_F(XTestTest, TestEventuallyTrue) {
+    std::atomic<bool> flag{false};
+    std::thread t([&flag] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        flag = true;
+    });
+    ASSERT_EVENTUALLY_TRUE(flag.load());
+    t.join();
+}
+
+TEST_F(XTestTest, TestEventuallyFalse) {
+    std::atomic<bool> flag{true};
+    std::thread t([&flag] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        flag = false;
+    });
+    ASSERT_EVENTUALLY_FALSE(flag.load());
+    t.join();
+}
+
+TEST_F(XTestTest, TestEventuallyTrueWithCustomTimeout) {
+    std::atomic<bool> flag{false};
+    std::thread t([&flag] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        flag = true;
+    });
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        flag.load(),
+        std::chrono::milliseconds(200),
+        std::chrono::milliseconds(10)
+    );
+    t.join();
+}
+
+TEST_F(XTestTest, TestEventuallyFalseWithCustomTimeout) {
+    std::atomic<bool> flag{true};
+    std::thread t([&flag] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        flag = false;
+    });
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        flag.load(),
+        std::chrono::milliseconds(200),
+        std::chrono::milliseconds(10)
+    );
+    t.join();
 }

@@ -35,23 +35,25 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
-      direction="x"
-      size={0.5}
+      x
+      size="tiny"
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.5rem" }}
       {...props}
     >
       <Text.WithIcon
-        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l9)" }} />}
+        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
         level="p"
         weight={450}
-        shade={9}
+        shade={11}
         size="small"
       >
         {entry.name}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
+      <Align.Space x size="small">
+        <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
+      </Align.Space>
     </List.ItemFrame>
   );
 };
@@ -85,8 +87,8 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   }, [rangeKey, client?.key]);
 
   return (
-    <Align.Space direction="y">
-      <Text.Text level="h4" shade={9} weight={450}>
+    <Align.Space y>
+      <Text.Text level="h4" shade={11} weight={450}>
         Child Ranges
       </Text.Text>
       <List.List data={childRanges}>
@@ -94,7 +96,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       </List.List>
       <Button.Button
         size="medium"
-        shade={8}
+        shade={10}
         weight={500}
         startIcon={<Icon.Add />}
         style={{ width: "fit-content" }}

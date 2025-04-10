@@ -8,23 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import "@/index.css";
+import "@/main.css";
 
-import { TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Input } from "@/input";
+import { Align } from "@/align";
+import { CSS } from "@/css";
 import { Pluto } from "@/pluto";
 
-const Main = (): ReactElement => {
-  const [value, setValue] = useState<number>(Number(TimeStamp.now().valueOf()));
-  return (
+const Main = (): ReactElement => (
+  <Pluto.Provider>
     <div style={{ padding: "2rem" }}>
-      <Pluto.Provider>
-        <Input.DateTime value={value} onChange={setValue} />
-      </Pluto.Provider>
+      <Align.Space x className={CSS.B("stack")} />
     </div>
-  );
-};
+  </Pluto.Provider>
+);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

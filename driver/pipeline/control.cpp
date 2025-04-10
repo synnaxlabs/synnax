@@ -8,39 +8,38 @@
 // included in the file licenses/APL.txt.
 
 /// std
-#include <utility>
 #include <exception>
 #include <stdexcept>
+#include <utility>
 
 /// internal
-#include "driver/pipeline/control.h"
 #include "driver/errors/errors.h"
+#include "driver/pipeline/control.h"
 
-using namespace pipeline;
-
+namespace pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<pipeline::Sink> sink,
     const breaker::Config &breaker_config
-) : Control(
-    std::make_shared<SynnaxStreamerFactory>(std::move(client)),
-    streamer_config,
-    sink,
-    breaker_config
-) {
-}
+):
+    Control(
+        std::make_shared<SynnaxStreamerFactory>(std::move(client)),
+        streamer_config,
+        sink,
+        breaker_config
+    ) {}
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
     const breaker::Config &breaker_config
-) : Base(breaker_config),
+):
+    Base(breaker_config),
     factory(std::move(streamer_factory)),
     config(std::move(streamer_config)),
-    sink(std::move(sink)) {
-}
+    sink(std::move(sink)) {}
 
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
@@ -52,10 +51,8 @@ void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (
-            open_err.matches(freighter::UNREACHABLE)
-            && breaker.wait(open_err.message())
-        )
+        if (open_err.matches(freighter::UNREACHABLE) &&
+            breaker.wait(open_err.message()))
             return this->run();
         return this->sink->stopped_with_err(open_err);
     }
@@ -65,48 +62,45 @@ void Control::run() {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         if (sink_err = this->sink->write(cmd_frame); sink_err) {
-            if (
-                sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR)
-                && breaker.wait(sink_err.message())
-            )
+            if (sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+                breaker.wait(sink_err.message()))
                 continue;
             break;
         }
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (
-        close_err.matches(freighter::UNREACHABLE)
-        && breaker.wait()
-    )
-        return this->run();
-    if (sink_err) this->sink->stopped_with_err(sink_err);
-    else if (close_err) this->sink->stopped_with_err(close_err);
+    if (close_err.matches(freighter::UNREACHABLE) && breaker.wait()) return this->run();
+    if (sink_err)
+        this->sink->stopped_with_err(sink_err);
+    else if (close_err)
+        this->sink->stopped_with_err(close_err);
 }
 
-SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal)
-    : internal(std::move(internal)) {
-}
+SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
+    internal(std::move(internal)) {}
 
 std::pair<synnax::Frame, xerrors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 
-xerrors::Error SynnaxStreamer::close() { return this->internal.close(); }
+xerrors::Error SynnaxStreamer::close() {
+    return this->internal.close();
+}
 
-void SynnaxStreamer::close_send() { this->internal.close_send(); }
+void SynnaxStreamer::close_send() {
+    this->internal.close_send();
+}
 
 SynnaxStreamerFactory::SynnaxStreamerFactory(
-    const std::shared_ptr<synnax::Synnax> &client)
-    : client(std::move(client)) {
-}
+    const std::shared_ptr<synnax::Synnax> &client
+):
+    client(std::move(client)) {}
 
 std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
 SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
     auto [ss, err] = client->telem.open_streamer(config);
     if (err) return {nullptr, err};
-    return {
-        std::make_unique<SynnaxStreamer>(std::move(ss)),
-        xerrors::NIL
-    };
+    return {std::make_unique<SynnaxStreamer>(std::move(ss)), xerrors::NIL};
+}
 }

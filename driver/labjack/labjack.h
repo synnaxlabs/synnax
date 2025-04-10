@@ -10,9 +10,12 @@
 #pragma once
 
 #include "driver/labjack/device/device.h"
+#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
 namespace labjack {
+/// @brief make of LabJack devices.
+const std::string MAKE = "LabJack";
 /// @brief labjack integration name.
 const std::string INTEGRATION_NAME = "labjack";
 /// @brief T4 model name.
@@ -36,14 +39,14 @@ const std::vector UNREACHABLE_ERRORS = {
 
 /// @brief translates LJM errors into useful errors for managing the task lifecycle.
 inline xerrors::Error translate_error(const xerrors::Error &err) {
-    if (err.matches(UNREACHABLE_ERRORS))
-        return ljm::TEMPORARILY_UNREACHABLE;
+    if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
     return err;
 }
 
 /// @brief factory for creating and operating labjack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
+    common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -54,17 +57,22 @@ class Factory final : public task::Factory {
     ) const;
 
 public:
-    explicit Factory(const std::shared_ptr<device::Manager> &dev_manager):
-        dev_manager(dev_manager) {
-    }
+    explicit Factory(
+        const std::shared_ptr<device::Manager> &dev_manager,
+        const common::TimingConfig timing_cfg
+    ):
+        dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new Labjack factory, loading the LJM library.
-    static std::unique_ptr<Factory> create();
+    static std::unique_ptr<Factory>
+    create(common::TimingConfig timing_cfg = common::TimingConfig());
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override;
+
+    std::string name() override { return INTEGRATION_NAME; }
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
@@ -72,4 +80,4 @@ public:
         const synnax::Rack &rack
     ) override;
 };
-} 
+}

@@ -23,8 +23,9 @@ export const INFO_LAYOUT_TYPE = "versionInfo";
 export const INFO_LAYOUT: Layout.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
-  name: "Version Info",
-  location: "window",
+  name: "About.Version",
+  icon: "Info",
+  location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromWorkspace: true,
 };
@@ -45,8 +46,9 @@ export const Info: Layout.Renderer = () => {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      if (!updateQuery.isFetched || updateQuery.data?.available !== true) return;
+      if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
+      if (update == null) return;
       await update.downloadAndInstall((progress: DownloadEvent) => {
         if (progress.event === "Started")
           setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
@@ -76,21 +78,21 @@ export const Info: Layout.Renderer = () => {
       );
     else
       updateContent = (
-        <Align.Space direction="y" size="medium">
+        <Align.Space y size="medium">
           <Status.Text variant="loading" level="h4" size="medium">
             Downloading update
           </Status.Text>
-          <Align.Space direction="x" size="medium" align="center" justify="center">
+          <Align.Space x size="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
-            <Text.Text level="p" shade={6} noWrap>
+            <Text.Text level="p" shade={10} noWrap>
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
               {Math.ceil(updateSize.megabytes)} MB
             </Text.Text>
           </Align.Space>
         </Align.Space>
       );
-  else if (updateQuery.isFetched)
-    if (updateQuery.data?.available) {
+  else if (updateQuery.isSuccess)
+    if (updateQuery.data != null) {
       const version = updateQuery.data.version;
       updateContent = (
         <>
@@ -98,7 +100,7 @@ export const Info: Layout.Renderer = () => {
             Version {version} available
           </Status.Text>
           <Button.Button
-            variant="outlined"
+            variant="filled"
             disabled={updateMutation.isPending}
             onClick={() => updateMutation.mutate()}
           >
@@ -126,13 +128,8 @@ export const Info: Layout.Renderer = () => {
     );
 
   return (
-    <Align.Space
-      align="center"
-      direction="y"
-      size="large"
-      style={{ paddingTop: "6rem" }}
-    >
-      <Align.Space direction="y" size="small" justify="center" align="center">
+    <Align.Space align="center" y size="large" style={{ paddingTop: "6rem" }}>
+      <Align.Space y size="small" justify="center" align="center">
         <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
           <Logo variant="title" style={{ height: "10rem" }} />
         </a>
@@ -143,11 +140,11 @@ export const Info: Layout.Renderer = () => {
       {updateContent}
       <Text.Text
         level="small"
-        shade={6}
+        shade={10}
         weight={350}
-        style={{ position: "absolute", bottom: "2rem" }}
+        style={{ position: "absolute", bottom: "3rem" }}
       >
-        © 2022-2024 Synnax Labs, Inc. All rights reserved
+        © 2022-2025 Synnax Labs, Inc. All rights reserved
       </Text.Text>
     </Align.Space>
   );

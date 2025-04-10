@@ -19,7 +19,7 @@
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<pipeline::StreamerFactory> &factory,
     const std::vector<synnax::Channel> &read_from
-) :
+):
     pipe(
         factory,
         synnax::StreamerConfig{.channels = synnax::keys_from_channels(read_from)},
@@ -27,18 +27,16 @@ plugins::ChannelReceive::ChannelReceive(
         breaker::default_config("sequence.plugins.channel_receive")
     ),
     latest_values(read_from.size()),
-    channels(synnax::map_channel_Keys(read_from)) {
-}
+    channels(synnax::map_channel_Keys(read_from)) {}
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::vector<synnax::Channel> &read_from
-) :
+):
     ChannelReceive(
         std::make_shared<pipeline::SynnaxStreamerFactory>(client),
         read_from
-    ) {
-}
+    ) {}
 
 /// @brief implements plugins::Plugin to start receiving values from the read pipeline.
 xerrors::Error plugins::ChannelReceive::before_all(lua_State *L) {
@@ -59,10 +57,7 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
     for (int i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
         if (!frame.series->at(i).empty())
-            this->receiver.latest_values[key] = {
-                frame.series->at(i).at(-1),
-                true
-            };
+            this->receiver.latest_values[key] = {frame.series->at(i).at(-1), true};
     }
     return xerrors::NIL;
 }
@@ -75,17 +70,21 @@ xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
         if (!latest.changed) continue;
         const auto res = this->channels.find(key);
         if (res == this->channels.end()) {
-            LOG(WARNING) <<
-                    "[sequence.plugins.channel_receive] received value for unknown channel key: "
-                    << key;
+            LOG(WARNING) << "[sequence.plugins.channel_receive] received value for "
+                            "unknown channel key: "
+                         << key;
             continue;
         }
         const auto ch = res->second;
         if (const auto err = xlua::set_global_sample_value(
-            L, ch.name, ch.data_type, latest.value)) {
-            LOG(WARNING) <<
-                    "[sequence.plugins.channel_receive] failed to set global sample value. using nil instead: "
-                    << err;
+                L,
+                ch.name,
+                ch.data_type,
+                latest.value
+            )) {
+            LOG(WARNING) << "[sequence.plugins.channel_receive] failed to set global "
+                            "sample value. using nil instead: "
+                         << err;
         }
         this->latest_values[key].changed = false;
     }

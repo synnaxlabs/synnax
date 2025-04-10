@@ -12,19 +12,20 @@
 #include <utility>
 
 /// external
-#include "nlohmann/json.hpp"
 #include "glog/logging.h"
-#include "open62541/types.h"
-#include "open62541/client_highlevel.h"
+#include "nlohmann/json.hpp"
 #include "open62541/client.h"
+#include "open62541/client_highlevel.h"
+#include "open62541/types.h"
 
 /// module
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
 #include "driver/opc/scan_task.h"
 #include "driver/opc/util/util.h"
-#include "x/cpp/defer/defer.h"
 
 namespace opc {
 std::unique_ptr<task::Task> ScanTask::configure(
@@ -45,12 +46,8 @@ struct ScanContext {
     std::shared_ptr<std::vector<util::NodeProperties>> channels;
 };
 
-static UA_StatusCode node_iter(
-    UA_NodeId child_id,
-    UA_Boolean is_inverse,
-    UA_NodeId _,
-    void *raw_ctx
-) {
+static UA_StatusCode
+node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx) {
     if (is_inverse) return UA_STATUSCODE_GOOD;
     auto ctx = static_cast<ScanContext *>(raw_ctx);
     const auto ua_client = ctx->client.get();
@@ -81,8 +78,7 @@ static UA_StatusCode node_iter(
     if (!res.results[0].hasValue) return res.results[0].status;
     if (!res.results[1].hasValue) return res.results[1].status;
     UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
-    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
-        res.results[1].value.data
+    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(res.results[1].value.data
     );
     const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
     auto data_type = telem::UNKNOWN_T;
@@ -108,20 +104,18 @@ void ScanTask::scan(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->set_state({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+        return ctx->set_state(
+            {.task = task.key, .key = cmd.key, .details = parser.error_json()}
+        );
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
-        return ctx->set_state({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.message()}}
-        });
+        return ctx->set_state(
+            {.task = task.key,
+             .key = cmd.key,
+             .variant = status::VARIANT_ERROR,
+             .details = {{"message", err.message()}}}
+        );
 
     const auto scan_ctx = new ScanContext{
         ua_client,
@@ -136,11 +130,9 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = "success",
-        .details = util::DeviceProperties(
-            args.connection,
-            *scan_ctx->channels
-        ).to_json(),
+        .variant = status::VARIANT_SUCCESS,
+        .details = util::DeviceProperties(args.connection, *scan_ctx->channels)
+                       .to_json(),
     });
     delete scan_ctx;
 }
@@ -149,22 +141,20 @@ void ScanTask::test_connection(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->set_state({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+        return ctx->set_state(
+            {.task = task.key, .key = cmd.key, .details = parser.error_json()}
+        );
     if (const auto err = connect(args.connection, "[opc.scanner] ").second)
-        return ctx->set_state({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.data}}
-        });
+        return ctx->set_state(
+            {.task = task.key,
+             .key = cmd.key,
+             .variant = status::VARIANT_ERROR,
+             .details = {{"message", err.data}}}
+        );
     return ctx->set_state({
         .task = task.key,
         .key = cmd.key,
-        .variant = "success",
+        .variant = status::VARIANT_SUCCESS,
         .details = {{"message", "Connection successful"}},
     });
 }

@@ -32,11 +32,11 @@ public:
         const std::vector<xerrors::Error> &scan_errors_,
         const std::vector<xerrors::Error> &start_errors_,
         const std::vector<xerrors::Error> &stop_errors_
-    ): devices(devices_),
-       scan_errors(scan_errors_),
-       start_errors(start_errors_),
-       stop_errors(stop_errors_) {
-    }
+    ):
+        devices(devices_),
+        scan_errors(scan_errors_),
+        start_errors(start_errors_),
+        stop_errors(stop_errors_) {}
 
     xerrors::Error start() override {
         if (this->start_count >= start_errors.size()) return xerrors::NIL;
@@ -61,24 +61,30 @@ public:
     }
 };
 
-class MockClusterAPI final : public common::ClusterAPI {
+class MockClusterAPI : public common::ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::Device>> remote;
     std::shared_ptr<std::vector<synnax::Device>> created;
+    std::vector<telem::Series> propagated_states;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
         const std::shared_ptr<std::vector<synnax::Device>> &created_
-    ): remote(remote_), created(created_) {
-    }
+    ):
+        remote(remote_), created(created_) {}
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error> retrieve_devices(
-        std::vector<std::string> &keys) override {
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    retrieve_devices(std::vector<std::string> &keys) override {
         return {*remote, xerrors::NIL};
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
         created->insert(created->end(), devs.begin(), devs.end());
+        return xerrors::NIL;
+    }
+
+    xerrors::Error propagate_state(telem::Series &states) override {
+        propagated_states.push_back(std::move(states));
         return xerrors::NIL;
     }
 };
@@ -102,7 +108,10 @@ TEST(TestScanTask, testSingleScan) {
 
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -132,7 +141,6 @@ TEST(TestScanTask, testSingleScan) {
 }
 
 TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
-    // Create test devices
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
@@ -141,7 +149,6 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -150,12 +157,14 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         std::vector<xerrors::Error>{}
     );
 
-    // Setup remote devices - device1 already exists on the remote
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    remote_devices->push_back(dev1);  // Device 1 already exists remotely
-    
+    remote_devices->push_back(dev1); // Device 1 already exists remotely
+
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -175,27 +184,31 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         std::move(cluster_api)
     );
 
-    // Execute a scan
     ASSERT_NIL(scan_task.scan());
 
-    // Verify only device2 was created (device1 already existed)
     EXPECT_EQ(created_devices->size(), 1);
-    if (created_devices->size() >= 1)
-        EXPECT_EQ((*created_devices)[0].key, "device2");
+    if (!created_devices->empty()) EXPECT_EQ((*created_devices)[0].key, "device2");
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    // Create test devices
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
+    dev1.properties = "test_properties";
+    dev1.configured = true;
 
     synnax::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
+    dev1_moved.name = "cat";
+    dev1_moved.properties = "";
+    dev1_moved.configured = false;
 
     synnax::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
+    dev1_moved_2.name = "dog";
+    dev1_moved_2.properties = "test_properties";
+    dev1_moved_2.configured = false;
 
     // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
@@ -209,9 +222,12 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     // Setup remote devices - device1 already exists on the remote with rack1
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(dev1);
-    
+
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto cluster_api = std::make_unique<MockClusterAPI>(remote_devices, created_devices);
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -232,13 +248,110 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     );
 
     ASSERT_NIL(scan_task.scan());
-    
     EXPECT_EQ(created_devices->size(), 1);
-    EXPECT_EQ((*created_devices)[0].key, "device1");
-    EXPECT_EQ((*created_devices)[0].rack, 2);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).rack, 2);
+    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
-    EXPECT_EQ((*created_devices)[0].key, "device1");
-    EXPECT_EQ((*created_devices)[0].rack, 2);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).rack, 2);
+    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
+}
+
+TEST(TestScanTask, TestStatePropagation) {
+    synnax::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.state.key = "device1";
+    dev1.state.variant = status::VARIANT_SUCCESS;
+    dev1.state.rack = 1;
+    dev1.state.details = json::object();
+
+    synnax::Device dev2;
+    dev2.key = "device2";
+    dev2.name = "Device 2";
+    dev2.rack = 2;
+    dev2.state.key = "device2";
+    dev2.state.variant = status::VARIANT_WARNING;
+    dev2.state.rack = 2;
+    dev2.state.details = json::object();
+
+    // First scan will find both devices, second scan only dev1
+    std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}, {dev1}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+    auto cluster_api_ptr = cluster_api.get();
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    // First scan - both devices should be available
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 1);
+
+    auto &first_states = cluster_api_ptr->propagated_states[0];
+    ASSERT_EQ(first_states.size(), 2);
+
+    json state;
+    for (auto i = 0; i < first_states.size(); i++) {
+        first_states.at(0, state);
+        if (state["key"] == "device1") {
+            ASSERT_EQ(state["variant"], status::VARIANT_SUCCESS);
+            ASSERT_EQ(state["rack"], 1);
+        } else if (state["key"] == "device2") {
+            ASSERT_EQ(state["variant"], status::VARIANT_WARNING);
+            ASSERT_EQ(state["rack"], 2);
+        } else
+            FAIL() << "Unexpected device key: " << state["key"];
+    }
+
+
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 2);
+    auto &second_states = cluster_api_ptr->propagated_states[1];
+    ASSERT_EQ(second_states.size(), 2);
+
+    for (auto i = 0; i < second_states.size(); i++) {
+        second_states.at(0, state);
+        if (state["key"] == "device1") {
+            ASSERT_EQ(state["variant"], status::VARIANT_SUCCESS);
+            ASSERT_EQ(state["rack"], 1);
+        } else if (state["key"] == "device2") {
+            ASSERT_EQ(state["variant"], status::VARIANT_WARNING);
+            ASSERT_EQ(state["rack"], 2);
+            ASSERT_EQ(state["details"]["message"], "Device disconnected");
+        } else
+            FAIL() << "Unexpected device key: " << state["key"];
+    }
 }

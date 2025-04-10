@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
@@ -20,27 +20,29 @@ import { Triggers } from "@/triggers";
 import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
+export type FilteredMode = Exclude<Mode, "cancel">;
+
 interface Entry {
-  key: Mode;
+  key: FilteredMode;
   icon: PIcon.Element;
   tooltip: ReactNode;
 }
 
 interface TooltipProps {
-  mode: Mode;
+  mode: FilteredMode;
   triggers: Trigger[];
 }
 
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Align.Space direction="x" align="center">
+  <Align.Space x align="center">
     <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Align.Space empty direction="x" align="center">
+    <Align.Space empty x align="center">
       <Triggers.Text trigger={triggers[0]} level="small" />
     </Align.Space>
   </Align.Space>
 );
 
-const MODE_ICONS: Record<Mode, ReactElement> = {
+const MODE_ICONS: Record<FilteredMode, ReactElement> = {
   zoom: <Icon.Zoom />,
   pan: <Icon.Pan />,
   select: <Icon.Selection />,
@@ -50,7 +52,7 @@ const MODE_ICONS: Record<Mode, ReactElement> = {
 
 export interface SelectModeProps extends Omit<Select.ButtonProps<Mode>, "data"> {
   triggers: UseTriggers;
-  disable?: Mode[];
+  disable?: FilteredMode[];
 }
 
 export const SelectMode = ({
@@ -58,12 +60,16 @@ export const SelectMode = ({
   disable = ["zoomReset", "click"],
   ...rest
 }: SelectModeProps): ReactElement => {
+  const vDisabled = [...disable, "cancel"];
   const data = Object.entries(triggers)
-    .filter(([key]) => !disable.includes(key as Mode) && MODES.includes(key as Mode))
+    .filter(
+      ([key]) =>
+        !vDisabled.includes(key as FilteredMode) && MODES.includes(key as FilteredMode),
+    )
     .map(([key, value]) => ({
-      key: key as Mode,
-      icon: MODE_ICONS[key as Mode],
-      tooltip: <Tooltip mode={key as Mode} triggers={value as Trigger[]} />,
+      key: key as FilteredMode,
+      icon: MODE_ICONS[key as FilteredMode],
+      tooltip: <Tooltip mode={key as FilteredMode} triggers={value as Trigger[]} />,
     }))
     .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key)) as Entry[];
 
@@ -73,10 +79,10 @@ export const SelectMode = ({
         <Button.Icon
           {...rest}
           key={entry.key}
-          variant={rest.selected ? "filled" : "text"}
-          size="medium"
+          variant={rest.selected ? "filled" : "outlined"}
+          size="small"
           tooltip={entry.tooltip}
-          tooltipLocation={{ x: "right", y: "top" }}
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           {entry.icon}
         </Button.Icon>

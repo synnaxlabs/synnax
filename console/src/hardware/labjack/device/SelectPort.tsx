@@ -32,7 +32,7 @@ const COLUMNS: List.ColumnSpec<string, Port>[] = [
     name: "Aliases",
     render: ({ entry: { alias, key } }) =>
       alias != null ? (
-        <Text.Text level="small" shade={8}>
+        <Text.Text level="small" shade={10}>
           {key}
         </Text.Text>
       ) : null,

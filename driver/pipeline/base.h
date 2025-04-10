@@ -26,17 +26,14 @@ class Base {
             this->run();
         } catch (const std::exception &e) {
             LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
-        } catch (...) {
-            LOG(ERROR) << "[control] Unhandled unknown exception";
-        }
+        } catch (...) { LOG(ERROR) << "[control] Unhandled unknown exception"; }
     }
 
 protected:
     /// @brief a breaker for managing the lifecycle of the pipeline thread.
     breaker::Breaker breaker;
 
-    explicit Base(const breaker::Config &breaker_config) : breaker(breaker_config) {
-    }
+    explicit Base(const breaker::Config &breaker_config): breaker(breaker_config) {}
 
 public:
     virtual ~Base() = default;
@@ -57,25 +54,25 @@ public:
     /// @brief stops the pipeline. This method is idempotent.
     /// @returns true if this is the first call to stop() since the last call to
     /// start().
-    /// @returns false if this is an N+1 call to stop() since the last call to start().
-    /// @details this function is safe to call from within the pipeline operation thread
-    /// itself. If done so, the pipeline breaker will be stopped, but the thread will
-    /// not be joined. If calling stop() from within the pipeline itself, it's important
-    /// that stop() be called again before the pipeline is destructed in order to properly
-    /// join the thread.
+    /// @returns false if this is an N+1 call to stop() since the last call to
+    /// start().
+    /// @details this function is safe to call from within the pipeline operation
+    /// thread itself. If done so, the pipeline breaker will be stopped, but the
+    /// thread will not be joined. If calling stop() from within the pipeline
+    /// itself, it's important that stop() be called again before the pipeline is
+    /// destructed in order to properly join the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
-        if (
-            this->thread.get_id() != std::this_thread::get_id() &&
-            this->thread.joinable()
-        ) this->thread.join();
+        if (this->thread.get_id() != std::this_thread::get_id() &&
+            this->thread.joinable())
+            this->thread.join();
         return stopped;
     }
 
-    /// @brief returns true if the pipeline is currently running. This method may return
-    /// true if the pipeline is in a transient state i.e. start has been called but the
-    /// pipeline has not started or failed yet or if stop has been called but the pipeline
-    /// has not stopped yet.
+    /// @brief returns true if the pipeline is currently running. This method may
+    /// return true if the pipeline is in a transient state i.e. start has been
+    /// called but the pipeline has not started or failed yet or if stop has been
+    /// called but the pipeline has not stopped yet.
     bool running() const { return this->breaker.running(); }
 };
 }

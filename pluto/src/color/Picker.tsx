@@ -59,15 +59,16 @@ export const Picker = ({
 
   return (
     <Align.Space
-      direction="y"
+      y
       align="start"
       className={CSS.B("color-picker-container")}
+      background={1}
     >
       {position != null ||
         (onDelete != null && (
-          <Align.Space direction="x" justify="spaceBetween">
+          <Align.Space x justify="spaceBetween">
             {position != null && (
-              <Text.Text level="small" shade={7}>
+              <Text.Text level="small" shade={11}>
                 {position} %
               </Text.Text>
             )}
@@ -97,7 +98,7 @@ interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"
 const Frequent = ({ onChange }: FrequentProps) => {
   const frequent = useFrequent();
   return (
-    <Align.Space direction="x" wrap size={0.5}>
+    <Align.Space x wrap size="tiny">
       {frequent.map((c, i) => (
         <BaseSwatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
       ))}

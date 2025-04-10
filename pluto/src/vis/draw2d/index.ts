@@ -58,10 +58,13 @@ export interface DrawTextProps {
   text: string;
   position: xy.XY;
   level: text.Level;
+  justify?: CanvasTextAlign;
+  align?: CanvasTextBaseline;
   weight?: text.Weight;
   shade?: text.Shade;
   maxWidth?: number;
   code?: boolean;
+  color?: ColorSpec;
 }
 
 export interface DrawTextInCenterProps
@@ -90,6 +93,18 @@ export interface Draw2DTextContainerProps
   position: xy.XY;
   offset?: xy.XY;
   root?: location.CornerXY;
+}
+
+export interface DrawList {
+  length: number;
+  position: xy.XY;
+  itemHeight: number;
+  spacing?: number;
+  width: number;
+  draw: (index: number, box: box.Box) => void;
+  root?: location.CornerXY;
+  offset?: xy.XY;
+  padding?: xy.XY;
 }
 
 type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
@@ -258,6 +273,41 @@ export class Draw2D {
     ];
   }
 
+  list({
+    length,
+    itemHeight,
+    width,
+    spacing = 0,
+    position,
+    draw,
+    root = location.TOP_LEFT,
+    offset = xy.ZERO,
+    padding = xy.ZERO,
+  }: DrawList): void {
+    const height = length * itemHeight + padding.y * 2 + spacing * (length - 1);
+    const wid = width + padding.x * 2;
+    const pos = { ...position };
+    if (root.x === "right") pos.x -= width + offset.x * 2;
+    else pos.x += offset.x;
+    if (root.y === "top") pos.y -= height + offset.y * 2;
+    else pos.y += offset.y;
+    this.container({
+      region: box.construct(pos, { width: wid, height }),
+      backgroundColor: (t) => t.colors.gray.l1,
+    });
+    for (let i = 0; i < length; i++) {
+      const itemBox = box.construct(
+        xy.construct(
+          pos.x + padding.x,
+          pos.y + i * itemHeight + padding.y + spacing * i,
+        ),
+        width,
+        itemHeight,
+      );
+      draw(i, itemBox);
+    }
+  }
+
   drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
     const dims = textDimensions(text, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
@@ -272,11 +322,16 @@ export class Draw2D {
     shade,
     maxWidth,
     code,
+    justify = "left",
+    align = "top",
+    color,
   }: DrawTextProps): void {
     this.canvas.font = fontString(this.theme, { level, weight, code });
-    if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
+    if (color != null) this.canvas.fillStyle = this.resolveColor(color).hex;
+    else if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
     else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
-    this.canvas.textBaseline = "top";
+    this.canvas.textAlign = justify;
+    this.canvas.textBaseline = align;
     let removeScissor: Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));

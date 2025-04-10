@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -56,6 +57,18 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 // WhereOverlapsWith filters for ranges whose TimeRange overlaps with the
 func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 	r.gorp.Where(func(rng *Range) bool { return rng.TimeRange.OverlapsWith(tr) })
+	return r
+}
+
+func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
+	r.gorp.Where(func(rng *Range) bool {
+		oRng := rng.UseTx(r.baseTX)
+		labels, _ := oRng.ListLabels(context.Background())
+		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
+		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
+			return lo.Contains(matchLabels, l)
+		})
+	})
 	return r
 }
 

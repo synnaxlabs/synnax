@@ -55,10 +55,11 @@ export const READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
@@ -117,7 +118,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const Form = FORMS[channel.type];
   return (
     <>
-      <Align.Space direction="x">
+      <Align.Space x>
         <SelectInputChannelTypeField
           path={path}
           grow
@@ -240,6 +241,7 @@ const ChannelsForm = ({
       initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
     />
   );
 };

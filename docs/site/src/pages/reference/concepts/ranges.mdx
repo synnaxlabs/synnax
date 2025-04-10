@@ -21,7 +21,7 @@ To create a range, you only need to specify a name, a starting timestamp, and an
 timestamp. While a range can be used to query the data within a channel, it is not
 necessary to specify the channels that belong within a range.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Metadata
 
@@ -37,33 +37,33 @@ We generally recommend against storing large blobs of information as metadata, s
 consider storing a link to the configuration file in a cloud storage service or Git
 repository.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Channel Aliases
 
-Sometimes you want to refer to a channel by a different name within the scope of
-a range. For example, imagine you're connecting to a device with three analog input voltage
-channels: `ai_0`, `ai_1`, and `ai_2`. For an experiment where you're using the first input
-to measure pressure in a tank, you might want to refer to the channel as `tank_pressure`.
-For a second experiment, you may have the first analog input measuring temperature,
-and you'd want to refer to the channel as `temperature`.
+Sometimes you want to refer to a channel by a different name within the scope of a
+range. For example, imagine you're connecting to a device with three analog input
+voltage channels: `ai_0`, `ai_1`, and `ai_2`. For an experiment where you're using the
+first input to measure pressure in a tank, you might want to refer to the channel as
+`tank_pressure`. For a second experiment, you may have the first analog input measuring
+temperature, and you'd want to refer to the channel as `temperature`.
 
 _Aliases_ let you configure range-specific names for channels. When you query data
 within a range, you can search for the channel by both its original name and its alias.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Child Ranges
 
-Child ranges can be used to further segment a range into small, specific intervals.
-If you have a range that tracks a series of tests for a single component, you can create
-a range for all tests (typically called a campaign), and then create child ranges that
+Child ranges can be used to further segment a range into small, specific intervals. If
+you have a range that tracks a series of tests for a single component, you can create a
+range for all tests (typically called a campaign), and then create child ranges that
 identify specific tests within the campaign.
 
 Child ranges inherit the metadata and channel aliases from their parent range, but can
 override them within the scope of the child range.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Snapshots
 
@@ -74,22 +74,23 @@ capturing critical information such as calibrations, scaling values, and mapping
 physical ports and lines. The snapshot provides a permanent way to refer to the
 configuration of the task at the time the range was created.
 
-You can also create snapshots of other resources, such as [schematics](/reference/console/schematics).
+You can also create snapshots of other resources, such as
+[schematics](/reference/console/schematics).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Labels
 
-Labels are a simple way to categorize ranges into groups. They can be used to differentiate
-the ranges belonging to a specific process (assembly line or test stand), identify the
-status of a range (in progress, completed, success, failure), or any other category
-relevant to your team.
+Labels are a simple way to categorize ranges into groups. They can be used to
+differentiate the ranges belonging to a specific process (assembly line or test stand),
+identify the status of a range (in progress, completed, success, failure), or any other
+category relevant to your team.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Using Ranges
 
 There are a number of ways to create, access, and modify ranges within Synnax. The
 [Python](/reference/python-client/ranges) and TypeScript client libraries provide
-programmatic interfaces. Ranges can also be managed in the [Synnax
-Console](/reference/console/ranges).
+programmatic interfaces. Ranges can also be managed in the
+[Synnax Console](/reference/console/ranges).

@@ -52,7 +52,13 @@ export const validateChannels = (
 
 export const readChannelZ = channelZ.extend({ channel: channel.keyZ });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
-export const ZERO_READ_CHANNEL: ReadChannel = { ...ZERO_CHANNEL, channel: 0 };
+
+export const READ_CHANNEL_OVERRIDE: Pick<ReadChannel, "channel"> = { channel: 0 };
+
+export const ZERO_READ_CHANNEL: ReadChannel = {
+  ...ZERO_CHANNEL,
+  ...READ_CHANNEL_OVERRIDE,
+};
 
 export const validateReadChannels = (channels: ReadChannel[], ctx: z.RefinementCtx) => {
   validateChannels(channels, ctx);
@@ -79,15 +85,18 @@ export const writeChannelZ = channelZ.extend({
   stateChannel: channel.keyZ,
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+export const WRITE_CHANNEL_OVERRIDE: Pick<WriteChannel, "cmdChannel" | "stateChannel"> =
+  { cmdChannel: 0, stateChannel: 0 };
 export const ZERO_WRITE_CHANNEL: WriteChannel = {
   ...ZERO_CHANNEL,
-  cmdChannel: 0,
-  stateChannel: 0,
+  ...WRITE_CHANNEL_OVERRIDE,
 };
+
+export type WriteChannelType = "cmd" | "state";
 
 interface IndexAndType {
   index: number;
-  type: "cmd" | "state";
+  type: WriteChannelType;
 }
 
 export const validateWriteChannels = (
@@ -121,9 +130,17 @@ export const validateWriteChannels = (
   });
 };
 
-export const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Device.keyZ });
+export const baseConfigZ = z.object({
+  autoStart: z.boolean().default(false),
+  dataSaving: z.boolean(),
+  device: Device.keyZ,
+});
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-export const ZERO_BASE_CONFIG: BaseConfig = { dataSaving: true, device: "" };
+export const ZERO_BASE_CONFIG: BaseConfig = {
+  autoStart: false,
+  dataSaving: true,
+  device: "",
+};
 
 interface ConfigWithSampleRateAndStreamRate {
   sampleRate: number;

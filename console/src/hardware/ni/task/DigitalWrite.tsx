@@ -49,17 +49,22 @@ export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x">
+    <Align.Space x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
 
 const NameComponent = ({
-  entry: { cmdChannel, stateChannel },
+  entry: { cmdChannel, key, stateChannel },
 }: NameProps<DOChannel>) => (
-  <Common.Task.WriteChannelNames cmdChannel={cmdChannel} stateChannel={stateChannel} />
+  <Common.Task.WriteChannelNames
+    cmdChannel={cmdChannel}
+    stateChannel={stateChannel}
+    itemKey={key}
+  />
 );
 
 const name = componentRenderProp(NameComponent);
@@ -67,7 +72,12 @@ const name = componentRenderProp(NameComponent);
 const Form: FC<
   Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
 > = (props) => (
-  <DigitalChannelList {...props} createChannel={createDOChannel} name={name} />
+  <DigitalChannelList
+    {...props}
+    createChannel={createDOChannel}
+    name={name}
+    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+  />
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<

@@ -12,9 +12,10 @@
 namespace hardware::mock {
 
 Base::Base(
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors
-) : start_errors(start_errors),
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors
+):
+    start_errors(start_errors),
     stop_errors(stop_errors),
     start_call_count(0),
     stop_call_count(0) {}
@@ -33,36 +34,33 @@ xerrors::Error Base::stop() {
 
 template<typename T>
 Reader<T>::Reader(
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors,
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors,
     std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses
-) : Base(start_errors, stop_errors),
+):
+    Base(start_errors, stop_errors),
     read_responses(std::move(read_responses)),
     read_call_count(0) {}
 
 template<typename T>
-std::pair<ReadDigest, xerrors::Error> Reader<T>::read(
-    size_t samples_per_channel,
-    std::vector<T>& data
-) {
-    auto response = read_responses[std::min(read_call_count, read_responses.size() - 1)];
+ReadResult Reader<T>::read(size_t samples_per_channel, std::vector<T> &data) {
+    auto [res_data, err] = read_responses
+        [std::min(read_call_count, read_responses.size() - 1)];
     read_call_count++;
-    if (!response.first.empty())
-        std::copy(response.first.begin(), response.first.end(), data.begin());
-    total_samples_acquired += response.first.size();
-    ReadDigest dig;
-    dig.samps_per_chan_read = samples_per_channel;
-    dig.samps_per_chan_acquired = samples_per_channel;
-    return {dig, response.second};
+    if (!res_data.empty()) std::copy(res_data.begin(), res_data.end(), data.begin());
+    ReadResult res;
+    res.error = err;
+    return res;
 }
 
 template<typename T>
 Writer<T>::Writer(
     std::shared_ptr<std::vector<std::vector<T>>> written_data,
-    const std::vector<xerrors::Error>& start_errors,
-    const std::vector<xerrors::Error>& stop_errors,
+    const std::vector<xerrors::Error> &start_errors,
+    const std::vector<xerrors::Error> &stop_errors,
     std::vector<xerrors::Error> write_responses
-) : Base(start_errors, stop_errors),
+):
+    Base(start_errors, stop_errors),
     write_responses(std::move(write_responses)),
     write_call_count(0),
     written_data(written_data) {}
