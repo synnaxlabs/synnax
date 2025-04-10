@@ -29,7 +29,7 @@ const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
     variant="text"
     {...rest}
   >
-    <Icon style={{ color: "var(--pluto-gray-l7)" }} />
+    <Icon style={{ color: "var(--pluto-gray-l9)" }} />
   </Button.Icon>
 );
 
@@ -61,7 +61,7 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   const hasDisabledButtons = taskKey === "";
   return (
-    <Align.Space direction="x" empty>
+    <Align.Space x empty>
       <CopyButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}

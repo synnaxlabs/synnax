@@ -14,6 +14,7 @@
     grid-column: plot-start / plot-end;
     width: 100%;
     margin-left: 1rem;
+    z-index: 20;
 
     & > .pluto-rule__drag-handle {
         height: 1rem;
@@ -30,9 +31,9 @@
         align-items: center;
         justify-content: center;
         padding-right: 1rem;
-        border-color: var(--pluto-gray-l7);
-        -webkit-backdrop-filter: blur(3rem) saturate(180%);
+        border-color: var(--pluto-gray-l9);
         backdrop-filter: blur(3rem) saturate(180%);
+        -webkit-backdrop-filter: blur(3rem) saturate(180%);
         & .pluto-text {
             padding-top: 0.25rem;
             line-height: 1;
@@ -44,6 +45,5 @@
             margin-top: 1rem;
             margin-bottom: 0.75rem;
         }
-        z-index: 20;
     }
 }

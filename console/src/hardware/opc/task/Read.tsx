@@ -20,7 +20,7 @@ import { type FC, type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import { Form } from "@/hardware/opc/task/Form";
+import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   READ_TYPE,
   type ReadChannel,
@@ -61,7 +61,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
     path={`${path}.useAsIndex`}
     label="Use as Index"
     hideIfNull
-    direction="x"
+    x
     align="center"
     showHelpText={false}
     required={false}
@@ -80,7 +80,7 @@ const Properties = (): ReactElement => {
   return (
     <>
       <Device.Select />
-      <Align.Space direction="x" grow>
+      <Align.Space x>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"
@@ -102,6 +102,7 @@ const Properties = (): ReactElement => {
           <Common.Task.Fields.StreamRate />
         )}
         <Common.Task.Fields.DataSaving />
+        <Common.Task.Fields.AutoStart />
       </Align.Space>
     </>
   );
@@ -109,11 +110,9 @@ const Properties = (): ReactElement => {
 
 const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
   const nodeId = data?.nodeId as string;
-  const name = data?.name as string;
   return {
     key: nodeId,
-    name,
-    nodeName: name,
+    nodeName: data?.name as string,
     nodeId,
     channel: 0,
     enabled: true,
@@ -122,10 +121,20 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
   };
 };
 
+const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
+  key: channel,
+  id: Common.Task.getChannelNameID(key),
+});
+
 const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
   isSnapshot,
 }) => (
-  <Form isSnapshot={isSnapshot} convertHaulItemToChannel={convertHaulItemToChannel}>
+  <Form
+    isSnapshot={isSnapshot}
+    convertHaulItemToChannel={convertHaulItemToChannel}
+    getChannelKeyAndID={getChannelKeyAndID}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
+  >
     {isIndexItem}
   </Form>
 );
@@ -166,7 +175,7 @@ const determineIndexChannel = async ({
         const { isIndex, key, name } = await client.channels.retrieve(existingIndex);
         if (!isIndex)
           throw new Error(
-            `${indexChannelInTaskConfig.name} already exist as ${name}, but ${name} is not an index channel. Please remove the useAsIndex flag from ${indexChannelInTaskConfig.name} and reconfigure.`,
+            `${indexChannelInTaskConfig.nodeName} already exist as ${name}, but ${name} is not an index channel. Please remove the useAsIndex flag from ${indexChannelInTaskConfig.nodeName} and reconfigure.`,
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
@@ -176,7 +185,7 @@ const determineIndexChannel = async ({
         if (!NotFoundError.matches(e)) throw e;
       }
     const { key } = await client.channels.create({
-      name: indexChannelInTaskConfig.name,
+      name: indexChannelInTaskConfig.nodeName,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -241,9 +250,8 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
       const rCh = await client.channels.retrieve(exKey);
       if (rCh.index !== index)
         throw new Error(
-          `Channel ${ch.name} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
+          `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
         );
-      if (rCh.name !== ch.name) ch.name = rCh.name;
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
       else throw e;
@@ -251,7 +259,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
   }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
-      toCreate.map(({ name, dataType }) => ({ dataType, name, index })),
+      toCreate.map(({ nodeName, dataType }) => ({ dataType, name: nodeName, index })),
     );
     channels.forEach(
       ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),

@@ -41,7 +41,7 @@ const NoVis = (): ReactElement => {
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
-      <Align.Center direction="x" size="small">
+      <Align.Center x size="small">
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
@@ -65,6 +65,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   content: <Content />,
   tooltip: "Visualize",
   icon: <Icon.Visualize />,
-  minSize: 125,
+  minSize: 160,
   maxSize: 250,
+  trigger: ["V"],
 };

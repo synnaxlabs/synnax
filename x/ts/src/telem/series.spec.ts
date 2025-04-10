@@ -1064,4 +1064,43 @@ describe("MultiSeries", () => {
       expect(multi.timeRange).toEqual(new TimeRange(1, 4));
     });
   });
+
+  describe("as", () => {
+    it("should correctly cast a numeric series to number type", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      const asNum = multi.as("number");
+      expect(asNum.at(0)).toEqual(1);
+      expect(asNum.at(5)).toEqual(6);
+      expect(Array.from(asNum)).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it("should correctly cast a string series to string type", () => {
+      const a = new Series(["apple", "banana"]);
+      const b = new Series(["carrot", "date"]);
+      const multi = new MultiSeries([a, b]);
+      const asStr = multi.as("string");
+      expect(asStr.at(0)).toEqual("apple");
+      expect(asStr.at(3)).toEqual("date");
+      expect(Array.from(asStr)).toEqual(["apple", "banana", "carrot", "date"]);
+    });
+
+    it("should correctly cast a bigint series to bigint type", () => {
+      const a = new Series([1n, 2n]);
+      const b = new Series([3n, 4n]);
+      const multi = new MultiSeries([a, b]);
+      const asBigInt = multi.as("bigint");
+      expect(asBigInt.at(0)).toEqual(1n);
+      expect(asBigInt.at(3)).toEqual(4n);
+      expect(Array.from(asBigInt)).toEqual([1n, 2n, 3n, 4n]);
+    });
+
+    it("should throw an error when trying to cast to an incompatible type", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(() => multi.as("string")).toThrow();
+    });
+  });
 });

@@ -10,6 +10,8 @@
 #pragma once
 
 /// std
+#include <atomic>
+#include <mutex>
 #include <string>
 
 /// protos
@@ -21,8 +23,8 @@
 /// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
-#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
@@ -33,10 +35,8 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
-using AuthLoginClient =  freighter::UnaryClient<
-    api::v1::LoginRequest,
-    api::v1::LoginResponse
->;
+using AuthLoginClient = freighter::
+    UnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>;
 
 const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
@@ -52,7 +52,8 @@ struct ClusterInfo {
     std::string node_version;
     /// @brief the key of the node within the cluster.
     std::uint16_t node_key = 0;
-    /// @brief the time of the node at the midpoint of the server processing the request.
+    /// @brief the time of the node at the midpoint of the server processing the
+    /// request.
     telem::TimeStamp node_time = telem::TimeStamp(0);
 
     ClusterInfo() = default;
@@ -61,12 +62,12 @@ struct ClusterInfo {
         cluster_key(info.cluster_key()),
         node_version(info.node_version()),
         node_key(info.node_key()),
-        node_time(info.node_time()) {
-    }
+        node_time(info.node_time()) {}
 };
 
-/// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
-/// no preference on order when provided to use. Middleware is safe to use concurrently.
+/// @brief AuthMiddleware for authenticating requests using a bearer token.
+/// AuthMiddleware has no preference on order when provided to use. Middleware is safe
+/// to use concurrently.
 class AuthMiddleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
@@ -81,7 +82,8 @@ class AuthMiddleware final : public freighter::PassthroughMiddleware {
     std::string password;
     /// @brief
     std::mutex mu;
-    /// @brief the maximum clock skew between the client and server before logging a warning.
+    /// @brief the maximum clock skew between the client and server before logging a
+    /// warning.
     telem::TimeSpan clock_skew_threshold;
 
 public:
@@ -93,11 +95,11 @@ public:
         std::string username,
         std::string password,
         const telem::TimeSpan clock_skew_threshold
-    ) : login_client(std::move(login_client)),
+    ):
+        login_client(std::move(login_client)),
         username(std::move(username)),
         password(std::move(password)),
-        clock_skew_threshold(clock_skew_threshold) {
-    }
+        clock_skew_threshold(clock_skew_threshold) {}
 
     /// @brief authenticates with the credentials provided when constructing the
     /// Synnax client.
@@ -118,9 +120,13 @@ public:
             auto [host, _] = xos::get_hostname();
             auto direction = "ahead";
             if (skew_calc.skew() > telem::TimeSpan::ZERO()) direction = "behind";
-            LOG(WARNING) <<"measured excessive clock skew between this host and the Synnax cluster.";
-            LOG(WARNING) << "this host (" << host << ") is " << direction << "by approximately " << skew_calc.skew().abs();
-            LOG(WARNING) << "this may cause problems with time-series data consistency. We highly recommend synchronizing your clock with the Synnax cluster.";
+            LOG(WARNING) << "measured excessive clock skew between this host and the "
+                            "Synnax cluster.";
+            LOG(WARNING) << "this host (" << host << ") is " << direction
+                         << "by approximately " << skew_calc.skew().abs();
+            LOG(WARNING
+            ) << "this may cause problems with time-series data consistency. We highly "
+                 "recommend synchronizing your clock with the Synnax cluster.";
         }
 
         this->authenticated = true;
@@ -129,10 +135,8 @@ public:
 
     /// @brief implements freighter::Middleware, ensuring that all requests to the
     /// Synnax cluster are appropriately authenticated.
-    std::pair<freighter::Context, xerrors::Error> operator()(
-        freighter::Context context,
-        freighter::Next &next
-    ) override {
+    std::pair<freighter::Context, xerrors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
         if (!this->authenticated)
             if (const auto err = this->authenticate()) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + this->token);

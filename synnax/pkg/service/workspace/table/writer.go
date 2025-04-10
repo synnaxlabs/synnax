@@ -35,10 +35,19 @@ func (w Writer) Create(
 	ws uuid.UUID,
 	s *Table,
 ) (err error) {
+	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
+	} else {
+		exists, err = gorp.NewRetrieve[uuid.UUID, Table]().WhereKeys(s.Key).Exists(ctx, w.tx)
+		if err != nil {
+			return
+		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, Table]().Entry(s).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	if exists {
 		return
 	}
 	otgID := OntologyID(s.Key)

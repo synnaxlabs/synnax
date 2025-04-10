@@ -166,6 +166,11 @@ export const Editable = <L extends text.Level = text.Level>({
     el.blur();
   };
 
+  const handleKeyUp = (e: KeyboardEvent<HTMLParagraphElement>): void => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
   useLayoutEffect(() => {
     if (ref.current == null || !editable) return;
     triggerReflow(ref.current);
@@ -209,6 +214,7 @@ export const Editable = <L extends text.Level = text.Level>({
         handleUpdate(el);
       }}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning

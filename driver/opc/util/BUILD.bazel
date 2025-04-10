@@ -16,7 +16,7 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",
-        "@com_github_google_glog//:glog",
+        "@glog//:glog",
         "@nlohmann_json//:json",
     ],
 )
@@ -32,6 +32,6 @@ cc_test(
         "//driver/opc/mock",
         "//driver/opc/util",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

@@ -42,7 +42,7 @@ const listColumns: Array<List.ColumnSpec<string, Range>> = [
     render: ({ entry }) => {
       if (entry.variant === "dynamic")
         return (
-          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={7}>
+          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={11}>
             {new TimeSpan(entry.span).toString()}
           </Text.WithIcon>
         );
@@ -58,7 +58,7 @@ const RenderTag = ({
   <Tag.Tag
     icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
     onClose={onClose}
-    shade={9}
+    shade={11}
     level="small"
   >
     {entry?.name}
@@ -93,7 +93,7 @@ interface SelectMultipleInputItemProps
 const SelectEmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Center style={{ height: 150 }} direction="x">
+    <Align.Center style={{ height: 150 }} x>
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
@@ -111,7 +111,7 @@ export const SelectMultipleInputItem = ({
   selectProps,
   ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
-  <Input.Item direction="x" label="Ranges" {...rest}>
+  <Input.Item x label="Ranges" {...rest}>
     <SelectMultipleRanges
       data={data}
       value={value}

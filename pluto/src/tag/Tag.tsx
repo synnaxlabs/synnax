@@ -47,6 +47,8 @@ export const Tag = ({
         aria-label="close"
         size="small"
         className={CSS.BE("tag", "close")}
+        shade={1}
+        sharp
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -63,11 +65,13 @@ export const Tag = ({
       className={CSS(
         className,
         CSS.B("tag"),
+        CSS.size(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       level={Text.ComponentSizeLevels[size]}
       noWrap
       align="center"
+      size="small"
       onDragStart={onDragStart}
       {...rest}
     >

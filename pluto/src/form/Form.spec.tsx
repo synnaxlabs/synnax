@@ -325,8 +325,9 @@ describe("Form", () => {
         { wrapper },
       );
       res.result.current.f.onChange({ ssn: "123-45-6786", ein: "" });
-      await new Promise((r) => setTimeout(r, 30));
-      expect(res.result.current.cv.ssn).toBe("123-45-6786");
+      await expect
+        .poll(async () => res.result.current.cv.ssn === "123-45-6786")
+        .toBeTruthy();
     });
   });
 

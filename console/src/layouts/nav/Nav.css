@@ -9,23 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-main-nav-top {
-    max-width: 100vw;
-    & > * *:not(.pluto-text) {
-        -webkit-app-region: no-drag;
-    }
-}
-
-.console-main-nav {
+.console-nav__bar {
     .pluto-menu-item {
         position: relative;
         &.pluto--selected {
-            background: var(--pluto-gray-l3-80);
+            background: var(--pluto-gray-l4);
             transition: background 0.3s;
 
             &::after {
-                top: 3px;
-                height: calc(100% - 6px);
+                top: 0.5rem;
+                height: calc(100% - 1rem);
                 opacity: 1;
                 transition: all 0.15s;
             }
@@ -33,7 +26,7 @@
         &::after {
             content: "";
             position: absolute;
-            width: 3px;
+            width: 0.5rem;
             background: var(--pluto-primary-z);
             top: 50%;
             opacity: 0;
@@ -41,78 +34,156 @@
             transition: all 0.15s;
         }
     }
-}
 
-.console-main-nav.pluto--left {
-    .pluto-menu-item {
-        &::after {
+    &.pluto--top {
+        .synnax-logo {
+            height: 3rem;
+        }
+    }
+
+    &.pluto--left {
+        .pluto-menu-item::after {
             left: -1.5rem;
             border-top-right-radius: 0.5rem;
             border-bottom-right-radius: 0.5rem;
         }
+        .synnax-logo {
+            width: 5rem;
+        }
+    }
+
+    &.pluto--right .pluto-menu-item::after {
+        right: -1.5rem;
+        border-top-left-radius: 0.5rem;
+        border-bottom-left-radius: 0.5rem;
+    }
+
+    .pluto-navbar__content {
+        z-index: 2;
+    }
+
+    &.pluto--x {
+        padding-left: 3rem;
+        padding-right: 1.5rem;
+    }
+
+    &.pluto--y .pluto-navbar__content {
+        padding: 2rem 0rem;
     }
 }
 
-.console-main-nav.pluto--right {
-    .pluto-menu-item {
-        &::after {
-            right: -1.5rem;
-            border-top-left-radius: 0.5rem;
-            border-bottom-left-radius: 0.5rem;
+.console--os-macos .console-nav__bar.pluto--x {
+    padding-left: 2rem;
+}
+
+.console--os-windows .console-nav__bar.pluto--x,
+.console-mosaic__bar.console-nav__bar.pluto--x {
+    padding-right: 1rem;
+    padding-left: 2.5rem;
+    & .synnax-logo {
+        margin-right: 0.75rem;
+    }
+}
+
+.console--os-windows .console-mosaic__bar.pluto--x {
+    padding-left: 1rem;
+}
+
+.console-mosaic__bar.console-nav__bar.pluto--x {
+    .pluto--start {
+        justify-content: flex-end !important;
+        flex-direction: row-reverse !important;
+    }
+    & .synnax-logo {
+        display: none;
+    }
+}
+
+.console-nav__drawer {
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-v1);
+    opacity: 1;
+    flex-shrink: 0;
+
+    &.console--hover,
+    &.pluto--hidden {
+        &.pluto--bottom {
+            transition: transform 0.15s linear;
+        }
+        &.pluto--left {
+            transition:
+                opacity 0.05s linear,
+                transform 0.15s linear;
+        }
+        position: absolute;
+        z-index: 200;
+        &.pluto--bottom {
+            bottom: 1rem;
+            width: calc(100vw - 8rem - 1px);
+            left: calc(8rem - 2px);
+        }
+        &.pluto--left {
+            left: 8.5rem;
+            top: 6rem;
+            height: calc(100vh - 6rem - 0.5rem);
+        }
+    }
+    &.pluto--hidden {
+        pointer-events: none;
+        &.pluto--bottom {
+            transform: translateY(calc(100% + 3rem));
+        }
+        &.pluto--left {
+            opacity: 0;
+            transform: translateX(-2rem);
         }
     }
 }
 
-.pluto-navbar__content {
-    z-index: 2;
+.console--os-windows {
+    --top-left-edge-bar-width-large: 475px;
+    --top-right-edge-bar-width-large: 500px;
+    --top-left-edge-bar-width-medium: 290px;
+    --top-right-edge-bar-width-medium: 450px;
+    --top-left-edge-bar-width-small: fit-content;
+    --top-right-edge-bar-width-small: fit-content;
 }
 
-.console-main-nav-top__start {
-    padding: 0rem 2rem;
-    @media (min-width: 1200px) {
-        flex-basis: 350px;
+.console--os-macos {
+    --top-left-edge-bar-width-large: 450px;
+    --top-right-edge-bar-width-large: 450px;
+    --top-left-edge-bar-width-medium: 275px;
+    --top-right-edge-bar-width-medium: 350px;
+    --top-left-edge-bar-width-small: fit-content;
+    --top-right-edge-bar-width-small: fit-content;
+}
+
+.console-nav__bar.pluto--top {
+    --left-edge-bar-width: var(--top-left-edge-bar-width-large);
+    --right-edge-bar-width: var(--top-right-edge-bar-width-large);
+
+    & > .pluto--start {
+        width: var(--left-edge-bar-width);
+    }
+
+    & > .pluto--end {
+        width: var(--right-edge-bar-width);
     }
 }
 
-.console-main-nav-top__end {
-    @media (min-width: 1200px) {
-        flex-basis: 350px;
+@media (max-width: 1400px) {
+    .console-nav__bar.pluto--top {
+        --left-edge-bar-width: var(--top-left-edge-bar-width-medium);
+        --right-edge-bar-width: var(--top-right-edge-bar-width-medium);
     }
-    flex-basis: 250px;
 }
 
-.console-main-nav-top__center {
-    flex-shrink: 0;
-}
-
-.console-main:not(.console-main--windows) .console-main-nav-top__end {
-    padding: 0 2rem;
-}
-
-.console-main-nav-left__start {
-    padding: 2rem 1rem;
-}
-
-.console-main-nav-left__end {
-    padding: 2rem 1rem;
-}
-
-.console-main-nav-bottom__end {
-    padding: 0 1rem;
-}
-
-.console-main-nav-bottom__start {
-    padding: 0 3rem;
-}
-
-.console-main-nav-drawer--x {
-    overflow-x: hidden;
-}
-
-.console-main-nav-drawer {
-    flex: 0 0 auto;
-}
-
-.console-main-nav__content {
-    padding: 2.5rem 0;
+@media (max-width: 700px) {
+    .console-nav__bar.pluto--top {
+        --left-edge-bar-width: var(--top-left-edge-bar-width-small);
+        --right-edge-bar-width: var(--top-right-edge-bar-width-small);
+        & > .pluto--center {
+            justify-content: start !important;
+        }
+    }
 }

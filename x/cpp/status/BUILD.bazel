@@ -1,0 +1,5 @@
+cc_library(
+    name = "status",
+    srcs = ["status.h"],
+    visibility = ["//visibility:public"],
+)

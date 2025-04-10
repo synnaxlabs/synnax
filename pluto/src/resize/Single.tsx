@@ -27,6 +27,7 @@ export interface SingleProps
 }
 
 const COLLAPSED_SIZE = 2;
+const DEFAULT_MIN_SIZE = 100;
 
 /**
  * A panel that can be resized in one direction by dragging its handle.
@@ -42,8 +43,8 @@ export const Single = ({
   onCollapse,
   onResize,
   location: location_ = "left",
-  minSize = 100,
-  maxSize = Infinity,
+  minSize,
+  maxSize,
   initialSize = 200,
   collapseThreshold = Infinity,
   className,
@@ -61,7 +62,8 @@ export const Single = ({
         (1 - 2 * Number(["bottom", "right"].includes(loc)));
       const rawNextSize = marker.current + dim;
       const nextSize = clamp(rawNextSize, minSize, maxSize);
-      if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;
+      if ((nextSize - rawNextSize) / (minSize ?? DEFAULT_MIN_SIZE) > collapseThreshold)
+        return COLLAPSED_SIZE;
       return nextSize;
     },
     [loc, minSize, maxSize, collapseThreshold],
@@ -93,15 +95,14 @@ export const Single = ({
     [onCollapse, calcNextSize],
   );
 
-  useEffect(
-    () =>
-      setSize((prev) => {
-        const nextSize = clamp(prev, minSize, maxSize);
-        marker.current = nextSize;
-        return nextSize;
-      }),
-    [minSize, maxSize],
-  );
+  useEffect(() => {
+    if (minSize == null || maxSize == null) return;
+    setSize((prev) => {
+      const nextSize = clamp(prev, minSize, maxSize);
+      marker.current = nextSize;
+      return nextSize;
+    });
+  }, [minSize, maxSize]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,

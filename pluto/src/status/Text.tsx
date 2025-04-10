@@ -14,7 +14,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { type Variant } from "@/status/aether/types";
-import { variantColors } from "@/status/colors";
+import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
 export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"> {
@@ -35,7 +35,7 @@ const Core = ({
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   return (
     <BaseText.WithIcon
-      color={variantColors[variant]}
+      color={VARIANT_COLORS[variant]}
       className={CSS(className, CSS.B("status-text"))}
       level={level}
       startIcon={icon}

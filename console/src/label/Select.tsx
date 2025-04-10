@@ -28,7 +28,7 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <Align.Center style={{ height: 150 }} direction="y">
+    <Align.Center style={{ height: 150 }} y>
       <Status.Text variant="disabled" hideIcon>
         No labels created.
       </Status.Text>
@@ -50,7 +50,7 @@ export const SelectSingle = (props: SelectSingleProps) => (
 const AddButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Icon onClick={onClick}>
+    <Button.Icon onClick={onClick} variant="outlined">
       <Icon.Add />
     </Button.Icon>
   );

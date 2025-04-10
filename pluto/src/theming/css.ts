@@ -14,7 +14,10 @@ const OPACITIES: readonly number[] = [
   95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
 ];
 
-export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
+export const toCSSVars = (
+  theme: Theme,
+  addPrefix: string = "",
+): Record<string, number | string | undefined> =>
   Object.entries({
     "theme-name": theme.name,
     "theme-key": theme.key,
@@ -39,6 +42,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "gray-l3": theme.colors.gray.l3.hex,
     ...createHexOpacityVariants("gray-l3", theme.colors.gray.l3, OPACITIES),
     "gray-l4": theme.colors.gray.l4.hex,
+    ...createHexOpacityVariants("gray-l4", theme.colors.gray.l4, OPACITIES),
     "gray-l5": theme.colors.gray.l5.hex,
     ...createHexOpacityVariants("gray-l5", theme.colors.gray.l5, OPACITIES),
     "gray-l6": theme.colors.gray.l6.hex,
@@ -46,9 +50,13 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "gray-l7": theme.colors.gray.l7.hex,
     ...createHexOpacityVariants("gray-l7", theme.colors.gray.l7, OPACITIES),
     "gray-l8": theme.colors.gray.l8.hex,
+    ...createHexOpacityVariants("gray-l8", theme.colors.gray.l8, OPACITIES),
     "gray-l9": theme.colors.gray.l9.hex,
-    ...createHexOpacityVariants("gray-l9", theme.colors.gray.l9, OPACITIES),
+    ...createHexOpacityVariants("gray-l9", theme.colors.gray.l11, OPACITIES),
     "gray-l10": theme.colors.gray.l10.hex,
+    ...createHexOpacityVariants("gray-l10", theme.colors.gray.l10, OPACITIES),
+    "gray-l11": theme.colors.gray.l11.hex,
+    ...createHexOpacityVariants("gray-l11", theme.colors.gray.l11, OPACITIES),
     "logo-color": theme.colors.logo,
     "error-m2": theme.colors.error.m2.hex,
     "error-m1": theme.colors.error.m1.hex,
@@ -78,6 +86,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
+    "border-thick-width": unitProperty(theme.sizes.border.thickWidth, "px"),
     "schematic-element-stroke-width": unitProperty(
       theme.sizes.schematic.elementStrokeWidth,
       "px",
@@ -109,7 +118,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
   }).reduce<Record<string, number | string | undefined>>(
     (acc, [key, value]) => ({
       ...acc,
-      [CSS.var(key)]: value,
+      [CSS.var(addPrefix + key)]: value,
     }),
     {},
   );

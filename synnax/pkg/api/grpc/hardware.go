@@ -334,6 +334,14 @@ func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.Hard
 func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveDeviceRequest) (*gapi.HardwareRetrieveDeviceRequest, error) {
 	return &gapi.HardwareRetrieveDeviceRequest{
 		Keys:           req.Keys,
+		Names:          req.Names,
+		Makes:          req.Makes,
+		Models:         req.Models,
+		Locations:      req.Locations,
+		Search:         req.Search,
+		Racks:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Racks),
+		Limit:          uint32(req.Limit),
+		Offset:         uint32(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 	}, nil
 }
@@ -341,6 +349,14 @@ func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.Hardwa
 func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveDeviceRequest) (api.HardwareRetrieveDeviceRequest, error) {
 	return api.HardwareRetrieveDeviceRequest{
 		Keys:           req.Keys,
+		Names:          req.Names,
+		Makes:          req.Makes,
+		Models:         req.Models,
+		Locations:      req.Locations,
+		Search:         req.Search,
+		Limit:          int(req.Limit),
+		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
+		Offset:         int(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
 	}, nil
 }

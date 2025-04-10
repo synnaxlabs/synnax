@@ -50,9 +50,8 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(m.key), r.key);
-    ASSERT_NE(synnax::task_key_local(m.key), 0);
-
+    ASSERT_EQ(synnax::rack_key_from_task_key(m.key), r.key);
+    ASSERT_NE(synnax::local_task_key(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -64,8 +63,8 @@ TEST(TaskTests, testRetrieveTask) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
-    ASSERT_EQ(synnax::task_key_local(t2.key), synnax::task_key_local(t.key));
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(synnax::local_task_key(t2.key), synnax::local_task_key(t.key));
     ASSERT_TRUE(t2.snapshot);
 }
 
@@ -79,7 +78,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should retrieve a task by its type
@@ -92,7 +91,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(t.key), r.key);
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -105,8 +104,8 @@ TEST(TaskTests, testListTasks) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::task_key_rack(tasks[0].key), r.key);
-    ASSERT_NE(synnax::task_key_local(tasks[0].key), 0);
+    ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
+    ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
 }
 
 /// @brief it should correctly create a device.
@@ -185,15 +184,17 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_EQ(devices.size(), 2);
 
     // Find and verify first device
-    auto it1 = std::find_if(devices.begin(), devices.end(),
-                            [&d1](const Device &d) { return d.key == d1.key; });
+    auto it1 = std::find_if(devices.begin(), devices.end(), [&d1](const Device &d) {
+        return d.key == d1.key;
+    });
     ASSERT_NE(it1, devices.end());
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");
 
     // Find and verify second device
-    auto it2 = std::find_if(devices.begin(), devices.end(),
-                            [&d2](const Device &d) { return d.key == d2.key; });
+    auto it2 = std::find_if(devices.begin(), devices.end(), [&d2](const Device &d) {
+        return d.key == d2.key;
+    });
     ASSERT_NE(it2, devices.end());
     ASSERT_EQ(it2->name, "test_device_2");
     ASSERT_EQ(it2->location, "location_2");
@@ -241,8 +242,8 @@ TEST(DeviceTests, testCreateDevices) {
 
     // Verify each device was created correctly by retrieving them
     for (const auto &device: devices) {
-        const auto retrieved =
-                ASSERT_NIL_P(client.hardware.retrieve_device(device.key));
+        const auto retrieved = ASSERT_NIL_P(client.hardware.retrieve_device(device.key)
+        );
         ASSERT_EQ(retrieved.key, device.key);
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
@@ -360,7 +361,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
 
     // Verify that the remaining device is the second one
     bool found = false;
-    for (const Device& device : devices) {
+    for (const Device &device: devices) {
         if (device.key == d2.key) {
             ASSERT_EQ(device.name, "test_device_2");
             found = true;
@@ -375,7 +376,7 @@ TEST(DeviceTests, testDeleteDevice) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
     ASSERT_NIL(client.hardware.create_rack(r));
-    
+
     auto d = Device(
         "device_key",
         "test_device",
@@ -386,9 +387,9 @@ TEST(DeviceTests, testDeleteDevice) {
         "test_properties"
     );
     ASSERT_NIL(client.hardware.create_device(d));
-    
+
     ASSERT_NIL(client.hardware.delete_device(d.key));
-    
+
     auto [_, err] = client.hardware.retrieve_device(d.key);
     ASSERT_TRUE(err);
     ASSERT_MATCHES(err, xerrors::NOT_FOUND);
@@ -436,8 +437,8 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
 
     // Test retrieving non-existent device with ignore_not_found=true
     const auto [device1, err1] = client.hardware.retrieve_device(
-        "nonexistent_key", 
-        true  // ignore_not_found
+        "nonexistent_key",
+        true // ignore_not_found
     );
     ASSERT_FALSE(err1);
     ASSERT_TRUE(device1.key.empty());
@@ -457,7 +458,7 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
     std::vector<std::string> keys = {d1.key, "nonexistent_key"};
     const auto [devices, err2] = client.hardware.retrieve_devices(
         keys,
-        true  // ignore_not_found
+        true // ignore_not_found
     );
     ASSERT_FALSE(err2);
     ASSERT_EQ(devices.size(), 1);

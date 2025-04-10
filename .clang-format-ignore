@@ -1,0 +1,12 @@
+*.pb.cc
+*.pb.h
+*.pb.c
+*.pb.c++
+nisyscfg.h
+nisyscfg_wide.h
+nisyscfg_errors.h
+nidaqmx.h
+LabJackM.h
+LabJackMModbusMap.h
+LJM_Utilities.h
+LJM_StreamUtilities.h

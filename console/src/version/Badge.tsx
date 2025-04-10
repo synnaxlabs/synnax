@@ -25,8 +25,11 @@ export const Badge = (): ReactElement => {
     <Button.Button
       onClick={() => placeLayout(INFO_LAYOUT)}
       variant="text"
-      size="medium"
-      color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}
+      size="small"
+      level="small"
+      color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-gray-l9)"}
+      weight={500}
+      shade={2}
     >
       {`v${version}`}
     </Button.Button>

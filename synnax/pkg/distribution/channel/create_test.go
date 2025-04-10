@@ -168,6 +168,68 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 		})
+		Describe("OverwriteIfNameExists", func() {
+
+			It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func() {
+				// Create initial channel
+				ch := channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "SG0001",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				Expect(services[1].Create(ctx, &ch)).To(Succeed())
+				originalKey := ch.Key()
+
+				// Try to create a new channel with the same name but different properties
+				newCh := channel.Channel{
+					Rate:        10 * telem.Hz,
+					Name:        "SG0001",
+					DataType:    telem.Float32T,
+					Leaseholder: 1,
+				}
+
+				Expect(services[1].Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
+
+				var resChannels []channel.Channel
+				err := services[1].NewRetrieve().WhereKeys(newCh.Key()).Entries(&resChannels).Exec(ctx, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resChannels).To(HaveLen(1))
+
+				Expect(resChannels[0].Rate).To(Equal(10 * telem.Hz))
+				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
+
+				err = services[1].NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
+				Expect(err).To(MatchError(query.NotFound))
+			})
+			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func() {
+				ch := channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "SG0001",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				Expect(services[1].Create(ctx, &ch)).To(Succeed())
+				originalKey := ch.Key()
+
+				newCh := channel.Channel{
+					Rate:        5 * telem.Hz,   // Same rate
+					Name:        "SG0001",       // Same name
+					DataType:    telem.Float64T, // Same data type
+					Leaseholder: 1,
+				}
+
+				Expect(services[1].Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
+				Expect(newCh.Key()).To(Equal(originalKey))
+
+				var resChannels []channel.Channel
+				err := services[1].NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resChannels).To(HaveLen(1))
+				Expect(resChannels[0].Rate).To(Equal(5 * telem.Hz))
+				Expect(resChannels[0].DataType).To(Equal(telem.Float64T))
+			})
+		})
 		It("Should not create a free channel if it already exists by name", func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true

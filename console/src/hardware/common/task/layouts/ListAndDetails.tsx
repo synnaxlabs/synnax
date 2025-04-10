@@ -38,7 +38,7 @@ export interface DetailsProps {
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<
     ChannelListProps<C>,
-    "onTare" | "allowTare" | "isSnapshot" | "listItem"
+    "onTare" | "allowTare" | "isSnapshot" | "listItem" | "contextMenuItems"
   > {
   details: RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
@@ -97,10 +97,10 @@ export const ListAndDetails = <C extends Channel>({
         createChannel={handleCreateChannel}
         createChannels={handleDuplicateChannels}
       />
-      <Divider.Divider direction="y" />
-      <Align.Space direction="y" grow empty className={CSS.B("details")}>
+      <Divider.Divider y />
+      <Align.Space y grow empty className={CSS.B("details")}>
         <Header.Header level="p">
-          <Header.Title weight={500} wrap={false} shade={8}>
+          <Header.Title weight={500} wrap={false} shade={10}>
             Details
           </Header.Title>
           <Header.Actions>
@@ -110,13 +110,14 @@ export const ListAndDetails = <C extends Channel>({
               tooltipLocation="left"
               variant="text"
               onClick={handleCopyChannelDetails}
+              shade={2}
             >
-              <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+              <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
             </Button.Icon>
           </Header.Actions>
         </Header.Header>
         {selectedIndex === -1 ? null : (
-          <Align.Space direction="y" className={CSS.BE("details", "form")} empty grow>
+          <Align.Space y className={CSS.BE("details", "form")} empty grow>
             {details({ path: `config.channels.${selectedIndex}` })}
           </Align.Space>
         )}

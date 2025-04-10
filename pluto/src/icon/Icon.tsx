@@ -81,12 +81,16 @@ export const resolve = ((
   overrides?: BaseProps,
 ): Element | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string") {
-    const C = deep.get<FC<BaseProps>>(
-      MediaIcon as unknown as Record<string, FC<BaseProps>>,
-      icon,
-    );
-    return <C {...overrides} />;
-  }
+  if (typeof icon === "string")
+    try {
+      const C = deep.get<FC<BaseProps>>(
+        MediaIcon as unknown as Record<string, FC<BaseProps>>,
+        icon,
+      );
+      return <C {...overrides} />;
+    } catch {
+      throw new Error(`Unable to find icon with path ${icon} in registry`);
+    }
+
   return cloneElement(icon, overrides);
 }) as Resolve;

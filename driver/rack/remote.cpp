@@ -15,13 +15,11 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
     std::pair<synnax::Rack, xerrors::Error> res;
     auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
-    if (
-        this->remote_info.cluster_key != client.auth->cluster_info.cluster_key
-        && this->remote_info.rack_key != 0
-    ) {
+    if (this->remote_info.cluster_key != client.auth->cluster_info.cluster_key &&
+        this->remote_info.rack_key != 0) {
         this->remote_info.rack_key = 0;
         this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
-        LOG(INFO) << "Cluster identity changed. Creating a new rack.";
+        LOG(INFO) << "Cluster identity changed. Creating a new rack";
     }
     if (this->remote_info.rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
@@ -36,7 +34,8 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         // In either case, set the rack key to zero and call the instantiate_rack
         // recursively to create a new rack.
         if (res.second.matches(xerrors::NOT_FOUND)) {
-            LOG(INFO) << "Rack " << this->remote_info.rack_key << " not found. Creating a new rack.";
+            LOG(INFO) << "Rack " << this->remote_info.rack_key
+                      << " not found. Creating a new rack";
             this->remote_info.rack_key = 0;
             return this->load_remote(breaker);
         }
@@ -55,4 +54,3 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
     this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
     return err;
 }
-

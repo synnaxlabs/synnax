@@ -174,7 +174,7 @@ const Indicator = ({
       onClick={() => onSelect(index)}
       onContextMenu={() => onSelect(index)}
     >
-      <Text.Text level="p" shade={7} style={{ width: "100%", textAlign: "center" }}>
+      <Text.Text level="p" shade={11} style={{ width: "100%", textAlign: "center" }}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button
@@ -203,7 +203,7 @@ export const ColumnIndicators = ({
   let currPos = 2.5 * 6;
   return (
     <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-      <td></td>
+      <td />
       {columns.map((size, i) => {
         const pos = currPos;
         currPos += size;

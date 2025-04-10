@@ -17,7 +17,7 @@ import { import_ } from "@/schematic/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",
-  name: "Create Schematic",
+  name: "Create a Schematic",
   icon: <Icon.Schematic />,
   onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
   visible: Schematic.selectHasPermission,

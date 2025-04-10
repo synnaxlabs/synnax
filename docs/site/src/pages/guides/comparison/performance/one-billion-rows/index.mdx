@@ -80,20 +80,20 @@ export const components = mdxOverrides;
   </svg>
 </Diagram>
 
-In this article we'll compare the performance of Synnax to two other leading
-time-series databases: [TimescaleDB](https://www.timescale.com/) and
+In this article we'll compare the performance of Synnax to two other leading time-series
+databases: [TimescaleDB](https://www.timescale.com/) and
 [InfluxDB](https://www.influxdata.com/index/).
 
-Performance is one of many factors to consider when evaluating the time-series
-database for your use case: scalability, reliability, and query language are also important
-to consider. Synnax, Timescale, and Influx all have their strengths and weaknesses. This
+Performance is one of many factors to consider when evaluating the time-series database
+for your use case: scalability, reliability, and query language are also important to
+consider. Synnax, Timescale, and Influx all have their strengths and weaknesses. This
 article is the first in a larger series comparing Synnax to other software tools.
 
 We'll start off with a high-level overview of the three databases, explaining their
 architecture and ideal use cases. We'll briefly overview our test methodology and setup,
 and then dive into the results.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Database Overviews
 
@@ -108,11 +108,11 @@ purpose time-series workloads, such as user analytics, log data, or financial tr
 
 #### Data Model
 
-It follows a [channel](/reference/concepts/overview) based data model, where every sensor,
-actuator, or data source has its own named bucket of data called a _channel_. Synnax's
-query model is much simpler than the the other two databases, and focuses on quality
-integration with programming languages through client libraries. It's well suited for
-scientific and industrial applications.
+It follows a [channel](/reference/concepts/overview) based data model, where every
+sensor, actuator, or data source has its own named bucket of data called a _channel_.
+Synnax's query model is much simpler than the the other two databases, and focuses on
+quality integration with programming languages through client libraries. It's well
+suited for scientific and industrial applications.
 
 Synnax supports real-time streaming of data, much like you would find in a tool like
 [Apache Kafka](https://kafka.apache.org/) or a protocol like [MQTT](https://mqtt.org/).
@@ -121,14 +121,15 @@ monitoring, and data processing.
 
 #### Performance Characteristics
 
-The Synnax storage engine, [Cesium](https://github.com/synnaxlabs/synnax/tree/main/cesium),
-is designed for high performance and extremely low latency for limited cardinality data. As
-we'll show in the results, Synnax dramatically outperforms Timescale and Influx when
-ingesting, reading, and streaming large volumes of data from small numbers of sensors
-(1 - 10,000 channels at KHz rates).
+The Synnax storage engine,
+[Cesium](https://github.com/synnaxlabs/synnax/tree/main/cesium), is designed for high
+performance and extremely low latency for limited cardinality data. As we'll show in the
+results, Synnax dramatically outperforms Timescale and Influx when ingesting, reading,
+and streaming large volumes of data from small numbers of sensors (1 - 10,000 channels
+at KHz rates).
 
-Synnax performs comparably worse than Timescale and Influx when dealing with large numbers
-of sensors (millions of channels) at very low data rates (1Hz or lower).
+Synnax performs comparably worse than Timescale and Influx when dealing with large
+numbers of sensors (millions of channels) at very low data rates (1Hz or lower).
 
 Synnax is so fast and reliable that teams often use it in high-performance, mission
 critical environments such as firing rocket and jet engines.
@@ -141,8 +142,9 @@ including IoT, user analytics, and financial data.
 
 #### Data Model
 
-Timescale uses a traditional, [relational](https://en.wikipedia.org/wiki/Relational_model?ref=timescale.com)
-data model where each row in a table represents a single event or measurement.
+Timescale uses a traditional,
+[relational](https://en.wikipedia.org/wiki/Relational_model?ref=timescale.com) data
+model where each row in a table represents a single event or measurement.
 
 Because it extends Postgres, Timescale integrates well with existing SQL applications
 and makes it easy to link metadata with real-time telemetry. The Postgres database
@@ -150,9 +152,10 @@ engine is one of the most widely used in the world, and is known for its reliabi
 across a variety of workloads.
 
 The relational data model is not without its challenges. Timescale requires the user to
-understand the scheme of their data before ingestion, and modifying it can be challenging.
-Timescale also requires knowledge of SQL to query data, which can be a barrier for
-engineering teams that are familiar with scientific analysis tools like Matlab and Numpy.
+understand the scheme of their data before ingestion, and modifying it can be
+challenging. Timescale also requires knowledge of SQL to query data, which can be a
+barrier for engineering teams that are familiar with scientific analysis tools like
+Matlab and Numpy.
 
 #### Performance Characteristics
 
@@ -167,22 +170,24 @@ struggles when ingesting and querying data at very high rates.
 [InfluxDB](https://www.influxdata.com) is a NoSQL time-series database also built for
 general purpose time-series workloads. Its primary focus is on ease of use, allowing
 users to quickly ingest and query data without needing to define a schema upfront. It
-also integrates well with popular analytics tools, such as [Grafana](https://grafana.com/).
+also integrates well with popular analytics tools, such as
+[Grafana](https://grafana.com/).
 
 #### Data Model
 
-InfluxDB uses a [tagset](https://docs.influxdata.com/influxdb/cloud-serverless/write-data/best-practices/schema-design/)
+InfluxDB uses a
+[tagset](https://docs.influxdata.com/influxdb/cloud-serverless/write-data/best-practices/schema-design/)
 data model. Each measurement has a set of tags, which are key-value pairs that describe
 the data. This makes Influx ideal for storing and querying data with many dimensions,
 such as user analytics.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Test Summary
 
-We'll be comparing the performance of Synnax, Timescale, and Influx across three separate
-tests that focus on ingestion performance. We'll be running the tests on a single
-machine with the following specifications:
+We'll be comparing the performance of Synnax, Timescale, and Influx across three
+separate tests that focus on ingestion performance. We'll be running the tests on a
+single machine with the following specifications:
 
 <Table>
   <tr>
@@ -205,8 +210,8 @@ machine with the following specifications:
   </tr>
 </Table>
 
-We'll pull the latest open source versions of each database, which, at the time of writing,
-are:
+We'll pull the latest open source versions of each database, which, at the time of
+writing, are:
 
 - [Synnax v0.32](/reference/cluster/installation?platform=linux)
 - [InfluxDB v2.7.10](https://www.influxdata.com/downloads/)
@@ -219,16 +224,18 @@ optimized for their database architecture. **We're doing the same here**. Our go
 illustrate the scenarios in which Synnax shines: high-speed, low-latency data ingestion
 from relatively small numbers of sensors.
 
-That being said, we'll also show where Synnax falls short, and where Timescale and Influx
-are better suited. As always, we recommend running your own benchmarks on workloads
-suitable to your use case - it's the best way to evaluate the performance of a database.
+That being said, we'll also show where Synnax falls short, and where Timescale and
+Influx are better suited. As always, we recommend running your own benchmarks on
+workloads suitable to your use case - it's the best way to evaluate the performance of a
+database.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText level="h2" name="Test" step={1}>Varying Batch Size</StepText>
 
 In the first test, we'll keep the number of channels constant at 20, and vary the batch
-size of data we insert into each database. This table shows the configuration of each test:
+size of data we insert into each database. This table shows the configuration of each
+test:
 
 <Table>
   <tbody>
@@ -414,8 +421,8 @@ We'll also measure the average memory and CPU usage of each database during the 
 </Details>
 
 At 10 samples per batch, all three databases perform comparably. As the batch size
-increases, Synnax's performance increases dramatically, outpacing the capabilities
-of the other two databases.
+increases, Synnax's performance increases dramatically, outpacing the capabilities of
+the other two databases.
 
 ### Memory Usage
 
@@ -626,7 +633,7 @@ of the other two databases.
   </Table>
 </Details>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText level="h2" name="Test" step={2}>Varying Channel Count</StepText>
 
@@ -838,8 +845,8 @@ channels we insert data for.
 </Details>
 
 At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
-the counts increase past 1000, Synnax's performance begins to degrade, while Timescale and
-Influx remain relatively stable.
+the counts increase past 1000, Synnax's performance begins to degrade, while Timescale
+and Influx remain relatively stable.
 
 ### Memory Usage
 
@@ -1033,14 +1040,15 @@ Influx remain relatively stable.
   </Table>
 </Details>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 {/* prettier-ignore */}
 ## <StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
 
-Inspired by the [1 billion row
-challenge](https://www.morling.dev/blog/one-billion-row-challenge/), we'll be inserting
-1 billion rows of data into each database to see how they handle the load.
+Inspired by the
+[1 billion row challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
+we'll be inserting 1 billion rows of data into each database to see how they handle the
+load.
 
 We'll use 50 channels, each with a batch size of 50,000 rows per channel to insert the
 data.
@@ -1056,17 +1064,18 @@ data.
   <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
 </figure>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Synnax Architecture
 
-> What about Synnax's architecture leads it to these performance characteristics? And why
-> did our team focus on high throughput, small cardinality ingestion?
+> What about Synnax's architecture leads it to these performance characteristics? And
+> why did our team focus on high throughput, small cardinality ingestion?
 
 Thoroughly answering these questions requires a collection of articles and supporting
 information on database architecture, disk I/O, and the sensor data use case. We'll
 summarize two of the most important points here. If you're interested in the details,
-take a look at our [technical RFCs](https://github.com/synnaxlabs/synnax/tree/main/docs/tech/rfc).
+take a look at our
+[technical RFCs](https://github.com/synnaxlabs/synnax/tree/main/docs/tech/rfc).
 
 ### <StepText level="h3" name="Reason" step={1}>Individual Files for Each Channel</StepText>
 
@@ -1077,34 +1086,33 @@ on disk.
 #### Background - Paging, OLTP, and Concurrency Control
 
 Data inside these databases is stored chunks called _pages_ that are between 4kb and
-16kb in size. These pages contain a certain number of rows. When accepting writes,
-the database engine will fill up a page in-memory, and then flush that
-page to disk in a single I/O operation once the page has reached capacity.
+16kb in size. These pages contain a certain number of rows. When accepting writes, the
+database engine will fill up a page in-memory, and then flush that page to disk in a
+single I/O operation once the page has reached capacity.
 
-Pages are very efficient for databases serving OLTP workloads that have a high degree
-of random inserts and/or updates. For high speed ingestion of ordered data (such as
+Pages are very efficient for databases serving OLTP workloads that have a high degree of
+random inserts and/or updates. For high speed ingestion of ordered data (such as
 time-series values), pages struggle for a few reasons:
 
 1. **Complex concurrency control** -> When there is high read/write contention over a
    particular page, the database engine must implement complex concurrency control
    mechanisms to ensure data stays consistent.
 2. **Copy operations** -> Pages are maintained as in-memory structures, which means that
-   incoming writes must be copied from the application to the page. Data within pages
-   is frequently moved to maintain order within the page. This results in a large
-   number of copy operations.
+   incoming writes must be copied from the application to the page. Data within pages is
+   frequently moved to maintain order within the page. This results in a large number of
+   copy operations.
 3. **WAL Files** -> Modern OLTP databases are ACID compliant. The most common way to
-   ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all
-   the changes to the database. This means that I/O operations are repeated for each
-   write.
+   ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all the
+   changes to the database. This means that I/O operations are repeated for each write.
 
 #### Individual Files for Each Channel - A Seemingly Terrible Idea
 
 Synnax does not use traditional paging strategies. Instead, Synnax maintains an
-individual file for each channel in the database. At first glance, this seems like
-a terrible idea: For 10,000 channels, we'll need to maintain at least 10,000 files on
-disk. When writing to 10,000 channels concurrently, we'll need to perform a
-random I/O operation for each one. This is disastrous for performance, especially when
-using an HDD.
+individual file for each channel in the database. At first glance, this seems like a
+terrible idea: For 10,000 channels, we'll need to maintain at least 10,000 files on
+disk. When writing to 10,000 channels concurrently, we'll need to perform a random I/O
+operation for each one. This is disastrous for performance, especially when using an
+HDD.
 
 For the sake of argument, let's assume that disk I/O is not an important factor to
 consider (ridiculous, but bear with us). In this case, maintaining 10,000 individual
@@ -1129,8 +1137,8 @@ files has a number of benefits:
 #### Why it's not such a bad idea
 
 When I/O is not a bottleneck, the benefits of individual files are very clear. In our
-implementation process, we researched the design of modern object storage systems. S3
-is a black box, so instead we read the source code of
+implementation process, we researched the design of modern object storage systems. S3 is
+a black box, so instead we read the source code of
 [MinIO](https://github.com/minio/minio).
 
 As it turns out, MinIO keeps every object in a single file despite the obvious
@@ -1139,12 +1147,12 @@ consequences. Why?
 1. **Linux file systems scale surprisingly well** -> File systems such as `EXT4`, `XFS`,
    and `BTRFS` maintain surprisingly fast lookup times for a large number of files.
    MinIO runs nodes with millions of files on a single machine.
-2. **Random I/O is not that bad on SSDs** -> As it turns out, the consequences of
-   large numbers of random I/O operations are not as bad as one might think. SSDs are
-   quite good at random access when occupancy is very high. While a series of
-   sequential, random writes is much slower than a single, sequential write, the
-   throughput differences drop dramatically with an increase in the number of parallel,
-   random write operations.
+2. **Random I/O is not that bad on SSDs** -> As it turns out, the consequences of large
+   numbers of random I/O operations are not as bad as one might think. SSDs are quite
+   good at random access when occupancy is very high. While a series of sequential,
+   random writes is much slower than a single, sequential write, the throughput
+   differences drop dramatically with an increase in the number of parallel, random
+   write operations.
 
 ### <StepText level="h3" name="Reason" step={2}>Zero Copy Hot Path</StepText>
 
@@ -1158,16 +1166,16 @@ from being simple log files, and for good reason. Benefits like ACID compliance,
 random reads, and other features far outweigh the costs of extra overhead.
 
 Synnax serves a more simple read and write pattern than an OLTP database like
-PostgreSQL. As a result, we made optimizations that bring our storage engine
-closer to the speed of a simple log file.
+PostgreSQL. As a result, we made optimizations that bring our storage engine closer to
+the speed of a simple log file.
 
 Most notably, the vast majority of writes in Synnax require zero in-memory copy
-operations from the time they are received over the network until they are written
-to disk. This simpler pattern sacrifices complex queries and transaction patterns
-like serializable snapshot isolation, although we've found those unnecessary for
-the sensor data use case.
+operations from the time they are received over the network until they are written to
+disk. This simpler pattern sacrifices complex queries and transaction patterns like
+serializable snapshot isolation, although we've found those unnecessary for the sensor
+data use case.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Conclusion
 
@@ -1176,5 +1184,5 @@ Influx are great for general purpose workloads, and support a larger number of q
 patterns.
 
 Synnax, on the other hand, is built for fast reads and writes of time-series sensor
-data. If this is the use case you're interested in, we'd love to hear from you. [Contact
-us](https://www.synnaxlabs.com/contact) to learn more.
+data. If this is the use case you're interested in, we'd love to hear from you.
+[Contact us](https://www.synnaxlabs.com/contact) to learn more.

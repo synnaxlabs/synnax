@@ -9,12 +9,14 @@
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { cloneElement, type ReactElement, useCallback } from "react";
+import { cloneElement, type ReactElement } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
+import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
+import { Triggers } from "@/triggers";
 
 interface ChildProps {
   color?: string;
@@ -24,7 +26,8 @@ interface ChildProps {
 /** The props for the {@link Icon} component */
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
-  loading?: boolean;
+  shade?: Text.Shade;
+  triggerIndicator?: Triggers.Trigger;
 }
 
 /**
@@ -43,7 +46,6 @@ export const Icon = Tooltip.wrap(
   ({
     ref,
     children,
-    stopPropagation,
     className,
     variant = "text",
     size = "medium",
@@ -51,34 +53,42 @@ export const Icon = Tooltip.wrap(
     disabled = false,
     loading = false,
     onClick,
+    shade = 0,
     color: propColor,
+    tabIndex,
+    onMouseDown,
+    triggerIndicator,
     ...rest
   }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
-    const handleClick = useCallback(
-      (e: React.MouseEvent<HTMLButtonElement>) => {
-        if (stopPropagation) e.stopPropagation();
-        if (isDisabled) return;
-        onClick?.(e);
-      },
-      [stopPropagation, isDisabled, onClick],
-    );
     return (
       <button
         ref={ref}
         className={clsx(
           className,
           CSS.B("btn"),
+          CSS.M("clickable"),
           CSS.B("btn-icon"),
           CSS.size(size),
           CSS.sharp(sharp),
-          CSS.BM("btn", variant),
+          CSS.M(variant),
           CSS.disabled(isDisabled),
+          CSS.shade(shade),
         )}
-        onClick={handleClick}
+        onClick={isDisabled ? undefined : onClick}
+        onMouseDown={(e) => {
+          if (tabIndex == -1) e.preventDefault();
+          onMouseDown?.(e);
+        }}
+        tabIndex={tabIndex}
         {...rest}
       >
+        {triggerIndicator && (
+          <div className={CSS.B("trigger-indicator")}>
+            <Triggers.Text trigger={triggerIndicator} level="small" />
+          </div>
+        )}
         {typeof children === "string"
           ? children
           : cloneElement(children, {

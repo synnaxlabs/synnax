@@ -1,5 +1,15 @@
+# Disable Bzlmod (Bazel Modules)
+# We need the last flag to avoid issues with rules_proto_grpc
+# See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
+common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_ctx_resolve_tools  --define=protobuf_allow_msvc=true
+
 # Enable platform-specific configs
 build --enable_platform_specific_config
+
+# These hide symbols from the linker in order to prevent symbols collisions with
+# libraries we load dynamically at runtime (LabJack is the primary source of this issue,
+# as it relies an incompatible, legacy GRPC version).
+build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidden
 
 # ===== Platform-Specific Compiler Settings =====
 
@@ -7,8 +17,6 @@ build --enable_platform_specific_config
 build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
-build:macos --copt=-w
-build:macos --host_copt=-w
 
 # Linux
 build:linux --cxxopt=-std=c++17
@@ -29,13 +37,3 @@ build:opt --strip=always
 build:opt --copt=-O3
 build:opt --copt=-flto
 build:opt --linkopt=-flto
-
-# Platform-specific optimization
-build:opt:linux --copt=-march=native
-build:opt:macos --copt=-march=native
-
-# Avoid -march=native on Windows unless using Clang or GCC (not MSVC)
-build:opt:windows --copt=/O2
-
-# Optional: Set this if you want a custom Bazel cache location on Windows
-# startup --output_user_root=C:/tmp

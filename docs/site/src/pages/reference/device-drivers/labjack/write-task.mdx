@@ -19,15 +19,16 @@ A write task is used for sending commands to your digital outputs and writing an
 signals out from your LabJack. In this guide, we'll walk you through the steps to create
 a write task in Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have connected and configured a LabJack
-device and created the relevant channels in Synnax. Check out the [Configure
-Device](/reference/device-drivers/labjack/configure-device) guide for more information.
+device and created the relevant channels in Synnax. Check out the
+[Configure Device](/reference/device-drivers/labjack/configure-device) guide for more
+information.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
@@ -40,7 +41,7 @@ A write task can be started, stopped, and re-configured at any time. Synnax perm
 stores the configuration of each task, so it's easy to set up multiple tasks for
 different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## How Commands Work in Synnax
 
@@ -77,7 +78,7 @@ solid or transparent based on the state channel.
 Using two channels provides a guarantee that a particular command was acknowledged by a
 running task.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -98,9 +99,9 @@ To create a write task from the command palette, open the Synnax Console and cli
 the Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
 Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is "`>`"), type "LabJack".
-You'll see an option called "Create a LabJack Write Task". Select this option to
-open the read task configuration dialog.
+In command mode (enabled when the first character in the input is "`>`"), type
+"LabJack". You'll see an option called "Create a LabJack Write Task". Select this option
+to open the read task configuration dialog.
 
 <Video
   client:only="react"
@@ -117,7 +118,7 @@ in the top right corner and select "LabJack Write Task".
   id="device-drivers/labjack/write-task/layout-create-write-task"
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Configure the Task
 
@@ -130,9 +131,9 @@ Use the dropdown menu in the top left corner to do so.
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add the channels you'd like to write to. Click the Add (<Icon.Add />)
-button in the channels section. Then, click on the new channel in the list to configure
-it.
+Next, you'll need to add the channels you'd like to write to. Click the Add (<Icon.Add
+/>) button in the channels section. Then, click on the new channel in the list to
+configure it.
 
 You'll need to select an output port to write to. You'll also need to select the command
 channel the task will listen to, and the state channel that will be updated when the
@@ -156,7 +157,7 @@ Set the rate higher in scenarios that require quick response times.
   />
 </div>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start the Task
 

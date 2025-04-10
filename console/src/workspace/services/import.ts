@@ -26,7 +26,7 @@ export const ingest: Import.DirectoryIngestor = async (
 ) => {
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.anySliceStateZ.parse(JSON.parse(layoutData.data));
+  const layout = Layout.migrateSlice(JSON.parse(layoutData.data));
   Object.entries(layout.layouts).forEach(([key, layout]) => {
     const ingest = ingestors[layout.type];
     if (ingest == null) return;

@@ -16,14 +16,14 @@ import { import_, type IngestContext } from "@/workspace/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "workspace-create",
-  name: "Create Workspace",
+  name: "Create a Workspace",
   icon: <Icon.Workspace />,
   onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_LAYOUT),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
   key: "workspace-import",
-  name: "Import Workspace",
+  name: "Import a Workspace",
   icon: <ImportIcon />,
   onSelect: (ctx: IngestContext) => void import_(ctx),
 };

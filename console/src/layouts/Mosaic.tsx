@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layouts/Mosaic.css";
+
 import { ontology } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
+  Align,
   Breadcrumb,
   Button,
   componentRenderProp,
@@ -18,10 +21,13 @@ import {
   Modal,
   Mosaic as Core,
   Nav as PNav,
+  OS,
   Portal,
   Status,
   Synnax,
   type Tabs,
+  Text,
+  Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
@@ -29,23 +35,35 @@ import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
+import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
+import { Vis } from "@/vis";
+import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Logo.Watermark />;
+    <Align.Center size={5}>
+      <Logo className="synnax-logo-watermark" />
+      <Align.Space x size="small" align="center">
+        <Text.Text level="h5" weight={450} shade={10}>
+          New Component
+        </Text.Text>
+        <Align.Space x empty>
+          <Triggers.Text level="h5" shade={11} trigger={["Control", "T"]} />
+        </Align.Space>
+      </Align.Space>
+    </Align.Center>
   </Eraser.Eraser>
 );
-
-const EMPTY_CONTENT = <EmptyContent />;
 
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
@@ -86,11 +104,18 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Modal.Dialog visible close={handleClose} centered enabled={focused}>
+    <Modal.Dialog
+      close={handleClose}
+      visible={focused}
+      style={{ width: "100%", height: "100%" }}
+      offset={0}
+      background={focused ? 0 : undefined}
+    >
       <PNav.Bar
         location="top"
         size="5rem"
         style={{ display: focused ? "flex" : "none" }}
+        bordered
       >
         {/*
          * We do this to reduce the number of mounted DOM nodes. For some reason removing
@@ -105,10 +130,10 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
             </PNav.Bar.Start>
             <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
               <Button.Icon onClick={handleOpenInNewWindow} size="small">
-                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l8)" }} />
+                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
               </Button.Icon>
               <Button.Icon onClick={handleClose} size="small">
-                <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
+                <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
               </Button.Icon>
             </PNav.Bar.End>
           </>
@@ -145,9 +170,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: location.Location): void => {
+    (key: number, tabKey: string, loc: location.Location, index?: number): void => {
       if (windowKey == null) return;
-      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey }));
+      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey, index }));
     },
     [dispatch, windowKey],
   );
@@ -255,17 +280,22 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     <>
       {portalNodes}
       <Core.Mosaic
+        rounded={1}
+        bordered
+        borderShade={5}
+        background={0}
         root={mosaic}
         onDrop={handleDrop}
         onClose={handleClose}
         onSelect={handleSelect}
         contextMenu={contextMenu}
         onResize={handleResize}
-        emptyContent={EMPTY_CONTENT}
+        emptyContent={<EmptyContent />}
         onRename={handleRename}
         onCreate={handleCreate}
         activeTab={activeTab ?? undefined}
         onFileDrop={handleFileDrop}
+        addTooltip="Create Component"
       >
         {renderProp}
       </Core.Mosaic>
@@ -273,9 +303,69 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
+const NAV_ITEMS = [Vis.TOOLBAR];
+
+const NavTop = (): ReactElement | null => {
+  const os = OS.use();
+  const isWindowsOS = os === "Windows";
+  const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
+  const activeName = Layout.useSelectActiveMosaicTabName();
+  const activeWorkspaceName = Workspace.useSelectActiveName();
+  Layout.Nav.useTriggers({ items: NAV_ITEMS });
+  const button = (
+    <Button.Button
+      variant="outlined"
+      className={CSS.BE("mosaic", "controls-button")}
+      onClick={() => onSelect("visualization")}
+      justify="center"
+      x
+      size="small"
+      shade={2}
+      textShade={9}
+      weight={450}
+      startIcon={<Icon.Visualize />}
+      endIcon={
+        <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
+          <Triggers.Text level="small" shade={11} weight={450} trigger={["v"]} />
+        </Align.Space>
+      }
+    >
+      Controls
+    </Button.Button>
+  );
+  return (
+    <Layout.Nav.Bar
+      location="top"
+      size="6rem"
+      data-tauri-drag-region
+      bordered={false}
+      className={CSS.BE("mosaic", "bar")}
+    >
+      <PNav.Bar.Start data-tauri-drag-region align="center">
+        <Controls visibleIfOS="macOS" forceOS={os} />
+        {isWindowsOS && <Logo />}
+        {isWindowsOS && button}
+      </PNav.Bar.Start>
+      <PNav.Bar.AbsoluteCenter>
+        <Text.Text
+          level="small"
+          weight={500}
+          shade={10}
+          data-tauri-drag-region
+          style={{ cursor: "default" }}
+        >
+          {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
+        </Text.Text>
+      </PNav.Bar.AbsoluteCenter>
+      <PNav.Bar.End data-tauri-drag-region align="center" justify="end">
+        {isWindowsOS ? <Controls visibleIfOS="Windows" forceOS={os} /> : button}
+      </PNav.Bar.End>
+    </Layout.Nav.Bar>
+  );
+};
+
 export const MosaicWindow = memo<Layout.Renderer>(
   ({ layoutKey }: Layout.RendererProps) => {
-    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", Nav.NAV_DRAWER_ITEMS);
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
@@ -291,18 +381,17 @@ export const MosaicWindow = memo<Layout.Renderer>(
     if (windowKey == null || mosaic == null) return null;
     return (
       <>
-        <Internal windowKey={windowKey} mosaic={mosaic} />
-        <Nav.Drawer location="bottom" />
-        <PNav.Bar
-          className="console-main-nav"
-          location="bottom"
-          style={{ paddingRight: "1.5rem", zIndex: 8 }}
-          size="6rem"
+        <NavTop />
+        <Align.Space
+          y
+          size="tiny"
+          grow
+          className={CSS.B("mosaic-window")}
+          style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
-          <PNav.Bar.End>
-            <Nav.Menu onChange={onSelect}>{menuItems}</Nav.Menu>
-          </PNav.Bar.End>
-        </PNav.Bar>
+          <Internal windowKey={windowKey} mosaic={mosaic} />
+          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+        </Align.Space>
       </>
     );
   },
