@@ -68,10 +68,12 @@ struct Device : synnax::Device {
             this->location,
             this->make,
             this->model,
-            nlohmann::to_string(json{
-                {"is_simulated", this->is_simulated},
-                {"resource_name", this->resource_name}
-            })
+            nlohmann::to_string(
+                json{
+                    {"is_simulated", this->is_simulated},
+                    {"resource_name", this->resource_name}
+                }
+            )
         );
         dev.state = this->state;
         return dev;
@@ -128,8 +130,8 @@ class Scanner final : public common::Scanner {
     /// @returns the device and an SKIP_DEVICE_ERR error if the device should be
     /// skipped.
     /// @returns an empty device and an error if the device could not be parsed.
-    std::pair<ni::Device, xerrors::Error> parse_device(NISysCfgResourceHandle resource
-    ) const;
+    std::pair<ni::Device, xerrors::Error>
+    parse_device(NISysCfgResourceHandle resource) const;
 
 public:
     explicit Scanner(

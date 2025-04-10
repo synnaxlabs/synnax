@@ -76,10 +76,12 @@ struct SynnaxClusterAPI final : ClusterAPI {
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->client->telem.open_writer(synnax::WriterConfig{
-                .channels = {this->state_channel.key},
-                .start = telem::TimeStamp::now(),
-            });
+            auto [w, err] = this->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .channels = {this->state_channel.key},
+                    .start = telem::TimeStamp::now(),
+                }
+            );
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
@@ -243,30 +245,31 @@ public:
             };
         }
 
+        std::vector<std::string> keys_to_erase;
         for (auto &[key, dev]: this->dev_state) {
             if (present.find(key) != present.end()) continue;
             this->dev_state[key].dev.state = synnax::DeviceState{
                 .key = dev.dev.key,
                 .variant = status::VARIANT_WARNING,
                 .rack = dev.dev.rack,
-                .details =
-                    json{
-                        {"message", "Device disconnected"},
-                        {"last_available", dev.last_available.nanoseconds()}
-                    }
-            };
-            if (since(dev.last_available) < telem::MINUTE) {
-                std::vector<std::string> keys;
-                auto [dev, err] = this->client->retrieve_devices(keys);
-                if (err && !err.matches(xerrors::NOT_FOUND)) {
-                    LOG(WARNING) << "[scan_task] failed to retrieve device: "
-                                 << err.message();
-                    continue;
+                .details = json{
+                    {"message", "Device disconnected"},
+                    {"last_available", dev.last_available.nanoseconds()}
                 }
-                if (err.matches(xerrors::NOT_FOUND) || dev[0].rack != synnax::rack_key_from_task_key(this->key))
-                    this->dev_state.erase(key);
+            };
+            std::vector<std::string> keys;
+            auto [dev, err] = this->client->retrieve_devices(keys);
+            if (err && !err.matches(xerrors::NOT_FOUND)) {
+                LOG(WARNING) << "[scan_task] failed to retrieve device: "
+                             << err.message();
+                continue;
             }
+            if (err.matches(xerrors::NOT_FOUND) ||
+                dev[0].rack != synnax::rack_key_from_task_key(this->key))
+                keys_to_erase.push_back(key);
         }
+        for (const auto &key: keys_to_erase)
+            this->dev_state.erase(key);
         if (const auto state_err = this->propagate_state())
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 

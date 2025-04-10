@@ -1625,9 +1625,7 @@ template<typename T>
 using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
 #define INPUT_CHAN_FACTORY(type, class)                                                \
-    {                                                                                  \
-        type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }          \
-    }
+    {type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),

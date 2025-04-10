@@ -147,9 +147,11 @@ public:
         uInt32 pretriggerSamples
     ) override;
 
-    int32
-    CfgDigEdgeStartTrig(TaskHandle task, const char triggerSource[], int32 triggerEdge)
-        override;
+    int32 CfgDigEdgeStartTrig(
+        TaskHandle task,
+        const char triggerSource[],
+        int32 triggerEdge
+    ) override;
 
     int32 CfgDigPatternRefTrig(
         TaskHandle task,
@@ -166,8 +168,11 @@ public:
         int32 triggerWhen
     ) override;
 
-    int32 CfgHandshakingTiming(TaskHandle task, int32 sampleMode, uInt64 sampsPerChan)
-        override;
+    int32 CfgHandshakingTiming(
+        TaskHandle task,
+        int32 sampleMode,
+        uInt64 sampsPerChan
+    ) override;
 
     int32
     CfgImplicitTiming(TaskHandle task, int32 sampleMode, uInt64 sampsPerChan) override;
@@ -1510,8 +1515,10 @@ public:
 
     int32 DisableStartTrig(TaskHandle task) override;
 
-    int32 DisconnectTerms(const char sourceTerminal[], const char destinationTerminal[])
-        override;
+    int32 DisconnectTerms(
+        const char sourceTerminal[],
+        const char destinationTerminal[]
+    ) override;
 
     int32
     ExportSignal(TaskHandle task, int32 signalID, const char outputTerminal[]) override;
@@ -1848,13 +1855,17 @@ public:
     int32
     GetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) override;
 
-    int32
-    GetCalInfoAttributeBool(const char deviceName[], int32 attribute, bool32 *value)
-        override;
+    int32 GetCalInfoAttributeBool(
+        const char deviceName[],
+        int32 attribute,
+        bool32 *value
+    ) override;
 
-    int32
-    GetCalInfoAttributeDouble(const char deviceName[], int32 attribute, float64 *value)
-        override;
+    int32 GetCalInfoAttributeDouble(
+        const char deviceName[],
+        int32 attribute,
+        float64 *value
+    ) override;
 
     int32 GetCalInfoAttributeString(
         const char deviceName[],
@@ -1863,9 +1874,11 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetCalInfoAttributeUInt32(const char deviceName[], int32 attribute, uInt32 *value)
-        override;
+    int32 GetCalInfoAttributeUInt32(
+        const char deviceName[],
+        int32 attribute,
+        uInt32 *value
+    ) override;
 
     int32 GetChanAttributeBool(
         TaskHandle task,
@@ -1911,13 +1924,17 @@ public:
         uInt32 *value
     ) override;
 
-    int32
-    GetDeviceAttributeBool(const char deviceName[], int32 attribute, bool32 *value)
-        override;
+    int32 GetDeviceAttributeBool(
+        const char deviceName[],
+        int32 attribute,
+        bool32 *value
+    ) override;
 
-    int32
-    GetDeviceAttributeDouble(const char deviceName[], int32 attribute, float64 *value)
-        override;
+    int32 GetDeviceAttributeDouble(
+        const char deviceName[],
+        int32 attribute,
+        float64 *value
+    ) override;
 
     int32 GetDeviceAttributeDoubleArray(
         const char deviceName[],
@@ -1926,9 +1943,11 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetDeviceAttributeInt32(const char deviceName[], int32 attribute, int32 *value)
-        override;
+    int32 GetDeviceAttributeInt32(
+        const char deviceName[],
+        int32 attribute,
+        int32 *value
+    ) override;
 
     int32 GetDeviceAttributeInt32Array(
         const char deviceName[],
@@ -1944,9 +1963,11 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetDeviceAttributeUInt32(const char deviceName[], int32 attribute, uInt32 *value)
-        override;
+    int32 GetDeviceAttributeUInt32(
+        const char deviceName[],
+        int32 attribute,
+        uInt32 *value
+    ) override;
 
     int32 GetDeviceAttributeUInt32Array(
         const char deviceName[],
@@ -1955,8 +1976,10 @@ public:
         uInt32 size
     ) override;
 
-    int32 GetDigitalLogicFamilyPowerUpState(const char deviceName[], int32 *logicFamily)
-        override;
+    int32 GetDigitalLogicFamilyPowerUpState(
+        const char deviceName[],
+        int32 *logicFamily
+    ) override;
 
     int32 GetDigitalPowerUpStates(
         const char deviceName[],
@@ -2359,17 +2382,23 @@ public:
     int32
     GetErrorString(int32 errorCode, char errorString[], uInt32 bufferSize) override;
 
-    int32
-    GetExportedSignalAttributeBool(TaskHandle task, int32 attribute, bool32 *value)
-        override;
+    int32 GetExportedSignalAttributeBool(
+        TaskHandle task,
+        int32 attribute,
+        bool32 *value
+    ) override;
 
-    int32
-    GetExportedSignalAttributeDouble(TaskHandle task, int32 attribute, float64 *value)
-        override;
+    int32 GetExportedSignalAttributeDouble(
+        TaskHandle task,
+        int32 attribute,
+        float64 *value
+    ) override;
 
-    int32
-    GetExportedSignalAttributeInt32(TaskHandle task, int32 attribute, int32 *value)
-        override;
+    int32 GetExportedSignalAttributeInt32(
+        TaskHandle task,
+        int32 attribute,
+        int32 *value
+    ) override;
 
     int32 GetExportedSignalAttributeString(
         TaskHandle task,
@@ -2378,9 +2407,11 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetExportedSignalAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value)
-        override;
+    int32 GetExportedSignalAttributeUInt32(
+        TaskHandle task,
+        int32 attribute,
+        uInt32 *value
+    ) override;
 
     int32 GetExtCalLastDateAndTime(
         const char deviceName[],
@@ -2397,13 +2428,19 @@ public:
 
     int32 GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data) override;
 
-    int32
-    GetNthTaskChannel(TaskHandle task, uInt32 index, char buffer[], int32 bufferSize)
-        override;
+    int32 GetNthTaskChannel(
+        TaskHandle task,
+        uInt32 index,
+        char buffer[],
+        int32 bufferSize
+    ) override;
 
-    int32
-    GetNthTaskDevice(TaskHandle task, uInt32 index, char buffer[], int32 bufferSize)
-        override;
+    int32 GetNthTaskDevice(
+        TaskHandle task,
+        uInt32 index,
+        char buffer[],
+        int32 bufferSize
+    ) override;
 
     int32 GetNthTaskReadChannel(
         TaskHandle task,
@@ -2412,9 +2449,11 @@ public:
         int32 bufferSize
     ) override;
 
-    int32
-    GetPersistedChanAttributeBool(const char channel[], int32 attribute, bool32 *value)
-        override;
+    int32 GetPersistedChanAttributeBool(
+        const char channel[],
+        int32 attribute,
+        bool32 *value
+    ) override;
 
     int32 GetPersistedChanAttributeString(
         const char channel[],
@@ -2436,9 +2475,11 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetPersistedTaskAttributeBool(const char taskName[], int32 attribute, bool32 *value)
-        override;
+    int32 GetPersistedTaskAttributeBool(
+        const char taskName[],
+        int32 attribute,
+        bool32 *value
+    ) override;
 
     int32 GetPersistedTaskAttributeString(
         const char taskName[],
@@ -2515,9 +2556,12 @@ public:
     int32
     GetReadAttributeInt32(TaskHandle task, int32 attribute, int32 *value) override;
 
-    int32
-    GetReadAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size)
-        override;
+    int32 GetReadAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        char value[],
+        uInt32 size
+    ) override;
 
     int32
     GetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) override;
@@ -2531,14 +2575,19 @@ public:
     int32
     GetRealTimeAttributeInt32(TaskHandle task, int32 attribute, int32 *value) override;
 
-    int32 GetRealTimeAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value)
-        override;
+    int32 GetRealTimeAttributeUInt32(
+        TaskHandle task,
+        int32 attribute,
+        uInt32 *value
+    ) override;
 
     int32 GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) override;
 
-    int32
-    GetScaleAttributeDouble(const char scaleName[], int32 attribute, float64 *value)
-        override;
+    int32 GetScaleAttributeDouble(
+        const char scaleName[],
+        int32 attribute,
+        float64 *value
+    ) override;
 
     int32 GetScaleAttributeDoubleArray(
         const char scaleName[],
@@ -2547,8 +2596,11 @@ public:
         uInt32 size
     ) override;
 
-    int32 GetScaleAttributeInt32(const char scaleName[], int32 attribute, int32 *value)
-        override;
+    int32 GetScaleAttributeInt32(
+        const char scaleName[],
+        int32 attribute,
+        int32 *value
+    ) override;
 
     int32 GetScaleAttributeString(
         const char scaleName[],
@@ -2580,9 +2632,12 @@ public:
     int32
     GetTaskAttributeBool(TaskHandle task, int32 attribute, bool32 *value) override;
 
-    int32
-    GetTaskAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size)
-        override;
+    int32 GetTaskAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        char value[],
+        uInt32 size
+    ) override;
 
     int32
     GetTaskAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) override;
@@ -2688,13 +2743,18 @@ public:
         uInt32 size
     ) override;
 
-    int32
-    GetTrigAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size)
-        override;
+    int32 GetTrigAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        char value[],
+        uInt32 size
+    ) override;
 
-    int32
-    GetTrigAttributeTimestamp(TaskHandle task, int32 attribute, CVIAbsoluteTime *value)
-        override;
+    int32 GetTrigAttributeTimestamp(
+        TaskHandle task,
+        int32 attribute,
+        CVIAbsoluteTime *value
+    ) override;
 
     int32
     GetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) override;
@@ -2737,9 +2797,12 @@ public:
     int32
     GetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 *value) override;
 
-    int32
-    GetWriteAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size)
-        override;
+    int32 GetWriteAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        char value[],
+        uInt32 size
+    ) override;
 
     int32
     GetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) override;
@@ -3101,14 +3164,19 @@ public:
 
     int32 ResetTimingAttribute(TaskHandle task, int32 attribute) override;
 
-    int32
-    ResetTimingAttributeEx(TaskHandle task, const char deviceNames[], int32 attribute)
-        override;
+    int32 ResetTimingAttributeEx(
+        TaskHandle task,
+        const char deviceNames[],
+        int32 attribute
+    ) override;
 
     int32 ResetTrigAttribute(TaskHandle task, int32 attribute) override;
 
-    int32 ResetWatchdogAttribute(TaskHandle task, const char lines[], int32 attribute)
-        override;
+    int32 ResetWatchdogAttribute(
+        TaskHandle task,
+        const char lines[],
+        int32 attribute
+    ) override;
 
     int32 ResetWriteAttribute(TaskHandle task, int32 attribute) override;
 
@@ -3129,9 +3197,12 @@ public:
         uInt32 options
     ) override;
 
-    int32
-    SaveTask(TaskHandle task, const char saveAs[], const char author[], uInt32 options)
-        override;
+    int32 SaveTask(
+        TaskHandle task,
+        const char saveAs[],
+        const char author[],
+        uInt32 options
+    ) override;
 
     int32 SelfCal(const char deviceName[]) override;
 
@@ -3464,13 +3535,17 @@ public:
     int32
     SetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) override;
 
-    int32
-    SetCalInfoAttributeBool(const char deviceName[], int32 attribute, bool32 value)
-        override;
+    int32 SetCalInfoAttributeBool(
+        const char deviceName[],
+        int32 attribute,
+        bool32 value
+    ) override;
 
-    int32
-    SetCalInfoAttributeDouble(const char deviceName[], int32 attribute, float64 value)
-        override;
+    int32 SetCalInfoAttributeDouble(
+        const char deviceName[],
+        int32 attribute,
+        float64 value
+    ) override;
 
     int32 SetCalInfoAttributeString(
         const char deviceName[],
@@ -3478,9 +3553,11 @@ public:
         const char value[]
     ) override;
 
-    int32
-    SetCalInfoAttributeUInt32(const char deviceName[], int32 attribute, uInt32 value)
-        override;
+    int32 SetCalInfoAttributeUInt32(
+        const char deviceName[],
+        int32 attribute,
+        uInt32 value
+    ) override;
 
     int32 SetChanAttributeBool(
         TaskHandle task,
@@ -3525,8 +3602,10 @@ public:
         uInt32 value
     ) override;
 
-    int32 SetDigitalLogicFamilyPowerUpState(const char deviceName[], int32 logicFamily)
-        override;
+    int32 SetDigitalLogicFamilyPowerUpState(
+        const char deviceName[],
+        int32 logicFamily
+    ) override;
 
     int32 SetDigitalPowerUpStates(
         const char deviceName[],
@@ -3924,15 +4003,23 @@ public:
         int32 state95
     );
 
-    int32 SetExportedSignalAttributeBool(TaskHandle task, int32 attribute, bool32 value)
-        override;
+    int32 SetExportedSignalAttributeBool(
+        TaskHandle task,
+        int32 attribute,
+        bool32 value
+    ) override;
 
-    int32
-    SetExportedSignalAttributeDouble(TaskHandle task, int32 attribute, float64 value)
-        override;
+    int32 SetExportedSignalAttributeDouble(
+        TaskHandle task,
+        int32 attribute,
+        float64 value
+    ) override;
 
-    int32 SetExportedSignalAttributeInt32(TaskHandle task, int32 attribute, int32 value)
-        override;
+    int32 SetExportedSignalAttributeInt32(
+        TaskHandle task,
+        int32 attribute,
+        int32 value
+    ) override;
 
     int32 SetExportedSignalAttributeString(
         TaskHandle task,
@@ -3940,9 +4027,11 @@ public:
         const char value[]
     ) override;
 
-    int32
-    SetExportedSignalAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value)
-        override;
+    int32 SetExportedSignalAttributeUInt32(
+        TaskHandle task,
+        int32 attribute,
+        uInt32 value
+    ) override;
 
     int32 SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) override;
 
@@ -3953,8 +4042,11 @@ public:
 
     int32 SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value) override;
 
-    int32 SetReadAttributeString(TaskHandle task, int32 attribute, const char value[])
-        override;
+    int32 SetReadAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        const char value[]
+    ) override;
 
     int32
     SetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) override;
@@ -3978,9 +4070,11 @@ public:
         const char reserved2[]
     ) override;
 
-    int32
-    SetScaleAttributeDouble(const char scaleName[], int32 attribute, float64 value)
-        override;
+    int32 SetScaleAttributeDouble(
+        const char scaleName[],
+        int32 attribute,
+        float64 value
+    ) override;
 
     int32 SetScaleAttributeDoubleArray(
         const char scaleName[],
@@ -3989,12 +4083,17 @@ public:
         uInt32 size
     ) override;
 
-    int32 SetScaleAttributeInt32(const char scaleName[], int32 attribute, int32 value)
-        override;
+    int32 SetScaleAttributeInt32(
+        const char scaleName[],
+        int32 attribute,
+        int32 value
+    ) override;
 
-    int32
-    SetScaleAttributeString(const char scaleName[], int32 attribute, const char value[])
-        override;
+    int32 SetScaleAttributeString(
+        const char scaleName[],
+        int32 attribute,
+        const char value[]
+    ) override;
 
     int32 SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) override;
 
@@ -4058,12 +4157,17 @@ public:
     int32
     SetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 value) override;
 
-    int32 SetTimingAttributeString(TaskHandle task, int32 attribute, const char value[])
-        override;
+    int32 SetTimingAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        const char value[]
+    ) override;
 
-    int32
-    SetTimingAttributeTimestamp(TaskHandle task, int32 attribute, CVIAbsoluteTime value)
-        override;
+    int32 SetTimingAttributeTimestamp(
+        TaskHandle task,
+        int32 attribute,
+        CVIAbsoluteTime value
+    ) override;
 
     int32
     SetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) override;
@@ -4092,12 +4196,17 @@ public:
         uInt32 size
     ) override;
 
-    int32 SetTrigAttributeString(TaskHandle task, int32 attribute, const char value[])
-        override;
+    int32 SetTrigAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        const char value[]
+    ) override;
 
-    int32
-    SetTrigAttributeTimestamp(TaskHandle task, int32 attribute, CVIAbsoluteTime value)
-        override;
+    int32 SetTrigAttributeTimestamp(
+        TaskHandle task,
+        int32 attribute,
+        CVIAbsoluteTime value
+    ) override;
 
     int32
     SetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) override;
@@ -4139,8 +4248,11 @@ public:
     int32
     SetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 value) override;
 
-    int32 SetWriteAttributeString(TaskHandle task, int32 attribute, const char value[])
-        override;
+    int32 SetWriteAttributeString(
+        TaskHandle task,
+        int32 attribute,
+        const char value[]
+    ) override;
 
     int32
     SetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) override;
