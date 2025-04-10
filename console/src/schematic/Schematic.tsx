@@ -414,6 +414,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Control.Legend
           position={legendPosition}
           onPositionChange={handleLegendPositionChange}
+          allowVisibleChange={false}
         />
       </Control.Controller>
     </div>

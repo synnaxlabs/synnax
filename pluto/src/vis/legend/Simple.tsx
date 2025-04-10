@@ -113,6 +113,7 @@ export const Simple = ({
   return (
     <Container
       {...rest}
+      className={allowVisibleChange ? CSS.M("with-visible-toggle") : undefined}
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
