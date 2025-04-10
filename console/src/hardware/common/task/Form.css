@@ -16,6 +16,10 @@
     contain: layout size style;
     background: var(--pluto-gray-l0);
 
+    .console-rack-name {
+        max-width: 200px;
+    }
+
     > div {
         padding: 5rem;
         max-width: 1000px;
@@ -89,7 +93,11 @@
             }
         }
 
-        .console-task__channel-name:nth-of-type(2) {
+        .console-rack-name {
+            max-width: 120px;
+        }
+
+        .console-state-channel {
             display: none;
         }
     }

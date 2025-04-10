@@ -13,6 +13,7 @@ import { Align, Form as PForm, List } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";

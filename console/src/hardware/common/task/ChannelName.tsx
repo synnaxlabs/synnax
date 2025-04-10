@@ -24,6 +24,7 @@ export interface ChannelNameProps
 export const ChannelName = ({
   channel,
   defaultName = "No Channel",
+  className,
   ...rest
 }: ChannelNameProps) => {
   const [name, setName] = useState(defaultName);
@@ -49,7 +50,7 @@ export const ChannelName = ({
   };
   return (
     <Text.MaybeEditable
-      className={CSS.BE("task", "channel-name")}
+      className={CSS(className, CSS.BE("task", "channel-name"))}
       color={channel ? undefined : "var(--pluto-warning-m1)"}
       level="small"
       value={name}

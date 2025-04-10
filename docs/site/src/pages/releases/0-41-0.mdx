@@ -1,0 +1,105 @@
+---
+title: "Version 0.41 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import { Text, Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Release
+    version="0.41.0"
+    date="April 10, 2025"
+    title="Refreshed Console UI"
+>
+
+Synnax v0.41.0 introduces the first major overhaul fo the Console UI since it's initial
+release. In the new device toolbar, we've added real-time information on device health.
+It also includes a number of minor improvements to the Synnax driver, and various bug
+fixes.
+
+<Divider.Divider x />
+
+### Console UI
+
+Based on over a year of feedback and suggestions, we've redesigned the Console to
+simplify navigation and improve workflows.
+
+#### Deprecation and Eventual Removal of the Resources Toolbar
+
+The resources toolbar was the single stop for accessing all of Synnax's main data
+structures. Channels, ranges, workspaces, users, and more are all available from this
+location. While this has advantages for flexibility, it has been a common source of
+confusion for understanding how Synnax's data model is organized. Displaying all
+resources in one place also posed a challenge for various resource-specific layout
+customizations we wanted to make.
+
+To address these issues, we've decided to split the resources pane into a series of
+independent, category specific toolbars. There are new devices, users, channels, and
+workspace toolbars. The range and task toolbars have also been moved to the left hand
+side of the console.
+
+We're leaving the original resources toolbar in the Console for now, but we'll be
+removing it in a future release once the new toolbars can meet all necessary
+functionality.
+
+#### Removal of Bottom and Right Toolbars
+
+Running complex operations involves building workspaces with large numbers of
+visualizations, tasks, and other dialogs. This means that real-estate within the Console
+is at a premium, and the bottom and right toolbars were occupying too much space for the
+value they delivered.
+
+We've now moved all status indicators and buttons to the top and left toolbars, and
+allocated the freed space to the central mosaic.
+
+#### Toolbar Hovering & Hotkeys
+
+Opening a toolbar on the current console causes the entire central layout mosaic to
+shift, this can cause issues with visualizations such as schematics that are precisely
+sized to fit within a particular view.
+
+Often times, it's necessary to perform a quick task on a toolbar, such as starting or
+stopping a task. In order to prevent layout shift, we've made it possible to hover and
+overlay the toolbar without causing a layout shift in the mosaic.
+
+We've also added a series of hotkeys to make interacting with the toolbars even more
+efficient. For example, typing `C` will trigger the hover mode for the channels toolbar,
+and double pressing `C` will open toolbar permanently.
+
+<Divider.Divider x />
+
+### Device Toolbar
+
+The new device toolbar provides real-time information on the status of Synnax device
+drivers and the devices connected to them. Synnax drivers that are actively running will
+now show a blue heartbeat, and devices have a status indicators that shows the health of
+their connection.
+
+<Divider.Divider x />
+
+### Driver Task Auto-Start
+
+We've implemented a new auto start mechanism for all Synnax device driver tasks. This is
+a new toggle that can be turned on and off within the task configuration dialog. When
+enabled, the task will **automatically start** on configuration and **on driver
+startup**.
+
+<Divider.Divider x />
+
+### Renaming Channels within Tasks
+
+Previously, the only way to rename a channel bound to a task was within the resources
+toolbar. We've added a new context menu item within all task configuration dialogs that
+allows you to rename a particular channel from within the dialog itself.
+
+<Divider.Divider x />
+
+### Other Improvements
+
+<Divider.Divider x />
+
+### Bug Fixes
+
+</Release>

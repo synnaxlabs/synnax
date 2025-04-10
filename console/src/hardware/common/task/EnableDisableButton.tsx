@@ -9,12 +9,17 @@
 
 import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
 
-export interface EnableDisableButtonProps {
+export interface EnableDisableButtonProps
+  extends Omit<Button.ToggleIconProps, "onChange" | "value" | "children"> {
   path: string;
   isSnapshot: boolean;
 }
 
-export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonProps) => {
+export const EnableDisableButton = ({
+  path,
+  isSnapshot,
+  ...rest
+}: EnableDisableButtonProps) => {
   const { get, set } = Form.useContext();
   const fs = get<boolean>(path, { optional: true });
   if (fs == null) return null;
@@ -33,6 +38,7 @@ export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonPro
         )
       }
       value={value}
+      {...rest}
     >
       <Status.Circle />
     </Button.ToggleIcon>
