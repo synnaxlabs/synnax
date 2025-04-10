@@ -1,0 +1,51 @@
+name: Test - Alamos (Go)
+
+on:
+  push:
+    branches:
+      - main
+      - rc
+  pull_request:
+    paths:
+      - .github/workflows/test.alamos.go.yaml
+      - alamos/go/**
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' || github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' || github.base_ref != 'main') &&
+              'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Format
+        if: matrix.format
+        run: bash scripts/check-gofmt.sh alamos/go
+
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Test
+        run: ginkgo ./...
+        working-directory: alamos/go
