@@ -72,9 +72,8 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
     },
     {
       option: "--data/-d",
-      default: "/usr/local/synnax/data",
-      description:
-        "The file path to the storage device where Synnax will keep its data.",
+      default: "synnax-data",
+      description: "The file path to the folder where Synnax will keep its data.",
     },
     {
       option: "--verbose/-v",
@@ -96,11 +95,21 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
                 for production use.`,
     },
     {
+      option: "--help/-h",
+      default: "false",
+      description: "Prints the help message for the start command.",
+    },
+    {
       option: "--config/c",
       default: "~/.synnax.yaml",
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
                 See <a href="#configuration-files">Configuration Files</a> for more information.`,
+    },
+    {
+      option: "--auto-cert",
+      default: "false",
+      description: "Automatically generate self-signed certificates for the node.",
     },
     {
       option: "--certs-dir",
@@ -154,22 +163,23 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
       option: "--no-driver",
       default: "false",
       description:
-        "Disables the driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
+        "Disables the embedded device driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
     },
     {
       option: "--disable-integrations",
-      default: '""',
+      default: "[]",
       description:
-        "Comma separated list of device integrations to disable. This is useful when you don't want particular integrations.",
+        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default.",
     },
+
     {
       option: "--enable-integrations",
-      default: "ni,opc",
+      default: "[]",
       description:
-        "Comma separated list of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
+        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
     },
-  ]}
-/>
+
+]} />
 
 ### Environment Variable Equivalents
 
