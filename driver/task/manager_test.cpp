@@ -39,7 +39,7 @@ public:
         );
     }
 
-    std::string name() override { return "echo"; }
+    std::string name() const override { return "echo"; }
 
     void exec(task::Command &cmd) override {
         ctx->set_state({
