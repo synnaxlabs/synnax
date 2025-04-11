@@ -139,7 +139,6 @@ export class LinePlot extends aether.Composite<
   private async render(
     canvases: render.CanvasVariant[],
   ): Promise<render.Cleanup | undefined> {
-    console.log(this.state.visible);
     const { renderCtx } = this.internal;
     const { instrumentation } = this.internal;
     if (this.deleted) {
@@ -164,6 +163,7 @@ export class LinePlot extends aether.Composite<
     });
 
     const os = xy.construct(this.state.clearOverScan);
+
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
@@ -197,6 +197,7 @@ export class LinePlot extends aether.Composite<
     }
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
+
     return async ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
   }

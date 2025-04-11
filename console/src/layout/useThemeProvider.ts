@@ -10,10 +10,10 @@
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { type AsyncDestructor, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
+import { getCurrentWindow } from "@/abc/abc";
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
 

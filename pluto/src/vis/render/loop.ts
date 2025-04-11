@@ -82,6 +82,7 @@ export class Loop {
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
   private readonly afterRender?: () => void;
+  private iteration = 0;
 
   constructor(afterRender?: () => void) {
     void this.start();
@@ -100,7 +101,7 @@ export class Loop {
    */
   async set(req: Request): Promise<void> {
     let releaser: (() => void) | undefined;
-    if (req.priority === "high") releaser = await this.mutex.acquire();
+    // if (req.priority === "high") releaser = await this.mutex.acquire();
     const existing = this.requests.get(req.key);
     if (existing == null) this.requests.set(req.key, req);
     else {
@@ -114,22 +115,35 @@ export class Loop {
 
   /** Execute the render. */
   private async render(): Promise<void> {
-    await this.mutex.runExclusive(async () => {
-      const start = performance.now();
-      const { requests } = this;
-      if (requests.size === 0) return;
-      await this.runCleanupsSync();
-      await this.renderSync();
+    // await this.mutex.runExclusive(async () => {
+    const start = performance.now();
+    const { requests } = this;
+    if (requests.size === 0) return;
 
-      const end = performance.now();
-      const span = TimeSpan.milliseconds(end - start);
-      if (span.greaterThan(TARGET_LOOP_RATE.period))
-        console.warn(
-          `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
-        );
-      this.requests.clear();
-      this.afterRender?.();
-    });
+    this.iteration++;
+    performance.mark("start-render");
+    await this.runCleanupsSync();
+    await this.renderSync();
+
+    const end = performance.now();
+    const span = TimeSpan.milliseconds(end - start);
+    if (span.greaterThan(TARGET_LOOP_RATE.period))
+      console.warn(
+        `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
+      );
+    this.requests.clear();
+    this.afterRender?.();
+    performance.mark("end-render");
+    performance.measure("render", "start-render", "end-render");
+    if (this.iteration % 25 === 0) {
+      if (this.iteration % 200 === 0) performance.clearMeasures("render");
+      const measures = performance.getEntriesByName("render");
+      // get average
+      const average =
+        measures.reduce((acc, curr) => acc + curr.duration, 0) / measures.length;
+      console.log(`Average render time: ${average}ms. ${measures.length}`);
+    }
+    // });
   }
 
   private async runCleanupsSync(): Promise<void> {
