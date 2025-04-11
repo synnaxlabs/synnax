@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   createContext,
   type ReactElement,
-  useContext,
+  use,
   useState as reactUseState,
 } from "react";
 
@@ -52,7 +52,7 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
     };
   }, []);
 
-  return <StateContext.Provider value={states}>{children}</StateContext.Provider>;
+  return <StateContext value={states}>{children}</StateContext>;
 };
 
 interface RackStateContextValue extends Record<string, rack.State> {}
@@ -83,16 +83,14 @@ const RackStateProvider = ({ children }: { children: ReactElement }) => {
     };
   }, []);
 
-  return (
-    <RackStateContext.Provider value={states}>{children}</RackStateContext.Provider>
-  );
+  return <RackStateContext value={states}>{children}</RackStateContext>;
 };
 
 export const useRackState = (key: string): rack.State | undefined =>
-  useContext(RackStateContext)[key];
+  use(RackStateContext)[key];
 
 export const useState = (key: string): device.State | undefined =>
-  useContext(StateContext)[key];
+  use(StateContext)[key];
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
