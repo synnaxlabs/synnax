@@ -263,7 +263,8 @@ public:
                              << err.message();
                 continue;
             }
-            if (!remote_devs.empty() && remote_devs[0].rack != synnax::rack_key_from_task_key(this->key))
+            if (!remote_devs.empty() &&
+                remote_devs[0].rack != synnax::rack_key_from_task_key(this->key))
                 to_erase.push_back(key);
         }
         for (const auto &key: to_erase)
