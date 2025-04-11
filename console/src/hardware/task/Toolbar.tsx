@@ -131,7 +131,6 @@ const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
   const confirm = Modals.useConfirm();
-  throw new Error("dog");
   const rename = useMutation({
     onMutate: ({ key }) => tasks.find((t) => t.key === key)?.name ?? "task",
     mutationFn: async ({ name, key }: RenameArgs) => {
