@@ -75,7 +75,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const rng = await client.ranges.retrieve(rangeKey);
       const childRanges = await rng.retrieveChildren();
-      childRanges.sort(ranger.sort);
+      childRanges.sort(ranger.Range.sort);
       setChildRanges(childRanges);
       const tracker = await rng.openChildRangeTracker();
       tracker.onChange((ranges) => setChildRanges(ranges));
