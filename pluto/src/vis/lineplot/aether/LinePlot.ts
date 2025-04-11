@@ -58,7 +58,11 @@ export class LinePlot extends aether.Composite<
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.aggregate = status.useAdder(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    render.Controller.control(ctx, (r) => this.requestRender("low", r));
+    render.Controller.control(ctx, (r) => {
+      if (!this.state.visible) return;
+      this.requestRender("low", r);
+    });
+    if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
@@ -135,6 +139,7 @@ export class LinePlot extends aether.Composite<
   private async render(
     canvases: render.CanvasVariant[],
   ): Promise<render.Cleanup | undefined> {
+    console.log(this.state.visible);
     const { renderCtx } = this.internal;
     const { instrumentation } = this.internal;
     if (this.deleted) {

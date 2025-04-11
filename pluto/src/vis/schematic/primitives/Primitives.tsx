@@ -147,6 +147,7 @@ const HandleBoundary = ({
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
   const first = useRef<boolean>(true);
   useEffect(() => {
+    console.log("ref", ref.current);
     if (ref.current == null) return;
     if (first.current) {
       first.current = false;
@@ -1513,14 +1514,13 @@ export const CircleShape = ({
   strokeWidth,
   ...rest
 }: CircleShapeProps): ReactElement => {
-  const theme = Theming.use();
   const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
   return (
     <Div className={CSS(className, CSS.B("circle-shape"))} {...rest}>
-      <HandleBoundary orientation="left" refreshDeps={[radius]}>
+      <HandleBoundary orientation="left" refreshDeps={radius}>
         <Handle
           location="top"
           orientation="left"
@@ -1555,9 +1555,9 @@ export const CircleShape = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          stroke={Color.cssString(color ?? "var(--pluto-gray-l9)")}
           strokeWidth={strokeWidth ?? 2}
-          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          fill={Color.cssString(backgroundColor ?? "var(--pluto-gray-l1)")}
         />
       </InternalSVG>
     </Div>

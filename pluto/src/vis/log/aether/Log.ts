@@ -119,6 +119,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         })
         .catch((e) => handleError(e, "Failed to update log"));
     });
+    if (!this.state.visible && !this.prevState.visible) return;
     void this.requestRender();
   }
 
