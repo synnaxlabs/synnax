@@ -8,6 +8,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//driver/task",
+        "//driver/task/common",
         "//freighter/cpp:freighter",
         "//x/cpp/breaker",
         "//x/cpp/loop",
