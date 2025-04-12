@@ -61,3 +61,62 @@ export class TauriKV implements SugaredKV {
  */
 export const openTauriKV = async (dir: string): Promise<SugaredKV> =>
   new TauriKV(new LazyStore(dir, { autoSave: true }));
+
+/**
+ * LocalStorageKV is an implementation of SugaredKV that uses the browser's localStorage API
+ * for persistence. This implementation is synchronous under the hood but implements the
+ * async interface for compatibility.
+ */
+export class LocalStorageKV implements SugaredKV {
+  private prefix: string;
+
+  constructor(prefix: string = "") {
+    this.prefix = prefix;
+  }
+
+  private getKey(key: string): string {
+    return `${this.prefix}${key}`;
+  }
+
+  async get<V>(key: string): Promise<V | null> {
+    const value = localStorage.getItem(this.getKey(key));
+    if (value === null) return null;
+    try {
+      return JSON.parse(value) as V;
+    } catch {
+      return null;
+    }
+  }
+
+  async set<V>(key: string, value: V): Promise<void> {
+    localStorage.setItem(this.getKey(key), JSON.stringify(value));
+  }
+
+  async delete(key: string): Promise<void> {
+    localStorage.removeItem(this.getKey(key));
+  }
+
+  async length(): Promise<number> {
+    if (!this.prefix) return localStorage.length;
+    return Object.keys(localStorage).filter((key) => key.startsWith(this.prefix))
+      .length;
+  }
+
+  async clear(): Promise<void> {
+    if (!this.prefix) {
+      localStorage.clear();
+      return;
+    }
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(this.prefix))
+      .forEach((key) => localStorage.removeItem(key));
+  }
+}
+
+/**
+ * Opens a new LocalStorageKV instance.
+ * @param prefix - Optional prefix for all keys to prevent naming collisions
+ * @returns A new LocalStorageKV instance
+ */
+export const openLocalStorageKV = (prefix: string = ""): SugaredKV =>
+  new LocalStorageKV(prefix);

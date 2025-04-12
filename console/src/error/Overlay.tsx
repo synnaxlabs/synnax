@@ -21,7 +21,6 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
@@ -30,6 +29,7 @@ import {
 } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
+import { getCurrentWindow } from "@/abc/abc";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
