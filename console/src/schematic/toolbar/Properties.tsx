@@ -82,7 +82,7 @@ const IndividualProperties = ({
   };
 
   const formMethods = Form.use({
-    values: deep.copy(props),
+    values: structuredClone(props),
     sync: true,
     onChange: ({ values }) => onChange(nodeKey, values),
   });

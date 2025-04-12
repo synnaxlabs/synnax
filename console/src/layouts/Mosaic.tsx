@@ -30,7 +30,7 @@ import {
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -226,9 +226,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     (key, size) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    100,
+    TimeSpan.seconds(1).milliseconds,
     [dispatch, windowKey],
   );
+
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);
