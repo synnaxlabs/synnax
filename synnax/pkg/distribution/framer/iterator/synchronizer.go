@@ -11,20 +11,48 @@ package iterator
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 )
 
 type synchronizer struct {
-	internal core.Synchronizer
+	internal baseSynchronizer
 	confluence.LinearTransform[Response, Response]
+}
+
+type baseSynchronizer struct {
+	NodeCount int
+	Counter   int
+	SeqNum    int
+	ack       bool
+}
+
+func (s *baseSynchronizer) Sync(seqNum int, ack bool) (_ack bool, _seqNum int, fulfilled bool) {
+	if seqNum != s.SeqNum {
+		fmt.Printf("[distribution.framer.core] - received out of order response: %d, expected: %d", seqNum, s.SeqNum)
+	}
+	if s.Counter == 0 {
+		s.ack = true
+	}
+	s.Counter++
+	if !ack {
+		s.ack = false
+	}
+	if s.Counter == s.NodeCount {
+		s.Counter = 0
+		_seqNum = s.SeqNum
+		s.SeqNum++
+		_ack = s.ack
+		s.ack = true
+		return _ack, _seqNum, true
+	}
+	return ack, s.SeqNum, false
 }
 
 func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
 	s.internal.NodeCount = nodeCount
-	s.internal.Instrumentation = ins
 	s.Transform = s.sync
 	return s
 }

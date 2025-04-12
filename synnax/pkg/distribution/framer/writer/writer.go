@@ -10,7 +10,6 @@
 package writer
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -20,54 +19,41 @@ import (
 type StreamWriter = confluence.Segment[Request, Response]
 
 type Writer struct {
-	requests          confluence.Inlet[Request]
-	responses         confluence.Outlet[Response]
-	wg                signal.WaitGroup
-	shutdown          io.Closer
-	hasAccumulatedErr bool
+	requests       confluence.Inlet[Request]
+	responses      confluence.Outlet[Response]
+	wg             signal.WaitGroup
+	shutdown       io.Closer
+	accumulatedErr error
 }
 
 // Write implements Writer.
-func (w *Writer) Write(frame core.Frame) bool {
-	if w.hasAccumulatedErr {
-		return false
+func (w *Writer) Write(frame core.Frame) error {
+	if w.accumulatedErr != nil {
+		return w.accumulatedErr
 	}
 	select {
 	case <-w.wg.Stopped():
-		return false
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
+	case res := <-w.responses.Outlet():
+		w.accumulatedErr = res.Error
 	case w.requests.Inlet() <- Request{Command: Data, Frame: frame}:
-		return true
 	}
+	return w.accumulatedErr
 }
 
-func (w *Writer) Commit() bool {
-	if w.hasAccumulatedErr {
-		return false
+func (w *Writer) Commit() error {
+	if w.accumulatedErr != nil {
+		return w.accumulatedErr
 	}
 	select {
 	case <-w.wg.Stopped():
-		return false
-	case v, ok := <-w.responses.Outlet():
-		fmt.Println(v, ok)
-		w.hasAccumulatedErr = true
-		return false
+		return w.accumulatedErr
+	case res := <-w.responses.Outlet():
+		w.accumulatedErr = res.Error
+		return w.accumulatedErr
 	case w.requests.Inlet() <- Request{Command: Commit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == Commit {
-			return res.Ack
-		}
-	}
-	return false
-}
-
-func (w *Writer) Error() error {
-	w.requests.Inlet() <- Request{Command: Error}
-	for res := range w.responses.Outlet() {
-		if res.Command == Error {
 			return res.Error
 		}
 	}

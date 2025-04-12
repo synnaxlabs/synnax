@@ -33,18 +33,15 @@ func newSynchronizer(nodeCount int, bulkheadSig chan bool, ins alamos.Instrument
 }
 
 func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, error) {
-	// If we receive a negative ack from a data write on any node, close the validator
-	// to prevent more writes from being processed.
-	if res.Command == Data && !res.Ack {
+	if res.Error != nil {
 		return res, true, signal.SendUnderContext(ctx, a.bulkheadSignal, true)
 	}
-	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
+	err, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Error)
 	if fulfilled {
 		return Response{
 			Command: res.Command,
-			Ack:     ack,
 			SeqNum:  seqNum,
-			Error:   res.Error,
+			Error:   err,
 			End:     res.End,
 		}, true, nil
 	}

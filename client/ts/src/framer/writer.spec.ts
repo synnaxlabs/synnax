@@ -140,19 +140,16 @@ describe("Writer", () => {
         enableAutoCommit: true,
       });
 
-      let errAccumulated: boolean = false;
-      for (let i = 0; i < 10; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        errAccumulated = !(await writer.write({
-          [indexCh.key]: BigInt(i),
-          [dataCh.key]: i,
-        }));
-        if (errAccumulated) break;
-      }
-
-      expect(errAccumulated).toBeTruthy();
-
-      await expect(writer.close()).rejects.toThrow(ValidationError);
+      await expect(async () => {
+        for (let i = 0; i < 10; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          await writer.write({
+            [indexCh.key]: BigInt(i),
+            [dataCh.key]: i,
+          });
+        }
+        await writer.close();
+      }).rejects.toThrow(ValidationError);
     });
 
     test("write with errOnUnauthorized", async () => {

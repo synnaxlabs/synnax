@@ -26,8 +26,6 @@ const (
 	Data
 	// Commit represents a call to Writer.Commit.
 	Commit
-	// Error represents a call to Writer.Error.
-	Error
 	SetAuthority
 )
 
@@ -48,9 +46,7 @@ type Request struct {
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
 	// Command is the command that was executed on the writer.
-	Command Command `json:"command" msgpack:"command"`
-	// Ack is the acknowledgement of the command.
-	Ack           bool             `json:"ack" msgpack:"ack"`
+	Command       Command          `json:"command" msgpack:"command"`
 	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
 	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
 	Error         error            `json:"error" msgpack:"error"`

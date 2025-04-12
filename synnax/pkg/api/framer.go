@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -86,8 +85,6 @@ func (s *FrameService) FrameDelete(
 		return c.Error()
 	})
 }
-
-const FrameIteratorAutoSpan = ts.AutoSpan
 
 type (
 	FrameIteratorRequest  = framer.IteratorRequest
@@ -374,8 +371,5 @@ func (s *FrameService) openWriter(
 		return nil, err
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, srv.Send(FrameWriterResponse{
-		Command: writer.Open,
-		Ack:     true,
-	})
+	return w, srv.Send(FrameWriterResponse{Command: writer.Open})
 }

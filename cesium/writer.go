@@ -12,19 +12,18 @@ package cesium
 import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
 type Writer struct {
-	requests          confluence.Inlet[WriterRequest]
-	responses         confluence.Outlet[WriterResponse]
-	wg                signal.WaitGroup
-	logger            *zap.Logger
-	hasAccumulatedErr bool
-	closed            bool
+	requests       confluence.Inlet[WriterRequest]
+	responses      confluence.Outlet[WriterResponse]
+	wg             signal.WaitGroup
+	logger         *zap.Logger
+	accumulatedErr error
+	closed         bool
 }
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
@@ -45,71 +44,56 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 	return &Writer{requests: req, responses: res, wg: sCtx}
 }
 
-func (w *Writer) Write(frame Frame) bool {
-	if w.closed || w.hasAccumulatedErr {
-		return false
+func (w *Writer) Write(frame Frame) error {
+	if w.closed || w.accumulatedErr != nil {
+		return w.accumulatedErr
 	}
 	select {
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
+	case res := <-w.responses.Outlet():
+		w.accumulatedErr = res.Err
 	case w.requests.Inlet() <- WriterRequest{Frame: frame, Command: WriterWrite}:
-		return true
 	}
+	return w.accumulatedErr
 }
 
-func (w *Writer) Commit() (telem.TimeStamp, bool) {
-	if w.closed || w.hasAccumulatedErr {
-		return 0, false
+func (w *Writer) Commit() (telem.TimeStamp, error) {
+	if w.closed || w.accumulatedErr != nil {
+		return 0, w.accumulatedErr
 	}
 	select {
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return 0, false
+	case res := <-w.responses.Outlet():
+		w.accumulatedErr = res.Err
+		return 0, res.Err
 	case w.requests.Inlet() <- WriterRequest{Command: WriterCommit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterCommit {
-			return res.End, res.Ack
+			w.accumulatedErr = res.Err
+			return res.End, w.accumulatedErr
 		}
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
-	return 0, false
+	return 0, w.accumulatedErr
 }
 
 // SetAuthority is synchronous
-func (w *Writer) SetAuthority(cfg WriterConfig) bool {
-	if w.closed || w.hasAccumulatedErr {
-		return false
+func (w *Writer) SetAuthority(cfg WriterConfig) error {
+	if w.closed || w.accumulatedErr != nil {
+		return w.accumulatedErr
 	}
 	select {
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
+	case res := <-w.responses.Outlet():
+		w.accumulatedErr = res.Err
 	case w.requests.Inlet() <- WriterRequest{Config: cfg, Command: WriterSetAuthority}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterSetAuthority {
-			return res.Ack
+			w.accumulatedErr = res.Err
+			return w.accumulatedErr
 		}
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
-	return false
-}
-
-func (w *Writer) Error() error {
-	if w.closed {
-		return errWriterClosed
-	}
-	w.requests.Inlet() <- WriterRequest{Command: WriterError}
-	for res := range w.responses.Outlet() {
-		if res.Command == WriterError {
-			w.hasAccumulatedErr = false
-			return res.Err
-		}
-	}
-	w.logger.DPanic(unexpectedSteamClosure)
-	return errors.New(unexpectedSteamClosure)
+	return w.accumulatedErr
 }
 
 func (w *Writer) Close() (err error) {

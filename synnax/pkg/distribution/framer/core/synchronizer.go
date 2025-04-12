@@ -10,6 +10,7 @@
 package core
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"go.uber.org/zap"
 )
@@ -20,30 +21,30 @@ import (
 type Synchronizer struct {
 	alamos.Instrumentation
 	NodeCount int
-	counter   int
-	ack       bool
-	seqNum    int
+	cycle     struct {
+		counter int
+		err     error
+		seqNum  int
+	}
 }
 
-func (s *Synchronizer) Sync(nodeSeqNum int, nodeAck bool) (ack bool, seqNum int, fulfilled bool) {
-	if s.seqNum != nodeSeqNum {
-		s.L.Warn("unexpected sequence number", zap.Int("expected", s.seqNum), zap.Int("actual", nodeSeqNum))
-		return false, 0, false
+func (s *Synchronizer) Sync(nodeSeqNum int, nodeErr error) (err error, seqNum int, fulfilled bool) {
+	if s.cycle.seqNum != nodeSeqNum {
+		s.L.Warn("unexpected sequence number", zap.Int("expected", s.cycle.seqNum), zap.Int("actual", nodeSeqNum))
+		return s.cycle.err, 0, false
 	}
-	if s.counter == 0 {
-		s.ack = true
-		s.seqNum = nodeSeqNum
+	if s.cycle.counter == 0 {
+		s.cycle.err = nil
+		s.cycle.seqNum = nodeSeqNum
 	}
-	s.counter++
+	s.cycle.counter++
 	// If we have a bad ack for any response, set the ack for the
-	if !nodeAck {
-		s.ack = false
+	if nodeErr != nil {
+		s.cycle.err = errors.CombineErrors(s.cycle.err, nodeErr)
 	}
-	if s.counter == s.NodeCount {
-		s.counter = 0
-		ack = s.ack
-		s.ack = true
-		return ack, seqNum, true
+	if s.cycle.counter == s.NodeCount {
+		s.cycle.counter = 0
+		return s.cycle.err, seqNum, true
 	}
-	return ack, seqNum, false
+	return s.cycle.err, seqNum, false
 }

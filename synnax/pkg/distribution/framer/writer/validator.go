@@ -47,13 +47,12 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				v.seqNum++
-				res := Response{Command: req.Command, SeqNum: v.seqNum, Ack: true}
+				res := Response{Command: req.Command, SeqNum: v.seqNum}
 				block := v.closed && (req.Command == Data || req.Command == Commit)
 				if v.accumulatedError != nil || block {
 					res.Error = v.accumulatedError
-					res.Ack = false
 				} else if v.accumulatedError = v.validate(req); v.accumulatedError != nil {
-					res.Ack = false
+					res.Error = v.accumulatedError
 				} else {
 					if err := signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
 						return err

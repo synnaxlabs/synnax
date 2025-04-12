@@ -32,8 +32,7 @@ enum Command {
   Open = 0,
   Write = 1,
   Commit = 2,
-  Error = 3,
-  SetAuthority = 4,
+  SetAuthority = 3,
 }
 
 export enum WriterMode {
@@ -82,7 +81,6 @@ const reqZ = z.object({
 interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  ack: z.boolean(),
   command: z.nativeEnum(Command),
   error: errorZ.optional().nullable(),
 });
@@ -198,21 +196,24 @@ export class Writer {
     return writer;
   }
 
-  private async checkForAccumulatedError(): Promise<boolean> {
+  private async checkForAccumulatedError(): Promise<void> {
     if (!this.errAccumulated && this.stream.received()) {
       this.errAccumulated = true;
-      while (this.stream.received()) await this.stream.receive();
+      while (this.stream.received()) {
+        const res = await this.stream.receive();
+        const decoded = decodeError(res.error);
+        if (decoded != null) throw decoded;
+      }
     }
-    return this.errAccumulated;
   }
 
-  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<boolean>;
-  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
-  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<boolean>;
+  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
+  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
+  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<void>;
   async write(
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   /**
    * Writes the given frame to the database.
@@ -231,29 +232,28 @@ export class Writer {
   async write(
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    await this.checkForAccumulatedError();
     const frame = await this.adapter.adapt(channelsOrData, series);
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
-    return true;
   }
 
-  async setAuthority(value: number): Promise<boolean>;
+  async setAuthority(value: number): Promise<void>;
 
   async setAuthority(
     key: channel.KeyOrName,
     authority: control.Authority,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority>,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    await this.checkForAccumulatedError();
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -269,7 +269,8 @@ export class Writer {
       };
     }
     const response = await this.execute({ command: Command.SetAuthority, config });
-    return response.ack;
+    const decoded = decodeError(response.error);
+    if (decoded != null) throw decoded;
   }
 
   /**
@@ -280,19 +281,11 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit(): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  async commit(): Promise<void> {
+    await this.checkForAccumulatedError();
     const res = await this.execute({ command: Command.Commit });
-    return res.ack;
-  }
-
-  /**
-   * @returns  The accumulated error, if any. This method will clear the writer's error
-   * state, allowing the writer to be used again.
-   */
-  async error(): Promise<Error | null> {
-    const res = await this.execute({ command: Command.Error });
-    return res.error != null ? decodeError(res.error) : null;
+    const decoded = decodeError(res.error);
+    if (decoded != null) throw decoded;
   }
 
   /**
@@ -311,9 +304,5 @@ export class Writer {
       if (res.command === req.command) return res;
       console.warn("writer received unexpected response", res);
     }
-  }
-
-  private get errorAccumulated(): boolean {
-    return this.stream.received();
   }
 }

@@ -30,7 +30,6 @@ func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.Wr
 	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
 			Command: Command(in.Command),
-			Ack:     in.Ack,
 			Error:   in.Err,
 			SeqNum:  in.SeqNum,
 			NodeKey: host,

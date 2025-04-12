@@ -74,11 +74,10 @@ message WriterConfig {
 
 message WriterResponse {
     int32 command = 1;
-    bool ack = 2;
-    int32 seq_num = 3;
-    int32 node_key = 4;
-    errors.PBPayload error = 5;
-    int64 time_stamp = 6;
+    int32 seq_num = 2;
+    int32 node_key = 3;
+    errors.PBPayload error = 4;
+    int64 time_stamp = 5;
 }
 
 service DeleteService {

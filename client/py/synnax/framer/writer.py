@@ -43,9 +43,7 @@ class _Command(int, Enum):
     OPEN = 0
     WRITE = 1
     COMMIT = 2
-    ERROR = 3
-    SET_AUTHORITY = 4
-    SET_MODE = 5
+    SET_AUTHORITY = 3
 
 
 class WriterMode(int, Enum):
@@ -152,7 +150,7 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
-    __err_accumulated: bool = False
+    __accumulated_err: Exception = False
 
     start: CrudeTimeStamp
 
@@ -191,18 +189,21 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
+        ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ): ...
+    ):
+        ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ): ...
+    ):
+        ...
 
     def write(
         self,
@@ -263,29 +264,34 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool: ...
+    def set_authority(self, value: CrudeAuthority) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
-    def _check_for_bad_ack(self) -> bool:
-        if not self.__err_accumulated:
-            try:
-                self.__stream.receive(timeout=0)
-            except TimeoutError:
-                return False
-            self.__err_accumulated = True
-        return self.__err_accumulated
+    def _check_for_bad_ack(self):
+        if self.__accumulated_err is not None:
+            raise self.__accumulated_err
+        try:
+            res = self.__stream.receive(timeout=0)
+            self.__accumulated_err = res.error
+        except TimeoutError:
+            return False
+        if self.__accumulated_err is not None:
+            raise self.__accumulated_err
 
     def set_authority(
         self,
@@ -296,7 +302,7 @@ class Writer:
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
-    ) -> bool:
+    ) -> None:
         if isinstance(value, int) and authority is None:
             cfg = _Config(keys=[], authorities=[value])
         else:
@@ -314,14 +320,11 @@ class Writer:
         exc = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
         if exc is not None:
             raise exc
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            if res.command == _Command.SET_AUTHORITY:
-                return res.ack
+        _, exc = self._ack(_Command.SET_AUTHORITY)
+        if exc is not None:
+            raise exc
 
-    def commit(self) -> tuple[TimeStamp, bool]:
+    def commit(self) -> TimeStamp:
         """Commits the written frames to the database. Commit is synchronous, meaning
         that it will not return until all frames have been committed to the database.
 
@@ -329,34 +332,14 @@ class Writer:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        if self._check_for_bad_ack():
-            return TimeStamp.now(), False
+        self._check_for_bad_ack()
         exc = self.__stream.send(_Request(command=_Command.COMMIT))
         if exc is not None:
             raise exc
-
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            if res.command == _Command.COMMIT:
-                return res.end, res.ack
-
-    def error(self) -> Exception | None:
-        """
-        :returns: The exception that the writer has accumulated, if any. If the writer
-        has not accumulated an error, this method will return None. This method will
-        clear the writer's error state, allowing the writer to be used again.
-        """
-        self.__stream.send(_Request(command=_Command.ERROR))
-
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            assert res is not None
-            if res.command == _Command.ERROR:
-                return decode_exception(res.error)
+        res, exc = self._ack(_Command.COMMIT)
+        if exc is not None:
+            raise exc
+        return res.end
 
     def close(self):
         """Closes the writer, raising any accumulated error encountered during
@@ -364,16 +347,22 @@ class Writer:
         be placed in a 'finally' block.
         """
         self.__stream.close_send()
+        _, exc = self._ack()
+        if exc is not None and not isinstance(exc, EOF):
+            raise exc
+
+    def _ack(self, cmd: _Command | None = None) -> (
+        tuple[_Response, None] | tuple[None, Exception]):
         while True:
             res, exc = self.__stream.receive()
-            if exc is None:
-                assert res is not None
-                exc = decode_exception(res.error)
-
             if exc is not None:
-                if isinstance(exc, EOF):
-                    return
-                raise exc
+                decoded = decode_exception(exc)
+                self.__accumulated_err = decoded
+                return res, decoded
+            elif cmd is not None and res.command == cmd:
+                decoded = decode_exception(res.error)
+                self.__accumulated_err = decoded
+                return res, decoded
 
     def __enter__(self):
         return self

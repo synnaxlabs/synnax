@@ -33,8 +33,6 @@ const (
 	WriterWrite WriterCommand = iota + 1
 	// WriterCommit represents a call to Writer.Commit.
 	WriterCommit
-	// WriterError represents a call to Writer.Error.
-	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
 )
@@ -56,8 +54,6 @@ type WriterRequest struct {
 type WriterResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// Ack represents the return frame of the command.
-	Ack bool
 	// SeqNum is the current sequence number of the command being executed. SeqNum is
 	// incremented for WriterError and WriterCommit calls, but NOT WriterWrite calls.
 	SeqNum int
@@ -106,13 +102,6 @@ type streamWriter struct {
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 }
 
-// recoverableErrors is the list of errors considered recoverable by the writer. By
-// calling error(), recoverable errors will be cleared and the caller will be allowed
-// to continue writing.
-var recoverableErrors = []error{
-	control.Unauthorized,
-}
-
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
@@ -145,32 +134,24 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
+		w.err = errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 		return
 	}
-	if req.Command == WriterError {
-		w.sendRes(req, false, w.err, 0)
-		if errors.IsAny(w.err, recoverableErrors...) {
-			w.err = nil
-		}
-		return
-	}
+	var (
+		end     telem.TimeStamp
+		sendRes = true
+	)
 	if req.Command == WriterSetAuthority {
 		w.setAuthority(ctx, req.Config)
-		w.sendRes(req, true, nil, 0)
-		return
-	}
-	if w.err != nil {
-		w.sendRes(req, false, nil, 0)
-		return
-	}
-	if req.Command == WriterCommit {
-		var end telem.TimeStamp
+	} else if w.err != nil {
+		w.sendRes(req, end)
+	} else if req.Command == WriterCommit {
 		end, w.err = w.commit(ctx)
-		w.sendRes(req, w.err == nil, nil, end)
-	} else {
-		if w.err = w.write(ctx, req); w.err != nil {
-			w.sendRes(req, false, nil, 0)
-		}
+	} else if w.err = w.write(ctx, req); w.err == nil {
+		sendRes = false
+	}
+	if sendRes {
+		w.sendRes(req, end)
 	}
 }
 
@@ -224,12 +205,11 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 }
 
-func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
+func (w *streamWriter) sendRes(req WriterRequest, end telem.TimeStamp) {
 	w.Out.Inlet() <- WriterResponse{
 		Command: req.Command,
-		Ack:     ack,
 		SeqNum:  req.SeqNum,
-		Err:     err,
+		Err:     w.err,
 		End:     end,
 	}
 }

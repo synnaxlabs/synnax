@@ -512,11 +512,10 @@ func (x *WriterConfig) GetAutoIndexPersistInterval() int64 {
 type WriterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Ack           bool                   `protobuf:"varint,2,opt,name=ack,proto3" json:"ack,omitempty"`
-	SeqNum        int32                  `protobuf:"varint,3,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	Error         *errors.PBPayload      `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	TimeStamp     int64                  `protobuf:"varint,6,opt,name=time_stamp,json=timeStamp,proto3" json:"time_stamp,omitempty"`
+	SeqNum        int32                  `protobuf:"varint,2,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,3,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	Error         *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	TimeStamp     int64                  `protobuf:"varint,5,opt,name=time_stamp,json=timeStamp,proto3" json:"time_stamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -556,13 +555,6 @@ func (x *WriterResponse) GetCommand() int32 {
 		return x.Command
 	}
 	return 0
-}
-
-func (x *WriterResponse) GetAck() bool {
-	if x != nil {
-		return x.Ack
-	}
-	return false
 }
 
 func (x *WriterResponse) GetSeqNum() int32 {
@@ -694,15 +686,14 @@ const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "
 	"\x13err_on_unauthorized\x18\x05 \x01(\bR\x11errOnUnauthorized\x12\x12\n" +
 	"\x04mode\x18\x06 \x01(\rR\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\a \x01(\bR\x10enableAutoCommit\x12=\n" +
-	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\"\xb8\x01\n" +
+	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\"\xa6\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x10\n" +
-	"\x03ack\x18\x02 \x01(\bR\x03ack\x12\x17\n" +
-	"\aseq_num\x18\x03 \x01(\x05R\x06seqNum\x12\x19\n" +
-	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12'\n" +
-	"\x05error\x18\x05 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x1d\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x17\n" +
+	"\aseq_num\x18\x02 \x01(\x05R\x06seqNum\x12\x19\n" +
+	"\bnode_key\x18\x03 \x01(\x05R\anodeKey\x12'\n" +
+	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x1d\n" +
 	"\n" +
-	"time_stamp\x18\x06 \x01(\x03R\ttimeStamp\"e\n" +
+	"time_stamp\x18\x05 \x01(\x03R\ttimeStamp\"e\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +

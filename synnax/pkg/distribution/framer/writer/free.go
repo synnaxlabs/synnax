@@ -34,5 +34,5 @@ func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, 
 		err = signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: req.Frame})
 		return
 	}
-	return Response{Command: req.Command, Ack: true, SeqNum: req.SeqNum}, true, nil
+	return Response{Command: req.Command, SeqNum: req.SeqNum}, true, nil
 }
