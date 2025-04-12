@@ -13,6 +13,7 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { framer } from "@/framer";
 import {
   type Key,
   keyZ,
@@ -21,6 +22,8 @@ import {
   ONTOLOGY_TYPE,
   type Payload,
   rackZ,
+  type State,
+  stateZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
@@ -31,12 +34,17 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
+const STATE_CHANNEL_NAME = "sy_rack_state";
+
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
-  offset: z.number().optional(),
+  embedded: z.boolean().optional(),
+  hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
+  offset: z.number().optional(),
+  includeState: z.boolean().optional(),
 });
 
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
@@ -49,14 +57,24 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
+export interface RetrieveOptions {
+  includeState?: boolean;
+}
+
 export class Client implements AsyncTermSearcher<string, Key, Payload> {
   readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
+  private readonly frameClient: framer.Client;
 
-  constructor(client: UnaryClient, taskClient: task.Client) {
+  constructor(
+    client: UnaryClient,
+    taskClient: task.Client,
+    frameClient: framer.Client,
+  ) {
     this.client = client;
     this.tasks = taskClient;
+    this.frameClient = frameClient;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
@@ -107,9 +125,12 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return this.sugar(res.racks);
   }
 
-  async retrieve(key: string | Key): Promise<Rack>;
-  async retrieve(keys: Key[]): Promise<Rack[]>;
-  async retrieve(racks: string | Key | Key[]): Promise<Rack | Rack[]> {
+  async retrieve(key: string | Key, options?: RetrieveOptions): Promise<Rack>;
+  async retrieve(keys: Key[], options?: RetrieveOptions): Promise<Rack[]>;
+  async retrieve(
+    racks: string | Key | Key[],
+    options?: RetrieveOptions,
+  ): Promise<Rack | Rack[]> {
     const { variant, normalized, single } = analyzeParams(racks, {
       string: "names",
       number: "keys",
@@ -117,7 +138,10 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      { [variant]: normalized },
+      {
+        [variant]: normalized,
+        includeState: options?.includeState,
+      },
       retrieveReqZ,
       retrieveResZ,
     );
@@ -126,20 +150,36 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
+  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
+    return new framer.ObservableStreamer<State[]>(
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      (fr) => {
+        const data = fr.get(STATE_CHANNEL_NAME);
+        if (data.length === 0) return [[], false];
+        const states = data.parseJSON(stateZ);
+        return [states, true];
+      },
+    );
+  }
+
   private sugar(payloads: Payload[]): Rack[] {
-    return payloads.map(({ key, name }) => new Rack(key, name, this.tasks));
+    return payloads.map(
+      ({ key, name, state }) => new Rack(key, name, this.tasks, state),
+    );
   }
 }
 
 export class Rack {
   key: Key;
   name: string;
+  state?: State;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client) {
+  constructor(key: Key, name: string, taskClient: task.Client, state?: State) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
+    this.state = state;
   }
 
   async listTasks(): Promise<task.Task[]> {

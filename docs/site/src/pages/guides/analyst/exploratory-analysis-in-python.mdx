@@ -11,31 +11,32 @@ import { Image } from "@/components/Media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 
 This guide will walk you through basic analysis on an example data set using Synnax.
-We'll import the data set, explore it using the Synnax Console, run analysis, and
-attach post-processed results.
+We'll import the data set, explore it using the Synnax Console, run analysis, and attach
+post-processed results.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
 #### Start a local cluster
 
 This guide assumes you've started a local cluster running on `localhost:9090` using the
-instructions [here](/reference/cluster/quick-start). You're more than welcome to use a remote
-cluster, but you'll need to keep in mind that those connection parameters may be different
-than the ones used in this guide.
+instructions [here](/reference/cluster/quick-start). You're more than welcome to use a
+remote cluster, but you'll need to keep in mind that those connection parameters may be
+different than the ones used in this guide.
 
 #### Install the Synnax Console
 
-We're going to use the Synnax Console to plot our data. To install it, follow
-the instructions [here](/reference/console/get-started).
+We're going to use the Synnax Console to plot our data. To install it, follow the
+instructions [here](/reference/console/get-started).
 
 #### Install and authenticate the Python client
 
 Finally, you'll need to make sure you have the `synnax` Python client installed and
-authenticated with your cluster. A guide for doing so is available [here](/reference/python-client/get-started).
+authenticated with your cluster. A guide for doing so is available
+[here](/reference/python-client/get-started).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Importing a data set
 
@@ -62,8 +63,8 @@ Connection successful!
 Would you like to ingest all cahnnels? [y/n] (y):
 ```
 
-This question is asking if we want to import data for all columns in the file. We do,
-so we'll hit enter. Next, Synnax will check if all of the columns in the CSV correspond
+This question is asking if we want to import data for all columns in the file. We do, so
+we'll hit enter. Next, Synnax will check if all of the columns in the CSV correspond
 with existing channels in our cluster:
 
 ```
@@ -97,8 +98,8 @@ samples were taken. These types of columns are called "indexes" and are used to 
 queries by time range. If you'd like to read more about the different channel types in
 Synnax, see [this page](/reference/concepts/channels).
 
-In our case, we have a 'Time' column that contains timestamps, so we'll enter `y` and hit
-enter. Synnax will then ask us to select the name of our index column:
+In our case, we have a 'Time' column that contains timestamps, so we'll enter `y` and
+hit enter. Synnax will then ask us to select the name of our index column:
 
 ```
 You can enter 'all' for all channels or a comma-separated list of:
@@ -115,16 +116,16 @@ We'll enter `Time`, and move on to the next step:
 Do all non-indexed channels have the same data rate or index? [y/n] (y):
 ```
 
-This question asks us if our `Time` column represents the timestamps for all of the other
-columns in the data set. In our case, it does, so we'll enter `y` and continue. Synnax
-will then ask us to enter the name of our time column:
+This question asks us if our `Time` column represents the timestamps for all of the
+other columns in the data set. In our case, it does, so we'll enter `y` and continue.
+Synnax will then ask us to enter the name of our time column:
 
 ```
 Enter the name of an index or a data rate:
 ```
 
-Again, we'll enter `Time` and continue. Then, Synnax will ask us about how we'd like
-to assign data types to our channels:
+Again, we'll enter `Time` and continue. Then, Synnax will ask us about how we'd like to
+assign data types to our channels:
 
 ```
 Please select an option for assigning data types:
@@ -169,7 +170,7 @@ set. When it's done, we'll see the following message:
 ━━━━━━━━━━━━━━━━━━ 100% 85740 out of 85570 samples - 7477108.2235981515 samples/s
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Plotting our data set
 

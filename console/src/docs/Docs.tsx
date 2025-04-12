@@ -9,16 +9,16 @@
 
 import "@/docs/Docs.css";
 
-import { Logo } from "@synnaxlabs/media";
-import { Theming, Triggers } from "@synnaxlabs/pluto";
+import { Icon, Logo } from "@synnaxlabs/media";
+import { Button, Text, Theming, Triggers } from "@synnaxlabs/pluto";
 import { buildQueryString, URL } from "@synnaxlabs/x";
-import { memo, useEffect, useState } from "react";
+import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useSelectLocation } from "@/docs/selectors";
 import { setDocsLocation } from "@/docs/slice";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 const HOST = new URL({
   host: "docs.synnaxlabs.com",
@@ -90,3 +90,21 @@ export const Docs: Layout.Renderer = memo(() => {
   );
 });
 Docs.displayName = "DocsLayoutRenderer";
+
+export const OpenButton = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  const handleDocs = (): void => {
+    placeLayout(LAYOUT);
+  };
+  return (
+    <Button.Icon
+      size="small"
+      shade={2}
+      onClick={handleDocs}
+      className={CSS.BE("docs", "open-button")}
+      tooltip={<Text.Text level="small">Open Documentation</Text.Text>}
+    >
+      <Icon.QuestionMark />
+    </Button.Icon>
+  );
+};

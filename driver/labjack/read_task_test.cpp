@@ -14,9 +14,9 @@
 #include "gtest/gtest.h"
 
 /// module
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xtest/xtest.h"
-#include "client/cpp/testutil/testutil.h"
 
 /// internal
 #include "driver/labjack/read_task.h"
@@ -29,13 +29,7 @@ TEST(TestInputChannelParse, testAIChan) {
         {"channel", 1},
         {"type", "AI"},
         {"range", 5},
-        {
-            "scale", {
-                {"type", "linear"},
-                {"slope", 1},
-                {"offset", 2}
-            }
-        }
+        {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
     auto p = xjson::Parser(cfg);
     const auto chan = labjack::parse_input_chan(p);
@@ -74,13 +68,7 @@ TEST(TestInputChannelParse, testTCChan) {
         {"channel", 0},
         {"type", "TC"},
         {"range", 0},
-        {
-            "scale", {
-                {"type", "linear"},
-                {"slope", 1},
-                {"offset", 2}
-            }
-        },
+        {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
         {"pos_chan", 0},
         {"neg_chan", 199},
@@ -114,13 +102,7 @@ TEST(TestInputChannelParse, testInvalidChannelType) {
         {"channel", 1},
         {"type", "INVALID_TYPE"}, // Invalid channel type
         {"range", 5},
-        {
-            "scale", {
-                {"type", "linear"},
-                {"slope", 1},
-                {"offset", 2}
-            }
-        }
+        {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
     auto p = xjson::Parser(cfg);
     const auto chan = labjack::parse_input_chan(p);
@@ -133,52 +115,35 @@ json basic_read_task_config() {
         {"sample_rate", 10},
         {"stream_rate", 5},
         {"data_saving", true},
-        {
-            "channels", json::array({
-                {
-                    {"port", "AIN0"},
-                    {"enabled", true},
-                    {"key", "8hYJO9zt6eS"},
-                    {"channel", 0},
-                    {"type", "TC"},
-                    {"range", 0},
-                    {
-                        "scale", {
-                            {"type", "linear"},
-                            {"slope", 1},
-                            {"offset", 2}
-                        }
-                    },
-                    {"thermocouple_type", "K"},
-                    {"pos_chan", 0},
-                    {"neg_chan", 199},
-                    {"units", "K"},
-                    {"cjc_source", "TEMPERATURE_DEVICE_K"},
-                    {"cjc_slope", 1},
-                    {"cjc_offset", 0}
-                },
-                {
-                    {"port", "DIO4"},
-                    {"enabled", true},
-                    {"key", "DYFpBBDlpRt"},
-                    {"channel", 0},
-                    {"type", "DI"}
-                },
-                {
-                    {"port", "AIN6"},
-                    {"enabled", true},
-                    {"key", "rHb0YjmhUq3"},
-                    {"channel", 0},
-                    {"type", "AI"},
-                    {"range", 0},
-                    {
-                        "scale", {
-                            {"type", "none"}
-                        }
-                    }
-                }
-            })
-        }
+        {"channels",
+         json::array(
+             {{{"port", "AIN0"},
+               {"enabled", true},
+               {"key", "8hYJO9zt6eS"},
+               {"channel", 0},
+               {"type", "TC"},
+               {"range", 0},
+               {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
+               {"thermocouple_type", "K"},
+               {"pos_chan", 0},
+               {"neg_chan", 199},
+               {"units", "K"},
+               {"cjc_source", "TEMPERATURE_DEVICE_K"},
+               {"cjc_slope", 1},
+               {"cjc_offset", 0}},
+              {{"port", "DIO4"},
+               {"enabled", true},
+               {"key", "DYFpBBDlpRt"},
+               {"channel", 0},
+               {"type", "DI"}},
+              {{"port", "AIN6"},
+               {"enabled", true},
+               {"key", "rHb0YjmhUq3"},
+               {"channel", 0},
+               {"type", "AI"},
+               {"range", 0},
+               {"scale", {{"type", "none"}}}}}
+         )}
     };
 }
 
@@ -197,9 +162,11 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_NIL(sy->hardware.create_device(dev));
 
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(sy->channels.create("tc_channel", telem::FLOAT64_T, true));
+    auto tc_ch = ASSERT_NIL_P(sy->channels.create("tc_channel", telem::FLOAT64_T, true)
+    );
     auto di_ch = ASSERT_NIL_P(sy->channels.create("di_channel", telem::UINT8_T, true));
-    auto ai_ch = ASSERT_NIL_P(sy->channels.create("ai_channel", telem::FLOAT64_T, true));
+    auto ai_ch = ASSERT_NIL_P(sy->channels.create("ai_channel", telem::FLOAT64_T, true)
+    );
 
     auto j = basic_read_task_config();
     j["channels"][0]["channel"] = tc_ch.key;
@@ -215,7 +182,8 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(cfg->data_saving, true);
     ASSERT_EQ(cfg->channels.size(), 3);
 
-    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan*>(cfg->channels[0].get());
+    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(cfg->channels[0].get(
+    ));
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -228,13 +196,13 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
-    const auto di_chan = dynamic_cast<labjack::DIChan*>(cfg->channels[1].get());
+    const auto di_chan = dynamic_cast<labjack::DIChan *>(cfg->channels[1].get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
-    const auto ai_chan = dynamic_cast<labjack::AIChan*>(cfg->channels[2].get());
+    const auto ai_chan = dynamic_cast<labjack::AIChan *>(cfg->channels[2].get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -261,19 +229,17 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 
     // Create a config with an invalid channel type
     auto j = basic_read_task_config();
-    j["channels"] = json::array({
-        {
-            {"port", "AIN0"},
-            {"enabled", true},
-            {"key", "8hYJO9zt6eS"},
-            {"channel", ch.key},
-            {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
-            {"range", 5}
-        }
-    });
+    j["channels"] = json::array(
+        {{{"port", "AIN0"},
+          {"enabled", true},
+          {"key", "8hYJO9zt6eS"},
+          {"channel", ch.key},
+          {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
+          {"range", 5}}}
+    );
 
     auto p = xjson::Parser(j);
     auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
-    
+
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }

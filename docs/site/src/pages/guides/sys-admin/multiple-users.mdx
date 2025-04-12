@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 This guide walks through how to register multiple users to a Synnax cluster and manage
 their permissions.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
@@ -24,14 +24,13 @@ their permissions.
   [Python](/reference/python-client/get-started) or
   [TypeScript](/reference/typescript-client/get-started) clients installed.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Logging Into a Cluster
 
 To log into a cluster, you need the following information:
 
-- Host: the network address of the machine running the cluster. Defaults to
-  `localhost`.
+- Host: the network address of the machine running the cluster. Defaults to `localhost`.
 - Port: the port the cluster is running on. Defaults to `9090`.
 - Username: the username of the user to log in as. Defaults to `synnax`.
 - Password: the password of the user to log in as. Defaults to `seldon`.
@@ -48,19 +47,19 @@ To log into a cluster, you need the following information:
 
 ### Synnax Console
 
-To log into a cluster using the [Synnax
-Console](/reference/console/clusters#Adding%20a%20New%20Cluster), simply click the **Add
-Cluster** button in the top right corner of the cluster toolbar and enter your
+To log into a cluster using the
+[Synnax Console](/reference/console/clusters#Adding%20a%20New%20Cluster), simply click
+the **Add Cluster** button in the top right corner of the cluster toolbar and enter your
 connection parameters:
 
 <Video client:only="react" id="console/clusters/connect" />
 
 ### Python Client
 
-There are two ways to log into a cluster using the Python client, the [`synnax
-login`](/reference/python-client/get-started#The%20Synnax%20Login%20Command) command or
-by directly [passing in your
-credentials](/reference/python-client/get-started#Passing%20Credentials%20Directly):
+There are two ways to log into a cluster using the Python client, the
+[`synnax login`](/reference/python-client/get-started#The%20Synnax%20Login%20Command)
+command or by directly
+[passing in your credentials](/reference/python-client/get-started#Passing%20Credentials%20Directly):
 
 ```python
 import synnax as sy
@@ -76,8 +75,8 @@ client = sy.Synnax(
 
 ### TypeScript Client
 
-To log in with the [TypeScript
-client](/reference/typescript-client/get-started#Authenticating%20with%20a%20Cluster),
+To log in with the
+[TypeScript client](/reference/typescript-client/get-started#Authenticating%20with%20a%20Cluster),
 you can simply create a new client:
 
 ```typescript
@@ -92,7 +91,7 @@ const client = new Synnax({
 });
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Registering Users
 
@@ -110,11 +109,11 @@ or TypeScript clients.
 
 ### Synnax Console
 
-Once you've logged into the cluster, you can register new users with the ["Register a
-User"](/reference/console/users#Registering%20Users) command from the command palette.
-The command palette can be opened by pressing `Ctrl+Shift+P` (Windows/Linux) or
-`Cmd+Shift+P` (macOS), and also by clicking the search bar in the top of the screen and
-typing `>`.
+Once you've logged into the cluster, you can register new users with the
+["Register a User"](/reference/console/users#Registering%20Users) command from the
+command palette. The command palette can be opened by pressing `Ctrl+Shift+P`
+(Windows/Linux) or `Cmd+Shift+P` (macOS), and also by clicking the search bar in the top
+of the screen and typing `>`.
 
 <Video client:only="react" id="console/users/register" controls />
 
@@ -140,7 +139,7 @@ client.user.create({
 });
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Managing User Permissions
 
@@ -151,7 +150,7 @@ the screen, right-clicking a user, and selecting "Edit Permissions".
 
 <Video client:only="react" id="console/users/permissions" controls />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Logging in as a New User
 

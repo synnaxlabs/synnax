@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Form, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
 
-export interface EnableDisableButtonProps {
+export interface EnableDisableButtonProps
+  extends Omit<Button.ToggleIconProps, "onChange" | "value" | "children"> {
   path: string;
   isSnapshot: boolean;
 }
 
-export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonProps) => {
+export const EnableDisableButton = ({
+  path,
+  isSnapshot,
+  ...rest
+}: EnableDisableButtonProps) => {
   const { get, set } = Form.useContext();
   const fs = get<boolean>(path, { optional: true });
   if (fs == null) return null;
@@ -24,7 +29,7 @@ export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonPro
       disabled={isSnapshot}
       onChange={(v) => set(path, v)}
       size="small"
-      stopPropagation
+      onClick={stopPropagation}
       tooltip={
         isSnapshot ? undefined : (
           <Text.Text level="small">
@@ -33,6 +38,7 @@ export const EnableDisableButton = ({ path, isSnapshot }: EnableDisableButtonPro
         )
       }
       value={value}
+      {...rest}
     >
       <Status.Circle />
     </Button.ToggleIcon>

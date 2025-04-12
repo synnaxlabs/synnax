@@ -70,7 +70,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
         </List.Filter>
       </Align.Space>
       <List.Core<string, Schematic.Spec<any>>
-        direction="x"
+        x
         className={CSS(
           CSS.B("schematic-symbols"),
           PCSS.BE("symbol", "container"),
@@ -119,7 +119,7 @@ const SymbolsButton = ({
       className={CSS(CSS.BE("schematic-symbols", "button"))}
       justify="spaceBetween"
       align="center"
-      size={0.5}
+      size="tiny"
       draggable
       {...rest}
       {...dragProps}

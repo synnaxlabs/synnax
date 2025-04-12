@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it,test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { Static } from "@/telem/client/cache/static";
 
@@ -204,8 +204,7 @@ describe("StaticReadCache", () => {
         c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read()).toHaveLength(1);
-      await new Promise((resolve) => setTimeout(resolve, 8));
-      expect(c.gc().purgedSeries).toEqual(1);
+      await expect.poll(async () => c.gc().purgedSeries === 1).toBeTruthy();
       expect(read()).toHaveLength(0);
     });
     it("should not garbage collect series that have a reference count greater than zero", async () => {

@@ -162,6 +162,7 @@ const navDrawerEntryStateZ = z.object({
   activeItem: z.string().nullable(),
   menuItems: z.string().array(),
   size: z.number().optional(),
+  hover: z.boolean().optional(),
 });
 
 export type NavDrawerEntryState = z.infer<typeof navDrawerEntryStateZ>;
@@ -183,6 +184,8 @@ const partialNavStateZ = z.object({ drawers: navDrawerStateZ.partial() });
 const navStateZ = z
   .record(z.string(), partialNavStateZ)
   .and(z.object({ [MAIN_LAYOUT_KEY]: mainNavStateZ }));
+
+export type NavState = z.infer<typeof navStateZ>;
 
 export const MAIN_LAYOUT: State = {
   name: "Main",
@@ -220,8 +223,19 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   nav: {
     main: {
       drawers: {
-        left: { activeItem: null, menuItems: ["resources"] },
-        right: { activeItem: null, menuItems: ["range", "task"] },
+        left: {
+          activeItem: null,
+          menuItems: [
+            "ontology",
+            "channel",
+            "range",
+            "workspace",
+            "device",
+            "task",
+            "user",
+          ],
+        },
+        right: { activeItem: null, menuItems: [] },
         bottom: { activeItem: null, menuItems: ["visualization"] },
       },
     },

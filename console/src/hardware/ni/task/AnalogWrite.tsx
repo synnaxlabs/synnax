@@ -24,6 +24,7 @@ import {
   analogWriteConfigZ,
   type AnalogWriteStateDetails,
   type AnalogWriteType,
+  AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
   type AOChannelType,
@@ -48,9 +49,10 @@ export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
@@ -59,7 +61,7 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChanne
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
   const {
-    entry: { port, type, cmdChannel },
+    entry: { port, cmdChannel, stateChannel, type },
   } = rest;
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -67,11 +69,15 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
+      stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
       isSnapshot={isSnapshot}
       path={path}
-      name={AO_CHANNEL_TYPE_NAMES[type]}
+      icon={{
+        name: AO_CHANNEL_TYPE_NAMES[type],
+        icon: AO_CHANNEL_TYPE_ICONS[type],
+      }}
     />
   );
 };
@@ -98,6 +104,7 @@ const Form: FC<
     createChannel={createAOChannel}
     isSnapshot={isSnapshot}
     initialChannels={task.config.channels}
+    contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
 

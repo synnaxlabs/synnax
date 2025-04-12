@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "gtest/gtest.h"
 #include "x/cpp/xenv/xenv.h"
+#include "gtest/gtest.h"
 
 class XEnvTest : public ::testing::Test {
 protected:
@@ -66,30 +66,30 @@ TEST_F(XEnvTest, LoadUInt16) {
 
 TEST_F(XEnvTest, LoadBooleanTrueDefault) {
     xenv::set("TEST_BOOL_TRUE", "true");
-    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", false), true); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", false), true);
 
     xenv::set("TEST_BOOL_ONE", "1");
-    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", false), true); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", false), true);
 
     xenv::set("TEST_BOOL_ZERO", "0");
-    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", true), false); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", true), false);
 
     xenv::set("TEST_BOOL_FALSE", "false");
-    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", true), false); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", true), false);
 }
 
 TEST_F(XEnvTest, LoadBooleanFalseDefault) {
     xenv::set("TEST_BOOL_TRUE", "true");
-    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", true), true); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", true), true);
 
     xenv::set("TEST_BOOL_ONE", "1");
-    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", true), true); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_ONE", true), true);
 
     xenv::set("TEST_BOOL_ZERO", "0");
-    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", false), false); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_ZERO", false), false);
 
     xenv::set("TEST_BOOL_FALSE", "false");
-    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", false), false); 
+    EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", false), false);
 }
 
 TEST_F(XEnvTest, AutomaticCaseConversion) {
@@ -109,10 +109,8 @@ TEST_F(XEnvTest, AutomaticCaseConversion) {
 }
 
 TEST_F(XEnvTest, CaseConversionWithMixedCase) {
-    // Test that mixed case gets converted correctly
     xenv::set("MIXED_CASE_VALUE", "success");
 
-    // All these should work and access the same env var
     EXPECT_EQ(xenv::load("mixed_case_value", std::string("default")), "success");
     EXPECT_EQ(xenv::load("MIXED_CASE_VALUE", std::string("default")), "success");
     EXPECT_EQ(xenv::load("Mixed_Case_Value", std::string("default")), "success");
@@ -147,9 +145,18 @@ TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
     xenv::Parser parser2("MY_APP");
     xenv::Parser parser3("My_App");
 
-    EXPECT_EQ(parser1.optional("test_value", std::string("default")), "mixed_case_prefix");
-    EXPECT_EQ(parser2.optional("test_value", std::string("default")), "mixed_case_prefix");
-    EXPECT_EQ(parser3.optional("test_value", std::string("default")), "mixed_case_prefix");
+    EXPECT_EQ(
+        parser1.optional("test_value", std::string("default")),
+        "mixed_case_prefix"
+    );
+    EXPECT_EQ(
+        parser2.optional("test_value", std::string("default")),
+        "mixed_case_prefix"
+    );
+    EXPECT_EQ(
+        parser3.optional("test_value", std::string("default")),
+        "mixed_case_prefix"
+    );
 
     xenv::unset("MY_APP_TEST_VALUE");
 }

@@ -13,13 +13,28 @@
 #include "x/cpp/loop/loop.h"
 
 /// internal
-#include "driver/task/common/state.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/task/common/state.h"
 #include "driver/task/task.h"
-#include "driver/errors/errors.h"
 
 namespace common {
+/// @brief common write task configuration parameters used across multiple drivers.
+struct BaseWriteTaskConfig : BaseTaskConfig {
+    /// @brief the key of the device the task is writing to.
+    const std::string device_key;
+
+    BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
+        BaseTaskConfig(std::move(other)), device_key(std::move(other.device_key)) {}
+
+    BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
+
+    const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
+
+    explicit BaseWriteTaskConfig(xjson::Parser &cfg):
+        BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
+};
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief a timer that is used to control the rate at which the state is
     /// propagated.
@@ -40,7 +55,7 @@ public:
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
 
-    explicit  Sink(std::vector<synnax::ChannelKey> cmd_channels):
+    explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
         state_timer(telem::Rate(0)),
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
@@ -52,10 +67,11 @@ public:
         const std::vector<synnax::Channel> &state_channels,
         std::vector<synnax::ChannelKey> cmd_channels,
         const bool data_saving
-    ): state_timer(state_rate),
-       cmd_channels(std::move(cmd_channels)),
-       state_indexes(std::move(state_indexes)),
-       data_saving(data_saving) {
+    ):
+        state_timer(state_rate),
+        cmd_channels(std::move(cmd_channels)),
+        state_indexes(std::move(state_indexes)),
+        data_saving(data_saving) {
         auto idx = 0;
         for (const auto &ch: state_channels) {
             this->chan_state[ch.key] = ch.data_type.cast(0);
@@ -74,8 +90,10 @@ public:
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
         std::vector<synnax::ChannelKey> keys;
-        for (const auto &[_, ch]: this->state_channels) keys.push_back(ch.key);
-        for (const auto idx: this->state_indexes) keys.push_back(idx);
+        for (const auto &[_, ch]: this->state_channels)
+            keys.push_back(ch.key);
+        for (const auto idx: this->state_indexes)
+            keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
@@ -114,15 +132,12 @@ class WriteTask final : public task::Task {
     public:
         /// @brief the parent write task.
         WriteTask &p;
-        /// @brief the underlying wrapped sink that actually executes commands on the
-        /// hardware.
+        /// @brief the underlying wrapped sink that actually executes commands on
+        /// the hardware.
         std::unique_ptr<common::Sink> wrapped;
 
-        WrappedSink(
-            WriteTask &p,
-            std::unique_ptr<common::Sink> sink
-        ): p(p), wrapped(std::move(sink)) {
-        }
+        WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
+            p(p), wrapped(std::move(sink)) {}
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const xerrors::Error &err) override {
@@ -180,8 +195,7 @@ public:
             this->sink->wrapped->writer_config(),
             this->sink,
             breaker_cfg
-        ) {
-    }
+        ) {}
 
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
@@ -190,20 +204,22 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink
-    ): WriteTask(
-        std::move(task),
-        ctx,
-        breaker_cfg,
-        std::move(sink),
-        std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
-        std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
-    ) {
-    }
+    ):
+        WriteTask(
+            std::move(task),
+            ctx,
+            breaker_cfg,
+            std::move(sink),
+            std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
+            std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
+        ) {}
 
     /// @brief implements task::Task to execute the provided command on the task.
     void exec(task::Command &cmd) override {
-        if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key, true);
+        if (cmd.type == "start")
+            this->start(cmd.key);
+        else if (cmd.type == "stop")
+            this->stop(cmd.key, true);
     }
 
     /// @brief implements task::Task to stop the task.
@@ -212,9 +228,10 @@ public:
     }
 
     /// @brief stops the task.
-    /// @param cmd_key - A reference to the command key used to execute the stop. Will
-    /// be used internally to communicate the task state.
-    /// @param propagate_state whether the task will be reconfigured after it was stopped.
+    /// @param cmd_key - A reference to the command key used to execute the stop.
+    /// Will be used internally to communicate the task state.
+    /// @param propagate_state whether the task will be reconfigured after it was
+    /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto write_pipe_stopped = this->cmd_write_pipe.stop();
         const auto state_pipe_stopped = this->state_write_pipe.stop();
@@ -225,8 +242,8 @@ public:
     }
 
     /// @brief starts the task.
-    /// @param cmd_key - A reference to the command key used to execute the start. Will
-    /// be used internally to communicate the task state.
+    /// @param cmd_key - A reference to the command key used to execute the start.
+    /// Will be used internally to communicate the task state.
     bool start(const std::string &cmd_key) {
         this->stop("", false);
         const auto sink_started = !this->state.error(this->sink->wrapped->start());
@@ -240,6 +257,6 @@ public:
     }
 
     /// @brief implements task::Task to return the task's name.
-    std::string name() override { return this->state.task.name; }
+    std::string name() const override { return this->state.task.name; }
 };
 }

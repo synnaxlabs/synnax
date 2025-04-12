@@ -14,7 +14,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Header,
   List,
   Menu as PMenu,
   Observe,
@@ -106,7 +105,7 @@ const EmptyContent = () => {
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} size="small">
         <Text.Text level="p">No existing tasks.</Text.Text>
         <Text.Link level="p" onClick={handleClick}>
           Add a task
@@ -131,6 +130,7 @@ const Content = () => {
   const [tasks, setTasks] = useState<SugaredTask[]>([]);
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
+  const confirm = Modals.useConfirm();
   const rename = useMutation({
     onMutate: ({ key }) => tasks.find((t) => t.key === key)?.name ?? "task",
     mutationFn: async ({ name, key }: RenameArgs) => {
@@ -143,6 +143,7 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
         });
+        console.log(confirmed);
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
@@ -244,7 +245,6 @@ const Content = () => {
         );
     },
   });
-  const confirm = Modals.useConfirm();
   const handleDelete = useMutation({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -343,10 +343,15 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
+      <Align.Space
+        empty
+        style={{ height: "100%" }}
+        className={CSS(CSS.B("task-toolbar"), menuProps.className)}
+        onContextMenu={menuProps.open}
+      >
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Header.Actions>{actions}</Header.Actions>
+          <Toolbar.Actions>{actions}</Toolbar.Actions>
         </Toolbar.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
@@ -362,6 +367,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,
+  trigger: ["T"],
   tooltip: "Tasks",
   initialSize: 300,
   minSize: 225,
@@ -395,14 +401,9 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
-      <Align.Space
-        direction="y"
-        size="small"
-        grow
-        className={CSS.BE("task", "metadata")}
-      >
-        <Align.Space direction="x" align="center" size="small">
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
+      <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
+        <Align.Space x align="center" size="small">
           <Status.Circle
             variant={status === Common.Task.LOADING_STATUS ? "loading" : variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
@@ -423,7 +424,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             />
           </Text.WithIcon>
         </Align.Space>
-        <Text.Text level="small" shade={6}>
+        <Text.Text level="small" shade={10}>
           {parseType(type)}
         </Text.Text>
       </Align.Space>

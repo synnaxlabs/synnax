@@ -88,8 +88,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <Core.Header>
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
-          <Align.Space direction="x" align="center" empty>
-            <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+          <Align.Space x align="center" empty>
+            <Align.Space x empty style={{ height: "100%", width: 66 }}>
               <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}

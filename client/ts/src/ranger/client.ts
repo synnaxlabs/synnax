@@ -17,7 +17,7 @@ import { z } from "zod";
 import { type channel } from "@/channel";
 import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { type label } from "@/label";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
@@ -195,6 +195,7 @@ const retrieveReqZ = z.object({
   overlapsWith: TimeRange.z.optional(),
   limit: z.number().int().optional(),
   offset: z.number().int().optional(),
+  hasLabels: label.keyZ.array().optional(),
 });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -321,7 +322,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       "sy_range_delete",
       (variant, data) => {
         if (variant === "delete")
-          return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
+          return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
         const sugared = this.sugarMany(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },

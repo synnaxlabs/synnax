@@ -10,33 +10,29 @@
 #pragma once
 
 /// std
-#include <string>
 #include <map>
 #include <set>
+#include <string>
 
 /// module
 #include "client/cpp/synnax.h"
-#include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "ni.h"
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
+#include "driver/ni/ni.h"
 #include "driver/pipeline/control.h"
+#include "driver/task/common/common.h"
 #include "driver/task/common/write_task.h"
 
 namespace ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Digital or Analog
 /// Write Task.
-struct WriteTaskConfig {
-    /// @brief the key of the device the task is writing to.
-    const std::string device_key;
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
     const telem::Rate state_rate;
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
@@ -50,13 +46,11 @@ struct WriteTaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        device_key(other.device_key),
+        common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
-        data_saving(other.data_saving),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
-        buf_indexes(std::move(other.buf_indexes)) {
-    }
+        buf_indexes(std::move(other.buf_indexes)) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -74,12 +68,13 @@ struct WriteTaskConfig {
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
-    ): device_key(cfg.required<std::string>("device")),
-       state_rate(telem::Rate(cfg.required<float>("state_rate"))),
-       data_saving(cfg.optional<bool>("data_saving", false)) {
+    ):
+        common::BaseWriteTaskConfig(cfg),
+        state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
-            if (ch != nullptr && ch->enabled) this->channels[ch->cmd_ch_key] = std::move(ch);
+            if (ch != nullptr && ch->enabled)
+                this->channels[ch->cmd_ch_key] = std::move(ch);
         });
         if (channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
@@ -120,15 +115,15 @@ struct WriteTaskConfig {
         std::vector<synnax::Channel> state_channels;
         state_channels.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
-            state_channels.
-                    push_back(ch->state_ch);
+            state_channels.push_back(ch->state_ch);
         return state_channels;
     }
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels) keys.push_back(ch->cmd_ch_key);
+        for (const auto &[_, ch]: this->channels)
+            keys.push_back(ch->cmd_ch_key);
         return keys;
     }
 
@@ -153,10 +148,8 @@ struct WriteTaskConfig {
     }
 
     /// @brief applies the configuration to the given DAQmx task.
-    xerrors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        TaskHandle task_handle
-    ) {
+    xerrors::Error
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) {
         for (const auto &[_, ch]: channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
         return xerrors::NIL;
@@ -185,8 +178,7 @@ public:
         ),
         cfg(std::move(cfg)),
         hw_writer(std::move(hw_writer)),
-        buf(this->cfg.channels.size()) {
-    }
+        buf(this->cfg.channels.size()) {}
 
 private:
     /// @brief the underlying DAQmx hardware we write data to.
@@ -197,14 +189,10 @@ private:
     std::vector<T> buf;
 
     /// @brief implements common::Task to start the hardware writer.
-    xerrors::Error start() override {
-        return this->hw_writer->start();
-    }
+    xerrors::Error start() override { return this->hw_writer->start(); }
 
     /// @brief implements common::Task to stop the hardware writer.
-    xerrors::Error stop() override {
-        return this->hw_writer->stop();
-    }
+    xerrors::Error stop() override { return this->hw_writer->stop(); }
 
     /// @brief implements pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates
@@ -212,13 +200,11 @@ private:
     xerrors::Error write(const synnax::Frame &frame) override {
         for (const auto &[cmd_key, series]: frame)
             if (auto it = this->cfg.buf_indexes.find(cmd_key);
-                it != this->cfg.buf_indexes.end()
-            ) {
+                it != this->cfg.buf_indexes.end()) {
                 const auto buf_index = it->second;
                 buf[buf_index] = telem::cast<T>(series.at(-1));
             }
-        if (const auto err = this->hw_writer->write(buf))
-            return translate_error(err);
+        if (const auto err = this->hw_writer->write(buf)) return translate_error(err);
         this->set_state(frame);
         return xerrors::NIL;
     }

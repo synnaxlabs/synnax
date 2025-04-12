@@ -10,5 +10,13 @@
  */
 
 .console-connection-status-badge {
-    width: 120px;
+    padding: 0 1rem;
+    border: var(--pluto-border-l5);
+    background-color: var(--pluto-gray-l0);
+    &.console--disconnected {
+        background-color: var(--pluto-gray-l2);
+        & svg {
+            fill: var(--pluto-gray-l5);
+        }
+    }
 }

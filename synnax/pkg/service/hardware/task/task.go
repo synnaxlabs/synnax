@@ -12,12 +12,12 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/gorp"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -83,55 +83,6 @@ func (t Task) String() string {
 	return t.Key.String()
 }
 
-type Status string
-
-const (
-	InfoStateVariant    Status = "info"
-	SuccessStateVariant Status = "success"
-	ErrorStateVariant   Status = "error"
-	WarningStateVariant Status = "warning"
-)
-
-// Details is a custom type based on string
-type Details string
-
-var detailsCodec = &binary.JSONCodec{}
-
-func NewStaticDetails(data interface{}) Details {
-	b, err := detailsCodec.Encode(nil, data)
-	if err != nil {
-		panic(err)
-	}
-	return Details(b)
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface for Details.
-// It should correctly handle a raw JSON string or a JSON object/array.
-func (d *Details) UnmarshalJSON(data []byte) error {
-	// Try to unmarshal data into a plain string
-	var plainString string
-	if err := json.Unmarshal(data, &plainString); err == nil {
-		*d = Details(plainString)
-		return nil
-	}
-
-	// If the above fails, it means the data might be an object or an array,
-	// so we re-marshal it into a string regardless of its type.
-	var obj interface{}
-	if err := json.Unmarshal(data, &obj); err != nil {
-		return errors.New("input data is neither a plain string nor valid JSON")
-	}
-
-	// Marshal the object back to string
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	*d = Details(bytes)
-	return nil
-}
-
 // State represents the state of a task.
 type State struct {
 	// Key is used to uniquely identify the state update, and is usually used to tie
@@ -142,10 +93,10 @@ type State struct {
 	// Task is the key of the task that the state update is for.
 	Task Key `json:"task" msgpack:"task"`
 	// Variant is the status of the task.
-	Variant Status `json:"variant" msgpack:"variant"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
 	// Details is an arbitrary string that provides additional information about the
 	// state.
-	Details Details `json:"details" msgpack:"details"`
+	Details xjson.String `json:"details" msgpack:"details"`
 }
 
 var _ gorp.Entry[Key] = State{}

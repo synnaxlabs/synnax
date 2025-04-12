@@ -19,7 +19,7 @@ Synnax inherits a hybrid pedigree from hardware data acquisition (DAQ) systems a
 cloud-native, horizontally scalable databases. This page introduces the core concepts
 needed to effectively integrate a Synnax cluster into your systems.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Distribution Components
 
@@ -39,7 +39,7 @@ cluster collaborate to read, write, and exchange data. Nodes expose the cluster 
 monolothic data space, meaning that a user can query a single node for the entire
 cluster's data without being aware of where it is actually stored.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Data Components
 
@@ -67,14 +67,15 @@ typed value.
 ### Channels
 
 A [channel](/reference/concepts/channels) is a logical collection of samples emitted by
-or representing the values of a single source. This source is typically a sensor, although
-channels can also hold values like actuator commands, status codes, log messages, or
-enumerations.
+or representing the values of a single source. This source is typically a sensor,
+although channels can also hold values like actuator commands, status codes, log
+messages, or enumerations.
 
 In Synnax, samples written to a channel are both stored permanently and streamed in
-real-time. Live transmission allows for consumers (called [streamers](/reference/concepts/streams))
-to receive and process real-time data. Common use cases for data streaming include
-visualization, anomaly detection, and automated control.
+real-time. Live transmission allows for consumers (called
+[streamers](/reference/concepts/streams)) to receive and process real-time data. Common
+use cases for data streaming include visualization, anomaly detection, and automated
+control.
 
 Combined data storage and streaming is a key feature of Synnax, enabling many powerful
 workflows that would otherwise require multiple systems to implement.
@@ -96,17 +97,16 @@ workflows that would otherwise require multiple systems to implement.
 
 ### Ranges
 
-A [range](/reference/concepts/ranges) (short for _time range_) is a
-user-defined time interval that labels interesting events in your data. While channels
-are used to group samples by source, ranges are used to group related samples by time
-period.
+A [range](/reference/concepts/ranges) (short for _time range_) is a user-defined time
+interval that labels interesting events in your data. While channels are used to group
+samples by source, ranges are used to group related samples by time period.
 
 In addition to being the primary method for querying data from a cluster, ranges are
 also a powerful tool for attaching crucial metadata to telemetry values.
 
 In a test operations context, ranges can be used to label specific test runs, attaching
-information like calibration data, test parameters, and procedures. In manufacturing
-and monitoring, ranges can be used to label anomalies, identify maintenance periods, or
+information like calibration data, test parameters, and procedures. In manufacturing and
+monitoring, ranges can be used to label anomalies, identify maintenance periods, or
 annotate automated control actions.
 
 <Diagram>
@@ -120,9 +120,9 @@ annotate automated control actions.
 
 ### Series
 
-While channels and ranges group related data, series do the heavy lifting in terms
-of storing and transmitting actual samples. A series is comparable to a list or array
-in other programming languages. When reading or writing data to Synnax, you'll frequently
+While channels and ranges group related data, series do the heavy lifting in terms of
+storing and transmitting actual samples. A series is comparable to a list or array in
+other programming languages. When reading or writing data to Synnax, you'll frequently
 work with channel data as a collection of one or more series.
 
 <Diagram>
@@ -151,7 +151,7 @@ working with data from multiple channels at once.
   />
 </Diagram>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Operation Components
 

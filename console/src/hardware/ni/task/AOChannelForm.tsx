@@ -86,13 +86,13 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   [AO_CURRENT_CHAN_TYPE]: ({ path }) => (
     <>
       <MinMaxValueFields path={path} />
-      <Divider.Divider direction="x" padded="bottom" />
+      <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />
     </>
   ),
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
-    <Align.Space direction="y" align="center">
-      <Align.Space direction="x" grow>
+    <Align.Space y align="center">
+      <Align.Space x grow>
         <Form.NumericField
           path={`${path}.frequency`}
           label="Frequency"
@@ -120,7 +120,7 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
   [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => (
     <>
       <MinMaxValueFields path={path} />
-      <Divider.Divider direction="x" padded="bottom" />
+      <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />
     </>
   ),
@@ -136,7 +136,7 @@ export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
   return (
     <>
       <Device.PortField path={path} />
-      <Divider.Divider direction="x" padded="bottom" />
+      <Divider.Divider x padded="bottom" />
       <Form path={path} />
     </>
   );

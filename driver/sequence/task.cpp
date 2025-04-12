@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/loop/loop.h";
 #include "driver/sequence/sequence.h"
+#include "x/cpp/loop/loop.h"
+#include "x/cpp/status/status.h"
 
 sequence::Task::Task(
     const std::shared_ptr<task::Context> &ctx,
@@ -16,60 +17,62 @@ sequence::Task::Task(
     TaskConfig cfg,
     std::unique_ptr<sequence::Sequence> seq,
     const breaker::Config &breaker_config
-): cfg(std::move(cfg)),
-   task(std::move(task)),
-   breaker(breaker_config),
-   ctx(ctx),
-   seq(std::move(seq)),
-   state({
-       .task = task.key,
-       .variant = "success",
-       .details = {
-           {"running", false},
-           {"message", ""}
-       }
-   }) {
-}
+):
+    cfg(std::move(cfg)),
+    task(std::move(task)),
+    breaker(breaker_config),
+    ctx(ctx),
+    seq(std::move(seq)),
+    state(
+        {.task = task.key,
+         .variant = status::VARIANT_SUCCESS,
+         .details = {{"running", false}, {"message", ""}}}
+    ) {}
 
 void sequence::Task::run() {
     if (const auto err = this->seq->begin(); err) {
         if (const auto end_err = this->seq->end())
             LOG(ERROR) << "[sequence] failed to end after failed start:" << end_err;
-        this->state.variant = "error";
+        this->state.variant = status::VARIANT_ERROR;
         this->state.details["running"] = false;
         this->state.details["message"] = err.message();
         return ctx->set_state(state);
     }
-    this->state.variant = "success";
+    this->state.variant = status::VARIANT_SUCCESS;
     this->state.details["running"] = true;
     this->state.details["message"] = "Sequence started";
     this->ctx->set_state(this->state);
     loop::Timer timer(this->cfg.rate);
     while (this->breaker.running()) {
         if (const auto next_err = this->seq->next()) {
-            this->state.variant = "error";
+            this->state.variant = status::VARIANT_ERROR;
             this->state.details["message"] = next_err.message();
             break;
         }
         auto [elapsed, ok] = timer.wait(this->breaker);
         if (!ok) {
-            this->state.variant = "warning";
-            this->state.details["message"] = "Sequence script is executing too slowly for the configured loop rate. Last execution took " + elapsed.to_string();
+            this->state.variant = status::VARIANT_WARNING;
+            this->state
+                .details["message"] = "Sequence script is executing too slowly for the "
+                                      "configured loop rate. Last execution took " +
+                                      elapsed.to_string();
             this->ctx->set_state(this->state);
         }
     }
     if (const auto end_err = this->seq->end()) {
-        this->state.variant = "error";
+        this->state.variant = status::VARIANT_ERROR;
         this->state.details["message"] = end_err.message();
     }
     this->state.details["running"] = false;
-    if (this->state.variant == "error")
+    if (this->state.variant == status::VARIANT_ERROR)
         return this->ctx->set_state(this->state);
-    this->state.variant = "success";
+    this->state.variant = status::VARIANT_SUCCESS;
     this->state.details["message"] = "Sequence stopped";
 }
 
-void sequence::Task::stop(bool will_reconfigure) { this->stop("", will_reconfigure); }
+void sequence::Task::stop(bool will_reconfigure) {
+    this->stop("", will_reconfigure);
+}
 
 void sequence::Task::exec(task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);
@@ -102,9 +105,9 @@ std::unique_ptr<task::Task> sequence::Task::configure(
     auto parser = xjson::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
-        LOG(ERROR) << "[sequence] failed to parse task configuration: " << parser.
-                error();
-        cfg_state.variant = "error";
+        LOG(ERROR) << "[sequence] failed to parse task configuration: "
+                   << parser.error();
+        cfg_state.variant = status::VARIANT_ERROR;
         cfg_state.details = parser.error_json();
         ctx->set_state(cfg_state);
         return nullptr;
@@ -112,7 +115,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 
     auto json_plugin = std::make_shared<plugins::JSON>(cfg.globals);
     auto time_plugin = std::make_shared<plugins::Time>();
-    std::vector<std::shared_ptr<plugins::Plugin> > plugins_list{
+    std::vector<std::shared_ptr<plugins::Plugin>> plugins_list{
         json_plugin,
         time_plugin
     };
@@ -121,7 +124,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         auto [read_channels, r_err] = ctx->client->channels.retrieve(cfg.read);
         if (r_err) {
             LOG(ERROR) << "[sequence] failed to retrieve read channels: " << r_err;
-            cfg_state.variant = "error";
+            cfg_state.variant = status::VARIANT_ERROR;
             cfg_state.details = {
                 {"running", false},
                 {"message", r_err.message()},
@@ -139,7 +142,7 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         auto [write_channels, w_err] = ctx->client->channels.retrieve(cfg.write);
         if (w_err) {
             LOG(ERROR) << "[sequence] failed to retrieve write channels: " << w_err;
-            cfg_state.variant = "error";
+            cfg_state.variant = status::VARIANT_ERROR;
             cfg_state.details = {
                 {"running", false},
                 {"message", w_err.message()},
@@ -147,18 +150,20 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             return nullptr;
         }
         for (const auto &ch: write_channels)
-            if (!ch.is_virtual && std::find(cfg.write.begin(), cfg.write.end(),
-                                            ch.index) == cfg.write.end())
+            if (!ch.is_virtual &&
+                std::find(cfg.write.begin(), cfg.write.end(), ch.index) ==
+                    cfg.write.end())
                 cfg.write.push_back(ch.index);
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject = telem::ControlSubject{
-                .name = task.name,
-                .key = std::to_string(task.key),
-            }
+            .subject =
+                telem::ControlSubject{
+                    .name = task.name,
+                    .key = std::to_string(task.key),
+                }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
         auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
@@ -174,16 +179,13 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         cfg.script
     );
     if (const auto compile_err = seq->compile(); compile_err) {
-        cfg_state.variant = "error";
-        cfg_state.details = {
-            {"running", false},
-            {"message", compile_err.message()}
-        };
+        cfg_state.variant = status::VARIANT_ERROR;
+        cfg_state.details = {{"running", false}, {"message", compile_err.message()}};
         ctx->set_state(cfg_state);
         return nullptr;
     }
 
-    cfg_state.variant = "success";
+    cfg_state.variant = status::VARIANT_SUCCESS;
     cfg_state.details = {
         {"running", false},
         {"message", "Sequence configured successfully"}

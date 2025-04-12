@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { writeConfigZ } from "./types";
+import { type WriteChannel, writeConfigZ } from "@/hardware/opc/task/types";
 
 describe("OPC Write Task Types", () => {
   it("should validate the write config", () => {
@@ -22,10 +22,10 @@ describe("OPC Write Task Types", () => {
           dataType: "float",
           enabled: true,
           key: "432",
-          name: "test",
           nodeId: "1",
+          name: "test",
           nodeName: "test",
-        },
+        } as WriteChannel,
       ],
       dataSaving: true,
       device: "1",

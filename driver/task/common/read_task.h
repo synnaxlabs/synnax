@@ -10,17 +10,17 @@
 #pragma once
 
 /// internal
-#include "sample_clock.h"
-#include "driver/task/common/state.h"
-#include "driver/task/task.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/task/common/common.h"
+#include "driver/task/common/sample_clock.h"
+#include "driver/task/common/state.h"
+#include "driver/task/task.h"
 #include "driver/transform/transform.h"
 
 namespace common {
-struct BaseReadTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    const bool data_saving;
+/// @brief common read task configuration parameters used across multiple drivers.
+struct BaseReadTaskConfig : BaseTaskConfig {
     /// @brief sets the sample rate for the task.
     const telem::Rate sample_rate;
     /// @brief sets the stream rate for the task.
@@ -29,11 +29,10 @@ struct BaseReadTaskConfig {
     common::TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
-        data_saving(other.data_saving),
+        BaseTaskConfig(std::move(other)),
         sample_rate(other.sample_rate),
         stream_rate(other.stream_rate),
-        timing(other.timing) {
-    }
+        timing(other.timing) {}
 
     BaseReadTaskConfig(const BaseReadTaskConfig &) = delete;
 
@@ -43,10 +42,11 @@ struct BaseReadTaskConfig {
         xjson::Parser &cfg,
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
-    ): data_saving(cfg.optional<bool>("data_saving", false)),
-       sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
-       stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
-       timing(timing_cfg) {
+    ):
+        BaseTaskConfig(cfg),
+        sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
+        stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
+        timing(timing_cfg) {
         if (sample_rate <= telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
         if (stream_rate_required && stream_rate <= telem::Rate(0))
@@ -70,10 +70,7 @@ void initialize_frame(
     if (fr.size() == channels.size() + index_keys.size()) return;
     fr.reserve(channels.size() + index_keys.size());
     for (const auto &ch: channels) {
-        fr.emplace(
-            ch->synnax_key,
-            telem::Series(ch->ch.data_type, samples_per_chan)
-        );
+        fr.emplace(ch->synnax_key, telem::Series(ch->ch.data_type, samples_per_chan));
     }
     for (const auto &idx: index_keys)
         fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
@@ -122,11 +119,8 @@ class ReadTask final : public task::Task {
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;
 
-        InternalSource(
-            ReadTask &p,
-            std::unique_ptr<common::Source> internal
-        ): p(p), internal(std::move(internal)) {
-        }
+        InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
+            p(p), internal(std::move(internal)) {}
 
         void stopped_with_err(const xerrors::Error &err) override {
             this->p.state.error(err);
@@ -137,8 +131,8 @@ class ReadTask final : public task::Task {
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker
-            // by returning the error and  send a warning to start retrying at scaled
-            // intervals.
+            // by returning the error and  send a warning to start retrying at
+            // scaled intervals.
             // 2. We have a critical error, in which case we return it directly.
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
@@ -152,15 +146,16 @@ class ReadTask final : public task::Task {
             if (!warning.empty()) {
                 LOG(WARNING) << this->p.name() << ": " << warning;
                 this->p.state.send_warning(warning);
-            }
-            else this->p.state.clear_warning();
+            } else
+                this->p.state.clear_warning();
             return this->p.tare.transform(fr);
         }
     };
 
     std::shared_ptr<InternalSource> source;
 
-    /// @brief the pipeline used to read data from the hardware and pipe it to Synnax.
+    /// @brief the pipeline used to read data from the hardware and pipe it to
+    /// Synnax.
     pipeline::Acquisition pipe;
 
 public:
@@ -181,30 +176,32 @@ public:
             this->source->internal->writer_config(),
             this->source,
             breaker_cfg
-        ) {
-    }
+        ) {}
 
-    /// @brief primary constructor that uses the task context's Synnax client in order
-    /// to communicate with the cluster.
+    /// @brief primary constructor that uses the task context's Synnax client in
+    /// order to communicate with the cluster.
     explicit ReadTask(
         const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<Source> source
-    ): ReadTask(
-        task,
-        ctx,
-        breaker_cfg,
-        std::move(source),
-        std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client)
-    ) {
-    }
+    ):
+        ReadTask(
+            task,
+            ctx,
+            breaker_cfg,
+            std::move(source),
+            std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client)
+        ) {}
 
     /// @brief executes the given command on the task.
     void exec(task::Command &cmd) override {
-        if (cmd.type == "start") this->start(cmd.key);
-        else if (cmd.type == "stop") this->stop(cmd.key, true);
-        else if (cmd.type == "tare") this->tare.tare(cmd.args);
+        if (cmd.type == "start")
+            this->start(cmd.key);
+        else if (cmd.type == "stop")
+            this->stop(cmd.key, true);
+        else if (cmd.type == "tare")
+            this->tare.tare(cmd.args);
     }
 
     /// @brief stops the task.
@@ -234,12 +231,14 @@ public:
     }
 
     /// @brief implements task::Task.
-    std::string name() override { return this->state.task.name; }
+    std::string name() const override { return this->state.task.name; }
 };
 
 inline std::string skew_warning(const size_t skew) {
-    return "Synnax driver can't keep up with hardware data acquisition, and is trailing "
-              + std::to_string(skew) + " samples behind. Lower the stream rate for the task.";
+    return "Synnax driver can't keep up with hardware data acquisition, and is "
+           "trailing " +
+           std::to_string(skew) +
+           " samples behind. Lower the stream rate for the task.";
 }
 
 template<typename T>

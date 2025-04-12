@@ -644,6 +644,7 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
+  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [ ] Ensure no lag between sensor input and server data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)

@@ -12,11 +12,11 @@ import Details from "@/components/details/Details.astro";
 import Summary from "@/components/details/Summary.astro";
 export const components = { pre: Code };
 
-While our [pre-built drivers](/reference/device-drivers) are great for the
-devices we support, you may need (or want) to integrate your own devices with Synnax.
-This guide will walk you through the process of building a reliable, performant
-driver using the Synnax Python client. We'll use an Arduino as an example device,
-but the process is very similar for other devices.
+While our [pre-built drivers](/reference/device-drivers) are great for the devices we
+support, you may need (or want) to integrate your own devices with Synnax. This guide
+will walk you through the process of building a reliable, performant driver using the
+Synnax Python client. We'll use an Arduino as an example device, but the process is very
+similar for other devices.
 
 ### Outline
 
@@ -27,7 +27,7 @@ We'll split this guide into four sections:
 3. [Making a Write-Only Driver](#write-only-driver)
 4. [Making a Read-Write Driver](#read-write-driver)
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText step={1} level="h2">Setup and Installation</StepText>
 
@@ -36,11 +36,12 @@ installing the relevant Python packages to communicate with both the Arduino and
 
 ### <StepText step="1.1" level="h3">Downloading the Arduino IDE</StepText>
 
-The best way to get started with the Arduino is to download and run the [Arduino
-IDE](https://www.arduino.cc/en/software).
+The best way to get started with the Arduino is to download and run the
+[Arduino IDE](https://www.arduino.cc/en/software).
 
-We'll be using an [Arduino Mega 2560](https://store.arduino.cc/products/arduino-mega-2560-rev3)
-for this guide, but any Arduino board will work.
+We'll be using an
+[Arduino Mega 2560](https://store.arduino.cc/products/arduino-mega-2560-rev3) for this
+guide, but any Arduino board will work.
 
 After you open the Arduino IDE, you'll see a splash screen like this:
 
@@ -65,8 +66,9 @@ both visualize incoming data and send commands to the Arduino.
 
 #### <StepText step="1.2.1" level="h4">The Cluster</StepText>
 
-The easiest way to install the cluster is using [Docker](https://www.docker.com/get-started).
-To run the latest version, you can use the following command:
+The easiest way to install the cluster is using
+[Docker](https://www.docker.com/get-started). To run the latest version, you can use the
+following command:
 
 ```bash
 docker run -d --name synnax -p 9090:9090 synnaxlabs/synnax:latest -i
@@ -92,8 +94,8 @@ CONTAINER ID   IMAGE                      COMMAND                  CREATED      
 
 #### <StepText step="1.2.2" level="h4"> The Console</StepText>
 
-Now that we have the cluster running, it's time to download and run the [Synnax
-Console](https://docs.synnaxlabs.com/reference/console/get-started).
+Now that we have the cluster running, it's time to download and run the
+[Synnax Console](https://docs.synnaxlabs.com/reference/console/get-started).
 
 Once you've downloaded the console, you can run it by finding the "Synnax" app in your
 start menu or launch pad. After it boots up, you'll see a screen like this:
@@ -101,8 +103,8 @@ start menu or launch pad. After it boots up, you'll see a screen like this:
 <Image id="console/get-started/window" client:only="react" />
 
 The next step is to connect the console to the cluster we just started. To do this,
-navigate to the clusters dropdown in the bottom left corner of the console, and click
-on the pre-populated "Local" option. You'll see the chip on the bottom right corner switch
+navigate to the clusters dropdown in the bottom left corner of the console, and click on
+the pre-populated "Local" option. You'll see the chip on the bottom right corner switch
 to "connected" once the console has successfully connected to the cluster.
 
 <Video client:only="react" id="console/clusters/switch" />
@@ -126,10 +128,10 @@ pip install pyserial
 
 We're going to be installing these packages without a virtual environment, although you
 are free to use one if you'd like. We'll also be working in a file called `driver.py`
-that we'll put in a `arduino-synnax` folder within our `Desktop` directory. This location
-is arbitrary, so you're free to put it wherever you'd like.
+that we'll put in a `arduino-synnax` folder within our `Desktop` directory. This
+location is arbitrary, so you're free to put it wherever you'd like.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText step={2} level="h2">Read-Only Driver</StepText>
 
@@ -222,8 +224,8 @@ while True:
     print(value)
 ```
 
-This loop will continuously read from the Arduino and print the value to the console. That's
-all we need to do for the Arduino, now it's time to integrate it with Synnax.
+This loop will continuously read from the Arduino and print the value to the console.
+That's all we need to do for the Arduino, now it's time to integrate it with Synnax.
 
 ### <StepText step="2.4" level="h3">Setting up the Synnax Client</StepText>
 
@@ -254,8 +256,8 @@ client = sy.Synnax(
 
 Next, we need to create **two** channels in Synnax. Why two? For storing data, Synnax
 requires us to create an _index_ channel. An index channel stores timestamps for the
-samples that we collect, and is used so that synnax can look up the samples in our
-data channels at a later time.
+samples that we collect, and is used so that synnax can look up the samples in our data
+channels at a later time.
 
 The second channel, a _data_ channel, is used to store the samples themselves. This data
 channel will be _indexed_ by the timestamps stored in the first channel. We'll name the
@@ -299,10 +301,10 @@ data_channel = client.channels.create(
 ### <StepText step="2.5" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 Now that we have our Synnax client and the relevant channels created, it's time to
-adjust our current loop to write to Synnax. The first thing we'll do is open a new writer
-to the `arduino_time` and `arduino_value` channels. Writers are the primary method for
-writing data to Synnax, and are created by calling the `open_writer` method on the
-client we created.
+adjust our current loop to write to Synnax. The first thing we'll do is open a new
+writer to the `arduino_time` and `arduino_value` channels. Writers are the primary
+method for writing data to Synnax, and are created by calling the `open_writer` method
+on the client we created.
 
 ```python
 # ... imports, client, channel creation, and serial connection
@@ -393,12 +395,13 @@ with client.open_writer(
 
 ### <StepText step="2.6" level="h3">Visualizing the Data</StepText>
 
-While the script is still running, we can switch back to the Synnax Console and set up
-a line plot to visualize the incoming data. To do this, we'll:
+While the script is still running, we can switch back to the Synnax Console and set up a
+line plot to visualize the incoming data. To do this, we'll:
 
 1. Hit the `+` button in the top right corner of the console's central mosaic.
 2. Select the "Line Plot" component.
-3. In visualization controls, choose the "Y1" axis and set the "Channel" to `arduino_value`.
+3. In visualization controls, choose the "Y1" axis and set the "Channel" to
+   `arduino_value`.
 4. In the "Ranges" section, choose the "Rolling 30s" range.
 
 Here's a video demonstrating the process:
@@ -409,12 +412,12 @@ Here's a video demonstrating the process:
   themed={false}
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText step={3} level="h2">Write-Only Driver</StepText>
 
-Now that we've successfully read data from an analog input on the Arduino and written
-it to Synnax, we'll go the other way and receive commands from Synnax to control the
+Now that we've successfully read data from an analog input on the Arduino and written it
+to Synnax, we'll go the other way and receive commands from Synnax to control the
 digital outputs on the Arduino. We'll create this new driver in a file called
 `driver_write.py`, although you're free to write over the previous file if you'd like.
 
@@ -497,8 +500,8 @@ command_channel = client.channels.create(
 ### <StepText step="3.4" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 Our run loop in this scenario will be the exact opposite of the previous driver. Instead
-of reading from the serial connection, we'll be reading from the `arduino_command` channel.
-Instead of writing to Synnax, we'll be writing to the serial connection.
+of reading from the serial connection, we'll be reading from the `arduino_command`
+channel. Instead of writing to Synnax, we'll be writing to the serial connection.
 
 ```python
 # ... imports, client, serial connection, and channel creation
@@ -572,17 +575,17 @@ digital output on the Arduino:
   themed={false}
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## <StepText step={4} level="h2">Read-Write Driver</StepText>
 
-You may have found it strange that we set the "State" and "Command" fields on the
-switch to the same channel. If that's the case, then why are there two separate fields?
-That's because there's a more reliable way to set up command systems.
+You may have found it strange that we set the "State" and "Command" fields on the switch
+to the same channel. If that's the case, then why are there two separate fields? That's
+because there's a more reliable way to set up command systems.
 
-The **command** channel is what we send the enable/disable signal down when we click
-on the switch, while the **state** channel is what we actually use to determine whether
-the switch is on or off. For the sake of simplicity, we used the same channel for both.
+The **command** channel is what we send the enable/disable signal down when we click on
+the switch, while the **state** channel is what we actually use to determine whether the
+switch is on or off. For the sake of simplicity, we used the same channel for both.
 
 The problem is that if we stop our driver and then click the switch, it will still turn
 on and off as if everything was ok. So we think we're toggling on and off the switch,
@@ -643,8 +646,8 @@ void loop() {
 To incorporate the new functionality, we'll need to modify our Python code to create
 four channels: `arduino_command`, `arduino_state`, `arduino_time`, and `arduino_value`.
 
-Both the `arduino_state` and `arduino_value` channels will be indexed by the `arduino_time`
-channel, which we'll use to timestamp both the states and values.
+Both the `arduino_state` and `arduino_value` channels will be indexed by the
+`arduino_time` channel, which we'll use to timestamp both the states and values.
 
 ```python
 import synnax as sy
@@ -694,8 +697,8 @@ arduino_value = client.channels.create(
 ### <StepText step="4.3" level="h3">Modifying the Loop to Write to Synnax</StepText>
 
 We'll need to modify our loop to read and write from both Synnax and the serial
-connection. To kick things off, we'll open a streamer on the arduino command and a writer
-on the remaining three channels.
+connection. To kick things off, we'll open a streamer on the arduino command and a
+writer on the remaining three channels.
 
 ```python
 # ... imports, client, and channel creation
@@ -722,9 +725,9 @@ with client.open_streamer(["arduino_command"]) as streamer:
 ```
 
 And that's it! We've now successfully created a read-write driver that can both control
-the digital output on the Arduino and read the analog input. We'll run our updated script
-before we move into setting up the console. Here's the entire `driver_readwrite.py`
-script for reference:
+the digital output on the Arduino and read the analog input. We'll run our updated
+script before we move into setting up the console. Here's the entire
+`driver_readwrite.py` script for reference:
 
 <Details>
 <Summary>`driver_readwrite.py`</Summary>

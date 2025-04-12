@@ -12,11 +12,12 @@
 .pluto-menu-context {
     position: fixed;
     z-index: 8;
-    border: var(--pluto-border-l4) !important;
+    border: var(--pluto-border-l5) !important;
     background-color: var(--pluto-gray-l1);
-    box-shadow: var(--pluto-shadow-menu);
+    box-shadow: var(--pluto-shadow-v1);
     border-radius: 1rem;
     padding: 1rem;
+    animation: var(--pluto-dialog-animation);
 }
 
 .pluto-menu-context > .pluto-menu-item {

@@ -15,22 +15,19 @@ import {
   Divider,
   Form,
   Input,
-  Status,
-  Synnax,
   Text,
-  useAsyncEffect,
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { type change, deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect, useState } from "react";
+import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
+import { useParent } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -42,33 +39,18 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const [parent, setParent] = useState<ranger.Range | null>();
+  const parent = useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
 
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveParent();
-      setParent(childRanges);
-      const tracker = await rng.openParentRangeTracker();
-      if (tracker == null) return;
-      tracker.onChange((ranges) => setParent(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, "Failed to retrieve child ranges");
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
   if (parent == null) return null;
   return (
-    <Align.Space direction="x" size="small" align="center">
-      <Text.Text level="p">Child Range of</Text.Text>
+    <Align.Space x size="small" align="center">
+      <Text.Text level="p" shade={11} weight={450}>
+        Child Range of
+      </Text.Text>
       <Button.Button
         variant="text"
-        shade={7}
+        shade={11}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -192,9 +174,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   return (
     <Form.Form {...formCtx}>
-      <Align.Space direction="y" size="large">
-        <Align.Space direction="x" justify="spaceBetween" className={CSS.B("header")}>
-          <Align.Space direction="y" grow>
+      <Align.Space y size="large">
+        <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
+          <Align.Space y grow>
             <Form.TextField
               path="name"
               showLabel={false}
@@ -210,12 +192,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <ParentRangeButton rangeKey={rangeKey} />
           </Align.Space>
           <Align.Space
-            direction="x"
+            x
             className={CSS.B("copy-buttons")}
             style={{ height: "fit-content" }}
             size="small"
           >
-            <Align.Space direction="x">
+            <Align.Space x>
               <Button.Icon
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
@@ -223,7 +205,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               >
                 <Icon.Python
                   onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l7)" }}
+                  style={{ color: "var(--pluto-gray-l9)" }}
                 />
               </Button.Icon>
               <Button.Icon
@@ -232,10 +214,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l7)" }} />
+                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
               </Button.Icon>
             </Align.Space>
-            <Divider.Divider direction="y" />
+            <Divider.Divider y />
             <Button.Icon
               variant="text"
               tooltip={`Copy link to ${name}`}
@@ -246,12 +228,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             </Button.Icon>
           </Align.Space>
         </Align.Space>
-        <Align.Space
-          className={CSS.B("time-range")}
-          direction="x"
-          size="medium"
-          align="center"
-        >
+        <Align.Space className={CSS.B("time-range")} x size="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
               <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />

@@ -71,7 +71,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/gofmt-check.sh x/go
+        run: bash scripts/check-gofmt.sh x/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -127,6 +127,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
         exclude:
           - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
           - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
@@ -137,6 +140,10 @@ jobs:
 
       - name: Update Submodules
         run: git submodule update --init --recursive
+
+      - name: Check Formatting
+        if: matrix.format
+        run: bash scripts/check-clang-format.sh x/cpp
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

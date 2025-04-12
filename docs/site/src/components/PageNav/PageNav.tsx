@@ -89,7 +89,7 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
       <Button.Icon onClick={toggle} size="large" variant="outlined">
         <Icon.Menu />
       </Button.Icon>
-      <Align.Space borderShade={4} bordered rounded className="page-nav-mobile-content">
+      <Align.Space borderShade={5} bordered rounded className="page-nav-mobile-content">
         <Align.Space
           style={{
             width: "100%",

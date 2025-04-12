@@ -47,13 +47,13 @@ func configureStartFlags() {
 	startCmd.Flags().StringSlice(
 		enableIntegrationsFlag,
 		nil,
-		"Device integrations to enable (ni, opc, labjack, heartbeat, sequence)",
+		"Device integrations to enable (ni, opc, labjack, sequence)",
 	)
 
 	startCmd.Flags().StringSlice(
 		disableIntegrationsFlag,
 		nil,
-		"Device integrations to disable (ni, opc, labjack, heartbeat, sequence)",
+		"Device integrations to disable (ni, opc, labjack, sequence)",
 	)
 
 	startCmd.Flags().StringP(

@@ -16,12 +16,12 @@
 #include <vector>
 
 /// internal
-#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/caseconv/caseconv.h"
+#include "x/cpp/xerrors/errors.h"
 
 namespace xargs {
-/// @brief Parser provides a simple command-line argument parsing utility that supports
-/// required arguments, optional arguments with default values, and flags.
+/// @brief Parser provides a simple command-line argument parsing utility that
+/// supports required arguments, optional arguments with default values, and flags.
 ///
 /// The Parser supports three main types of arguments:
 /// 1. Required arguments: Must be provided in the command line
@@ -34,23 +34,23 @@ namespace xargs {
 /// - Snake case is automatically converted to kebab case: my_arg -> --my-arg
 ///
 /// You're required to specify both the short and long form for an argument. So you
-/// need to do p.flag("--arm", "-a") in order to match "-a" as well as "--arm". "--arm"
-/// won't auto-match "-a".
+/// need to do p.flag("--arm", "-a") in order to match "-a" as well as "--arm".
+/// "--arm" won't auto-match "-a".
 ///
 /// Example usage:
 /// @code
 /// int main(int argc, char* argv[]) {
 ///     xargs::Parser parser(argc, argv);
-///     
+///
 ///     // Required argument
 ///     auto name = parser.required<std::string>("name");
-///     
+///
 ///     // Optional argument with default
 ///     auto count = parser.optional<int>("count", 10);
-///     
+///
 ///     // Flag
 ///     auto verbose = parser.flag("verbose", "v");
-///     
+///
 ///     if (parser.error()) {
 ///         std::cerr << parser.error().message() << std::endl;
 ///         return 1;
@@ -92,9 +92,10 @@ class Parser {
     /// @brief Searches for an argument in the command line arguments
     /// @tparam Args Variadic template for multiple possible argument names
     /// @param names The possible names of the argument to search for
-    /// @return A pair containing the argument value and a boolean indicating if found
+    /// @return A pair containing the argument value and a boolean indicating if
+    /// found
     template<typename... Args>
-    std::pair<std::string, bool> find_arg(const Args &... names) {
+    std::pair<std::string, bool> find_arg(const Args &...names) {
         std::pair<std::string, bool> last_found = {"", false};
         for (size_t i = 0; i < argv_.size(); i++) {
             const std::string &arg = argv_[i];
@@ -107,7 +108,6 @@ class Parser {
                 }
                 if (matches_arg(arg, norm, false) && i + 1 < argv_.size()) {
                     last_found = {argv_[i + 1], true};
-                    continue;
                 }
             }
         }
@@ -118,7 +118,26 @@ class Parser {
     /// @param name The name of the argument that caused the error
     /// @param msg The error message
     void add_error(const std::string &name, const char *msg) {
-        errors.push_back(xerrors::Error(name, msg));
+        errors.emplace_back(name, msg);
+    }
+
+    /// @brief Splits a string by comma delimiter
+    /// @param str The string to split
+    /// @return Vector of substrings
+    static std::vector<std::string> split_by_comma(const std::string &str) {
+        std::vector<std::string> result;
+        std::string current;
+        for (const char c: str) {
+            if (c == ',') {
+                if (!current.empty()) {
+                    result.push_back(current);
+                    current.clear();
+                }
+            } else
+                current += c;
+        }
+        if (!current.empty()) result.push_back(current);
+        return result;
     }
 
     /// @brief Parses a string value into the specified type
@@ -128,11 +147,16 @@ class Parser {
     /// @param error_msg The error message to use if parsing fails
     /// @return The parsed value of type T
     template<typename T>
-    T parse_value(const std::string &value, const std::string &name,
-                  const char *error_msg) {
+    T parse_value(
+        const std::string &value,
+        const std::string &name,
+        const char *error_msg
+    ) {
         try {
             if constexpr (std::is_same_v<T, std::string>)
                 return value;
+            else if constexpr (std::is_same_v<T, std::vector<std::string>>)
+                return split_by_comma(value);
             else if constexpr (std::is_floating_point_v<T>)
                 return static_cast<T>(std::stold(value));
             else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
@@ -141,6 +165,21 @@ class Parser {
                 return value == "true" || value == "1";
             else if constexpr (std::is_same_v<T, const char *>)
                 return value.c_str();
+            else if constexpr (std::is_same_v<T, std::vector<int>>) {
+                const auto strings = split_by_comma(value);
+                std::vector<int> result;
+                result.reserve(strings.size());
+                for (const auto &s: strings)
+                    result.push_back(std::stoi(s));
+                return result;
+            } else if constexpr (std::is_same_v<T, std::vector<double>>) {
+                const auto strings = split_by_comma(value);
+                std::vector<double> result;
+                result.reserve(strings.size());
+                for (const auto &s: strings)
+                    result.push_back(std::stod(s));
+                return result;
+            }
 
             add_error(name, "Unsupported type");
             return T();
@@ -159,7 +198,7 @@ class Parser {
     T handle_required(const std::string &name, const char *error_msg) {
         const auto [value, found] = find_arg(name);
         if (!found) {
-            errors.push_back(xerrors::Error(name, "Required argument not found"));
+            errors.emplace_back(name, "Required argument not found");
             return T();
         }
         return parse_value<T>(value, name, error_msg);
@@ -170,11 +209,10 @@ class Parser {
     /// @param names The possible names of the argument to check for
     /// @return true if the argument exists, false otherwise
     template<typename... Args>
-    bool has_arg(const Args &... names) {
+    bool has_arg(const Args &...names) {
         for (const auto &arg: argv_) {
             for (const auto &name: {names...}) {
-                if (matches_arg(arg, normalize_arg_name(name)))
-                    return true;
+                if (matches_arg(arg, normalize_arg_name(name))) return true;
             }
         }
         return false;
@@ -189,15 +227,11 @@ public:
     /// @brief Constructs a parser from argc and argv
     /// @param argc The argument count
     /// @param argv The argument values array
-    explicit Parser(const int argc, char *argv[]) :
-        argv_(argv, argv + argc) {
-    }
+    explicit Parser(const int argc, char *argv[]): argv_(argv, argv + argc) {}
 
     /// @brief Constructs a parser from a vector of strings
     /// @param argv The vector of argument strings
-    explicit Parser(std::vector<std::string> argv) :
-        argv_(std::move(argv)) {
-    }
+    explicit Parser(std::vector<std::string> argv): argv_(std::move(argv)) {}
 
     /// @brief Parses a required argument
     /// @tparam T The type to parse the argument into
@@ -212,7 +246,8 @@ public:
     /// @brief Parses an optional argument with a default value
     /// @tparam T The type to parse the argument into
     /// @param name The name of the optional argument
-    /// @param default_value The default value to use if the argument is not provided
+    /// @param default_value The default value to use if the argument is not
+    /// provided
     /// @return The parsed value or the default value
     template<typename T>
     T optional(const std::string &name, const T &default_value) {
@@ -221,7 +256,8 @@ public:
         return parse_value<T>(value, name, "Invalid value");
     }
 
-    /// @brief Convenience overload for string optional arguments with const char* defaults
+    /// @brief Convenience overload for string optional arguments with const char*
+    /// defaults
     /// @param name The name of the optional argument
     /// @param default_value The default string value
     /// @return The parsed string or the default value
@@ -234,7 +270,7 @@ public:
     /// @param names The possible names of the flag to check for
     /// @return true if the flag is present, false otherwise
     template<typename... Args>
-    [[nodiscard]] bool flag(const Args &... names) {
+    [[nodiscard]] bool flag(const Args &...names) {
         // Just check if the flag exists, don't look for a value after it
         return has_arg(names...);
     }
@@ -252,7 +288,7 @@ public:
     /// @return The argument at the specified index or empty string if out of bounds
     std::string at(const int index, const std::string &error_msg) {
         if (static_cast<size_t>(index) >= argv_.size()) {
-            errors.push_back(xerrors::Error("index", error_msg));
+            errors.emplace_back("index", error_msg);
             return "";
         }
         return argv_[index];

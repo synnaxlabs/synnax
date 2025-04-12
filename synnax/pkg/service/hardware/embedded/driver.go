@@ -10,10 +10,11 @@
 package embedded
 
 import (
-	"github.com/google/uuid"
 	"io"
 	"os/exec"
 	"sync"
+
+	"github.com/google/uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -68,7 +69,7 @@ func (c Config) format() map[string]interface{} {
 
 var (
 	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence", "heartbeat"}
+	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
 	DefaultConfig                         = Config{
 		Integrations: []string{},
 		Enabled:      config.Bool(true),

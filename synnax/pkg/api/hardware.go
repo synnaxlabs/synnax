@@ -11,18 +11,18 @@ package api
 
 import (
 	"context"
-	access "github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type HardwareService struct {
@@ -80,13 +80,14 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type (
 	HardwareRetrieveRackRequest struct {
-		Keys       []rack.Key `json:"keys" msgpack:"keys"`
-		Names      []string   `json:"names" msgpack:"names"`
-		Search     string     `json:"search" msgpack:"search"`
-		Embedded   bool       `json:"embedded" msgpack:"embedded"`
-		HostIsNode bool       `json:"host_is_node" msgpack:"host_is_node"`
-		Limit      int        `json:"limit" msgpack:"limit"`
-		Offset     int        `json:"offset" msgpack:"offset"`
+		Keys         []rack.Key `json:"keys" msgpack:"keys"`
+		Names        []string   `json:"names" msgpack:"names"`
+		Search       string     `json:"search" msgpack:"search"`
+		Embedded     bool       `json:"embedded" msgpack:"embedded"`
+		HostIsNode   bool       `json:"host_is_node" msgpack:"host_is_node"`
+		Limit        int        `json:"limit" msgpack:"limit"`
+		Offset       int        `json:"offset" msgpack:"offset"`
+		IncludeState bool       `json:"include_state" msgpack:"include_state"`
 	}
 	HardwareRetrieveRackResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -127,6 +128,15 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
 	}
+
+	if req.IncludeState {
+		for i := range resRacks {
+			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
+				resRacks[i].State = s.State
+			}
+		}
+	}
+
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
@@ -383,15 +393,17 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys           []string `json:"keys" msgpack:"keys"`
-	Names          []string `json:"names" msgpack:"names"`
-	Makes          []string `json:"makes" msgpack:"makes"`
-	Models         []string `json:"models" msgpack:"models"`
-	Locations      []string `json:"locations" msgpack:"locations"`
-	Search         string   `json:"search" msgpack:"search"`
-	Limit          int      `json:"limit" msgpack:"limit"`
-	Offset         int      `json:"offset" msgpack:"offset"`
-	IgnoreNotFound bool     `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	Keys           []string   `json:"keys" msgpack:"keys"`
+	Names          []string   `json:"names" msgpack:"names"`
+	Makes          []string   `json:"makes" msgpack:"makes"`
+	Models         []string   `json:"models" msgpack:"models"`
+	Locations      []string   `json:"locations" msgpack:"locations"`
+	Racks          []rack.Key `json:"racks" msgpack:"racks"`
+	Search         string     `json:"search" msgpack:"search"`
+	Limit          int        `json:"limit" msgpack:"limit"`
+	Offset         int        `json:"offset" msgpack:"offset"`
+	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IncludeState   bool       `json:"include_state" msgpack:"include_state"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -408,6 +420,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		hasOffset    = req.Offset > 0
 		hasLocations = len(req.Locations) > 0
 		hasModels    = len(req.Models) > 0
+		hasRacks     = len(req.Racks) > 0
 	)
 	q := svc.internal.Device.NewRetrieve()
 	if hasKeys {
@@ -434,7 +447,17 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if hasModels {
 		q = q.WhereModels(req.Models...)
 	}
+	if hasRacks {
+		q = q.WhereRacks(req.Racks...)
+	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
+	if req.IncludeState {
+		for i := range res.Devices {
+			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Key); ok {
+				res.Devices[i].State = s
+			}
+		}
+	}
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,

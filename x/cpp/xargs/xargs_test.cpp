@@ -25,7 +25,8 @@ protected:
     }
 
     static void cleanup(const int argc, char **argv) {
-        for (int i = 0; i < argc; i++) delete[] argv[i];
+        for (int i = 0; i < argc; i++)
+            delete[] argv[i];
         delete[] argv;
     }
 
@@ -96,12 +97,9 @@ TEST_F(XArgsTest, TestFlag) {
 }
 
 TEST_F(XArgsTest, TestMultipleArguments) {
-    auto [argc, argv] = make_args({
-        "program",
-        "--name", "test",
-        "--count", "42",
-        "--verbose"
-    });
+    auto [argc, argv] = make_args(
+        {"program", "--name", "test", "--count", "42", "--verbose"}
+    );
     parser = xargs::Parser(argc, argv);
     const auto name = parser.required<std::string>("--name");
     const auto count = parser.required<int>("--count");
@@ -124,7 +122,9 @@ TEST_F(XArgsTest, TestError) {
 
 TEST(XArgs, Regression) {
     auto parser = xargs::Parser(std::vector<std::string>{
-        "program", "--state-file", "/tmp/rack-config-test/state.json"
+        "program",
+        "--state-file",
+        "/tmp/rack-config-test/state.json"
     });
     const std::string value = parser.optional("--state-file", "");
     ASSERT_EQ(value, "/tmp/rack-config-test/state.json");
@@ -168,13 +168,9 @@ TEST_F(XArgsTest, TestEqualsFormatInvalid) {
 }
 
 TEST_F(XArgsTest, TestMixedFormatArguments) {
-    auto [argc, argv] = make_args({
-        "program",
-        "--name=test",
-        "--count", "42",
-        "--verbose",
-        "--debug=true"
-    });
+    auto [argc, argv] = make_args(
+        {"program", "--name=test", "--count", "42", "--verbose", "--debug=true"}
+    );
     parser = xargs::Parser(argc, argv);
     const auto name = parser.required<std::string>("--name");
     const auto count = parser.required<int>("--count");
@@ -190,13 +186,9 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
 }
 
 TEST_F(XArgsTest, TestPrefixHandling) {
-    auto [argc, argv] = make_args({
-        "program",
-        "--long-flag",
-        "-v",
-        "--unprefixed=value",
-        "-f", "file.txt"
-    });
+    auto [argc, argv] = make_args(
+        {"program", "--long-flag", "-v", "--unprefixed=value", "-f", "file.txt"}
+    );
     parser = xargs::Parser(argc, argv);
 
     // Test different prefix scenarios
@@ -212,12 +204,7 @@ TEST_F(XArgsTest, TestPrefixHandling) {
 }
 
 TEST_F(XArgsTest, TestSingleLetterFlags) {
-    auto [argc, argv] = make_args({
-        "program",
-        "-v",
-        "--f",
-        "-x=true"
-    });
+    auto [argc, argv] = make_args({"program", "-v", "--f", "-x=true"});
     parser = xargs::Parser(argc, argv);
 
     // Test single letter flags with different prefixes
@@ -265,29 +252,29 @@ TEST_F(XArgsTest, TestNullPointerHandling) {
 }
 
 TEST_F(XArgsTest, TestWeirdArgumentNames) {
-    auto [argc, argv] = make_args({
-        "program",
-        "---triple-dash",
-        "----quad-dash=value",
-        "--weird@#$%chars",
-        "--spaces in value",
-        "--unicode-☺=smiley",
-        "--empty=",
-        "---=direct",
-        "--chain=one--chain=two",
-        "--duplicate=first",
-        "--duplicate=second",
-        "=standalone-equals",
-        "--=empty-name",
-        "--no-value=",
-        "--==double-equals",
-        "--missing-equals-dash--next-arg",
-        "--space = value",
-        "--=-",
-        "----",
-        "- -",
-        "--"
-    });
+    auto [argc, argv] = make_args(
+        {"program",
+         "---triple-dash",
+         "----quad-dash=value",
+         "--weird@#$%chars",
+         "--spaces in value",
+         "--unicode-☺=smiley",
+         "--empty=",
+         "---=direct",
+         "--chain=one--chain=two",
+         "--duplicate=first",
+         "--duplicate=second",
+         "=standalone-equals",
+         "--=empty-name",
+         "--no-value=",
+         "--==double-equals",
+         "--missing-equals-dash--next-arg",
+         "--space = value",
+         "--=-",
+         "----",
+         "- -",
+         "--"}
+    );
     parser = xargs::Parser(argc, argv);
 
     ASSERT_FALSE(parser.flag("triple-dash"));
@@ -315,18 +302,21 @@ TEST_F(XArgsTest, TestWeirdArgumentNames) {
 }
 
 TEST_F(XArgsTest, TestDuplicateArguments) {
-    auto [argc, argv] = make_args({
-        "program",
-        "--name", "first",
-        "--name=second",
-        "--count", "10",
-        "--count", "20",
-        "--verbose",
-        "--verbose=false",
-        "--verbose"
-    });
+    auto [argc, argv] = make_args(
+        {"program",
+         "--name",
+         "first",
+         "--name=second",
+         "--count",
+         "10",
+         "--count",
+         "20",
+         "--verbose",
+         "--verbose=false",
+         "--verbose"}
+    );
     parser = xargs::Parser(argc, argv);
-    
+
     const auto name = parser.required<std::string>("name");
     const auto count = parser.required<int>("count");
     const auto verbose = parser.flag("verbose");
@@ -334,7 +324,7 @@ TEST_F(XArgsTest, TestDuplicateArguments) {
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(name, "second");
     ASSERT_EQ(count, 20);
-    ASSERT_TRUE(verbose);  // Last --verbose flag wins
+    ASSERT_TRUE(verbose); // Last --verbose flag wins
     cleanup(argc, argv);
 }
 
@@ -348,5 +338,46 @@ TEST_F(XArgsTest, TestRegressionDash) {
     const auto correct_skew = parser.required<bool>("correct_skew");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_TRUE(correct_skew);
+    cleanup(argc, argv);
+}
+
+TEST_F(XArgsTest, TestVectorArguments) {
+    auto [argc, argv] = make_args(
+        {"program",
+         "--strings=dog,cat,ferret",
+         "--numbers=1,2,3,4,5",
+         "--doubles=1.5,2.7,3.14"}
+    );
+    parser = xargs::Parser(argc, argv);
+
+    // Test string vector
+    auto strings = parser.required<std::vector<std::string>>("strings");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(strings.size(), 3);
+    ASSERT_EQ(strings[0], "dog");
+    ASSERT_EQ(strings[1], "cat");
+    ASSERT_EQ(strings[2], "ferret");
+
+    // Test integer vector
+    auto numbers = parser.required<std::vector<int>>("numbers");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(numbers.size(), 5);
+    ASSERT_EQ(numbers[0], 1);
+    ASSERT_EQ(numbers[4], 5);
+
+    // Test double vector
+    auto doubles = parser.required<std::vector<double>>("doubles");
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(doubles.size(), 3);
+    ASSERT_DOUBLE_EQ(doubles[0], 1.5);
+    ASSERT_DOUBLE_EQ(doubles[1], 2.7);
+    ASSERT_DOUBLE_EQ(doubles[2], 3.14);
+
+    // Test optional vector with default
+    std::vector<int> default_vec = {1, 2, 3};
+    auto optional_nums = parser.optional<std::vector<int>>("missing", default_vec);
+    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_EQ(optional_nums, default_vec);
+
     cleanup(argc, argv);
 }

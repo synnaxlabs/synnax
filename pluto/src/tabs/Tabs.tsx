@@ -115,11 +115,11 @@ export interface TabsProps
       | "content"
       | "contextMenu"
     >,
-    ContextValue {
+    ContextValue,
+    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop"> {
   children?: RenderProp | ReactNode;
   size?: ComponentSize;
   selectedAltColor?: boolean;
-  contextMenu?: SelectorProps["contextMenu"];
 }
 
 /**
@@ -180,6 +180,7 @@ export const Tabs = ({
   onDragOver,
   onDrop,
   contextMenu,
+  addTooltip,
   size = "medium",
   direction: dir = "y",
   ...rest
@@ -214,6 +215,7 @@ export const Tabs = ({
         direction={direction.swap(dir)}
         altColor={selectedAltColor}
         contextMenu={contextMenu}
+        addTooltip={addTooltip}
       />
       <Content />
     </Provider>
@@ -224,13 +226,16 @@ export const Content = (): ReactNode | null => {
   const { tabs, selected, content: renderProp, emptyContent, onSelect } = useContext();
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
-  if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null)
+  if (selected == null || selectedTab == null) content = emptyContent ?? null;
+  else if (renderProp != null)
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
   else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
-    <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
+    <div
+      className={CSS.B("tabs-content")}
+      onClick={() => selected != null && onSelect?.(selected)}
+    >
       {content}
     </div>
   );

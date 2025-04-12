@@ -9,32 +9,34 @@
 
 #pragma once
 
-#include <string>
 #include <memory>
+#include <string>
 #include <utility>
-#include "opc.h"
-#include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
-#include "driver/task/task.h"
-#include "x/cpp/xjson/xjson.h"
-#include "open62541/types.h"
 #include "driver/opc/util/util.h"
+#include "driver/task/task.h"
+#include "nlohmann/json.hpp"
+#include "opc.h"
+#include "open62541/types.h"
+#include "x/cpp/xjson/xjson.h"
 
 using json = nlohmann::json;
 
 namespace opc {
-///@brief The parameters for connecting to and iterating through nodes in the OPC UA server.A
+///@brief The parameters for connecting to and iterating through nodes in the OPC UA
+/// server.A
 struct ScanCommandArgs {
     util::ConnectionConfig connection;
     std::string node_id;
     UA_NodeId node;
 
-    explicit ScanCommandArgs(
-        xjson::Parser &parser
-    ) : connection(util::ConnectionConfig(parser.child("connection"))),
+    explicit ScanCommandArgs(xjson::Parser &parser):
+        connection(util::ConnectionConfig(parser.child("connection"))),
         node_id(parser.optional<std::string>("node_id", "")) {
-        if (node_id.empty()) node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-        else node = util::parse_node_id("node_id", parser);
+        if (node_id.empty())
+            node = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+        else
+            node = util::parse_node_id("node_id", parser);
     }
 };
 
@@ -43,22 +45,18 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 class ScanTask final : public task::Task {
 public:
-    explicit ScanTask(
-        std::shared_ptr<task::Context> ctx,
-        synnax::Task task) : ctx(std::move(ctx)), task(std::move(task)) {
-    }
+    explicit ScanTask(std::shared_ptr<task::Context> ctx, synnax::Task task):
+        ctx(std::move(ctx)), task(std::move(task)) {}
 
-    static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+    static std::unique_ptr<task::Task>
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
-    std::string name() override { return task.name; }
+    std::string name() const override { return task.name; }
 
     void exec(task::Command &cmd) override;
 
-    void stop(bool will_reconfigure) override {
-    }
+    void stop(bool will_reconfigure) override {}
+
 private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;

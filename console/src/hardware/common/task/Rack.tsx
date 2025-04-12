@@ -12,6 +12,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 
+import { CSS } from "@/css";
+
 interface RackProps {
   taskKey: task.Key;
 }
@@ -27,14 +29,19 @@ export const Rack = ({ taskKey }: RackProps) => {
   if (rack == null) return null;
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={8} weight={450}>
+      <Text.Text level="small" shade={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
       <Text.WithIcon
+        className={CSS.B("rack-name")}
         startIcon={<Icon.Rack />}
-        level="p"
-        shade={7}
-        style={{ paddingRight: "0.5rem" }}
+        level="small"
+        shade={9}
+        weight={350}
+        style={{
+          paddingRight: "0.5rem",
+        }}
+        ellipsis
       >
         {rack?.name}
       </Text.WithIcon>

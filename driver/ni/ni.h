@@ -15,8 +15,9 @@
 /// internal
 #include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/syscfg/sugared.h"
-#include "driver/task/task.h"
+#include "driver/task/common/common.h"
 #include "driver/task/common/sample_clock.h"
+#include "driver/task/task.h"
 
 namespace ni {
 const std::string MAKE = "NI";
@@ -40,17 +41,15 @@ const std::vector REQUIRES_RESTART_ERRORS = {
 inline xerrors::Error translate_error(const xerrors::Error &err) {
     if (!err) return err;
     LOG(WARNING) << "[ni] task encountered error: " << err;
-    if (err.matches(UNREACHABLE_ERRORS))
-        return daqmx::TEMPORARILY_UNREACHABLE;
-    if (err.matches(REQUIRES_RESTART_ERRORS))
-        return daqmx::REQUIRES_RESTART;
+    if (err.matches(UNREACHABLE_ERRORS)) return daqmx::TEMPORARILY_UNREACHABLE;
+    if (err.matches(REQUIRES_RESTART_ERRORS)) return daqmx::REQUIRES_RESTART;
     if (err.matches(daqmx::APPLICATION_TOO_SLOW))
-        return {
-            xerrors::Error(
-                driver::CRITICAL_HARDWARE_ERROR,
-                "the network cannot keep up with the stream rate specified. try making the sample rate a higher multiple of the stream rate"
-            )
-        };
+        return {xerrors::Error(
+            driver::CRITICAL_HARDWARE_ERROR,
+            "the network cannot keep up with the stream rate specified. try making "
+            "the "
+            "sample rate a higher multiple of the stream rate"
+        )};
     return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
 }
 
@@ -63,6 +62,9 @@ class Factory final : public task::Factory {
     /// about devices.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     common::TimingConfig timing_cfg;
+
+    /// @brief checks whether the factory is healthy and capable of creating tasks.
+    bool check_health() const;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -81,7 +83,8 @@ public:
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration
     /// libraries.
-    static std::unique_ptr<Factory> create(common::TimingConfig timing_cfg = common::TimingConfig{});
+    static std::unique_ptr<Factory>
+    create(common::TimingConfig timing_cfg = common::TimingConfig{});
 
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
@@ -98,42 +101,45 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    ) {
+    common::ConfigureResult
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+        common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
-        if (cfg_err) return {nullptr, cfg_err};
+        if (cfg_err) {
+            result.error = cfg_err;
+            return result;
+        }
         TaskHandle handle;
-        const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
-        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
-            return {nullptr, err};
+        const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
+                                          ")";
+        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle)) {
+            result.error = err;
+            return result;
+        }
         // Very important that we instantiate the Hardware API here, as we pass
-        // ownership over the lifecycle of the task handle to it. If we encounter any
-        // errors when applying the configuration or cycling the task, we need to make
-        // sure it gets cleared.
+        // ownership over the lifecycle of the task handle to it. If we encounter
+        // any errors when applying the configuration or cycling the task, we need
+        // to make sure it gets cleared.
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
-        if (const auto err = cfg.apply(this->dmx, handle)) return {nullptr, err};
-        // NI will look for invalid configuration parameters internally, so we quickly
-        // cycle the task in order to catch and communicate any errors as soon as
-        // possible.
-        if (const auto err = hw->start()) return {nullptr, err};
-        if (const auto err = hw->stop()) return {nullptr, err};
-        return {
-            std::make_unique<TaskT>(
-                task,
-                ctx,
-                breaker::default_config(task.name),
-                std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
-            ),
-            xerrors::NIL
-        };
+        if (result.error = cfg.apply(this->dmx, handle); result.error) return result;
+        // NI will look for invalid configuration parameters internally, so we
+        // quickly cycle the task in order to catch and communicate any errors as
+        // soon as possible.
+        if (result.error = hw->start(); result.error) return result;
+        if (result.error = hw->stop(); result.error) return result;
+        result.task = std::make_unique<TaskT>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
+        );
+        result.auto_start = cfg.auto_start;
+        return result;
     }
 
+    std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+    common::ConfigureResult
+    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 };
 }

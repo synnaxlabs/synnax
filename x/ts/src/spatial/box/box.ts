@@ -278,11 +278,19 @@ export const signedHeight = (b: Crude): number => {
 
 export const topLeft = (b: Crude): xy.XY => xyLoc(b, location.TOP_LEFT);
 
+export const topCenter = (b: Crude): xy.XY => xyLoc(b, location.TOP_CENTER);
+
 export const topRight = (b: Crude): xy.XY => xyLoc(b, location.TOP_RIGHT);
 
 export const bottomLeft = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_LEFT);
 
+export const bottomCenter = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_CENTER);
+
 export const bottomRight = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
+
+export const centerLeft = (b: Crude): xy.XY => xyLoc(b, location.CENTER_LEFT);
+
+export const centerRight = (b: Crude): xy.XY => xyLoc(b, location.CENTER_RIGHT);
 
 export const right = (b: Crude): number => loc(b, "right");
 

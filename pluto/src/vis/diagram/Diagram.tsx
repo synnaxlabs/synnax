@@ -244,7 +244,7 @@ const Core = ({
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-  const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
+  const defaultEdgeColor = Theming.use().colors.gray.l11.hex;
 
   const triggers = useMemoCompare(
     () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
@@ -488,12 +488,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack
-    direction="y"
-    borderShade={4}
-    className={CSS.BE("diagram", "controls")}
-    {...props}
-  />
+  <Align.Pack borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
@@ -510,14 +505,9 @@ export const ToggleEditControl = ({
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.RIGHT_CENTER}
-      tooltip={
-        editable ? (
-          <Text.Text level="small">Disable edit mode</Text.Text>
-        ) : (
-          <Text.Text level="small">Enable edit mode</Text.Text>
-        )
-      }
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
@@ -545,8 +535,9 @@ export const FitViewControl = ({
       onChange={(v: boolean) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
-      tooltipLocation={location.RIGHT_CENTER}
+      tooltipLocation={location.BOTTOM_LEFT}
       variant="outlined"
+      size="small"
       {...rest}
     >
       <Icon.Expand />

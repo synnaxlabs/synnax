@@ -18,28 +18,30 @@ The Digital Write Task is used for sending commands to the digital outputs of yo
 cards. In this guide, we'll walk you through the steps to create a Digital Write Task in
 Synnax.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Prerequisites
 
 Before configuring the task, you'll need to have connected and configured an NI device
-and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/ni/configure-device)
-guide for more information.
+and created the relevant channels in Synnax. Check out the
+[Configure Device](/reference/device-drivers/ni/configure-device) guide for more
+information.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. In the context of the NI
 Driver, a digital write task defines a background process that writes to the digital
-outputs of your device based on values written to Synnax [command channels](#how-commands-work-in-synnax).
+outputs of your device based on values written to Synnax
+[command channels](#how-commands-work-in-synnax).
 
 A digital write task can be started, stopped, and re-configured at any time. We
 permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## How Commands Work in Synnax
 
@@ -59,23 +61,24 @@ output, and `_cmd` indicates that it's a command channel.
   `my_temp_card_do_0_1_cmd_time`.
 </Note.Note>
 
-State channels represent the current state of the digital output. When you send a command,
-the corresponding digital write task will process the command and update the value in
-the state channel.
+State channels represent the current state of the digital output. When you send a
+command, the corresponding digital write task will process the command and update the
+value in the state channel.
 
 State channels are typically suffixed with `_state`. A state channel maintains the same
-format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
+format as its corresponding command channel, but suffixed with `_state` instead of
+`_cmd`.
 
-As an example, to configure a valve in the [schematic](/reference/console/schematics)
-to write to a digital output, you would set the `command` field to the command channel
-of the digital output and the `state` field to the state channel of the digital output.
+As an example, to configure a valve in the [schematic](/reference/console/schematics) to
+write to a digital output, you would set the `command` field to the command channel of
+the digital output and the `state` field to the state channel of the digital output.
 Clicking the valve would send a command to the digital output, and the valve would turn
 solid or transparent based on the state channel.
 
-Using two channels provides a guarantee that a particular command was acknowledged by
-a running task.
+Using two channels provides a guarantee that a particular command was acknowledged by a
+running task.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Open the Task Configuration Dialog
 
@@ -83,7 +86,8 @@ a running task.
 
 To create a digital write task from the resources toolbar, open the Synnax Console and
 click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device
-you'd like to create the task for, right-click on it, and select "Create Digital write Task".
+you'd like to create the task for, right-click on it, and select "Create Digital write
+Task".
 
 <Video
   client:only="react"
@@ -96,9 +100,9 @@ To create a digital write task from the command palette, open the Synnax Console
 click on the Quick Search & Command Palette at the top. You can also open this palette
 with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type
-"NI". You'll see an option called "Create a New Digital write Task". Select this
-option to open the read task configuration dialog.
+In command mode (enabled when the first character in the input is ">"), type "NI".
+You'll see an option called "Create a New Digital write Task". Select this option to
+open the read task configuration dialog.
 
 <Video
   client:only="react"
@@ -115,14 +119,14 @@ top right corner and select "NI Digital Write Task".
   id="device-drivers/ni/digital-write-task/layout-create-digital-write-task"
 />
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Configure the Task
 
 ### <StepText level="h3" step={1}>Select your NI Device</StepText>
 
-The first step is to select the NI device you'd like to write to the outputs of. Use
-the dropdown menu in the top left corner to do so.
+The first step is to select the NI device you'd like to write to the outputs of. Use the
+dropdown menu in the top left corner to do so.
 
 <Video
   client:only="react"
@@ -156,13 +160,14 @@ Set the rate higher in scenarios that require quick response times.
   />
 </div>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start the Task
 
 Once you've added all of the channels you need and have configured sampling rates, hit
 the "Configure" button. If there are no errors, Synnax will acknowledge the configured
-task and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the task.
+task and enable the Play (<Icon.Play />) button in the dialog. Click this button to
+start the task.
 
 <Video
   client:only="react"

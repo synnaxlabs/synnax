@@ -21,7 +21,7 @@ export const ReleaseList = ({
 }: {
   headings?: MarkdownHeading[];
   url: string;
-}): ReactElement => {
+}): ReactElement | null => {
   const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
@@ -58,7 +58,7 @@ export const ReleaseList = ({
 
   // If there are no headings,
   // return an empty div.
-  if (headings.length === 0) return <></>;
+  if (headings.length === 0) return null;
 
   return (
     <Align.Space el="nav" className="release-list" size={2}>

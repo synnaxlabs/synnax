@@ -24,8 +24,8 @@ enum WriterCommand : uint32_t {
 };
 
 namespace synnax {
-std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
+std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &cfg
+) const {
     auto [w, err] = this->writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
@@ -99,7 +99,10 @@ xerrors::Error Writer::set_authority(
     const std::vector<telem::Authority> &authorities
 ) {
     this->assert_open();
-    const WriterConfig config{.channels = keys, .authorities = authorities,};
+    const WriterConfig config{
+        .channels = keys,
+        .authorities = authorities,
+    };
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
@@ -134,7 +137,6 @@ xerrors::Error Writer::close() const {
 
 
 void Writer::assert_open() const {
-    if (closed)
-        throw std::runtime_error("cannot call method on closed writer");
+    if (closed) throw std::runtime_error("cannot call method on closed writer");
 }
 }

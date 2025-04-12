@@ -75,7 +75,7 @@ export const BaseSwatch = ({
       draggable={draggable}
       onDragStart={handleDragStart}
       style={{ ...style, backgroundColor: color.cssString(value) }}
-      variant="text"
+      variant="outlined"
       {...haulProps}
       {...rest}
     />

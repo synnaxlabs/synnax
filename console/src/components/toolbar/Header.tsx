@@ -24,3 +24,7 @@ export const Header = (props: HeaderProps): ReactElement => (
     {...props}
   />
 );
+
+export const Actions = (props: PHeader.ActionsProps): ReactElement => (
+  <PHeader.Actions {...props} style={{ paddingRight: "0.5rem" }} />
+);
