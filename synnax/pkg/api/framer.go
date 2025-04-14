@@ -312,14 +312,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 			return r, true, nil
 		},
 	}
-	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
+	sender := &freightfluence.Sender[framer.WriterResponse]{
 		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
-			if resp.Error != nil {
-				resp.Error = errors.Encode(ctx, resp.Error, false)
-			}
-			return resp, true, nil
-		},
 	}
 
 	pipe := plumber.New()
@@ -330,8 +324,9 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
-	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit())
-	return ctx.Wait()
+	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+	err = ctx.Wait()
+	return err
 }
 
 func (s *FrameService) openWriter(

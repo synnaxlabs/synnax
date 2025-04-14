@@ -258,7 +258,7 @@ var _ = Describe("Iterator Behavior", func() {
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					var (
 						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{key}}))
 						e = core.EntityClosed("cesium.iterator")
@@ -275,7 +275,7 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -287,7 +287,7 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -299,7 +299,7 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))

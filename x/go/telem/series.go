@@ -135,7 +135,12 @@ func (s Series) String() string {
 		b.WriteString("[]}")
 		return b.String()
 	}
+	b.WriteString(s.DataString())
+	b.WriteString("}")
+	return b.String()
+}
 
+func (s Series) DataString() string {
 	var contents string
 	if s.DataType.IsVariable() {
 		contents = truncateSlice(UnmarshalStrings(s.Data))
@@ -171,8 +176,6 @@ func (s Series) String() string {
 			contents = fmt.Sprintf("%v", s.Data)
 		}
 	}
+	return contents
 
-	b.WriteString(contents)
-	b.WriteString("}")
-	return b.String()
 }

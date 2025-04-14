@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type synchronizer struct {
@@ -32,16 +31,12 @@ func newSynchronizer(nodeCount int, bulkheadSig chan bool, ins alamos.Instrument
 	return s
 }
 
-func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, error) {
-	if res.Error != nil {
-		return res, true, signal.SendUnderContext(ctx, a.bulkheadSignal, true)
-	}
-	err, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Error)
+func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+	seqNum, fulfilled := a.internal.Sync(res.SeqNum)
 	if fulfilled {
 		return Response{
 			Command: res.Command,
 			SeqNum:  seqNum,
-			Error:   err,
 			End:     res.End,
 		}, true, nil
 	}

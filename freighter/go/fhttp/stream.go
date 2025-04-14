@@ -343,7 +343,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 				s.L.Error("error closing connection", zap.Error(err))
 			}
 		}()
-		oCtx, err := s.MiddlewareCollector.Exec(
+		oCtx, handlerErr := s.MiddlewareCollector.Exec(
 			ctx,
 			freighter.FinalizerFunc(func(iFreighterCtx freighter.Context) (oFreighterCtx freighter.Context, err error) {
 				// Send a confirmation message to the client that the stream is open.
@@ -360,7 +360,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 				return
 			}),
 		)
-		errPld := errors.Encode(oCtx, err, s.internal)
+		errPld := errors.Encode(oCtx, handlerErr, s.internal)
 		if errPld.Type == errors.TypeNil {
 			// If everything went well, we use an EOF to signal smooth closure of
 			// the stream.
@@ -369,13 +369,16 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		if stream.ctx.Err() != nil {
 			return stream.ctx.Err()
 		}
-		if err = stream.send(message[RS]{Type: msgTypeClose, Err: errPld}); err != nil {
+		if err := stream.send(message[RS]{Type: msgTypeClose, Err: errPld}); err != nil {
 			return err
 		}
 		stream.peerClosed = freighter.StreamClosed
+		if handlerErr != nil {
+			time.Sleep(closeReadWriteDeadline)
+		}
 		// Tell the client we're closing the connection. Make sure to include
 		// a write deadline here in-case the client is stuck.
-		if err = stream.conn.WriteControl(
+		if err := stream.conn.WriteControl(
 			ws.CloseMessage,
 			ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
 			time.Now().Add(closeReadWriteDeadline),
@@ -383,14 +386,19 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			return err
 		}
 		// Again, make sure a stuck client doesn't cause problems with shutdown.
-		if err = stream.conn.SetReadDeadline(
+		if err := stream.conn.SetReadDeadline(
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil {
 			return err
 		}
-		if _, err = stream.receive(); err != nil &&
-			!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-			s.L.Error("expected normal closure, received error instead", zap.Error(err))
+		for {
+			_, err := stream.receive()
+			if err != nil {
+				if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+					s.L.Error("expected normal closure, received error instead", zap.Error(err))
+				}
+				break
+			}
 		}
 		// Shut down the routine that listens for context cancellation, as we don't
 		// want to leak

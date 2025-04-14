@@ -107,7 +107,6 @@ func (writerResponseTranslator) Backward(
 	return writer.Response{
 		Command: writer.Command(res.Command),
 		SeqNum:  int(res.SeqNum),
-		Error:   fgrpc.DecodeError(ctx, res.Error),
 	}, nil
 }
 
@@ -119,7 +118,6 @@ func (writerResponseTranslator) Forward(
 	return &framerv1.WriterResponse{
 		Command: int32(res.Command),
 		SeqNum:  int32(res.SeqNum),
-		Error:   fgrpc.EncodeError(ctx, res.Error, true),
 	}, nil
 }
 

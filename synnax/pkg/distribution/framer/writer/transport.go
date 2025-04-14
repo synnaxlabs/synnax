@@ -49,7 +49,6 @@ type Response struct {
 	Command       Command          `json:"command" msgpack:"command"`
 	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
 	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
-	Error         error            `json:"error" msgpack:"error"`
 	End           telem.TimeStamp  `json:"end" msgpack:"end"`
 	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
 }

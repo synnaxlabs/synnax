@@ -25,30 +25,17 @@ var _ = Describe("Unary racing", func() {
 	for fsName, makeFS := range FileSystems {
 		Context("FS:"+fsName, func() {
 			var (
-				fs                         xfs.FS
-				cleanUp                    func() error
-				rateKey, indexKey, dataKey core.ChannelKey
-				rateDB                     *unary.DB
-				indexDB                    *unary.DB
-				dataDB                     *unary.DB
+				fs                xfs.FS
+				cleanUp           func() error
+				indexKey, dataKey core.ChannelKey
+				indexDB           *unary.DB
+				dataDB            *unary.DB
 			)
 			BeforeEach(func() {
-				rateKey = GenerateChannelKey()
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
 				fs, cleanUp = makeFS()
-				rateFS, indexFS, dataFS := MustSucceed(fs.Sub("rate")), MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
-				rateDB = MustSucceed(unary.Open(unary.Config{
-					FS:        rateFS,
-					MetaCodec: codec,
-					Channel: core.Channel{
-						Key:      rateKey,
-						DataType: telem.Int16T,
-						Rate:     2 * telem.Hz,
-					},
-					FileSize:        1 * telem.ByteSize,
-					Instrumentation: PanicLogger(),
-				}))
+				indexFS, dataFS := MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
 				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
@@ -75,7 +62,6 @@ var _ = Describe("Unary racing", func() {
 				dataDB.SetIndex(indexDB.Index())
 			})
 			AfterEach(func() {
-				Expect(rateDB.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(dataDB.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
@@ -111,32 +97,6 @@ var _ = Describe("Unary racing", func() {
 					Expect(f.Series[1].TimeRange).To(Equal((15 * telem.SecondTS).Range(16 * telem.SecondTS)))
 					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](20, 21, 22, 24).Data))
 					Expect(f.Series[2].TimeRange).To(Equal((20 * telem.SecondTS).Range(24*telem.SecondTS + 1)))
-				})
-				Specify("Overlapping regions – rate", func() {
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165))).To(Succeed())
-
-					var wg sync.WaitGroup
-					wg.Add(5)
-
-					for i := 0; i < 5; i++ {
-						i := i
-						go func() {
-							defer GinkgoRecover()
-							defer wg.Done()
-							Expect(rateDB.Delete(ctx, (telem.TimeStamp(11+i) * telem.SecondTS).Range(telem.TimeStamp(12+i)*telem.SecondTS))).To(Succeed())
-						}()
-					}
-
-					wg.Wait()
-					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
-					// remaining: 10, 16, 16.5
-
-					f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
-					Expect(f.Series).To(HaveLen(2))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](100, 105).Data))
-					Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int16](160, 165).Data))
-					Expect(f.Series[1].TimeRange).To(Equal((16 * telem.SecondTS).Range(16*telem.SecondTS + 500*telem.MillisecondTS + 1)))
 				})
 			})
 		})

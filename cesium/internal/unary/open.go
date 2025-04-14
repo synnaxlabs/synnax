@@ -123,8 +123,6 @@ func Open(configs ...Config) (*DB, error) {
 	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
-	} else if cfg.Channel.Index == 0 {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
 	return db, db.checkMigration()
 }

@@ -127,9 +127,6 @@ class Series(Payload):
         )
         self.__len_cache = None
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def __array__(self, *args, **kwargs) -> np.ndarray:
         """Implemented to that the Series can be passed around as a numpy array. See
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.

@@ -37,7 +37,7 @@ const (
 	WriterSetAuthority
 )
 
-// WriterRequest is a request containing an arrow.Record to write to the DB.
+// WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
 	// Command is the command to execute on the Writer.
 	Command WriterCommand
@@ -57,9 +57,6 @@ type WriterResponse struct {
 	// SeqNum is the current sequence number of the command being executed. SeqNum is
 	// incremented for WriterError and WriterCommit calls, but NOT WriterWrite calls.
 	SeqNum int
-	// Err is the return frame of WriterError. Err is nil during calls to
-	// WriterWrite and WriterCommit.
-	Err error
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
@@ -98,7 +95,6 @@ type streamWriter struct {
 	internal        []*idxWriter
 	virtual         *virtualWriter
 	seqNum          int
-	err             error
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 }
 
@@ -126,38 +122,37 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return
 				}
-				w.process(ctx, req)
+				if err = w.process(ctx, req); err != nil {
+					return
+				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
+func (w *streamWriter) process(ctx context.Context, req WriterRequest) error {
 	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
-		w.err = errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
-		return
+		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
-	var (
-		end     telem.TimeStamp
-		sendRes = true
-	)
 	if req.Command == WriterSetAuthority {
-		w.setAuthority(ctx, req.Config)
-	} else if w.err != nil {
-		w.sendRes(req, end)
-	} else if req.Command == WriterCommit {
-		end, w.err = w.commit(ctx)
-	} else if w.err = w.write(ctx, req); w.err == nil {
-		sendRes = false
+		if err := w.setAuthority(ctx, req.Config); err != nil {
+			return err
+		}
+		return w.sendRes(ctx, req, 0)
 	}
-	if sendRes {
-		w.sendRes(req, end)
+	if req.Command == WriterCommit {
+		ts, err := w.commit(ctx)
+		if err != nil {
+			return err
+		}
+		return w.sendRes(ctx, req, ts)
 	}
+	return w.write(ctx, req)
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
+func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
-		return
+		return nil
 	}
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	if len(cfg.Channels) == 0 {
@@ -199,26 +194,24 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 		}
 	}
 	if len(u.Transfers) > 0 {
-		if err := w.updateDBControl(ctx, u); err != nil {
-			w.err = err
-		}
+		return w.updateDBControl(ctx, u)
 	}
+	return nil
 }
 
-func (w *streamWriter) sendRes(req WriterRequest, end telem.TimeStamp) {
-	w.Out.Inlet() <- WriterResponse{
+func (w *streamWriter) sendRes(ctx context.Context, req WriterRequest, end telem.TimeStamp) error {
+	return signal.SendUnderContext(ctx, w.Out.Inlet(), WriterResponse{
 		Command: req.Command,
 		SeqNum:  req.SeqNum,
-		Err:     w.err,
 		End:     end,
-	}
+	})
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
+			if errors.Is(err, control.Unauthorized) {
 				return nil
 			}
 			return err
@@ -227,7 +220,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 		if *w.EnableAutoCommit {
 			_, err = idx.Commit(ctx)
 			if err != nil {
-				if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
+				if errors.Is(err, control.Unauthorized) {
 					return nil
 				}
 				return err
@@ -237,7 +230,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 	if w.virtual.internal != nil {
 		req.Frame, err = w.virtual.write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
+			if errors.Is(err, control.Unauthorized) {
 				return nil
 			}
 			return err
@@ -298,7 +291,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		}
 	}
 
-	return errors.Combine(w.err, c.Error())
+	return c.Error()
 }
 
 type unaryWriterState struct {

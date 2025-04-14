@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  decodeError,
-  errorZ,
-  type Stream,
-  type StreamClient,
-} from "@synnaxlabs/freighter";
+import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
@@ -82,7 +77,7 @@ interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
   command: z.nativeEnum(Command),
-  error: errorZ.optional().nullable(),
+  end: TimeStamp.z,
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -196,17 +191,6 @@ export class Writer {
     return writer;
   }
 
-  private async checkForAccumulatedError(): Promise<void> {
-    if (!this.errAccumulated && this.stream.received()) {
-      this.errAccumulated = true;
-      while (this.stream.received()) {
-        const res = await this.stream.receive();
-        const decoded = decodeError(res.error);
-        if (decoded != null) throw decoded;
-      }
-    }
-  }
-
   async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
   async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
   async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<void>;
@@ -233,7 +217,7 @@ export class Writer {
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
-    await this.checkForAccumulatedError();
+    if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
   }
@@ -253,7 +237,7 @@ export class Writer {
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
   ): Promise<void> {
-    await this.checkForAccumulatedError();
+    if (this.stream.received()) return await this.close();
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -268,9 +252,7 @@ export class Writer {
         authorities: Object.values(oValue),
       };
     }
-    const response = await this.execute({ command: Command.SetAuthority, config });
-    const decoded = decodeError(response.error);
-    if (decoded != null) throw decoded;
+    await this.execute({ command: Command.SetAuthority, config });
   }
 
   /**
@@ -281,11 +263,13 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit(): Promise<void> {
-    await this.checkForAccumulatedError();
+  async commit(): Promise<TimeStamp> {
+    if (this.stream.received()) {
+      await this.close();
+      return TimeStamp.ZERO;
+    }
     const res = await this.execute({ command: Command.Commit });
-    const decoded = decodeError(res.error);
-    if (decoded != null) throw decoded;
+    return res.end;
   }
 
   /**

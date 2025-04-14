@@ -53,9 +53,6 @@ class Channel(ChannelPayload):
     ___frame_client: FrameClient | None = PrivateAttr(None)
     __client: ChannelClient | None = PrivateAttr(None)
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def __init__(
         self,
         *,

@@ -19,45 +19,34 @@ import (
 type StreamWriter = confluence.Segment[Request, Response]
 
 type Writer struct {
-	requests       confluence.Inlet[Request]
-	responses      confluence.Outlet[Response]
-	wg             signal.WaitGroup
-	shutdown       io.Closer
-	accumulatedErr error
+	requests  confluence.Inlet[Request]
+	responses confluence.Outlet[Response]
+	wg        signal.WaitGroup
+	shutdown  io.Closer
 }
 
 // Write implements Writer.
 func (w *Writer) Write(frame core.Frame) error {
-	if w.accumulatedErr != nil {
-		return w.accumulatedErr
-	}
 	select {
-	case <-w.wg.Stopped():
-	case res := <-w.responses.Outlet():
-		w.accumulatedErr = res.Error
+	case <-w.responses.Outlet():
+		return w.Close()
 	case w.requests.Inlet() <- Request{Command: Data, Frame: frame}:
 	}
-	return w.accumulatedErr
+	return nil
 }
 
 func (w *Writer) Commit() error {
-	if w.accumulatedErr != nil {
-		return w.accumulatedErr
-	}
 	select {
-	case <-w.wg.Stopped():
-		return w.accumulatedErr
-	case res := <-w.responses.Outlet():
-		w.accumulatedErr = res.Error
-		return w.accumulatedErr
+	case <-w.responses.Outlet():
+		return w.Close()
 	case w.requests.Inlet() <- Request{Command: Commit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == Commit {
-			return res.Error
+			return nil
 		}
 	}
-	return nil
+	return w.Close()
 }
 
 func (w *Writer) Close() error {

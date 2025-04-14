@@ -53,7 +53,7 @@ var _ = Describe("Open", func() {
 					db := openDBOnFS(s)
 					key := GenerateChannelKey()
 
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
 					db = openDBOnFS(s)
@@ -61,15 +61,15 @@ var _ = Describe("Open", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ch.Key).To(Equal(key))
-					Expect(ch.Rate).To(Equal(1 * telem.Hz))
+					Expect(ch.IsIndex).To(BeTrue())
 
 					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
 						[]cesium.ChannelKey{key},
-						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+					Expect(f.Series[0]).To(telem.MatchSeriesData(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
 					Expect(db.Close()).To(Succeed())
 				})
 

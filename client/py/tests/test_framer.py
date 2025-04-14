@@ -206,7 +206,6 @@ class TestWriter:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
-            assert w.error() is None
 
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
@@ -224,7 +223,6 @@ class TestWriter:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
-            assert w.error() is None
 
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
@@ -277,9 +275,7 @@ class TestWriter:
                 enable_auto_commit=True,
             ) as w:
                 for i in range(100):
-                    assert_eventually(
-                        lambda: not w.write({time_ch.key: [i], data_ch.key: [i]})
-                    )
+                    w.write({time_ch.key: [i], data_ch.key: [i]})
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
@@ -499,7 +495,6 @@ class TestWriter:
                     w.write(data)
 
     def test_validation_checks_2(self, client: sy.Synnax, indexed_pair: tuple):
-        """Should not throw an error when calling error() multiple times"""
         idx_ch = client.channels.create(
             name="time",
             data_type="timestamp",
@@ -518,22 +513,27 @@ class TestWriter:
                 channels=[idx_ch.key, data_ch.key],
                 enable_auto_commit=True
             ) as w:
+                print(1)
                 w.write({
                     idx_ch.key: [start],
                     data_ch.key: [1],
                 })
+                print(2)
                 w.write({
                     idx_ch.key: [start - 2 * sy.TimeSpan.SECOND],
                     data_ch.key: [3],
                 })
+                print(3)
                 w.write({
                     idx_ch.key: [start - 1 * sy.TimeSpan.SECOND],
                     data_ch.key: sy.Series([123.24571], data_type=sy.DataType.UINT64)
                 })
+                print(4)
                 w.write({
                     idx_ch.key: [start - 1 * sy.TimeSpan.SECOND],
                     data_ch.key: [1, 2, 3, 4]
                 })
+                print(5)
 
 
 @pytest.mark.framer

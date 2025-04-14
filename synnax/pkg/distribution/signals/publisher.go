@@ -149,7 +149,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(ctx context.Context, value framer.WriterResponse) error {
-			s.Instrumentation.L.Error("unexpected writer response", zap.Error(value.Error))
+			s.Instrumentation.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}

@@ -10,7 +10,6 @@
 package core
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"go.uber.org/zap"
 )
@@ -23,28 +22,22 @@ type Synchronizer struct {
 	NodeCount int
 	cycle     struct {
 		counter int
-		err     error
 		seqNum  int
 	}
 }
 
-func (s *Synchronizer) Sync(nodeSeqNum int, nodeErr error) (err error, seqNum int, fulfilled bool) {
-	if s.cycle.seqNum != nodeSeqNum {
+func (s *Synchronizer) Sync(nodeSeqNum int) (seqNum int, fulfilled bool) {
+	if s.cycle.counter != 0 && s.cycle.seqNum != nodeSeqNum {
 		s.L.Warn("unexpected sequence number", zap.Int("expected", s.cycle.seqNum), zap.Int("actual", nodeSeqNum))
-		return s.cycle.err, 0, false
+		return 0, false
 	}
 	if s.cycle.counter == 0 {
-		s.cycle.err = nil
 		s.cycle.seqNum = nodeSeqNum
 	}
 	s.cycle.counter++
-	// If we have a bad ack for any response, set the ack for the
-	if nodeErr != nil {
-		s.cycle.err = errors.CombineErrors(s.cycle.err, nodeErr)
-	}
 	if s.cycle.counter == s.NodeCount {
 		s.cycle.counter = 0
-		return s.cycle.err, seqNum, true
+		return seqNum, true
 	}
-	return s.cycle.err, seqNum, false
+	return seqNum, false
 }

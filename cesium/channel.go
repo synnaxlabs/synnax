@@ -140,7 +140,6 @@ func (db *DB) createChannel(ch Channel) (err error) {
 			"creating channel",
 			zap.Uint32("key", ch.Key),
 			zap.Uint32("index", ch.Index),
-			zap.Float64("rate", float64(ch.Rate)),
 			zap.String("datatype", string(ch.DataType)),
 			zap.Bool("isIndex", ch.IsIndex),
 			zap.Error(err),
@@ -172,7 +171,6 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	})
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf("index", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
 		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
@@ -185,7 +183,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 				v.Ternaryf("index", !indexDB.Channel().IsIndex, "channel %v is not an index", indexDB.Channel())
 			}
 		} else {
-			validate.Positive(v, "rate", ch.Rate)
+			v.Ternaryf("index", ch.Index != 0, "non-indexed channel must have an index")
 		}
 	}
 	return v.Error()

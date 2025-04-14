@@ -37,9 +37,9 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
 			n := testutil.MustSucceed(services[1].OpenNexter())
 			v, ok := n.Next(ctx)
 			Expect(ok).To(BeTrue())
@@ -69,7 +69,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					}
 					_, secondOk = nexter.Next(ctx)
 				})
-				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
+				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true}
 				Expect(services[1].Create(ctx, ch))
 				Eventually(func() bool { return ok }, 1*time.Second).Should(BeTrue())
 				Expect(v.Variant).To(Equal(change.Set))
@@ -80,7 +80,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func() {
-			ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
+			ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true}
 			Expect(services[1].Create(ctx, ch))
 			r, err := services[1].RetrieveResource(ctx, ch.Key().String(), nil)
 			Expect(err).ToNot(HaveOccurred())

@@ -28,9 +28,9 @@ class ExceptionPayload(Payload):
 
     @staticmethod
     def parse(
-        pld_or_type: ExceptionPayload | str,
+        pld_or_type: ExceptionPayload | Exception | str,
         data: str | None = None,
-    ) -> ExceptionPayload:
+    ) -> ExceptionPayload | Exception:
         """Parses the exception payload from one of the three representations:
 
         1. An ExceptionPayload instance. In this case, a copy of the payload is
@@ -41,7 +41,9 @@ class ExceptionPayload(Payload):
         :returns: the parsed exception payload. If the payload cannot be parsed,
         returns a payload of type unknown with as much relevant error info as possible.
         """
-        if isinstance(pld_or_type, ExceptionPayload):
+        if isinstance(pld_or_type, Exception):
+            return pld_or_type
+        elif isinstance(pld_or_type, ExceptionPayload):
             return ExceptionPayload(type=pld_or_type.type, data=pld_or_type.data)
         elif data is not None:
             return ExceptionPayload(type=pld_or_type, data=data)
@@ -76,8 +78,10 @@ class _Registry:
     def encode(error: Exception | None) -> ExceptionPayload:
         raise NotImplementedError
 
-    def decode(self, encoded: ExceptionPayload | str) -> Exception | None:
+    def decode(self, encoded: ExceptionPayload | Exception | str) -> Exception | None:
         pld = ExceptionPayload.parse(encoded)
+        if isinstance(pld, Exception):
+            return pld
         if pld.type == _TYPE_NONE:
             return None
         for provider in self.providers:

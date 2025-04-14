@@ -18,12 +18,11 @@ import (
 )
 
 type Writer struct {
-	requests       confluence.Inlet[WriterRequest]
-	responses      confluence.Outlet[WriterResponse]
-	wg             signal.WaitGroup
-	logger         *zap.Logger
-	accumulatedErr error
-	closed         bool
+	requests  confluence.Inlet[WriterRequest]
+	responses confluence.Outlet[WriterResponse]
+	wg        signal.WaitGroup
+	logger    *zap.Logger
+	closed    bool
 }
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
@@ -45,61 +44,53 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) error {
-	if w.closed || w.accumulatedErr != nil {
-		return w.accumulatedErr
+	if w.closed {
+		return errWriterClosed
 	}
 	select {
-	case res := <-w.responses.Outlet():
-		w.accumulatedErr = res.Err
+	case <-w.responses.Outlet():
+		return w.Close()
 	case w.requests.Inlet() <- WriterRequest{Frame: frame, Command: WriterWrite}:
 	}
-	return w.accumulatedErr
+	return nil
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	if w.closed || w.accumulatedErr != nil {
-		return 0, w.accumulatedErr
+	if w.closed {
+		return 0, errWriterClosed
 	}
 	select {
-	case res := <-w.responses.Outlet():
-		w.accumulatedErr = res.Err
-		return 0, res.Err
+	case <-w.responses.Outlet():
+		return 0, w.Close()
 	case w.requests.Inlet() <- WriterRequest{Command: WriterCommit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterCommit {
-			w.accumulatedErr = res.Err
-			return res.End, w.accumulatedErr
+			return res.End, nil
 		}
 	}
-	w.logger.DPanic(unexpectedSteamClosure)
-	return 0, w.accumulatedErr
+	return 0, w.Close()
 }
 
 // SetAuthority is synchronous
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
-	if w.closed || w.accumulatedErr != nil {
-		return w.accumulatedErr
+	if w.closed {
+		return errWriterClosed
 	}
 	select {
-	case res := <-w.responses.Outlet():
-		w.accumulatedErr = res.Err
+	case <-w.responses.Outlet():
+		return w.Close()
 	case w.requests.Inlet() <- WriterRequest{Config: cfg, Command: WriterSetAuthority}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterSetAuthority {
-			w.accumulatedErr = res.Err
-			return w.accumulatedErr
+			return nil
 		}
 	}
-	w.logger.DPanic(unexpectedSteamClosure)
-	return w.accumulatedErr
+	return w.Close()
 }
 
-func (w *Writer) Close() (err error) {
-	if w.closed {
-		return nil
-	}
+func (w *Writer) Close() error {
 	w.closed = true
 	w.requests.Close()
 	confluence.Drain(w.responses)

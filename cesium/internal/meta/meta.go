@@ -94,14 +94,13 @@ func validateMeta(ch core.Channel) error {
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf("rate", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
 		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-		} else if ch.Index == 0 {
-			validate.Positive(v, "rate", ch.Rate)
+		} else {
+			v.Ternaryf("index", ch.Index == 0, "non-indexed channel must have an index")
 		}
 	}
 	return v.Error()

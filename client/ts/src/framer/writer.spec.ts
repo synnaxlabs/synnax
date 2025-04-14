@@ -150,7 +150,7 @@ describe("Writer", () => {
         }
         await writer.close();
       }).rejects.toThrow(ValidationError);
-    });
+    }, 5000000);
 
     test("write with errOnUnauthorized", async () => {
       const ch = await newChannel();

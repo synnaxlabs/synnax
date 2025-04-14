@@ -52,7 +52,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic1, DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic1},
@@ -66,11 +66,11 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSeriesV[int64](1, 2, 3)
+					d := telem.NewSecondsTSV(10, 11, 12)
 					Expect(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
-					))).To(BeTrue())
+					))).To(Succeed())
 
 					f := <-o.Outlet()
 					Expect(f.Frame.Keys).To(HaveLen(1))
@@ -89,7 +89,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic2, DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -104,11 +104,11 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSeriesV[int64](1, 2, 3)
+					d := telem.NewSecondsTSV(10, 11, 12)
 					Expect(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
-					))).To(BeTrue())
+					))).To(Succeed())
 
 					Consistently(o.Outlet()).ShouldNot(Receive())
 					i.Close()
@@ -141,7 +141,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
-					))).To(BeTrue())
+					))).To(Succeed())
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Keys).To(HaveLen(1))
@@ -156,12 +156,10 @@ var _ = Describe("Streamer Behavior", func() {
 
 			Describe("Control Updates", func() {
 				It("Should forward control updates to the streamer", func() {
-					var (
-						basic3 cesium.ChannelKey = 6
-					)
+					var basic3 cesium.ChannelKey = 6
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic3, DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{controlKey},
@@ -199,7 +197,7 @@ var _ = Describe("Streamer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))

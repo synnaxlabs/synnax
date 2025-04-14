@@ -31,7 +31,6 @@ type BenchmarkConfig struct {
 	samplesPerDomain  int
 	numIndexChannels  int
 	numDataChannels   int
-	numRateChannels   int
 	numGoRoutines     int64
 	usingMemFS        bool
 }
@@ -91,7 +90,7 @@ func BenchmarkCesium(b *testing.B) {
 	makeFS := testutil.FileSystemsWithoutAssertion[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs, cleanUp := makeFS()
 
-	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.numRateChannels, benchCfg.samplesPerDomain)
+	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.samplesPerDomain)
 
 	b.Run("write", func(b *testing.B) { bench_write(b, writeCfg, dataSeries, channels, keys, fs) })
 	b.Run("read", func(b *testing.B) { bench_read(b, benchCfg, dataSeries, channels, keys, fs) })

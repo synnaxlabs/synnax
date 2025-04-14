@@ -21,15 +21,13 @@ import (
 
 type validator struct {
 	signal    chan bool
-	closed    bool
 	keys      channel.Keys
 	responses struct {
 		confluence.AbstractUnarySource[Response]
 		confluence.NopFlow
 	}
 	confluence.AbstractLinear[Request, Request]
-	accumulatedError error
-	seqNum           int
+	seqNum int
 }
 
 // Flow implements the confluence.Flow interface.
@@ -41,26 +39,19 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case v.closed = <-v.signal:
 			case req, ok := <-v.In.Outlet():
 				if !ok {
 					return nil
 				}
 				v.seqNum++
-				res := Response{Command: req.Command, SeqNum: v.seqNum}
-				block := v.closed && (req.Command == Data || req.Command == Commit)
-				if v.accumulatedError != nil || block {
-					res.Error = v.accumulatedError
-				} else if v.accumulatedError = v.validate(req); v.accumulatedError != nil {
-					res.Error = v.accumulatedError
+				req.SeqNum = v.seqNum
+				if err := v.validate(req); err != nil {
+					return err
 				} else {
-					if err := signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
+					if err = signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
 						return err
 					}
 					continue
-				}
-				if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), res); err != nil {
-					return err
 				}
 			}
 		}
