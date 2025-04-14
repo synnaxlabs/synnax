@@ -14,7 +14,6 @@ import {
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  Rate,
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
@@ -72,11 +71,6 @@ export class Channel {
    */
   readonly name: Name;
   /**
-   * The rate at which the channel samples telemetry. This only applies to fixed rate
-   * channels, and will be 0 if the channel is indexed.
-   */
-  readonly rate: Rate;
-  /**
    * The data type of the channel.
    */
   readonly dataType: DataType;
@@ -121,7 +115,6 @@ export class Channel {
 
   constructor({
     dataType,
-    rate,
     name,
     leaseholder = 0,
     key = 0,
@@ -136,7 +129,6 @@ export class Channel {
   }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
     this.key = key;
     this.name = name;
-    this.rate = new Rate(rate ?? 0);
     this.dataType = new DataType(dataType);
     this.leaseholder = leaseholder;
     this.index = index;
@@ -164,7 +156,6 @@ export class Channel {
     return channelZ.parse({
       key: this.key,
       name: this.name,
-      rate: this.rate.valueOf(),
       dataType: this.dataType.valueOf(),
       leaseholder: this.leaseholder,
       index: this.index,
