@@ -10,6 +10,9 @@
 package cesium_test
 
 import (
+	"math"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -17,8 +20,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"math"
-	"path"
 )
 
 var _ = Describe("Garbage collection", Ordered, func() {
@@ -55,8 +56,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Muir", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Carson", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
@@ -123,8 +124,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Leopold", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Goodall", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
@@ -200,8 +201,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating channels")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Attenborough", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Cousteau", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")

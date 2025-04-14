@@ -11,6 +11,11 @@ package cesium_test
 
 import (
 	"encoding/binary"
+	"os"
+	"runtime"
+	"strconv"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -26,10 +31,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"os"
-	"runtime"
-	"strconv"
-	"time"
 )
 
 var _ = Describe("Writer Behavior", func() {
@@ -61,8 +62,8 @@ var _ = Describe("Writer Behavior", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+							cesium.Channel{Key: basic1Index, Name: "Shakespeare", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic1, Name: "Marlowe", Index: basic1Index, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{basic1, basic1Index},
@@ -99,7 +100,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Creating an index channel")
 							Expect(db.CreateChannel(
 								ctx,
-								cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Key: basic1Index, Name: "Orwell", IsIndex: true, DataType: telem.TimeStampT},
 							)).To(Succeed())
 
 							By("Writing to the Index Channel")
@@ -125,7 +126,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Creating a data channel")
 							Expect(db.CreateChannel(
 								ctx,
-								cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+								cesium.Channel{Key: basic1, Name: "Huxley", Index: basic1Index, DataType: telem.Int64T},
 							)).To(Succeed())
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{basic1, basic1Index},
@@ -169,10 +170,10 @@ var _ = Describe("Writer Behavior", func() {
 						By("Creating the channels")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: basicIdx1, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic1, Index: basicIdx1, DataType: telem.Int64T},
-							cesium.Channel{Key: basicIdx2, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic2, Index: basicIdx2, DataType: telem.Int64T},
+							cesium.Channel{Key: basicIdx1, Name: "Hemingway", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic1, Name: "Fitzgerald", Index: basicIdx1, DataType: telem.Int64T},
+							cesium.Channel{Key: basicIdx2, Name: "Steinbeck", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic2, Name: "Faulkner", Index: basicIdx2, DataType: telem.Int64T},
 						)).To(Succeed())
 
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -212,8 +213,8 @@ var _ = Describe("Writer Behavior", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: index1, DataType: telem.TimeStampT, IsIndex: true},
-							cesium.Channel{Key: data1, DataType: telem.Int64T, Index: index1},
+							cesium.Channel{Name: "Bruce", Key: index1, DataType: telem.TimeStampT, IsIndex: true},
+							cesium.Channel{Name: "Steen", Key: data1, DataType: telem.Int64T, Index: index1},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{index1, data1},
@@ -256,8 +257,8 @@ var _ = Describe("Writer Behavior", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: idx, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: data, Index: idx, DataType: telem.Int64T},
+							cesium.Channel{Name: "Bird", Key: idx, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Live Studio Session", Key: data, Index: idx, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idx, data},
@@ -298,11 +299,11 @@ var _ = Describe("Writer Behavior", func() {
 							By("Creating channels")
 							Expect(db.CreateChannel(
 								ctx,
-								cesium.Channel{Key: index1, IsIndex: true, DataType: telem.TimeStampT},
-								cesium.Channel{Key: basic1, Index: index1, DataType: telem.Int64T},
-								cesium.Channel{Key: index2, IsIndex: true, DataType: telem.TimeStampT},
-								cesium.Channel{Key: basic2, Index: index2, DataType: telem.Int64T},
-								cesium.Channel{Key: basic3, Index: index2, DataType: telem.Uint32T},
+								cesium.Channel{Name: "Innerbloom", Key: index1, IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Name: "Lane", Key: basic1, Index: index1, DataType: telem.Int64T},
+								cesium.Channel{Name: "Eight", Key: index2, IsIndex: true, DataType: telem.TimeStampT},
+								cesium.Channel{Name: "Remix", Key: basic2, Index: index2, DataType: telem.Int64T},
+								cesium.Channel{Name: "Yup", Key: basic3, Index: index2, DataType: telem.Uint32T},
 							)).To(Succeed())
 						})
 						It("Should automatically commit the writer for all channels", func() {
@@ -745,8 +746,8 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(db2.CreateChannel(
 							ctx,
-							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Name: "Massane", Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Waiting", Key: basic, Index: index, DataType: telem.Int64T},
 						)).To(Succeed())
 
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -826,8 +827,8 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(db2.CreateChannel(
 							ctx,
-							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Name: "A", Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Collection", Key: basic, Index: index, DataType: telem.Int64T},
 						)).To(Succeed())
 
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -962,8 +963,8 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(db2.CreateChannel(
 							ctx,
-							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Name: "An Odd", Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Collection", Key: basic, Index: index, DataType: telem.Int64T},
 						)).To(Succeed())
 
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -1044,10 +1045,10 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(db2.CreateChannel(
 							ctx,
-							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
-							cesium.Channel{Key: index2, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic2, Index: index2, DataType: telem.Int64T},
+							cesium.Channel{Name: "O", Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "P", Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Name: "C", Key: index2, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "U", Key: basic2, Index: index2, DataType: telem.Int64T},
 						)).To(Succeed())
 
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
@@ -1149,8 +1150,8 @@ var _ = Describe("Writer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+						cesium.Channel{Name: "U", Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Name: "A", Key: basic1, Index: basic1Index, DataType: telem.Int64T},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic1, basic1Index},
@@ -1291,8 +1292,8 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Last sample is not the index", func() {
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: disc1Index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: disc1, Index: disc1Index, DataType: telem.Int64T},
+							cesium.Channel{Name: "B", Key: disc1Index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "D", Key: disc1, Index: disc1Index, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(
 							ctx,
@@ -1332,8 +1333,8 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Index not defined at all", func() {
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: disc2Index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: disc2, Index: disc2Index, DataType: telem.Int64T},
+							cesium.Channel{Name: "Gregory", Key: disc2Index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Alan", Key: disc2, Index: disc2Index, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(
 							ctx,
@@ -1361,6 +1362,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
+							Name:     "Isakov",
 							Key:      dtErr,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -1397,11 +1399,11 @@ var _ = Describe("Writer Behavior", func() {
 					w2         *cesium.Writer
 				)
 				BeforeAll(func() {
-					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
 				})
 				BeforeEach(func() {
 					key = GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Name: "We", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
 				})
 				AfterEach(func() {
@@ -1432,7 +1434,7 @@ var _ = Describe("Writer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: virtual1, DataType: telem.Int64T, Virtual: true},
+						cesium.Channel{Name: "Knew", Key: virtual1, DataType: telem.Int64T, Virtual: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{virtual1},
@@ -1494,7 +1496,7 @@ var _ = Describe("Writer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "It", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -1506,7 +1508,7 @@ var _ = Describe("Writer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Our", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -1517,7 +1519,7 @@ var _ = Describe("Writer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Was", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					err := subDB.Write(ctx, 0, cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}))
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))

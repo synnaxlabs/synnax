@@ -11,6 +11,9 @@ package cesium_test
 
 import (
 	"fmt"
+	"math"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -23,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"math"
-	"strconv"
 )
 
 var _ = Describe("Delete", func() {
@@ -47,8 +48,8 @@ var _ = Describe("Delete", func() {
 				var (
 					uChannelKey = GenerateChannelKey()
 					vChannelKey = GenerateChannelKey()
-					uChannel    = cesium.Channel{Key: uChannelKey, IsIndex: true, DataType: telem.TimeStampT}
-					vChannel    = cesium.Channel{Key: vChannelKey, Virtual: true, IsIndex: false, DataType: telem.Int64T}
+					uChannel    = cesium.Channel{Key: uChannelKey, Name: "Heraclitus", IsIndex: true, DataType: telem.TimeStampT}
+					vChannel    = cesium.Channel{Key: vChannelKey, Name: "Parmenides", Virtual: true, IsIndex: false, DataType: telem.Int64T}
 				)
 				Describe("Error paths", func() {
 					Specify("Deleting a nonexistent channel should be idempotent", func() {
@@ -58,7 +59,7 @@ var _ = Describe("Delete", func() {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(sub)
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Name: "IndexChannel", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannel(key)
@@ -230,7 +231,7 @@ var _ = Describe("Delete", func() {
 						})
 						Specify("Deleting control digest channel should error", func() {
 							controlKey := GenerateChannelKey()
-							Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+							Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
 							Expect(db.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
 						})
 					})
@@ -244,8 +245,8 @@ var _ = Describe("Delete", func() {
 						)
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: indexChannelKey, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: dataChannelKey, Index: indexChannelKey, DataType: telem.Int64T},
+							cesium.Channel{Name: "One", Key: indexChannelKey, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Orange", Key: dataChannelKey, Index: indexChannelKey, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dataChannelKey, indexChannelKey},
@@ -284,7 +285,7 @@ var _ = Describe("Delete", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Braincell", Key: key, IsIndex: true, DataType: telem.TimeStampT},
 						)).To(Succeed())
 
 						By("Deleting the channel")
@@ -295,7 +296,7 @@ var _ = Describe("Delete", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Wir", Key: key, IsIndex: true, DataType: telem.TimeStampT},
 						)).To(Succeed())
 						Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
@@ -315,7 +316,7 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 
 						By("We can also create a channel of the same key")
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Name: "Martin", Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						ch := MustSucceed(db.RetrieveChannel(ctx, key))
 						Expect(ch.Key).To(Equal(key))
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
@@ -323,7 +324,7 @@ var _ = Describe("Delete", func() {
 					It("Should delete a unary channel", func() {
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "Foy", Key: key, IsIndex: true, DataType: telem.TimeStampT},
 						)).To(Succeed())
 						Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
@@ -336,13 +337,13 @@ var _ = Describe("Delete", func() {
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Name: "Vance", Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						ch := MustSucceed(db.RetrieveChannel(ctx, key))
 						Expect(ch.Key).To(Equal(key))
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 					})
 					It("Should delete a virtual channel", func() {
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Virtual: true, DataType: telem.Int64T})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "VirtualChannel", Virtual: true, DataType: telem.Int64T})).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
@@ -353,7 +354,7 @@ var _ = Describe("Delete", func() {
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Name: "Sky", Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						ch := MustSucceed(db.RetrieveChannel(ctx, key))
 						Expect(ch.Key).To(Equal(key))
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
@@ -369,12 +370,13 @@ var _ = Describe("Delete", func() {
 					data2    = GenerateChannelKey()
 					data3    = GenerateChannelKey()
 					index3   = GenerateChannelKey()
-					channels = []cesium.Channel{{Key: index1, IsIndex: true, DataType: telem.TimeStampT, Index: index1},
-						{Key: data1, DataType: telem.Int64T, Index: index1},
-						{Key: index2, IsIndex: true, DataType: telem.TimeStampT, Index: index2},
-						{Key: data2, DataType: telem.Int64T, Index: index2},
-						{Key: data3, DataType: telem.Int64T, Index: index2},
-						{Key: index3, IsIndex: true, Index: index3, DataType: telem.TimeStampT},
+					channels = []cesium.Channel{
+						{Name: "Certs", Key: index1, IsIndex: true, DataType: telem.TimeStampT, Index: index1},
+						{Name: "2", Key: data1, DataType: telem.Int64T, Index: index1},
+						{Name: "Years", Key: index2, IsIndex: true, DataType: telem.TimeStampT, Index: index2},
+						{Name: "Ago", Key: data2, DataType: telem.Int64T, Index: index2},
+						{Name: "329", Key: data3, DataType: telem.Int64T, Index: index2},
+						{Name: "TLS", Key: index3, IsIndex: true, Index: index3, DataType: telem.TimeStampT},
 					}
 				)
 				BeforeEach(func() {
@@ -419,7 +421,7 @@ var _ = Describe("Delete", func() {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(sub)
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Name: "IndexChannel", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
@@ -443,7 +445,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, data3})).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: data1, Index: index2, DataType: telem.Int64T})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Name: "Clip", Key: data1, Index: index2, DataType: telem.Int64T})).To(Succeed())
 						ch := MustSucceed(db.RetrieveChannel(ctx, data1))
 						Expect(ch.Key).To(Equal(data1))
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeTrue())
@@ -482,9 +484,6 @@ var _ = Describe("Delete", func() {
 					basic2Index = GenerateChannelKey()
 					basic3Index = GenerateChannelKey()
 					basic3      = GenerateChannelKey()
-					//basic4 = GenerateChannelKey()
-					//basic5 = GenerateChannelKey()
-					//basic6 = GenerateChannelKey()
 				)
 				Describe("Error paths", func() {
 					It("Should return an error for deleting a non-existent channel", func() {
@@ -497,8 +496,8 @@ var _ = Describe("Delete", func() {
 						By("Creating an indexed channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+							cesium.Channel{Key: basic1Index, Name: "Democritus", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic1, Name: "Epicurus", Index: basic1Index, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{basic1, basic1Index},
@@ -555,7 +554,7 @@ var _ = Describe("Delete", func() {
 						By("Creating an indexed channel")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: basic2Index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic2Index, Name: "Zeno", IsIndex: true, DataType: telem.TimeStampT},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{basic2Index},
@@ -609,8 +608,8 @@ var _ = Describe("Delete", func() {
 						By("Creating an indexed channel and a channel indexed by it")
 						Expect(db.CreateChannel(
 							ctx,
-							cesium.Channel{Key: basic3Index, IsIndex: true, DataType: telem.TimeStampT},
-							cesium.Channel{Key: basic3, Index: basic3Index, DataType: telem.Int64T},
+							cesium.Channel{Name: "Finish", Key: basic3Index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Name: "My", Key: basic3, Index: basic3Index, DataType: telem.Int64T},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{basic3, basic3Index},
@@ -745,7 +744,6 @@ var _ = Describe("Delete", func() {
 				//			Expect(frame.Series).To(HaveLen(0))
 				//		})
 				//	})
-				//})
 				Describe("Delete chunks in multiple channels", func() {
 					var (
 						index1 = GenerateChannelKey()
@@ -757,9 +755,9 @@ var _ = Describe("Delete", func() {
 							By("Creating channels")
 							Expect(db.CreateChannel(
 								ctx,
-								cesium.Channel{Key: index1, DataType: telem.TimeStampT, IsIndex: true},
-								cesium.Channel{Key: basic1, DataType: telem.Int64T, Index: index1},
-								cesium.Channel{Key: basic2, DataType: telem.Int64T, Index: index1},
+								cesium.Channel{Name: "Best", Key: index1, DataType: telem.TimeStampT, IsIndex: true},
+								cesium.Channel{Name: "Life", Key: basic1, DataType: telem.Int64T, Index: index1},
+								cesium.Channel{Name: "Bohmer", Key: basic2, DataType: telem.Int64T, Index: index1},
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
@@ -837,8 +835,8 @@ var _ = Describe("Delete", func() {
 						data = GenerateChannelKey()
 						index = GenerateChannelKey()
 						channels = []cesium.Channel{
-							{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-							{Key: data, Index: index, DataType: telem.Int64T},
+							{Name: "Meredi", Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							{Name: "Performed", Key: data, Index: index, DataType: telem.Int64T},
 						}
 
 						Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
@@ -857,7 +855,7 @@ var _ = Describe("Delete", func() {
 					})
 					It("Should return an error when trying to delete time range from virtual channel", func() {
 						virtualKey := GenerateChannelKey()
-						Expect(db.CreateChannel(ctx, cesium.Channel{Key: virtualKey, Virtual: true, DataType: telem.Int64T})).To(Succeed())
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: virtualKey, Name: "VirtualChannel", Virtual: true, DataType: telem.Int64T})).To(Succeed())
 						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{virtualKey}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("cannot delete time range from virtual channel")))
 					})
 					It("Should not allow deletion of any channel while there is a writer that could write over it", func() {
@@ -913,8 +911,8 @@ var _ = Describe("Delete", func() {
 						data2 := GenerateChannelKey()
 						data3 := GenerateChannelKey()
 						newChannels := []cesium.Channel{
-							{Key: data2, Index: index, DataType: telem.Int64T},
-							{Key: data3, Index: index, DataType: telem.Int64T},
+							{Name: "JONAH", Key: data2, Index: index, DataType: telem.Int64T},
+							{Name: "The Whale", Key: data3, Index: index, DataType: telem.Int64T},
 						}
 
 						Expect(db.CreateChannel(ctx, newChannels...)).To(Succeed())

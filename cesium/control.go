@@ -28,7 +28,7 @@ type ControlUpdate struct {
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
 // database. If the channel is not found, it is created.
-func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -43,6 +43,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
+		ch.Name = name
 		if err = db.createChannel(ch); err != nil {
 			return err
 		}

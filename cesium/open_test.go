@@ -1,13 +1,14 @@
 package cesium_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 
 	"github.com/synnaxlabs/cesium"
 )
@@ -53,7 +54,12 @@ var _ = Describe("Open", func() {
 					db := openDBOnFS(s)
 					key := GenerateChannelKey()
 
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Edison",
+						IsIndex:  true,
+						DataType: telem.TimeStampT,
+					})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
 					db = openDBOnFS(s)
@@ -80,8 +86,18 @@ var _ = Describe("Open", func() {
 					key := GenerateChannelKey()
 
 					By("Opening two channels")
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Index: indexKey, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      indexKey,
+						Name:     "Tesla",
+						IsIndex:  true,
+						DataType: telem.TimeStampT,
+					})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Faraday",
+						Index:    indexKey,
+						DataType: telem.Int64T,
+					})).To(Succeed())
 					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},

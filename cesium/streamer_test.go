@@ -10,6 +10,8 @@
 package cesium_test
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"runtime"
 
 	"github.com/synnaxlabs/cesium"
 )
@@ -39,7 +40,7 @@ var _ = Describe("Streamer Behavior", func() {
 			BeforeAll(func() {
 				fs, cleanUp = makeFS()
 				db = openDBOnFS(fs)
-				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -52,7 +53,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic1, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic1, Name: "Planck", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic1},
@@ -89,7 +90,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic2, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic2, Name: "Bohr", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -123,7 +124,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic2, DataType: telem.Int64T, Virtual: true},
+						cesium.Channel{Key: basic2, Name: "Heisenberg", DataType: telem.Int64T, Virtual: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -159,7 +160,7 @@ var _ = Describe("Streamer Behavior", func() {
 					var basic3 cesium.ChannelKey = 6
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic3, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic3, Name: "Schrodinger", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{controlKey},
@@ -197,7 +198,12 @@ var _ = Describe("Streamer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Einstein",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))

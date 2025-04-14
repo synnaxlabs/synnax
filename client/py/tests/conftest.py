@@ -11,9 +11,7 @@ import random
 
 import pytest
 
-import synnax
-from synnax import telem
-from synnax.channel import Channel
+import synnax as sy
 
 HOST = "localhost"
 PORT = 9090
@@ -27,8 +25,8 @@ def login_info() -> tuple[str, int, str, str]:
 
 
 @pytest.fixture(scope="session")
-def client() -> synnax.Synnax:
-    return synnax.Synnax(
+def client() -> sy.Synnax:
+    return sy.Synnax(
         host=HOST,
         port=PORT,
         username=USERNAME,
@@ -38,29 +36,28 @@ def client() -> synnax.Synnax:
 
 
 @pytest.fixture
-def channel(client: synnax.Synnax) -> Channel:
-    return client.channels.create(
-        name=f"test-{random.randint(0, 100000)}",
-        leaseholder=1,
-        rate=25 * telem.Rate.HZ,
-        data_type=telem.DataType.FLOAT64,
-    )
-
-
-@pytest.fixture
-def indexed_pair(client: synnax.Synnax) -> tuple[Channel, Channel]:
+def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
     v = random.randint(0, 100000)
     idx = client.channels.create(
         name=f"test-{v}-time",
         is_index=True,
-        data_type=telem.DataType.TIMESTAMP,
+        data_type=sy.DataType.TIMESTAMP,
     )
     data = client.channels.create(
         name=f"test-{v}-data",
         index=idx.key,
-        data_type=telem.DataType.FLOAT64,
+        data_type=sy.DataType.FLOAT64,
     )
     return idx, data
+
+@pytest.fixture
+def virtual_channel(client: sy.Synnax) -> sy.Channel:
+    v = random.randint(0, 100000)
+    return client.channels.create(
+        name=f"test-{v}-virtual",
+        virtual=True,
+        data_type=sy.DataType.FLOAT64,
+    )
 
 
 def pytest_addoption(parser):

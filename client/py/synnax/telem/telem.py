@@ -182,7 +182,6 @@ class TimeStamp(int):
     MAX: TimeStamp
     """The maximum possible value of a TimeStamp"""
     ZERO: TimeStamp
-    """The zero value of a TimeStamp"""
 
 
 class TimeSpan(int):

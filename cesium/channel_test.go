@@ -53,39 +53,39 @@ var _ = Describe("Channel", Ordered, func() {
 				},
 					Entry("ChannelKey has no datatype",
 						validate.FieldError{Field: "data_type", Message: "field must be set"},
-						cesium.Channel{Key: 9990, IsIndex: true},
-						cesium.Channel{Key: 9991, Index: 9990},
+						cesium.Channel{Name: "cat", Key: 9990, IsIndex: true},
+						cesium.Channel{Name: "dog", Key: 9991, Index: 9990},
 					),
 					Entry("ChannelKey key already exists",
 						errors.Wrap(validate.Error, "cannot create channel [Isaac]<9992> because it already exists"),
-						cesium.Channel{Key: 9992, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Name: "Bob", Key: 9992, DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: 9992, Name: "Isaac", DataType: telem.TimeStampT, IsIndex: true},
 					),
 					Entry("ChannelKey IsIndex - Non Int64 Series Variant",
 						validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
-						cesium.Channel{Key: 9993, IsIndex: true, DataType: telem.Float32T},
+						cesium.Channel{Name: "Richard", Key: 9993, IsIndex: true, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey IsIndex - LocalIndex non-zero",
 						validate.FieldError{Field: "index", Message: "index channel cannot be indexed by another channel"},
-						cesium.Channel{Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
+						cesium.Channel{Name: "Feynman", Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Name: "Cavendish", Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
 						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "9994"),
-						cesium.Channel{Key: 9997, Index: 9994, DataType: telem.Float64T},
+						cesium.Channel{Name: "Laplatz", Key: 9997, Index: 9994, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey has no index",
 						validate.FieldError{Field: "index", Message: "non-indexed channel must have an index"},
-						cesium.Channel{Key: 9998, DataType: telem.Float32T},
+						cesium.Channel{Name: "Steinbeck", Key: 9998, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
 						validate.FieldError{
 							Field:   "index",
-							Message: "channel <9981> is not an index",
+							Message: "channel [Sarah]<9981> is not an index",
 						},
-						cesium.Channel{Key: 9980, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: 9981, DataType: telem.Float64T, Index: 9980},
-						cesium.Channel{Key: 9982, Index: 9981, DataType: telem.Float32T},
+						cesium.Channel{Name: "Hemingway", Key: 9980, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Name: "Sarah", Key: 9981, DataType: telem.Float64T, Index: 9980},
+						cesium.Channel{Name: "Kathy", Key: 9982, Index: 9981, DataType: telem.Float32T},
 					),
 				)
 				Describe("DB Closed", func() {
@@ -103,7 +103,12 @@ var _ = Describe("Channel", Ordered, func() {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(sub)
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Lebron",
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
@@ -121,9 +126,9 @@ var _ = Describe("Channel", Ordered, func() {
 				BeforeEach(func() {
 					k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, []cesium.Channel{
-						{Key: k1, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: k2, DataType: telem.Uint32T, Index: k1},
-						{Key: k3, DataType: telem.Int8T, Index: k1},
+						{Name: "Christian", Key: k1, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Ben", Key: k2, DataType: telem.Uint32T, Index: k1},
+						{Name: "Bohmer", Key: k3, DataType: telem.Int8T, Index: k1},
 					}...)).To(Succeed())
 				})
 				It("Should retrieve multiple channels", func() {
@@ -161,15 +166,15 @@ var _ = Describe("Channel", Ordered, func() {
 					jsonDecoder   = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
-						{Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: virtualKey, Virtual: true, DataType: telem.Int64T},
-						{Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: dataKey, DataType: telem.Int64T, Index: indexKey},
-						{Key: data2Key, DataType: telem.Int64T, Index: indexKey},
-						{Key: indexErrorKey, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: dataKey1, DataType: telem.Int64T, Index: indexErrorKey},
-						{Key: errorKey1, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: errorKey2, Virtual: true, DataType: telem.Int64T},
+						{Name: "John", Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Woodcock", Key: virtualKey, Virtual: true, DataType: telem.Int64T},
+						{Name: "Alex", Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Van", Key: dataKey, DataType: telem.Int64T, Index: indexKey},
+						{Name: "Humboldt", Key: data2Key, DataType: telem.Int64T, Index: indexKey},
+						{Name: "Napoleon", Key: indexErrorKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Bonaparte", Key: dataKey1, DataType: telem.Int64T, Index: indexErrorKey},
+						{Name: "Michael", Key: errorKey1, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Keaton", Key: errorKey2, Virtual: true, DataType: telem.Int64T},
 					}
 				)
 				BeforeAll(func() {

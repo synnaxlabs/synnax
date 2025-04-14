@@ -161,6 +161,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
+	validate.NotEmptyString(v, "name", ch.Name)
 	v.Exec(func() error {
 		_, uOk := db.mu.unaryDBs[ch.Key]
 		_, vOk := db.mu.virtualDBs[ch.Key]

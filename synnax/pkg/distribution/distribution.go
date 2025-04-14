@@ -222,5 +222,5 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 	if err := d.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
-	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())
+	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key(), controlCh[0].Name)
 }
