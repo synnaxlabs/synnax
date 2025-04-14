@@ -21,7 +21,7 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@/tauriShim";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,

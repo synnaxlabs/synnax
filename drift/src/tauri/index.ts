@@ -349,6 +349,47 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 }
 
+/** 
+ * In certain environments (such as the web browser), it is not really possible to
+ * spawn new windows. The `NoopRuntime` is intended to stand in for drift in these 
+ * environments.
+ */
+export class NoopRuntime<S extends StoreState, A extends Action = UnknownAction>
+  implements Runtime<S, A> {
+
+  async emit(event: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
+    // TODO: maybe have an event emitter ??
+  }
+  async subscribe(lis: (event: Event<S, A>) => void): Promise<void> { }
+  isMain(): boolean { return true; }
+  label(): string { return MAIN_WINDOW; };
+  onCloseRequested(cb: () => void): void {
+    // TODO: consider implementing
+  };
+  async listLabels(): Promise<string[]> { return []; }
+  async getProps(): Promise<Omit<WindowProps, "key">> { return {}; }
+  async create(label: string, props: Omit<WindowProps, "key">): Promise<void> { };
+  async close(label: string): Promise<void> { };
+  async focus(): Promise<void> { };
+  async setMinimized(value: boolean): Promise<void> { };
+  async setMaximized(value: boolean): Promise<void> { };
+  async setVisible(value: boolean): Promise<void> { };
+  async setFullscreen(value: boolean): Promise<void> { };
+  async center(): Promise<void> { };
+  async setPosition(xy: xy.XY): Promise<void> { };
+  async setSize(dims: dimensions.Dimensions): Promise<void> { };
+  async setMinSize(dims: dimensions.Dimensions): Promise<void> { };
+  async setMaxSize(dims: dimensions.Dimensions): Promise<void> { };
+  async setResizable(value: boolean): Promise<void> { };
+  async setSkipTaskbar(value: boolean): Promise<void> { };
+  async setAlwaysOnTop(value: boolean): Promise<void> { };
+  async setDecorations(value: boolean): Promise<void> { };
+  async setTitle(title: string): Promise<void> { };
+  async configure(): Promise<void> {
+    // throw new Error("Method not implemented.");
+  }
+
+}
 interface HandlerEntry {
   key: TauriEventKey;
   debounce: number;

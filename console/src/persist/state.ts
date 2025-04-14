@@ -10,9 +10,9 @@
 import { type Action, type Middleware } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@/tauriShim";
 
-import { openTauriKV, type SugaredKV } from "@/persist/kv";
+import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
 export const PERSISTED_STATE_KEY = "console-persisted-state";
@@ -28,13 +28,13 @@ interface StateVersionValue {
   version: number;
 }
 
-export interface RequiredState extends Version.StoreState {}
+export interface RequiredState extends Version.StoreState { }
 
 export interface KVOpener {
   (base: string): Promise<SugaredKV>;
 }
 
-const openAndMigrateKV = async (openKV: KVOpener = openTauriKV): Promise<SugaredKV> => {
+const openAndMigrateKV = async (openKV: KVOpener = openSugaredKV): Promise<SugaredKV> => {
   // Open V2 store and check its length. If it's greater than 0, return it. Otherwise,
   // open V1 store and return it.
   const v2Store = await openKV(V2_STORE_PATH);

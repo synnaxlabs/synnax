@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type kv } from "@synnaxlabs/x";
+import { isTauri } from "@tauri-apps/api/core";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
 /**
@@ -55,9 +56,62 @@ export class TauriKV implements SugaredKV {
 }
 
 /**
+ * LocalStorageKV is an implementation of SugaredKV that delegates to local storage.
+ */
+export class LocalStorageKV implements SugaredKV {
+  store: Storage;
+  baseKey: string;
+
+  constructor(baseKey: string) {
+    this.baseKey = baseKey;
+    this.store = localStorage;
+  }
+
+  async get<V>(key: string): Promise<V | null> {
+    const item = this.store.getItem(`${this.baseKey}:${key}`);
+    return item ? JSON.parse(item) : null;
+  }
+
+  async set<V>(key: string, value: V): Promise<void> {
+    this.store.setItem(`${this.baseKey}:${key}`, JSON.stringify(value));
+  }
+
+  async delete(key: string): Promise<void> {
+    this.store.removeItem(`${this.baseKey}:${key}`);
+  }
+
+  async length(): Promise<number> {
+    let count = 0;
+    for (let i = 0; i < this.store.length; i++) {
+      const key = this.store.key(i);
+      if (key && key.startsWith(`${this.baseKey}:`)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  async clear(): Promise<void> {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < this.store.length; i++) {
+      const key = this.store.key(i);
+      if (key && key.startsWith(`${this.baseKey}:`)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => this.store.removeItem(key));
+  }
+}
+
+/**
  * Open a new SugaredKV instance.
  * @param dir - The directory to store the key-value store in.
  * @returns A new SugaredKV instance.
  */
-export const openTauriKV = async (dir: string): Promise<SugaredKV> =>
-  new TauriKV(new LazyStore(dir, { autoSave: true }));
+export const openSugaredKV = async (dir: string): Promise<SugaredKV> => {
+  if (isTauri()) {
+    return new TauriKV(new LazyStore(dir, { autoSave: true }));
+  } else {
+    return new LocalStorageKV(dir);
+  }
+}

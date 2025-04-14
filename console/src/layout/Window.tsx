@@ -12,7 +12,7 @@ import "@/layout/Window.css";
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Align, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@/tauriShim";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
