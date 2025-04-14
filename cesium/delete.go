@@ -213,11 +213,8 @@ func (db *DB) DeleteTimeRange(
 	for _, ch := range chs {
 		udb, uok := db.mu.unaryDBs[ch]
 		if !uok {
-			if vdb, vok := db.mu.virtualDBs[ch]; vok {
-				return errors.Newf(
-					"cannot delete time range from virtual channel %v",
-					vdb.Channel(),
-				)
+			if _, vok := db.mu.virtualDBs[ch]; vok {
+				continue
 			}
 			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}

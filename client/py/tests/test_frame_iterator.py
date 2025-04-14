@@ -11,33 +11,37 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from tests.telem import seconds_linspace
+
 
 @pytest.mark.framer
 @pytest.mark.iterator
 class TestIterator:
-    def test_basic_iterate(self, channel: sy.Channel, client: sy.Synnax):
-        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
-        channel.write(0, d)
-        with client.open_iterator(sy.TimeRange.MAX, channel.key) as i:
+    def test_basic_iterate(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+        idx_ch, _ = indexed_pair
+        d = seconds_linspace(1, 50)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, d)
+        with client.open_iterator(sy.TimeRange.MAX, idx_ch.key) as i:
             for f in i:
-                assert np.array_equal(f.get(channel.key), d)
+                assert np.array_equal(f.get(idx_ch.key), d)
 
-    def test_auto_chunk(self, channel: sy.Channel, client: sy.Synnax):
-        d = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).astype(np.float64)
-        channel.write(0, d)
-        with client.open_iterator(sy.TimeRange.MAX, channel.key, chunk_size=4) as i:
+    def test_auto_chunk(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        d = seconds_linspace(1, 10)
+        idx_ch, _ = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, d)
+        with client.open_iterator(sy.TimeRange.MAX, idx_ch.key, chunk_size=4) as i:
             assert i.seek_first()
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value.get(channel.key).to_numpy().tolist()
-            assert l == [0, 1, 2, 3]
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(1, 4))
 
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value.get(channel.key).to_numpy().tolist()
-            assert l == [4, 5, 6, 7]
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(5, 4))
 
             i.next(sy.framer.AUTO_SPAN)
-            l = i.value.get(channel.key).to_numpy().tolist()
-            assert l == [8, 9]
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(9, 2))
 
             assert not i.next(sy.framer.AUTO_SPAN)
 

@@ -14,8 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax import TimeRange, TimeSpan, TimeStamp, UnauthorizedError
-from tests.eventually import assert_eventually
+from synnax import TimeSpan
 
 @pytest.mark.framer
 @pytest.mark.streamer
@@ -40,17 +39,17 @@ class TestStreamer:
             with client.open_streamer([123]):
                 pass
 
-    def test_update_channels(self, channel: sy.Channel, client: sy.Synnax):
+    def test_update_channels(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should update the list of channels to stream"""
         with client.open_streamer([]) as s:
-            s.update_channels([channel.key])
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            s.update_channels([virtual_channel.key])
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(1).astype(np.float64)
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], data)
+                assert np.array_equal(frame[virtual_channel.key], data)
 
-    def test_timeout_seconds(self, channel: sy.Channel, client: sy.Synnax):
+    def test_timeout_seconds(self, client: sy.Synnax):
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
@@ -58,7 +57,7 @@ class TestStreamer:
             assert f is None
             assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
 
-    def test_timeout_timespan(self, channel: sy.Channel, client: sy.Synnax):
+    def test_timeout_timespan(self, client: sy.Synnax):
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
@@ -66,41 +65,41 @@ class TestStreamer:
             assert f is None
             assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
 
-    def test_downsample(self, channel: sy.Channel, client: sy.Synnax):
+    def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should correctly stream data for a channel"""
-        with client.open_streamer(channel.key, 1) as s:
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+        with client.open_streamer(virtual_channel.key, 1) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], data)
-        with client.open_streamer(channel.key, 2) as s:
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                assert np.array_equal(frame[virtual_channel.key], data)
+        with client.open_streamer(virtual_channel.key, 2) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0, 3.0, 5.0, 7.0, 9.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_streamer(channel.key, 10) as s:
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_streamer(virtual_channel.key, 10) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_streamer(channel.key, 20) as s:
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_streamer(virtual_channel.key, 20) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_streamer(channel.key, -1) as s:
-            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_streamer(virtual_channel.key, -1) as s:
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
-                assert np.array_equal(frame[channel.key], data)
+                assert np.array_equal(frame[virtual_channel.key], data)
 
     @pytest.mark.multi_node
     def test_multi_node_stream_case_1(self):
@@ -160,42 +159,42 @@ class TestStreamer:
 @pytest.mark.framer
 class TestAsyncStreamer:
     @pytest.mark.asyncio
-    async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key, 1) as s:
+    async def test_basic_stream(self, virtual_channel: sy.Channel, client: sy.Synnax):
+        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+            async with await client.open_async_streamer(virtual_channel.key, 1) as s:
                 time.sleep(0.1)
                 data = np.random.rand(10).astype(np.float64)
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
-                assert np.array_equal(frame[channel.key], data)
-        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key, 2) as s:
+                assert np.array_equal(frame[virtual_channel.key], data)
+        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+            async with await client.open_async_streamer(virtual_channel.key, 2) as s:
                 time.sleep(0.1)
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0, 3.0, 5.0, 7.0, 9.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key, 10) as s:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+            async with await client.open_async_streamer(virtual_channel.key, 10) as s:
                 time.sleep(0.1)
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key, 20) as s:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+            async with await client.open_async_streamer(virtual_channel.key, 20) as s:
                 time.sleep(0.1)
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
-                assert np.array_equal(frame[channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key, -1) as s:
+                assert np.array_equal(frame[virtual_channel.key], expect)
+        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+            async with await client.open_async_streamer(virtual_channel.key, -1) as s:
                 time.sleep(0.1)
                 data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                w.write(pd.DataFrame({channel.key: data}))
+                w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
-                assert np.array_equal(frame[channel.key], data)
+                assert np.array_equal(frame[virtual_channel.key], data)

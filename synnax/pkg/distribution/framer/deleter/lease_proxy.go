@@ -43,13 +43,6 @@ func (lp *leaseProxy) deleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	batch := lp.keyRouter.Batch(keys)
-	if len(batch.Free) != 0 {
-		return errors.Newf(
-			"cannot delete time range from virtual channel(s) %s",
-			batch.Free,
-		)
-	}
-
 	for nodeKey, entries := range batch.Peers {
 		err := lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
 		if err != nil {

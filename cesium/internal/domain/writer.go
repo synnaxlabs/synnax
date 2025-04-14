@@ -155,7 +155,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, errors.Wrap(
-			NewErrWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			RangeWriteConflict(cfg.Domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
@@ -206,6 +206,10 @@ func (w *Writer) Write(p []byte) (int, error) {
 	w.fileSize += telem.Size(n)
 	w.len += int64(n)
 	return n, err
+}
+
+func (w *Writer) SetStart(start telem.TimeStamp) {
+	w.Start = start
 }
 
 // Commit commits the domain to the DB, making it available for reading by other processes.

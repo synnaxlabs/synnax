@@ -339,6 +339,31 @@ class TestWriter:
             w1.close()
             w2.close()
 
+    def test_writer_overlap_err(
+        self,
+        client: sy.Synnax,
+        indexed_pair: list[sy.channel],
+    ):
+        idx_ch, data_ch = indexed_pair
+        start = sy.TimeSpan.SECOND * 30
+        with client.open_writer(
+            start=start,
+            channels=indexed_pair,
+            enable_auto_commit=True
+        ) as w:
+            w.write({
+                idx_ch.key: seconds_linspace(30, 10),
+                data_ch.key: np.random.rand(10).astype(np.float64)
+            })
+
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(
+                start=start + sy.TimeSpan.SECOND * 3,
+                channels=indexed_pair,
+                enable_auto_commit=True
+            ):
+                ...
+
     def test_set_authority_on_all_channels(
         self, client: sy.Synnax, indexed_pair: list[sy.channel]
     ):

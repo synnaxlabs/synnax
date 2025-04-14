@@ -34,15 +34,31 @@ var (
 	errDBClosed      = core.EntityClosed("domain.db")
 )
 
-func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
-	intersection := tr1.Intersection(tr2)
+func RangeWriteConflict(writerTr, existingTr telem.TimeRange) error {
+	if writerTr.Span().IsZero() {
+		return PointWriteConflict(writerTr.Start, existingTr)
+	}
+	intersection := writerTr.Intersection(existingTr)
 	return errors.Wrapf(
 		ErrWriteConflict,
-		"write for bounds %v overlaps with existing data occupying time range "+
-			"%v for a time span of %v",
-		tr1,
-		tr2,
+		"write for range %s overlaps with existing data occupying time range "+
+			"%s for a time span of %s",
+		writerTr,
+		existingTr,
 		intersection.Span(),
+	)
+}
+
+func PointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
+	before, after := existingTr.PointIntersection(ts)
+	return errors.Wrapf(
+		ErrWriteConflict,
+		"%s overlaps with existing data occupying time range %s. Timestamp occurs "+
+			"%s after the start and %s before the end of the range",
+		ts,
+		existingTr,
+		before,
+		after,
 	)
 }
 

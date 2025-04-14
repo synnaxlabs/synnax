@@ -853,10 +853,10 @@ var _ = Describe("Delete", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data, index))
 						Expect(f.Get(data)).To(HaveLen(1))
 					})
-					It("Should return an error when trying to delete time range from virtual channel", func() {
+					It("Should not return an error when trying to delete time range from virtual channel", func() {
 						virtualKey := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: virtualKey, Name: "VirtualChannel", Virtual: true, DataType: telem.Int64T})).To(Succeed())
-						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{virtualKey}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("cannot delete time range from virtual channel")))
+						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{virtualKey}, telem.TimeRangeMax)).To(Succeed())
 					})
 					It("Should not allow deletion of any channel while there is a writer that could write over it", func() {
 						Expect(db.WriteArray(ctx, index, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())

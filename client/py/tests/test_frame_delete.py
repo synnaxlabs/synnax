@@ -12,67 +12,81 @@ import synnax as sy
 import numpy as np
 import pandas as pd
 
+from tests.telem import seconds_linspace
+
+
 @pytest.mark.framer
+@pytest.mark.delete
 class TestDeleter:
-    def test_basic_delete(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(0, channel.key) as w:
-            data = np.random.rand(51).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
+    def test_basic_delete(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        idx_ch, _ = indexed_pair
+        with (client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w):
+            data = seconds_linspace(1, 50)
+            w.write(pd.DataFrame({idx_ch.key: data}))
             w.commit()
 
         client.delete(
-            [channel.key],
-            sy.TimeRange(0, sy.TimeStamp(1 * sy.TimeSpan.SECOND)),
+            [idx_ch.key],
+            sy.TimeRange(0, sy.TimeStamp(25 * sy.TimeSpan.SECOND)),
         )
 
-        data = channel.read(sy.TimeRange.MAX)
+        data = idx_ch.read(sy.TimeRange.MAX)
         assert data.to_numpy().size == 26
         assert data.time_range == sy.TimeRange(
-            sy.TimeStamp(1 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(2 * sy.TimeSpan.SECOND) + 1
+            sy.TimeStamp(25 * sy.TimeSpan.SECOND),
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1
         )
 
-    def test_delete_by_name(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(0, channel.key) as w:
-            data = np.random.rand(51).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
+    def test_delete_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+        idx_ch, _ = indexed_pair
+        with (client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w):
+            data = seconds_linspace(1, 50)
+            w.write(pd.DataFrame({idx_ch.key: data}))
             w.commit()
 
         client.delete(
-            channels=[channel.name],
-            tr=sy.TimeRange(0, sy.TimeStamp(1 * sy.TimeSpan.SECOND)),
+            [idx_ch.name],
+            sy.TimeRange(0, sy.TimeStamp(25 * sy.TimeSpan.SECOND)),
         )
 
-        data = channel.read(sy.TimeRange.MAX)
-        assert data.size == 26 * 8
+        data = idx_ch.read(sy.TimeRange.MAX)
+        assert data.to_numpy().size == 26
         assert data.time_range == sy.TimeRange(
-            sy.TimeStamp(1 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(2 * sy.TimeSpan.SECOND) + 1
+            sy.TimeStamp(25 * sy.TimeSpan.SECOND),
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1
         )
 
+    @pytest.mark.focus
     def test_delete_channel_not_found_name(
-        self, channel: sy.Channel, client: sy.Synnax
+        self, indexed_pair: sy.Channel, client: sy.Synnax
     ):
-        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
+        idx_ch, _ = indexed_pair
+        client.write(0, idx_ch.key, seconds_linspace(1, 50))
         with pytest.raises(sy.NotFoundError):
-            client.delete([channel.name, "kaka"], sy.TimeRange.MAX)
+            client.delete([idx_ch.name, "kaka"], sy.TimeRange.MAX)
 
-        data = channel.read(sy.TimeRange.MAX)
+        data = idx_ch.read(sy.TimeRange.MAX)
         assert data.size == 50 * 8
 
-    def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
-        client.write(0, channel.key, np.random.rand(50).astype(np.float64))
+    def test_delete_channel_not_found_key(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        idx_ch, _ = indexed_pair
+        client.write(0, idx_ch.key, seconds_linspace(1, 50))
         with pytest.raises(sy.NotFoundError):
-            client.delete([channel.key, 23423], sy.TimeRange.MAX)
+            client.delete([idx_ch.key, 1234], sy.TimeRange.MAX)
 
-        data = channel.read(sy.TimeRange.MAX)
+        data = idx_ch.read(sy.TimeRange.MAX)
         assert data.size == 50 * 8
 
-    def test_delete_with_writer(self, channel: sy.Channel, client: sy.Synnax):
-        with client.open_writer(0, channel.key):
+    def test_delete_with_writer(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax
+    ):
+        idx_ch, _ = indexed_pair
+        with client.open_writer(0, idx_ch.key):
             with pytest.raises(sy.UnauthorizedError):
                 client.delete(
-                    [channel.key],
+                    [idx_ch.key],
                     sy.TimeRange(
                         sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(
                             sy.TimeStamp(2 * sy.TimeSpan.SECOND)

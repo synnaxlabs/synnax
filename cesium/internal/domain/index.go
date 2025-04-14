@@ -50,7 +50,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(RangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -125,10 +125,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

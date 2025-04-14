@@ -429,6 +429,36 @@ class TestChannel:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
 
+    @pytest.fixture(scope="class")
+    def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
+        data = []
+        for i in range(100):
+            data.append(
+                sy.Channel(
+                    name=f"sensor_{i+1}_{str(uuid.uuid4())}",
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                    internal=True,
+                )
+            )
+        return client.channels.create(data)
+
+    def test_create_list(self, hundred_channels: list[sy.Channel]):
+        """Should create a list of 100 valid channels"""
+        assert len(hundred_channels) == 100
+        for channel in hundred_channels:
+            assert channel.name.startswith("sensor")
+            assert channel.key != ""
+
+    def test_retrieve_list(self, client: sy.Synnax, hundred_channels: list[sy.Channel]):
+        """Should retrieve a list of 100 valid channels"""
+        names = [ch.name for ch in hundred_channels]
+        res_channels = client.channels.retrieve(names)
+        assert len(res_channels) == 100
+        for channel in res_channels:
+            assert channel.name.startswith("sensor")
+            assert channel.key != ""
+            assert isinstance(channel.data_type.density, sy.Density)
 
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble
