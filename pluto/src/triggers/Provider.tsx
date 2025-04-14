@@ -15,6 +15,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 
@@ -147,9 +148,11 @@ export const Provider = ({
     // We don't want to trigger any events for excluded keys.
     if (EXCLUDE_TRIGGERS.includes(key)) return;
     setCurr((prevS) => {
-      const next = prevS.next.filter(
+      let next = prevS.next.filter(
         (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
       );
+      if (!e.shiftKey && next.includes("Shift"))
+        next = next.filter((k) => k !== "Shift");
       const prev = prevS.next;
       const nextS: RefState = { ...prevS, next, prev };
       if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
@@ -199,7 +202,9 @@ export const Provider = ({
     return () => registry.current.delete(callback);
   }, []);
 
-  return <Context value={{ listen }}>{children}</Context>;
+  const ctxValue = useMemo(() => ({ listen }), [listen]);
+
+  return <Context.Provider value={ctxValue}>{children}</Context.Provider>;
 };
 
 const shouldPreventDefault = (

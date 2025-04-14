@@ -165,6 +165,7 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
 const FIT_VIEW_OPTIONS: FitViewOptions = {
   maxZoom: 1,
   minZoom: 0.5,
+  padding: 0.05,
 };
 
 const PRO_OPTIONS: ProOptions = {
@@ -259,7 +260,7 @@ const Core = ({
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
-        if (fitViewOnResize) debouncedFitView({ maxZoom: 1 });
+        if (fitViewOnResize) debouncedFitView(FIT_VIEW_OPTIONS);
         setState((prev) => ({ ...prev, region: b }));
       },
       [setState, debouncedFitView, fitViewOnResize],

@@ -44,6 +44,7 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
     (e) => {
       // add an event listener for the movement until it leaves
       const handleMouseMove = (e: MouseEvent) => {
+        console.log("mouse move", e.clientX, e.clientY);
         setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } }));
       };
       const target = e.currentTarget;
@@ -62,7 +63,6 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
 
   return (
     <Menu.ContextMenu
-      style={{ ...gridStyle, cursor: hovered != null ? "pointer" : "default" }}
       {...menuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;
@@ -70,7 +70,13 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
       }}
     >
       <Align.Space
-        style={{ width: "100%", height: "100%" }}
+        style={{
+          ...gridStyle,
+          cursor: hovered != null ? "pointer" : "default",
+          width: "100%",
+          height: "100%",
+        }}
+        onContextMenu={menuProps.open}
         className={menuProps.className}
         onClick={() => {
           if (hovered != null) {

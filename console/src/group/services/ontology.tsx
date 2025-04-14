@@ -10,7 +10,7 @@
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, id } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
@@ -106,25 +106,20 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     } = props;
     if (selection.parentID == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
-    selection.resources.sort((a, b) => {
-      const a_depth =
-        selection.nodes.find((n) => n.key === a.id.toString())?.depth ?? 0;
-      const b_depth =
-        selection.nodes.find((n) => n.key === b.id.toString())?.depth ?? 0;
-      return b_depth - a_depth;
-    });
+    selection.nodes.sort((a, b) => b.depth - a.depth);
     const prevNodes = Tree.deepCopy(nodes);
-    const isLevel0 = selection.nodes.some(({ depth }) => depth === 0);
     setNodes([
-      ...selection.resources.reduce((acc, { id }) => {
-        const children =
-          Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
+      ...selection.nodes.reduce((acc, { key }) => {
+        const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
         acc = Tree.moveNode({
           tree: acc,
-          destination: isLevel0 ? null : selection.parentID.toString(),
+          destination:
+            selection.parentID.toString() === selection.rootID.toString()
+              ? null
+              : selection.parentID.toString(),
           keys: children.map((c) => c.key),
         });
-        acc = Tree.removeNode({ tree: acc, keys: id.toString() });
+        acc = Tree.removeNode({ tree: acc, keys: key });
         return acc;
       }, nodes),
     ]);
