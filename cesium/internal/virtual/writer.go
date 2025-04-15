@@ -33,13 +33,15 @@ type WriterConfig struct {
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{}
+	DefaultWriterConfig                             = WriterConfig{
+		ErrOnUnauthorized: config.False(),
+	}
 )
 
 func (cfg WriterConfig) Validate() error {
 	v := validate.New("virtual.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
-	validate.NotNil(v, "ErrONUnauthorized", cfg.ErrOnUnauthorized)
+	validate.NotNil(v, "ErrOnUnauthorized", cfg.ErrOnUnauthorized)
 	return v.Error()
 }
 
@@ -84,7 +86,7 @@ type Writer struct {
 
 func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
-		err = DBClosed
+		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
 	}
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)

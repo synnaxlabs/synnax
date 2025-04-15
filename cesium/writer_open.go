@@ -78,9 +78,6 @@ type WriterConfig struct {
 	// to AlwaysIndexPersistOnAutoCommit.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// OpenSignal is a channel that will be closed once the writer is successfully opened.
-	// [OPTIONAL] - Defaults to nil.
-	OpenSignal chan<- struct{}
 	// Sync
 	Sync *bool
 }
@@ -130,7 +127,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.OpenSignal = override.Nil(c.OpenSignal, other.OpenSignal)
 	return c
 }
 

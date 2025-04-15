@@ -193,6 +193,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Get(data2Key)[1].Data).To(EqualUnmarshal([]uint16{11, 12}))
 					Expect(i.Close()).To(Succeed())
 				})
+
 				Specify("No bound", func() {
 					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
@@ -222,6 +223,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Next(1 * telem.Second)).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
+
 				Specify("Auto-Span", func() {
 					// Index1: [ 0  1  2 / _  4]  _  _  [7  _  9  /  10  _  12]   _   _  15
 					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19  /  20  _  22]   _   _  25
@@ -252,6 +254,20 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Series).To(HaveLen(1))
 					Expect(f.Get(data1Key)[0].Data).To(EqualUnmarshal([]uint16{25}))
 					Expect(i.Close()).To(Succeed())
+				})
+			})
+
+			Describe("Open", func() {
+				It("Should return an error when attempting to open an iterator on a virtual channel", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Marco",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})).To(Succeed())
+					_, err := db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
+					Expect(err).To(MatchError(ContainSubstring("virtual")))
 				})
 			})
 

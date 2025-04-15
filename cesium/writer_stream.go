@@ -112,9 +112,6 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			// Using context.TODO() is not ideal, but it is the best we can do here.
 			err = errors.Combine(err, w.close(context.TODO()))
 		}()
-		if w.OpenSignal != nil {
-			close(w.OpenSignal)
-		}
 		for {
 			select {
 			case <-ctx.Done():

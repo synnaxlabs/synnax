@@ -60,6 +60,5 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 			return nil, err
 		}
 	}
-
-	return &streamIterator{internal: internal, openSignal: cfg.OpenSignal}, nil
+	return &streamIterator{internal: internal}, nil
 }

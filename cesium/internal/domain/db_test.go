@@ -3,6 +3,7 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -41,6 +42,7 @@ var _ = Describe("DB", func() {
 					Expect(db.HasDataFor(ctx, (20 * telem.SecondTS).SpanRange(10*telem.Second))).To(BeFalse())
 				})
 			})
+
 			Describe("Close", func() {
 				It("Should return an error if there are open writers on the DB", func() {
 					fs, cleanUp := makeFS()
@@ -52,9 +54,10 @@ var _ = Describe("DB", func() {
 						Expect(cleanUp()).To(Succeed())
 					}()
 					_ = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-					Expect(db.Close()).To(MatchError(domain.ErrOpenEntity))
+					Expect(db.Close()).To(MatchError(core.ErrOpenEntity))
 				})
 			})
+
 		})
 	}
 })

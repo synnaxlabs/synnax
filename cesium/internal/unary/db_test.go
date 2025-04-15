@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -183,7 +182,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(MatchError(domain.ErrOpenEntity))
+			Expect(db.Close()).To(MatchError(core.ErrOpenEntity))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

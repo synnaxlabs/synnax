@@ -11,6 +11,7 @@ package virtual_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	"testing"
 
@@ -19,8 +20,9 @@ import (
 )
 
 var (
-	ctx   = context.Background()
-	codec = &binary.JSONCodec{}
+	ctx         = context.Background()
+	codec       = &binary.JSONCodec{}
+	fileSystems = testutil.FileSystems
 )
 
 func TestVirtual(t *testing.T) {
