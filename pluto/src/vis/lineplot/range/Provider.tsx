@@ -44,7 +44,6 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
     (e) => {
       // add an event listener for the movement until it leaves
       const handleMouseMove = (e: MouseEvent) => {
-        console.log("mouse move", e.clientX, e.clientY);
         setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } }));
       };
       const target = e.currentTarget;

@@ -208,7 +208,7 @@ export const Provider = ({
 
   const ctxValue = useMemo(() => ({ listen }), [listen]);
 
-  return <Context.Provider value={ctxValue}>{children}</Context.Provider>;
+  return <Context value={ctxValue}>{children}</Context>;
 };
 
 const shouldPreventDefault = (
