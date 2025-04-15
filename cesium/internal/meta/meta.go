@@ -10,6 +10,7 @@
 package meta
 
 import (
+	"github.com/synnaxlabs/cesium/internal/version"
 	"os"
 
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -36,7 +37,7 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel,
 		if err != nil {
 			return ch, err
 		}
-		return ch, validateMeta(ch)
+		return ch, Validate(ch)
 	}
 
 	return ch, Create(fs, codec, ch)
@@ -59,6 +60,10 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	if err != nil {
 		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
+	if ch.Version == version.Current {
+		return
+	}
+	err := migrate.M
 
 	return
 }
@@ -67,7 +72,7 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	err := validateMeta(ch)
+	err := Validate(ch)
 	if err != nil {
 		return err
 	}
@@ -86,9 +91,9 @@ func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	return metaF.Close()
 }
 
-// validateMeta checks that the meta file read from or about to be written to a meta file
+// Validate checks that the meta file read from or about to be written to a meta file
 // is well-defined.
-func validateMeta(ch core.Channel) error {
+func Validate(ch core.Channel) error {
 	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)

@@ -31,7 +31,6 @@ type index struct {
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	{
-
 		_, span := idx.T.Bench(ctx, "domain/index.insert")
 		idx.mu.Lock()
 		defer idx.mu.Unlock()
