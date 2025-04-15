@@ -12,8 +12,6 @@ package distribution
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/override"
 	"io"
 
 	"github.com/synnaxlabs/aspen"
@@ -28,7 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -47,7 +47,7 @@ type (
 type Config struct {
 	core.Config
 	// Verifier is for verifying. Magic.
-	// [REQUIRED}
+	// [REQUIRED]
 	Verifier string
 	// Ontology is an optional ontology configuration used to override properties on the
 	// internally build ontology configuration.
@@ -116,7 +116,9 @@ func (d Distribution) Close() error {
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
-func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
+func Open(ctx context.Context, cfg Config) (Distribution, error) {
+	d := Distribution{}
+	var err error
 	d.Core, err = core.Open(ctx, cfg.Config)
 	if err != nil {
 		return d, err
