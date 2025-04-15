@@ -197,9 +197,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	_, uok := db.mu.unaryDBs[newKey]
-	_, vok := db.mu.virtualDBs[newKey]
-	if uok || vok {
+	_, uOk := db.mu.unaryDBs[newKey]
+	_, vOk := db.mu.virtualDBs[newKey]
+	if uOk || vOk {
 		return errors.Newf(
 			"cannot rekey channel to %d since a channel with the same key already exists in the database",
 			newKey,
@@ -208,9 +208,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 	oldDir := keyToDirName(oldKey)
 	newDir := keyToDirName(newKey)
-	udb, uok := db.mu.unaryDBs[oldKey]
-	if uok {
-		if err := udb.Close(); err != nil {
+	uDB, uOk := db.mu.unaryDBs[oldKey]
+	if uOk {
+		if err := uDB.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(oldDir, newDir); err != nil {
@@ -220,7 +220,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		newCh := udb.Channel()
+		newCh := uDB.Channel()
 		newCh.Key = newKey
 		if newCh.IsIndex {
 			newCh.Index = newKey
@@ -242,7 +242,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 		// If the DB is an index channel, we need to update the databases that depend
 		// on this channel.
-		if udb.Channel().IsIndex {
+		if uDB.Channel().IsIndex {
 			for otherDBKey := range db.mu.unaryDBs {
 				otherDB := db.mu.unaryDBs[otherDBKey]
 				// If the other database uses this channel as its index, and it's not
@@ -258,9 +258,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		}
 		return nil
 	}
-	vdb, vok := db.mu.virtualDBs[oldKey]
-	if vok {
-		if err := vdb.Close(); err != nil {
+	vDB, vOk := db.mu.virtualDBs[oldKey]
+	if vOk {
+		if err := vDB.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(oldDir, newDir); err != nil {
@@ -270,7 +270,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		newChannel := vdb.Channel()
+		newChannel := vDB.Channel()
 		newChannel.Key = newKey
 		_vdb, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
