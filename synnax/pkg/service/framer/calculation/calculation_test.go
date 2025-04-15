@@ -290,12 +290,12 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
-		var stateCH channel.Channel
-		stateCH.Name = "sy_calculation_state"
+		var stateCh channel.Channel
+		stateCh.Name = "sy_calculation_state"
 		Expect(
 			dist.Channel.Create(
 				ctx,
-				&stateCH,
+				&stateCh,
 				channel.RetrieveIfNameExists(true),
 			),
 		).To(Succeed())
@@ -321,7 +321,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys: []channel.Key{stateCH.Key()},
+					Keys: []channel.Key{stateCh.Key()},
 				},
 			),
 		)
