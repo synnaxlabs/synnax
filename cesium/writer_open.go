@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -82,6 +81,8 @@ type WriterConfig struct {
 	// OpenSignal is a channel that will be closed once the writer is successfully opened.
 	// [OPTIONAL] - Defaults to nil.
 	OpenSignal chan<- struct{}
+	// Sync
+	Sync *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -98,14 +99,16 @@ func DefaultWriterConfig() WriterConfig {
 		Mode:                     WriterPersistStream,
 		EnableAutoCommit:         config.Bool(false),
 		AutoIndexPersistInterval: 1 * telem.Second,
+		Sync:                     config.False(),
 	}
 }
 
-// Validate implements config.GateConfig.
+// Validate implements cfg.GateConfig.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", c.Channels)
 	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "Sync", c.Sync)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternary(
 		"authorities",
@@ -115,7 +118,7 @@ func (c WriterConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.GateConfig.
+// Override implements cfg.GateConfig.
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Channels = override.Slice(c.Channels, other.Channels)
@@ -124,6 +127,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.OpenSignal = override.Nil(c.OpenSignal, other.OpenSignal)
@@ -154,11 +158,11 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	internal, err := db.newStreamWriter(ctx, cfgs...)
+	iw, err := db.newStreamWriter(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return wrapStreamWriter(internal), nil
+	return wrapStreamWriter(iw.WriterConfig, iw), nil
 }
 
 func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *streamWriter, err error) {

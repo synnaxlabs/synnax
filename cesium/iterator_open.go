@@ -39,7 +39,10 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
-	internal := make([]*unary.Iterator, len(cfg.Channels))
+	var (
+		err      error
+		internal = make([]*unary.Iterator, len(cfg.Channels))
+	)
 	for i, key := range cfg.Channels {
 		uDB, ok := db.mu.unaryDBs[key]
 		if !ok {
@@ -52,7 +55,10 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 			}
 			return nil, core.NewErrChannelNotFound(key)
 		}
-		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+		internal[i], err = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &streamIterator{internal: internal, openSignal: cfg.OpenSignal}, nil

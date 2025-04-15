@@ -60,6 +60,8 @@ type WriterResponse struct {
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
+	//
+	Authorized bool
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -138,16 +140,25 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) error {
 		if err := w.setAuthority(ctx, req.Config); err != nil {
 			return err
 		}
-		return w.sendRes(ctx, req, 0)
+		return w.sendRes(ctx, req, 0, true)
 	}
 	if req.Command == WriterCommit {
 		ts, err := w.commit(ctx)
-		if err != nil {
+		isUnauthorized := errors.Is(err, control.Unauthorized)
+		if err != nil && !isUnauthorized {
 			return err
 		}
-		return w.sendRes(ctx, req, ts)
+		return w.sendRes(ctx, req, ts, !isUnauthorized)
 	}
-	return w.write(ctx, req)
+	err := w.write(ctx, req)
+	isUnauthorized := errors.Is(err, control.Unauthorized)
+	if err != nil && !isUnauthorized {
+		return err
+	}
+	if *w.Sync {
+		return w.sendRes(ctx, req, 0, !isUnauthorized)
+	}
+	return nil
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -199,11 +210,17 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	return nil
 }
 
-func (w *streamWriter) sendRes(ctx context.Context, req WriterRequest, end telem.TimeStamp) error {
+func (w *streamWriter) sendRes(
+	ctx context.Context,
+	req WriterRequest,
+	end telem.TimeStamp,
+	authorized bool,
+) error {
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), WriterResponse{
-		Command: req.Command,
-		SeqNum:  req.SeqNum,
-		End:     end,
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: authorized,
 	})
 }
 
@@ -211,35 +228,24 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) {
-				return nil
-			}
-			return err
+			return
 		}
 
 		if *w.EnableAutoCommit {
-			_, err = idx.Commit(ctx)
-			if err != nil {
-				if errors.Is(err, control.Unauthorized) {
-					return nil
-				}
-				return err
+			if _, err = idx.Commit(ctx); err != nil {
+				return
 			}
 		}
 	}
 	if w.virtual.internal != nil {
-		req.Frame, err = w.virtual.write(req.Frame)
-		if err != nil {
-			if errors.Is(err, control.Unauthorized) {
-				return nil
-			}
-			return err
+		if req.Frame, err = w.virtual.write(req.Frame); err != nil {
+			return
 		}
 	}
 	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
-	return nil
+	return
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {

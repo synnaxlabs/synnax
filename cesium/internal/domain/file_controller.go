@@ -11,6 +11,8 @@ package domain
 
 import (
 	"context"
+	"fmt"
+	"github.com/synnaxlabs/alamos"
 	"io"
 	"math"
 	"os"
@@ -202,7 +204,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc.release),
+			controllerEntry:    newPoolEntry(key, fc.release, fc.Instrumentation),
 		}
 		fc.writers.open[key] = w
 		delete(fc.writers.unopened, key)
@@ -222,7 +224,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(lastFileKey, fc.release),
+			controllerEntry:    newPoolEntry(lastFileKey, fc.release, fc.Instrumentation),
 		}
 		fc.writers.open[lastFileKey] = w
 		delete(fc.writers.unopened, lastFileKey)
@@ -249,7 +251,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 	}
 	w := controlledWriter{
 		TrackedWriteCloser: base,
-		controllerEntry:    newPoolEntry(nextKey, fc.release),
+		controllerEntry:    newPoolEntry(nextKey, fc.release, fc.Instrumentation),
 	}
 	fc.writers.open[nextKey] = w
 	return &w, 0, nil
@@ -309,7 +311,7 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 
 	r := controlledReader{
 		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc.release),
+		controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
 	}
 	fc.readers.Lock()
 	f, ok := fc.readers.files[key]
@@ -501,14 +503,16 @@ func (c *controlledReader) HardClose() error {
 }
 
 type controllerEntry struct {
+	ins alamos.Instrumentation
 	// flag is "true" when the controlled entity is currently in use.
 	flag    *atomic.Bool
 	fileKey uint16
 	release chan struct{}
 }
 
-func newPoolEntry(key uint16, release chan struct{}) controllerEntry {
+func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation) controllerEntry {
 	ce := controllerEntry{
+		ins:     ins,
 		release: release,
 		fileKey: key,
 		flag:    &atomic.Bool{},
@@ -519,7 +523,8 @@ func newPoolEntry(key uint16, release chan struct{}) controllerEntry {
 
 func (ce *controllerEntry) Close() error {
 	if !ce.flag.CompareAndSwap(true, false) {
-		panic("controller: entry already closed")
+		ce.ins.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
+		return nil
 	}
 	select {
 	case ce.release <- struct{}{}:

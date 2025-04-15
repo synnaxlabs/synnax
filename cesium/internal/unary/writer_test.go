@@ -223,7 +223,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -294,7 +294,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -345,7 +345,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -397,7 +397,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -409,6 +409,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 				})
 			})
+
 			Describe("Control", func() {
 				var (
 					db      *unary.DB
@@ -483,6 +484,23 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(t.IsRelease()).To(BeTrue())
 						Expect(err).ToNot(HaveOccurred())
+					})
+				})
+				Describe("Control Subjects", func() {
+					It("Should return an error when attempting to open a writer with a duplicate control subject key", func() {
+						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo"},
+						}))
+						Expect(t.Occurred()).To(BeTrue())
+						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo"},
+						})
+						Expect(t.Occurred()).To(BeFalse())
+						Expect(err).To(MatchError(ContainSubstring("already registered in the region")))
+						Expect(w2).To(BeNil())
+						MustSucceed(w1.Close())
 					})
 				})
 			})

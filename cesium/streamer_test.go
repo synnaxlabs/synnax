@@ -68,10 +68,10 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					Expect(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
-					))).To(Succeed())
+					)))
 
 					f := <-o.Outlet()
 					Expect(f.Frame.Keys).To(HaveLen(1))
@@ -106,10 +106,10 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					Expect(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
-					))).To(Succeed())
+					)))
 
 					Consistently(o.Outlet()).ShouldNot(Receive())
 					i.Close()
@@ -139,10 +139,10 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					written := telem.NewSeriesV[int64](1, 2, 3)
-					Expect(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(cesium.NewFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
-					))).To(Succeed())
+					)))
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Keys).To(HaveLen(1))

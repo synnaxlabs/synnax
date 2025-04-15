@@ -254,13 +254,13 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						Expect(w.Write(cesium.NewFrame(
+						MustSucceed(w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{dataChannelKey, indexChannelKey},
 							[]telem.Series{
 								telem.NewSeriesV[int64](100, 101, 102),
 								telem.NewSecondsTSV(10, 11, 12),
 							}),
-						)).To(Succeed())
+						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
 
@@ -505,13 +505,13 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						Expect(w.Write(cesium.NewFrame(
+						MustSucceed(w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{basic1, basic1Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
 								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
 							}),
-						)).To(Succeed())
+						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
 
@@ -562,12 +562,12 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						Expect(w.Write(cesium.NewFrame(
+						MustSucceed(w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{basic2Index},
 							[]telem.Series{
 								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
 							}),
-						)).To(Succeed())
+						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
 
@@ -617,13 +617,13 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						Expect(w.Write(cesium.NewFrame(
+						MustSucceed(w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{basic3, basic3Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](100, 101, 102),
 								telem.NewSecondsTSV(10, 11, 12),
 							}),
-						)).To(Succeed())
+						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
 
@@ -744,6 +744,7 @@ var _ = Describe("Delete", func() {
 				//			Expect(frame.Series).To(HaveLen(0))
 				//		})
 				//	})
+
 				Describe("Delete chunks in multiple channels", func() {
 					var (
 						index1 = GenerateChannelKey()
@@ -766,14 +767,14 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							Expect(w.Write(cesium.NewFrame(
+							MustSucceed(w.Write(cesium.NewFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSecondsTSV(10, 11, 12, 13, 14),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 								}),
-							)).To(Succeed())
+							))
 							Expect(w.Close()).To(Succeed())
 
 							By("Deleting channel data")
@@ -805,14 +806,14 @@ var _ = Describe("Delete", func() {
 								Start:            11 * telem.SecondTS,
 								EnableAutoCommit: config.True(),
 							}))
-							Expect(w.Write(cesium.NewFrame(
+							MustSucceed(w.Write(cesium.NewFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSecondsTSV(11, 12, 13, 14),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
 								}),
-							)).To(Succeed())
+							))
 							Expect(w.Close()).To(Succeed())
 
 							Expect(w.Close()).To(Succeed())

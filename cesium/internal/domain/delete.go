@@ -16,9 +16,16 @@ import (
 	"os"
 )
 
+type OffsetResolver = func(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	ts telem.TimeStamp,
+) (int64, telem.TimeStamp, error)
+
 // Delete adds all pointers ranging from
-// [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + length - endOffset)
+// [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + endOffset)
 // into tombstone.
+//
 // Note that the deletion time range includes the sample at startOffset, and ends at
 // the sample immediately before endOffset. Therefore, endOffset=0 denotes the sample past
 // the pointer at endPosition.
@@ -28,16 +35,8 @@ import (
 // positions in the index.
 func (db *DB) Delete(
 	ctx context.Context,
-	calculateStartOffset func(
-		ctx context.Context,
-		domainStart telem.TimeStamp,
-		ts telem.TimeStamp,
-	) (int64, telem.TimeStamp, error),
-	calculateEndOffset func(
-		ctx context.Context,
-		domainStart telem.TimeStamp,
-		ts telem.TimeStamp,
-	) (int64, telem.TimeStamp, error),
+	calculateStartOffset OffsetResolver,
+	calculateEndOffset OffsetResolver,
 	tr telem.TimeRange,
 	den telem.Density,
 ) (err error) {
@@ -185,8 +184,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	db.entityCount.Add(1)
 	defer db.entityCount.Add(-1)
 
-	_, err := db.fc.gcWriters()
-	if err != nil {
+	if _, err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)
 	}
 
@@ -212,8 +210,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	//     3. Wait during GC until all file handles are closed, then swap the file under
 	// a lock on the file to disallow additional readers from being created. (This might
 	// be problematic since some readers may never get closed).
-	_, err = db.fc.gcReaders()
-	if err != nil {
+	if _, err := db.fc.gcReaders(); err != nil {
 		return span.Error(err)
 	}
 
@@ -342,24 +339,24 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	//
 	// Using these two principles, we can find the new offset for any pointer with a
 	// time range contained in the original pointer by subtracting it by the same delta.
-	db.idx.mu.Lock()
-	for i, ptr := range db.idx.mu.pointers {
-		if ptr.fileKey == key {
-			if deltaOffset, ok := resolvePointerOffset(ptr.TimeRange, offsetDeltaMap); ok {
-				db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+	{
+		db.idx.mu.Lock()
+		defer db.idx.mu.Unlock()
+		for i, ptr := range db.idx.mu.pointers {
+			if ptr.fileKey == key {
+				if deltaOffset, ok := resolvePointerOffset(ptr.TimeRange, offsetDeltaMap); ok {
+					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+				}
 			}
 		}
-	}
 
-	if err = db.cfg.FS.Rename(name, name+"_temp"); err != nil {
-		db.idx.mu.Unlock()
-		return err
+		if err = db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+			return err
+		}
+		if err = db.cfg.FS.Rename(copyName, name); err != nil {
+			return err
+		}
 	}
-	if err = db.cfg.FS.Rename(copyName, name); err != nil {
-		db.idx.mu.Unlock()
-		return err
-	}
-	db.idx.mu.Unlock()
 
 	if err = db.fc.rejuvenate(key); err != nil {
 		return err
@@ -397,12 +394,13 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 		*endOffset = 0
 	}
 
-	if *startOffset > int64(idx.mu.pointers[startPosition].length) {
-		*startOffset = int64(idx.mu.pointers[startPosition].length)
+	startPtrLen, endPtrLen := int64(idx.mu.pointers[startPosition].length), int64(idx.mu.pointers[endPosition].length)
+	if *startOffset > startPtrLen {
+		*startOffset = startPtrLen
 	}
 
-	if *endOffset > int64(idx.mu.pointers[endPosition].length) {
-		*endOffset = int64(idx.mu.pointers[endPosition].length)
+	if *endOffset > endPtrLen {
+		*endOffset = endPtrLen
 	}
 
 	// If the startPosition is greater than end position and there are samples in between.
@@ -412,11 +410,11 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition), false
 	}
 
-	if startPosition == endPosition && *startOffset+*endOffset > int64(idx.mu.pointers[startPosition].length) {
+	if startPosition == endPosition && *startOffset+*endOffset > startPtrLen {
 		return errors.Newf("deletion start offset %d is after end offset %d for length %d", *startOffset, *endOffset, idx.mu.pointers[startPosition].length), false
 	}
 
-	if (startPosition == endPosition-1 && *startOffset == int64(idx.mu.pointers[endPosition].length) && *endOffset == int64(idx.mu.pointers[endPosition].length)) ||
+	if (startPosition == endPosition-1 && *startOffset == endPtrLen && *endOffset == endPtrLen) ||
 		startPosition == endPosition && *startOffset+*endOffset == int64(idx.mu.pointers[startPosition].length) {
 		return nil, false
 	}

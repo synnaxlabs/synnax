@@ -108,7 +108,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	if db.closed.Load() {
 		return frame, ErrDBClosed
 	}
-	iter := db.OpenIterator(IterRange(tr))
+	iter, _ := db.OpenIterator(IterRange(tr))
 	if err != nil {
 		return
 	}
@@ -163,7 +163,7 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 // and persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return db.wrapError(ErrDBClosed)
 	}
 	db.cfg.Channel.Index = key
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)

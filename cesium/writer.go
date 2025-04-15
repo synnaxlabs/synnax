@@ -18,6 +18,7 @@ import (
 )
 
 type Writer struct {
+	cfg       WriterConfig
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
 	wg        signal.WaitGroup
@@ -29,7 +30,7 @@ const unexpectedSteamClosure = "unexpected early closure of response stream"
 
 var errWriterClosed = core.EntityClosed("cesium.writer")
 
-func wrapStreamWriter(internal StreamWriter) *Writer {
+func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()
 	req := confluence.NewStream[WriterRequest](1)
 	res := confluence.NewStream[WriterResponse](1)
@@ -40,54 +41,49 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return &Writer{requests: req, responses: res, wg: sCtx}
+	return &Writer{cfg: cfg, requests: req, responses: res, wg: sCtx}
 }
 
-func (w *Writer) Write(frame Frame) error {
-	if w.closed {
-		return errWriterClosed
+func (w *Writer) Write(frame Frame) (bool, error) {
+	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterWrite}, *w.cfg.Sync)
+	if err != nil {
+		return false, err
 	}
-	select {
-	case <-w.responses.Outlet():
-		return w.Close()
-	case w.requests.Inlet() <- WriterRequest{Frame: frame, Command: WriterWrite}:
+	if *w.cfg.Sync {
+		return res.Authorized, nil
 	}
-	return nil
+	return true, nil
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	if w.closed {
-		return 0, errWriterClosed
-	}
-	select {
-	case <-w.responses.Outlet():
-		return 0, w.Close()
-	case w.requests.Inlet() <- WriterRequest{Command: WriterCommit}:
-	}
-	for res := range w.responses.Outlet() {
-		if res.Command == WriterCommit {
-			return res.End, nil
-		}
-	}
-	return 0, w.Close()
+	res, err := w.exec(WriterRequest{Command: WriterCommit}, true)
+	return res.End, err
 }
 
 // SetAuthority is synchronous
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
+	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterSetAuthority}, true)
+	return err
+}
+
+func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {
 	if w.closed {
-		return errWriterClosed
+		return res, errWriterClosed
 	}
 	select {
 	case <-w.responses.Outlet():
-		return w.Close()
-	case w.requests.Inlet() <- WriterRequest{Config: cfg, Command: WriterSetAuthority}:
+		return res, w.Close()
+	case w.requests.Inlet() <- req:
+	}
+	if !sync {
+		return
 	}
 	for res := range w.responses.Outlet() {
-		if res.Command == WriterSetAuthority {
-			return nil
+		if res.Command == req.Command {
+			return res, nil
 		}
 	}
-	return w.Close()
+	return res, w.Close()
 }
 
 func (w *Writer) Close() error {

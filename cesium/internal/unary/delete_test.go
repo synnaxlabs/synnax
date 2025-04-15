@@ -290,7 +290,7 @@ var _ = Describe("Delete", func() {
 							End:   19*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						i, _ := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
@@ -383,7 +383,7 @@ var _ = Describe("Delete", func() {
 							End:   19*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						i := indexDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						i, _ := indexDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
