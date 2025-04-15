@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
@@ -401,7 +401,7 @@ describe("Triggers", () => {
     it("should only trigger when cursor is in the specified region", async () => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
       const callback = vi.fn();
-      const regionRef = { current: null };
+      const regionRef = { current: document.createElement("div") };
       const C = () => {
         Triggers.use({
           callback,
