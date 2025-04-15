@@ -157,7 +157,7 @@ const handleRelationshipsChange = async (
     const removed = changes
       .filter(({ variant, key: { type } }) => variant === "delete" && type === "parent")
       .map(({ key: { to } }) => to.toString());
-    let nextTree = Core.removeNode({ tree: [...nodes], keys: removed });
+    let nextTree = Core.removeNode({ tree: nodes, keys: removed });
 
     const allSets = changes
       .filter(({ variant, key: { type } }) => variant === "set" && type === "parent")

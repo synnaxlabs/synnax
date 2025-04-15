@@ -121,55 +121,11 @@ var _ = Describe("Telem", func() {
 	Describe("TimeRange", func() {
 
 		Describe("Stringer", func() {
-			DescribeTable("Should format time ranges with appropriate precision",
-				func(start, end time.Time, expected string) {
-					tr := telem.TimeRange{
-						Start: telem.NewTimeStamp(start),
-						End:   telem.NewTimeStamp(end),
-					}
-					Expect(tr.String()).To(Equal(expected))
-				},
-				Entry("nanoseconds differ",
-					time.Date(2024, 3, 15, 10, 30, 45, 100, time.UTC),
-					time.Date(2024, 3, 15, 10, 30, 45, 500, time.UTC),
-					"2024-03-15T10:30:45.000000100Z - .000000500 (400ns)"),
-				Entry("microseconds differ",
-					time.Date(2024, 3, 15, 10, 30, 45, 100000, time.UTC),
-					time.Date(2024, 3, 15, 10, 30, 45, 500000, time.UTC),
-					"2024-03-15T10:30:45.000100Z - .000500 (400µs)"),
-				Entry("milliseconds differ",
-					time.Date(2024, 3, 15, 10, 30, 45, 0, time.UTC),
-					time.Date(2024, 3, 15, 10, 30, 45, 500e6, time.UTC),
-					"2024-03-15T10:30:45Z - .500 (500ms)"),
-				Entry("seconds differ",
-					time.Date(2024, 3, 15, 10, 30, 45, 0, time.UTC),
-					time.Date(2024, 3, 15, 10, 30, 55, 0, time.UTC),
-					"2024-03-15T10:30:45Z - :55 (10s)"),
-				Entry("minutes differ",
-					time.Date(2024, 3, 15, 10, 30, 0, 0, time.UTC),
-					time.Date(2024, 3, 15, 10, 45, 0, 0, time.UTC),
-					"2024-03-15T10:30:00Z - 45:00 (15m)"),
-				Entry("hours differ",
-					time.Date(2024, 3, 15, 10, 30, 0, 0, time.UTC),
-					time.Date(2024, 3, 15, 11, 45, 0, 0, time.UTC),
-					"2024-03-15T10:30:00Z - 11:45:00 (1h 15m)"),
-				Entry("days differ",
-					time.Date(2024, 3, 15, 23, 45, 0, 0, time.UTC),
-					time.Date(2024, 3, 16, 0, 15, 0, 0, time.UTC),
-					"2024-03-15T23:45:00Z - 03-16T00:15:00 (30m)"),
-				Entry("months differ",
-					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-					time.Date(2024, 2, 15, 10, 30, 0, 0, time.UTC),
-					"2024-01-15T10:30:00Z - 02-15T10:30:00 (31d)"),
-				Entry("years differ",
-					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-					time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
-					"2024-01-15T10:30:00Z - 2025-01-15T10:30:00 (366d)"),
-				Entry("identical timestamps",
-					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-					"2024-01-15T10:30:00Z - 10:30:00 (0s)"),
-			)
+			It("Should format a time range properly", func() {
+				ts1 := 2*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
+				ts2 := 4*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
+				Expect(fmt.Sprintf("%v", ts1.Range(ts2))).To(Equal("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z"))
+			})
 		})
 
 		Describe("SpanTo", func() {

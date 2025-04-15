@@ -21,9 +21,10 @@ import {
 
 import { useStateRef } from "@/hooks/ref";
 import {
-  ALPHANUMERIC_KEYS_SET,
   type Callback,
   eventKey,
+  isAlphanumericKey,
+  type Key,
   match,
   type MatchOptions,
   MOUSE_KEYS,
@@ -77,12 +78,12 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
   return false;
 };
 
-const shouldTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
+const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
   if (isInputOrContentEditable(e)) {
     // If there is an alphanumeric key and the user is not holding down ctrl or meta,
     // we don't want to trigger the key.
-    if (ALPHANUMERIC_KEYS_SET.has(key) && !e.ctrlKey && !e.metaKey) return false;
+    if (isAlphanumericKey(key) && !e.ctrlKey && !e.metaKey) return false;
     return true;
   }
   return true;
@@ -151,6 +152,9 @@ export const Provider = ({
       let next = prevS.next.filter(
         (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
       );
+      // Later versions of Safari have a 'sticky shift' phenomenon when the Shift key
+      // key up even it not always fired. To correct for this, we manually check for
+      // the event.shiftKey flag.
       if (!e.shiftKey && next.includes("Shift"))
         next = next.filter((k) => k !== "Shift");
       const prev = prevS.next;

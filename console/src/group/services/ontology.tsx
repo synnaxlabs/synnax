@@ -10,7 +10,7 @@
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors, id } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
