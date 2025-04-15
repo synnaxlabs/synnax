@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version
+package migrate
 
 import (
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -23,7 +24,7 @@ var migrations = map[string]func(fs xfs.FS) error{
 	"02": migrate02,
 }
 
-func Migrate(fs xfs.FS, oldVersion Version, newVersion Version) error {
+func Migrate(fs xfs.FS, oldVersion version.Version, newVersion version.Version) error {
 	migrate, ok := migrations[strconv.Itoa(int(oldVersion))+strconv.Itoa(int(newVersion))]
 	if !ok {
 		return errors.Newf("migration from version %d to version %d not found", oldVersion, newVersion)

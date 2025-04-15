@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/atomic"
 )
 
-var _ = Describe("SeqNum", func() {
+var _ = Describe("Counter", func() {
 	Describe("Int32Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}

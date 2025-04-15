@@ -73,7 +73,6 @@ func BenchmarkCesium(b *testing.B) {
 		samplesPerDomain:  *samplesPerDomain,
 		numIndexChannels:  *numIndexChannels,
 		numDataChannels:   *numDataChannels,
-		numRateChannels:   *numRateChannels,
 		numGoRoutines:     *numGoRoutines,
 		usingMemFS:        *usingMemFS,
 	}
@@ -145,7 +144,7 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series
 			}
 
 			// Then arbitrarily assign rate channels
-			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+cfg.numRateChannels+1; k++ {
+			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+1; k++ {
 				if k%cfg.numWriters == j {
 					writerChannels = append(writerChannels, cesium.ChannelKey(k))
 				}
@@ -217,18 +216,16 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series
 						}
 					}
 
-					ok := w.Write(frame)
-					if !ok {
-						b.Error(w.Error())
+					if _, err := w.Write(frame); err != nil {
+						b.Error(err)
 						return
 					}
 
 					if cfg.commitInterval != -1 {
 						commitCount += 1
 						if commitCount >= cfg.commitInterval {
-							_, ok = w.Commit()
-							if !ok {
-								b.Error(w.Error())
+							if _, err = w.Commit(); err != nil {
+								b.Error(err)
 								return
 							}
 							commitCount = 0
@@ -236,10 +233,9 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series
 					}
 				}
 
-				_, ok := w.Commit()
-				if !ok {
+				if _, err := w.Commit(); err != nil {
 					b.Error("Commit failed")
-					b.Error(w.Error())
+					b.Error(err)
 					return
 				}
 
@@ -328,16 +324,16 @@ func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, chan
 			}
 		}
 
-		ok := w.Write(frame)
-		if !ok {
-			b.Error(w.Error())
+		if _, err := w.Write(frame); err != nil {
+			b.Error(err)
 			return
 		}
 	}
 
-	_, ok := w.Commit()
-	if !ok {
-		b.Error(w.Error())
+	if _, err := w.Commit(); err != nil {
+		b.Error("Commit failed")
+		b.Error(err)
+		return
 	}
 
 	if err = w.Close(); err != nil {
@@ -406,7 +402,7 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Seri
 			}
 
 			// Then arbitrarily assign rate channels
-			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+cfg.numRateChannels+1; k++ {
+			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels; k++ {
 				if k%cfg.numWriters == j {
 					writerChannels = append(writerChannels, cesium.ChannelKey(k))
 				}
@@ -489,19 +485,15 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Seri
 						}
 					}
 
-					ok := w.Write(frame)
-					if !ok {
-						b.Error(w.Error())
-						return
+					if _, err := w.Write(frame); err != nil {
+						b.Error(err)
 					}
 
 					if cfg.commitInterval != -1 {
 						commitCount += 1
 						if commitCount >= cfg.commitInterval {
-							_, ok = w.Commit()
-							if !ok {
-								b.Error(w.Error())
-								return
+							if _, err = w.Commit(); err != nil {
+								b.Error(err)
 							}
 							commitCount = 0
 						}
@@ -510,11 +502,8 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Seri
 					<-oStream.Outlet()
 				}
 
-				_, ok := w.Commit()
-				if !ok {
-					b.Error("Commit failed")
-					b.Error(w.Error())
-					return
+				if _, err := w.Commit(); err != nil {
+					b.Error(err)
 				}
 
 				err = w.Close()

@@ -20,7 +20,6 @@ import (
 )
 
 type validator struct {
-	signal    chan bool
 	keys      channel.Keys
 	responses struct {
 		confluence.AbstractUnarySource[Response]
@@ -59,8 +58,8 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (v *validator) validate(req Request) error {
-	if req.Command < Data || req.Command > SetAuthority {
-		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
+	if err := validateCommand(req.Command); err != nil {
+		return err
 	}
 	if req.Command == Data {
 		for _, k := range req.Frame.Keys {
@@ -68,7 +67,6 @@ func (v *validator) validate(req Request) error {
 				return errors.Wrapf(validate.Error, "invalid key: %s", k)
 			}
 		}
-
 	}
 	return nil
 }

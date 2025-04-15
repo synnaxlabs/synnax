@@ -29,10 +29,11 @@ func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequ
 func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
-			Command: Command(in.Command),
-			SeqNum:  in.SeqNum,
-			NodeKey: host,
-			End:     in.End,
+			Command:    Command(in.Command),
+			SeqNum:     in.SeqNum,
+			NodeKey:    host,
+			End:        in.End,
+			Authorized: in.Authorized,
 		}, true, nil
 	}
 }

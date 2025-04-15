@@ -12,33 +12,60 @@ package writer
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
+	"go.uber.org/zap"
 )
 
+// Synchronizer is used to synchronized sequenced responses across multiple nodes.
+// Synchronizer assumes that a request sent to multiple nodes contains a sequence
+// number that is incremented with every request.
 type synchronizer struct {
-	internal core.Synchronizer
+	alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]
-	bulkheadSignal chan bool
+	nodeCount int
+	cycle     struct {
+		counter int
+		res     Response
+	}
 }
 
-func newSynchronizer(nodeCount int, bulkheadSig chan bool, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
+func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
-	s.internal.NodeCount = nodeCount
-	s.internal.Instrumentation = ins
+	s.nodeCount = nodeCount
+	s.Instrumentation = ins
 	s.Transform = s.sync
-	s.bulkheadSignal = bulkheadSig
 	return s
 }
 
-func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	seqNum, fulfilled := a.internal.Sync(res.SeqNum)
-	if fulfilled {
-		return Response{
-			Command: res.Command,
-			SeqNum:  seqNum,
-			End:     res.End,
-		}, true, nil
+func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+	if res.SeqNum == 0 {
+		s.L.DPanic(
+			"received response with zero sequence number",
+			zap.Int("expected", s.cycle.res.SeqNum),
+		)
+		return res, false, nil
 	}
-	return Response{}, false, nil
+
+	if s.cycle.counter == 0 {
+		s.cycle.res = res
+	} else if s.cycle.res.SeqNum != res.SeqNum {
+		s.L.DPanic("unexpected sequence number",
+			zap.Int("expected", s.cycle.res.SeqNum),
+			zap.Int("actual", res.SeqNum),
+		)
+		return res, false, nil
+	}
+	s.cycle.counter++
+
+	if !res.Authorized && s.cycle.res.Authorized {
+		s.cycle.res.Authorized = false
+	}
+	if res.Command == Commit && res.End > s.cycle.res.End {
+		s.cycle.res.End = res.End
+	}
+	fulfilled := s.cycle.counter == s.nodeCount
+	if fulfilled {
+		s.cycle.counter = 0
+	}
+	return res, fulfilled, nil
 }

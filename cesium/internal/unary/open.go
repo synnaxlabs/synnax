@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"github.com/synnaxlabs/cesium/internal/migrate"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -134,7 +135,7 @@ func (db *DB) checkMigration() error {
 	if db.cfg.Channel.Version == version.Current {
 		return nil
 	}
-	err := version.Migrate(db.cfg.FS, db.cfg.Channel.Version, version.Current)
+	err := migrate.Migrate(db.cfg.FS, db.cfg.Channel.Version, version.Current)
 	if err != nil {
 		return err
 	}

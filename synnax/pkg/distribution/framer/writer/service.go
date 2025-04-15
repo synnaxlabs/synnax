@@ -83,6 +83,17 @@ type Config struct {
 	// to AlwaysAutoPersist.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	// Sync is set to true if the writer should send acknowledgements for every write request,
+	// not just on failed requests.
+	//
+	// This only applies to write operations, as the writer will always send acknowledgements
+	// for calls to Commit and SetAuthority.
+	//
+	// This setting is good for testing and debugging purposes, as it provides guarantees
+	// that a writer has successfully processed a frame, but can have a considerable
+	// performance impact.
+	// [OPTIONAL] - Defaults to false.
+	Sync *bool `json:"sync" msgpack:"sync"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -120,6 +131,7 @@ func DefaultConfig() Config {
 		Mode:                     ts.WriterPersistStream,
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
+		Sync:                     config.False(),
 	}
 }
 
@@ -144,6 +156,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		Mode:                     c.Mode,
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+		Sync:                     c.Sync,
 	}
 }
 
@@ -152,6 +165,9 @@ func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
 	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
+	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
+	validate.NotNil(v, "Sync", c.Sync)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -171,6 +187,7 @@ func (c Config) Override(other Config) Config {
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.Sync = override.Nil(c.Sync, other.Sync)
 	return c
 }
 
@@ -253,7 +270,11 @@ const (
 // the writer will immediately abort all pending writes and return an error.
 func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
-	seg, err := s.NewStream(ctx, cfgs...)
+	cfg, err := config.New(DefaultConfig(), cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -268,9 +289,9 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 		confluence.RecoverWithErrOnPanic(),
 	)
 	return &Writer{
+		cfg:       cfg,
 		requests:  req,
 		responses: res,
-		wg:        sCtx,
 		shutdown:  signal.NewHardShutdown(sCtx, cancel),
 	}, nil
 }
@@ -299,13 +320,13 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeValidatorTo  address.Address
 	)
 
-	v := &validator{signal: make(chan bool, 1), keys: cfg.Keys}
+	v := &validator{keys: cfg.Keys}
 	plumber.SetSegment[Request, Request](pipe, validatorAddr, v)
 	plumber.SetSource[Response](pipe, validatorResponsesAddr, &v.responses)
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal, s.Instrumentation),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)
@@ -341,7 +362,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode)
+		w := s.newFree(cfg.Mode, *cfg.Sync)
 		plumber.SetSegment[Request, Response](pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}

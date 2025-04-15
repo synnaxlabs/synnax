@@ -18,6 +18,7 @@ import (
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -42,27 +43,26 @@ var _ = Describe("Writer", func() {
 				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
+					Sync:  config.True(),
 				}))
-				Expect(writer.Write(core.Frame{
+				MustSucceed(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					}},
-				)).To(BeTrue())
-				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
-				Expect(writer.Write(core.Frame{
+				))
+				MustSucceed(writer.Commit())
+				MustSucceed(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					}},
-				)).To(BeTrue())
-				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
+				))
+				MustSucceed(writer.Commit())
 				Expect(writer.Close()).To(Succeed())
 			})
 		}
@@ -72,9 +72,10 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func() { s = gatewayOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 		It("Should return an error if no keys are provided", func() {
-			_, err := s.service.New(context.TODO(), writer.Config{
+			_, err := s.service.New(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
+				Sync:  config.True(),
 			})
 			Expect(err).To(Equal(validate.FieldError{
 				Field:   "keys",
@@ -88,6 +89,7 @@ var _ = Describe("Writer", func() {
 					s.keys[0],
 				},
 				Start: 10 * telem.SecondTS,
+				Sync:  config.True(),
 			})
 			Expect(err).To(HaveOccurredAs(query.NotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
@@ -104,8 +106,9 @@ var _ = Describe("Writer", func() {
 			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
+				Sync:  config.True(),
 			}))
-			Expect(writer.Write(core.Frame{
+			_, err := writer.Write(core.Frame{
 				Keys: append(s.keys, channel.NewKey(12, 22)),
 				Series: []telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
@@ -113,12 +116,9 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV[int64](5, 6, 7),
 					telem.NewSeriesV[int64](5, 6, 7),
 				}},
-			)).To(BeTrue())
-			Expect(writer.Commit()).To(BeFalse())
-			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Close()).To(Succeed())
+			)
+			Expect(err).To(HaveOccurredAs(validate.Error))
+			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
 		})
 	})
 })
@@ -135,17 +135,17 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test2",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test3",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 	}

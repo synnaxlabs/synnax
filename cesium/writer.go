@@ -15,15 +15,16 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
+	"io"
 )
 
 type Writer struct {
 	cfg       WriterConfig
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
-	wg        signal.WaitGroup
 	logger    *zap.Logger
 	closed    bool
+	shutdown  io.Closer
 }
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
@@ -31,7 +32,7 @@ const unexpectedSteamClosure = "unexpected early closure of response stream"
 var errWriterClosed = core.EntityClosed("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
-	sCtx, _ := signal.Isolated()
+	sCtx, cancel := signal.Isolated()
 	req := confluence.NewStream[WriterRequest](1)
 	res := confluence.NewStream[WriterResponse](1)
 	internal.InFrom(req)
@@ -41,18 +42,21 @@ func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return &Writer{cfg: cfg, requests: req, responses: res, wg: sCtx}
+	return &Writer{
+		cfg:       cfg,
+		requests:  req,
+		responses: res,
+		shutdown:  signal.NewHardShutdown(sCtx, cancel),
+	}
 }
 
-func (w *Writer) Write(frame Frame) (bool, error) {
+func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterWrite}, *w.cfg.Sync)
 	if err != nil {
 		return false, err
 	}
-	if *w.cfg.Sync {
-		return res.Authorized, nil
-	}
-	return true, nil
+	authorized = !*w.cfg.Sync || res.Authorized
+	return
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
@@ -90,5 +94,5 @@ func (w *Writer) Close() error {
 	w.closed = true
 	w.requests.Close()
 	confluence.Drain(w.responses)
-	return w.wg.Wait()
+	return w.shutdown.Close()
 }

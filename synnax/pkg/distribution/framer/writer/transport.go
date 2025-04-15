@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 //go:generate stringer -type=Command
@@ -29,6 +30,8 @@ const (
 	SetAuthority
 )
 
+var validateCommand = validate.NewEnumBoundsChecker(Open, SetAuthority)
+
 type Mode = ts.WriterMode
 
 // Request represents a streaming call to a Writer.
@@ -39,18 +42,26 @@ type Request struct {
 	// when open command is sent.
 	Config Config `json:"config" msgpack:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Data commands.
-	Frame  core.Frame `json:"frame" msgpack:"keys"`
+	Frame core.Frame `json:"frame" msgpack:"keys"`
+	// SeqNum is used to match the request with the response.
 	SeqNum int
 }
 
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
 	// Command is the command that was executed on the writer.
-	Command       Command          `json:"command" msgpack:"command"`
-	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
-	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
-	End           telem.TimeStamp  `json:"end" msgpack:"end"`
-	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
+	Command Command `json:"command" msgpack:"command"`
+	// SeqNum is the current sequence number of the command. This value will
+	// correspond to the Request.SeqNum that executed the command.
+	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	// The NodeKey of the node that sent the response.
+	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	// End is the end timestamp of the domain on commit. This value is only
+	// validate during calls to WriterCommit.
+	End telem.TimeStamp `json:"end" msgpack:"end"`
+	// Authorized flags whether the writer or commit operation was authorized. It is only
+	// valid during calls to WriterWrite and WriterCommit.
+	Authorized bool `json:"authorized" msgpack:"authorized"`
 }
 
 type (

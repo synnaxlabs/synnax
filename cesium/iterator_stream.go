@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -69,11 +70,13 @@ const (
 	IterSeekGE
 	// IterValid represents a call to Iterator.Valid.
 	IterValid
-	// IterError represents a call to Iterator.Close.
+	// IterError represents a call to Iterator.Error.
 	IterError
 	// IterSetBounds represents a call to Iterator.SetBounds.
 	IterSetBounds
 )
+
+var validateIteratorCommand = validate.NewEnumBoundsChecker(IterNext, IterSetBounds)
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
@@ -162,6 +165,9 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
+	if err := validateIteratorCommand(req.Command); err != nil {
+		return false, err
+	}
 	switch req.Command {
 	case IterNext:
 		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })

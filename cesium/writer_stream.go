@@ -37,6 +37,8 @@ const (
 	WriterSetAuthority
 )
 
+var validateWriterCommand = validate.NewEnumBoundsChecker(WriterWrite, WriterSetAuthority)
+
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
 	// Command is the command to execute on the Writer.
@@ -54,13 +56,14 @@ type WriterRequest struct {
 type WriterResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// SeqNum is the current sequence number of the command being executed. SeqNum is
-	// incremented for WriterError and WriterCommit calls, but NOT WriterWrite calls.
+	// SeqNum is the current sequence number of the command being executed. This value
+	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
-	//
+	// Authorized flags whether the write or commit operation was authorized. It is only
+	// valid during calls to WriterWrite and WriterCommit.
 	Authorized bool
 }
 
@@ -130,8 +133,8 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) error {
-	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
-		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
+	if err := validateWriterCommand(req.Command); err != nil {
+		return err
 	}
 	if req.Command == WriterSetAuthority {
 		if err := w.setAuthority(ctx, req.Config); err != nil {

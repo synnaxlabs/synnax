@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version_test
+package migrate_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -33,7 +33,7 @@ var _ = Describe("Migration Test", func() {
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
-			Specify("Unversioned to v1", func() {
+			Specify("Unversioned to V1", func() {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
