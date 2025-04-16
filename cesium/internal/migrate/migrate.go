@@ -10,54 +10,51 @@
 package migrate
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/version"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
+	"github.com/synnaxlabs/x/migrate"
+	xversion "github.com/synnaxlabs/x/version"
 )
 
-type migration = func(ch core.Channel, fs xfs.FS) (core.Channel, error)
-
-var migrations = map[string]migration{
-	"01": migrate01,
-	"02": migrate02,
+type DBState struct {
+	Channel core.Channel
+	FS      xfs.FS
+	Purge   bool
 }
 
-func Migrate(
-	ch core.Channel,
-	fs xfs.FS,
-	newVersion version.Version,
-) error {
-	migrate, ok := migrations[strconv.Itoa(int(oldVersion))+strconv.Itoa(int(newVersion))]
-	if !ok {
-		return errors.Newf("migration from version %d to version %d not found", oldVersion, newVersion)
-	}
-	err := migrate(fs)
-	if err != nil {
-		return errors.Wrap(err, "version migration error")
-	}
-
-	return nil
+// GetVersion implements migrate.Migratable.
+func (d DBState) GetVersion() xversion.Semantic {
+	return xversion.Semantic(fmt.Sprintf("%d.%d.%d", d.Channel.Version, 0, 0))
 }
 
-// migrate01 is a migration from unversioned to v1 (which is the same as unversioned)
-func migrate01(ch core.Channel, _ xfs.FS) (core.Channel, error) {
-	return ch, nil
-}
+var _ migrate.Migratable = DBState{}
 
-func migrate02(ch core.Channel, fs xfs.FS) (core.Channel, error) {
-	err = meta.Validate(ch)
-	var fieldErr validate.FieldError
-	if errors.As(err, &fieldErr) {
-		if fieldErr.Field == "index" && fieldErr.Message == "non-indexed channel must have an index" {
-			if err := fs.Remove("."); err != nil {
-				return err
+var (
+	migrateV0toV1 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
+		Name: "cesium.migrate",
+		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
+			state.Channel.Version = version.V1
+			return state, nil
+		},
+	})
+	migrateV1toV2 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
+		Name: "cesium.migrate",
+		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
+			state.Channel.Version = version.V2
+			if state.Channel.Virtual || state.Channel.IsIndex {
+				return state, nil
 			}
-		}
+			state.Purge = state.Channel.Index == 0
+			return state, nil
+		},
+	})
+	migrations = migrate.Migrations{
+		"0.0.0": migrateV0toV1,
+		"1.0.0": migrateV1toV2,
 	}
-	return err
-}
+	Migrate = migrate.Migrator(migrate.MigratorConfig[DBState, DBState]{
+		Migrations: migrations,
+	})
+)

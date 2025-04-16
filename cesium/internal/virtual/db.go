@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -94,7 +93,7 @@ func Open(configs ...Config) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = meta.ReadOrCreate(cfg.FS, cfg.Channel, cfg.MetaCodec)
+	cfg.Channel, err = meta.Open(cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -118,15 +117,7 @@ func Open(configs ...Config) (db *DB, err error) {
 		openWriters:      &atomic.Int32{},
 	}
 	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
-	return db, db.checkMigration()
-}
-
-func (db *DB) checkMigration() error {
-	if db.cfg.Channel.Version == version.Current {
-		return nil
-	}
-	db.cfg.Channel.Version = version.Current
-	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return db, nil
 }
 
 func (db *DB) Channel() core.Channel {

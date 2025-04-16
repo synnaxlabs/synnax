@@ -12,6 +12,7 @@ package cesium
 import (
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
@@ -128,7 +129,7 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
+	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
@@ -136,7 +137,10 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		return db.openUnary(ch, fs)
 	}
-	return err
+	if !errors.Is(err, meta.ErrorPurge) {
+		return err
+	}
+	return db.fs.Remove(keyToDirName(ch.Key))
 }
 
 func openFS(opts *options) error {

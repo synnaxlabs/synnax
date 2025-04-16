@@ -10,6 +10,7 @@
 package meta
 
 import (
+	"github.com/synnaxlabs/cesium/internal/migrate"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"os"
 
@@ -23,11 +24,13 @@ import (
 
 const metaFile = "meta.json"
 
-// ReadOrCreate reads the metadata file for a database whose data is kept in fs and is
+var ErrorPurge = errors.New("channel should be purged")
+
+// Open reads the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
 // all fields required by the DB correctly set.
-func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
+func Open(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
 		return ch, err
@@ -37,7 +40,16 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel,
 		if err != nil {
 			return ch, err
 		}
-		return ch, Validate(ch)
+		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
+		if state.Purge {
+			return ch, ErrorPurge
+		}
+		if state.Channel.Version != ch.Version {
+			if err := Create(fs, codec, state.Channel); err != nil {
+				return ch, err
+			}
+		}
+		return state.Channel, Validate(state.Channel)
 	}
 
 	return ch, Create(fs, codec, ch)
@@ -63,8 +75,6 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	if ch.Version == version.Current {
 		return
 	}
-	err := migrate.M
-
 	return
 }
 

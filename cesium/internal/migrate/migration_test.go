@@ -45,7 +45,7 @@ var _ = Describe("Migration Test", func() {
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB := MustSucceed(db.RetrieveChannel(ctx, ch.Key))
-					Expect(chInDB.Version).To(Equal(uint8(1)))
+					Expect(chInDB.Version).To(Equal(uint8(2)))
 
 					var (
 						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))
