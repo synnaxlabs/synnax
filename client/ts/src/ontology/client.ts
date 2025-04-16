@@ -249,10 +249,10 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 }
 
-const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
-const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
-const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
-const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
+export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
+export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
+export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
+export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
 /**
  * A class that tracks changes to the ontology's resources and relationships.

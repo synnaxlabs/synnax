@@ -129,17 +129,26 @@ export class Aliaser {
   }
 }
 
-export interface Alias {
-  range: Key;
-  channel: channel.Key;
-  alias: string;
-}
+export const aliasZ = z.object({
+  alias: z.string(),
+  channel: channel.keyZ,
+  range: keyZ,
+});
+export interface Alias extends z.infer<typeof aliasZ> {}
 
 export type AliasChange = change.Change<string, Alias>;
 
-const aliasZ = z.object({ range: keyZ, channel: channel.keyZ, alias: z.string() });
+const SEPARATOR = "---";
 
-const separator = "---";
+export const decodeDeleteAliasChanges = (
+  deletedAlias: string,
+): {
+  range: Key;
+  channel: channel.Key;
+} => {
+  const [range, channel] = deletedAlias.split(SEPARATOR);
+  return { range, channel: Number(channel) };
+};
 
 const decodeAliasChanges =
   (rangeKey: Key): signals.Decoder<string, Alias> =>
@@ -147,7 +156,7 @@ const decodeAliasChanges =
     if (variant === "delete")
       return data
         .toStrings()
-        .filter((k) => k.split(separator)[0] === rangeKey)
+        .filter((k) => decodeDeleteAliasChanges(k).range === rangeKey)
         .map((alias) => ({
           variant,
           key: alias,
