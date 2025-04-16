@@ -19,7 +19,7 @@ import {
   useMemo,
 } from "react";
 
-import { useActiveRange, useAliases } from "@/channel/AliasProvider";
+import { useActiveRange, useAliases } from "@/channel/AliasContext";
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -105,7 +105,7 @@ export const SelectMultiple = ({
   const searcher = useMemo(
     () =>
       client?.channels.newSearcherWithOptions({
-        rangeKey: activeRange,
+        rangeKey: activeRange ?? undefined,
         internal: false,
         ...memoSearchOptions,
       }),
@@ -211,7 +211,7 @@ export const SelectSingle = ({
   const searcher = useMemo(() => {
     if (data != null && data.length > 0) return undefined;
     return client?.channels.newSearcherWithOptions({
-      rangeKey: activeRange,
+      rangeKey: activeRange ?? undefined,
       internal: false,
       ...memoSearchOptions,
     });
