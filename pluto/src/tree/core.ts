@@ -134,9 +134,8 @@ export interface RemoveNodeProps {
 
 export const removeNode = ({ tree, keys }: RemoveNodeProps): Node[] => {
   keys = toArray(keys);
-  const treeKeys = tree.map((node) => node.key);
   keys.forEach((key) => {
-    const index = treeKeys.indexOf(key);
+    const index = tree.findIndex((node) => node.key === key);
     if (index !== -1) tree.splice(index, 1);
     else {
       const parent = findNodeParent({ tree, key });

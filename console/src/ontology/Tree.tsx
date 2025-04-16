@@ -376,15 +376,13 @@ const Internal = ({ root }: TreeProps): ReactElement => {
       );
       const firstNodeOfMinDepth = dropped.find(({ data }) => data?.depth === minDepth);
       if (firstNodeOfMinDepth == null) return [];
-      // Find the parent where the node is being dropped.
+      const moved = dropped.filter(({ data }) => data?.depth === minDepth);
+      const keys = moved.map(({ key }) => key as string);
       const parent = Core.findNodeParent({
         tree: nodesSnapshot,
         key: firstNodeOfMinDepth.key.toString(),
       });
-      if (parent == null) return [];
-      const moved = dropped.filter(({ data }) => data?.depth === minDepth);
-      const keys = moved.map(({ key }) => key as string);
-      const sourceID = new ontology.ID(parent.key);
+      const sourceID = new ontology.ID(parent?.key ?? root.toString());
       treeProps.contract(...keys);
       dropMutation.mutate({
         source: sourceID,
@@ -393,7 +391,7 @@ const Internal = ({ root }: TreeProps): ReactElement => {
       });
       return moved;
     },
-    [client, treeProps.contract],
+    [client, treeProps.contract, root],
   );
 
   const getRenameProps = useCallback(
