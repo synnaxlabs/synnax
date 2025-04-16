@@ -38,7 +38,6 @@ const Content = (): ReactElement => {
             {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
           </Toolbar.Actions>
         </Toolbar.Header>
-
         <Ontology.Tree root={group.data?.ontologyID} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>
