@@ -64,8 +64,5 @@ export const useDeep = (
   }, []);
 
   // Handles the case where the app is open and a link gets called
-  useAsyncEffect(async () => {
-    const unlisten = await onOpenUrl((urls) => void urlHandler(urls));
-    return unlisten;
-  }, []);
+  useAsyncEffect(async () => await onOpenUrl((urls) => void urlHandler(urls)), []);
 };
