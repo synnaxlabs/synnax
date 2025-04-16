@@ -27,5 +27,5 @@ export const useSyncClusterKey = () => {
     if (activeClusterKey == null) return;
     if (activeClusterKey === clusterKey) return;
     dispatch(changeKey({ oldKey: activeClusterKey, newKey: clusterKey }));
-  }, [status]);
+  }, [status, activeClusterKey, clusterKey, dispatch]);
 };
