@@ -36,7 +36,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	})
 
 	It("Should handle basic CRUD operations", func() {
-		// Set and get
 		key := []byte("key")
 		value := []byte("value")
 		Expect(db.Set(ctx, key, value)).To(Succeed())
@@ -45,12 +44,10 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		Expect(got).To(Equal(value))
 		Expect(closer.Close()).To(Succeed())
 
-		// NotFound case
 		_, closer, err = db.Get(ctx, []byte("non-existent"))
 		Expect(err).To(Equal(kv.NotFound))
 		Expect(closer).To(BeNil())
 
-		// Delete
 		Expect(db.Delete(ctx, key)).To(Succeed())
 		_, closer, err = db.Get(ctx, key)
 		Expect(err).To(Equal(kv.NotFound))
@@ -58,7 +55,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	})
 
 	It("Should handle transactions correctly", func() {
-		// Successful commit
 		tx := db.OpenTx()
 		key := []byte("tx-key")
 		value := []byte("tx-value")
@@ -71,12 +67,11 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		Expect(got).To(Equal(value))
 		Expect(closer.Close()).To(Succeed())
 
-		// Rollback
 		tx = db.OpenTx()
 		rollbackKey := []byte("rollback-key")
 		rollbackValue := []byte("rollback-value")
 		Expect(tx.Set(ctx, rollbackKey, rollbackValue)).To(Succeed())
-		Expect(tx.Close()).To(Succeed()) // Close without commit = rollback
+		Expect(tx.Close()).To(Succeed())
 
 		_, closer, err = db.Get(ctx, rollbackKey)
 		Expect(err).To(Equal(kv.NotFound))
@@ -99,7 +94,9 @@ var _ = Describe("Pebblekv", Ordered, func() {
 			UpperBound: []byte("d"),
 		})
 		Expect(err).ToNot(HaveOccurred())
-		defer iter.Close()
+		defer func() {
+			Expect(iter.Close()).To(Succeed())
+		}()
 
 		expected := []struct {
 			key   string
@@ -122,12 +119,10 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	It("Should read transaction changes correctly", func() {
 		tx := db.OpenTx()
 
-		// Create a set of changes
 		Expect(tx.Set(ctx, []byte("k1"), []byte("v1"))).To(Succeed())
 		Expect(tx.Set(ctx, []byte("k2"), []byte("v2"))).To(Succeed())
 		Expect(tx.Delete(ctx, []byte("k1"))).To(Succeed())
 
-		// Verify TxReader behavior
 		reader := tx.NewReader()
 		Expect(reader.Count()).To(Equal(3))
 
@@ -136,7 +131,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 			changes = append(changes, change)
 		}
 
-		// Verify changes in order
 		Expect(changes).To(HaveLen(3))
 		Expect(changes[0].Variant).To(Equal(change.Set))
 		Expect(changes[0].Key).To(Equal([]byte("k1")))
@@ -153,7 +147,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	})
 
 	It("Should handle iterator bounds correctly", func() {
-		// Setup sequential keys
 		for i := byte(0); i < 5; i++ {
 			key := []byte{i}
 			Expect(db.Set(ctx, key, []byte{i + 10})).To(Succeed())
@@ -166,14 +159,12 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer iter.Close()
 
-		// Check forward iteration
 		values := make([]byte, 0, 3)
 		for iter.First(); iter.Valid(); iter.Next() {
 			values = append(values, iter.Value()[0])
 		}
 		Expect(values).To(Equal([]byte{11, 12, 13}))
 
-		// Check reverse iteration
 		values = make([]byte, 0, 3)
 		for iter.Last(); iter.Valid(); iter.Prev() {
 			values = append(values, iter.Value()[0])
@@ -185,16 +176,13 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		key := []byte("nosync-key")
 		value := []byte("nosync-value")
 
-		// Write with NoSync option
 		Expect(db.Set(ctx, key, value, pebble.NoSync)).To(Succeed())
 
-		// Verify the write succeeded
 		got, closer, err := db.Get(ctx, key)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got).To(Equal(value))
 		Expect(closer.Close()).To(Succeed())
 
-		// Test in transaction context too
 		tx := db.OpenTx()
 		txKey := []byte("nosync-tx-key")
 		txValue := []byte("nosync-tx-value")
@@ -203,7 +191,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		Expect(tx.Commit(ctx, pebble.NoSync)).To(Succeed())
 		Expect(tx.Close()).To(Succeed())
 
-		// Verify transaction write succeeded
 		got, closer, err = db.Get(ctx, txKey)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got).To(Equal(txValue))
@@ -226,12 +213,10 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		key := []byte("tx-get-key")
 		value := []byte("tx-get-value")
 
-		// Get on non-existent key
 		_, closer, err := tx.Get(ctx, key)
 		Expect(err).To(Equal(kv.NotFound))
 		Expect(closer).To(BeNil())
 
-		// Set and get within transaction
 		Expect(tx.Set(ctx, key, value)).To(Succeed())
 		got, closer, err := tx.Get(ctx, key)
 		Expect(err).ToNot(HaveOccurred())
@@ -247,7 +232,6 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	})
 
 	It("Should handle db.Commit as no-op", func() {
-		// db.Commit is a no-op in pebblekv
 		Expect(db.Commit(ctx)).To(Succeed())
 	})
 
