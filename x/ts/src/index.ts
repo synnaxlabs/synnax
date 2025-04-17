@@ -37,6 +37,7 @@ export * from "@/runtime";
 export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/spatial";
+export * from "@/status";
 export * from "@/strings";
 export * from "@/telem";
 export * from "@/toArray";
