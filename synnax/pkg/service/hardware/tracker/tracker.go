@@ -221,7 +221,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	for _, dev := range allDevices {
 		deviceState := device.State{
 			Key:     dev.Key,
-			Variant: "info",
+			Variant: status.InfoVariant,
 			Details: "",
 			Rack:    dev.Rack,
 		}
@@ -480,7 +480,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		if r.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
 		}
-		r.State.Variant = "warning"
+		r.State.Variant = status.WarningVariant
 		r.State.Message = fmt.Sprintf("Driver %s is not alive", r.Key)
 		rackStates = append(rackStates, r.State)
 
