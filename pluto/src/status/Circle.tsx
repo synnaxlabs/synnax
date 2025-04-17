@@ -15,11 +15,21 @@ import { VARIANT_COLORS } from "@/status/colors";
 
 export interface CircleProps extends IconProps {
   variant?: status.Variant;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
 export const Circle = ({
   variant = status.INFO_VARIANT,
+  disabled = false,
+  loading = false,
   ...rest
-}: CircleProps): ReactElement => (
-  <Icon.Circle color={VARIANT_COLORS[variant]} {...rest} />
-);
+}: CircleProps): ReactElement =>
+  loading ? (
+    <Icon.Loading {...rest} />
+  ) : (
+    <Icon.Circle
+      color={disabled ? "var(--pluto-gray-l8)" : VARIANT_COLORS[variant]}
+      {...rest}
+    />
+  );
