@@ -9,42 +9,27 @@
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { isTauri } from "@tauri-apps/api/core";
-import { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
-import { getCurrentWindow as tauriGetCurrentWindow, Window, Theme } from "@tauri-apps/api/window";
+import { getCurrentWindow as tauriGetCurrentWindow, type Window } from "@tauri-apps/api/window";
 
 /**
  * An object that looks like `Window` from `@tauri-apps/api/window`.
  */
-export interface WindowLike {
-    label: string
-
-    show: () => Promise<void>
-    close: () => Promise<void>
-    minimize: () => Promise<void>
-    maximize: () => Promise<void>
-
-    onThemeChanged: (handler: EventCallback<Theme>) => Promise<UnlistenFn>;
-    theme(): Promise<Theme | null>;
-}
+type WindowLike = Pick<Window, "label" | "show" | "close" | "minimize" | "maximize" | "onThemeChanged" | "theme">;
 
 /**
  * Get the current Tauri window, or a similarly-shaped stub object if running in the browser.
  */
 export const getCurrentWindow = (): Window | WindowLike => {
-    if (isTauri()) {
+    if (isTauri())
         return tauriGetCurrentWindow();
-    } else {
-        return {
-            label: MAIN_WINDOW,
-            show: async () => { },
-            close: async () => { },
-            minimize: async () => { },
-            maximize: async () => { },
-            onThemeChanged: async (handler) => {
-                return () => { }
-            },
-            theme: async () => { return null; },
 
-        }
+    return {
+        label: MAIN_WINDOW,
+        show: async () => { },
+        close: async () => { },
+        minimize: async () => { },
+        maximize: async () => { },
+        onThemeChanged: async (_handler) => () => { },
+        theme: async () => null,
     }
 };
