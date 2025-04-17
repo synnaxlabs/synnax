@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type UnknownRecord } from "@synnaxlabs/x";
+import { id, status, type UnknownRecord } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -209,7 +209,7 @@ describe("Device", async () => {
             >(key, { includeState: true });
             return (
               retrieved.state !== undefined &&
-              retrieved.state.variant === "info" &&
+              retrieved.state.variant === status.INFO_VARIANT &&
               retrieved.state.key === key
             );
           })
