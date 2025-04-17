@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, observe, type Series, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  observe,
+  type Series,
+  status as xstatus,
+  TimeStamp,
+} from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
 import { type status } from "@/status/aether";
@@ -116,7 +122,7 @@ class StatusSource extends Noop implements StatusSource {
   async value(): Promise<status.Spec> {
     return {
       key: "noop",
-      variant: "disabled",
+      variant: xstatus.INFO_VARIANT,
       message: "unknown",
       time: TimeStamp.now(),
     };
