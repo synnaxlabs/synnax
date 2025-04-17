@@ -15,6 +15,7 @@ package codec
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -25,6 +26,21 @@ import (
 	"io"
 	"slices"
 )
+
+type LazyCodec struct {
+	Codec
+	Readable channel.Readable
+}
+
+func (l *LazyCodec) Bootstrap(ctx context.Context, keys channel.Keys) error {
+	channels := make([]channel.Channel, 0, len(keys))
+	if err := l.Readable.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+		return err
+	}
+	cdc := NewCodecFromChannels(channels)
+	l.Codec = cdc
+	return nil
+}
 
 type Codec struct {
 	keys         channel.Keys
@@ -112,10 +128,6 @@ func newFlags() flags {
 		equalAlignments:    true,
 		zeroAlignments:     true,
 	}
-}
-
-func writeNaive(buf io.Writer, data any) {
-	_ = binary.Write(buf, byteOrder, data)
 }
 
 func read(r io.Reader, data any) error {
@@ -300,7 +312,7 @@ func (m Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	var k channel.Key
 	for {
 		if err = read(reader, &k); err != nil {
-			err = errors.Ignore(err, io.EOF)
+			err = errors.Skip(err, io.EOF)
 			return
 		}
 		if err = decodeSeries(k); err != nil {

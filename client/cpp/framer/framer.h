@@ -178,6 +178,130 @@ public:
     }
 };
 
+
+/// @brief A simple binary writer to help with frame encoding
+class BinaryWriter {
+    std::vector<uint8_t> &buf;
+    size_t offset;
+
+public:
+    /// @brief Creates a new binary writer that writes to an existing buffer
+    /// @param buffer The buffer to write to
+    /// @param size The size to resize the buffer to
+    /// @param offset The starting offset
+    BinaryWriter(std::vector<uint8_t> &buffer, size_t size, size_t offset = 0):
+        buf(buffer), offset(offset) {
+        buf.resize(size);
+    }
+
+    /// @brief Writes a byte to the buffer
+    /// @param value The byte to write
+    void uint8(uint8_t value);
+
+    /// @brief Writes a 32-bit unsigned integer to the buffer
+    /// @param value The uint32 to write
+    void uint32(uint32_t value);
+
+    /// @brief Writes a 64-bit unsigned integer to the buffer
+    /// @param value The uint64 to write
+    void uint64(uint64_t value);
+
+    /// @brief Writes raw bytes to the buffer
+    /// @param data The bytes to write
+    /// @param size The number of bytes to write
+    void write(const void *data, size_t size);
+
+    /// @brief Returns the buffer
+    /// @return The buffer as a byte vector
+    std::vector<uint8_t> bytes() const;
+};
+
+/// @brief Bit positions for flags in the frame codec
+enum class FlagPosition : uint8_t {
+    ZeroAlignments = 5,
+    EqualAlignments = 4,
+    EqualLengths = 3,
+    EqualTimeRanges = 2,
+    TimeRangesZero = 1,
+    AllChannelsPresent = 0
+};
+
+/// @brief Codec flags for optimizing frame encoding/decoding
+struct CodecFlags {
+    bool equal_lens = true;
+    bool equal_time_ranges = true;
+    bool time_ranges_zero = true;
+    bool all_channels_present = true;
+    bool equal_alignments = true;
+    bool zero_alignments = true;
+
+    /// @brief Encodes the flags into a byte
+    /// @return The encoded flags
+    uint8_t encode() const;
+
+    /// @brief Decodes flags from a byte
+    /// @param b The byte to decode
+    /// @return The decoded flags
+    static CodecFlags decode(uint8_t b);
+};
+
+/// @brief Codec for encoding and decoding frames efficiently.
+/// This implements the Frame Flight Protocol (RFC 0016)
+class Codec {
+public:
+    Codec() = default;
+
+    /// @brief Creates a new codec with the given data types and channels
+    /// @param data_types The data types corresponding to each channel
+    /// @param channels The channel keys
+    Codec(
+        const std::vector<telem::DataType> &data_types,
+        const std::vector<ChannelKey> &channels
+    );
+
+    /// @brief Creates a new codec from a list of channels
+    /// @param channels The channels to create the codec from
+    explicit Codec(const std::vector<Channel> &channels);
+
+    /// @brief Encodes a frame into a byte array
+    /// @param frame The frame to encode
+    /// @param start_offset The starting offset in the output buffer
+    /// @return The encoded frame as a byte vector
+    void encode(const Frame &frame, size_t start_offset, std::vector<uint8_t> &data);
+
+    /// @brief Decodes a frame from a byte array
+    /// @param data The byte array to decode
+    /// @return The decoded frame
+    Frame decode(const std::vector<uint8_t> &data) const;
+
+    /// @brief Decodes a frame from a stream
+    /// @param stream The stream to read from
+    /// @return The decoded frame
+    Frame decode_stream(std::istream &stream) const;
+
+    std::vector<ChannelKey> keys;
+    std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+    std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
+
+    /// @brief Reads a time range from a stream
+    /// @param stream The stream to read from
+    /// @return The time range
+    static telem::TimeRange read_time_range(std::istream &stream);
+
+    /// @brief Writes a time range to a binary writer
+    /// @param writer The writer to write to
+    /// @param tr The time range to write
+    static void write_time_range(BinaryWriter &writer, const telem::TimeRange &tr);
+};
+inline bool get_bit(const uint8_t byte, FlagPosition pos) {
+    return byte >> static_cast<uint8_t>(pos) & 1;
+}
+
+inline uint8_t set_bit(const uint8_t byte, FlagPosition pos, const bool value) {
+    if (value) return byte | 1 << static_cast<uint8_t>(pos);
+    return byte & ~(1 << static_cast<uint8_t>(pos));
+}
+
 /// @brief configuration for opening a new streamer.
 class StreamerConfig {
 public:
@@ -329,6 +453,7 @@ struct WriterConfig {
     /// FOLLOW THIS RULE.
     bool enable_proto_frame_caching = false;
 
+    bool enable_experimental_codec = false;
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameWriterConfig *f) const;
@@ -419,6 +544,7 @@ private:
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
+    Codec codec;
 
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
@@ -444,15 +570,21 @@ private:
     friend class FrameClient;
 };
 
+using RetrieveChannels = std::function<
+    std::pair<std::vector<synnax::Channel>, xerrors::Error>(
+        std::vector<synnax::ChannelKey>
+    )>;
+
 class FrameClient {
 public:
     FrameClient(
         std::unique_ptr<StreamerClient> streamer_client,
-        std::unique_ptr<WriterClient> writer_client
+        std::unique_ptr<WriterClient> writer_client,
+        const RetrieveChannels &retrieve_channels
     ):
         streamer_client(std::move(streamer_client)),
-        writer_client(std::move(writer_client)) {}
-
+        writer_client(std::move(writer_client)),
+        retrieve_channels(retrieve_channels) {}
 
     /// @brief opens a new frame writer using the given configuration. For
     /// information on configuration parameters, see WriterConfig.
@@ -460,8 +592,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error> open_writer(const WriterConfig &cfg
-    ) const;
+    [[nodiscard]] std::pair<Writer, xerrors::Error>
+    open_writer(const WriterConfig &cfg) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
     /// information on configuration parameters, see StreamerConfig.
@@ -480,5 +612,8 @@ private:
     /// @brief freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
+    RetrieveChannels retrieve_channels;
 };
+
+
 }

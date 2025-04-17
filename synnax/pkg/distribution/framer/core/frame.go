@@ -11,9 +11,9 @@ package core
 
 import (
 	"fmt"
-	"strings"
-	"sort"
 	"slices"
+	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -147,20 +147,6 @@ func (f *Frame) Sort() {
 		return
 	}
 	sort.Sort(&frameSorter{f: f})
-}
-
-func (f *Frame) String() string {
-	var b strings.Builder
-	b.WriteString("Frame{\n")
-	for i, k := range f.Keys {
-		b.WriteString("  ")
-		b.WriteString(k.String())
-		b.WriteString(":")
-		b.WriteString(f.Series[i].String())
-		b.WriteString("\n")
-	}
-	b.WriteString("}")
-	return b.String()
 }
 
 // frameSorter is a helper type that implements sort.Interface for sorting Frame.

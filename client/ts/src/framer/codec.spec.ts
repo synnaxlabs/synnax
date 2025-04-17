@@ -1,8 +1,8 @@
-import { WebsocketMessage } from "@synnaxlabs/freighter";
+import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { framer } from "@/framer";
 import {
   Codec,
@@ -11,7 +11,7 @@ import {
   WSWriterCodec,
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
-import { WriterCommand, WriteRequest } from "@/framer/writer";
+import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
   describe("base codec", () => {

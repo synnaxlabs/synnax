@@ -99,11 +99,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.LogSetData = fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, "/api/v1/workspace/log/set-data")
 
 	// TABLE
-	t.TableCreate = fhttp.UnaryServer[api.TableCreateRequest, api.TableCreateResponse](router, false, "/api/v1/workspace/table/create")
-	t.TableRetrieve = fhttp.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse](router, false, "/api/v1/workspace/table/retrieve")
-	t.TableDelete = fhttp.UnaryServer[api.TableDeleteRequest, types.Nil](router, false, "/api/v1/workspace/table/delete")
-	t.TableRename = fhttp.UnaryServer[api.TableRenameRequest, types.Nil](router, false, "/api/v1/workspace/table/rename")
-	t.TableSetData = fhttp.UnaryServer[api.TableSetDataRequest, types.Nil](router, false, "/api/v1/workspace/table/set-data")
+	t.TableCreate = fhttp.UnaryServer[api.TableCreateRequest, api.TableCreateResponse](router, "/api/v1/workspace/table/create")
+	t.TableRetrieve = fhttp.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse](router, "/api/v1/workspace/table/retrieve")
+	t.TableDelete = fhttp.UnaryServer[api.TableDeleteRequest, types.Nil](router, "/api/v1/workspace/table/delete")
+	t.TableRename = fhttp.UnaryServer[api.TableRenameRequest, types.Nil](router, "/api/v1/workspace/table/rename")
+	t.TableSetData = fhttp.UnaryServer[api.TableSetDataRequest, types.Nil](router, "/api/v1/workspace/table/set-data")
 
 	// LABEL
 	t.LabelCreate = fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, "/api/v1/label/create")

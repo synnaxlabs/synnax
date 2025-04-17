@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"os"
 	"os/signal"
 	"time"
@@ -336,7 +337,7 @@ func start(cmd *cobra.Command) {
 		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
-		grpcAPI, grpcAPITrans := grpcapi.New()
+		grpcAPI, grpcAPITrans := grpcapi.New(&framercodec.LazyCodec{Readable: dist.Channel})
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 

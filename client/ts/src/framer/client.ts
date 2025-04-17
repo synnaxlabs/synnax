@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type StreamClient, WebSocketClient } from "@synnaxlabs/freighter";
+import { type UnaryClient, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -33,7 +33,11 @@ export class Client {
   private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
 
-  constructor(stream: WebSocketClient, unary: UnaryClient, retriever: channel.Retriever) {
+  constructor(
+    stream: WebSocketClient,
+    unary: UnaryClient,
+    retriever: channel.Retriever,
+  ) {
     this.streamClient = stream;
     this.retriever = retriever;
     this.deleter = new Deleter(unary);

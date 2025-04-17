@@ -60,6 +60,7 @@ message FrameWriterRequest {
     int32 command = 1;
     FrameWriterConfig config = 2;
     Frame frame = 3;
+    bytes buffer = 4;
 }
 
 message FrameWriterResponse {

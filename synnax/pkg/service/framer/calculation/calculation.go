@@ -374,7 +374,7 @@ func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerRespo
 		s.setState(ctx, s.internal.ch.Key(), "error", err.Error())
 		return framer.WriterRequest{}, false, nil
 	}
-	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
+	return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
 }
 
 type Calculator struct {

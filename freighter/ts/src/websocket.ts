@@ -10,7 +10,7 @@
 import { type binary, buildQueryString, runtime, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { decodeError, EOF, ErrorPayload, errorZ, StreamClosed } from "@/errors";
+import { decodeError, EOF, type ErrorPayload, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -23,7 +23,7 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
 
 const wsMessageZ = z.object({
   type: z.enum(["data", "close", "open"]),
-  payload: z.instanceof(Uint8Array).optional(),
+  payload: z.unknown(),
   error: z.optional(errorZ),
 });
 

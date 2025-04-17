@@ -17,8 +17,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/x/types"
-	"strconv"
-	"strings"
 )
 
 type Series struct {
@@ -74,24 +72,6 @@ func (s Series) Split() [][]byte {
 
 func (s Series) At(i int64) []byte {
 	return s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
-}
-
-func (s Series) String() string {
-	b := strings.Builder{}
-	b.WriteString(string(s.DataType))
-	b.WriteString(" ")
-	sLen := s.Len()
-	b.WriteString(strconv.Itoa(int(sLen)))
-	b.WriteString(" [")
-	stringF := ToStringF(s.DataType)
-	for i := range sLen {
-		b.WriteString(stringF(s.At(i)))
-		if i != sLen-1 {
-			b.WriteString(",")
-		}
-	}
-	b.WriteString("]")
-	return b.String()
 }
 
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports

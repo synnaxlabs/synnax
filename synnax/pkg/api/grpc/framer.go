@@ -11,6 +11,7 @@ package grpc
 
 import (
 	"context"
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter"
@@ -28,7 +29,9 @@ import (
 )
 
 type (
-	frameWriterRequestTranslator    struct{}
+	frameWriterRequestTranslator struct {
+		codec *framercodec.LazyCodec
+	}
 	frameWriterResponseTranslator   struct{}
 	frameIteratorRequestTranslator  struct{}
 	frameIteratorResponseTranslator struct{}
@@ -125,7 +128,7 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameWriterRequest,
 ) (*gapi.FrameWriterRequest, error) {
-	return &gapi.FrameWriterRequest{
+	r := &gapi.FrameWriterRequest{
 		Command: int32(msg.Command),
 		Config: &gapi.FrameWriterConfig{
 			Keys:                     translateChannelKeysForward(msg.Config.Keys),
@@ -138,7 +141,12 @@ func (t frameWriterRequestTranslator) Forward(
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
 		Frame: translateFrameForward(msg.Frame),
-	}, nil
+	}
+	var err error
+	if t.codec != nil {
+		r.Buffer, err = t.codec.Encode(msg.Frame, 0)
+	}
+	return r, err
 }
 
 func (t frameWriterRequestTranslator) Backward(
@@ -150,8 +158,9 @@ func (t frameWriterRequestTranslator) Backward(
 	}
 	r.Command = writer.Command(msg.Command)
 	if msg.Config != nil {
+		keys := translateChannelKeysBackward(msg.Config.Keys)
 		r.Config = api.FrameWriterConfig{
-			Keys:                     translateChannelKeysBackward(msg.Config.Keys),
+			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
 			Mode:                     writer.Mode(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
@@ -160,8 +169,17 @@ func (t frameWriterRequestTranslator) Backward(
 			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
+		if err = t.codec.Bootstrap(ctx, keys); err != nil {
+			return
+		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)
+	if t.codec != nil && len(msg.Buffer) > 0 {
+		r.Frame, err = t.codec.Decode(msg.Buffer)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
@@ -349,11 +367,13 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func newFramer(a *api.Transport) fgrpc.BindableTransport {
+func newFramer(a *api.Transport, framerCodec *framercodec.LazyCodec) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
-				RequestTranslator:  frameWriterRequestTranslator{},
+				RequestTranslator: frameWriterRequestTranslator{
+					codec: framerCodec,
+				},
 				ResponseTranslator: frameWriterResponseTranslator{},
 				ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
 			},

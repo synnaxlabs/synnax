@@ -11,7 +11,7 @@ import {
   decodeError,
   errorZ,
   type Stream,
-  WebSocketClient,
+  type WebSocketClient,
 } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
@@ -24,10 +24,9 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
-import { type Crude, Frame, frameZ } from "@/framer/frame";
+import { type Crude, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 export enum WriterCommand {
@@ -82,7 +81,7 @@ const reqZ = z.object({
   buffer: z.instanceof(Uint8Array).optional(),
 });
 
-export interface WriteRequest extends z.infer<typeof reqZ>{}
+export interface WriteRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
   ack: z.boolean(),
@@ -163,11 +162,9 @@ export class Writer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private _bytesWritten: number = 0;
+  private errAccumulated: boolean = false;
 
-  private constructor(
-    stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: WriteAdapter,
-  ) {
+  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
   }
@@ -184,12 +181,12 @@ export class Writer {
       errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
-      useExperimentalCodec = true,
+      useExperimentalCodec = false,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);
-    if (useExperimentalCodec)
-      client = client.withCodec(new WSWriterCodec(adapter.codec));
+    // if (useExperimentalCodec)
+    //   client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({

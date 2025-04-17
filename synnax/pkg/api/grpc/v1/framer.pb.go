@@ -358,6 +358,7 @@ type FrameWriterRequest struct {
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Config        *FrameWriterConfig     `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	Frame         *Frame                 `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Buffer        []byte                 `protobuf:"bytes,4,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -409,6 +410,13 @@ func (x *FrameWriterRequest) GetConfig() *FrameWriterConfig {
 func (x *FrameWriterRequest) GetFrame() *Frame {
 	if x != nil {
 		return x.Frame
+	}
+	return nil
+}
+
+func (x *FrameWriterRequest) GetBuffer() []byte {
+	if x != nil {
+		return x.Buffer
 	}
 	return nil
 }
@@ -693,11 +701,12 @@ const file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
-	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x86\x01\n" +
+	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x9e\x01\n" +
 	"\x12FrameWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.api.v1.FrameWriterConfigR\x06config\x12#\n" +
-	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\"\xb1\x01\n" +
+	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\x12\x16\n" +
+	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xb1\x01\n" +
 	"\x13FrameWriterResponse\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x10\n" +
 	"\x03ack\x18\x02 \x01(\bR\x03ack\x12\x19\n" +

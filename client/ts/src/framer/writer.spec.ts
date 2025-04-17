@@ -296,65 +296,64 @@ describe("Writer", () => {
     });
   });
 
-  describe.only("performance", async () => {
-    const NUM_CHANNELS = 200;
-    const ITERATIONS = 500;
+  // describe.skip("performance", async () => {
+  //   const NUM_CHANNELS = 200;
+  //   const ITERATIONS = 500;
 
-    const idx = await client.channels.create(
-      {
-        name: "time",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      },
-      { retrieveIfNameExists: true },
-    );
-    const channels = await client.channels.create(
-      Array.from({ length: NUM_CHANNELS }, (_, i) => ({
-        name: `ch-${i}`,
-        dataType: DataType.FLOAT64,
-        index: idx.key,
-      })),
-      { retrieveIfNameExists: true },
-    );
-    const channelKeys = channels.map((c) => c.key);
-    const values = Object.fromEntries(channelKeys.map((k) => [k, 1]));
-    channelKeys.push(idx.key);
+  //   const idx = await client.channels.create(
+  //     {
+  //       name: "time",
+  //       dataType: DataType.TIMESTAMP,
+  //       isIndex: true,
+  //     },
+  //     { retrieveIfNameExists: true },
+  //   );
+  //   const channels = await client.channels.create(
+  //     Array.from({ length: NUM_CHANNELS }, (_, i) => ({
+  //       name: `ch-${i}`,
+  //       dataType: DataType.FLOAT64,
+  //       index: idx.key,
+  //     })),
+  //     { retrieveIfNameExists: true },
+  //   );
+  //   const channelKeys = channels.map((c) => c.key);
+  //   const values = Object.fromEntries(channelKeys.map((k) => [k, 1]));
+  //   channelKeys.push(idx.key);
 
-    [true, false].forEach((reg) => {
-      let wStart = TimeStamp.now();
-      it(
-        `should write 100,000 frames - reg codec - ${reg}`,
-        async () => {
-          if (!reg) wStart = wStart.sub(TimeSpan.days(100));
-          const writer = await client.openWriter({
-            start: wStart,
-            channels: channelKeys,
-            enableAutoCommit: true,
-            useExperimentalCodec: false,
-            mode: WriterMode.Stream,
-          });
-          const streamer = await client.openStreamer({
-            channels: channelKeys,
-            useExperimentalCodec: reg,
-          });
-          const start = performance.now();
-          try {
-            for (let i = 0; i < ITERATIONS; i++) {
-              // values[idx.key] = wStart.add(TimeSpan.seconds(i)).valueOf();
-              await writer.write(values);
-              // const d = await streamer.read();
-            }
-          } finally {
-            await writer.close();
-            streamer.close();
-          }
-          console.log(
-            `Experimental Codec: ${reg}`,
-            TimeSpan.milliseconds(performance.now() - start).toString(),
-          );
-        },
-        { timeout: 10000000 },
-      );
-    });
-  });
+  //   [true, false].forEach((reg) => {
+  //     let wStart = TimeStamp.now();
+  //     it(
+  //       `should write 100,000 frames - reg codec - ${reg}`,
+  //       async () => {
+  //         if (!reg) wStart = wStart.sub(TimeSpan.days(100));
+  //         const writer = await client.openWriter({
+  //           start: wStart,
+  //           channels: channelKeys,
+  //           enableAutoCommit: true,
+  //           useExperimentalCodec: false,
+  //           mode: WriterMode.Stream,
+  //         });
+  //         const streamer = await client.openStreamer({
+  //           channels: channelKeys,
+  //           useExperimentalCodec: reg,
+  //         });
+  //         const start = performance.now();
+  //         try {
+  //           for (let i = 0; i < ITERATIONS; i++)
+  //             // values[idx.key] = wStart.add(TimeSpan.seconds(i)).valueOf();
+  //             await writer.write(values);
+  //           // const d = await streamer.read();
+  //         } finally {
+  //           await writer.close();
+  //           streamer.close();
+  //         }
+  //         console.log(
+  //           `Experimental Codec: ${reg}`,
+  //           TimeSpan.milliseconds(performance.now() - start).toString(),
+  //         );
+  //       },
+  //       { timeout: 10000000 },
+  //     );
+  //   });
+  // });
 });

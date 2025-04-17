@@ -442,7 +442,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 					})
 				}
 				t.stateWriter.Inlet() <- framer.WriterRequest{
-					Command: writer.Data,
+					Command: writer.Write,
 					Frame: core.Frame{
 						Keys:   channel.Keys{t.taskStateChannelKey},
 						Series: []telem.Series{telem.NewStaticJSONV(state)},
@@ -533,7 +533,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		return
 	}
 
-	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Data, Frame: fr}
+	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Write, Frame: fr}
 }
 
 // handleRackState handles heartbeat changes.

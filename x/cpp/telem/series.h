@@ -14,6 +14,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <iostream>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -76,19 +77,23 @@ class Series {
     size_t cached_byte_size = 0;
     /// @brief the size of the series in number of samples.
     size_t size_;
-    /// @brief Holds the underlying data.
-    std::unique_ptr<std::byte[]> data;
+    /// @brief Holds the underlying data_.
+    std::unique_ptr<std::byte[]> data_;
     /// @brief an optional property that defines the time range occupied by the
-    /// Series' data. This property is guaranteed to be defined when reading data
+    /// Series' data_. This property is guaranteed to be defined when reading data
     /// from a Synnax cluster, and is particularly useful for understanding the
     /// alignment of samples in relation to another series. When read from a
     /// cluster, the start of the time range represents the timestamp of the first
     /// sample in the array (inclusive), while the end of the time range is set to
     /// the nanosecond AFTER the last sample in the array (exclusive).
+public:
     telem::TimeRange time_range = telem::TimeRange();
+    std::uint64_t alignment = 0;
+private:
     /// @brief validates the input index is within the bounds of the series. If the
     /// write size is provided, it will also validate that the write does not exceed
     /// the capacity of the series.
+
     [[nodiscard]] size_t
     validate_bounds(const int &index, const size_t write_size = 0) const {
         auto adjusted = index;
@@ -108,14 +113,14 @@ class Series {
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
-        data(std::make_unique<std::byte[]>(other.byte_size())),
+        data_(std::make_unique<std::byte[]>(other.byte_size())),
         time_range(other.time_range) {
-        memcpy(data.get(), other.data.get(), other.byte_size());
+        memcpy(data_.get(), other.data_.get(), other.byte_size());
     }
 
     template<typename SourceType, typename TargetType, typename Op>
     void apply_numeric_op(const TargetType &rhs, Op op) const {
-        auto *data_ptr = reinterpret_cast<SourceType *>(this->data.get());
+        auto *data_ptr = reinterpret_cast<SourceType *>(this->data_.get());
         const auto size = this->size();
         const auto cast_rhs = static_cast<SourceType>(rhs);
         for (size_t i = 0; i < size; i++)
@@ -180,21 +185,23 @@ public:
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
-        data(std::move(other.data)),
+        data_(std::move(other.data_)),
         time_range(other.time_range) {
-        other.data = nullptr;
+        other.data_ = nullptr;
     }
+
+    std::byte *data() const { return this->data_.get(); }
 
     /// @brief allocates a series with the given data type and capacity (in
     /// samples). Allocated series are treated as buffers and are not initialized
-    /// with any data. Calls to write can be used to populate the series.
+    /// with any data_. Calls to write can be used to populate the series.
     /// @param data_type the type of data being stored.
     /// @param cap the number of samples that can be stored in the series.
     Series(const DataType &data_type, const size_t cap):
         data_type_(data_type),
         cap_(cap),
         size_(0),
-        data(std::make_unique<std::byte[]>(cap * data_type.density())) {
+        data_(std::make_unique<std::byte[]>(cap * data_type.density())) {
         if (data_type == UNKNOWN_T && cap > 0)
             throw std::runtime_error(
                 "cannot allocate a series with an unknown data type"
@@ -215,13 +222,13 @@ public:
         data_type_(telem::DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
-        data(std::make_unique<std::byte[]>(this->size() * this->data_type().density())
+        data_(std::make_unique<std::byte[]>(this->size() * this->data_type().density())
         ) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        memcpy(this->data.get(), d, this->size() * this->data_type().density());
+        memcpy(this->data_.get(), d, this->size() * this->data_type().density());
     }
 
     /// @brief constructs a series from the given vector of numeric data and an
@@ -241,11 +248,11 @@ public:
         data_type_(telem::TIMESTAMP_T),
         cap_(d.size()),
         size_(d.size()),
-        data(std::make_unique<std::byte[]>(d.size() * this->data_type().density())) {
+        data_(std::make_unique<std::byte[]>(d.size() * this->data_type().density())) {
         for (size_t i = 0; i < d.size(); i++) {
             const auto ov = d[i].nanoseconds();
             memcpy(
-                data.get() + i * this->data_type().density(),
+                data_.get() + i * this->data_type().density(),
                 &ov,
                 this->data_type().density()
             );
@@ -259,9 +266,9 @@ public:
         data_type_(telem::TIMESTAMP_T),
         cap_(1),
         size_(1),
-        data(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_(std::make_unique<std::byte[]>(this->byte_size())) {
         const auto ov = v.nanoseconds();
-        memcpy(data.get(), &ov, this->byte_size());
+        memcpy(data_.get(), &ov, this->byte_size());
     }
 
     /// @brief constructs a series of size 1 from the given number.
@@ -275,18 +282,18 @@ public:
         data_type_(telem::DataType::infer<NumericType>(override_dt)),
         cap_(1),
         size_(1),
-        data(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_(std::make_unique<std::byte[]>(this->byte_size())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        memcpy(this->data.get(), &v, this->byte_size());
+        memcpy(this->data_.get(), &v, this->byte_size());
     }
 
     /// @brief constructs the series from the given vector of strings. These can
     /// also be JSON encoded strings, in which case the data type should be set to
     /// JSON.
-    /// @param d the vector of strings to be used as the data.
+    /// @param d the vector of strings to be used as the data_.
     /// @param data_type the type of data being used.
     explicit Series(const std::vector<std::string> &d, DataType data_type = STRING_T):
         data_type_(std::move(data_type)), cap_(d.size()), size_(d.size()) {
@@ -295,19 +302,19 @@ public:
         this->cached_byte_size = 0;
         for (const auto &s: d)
             this->cached_byte_size += s.size() + 1;
-        this->data = std::make_unique<std::byte[]>(this->byte_size());
+        this->data_ = std::make_unique<std::byte[]>(this->byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
-            memcpy(this->data.get() + offset, s.data(), s.size());
+            memcpy(this->data_.get() + offset, s.data(), s.size());
             offset += s.size();
-            this->data[offset] = NEWLINE_TERMINATOR;
+            this->data_[offset] = NEWLINE_TERMINATOR;
             offset++;
         }
     }
 
     /// @brief constructs the series from the given string. This can also be a JSON
     /// encoded string, in which case the data type should be set to JSON.
-    /// @param data the string to be used as the data.
+    /// @param data the string to be used as the data_.
     /// @param data_type_ the type of data being used. Defaults to STRING, but can
     /// also be set to JSON.
     explicit Series(const std::string &data, DataType data_type_ = STRING_T):
@@ -315,13 +322,13 @@ public:
         cap_(1),
         cached_byte_size(data.size() + 1),
         size_(1),
-        data(std::make_unique<std::byte[]>(this->byte_size())) {
+        data_(std::make_unique<std::byte[]>(this->byte_size())) {
         if (!this->data_type().matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot set a string value on a non-string or JSON series"
             );
-        memcpy(this->data.get(), data.data(), data.size());
-        this->data[byte_size() - 1] = NEWLINE_TERMINATOR;
+        memcpy(this->data_.get(), data.data(), data.size());
+        this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
     /// @brief constructs the series from its protobuf representation.
@@ -334,8 +341,8 @@ public:
             this->size_ = s.data().size() / this->data_type().density();
         for (const char &v: s.data())
             if (v == NEWLINE_CHAR) ++this->size_;
-        this->data = std::make_unique<std::byte[]>(byte_size());
-        memcpy(this->data.get(), s.data().data(), byte_size());
+        this->data_ = std::make_unique<std::byte[]>(byte_size());
+        memcpy(this->data_.get(), s.data().data(), byte_size());
     }
 
     /// @brief constructs the series from the given JSON value.
@@ -348,15 +355,15 @@ public:
         if (this->data_type().is_variable()) {
             const auto &str = std::get<std::string>(v);
             cached_byte_size = str.size() + 1;
-            this->data = std::make_unique<std::byte[]>(this->byte_size());
-            memcpy(this->data.get(), str.data(), str.size());
-            this->data[this->byte_size() - 1] = NEWLINE_TERMINATOR;
+            this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+            memcpy(this->data_.get(), str.data(), str.size());
+            this->data_[this->byte_size() - 1] = NEWLINE_TERMINATOR;
             return;
         }
         std::visit(
             [this]<typename IT>(IT &&arg) {
-                this->data = std::make_unique<std::byte[]>(this->byte_size());
-                memcpy(data.get(), &arg, this->byte_size());
+                this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+                memcpy(data_.get(), &arg, this->byte_size());
             },
             v
         );
@@ -371,13 +378,13 @@ public:
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + 1;
 
-        this->data = std::make_unique<std::byte[]>(this->byte_size());
+        this->data_ = std::make_unique<std::byte[]>(this->byte_size());
         size_t offset = 0;
         for (const auto &value: values) {
             const auto str = value.dump();
-            memcpy(this->data.get() + offset, str.data(), str.size());
+            memcpy(this->data_.get() + offset, str.data(), str.size());
             offset += str.size();
-            this->data[offset] = NEWLINE_TERMINATOR;
+            this->data_[offset] = NEWLINE_TERMINATOR;
             offset++;
         }
     }
@@ -395,7 +402,7 @@ public:
         );
         const auto adjusted = this->validate_bounds(index);
         auto *dest = reinterpret_cast<NumericType *>(
-            data.get() + adjusted * this->data_type().density()
+            data_.get() + adjusted * this->data_type().density()
         );
         *dest = value;
     }
@@ -415,7 +422,7 @@ public:
         );
         const auto adjusted = this->validate_bounds(index, size_);
         memcpy(
-            this->data.get() + adjusted * this->data_type().density(),
+            this->data_.get() + adjusted * this->data_type().density(),
             d,
             size_ * this->data_type().density()
         );
@@ -428,7 +435,7 @@ public:
     /// @throws std::runtime_error if the index is out of bounds or the write would
     template<typename NumericType>
     void set(const std::vector<NumericType> &d, const int &index) {
-        this->set(d.data(), index, d.size());
+        this->set(d.data_(), index, d.size());
     }
 
     /// @brief writes the given vector of numeric data to the series.
@@ -447,9 +454,9 @@ public:
             size_t offset = 0;
             for (size_t i = 0; i < count; i++) {
                 const auto &s = d[i];
-                memcpy(this->data.get() + offset, s.data(), s.size());
+                memcpy(this->data_.get() + offset, s.data_(), s.size());
                 offset += s.size();
-                this->data.get()[offset] = NEWLINE_TERMINATOR;
+                this->data_.get()[offset] = NEWLINE_TERMINATOR;
                 offset++;
             }
             this->cached_byte_size = offset;
@@ -462,7 +469,7 @@ public:
             );
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
-            memcpy(this->data.get(), d.data(), count * this->data_type().density());
+            memcpy(this->data_.get(), d.data_(), count * this->data_type().density());
             this->size_ += count;
             return count;
         }
@@ -501,8 +508,8 @@ public:
                 str_len = strlen(d);
             }
 
-            memcpy(this->data.get() + cached_byte_size, str_data, str_len);
-            this->data.get()[cached_byte_size + str_len] = NEWLINE_TERMINATOR;
+            memcpy(this->data_.get() + cached_byte_size, str_data, str_len);
+            this->data_.get()[cached_byte_size + str_len] = NEWLINE_TERMINATOR;
             this->cached_byte_size += str_len + 1;
             this->size_++;
             return 1;
@@ -510,7 +517,7 @@ public:
             if (this->size() >= this->cap()) return 0;
             const auto v = d.nanoseconds();
             auto *dest = reinterpret_cast<int64_t *>(
-                data.get() + this->size() * this->data_type().density()
+                data_.get() + this->size() * this->data_type().density()
             );
             *dest = v;
             this->size_++;
@@ -523,7 +530,7 @@ public:
             );
             if (this->size() >= this->cap()) return 0;
             const auto density = this->data_type().density();
-            auto *dest = reinterpret_cast<T *>(data.get() + this->size_++ * density);
+            auto *dest = reinterpret_cast<T *>(data_.get() + this->size_++ * density);
             *dest = d;
             return 1;
         }
@@ -546,7 +553,7 @@ public:
             "generic argument to write must be a numeric type"
         );
         const size_t count = std::min(size_, this->cap() - this->size());
-        memcpy(this->data.get(), d, count * this->data_type().density());
+        memcpy(this->data_.get(), d, count * this->data_type().density());
         this->size_ += count;
         return count;
     }
@@ -555,7 +562,7 @@ public:
     /// @param pb the protobuf message to encode the fields into.
     void to_proto(telem::PBSeries *pb) const {
         pb->set_data_type(this->data_type().name());
-        pb->set_data(this->data.get(), byte_size());
+        pb->set_data(this->data_.get(), byte_size());
     }
 
     /// @brief returns the data as a vector of strings. This method can only be used
@@ -568,12 +575,12 @@ public:
         std::vector<std::string> v;
         std::string buf;
         for (size_t i = 0; i < this->byte_size(); i++) {
-            if (this->data[i] == NEWLINE_TERMINATOR) {
+            if (this->data_[i] == NEWLINE_TERMINATOR) {
                 v.push_back(buf);
                 buf.clear();
                 // WARNING: This might be very slow due to copying.
             } else
-                buf += static_cast<char>(this->data[i]);
+                buf += static_cast<char>(this->data_[i]);
         }
         return v;
     }
@@ -588,7 +595,7 @@ public:
             "template argument to values() must be a numeric type"
         );
         std::vector<NumericType> v(this->size());
-        memcpy(v.data(), this->data.get(), this->byte_size());
+        memcpy(v.data(), this->data_.get(), this->byte_size());
         return v;
     }
 
@@ -620,12 +627,12 @@ public:
             // iterate through the data byte by byte, incrementing the index every
             // time we hit a newline character until we reach the desired index.
             for (size_t i = 0, j = 0; i < this->byte_size(); i++)
-                if (data[i] == NEWLINE_TERMINATOR) {
+                if (this->data_[i] == NEWLINE_TERMINATOR) {
                     if (j == adjusted) return value;
                     value.clear();
                     j++;
                 } else
-                    value += static_cast<char>(this->data[i]);
+                    value += static_cast<char>(this->data_[i]);
             return value;
         } else if constexpr (std::is_same_v<T, TimeStamp>)
             return TimeStamp(this->at<int64_t>(index));
@@ -638,7 +645,7 @@ public:
             T value;
             memcpy(
                 &value,
-                this->data.get() + adjusted * this->data_type().density(),
+                this->data_.get() + adjusted * this->data_type().density(),
                 this->data_type().density()
             );
             return value;
@@ -731,7 +738,7 @@ public:
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
         auto *data_ptr = reinterpret_cast<int64_t *>(
-            this->data.get() + this->size() * this->data_type().density()
+            this->data_.get() + this->size() * this->data_type().density()
         );
 #pragma omp simd
         for (size_t i = 0; i < write_count; i++)
@@ -840,7 +847,7 @@ public:
         cast_and_apply_numeric_op(rhs, std::divides<T>());
     }
 
-    /// @brief deep copies the series, including all of its data. This function
+    /// @brief deep copies the series, including all of its data_. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
@@ -860,12 +867,12 @@ public:
         const auto inferred_type = DataType::infer<T>();
         if (inferred_type == this->data_type()) {
             memcpy(
-                this->data.get() + this->size() * this->data_type().density(),
+                this->data_.get() + this->size() * this->data_type().density(),
                 data,
                 count * this->data_type().density()
             );
         } else {
-            auto *dest = this->data.get() + this->size() * this->data_type().density();
+            auto *dest = this->data_.get() + this->size() * this->data_type().density();
             if (this->data_type() == FLOAT64_T)
                 cast_to_type<double>(dest, data, count);
             else if (this->data_type() == FLOAT32_T)
@@ -913,7 +920,7 @@ public:
             other.byte_size(),
             this->byte_cap() - this->byte_size()
         );
-        memcpy(this->data.get() + this->byte_size(), other.data.get(), byte_count);
+        memcpy(this->data_.get() + this->byte_size(), other.data_.get(), byte_count);
         const auto count = byte_count / this->data_type().density();
         this->size_ += count;
         return count;
@@ -940,43 +947,43 @@ public:
         const auto size = this->size();
 
         if (this->data_type() == FLOAT64_T) {
-            auto *data_ptr = reinterpret_cast<const double *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == FLOAT32_T) {
-            auto *data_ptr = reinterpret_cast<const float *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT64_T) {
-            auto *data_ptr = reinterpret_cast<const int64_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT32_T) {
-            auto *data_ptr = reinterpret_cast<const int32_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT16_T) {
-            auto *data_ptr = reinterpret_cast<const int16_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT8_T) {
-            auto *data_ptr = reinterpret_cast<const int8_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT64_T) {
-            auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT32_T) {
-            auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT16_T) {
-            auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT8_T) {
-            auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data.get());
+            auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == TIMESTAMP_T) {
@@ -988,6 +995,66 @@ public:
         }
 
         return sum / static_cast<T>(size);
+    }
+
+    /// @brief Writes data from an input stream to the series with a specified byte size.
+    /// @param stream The input stream to read from
+    /// @param byte_count The number of bytes to read from the stream
+    /// @returns The number of bytes successfully written
+    size_t write_from_stream(std::istream& stream, const size_t byte_count) {
+        if (this->size() >= this->cap()) return 0;
+        
+        const size_t available_bytes = this->byte_cap() - this->byte_size();
+        const size_t bytes_to_write = std::min(byte_count, available_bytes);
+        
+        if (bytes_to_write == 0) return 0;
+        
+        auto* dest = this->data_.get() + this->byte_size();
+        
+        if (this->data_type().is_variable()) {
+            std::vector<char> buffer(bytes_to_write);
+            stream.read(buffer.data(), bytes_to_write);
+            
+            const size_t bytes_read = stream.gcount();
+            if (bytes_read == 0) return 0;
+            
+            std::string input(buffer.data(), bytes_read);
+            size_t bytes_written = 0;
+            size_t samples_added = 0;
+            
+            size_t pos = 0;
+            size_t next_pos = 0;
+            while ((next_pos = input.find('\n', pos)) != std::string::npos) {
+                std::string token = input.substr(pos, next_pos - pos);
+                if (this->size() + samples_added >= this->cap()) break;
+                memcpy(dest + bytes_written, token.data(), token.size());
+                bytes_written += token.size();
+                dest[bytes_written] = NEWLINE_TERMINATOR;
+                bytes_written++;
+                samples_added++;
+                pos = next_pos + 1;
+            }
+            
+            if (pos < input.size() && this->size() + samples_added < this->cap()) {
+                const std::string token = input.substr(pos);
+                memcpy(dest + bytes_written, token.data(), token.size());
+                bytes_written += token.size();
+                dest[bytes_written] = NEWLINE_TERMINATOR;
+                bytes_written++;
+                
+                samples_added++;
+            }
+            
+            this->size_ += samples_added;
+            this->cached_byte_size += bytes_written;
+            return bytes_written;
+        }
+        stream.read(reinterpret_cast<char*>(dest), bytes_to_write);
+        const size_t bytes_read = stream.gcount();
+        if (bytes_read == 0) return 0;
+        const size_t samples_added = bytes_read / this->data_type().density();
+        this->size_ += samples_added;
+        return bytes_read;
     }
 };
 }

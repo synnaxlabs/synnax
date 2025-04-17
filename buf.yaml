@@ -13,7 +13,6 @@ build:
     - "bazel-synnax"
     - "external"
     - "freighter/cpp"
-    - "external"
     - "vendor"
 breaking:
   use:

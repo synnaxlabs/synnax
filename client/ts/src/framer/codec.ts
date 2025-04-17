@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { WebsocketMessage } from "@synnaxlabs/freighter";
-import { binary, DataType, SeriesPayload, TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { ZodSchema } from "zod";
+import { type WebsocketMessage } from "@synnaxlabs/freighter";
+import {
+  binary,
+  type DataType,
+  type SeriesPayload,
+  TimeRange,
+  type TimeStamp,
+} from "@synnaxlabs/x";
+import { type ZodSchema } from "zod";
 
-import { channel } from "@/channel";
-import { FramePayload } from "@/framer/frame";
-import { StreamerResponse } from "@/framer/streamer";
-import { WriterCommand, WriteRequest } from "@/framer/writer";
+import { type channel } from "@/channel";
+import { type Payload } from "@/framer/frame";
+import { type StreamerResponse } from "@/framer/streamer";
+import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
 // For detailed information about the specifications,
 // please refer to the official RFC 0016 document.
@@ -27,7 +33,7 @@ interface KeyedSeries extends SeriesPayload {
   key: number;
 }
 
-const sortFramePayloadByKey = (framePayload: FramePayload): void => {
+const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
   keys.forEach((key, index) => {
     (series[index] as KeyedSeries).key = key;
@@ -61,12 +67,12 @@ export class Codec {
   }
 
   encode(payload: unknown, startOffset: number = 0): Uint8Array {
-    const src = payload as FramePayload;
+    const src = payload as Payload;
     sortFramePayloadByKey(src);
     let currDataSize = -1;
-    let startTime: TimeStamp | undefined = undefined;
-    let endTime: TimeStamp | undefined = undefined;
-    let currAlignment: bigint | undefined = undefined;
+    let startTime: TimeStamp | undefined;
+    let endTime: TimeStamp | undefined;
+    let currAlignment: bigint | undefined;
     let byteArraySize = startOffset + 1;
     let sizeFlag = true;
     let equalTimeRangesFlag = true;
@@ -132,9 +138,9 @@ export class Codec {
     }
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
-      view.setBigUint64(byteArraySize, BigInt(startTime ?? 0n), true);
+      view.setBigUint64(byteArraySize, BigInt(startTime?.valueOf() ?? 0n), true);
       byteArraySize += 8;
-      view.setBigUint64(byteArraySize, BigInt(endTime ?? 0n), true);
+      view.setBigUint64(byteArraySize, BigInt(endTime?.valueOf() ?? 0n), true);
       byteArraySize += 8;
     }
 
@@ -177,9 +183,9 @@ export class Codec {
     return buffer;
   }
 
-  decode(data: Uint8Array | ArrayBuffer, offset: number = 0): FramePayload {
+  decode(data: Uint8Array | ArrayBuffer, offset: number = 0): Payload {
     const src = data instanceof Uint8Array ? data : new Uint8Array(data);
-    const returnFrame: FramePayload = { keys: [], series: [] };
+    const returnFrame: Payload = { keys: [], series: [] };
     let index = offset;
     let sizeRepresentation = 0;
     let currSize = 0;
@@ -231,9 +237,8 @@ export class Codec {
         if (index + 4 > view.byteLength) return;
         currSize = view.getUint32(index, true);
         index += 4;
-      } else {
-        currSize = sizeRepresentation;
-      }
+      } else currSize = sizeRepresentation;
+
       const dataByteLength = currSize * dataType.density.valueOf();
       if (index + dataByteLength > view.byteLength) return;
       const currSeries: SeriesPayload = {
@@ -248,24 +253,21 @@ export class Codec {
         const end = view.getBigUint64(index, true);
         index += 8;
         currSeries.timeRange = new TimeRange({ start, end });
-      } else if (!timeRangesZeroFlag) {
+      } else if (!timeRangesZeroFlag)
         currSeries.timeRange = new TimeRange({
           start: BigInt(startTime),
           end: BigInt(endTime),
         });
-      } else {
-        currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
-      }
+      else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
+
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
         if (index + 8 > view.byteLength) return;
         currAlignment = view.getBigUint64(index, true);
         index += 8;
         currSeries.alignment = currAlignment;
-      } else if (!zeroAlignmentsFlag) {
-        currSeries.alignment = currAlignment;
-      } else {
-        currSeries.alignment = 0n;
-      }
+      } else if (!zeroAlignmentsFlag) currSeries.alignment = currAlignment;
+      else currSeries.alignment = 0n;
+
       returnFrame.series.push(currSeries);
     });
     return returnFrame;
@@ -298,7 +300,7 @@ export class WSWriterCodec implements binary.Codec {
     }
     const data = this.base.encode(pld.payload?.frame, 1);
     data.set(HIGH_PERF_SPECIAL_CHAR_BUF, 0);
-    return data.buffer;
+    return data.buffer as ArrayBuffer;
   }
 
   decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {

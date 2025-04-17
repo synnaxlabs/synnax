@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, errorZ, type Stream, WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, errorZ, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
-import { type channel } from "@/channel";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
