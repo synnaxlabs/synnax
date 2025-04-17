@@ -84,9 +84,9 @@ export class LocalStorageKV implements SugaredKV {
     let count = 0;
     for (let i = 0; i < this.store.length; i++) {
       const key = this.store.key(i);
-      if (key && key.startsWith(`${this.baseKey}:`)) {
+      if (key && key.startsWith(`${this.baseKey}:`)) 
         count++;
-      }
+      
     }
     return count;
   }
@@ -95,9 +95,9 @@ export class LocalStorageKV implements SugaredKV {
     const keysToRemove: string[] = [];
     for (let i = 0; i < this.store.length; i++) {
       const key = this.store.key(i);
-      if (key && key.startsWith(`${this.baseKey}:`)) {
+      if (key && key.startsWith(`${this.baseKey}:`)) 
         keysToRemove.push(key);
-      }
+      
     }
     keysToRemove.forEach(key => this.store.removeItem(key));
   }
@@ -109,9 +109,9 @@ export class LocalStorageKV implements SugaredKV {
  * @returns A new SugaredKV instance.
  */
 export const openSugaredKV = async (dir: string): Promise<SugaredKV> => {
-  if (isTauri()) {
+  if (isTauri()) 
     return new TauriKV(new LazyStore(dir, { autoSave: true }));
-  } else {
+   
     return new LocalStorageKV(dir);
-  }
+  
 }

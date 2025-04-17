@@ -10,12 +10,12 @@
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { type AsyncDestructor, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@/tauriShim";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
+import { getCurrentWindow } from "@/tauriShim";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from

@@ -21,7 +21,6 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@/tauriShim";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
@@ -33,6 +32,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { getCurrentWindow } from "@/tauriShim";
 
 export interface OverlayProps extends PropsWithChildren {}
 
