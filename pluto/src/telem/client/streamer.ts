@@ -127,6 +127,17 @@ export class Streamer {
     }
   }
 
+  private notifyListeners(changed: ReadResponse[]): void {
+    if (changed.length === 0) return;
+    this.listeners.forEach((entry, handler) => {
+      if (!entry.valid) return;
+      const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
+      if (notify.length === 0) return;
+      const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
+      handler(d);
+    });
+  }
+
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
     const {
       cache,
@@ -141,13 +152,7 @@ export class Streamer {
           const out = unary.writeDynamic(series.series);
           changed.push(new ReadResponse(unary.channel, out));
         }
-        this.listeners.forEach((entry, handler) => {
-          if (!entry.valid) return;
-          const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
-          if (notify.length === 0) return;
-          const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-          handler(d);
-        });
+        this.notifyListeners(changed);
       }
     } catch (e) {
       L.error("streamer run loop failed", { error: e }, true);

@@ -147,7 +147,6 @@ const HandleBoundary = ({
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
   const first = useRef<boolean>(true);
   useEffect(() => {
-    console.log("ref", ref.current);
     if (ref.current == null) return;
     if (first.current) {
       first.current = false;

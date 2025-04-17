@@ -16,7 +16,6 @@ import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { text } from "@/text/core";
-import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
@@ -49,6 +48,7 @@ interface InternalState {
   stopListeningBackground?: () => void;
   requestRender: render.RequestF | null;
   textColor: color.Color;
+  fontString: string;
 }
 
 export class Value
@@ -67,7 +67,13 @@ export class Value
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
-    i.stopListening = this.internal.telem.onChange(() => this.requestRender());
+    i.stopListening = this.internal.telem.onChange(() => {
+      this.requestRender();
+    });
+    i.fontString = theming.fontString(i.theme, {
+      level: this.state.level,
+      code: true,
+    });
     i.backgroundTelem = await telem.useSource(
       ctx,
       this.state.backgroundTelem,
@@ -117,66 +123,63 @@ export class Value
   }
 
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
-    const { renderCtx, telem, backgroundTelem } = this.internal;
-    const b = box.construct(this.state.box);
+    const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
+      this.internal;
+    const { location, box: b } = this.state;
     if (box.areaIsZero(b)) return;
-    const { location } = this.state;
-    const upper2d = renderCtx.lower2d.applyScale(viewportScale);
+    const bTopLeft = box.topLeft(b);
+    const bWidth = box.width(b);
+    const bHeight = box.height(b);
+    const canvas = renderCtx.lower2d.applyScale(viewportScale);
     let value = await telem.value();
-    const fontString = theming.fontString(this.internal.theme, {
-      level: this.state.level,
-      code: true,
-    });
-    upper2d.font = fontString;
+    canvas.font = fontString;
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
 
     const { theme } = this.internal;
-    const width = dimensions(value, fontString, upper2d).width + theme.sizes.base;
-
-    if (this.internal.requestRender == null)
-      renderCtx.erase(box.construct(this.prevState.box));
+    const dims = canvas.textDimensions(value, true);
+    const width = dims.width + theme.sizes.base;
+    const height = dims.height;
+    if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
     this.maybeUpdateWidth(width);
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
-    if (location.x === "center") labelOffset.x = box.width(b) / 2 - width / 2;
-    if (location.y === "center") labelOffset.y = box.height(b) / 2;
+    if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
+    if (location.y === "center") labelOffset.y = bHeight / 2 + height / 3;
 
-    const labelPosition = xy.translate(box.topLeft(b), labelOffset);
-
-    const clearScissor = upper2d.scissor(b, undefined);
+    const labelPosition = xy.translate(bTopLeft, labelOffset);
 
     let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-      const lower2d = renderCtx.lower2d.applyScale(viewportScale);
       const color = await backgroundTelem.value();
       setDefaultFillStyle = color.isZero;
       if (!color.isZero) {
+        const lower2d = renderCtx.lower2d.applyScale(viewportScale);
         lower2d.fillStyle = color.hex;
-        lower2d.rect(...xy.couple(box.topLeft(b)), box.width(b), box.height(b));
+        lower2d.rect(...xy.couple(bTopLeft), bWidth, bHeight);
         lower2d.fill();
-        upper2d.fillStyle = color.pickByContrast(
+        canvas.fillStyle = color.pickByContrast(
           theme.colors.gray.l0,
           theme.colors.gray.l11,
         ).hex;
       }
     }
-    if (setDefaultFillStyle) upper2d.fillStyle = this.internal.textColor.hex;
+    if (setDefaultFillStyle) canvas.fillStyle = this.internal.textColor.hex;
 
-    upper2d.textBaseline = "middle";
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
     if (isNegative)
-      upper2d.fillText(
+      canvas.fillText(
         "-",
         // 0.55 is a multiplier of the font height that seems to keep the sign in
         // the right place.
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
+        undefined,
+        true,
       );
-    upper2d.fillText(value, ...xy.couple(labelPosition));
-    clearScissor();
+    canvas.fillText(value, ...xy.couple(labelPosition), undefined, true);
   }
 }
 

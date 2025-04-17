@@ -57,6 +57,7 @@ export class Color {
    * and the alpha value between 0 and 1.
    */
   readonly rgba255: RGBA;
+  private cachedHex: string | null = null;
 
   /**
    * @constructor Creates a new color from the given color value. The color value can be
@@ -97,10 +98,12 @@ export class Color {
    * long.
    */
   get hex(): string {
+    if (this.cachedHex != null) return this.cachedHex;
     const [r, g, b, a] = this.rgba255;
-    return `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
+    this.cachedHex = `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
       a === 1 ? "" : rgbaToHex(a * 255)
     }`;
+    return this.cachedHex;
   }
 
   /**

@@ -1,7 +1,6 @@
 import { type dimensions, unique } from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
-import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
 export interface AtlasProps {
   font: string;
@@ -67,7 +66,7 @@ export class Atlas {
   }
 
   fillText(
-    ctx: SugaredOffscreenCanvasRenderingContext2D,
+    ctx: OffscreenCanvasRenderingContext2D,
     text: string,
     x: number,
     y: number,

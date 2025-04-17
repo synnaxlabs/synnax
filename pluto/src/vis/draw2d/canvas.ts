@@ -9,6 +9,7 @@
 
 import { box, type Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
+import { dimensionsFromMetrics } from "@/text/dimensions";
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 
@@ -18,7 +19,16 @@ export class SugaredOffscreenCanvasRenderingContext2D
   readonly scale_: scale.XY;
   readonly wrapped: OffscreenCanvasRenderingContext2D;
   readonly atlasRegistry: text.AtlasRegistry;
-  currAtlas: text.Atlas | null = null;
+  private cachedFont: string | null = null;
+  private cachedFillStyle: string | CanvasGradient | CanvasPattern | null = null;
+  private cachedStrokeStyle: string | CanvasGradient | CanvasPattern | null = null;
+  private cachedLineWidth: number | null = null;
+  private cachedGlobalAlpha: number | null = null;
+  private cachedTextAlign: CanvasTextAlign | null = null;
+  private cachedTextBaseline: CanvasTextBaseline | null = null;
+  private cachedLineCap: CanvasLineCap | null = null;
+  private cachedLineJoin: CanvasLineJoin | null = null;
+  private cachedMiterLimit: number | null = null;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
@@ -91,18 +101,23 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get miterLimit(): number {
-    return this.wrapped.miterLimit;
+    return this.cachedMiterLimit ?? this.wrapped.miterLimit;
   }
 
   set miterLimit(value: number) {
-    this.wrapped.miterLimit = this.scale_.x.dim(value);
+    const scaled = this.scale_.x.dim(value);
+    if (scaled === this.cachedMiterLimit) return;
+    this.cachedMiterLimit = scaled;
+    this.wrapped.miterLimit = scaled;
   }
 
   get globalAlpha(): number {
-    return this.wrapped.globalAlpha;
+    return this.cachedGlobalAlpha ?? this.wrapped.globalAlpha;
   }
 
   set globalAlpha(value: number) {
+    if (value === this.cachedGlobalAlpha) return;
+    this.cachedGlobalAlpha = value;
     this.wrapped.globalAlpha = value;
   }
 
@@ -115,18 +130,22 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get fillStyle(): string | CanvasGradient | CanvasPattern {
-    return this.wrapped.fillStyle;
+    return this.cachedFillStyle ?? this.wrapped.fillStyle;
   }
 
   set fillStyle(value: string | CanvasGradient | CanvasPattern) {
+    if (value === this.cachedFillStyle) return;
+    this.cachedFillStyle = value;
     this.wrapped.fillStyle = value;
   }
 
   get strokeStyle(): string | CanvasGradient | CanvasPattern {
-    return this.wrapped.strokeStyle;
+    return this.cachedStrokeStyle ?? this.wrapped.strokeStyle;
   }
 
   set strokeStyle(value: string | CanvasGradient | CanvasPattern) {
+    if (value === this.cachedStrokeStyle) return;
+    this.cachedStrokeStyle = value;
     this.wrapped.strokeStyle = value;
   }
 
@@ -169,18 +188,27 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dh: number,
   ): void;
   drawImage(
-    image: unknown,
-    sx: unknown,
-    sy: unknown,
-    sw?: unknown,
-    sh?: unknown,
-    dx?: unknown,
-    dy?: unknown,
-    dw?: unknown,
-    dh?: unknown,
+    image: CanvasImageSource,
+    sx: number,
+    sy?: number,
+    sw?: number,
+    sh?: number,
+    dx?: number,
+    dy?: number,
+    dw?: number,
+    dh?: number,
   ): void {
-    // @ts-expect-error - typescript overloads cause issues here
-    this.wrapped.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+    this.wrapped.drawImage(
+      image,
+      sx,
+      sy as number,
+      sw as number,
+      sh as number,
+      (dx != null ? this.scale_.x.pos(dx) : dx) as number,
+      (dy != null ? this.scale_.y.pos(dy) : dy) as number,
+      (dw != null ? this.scale_.x.dim(dw) : dw) as number,
+      (dh != null ? this.scale_.y.dim(dh) : dh) as number,
+    );
   }
 
   beginPath(): void {
@@ -445,10 +473,12 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get lineCap(): CanvasLineCap {
-    return this.wrapped.lineCap;
+    return this.cachedLineCap ?? this.wrapped.lineCap;
   }
 
   set lineCap(value: CanvasLineCap) {
+    if (value === this.cachedLineCap) return;
+    this.cachedLineCap = value;
     this.wrapped.lineCap = value;
   }
 
@@ -461,19 +491,24 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get lineJoin(): CanvasLineJoin {
-    return this.wrapped.lineJoin;
+    return this.cachedLineJoin ?? this.wrapped.lineJoin;
   }
 
   set lineJoin(value: CanvasLineJoin) {
+    if (value === this.cachedLineJoin) return;
+    this.cachedLineJoin = value;
     this.wrapped.lineJoin = value;
   }
 
   get lineWidth(): number {
-    return this.wrapped.lineWidth;
+    return this.cachedLineWidth ?? this.wrapped.lineWidth;
   }
 
   set lineWidth(value: number) {
-    this.wrapped.lineWidth = this.scale_.x.dim(value);
+    const scaled = this.scale_.x.dim(value);
+    if (scaled === this.cachedLineWidth) return;
+    this.cachedLineWidth = scaled;
+    this.wrapped.lineWidth = scaled;
   }
 
   getLineDash(): number[] {
@@ -538,6 +573,17 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   restore(): void {
+    // Clear all caches on restore since we don't know what state we're restoring to
+    this.cachedFillStyle = null;
+    this.cachedStrokeStyle = null;
+    this.cachedLineWidth = null;
+    this.cachedGlobalAlpha = null;
+    this.cachedTextAlign = null;
+    this.cachedTextBaseline = null;
+    this.cachedLineCap = null;
+    this.cachedLineJoin = null;
+    this.cachedMiterLimit = null;
+    this.cachedFont = null;
     this.wrapped.restore();
   }
 
@@ -569,7 +615,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     );
   }
 
-  atlasMeasureText(text: string): dimensions.Dimensions {
+  private atlasMeasureText(text: string): dimensions.Dimensions {
     const atlas = this.atlasRegistry.get({
       font: this.font,
       textColor: this.fillStyle as string,
@@ -579,10 +625,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   measureText(text: string): TextMetrics {
-    this.wrapped.font = scaleFontSize(this.wrapped.font, this.scale_.x.reverse());
-    const metrics = this.wrapped.measureText(text);
-    this.wrapped.font = scaleFontSize(this.wrapped.font, this.scale_.x);
-    return metrics;
+    return this.wrapped.measureText(text);
+  }
+
+  textDimensions(text: string, useAtlas: boolean = false): dimensions.Dimensions {
+    let result: dimensions.Dimensions;
+    if (useAtlas) result = this.atlasMeasureText(text);
+    else result = dimensionsFromMetrics(this.measureText(text));
+    return result;
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
@@ -603,11 +653,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get font(): string {
+    if (this.cachedFont != null) return this.cachedFont;
     return this.wrapped.font;
   }
 
   set font(value: string) {
-    this.wrapped.font = scaleFontSize(value, this.scale_.x);
+    if (value === this.cachedFont) return;
+    this.cachedFont = value;
+    this.wrapped.font = this.cachedFont;
   }
 
   get fontKerning(): CanvasFontKerning {
@@ -619,18 +672,22 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get textAlign(): CanvasTextAlign {
-    return this.wrapped.textAlign;
+    return this.cachedTextAlign ?? this.wrapped.textAlign;
   }
 
   set textAlign(value: CanvasTextAlign) {
+    if (value === this.cachedTextAlign) return;
+    this.cachedTextAlign = value;
     this.wrapped.textAlign = value;
   }
 
   get textBaseline(): CanvasTextBaseline {
-    return this.wrapped.textBaseline;
+    return this.cachedTextBaseline ?? this.wrapped.textBaseline;
   }
 
   set textBaseline(value: CanvasTextBaseline) {
+    if (value === this.cachedTextBaseline) return;
+    this.cachedTextBaseline = value;
     this.wrapped.textBaseline = value;
   }
 
@@ -681,17 +738,6 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.translate(x, y);
   }
 }
-
-// fInd the term 'px' and then get all the numbers before it, INCLUDING DECIMALS.
-// /(\d+)px/ is wrong, so don't use it.
-const FONT_REGEX = /(\d+(\.\d+)?)px/;
-
-const scaleFontSize = (font: string, scale: scale.Scale): string => {
-  const fontSize = Number(font.match(FONT_REGEX)?.[1]);
-  if (fontSize == null) return font;
-  const scaled = scale.dim(fontSize);
-  return font.replace(FONT_REGEX, `${scaled}px`);
-};
 
 export class ScaledPath2D {
   readonly scale_: scale.XY;

@@ -25,14 +25,13 @@ export const dimensions = (
   context ??= getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);
-  return {
-    width: Math.trunc(
-      Math.abs(metrics.actualBoundingBoxLeft) +
-        Math.abs(metrics.actualBoundingBoxRight),
-    ),
-    height: Math.trunc(
-      Math.abs(metrics.actualBoundingBoxAscent) +
-        Math.abs(metrics.actualBoundingBoxDescent),
-    ),
-  };
+  return dimensionsFromMetrics(metrics);
 };
+
+export const dimensionsFromMetrics = (metrics: TextMetrics): core.Dimensions => ({
+  width: Math.trunc(Math.abs(metrics.actualBoundingBoxRight)),
+  height: Math.trunc(
+    Math.abs(metrics.actualBoundingBoxAscent) +
+      Math.abs(metrics.actualBoundingBoxDescent),
+  ),
+});

@@ -33,6 +33,7 @@ export interface Element extends aether.Component {
 interface InternalState {
   renderCtx: render.Context;
   addStatus: status.Adder;
+  viewportScale: scale.XY;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -54,6 +55,9 @@ export class Diagram extends aether.Composite<
       this.requestRender("low");
     });
     if (!this.state.visible && !this.prevState.visible) return;
+    this.internal.viewportScale = scale.XY.magnify(xy.construct(this.state.zoom))
+      .translate(box.topLeft(this.state.region))
+      .translate(this.state.position);
     this.requestRender("high");
   }
 
@@ -63,16 +67,11 @@ export class Diagram extends aether.Composite<
 
   async render(): Promise<render.Cleanup | undefined> {
     if (this.deleted) return undefined;
-    const { renderCtx, addStatus } = this.internal;
-    const { zoom, position } = this.state;
+    const { renderCtx, addStatus, viewportScale } = this.internal;
     const region = box.construct(this.state.region);
     if (!this.state.visible)
       return async () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
-    const viewportScale = scale.XY.magnify(xy.construct(zoom))
-      .translate(box.topLeft(region))
-      .translate(position);
-
     try {
       await Promise.all(
         this.children.map(async (child) => await child.render({ viewportScale })),
