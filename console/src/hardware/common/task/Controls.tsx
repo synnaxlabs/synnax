@@ -45,15 +45,15 @@ export const Controls = ({
   ...props
 }: ControlsProps) => {
   const content = isSnapshot ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Text.Centered hideIcon disabled>
       This task is a snapshot and cannot be modified or started.
     </Status.Text.Centered>
   ) : message != null ? (
-    <Status.Text variant={variant ?? "info"}>{message}</Status.Text>
+    <Status.Text variant={variant}>{message}</Status.Text>
   ) : isConfiguring ? (
-    <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
+    <Status.Text.Centered loading>Configuring...</Status.Text.Centered>
   ) : !hasBeenConfigured ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Text.Centered hideIcon disabled>
       Task must be configured to start.
     </Status.Text.Centered>
   ) : null;

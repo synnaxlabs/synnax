@@ -48,7 +48,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
     <Align.Center x size="small">
-      <Status.Text variant="disabled" hideIcon>
+      <Status.Text disabled hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
       </Status.Text>

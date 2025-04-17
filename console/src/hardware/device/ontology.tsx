@@ -173,6 +173,8 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
+  const variant = devState?.variant;
+  const isDisabled = variant == null;
   return (
     <Tree.DefaultItem {...rest} entry={entry}>
       {({ entry, onRename, key }) => (
@@ -194,9 +196,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
               {entry.extraData?.location as string}
             </Text.Text>
           </Align.Space>
-          <Status.Circle
-            variant={(devState?.variant ?? "disabled") as Status.Variant}
-          />
+          <Status.Circle variant={variant} disabled={isDisabled} />
         </>
       )}
     </Tree.DefaultItem>

@@ -19,7 +19,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, status } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
@@ -76,10 +76,11 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = (state?.variant ?? "disabled") as Status.Variant;
+  const variant = state?.variant;
+  const isDisabled = variant == null;
 
   useEffect(() => {
-    if (variant !== "success") return;
+    if (variant !== status.SUCCESS_VARIANT) return;
     const heart = heartRef.current;
     if (!heart) return;
     heart.classList.remove("synnax-rack-heartbeat--beat");
@@ -105,13 +106,19 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
             }}
           />
           <Tooltip.Dialog location="right">
-            <Status.Text variant={variant} hideIcon level="small" weight={450}>
+            <Status.Text
+              variant={variant}
+              disabled={isDisabled}
+              hideIcon
+              level="small"
+              weight={450}
+            >
               {state?.message}
             </Status.Text>
             <Icon.Heart
               ref={heartRef}
               className="synnax-rack-heartbeat"
-              style={{ color: Status.VARIANT_COLORS[variant] }}
+              style={{ color: Status.VARIANT_COLORS[variant ?? status.INFO_VARIANT] }}
             />
           </Tooltip.Dialog>
         </>

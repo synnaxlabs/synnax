@@ -9,6 +9,7 @@
 
 import { type Synnax as CSynnax } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -70,7 +71,7 @@ export const export_ = async (
         message: `A file or directory already exists at ${directory}`,
         description: "Replacing will cause the old data to be deleted.",
         cancel: { label: "Cancel" },
-        confirm: { label: "Replace", variant: "error" },
+        confirm: { label: "Replace", variant: status.ERROR_VARIANT },
       }))
     )
       return;

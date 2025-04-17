@@ -36,7 +36,7 @@ interface EmptyContentProps {
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   <Align.Center x size="small">
-    <Status.Text level="p" variant="disabled" hideIcon>
+    <Status.Text level="p" disabled hideIcon>
       No annotations added.
     </Status.Text>
     <Text.Link level="p" onClick={onCreateRule}>
