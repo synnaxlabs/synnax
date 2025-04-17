@@ -39,7 +39,7 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const CONNECTION_STATE_VARIANT: Record<connection.Status, status.Variant> = {
+export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: status.SUCCESS_VARIANT,
   connecting: status.INFO_VARIANT,
   disconnected: status.INFO_VARIANT,
@@ -72,7 +72,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     (state: connection.State) => {
       if (ref.current.state.status !== state.status)
         addStatus({
-          variant: CONNECTION_STATE_VARIANT[state.status],
+          variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
       setState((prev) => ({ ...prev, state }));
@@ -104,7 +104,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
     setState({ synnax: c, state: connectivity });
     addStatus({
-      variant: CONNECTION_STATE_VARIANT[connectivity.status],
+      variant: CONNECTION_STATE_VARIANTS[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
     });
 
